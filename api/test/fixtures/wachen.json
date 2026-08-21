@@ -1,0 +1,2934 @@
+{
+  "felder": {
+    "wachart": "berechtigung (requirePermission/requireRole) | flaechentor (eine Eintrittsbedingung je Flaeche) | cron (Zeitplan-Geheimnis) | besitz (Bindung am Vorgang, vom Org-Waechter ausgefuehrt geprueft) | eigene-daten (kein fremdes Ziel erreichbar) | inline-rolle (Rolle/Geheimnis im Handler) | oeffentlich (bewusst ohne Mandant) | BEFUND (offener Punkt)",
+    "begruendung": "Warum diese Art hier die richtige ist. Pflicht bei allem ausser 'berechtigung'.",
+    "orgGeprueft": "true, wenn der Org-Grenzen-Waechter diesen Weg ausgefuehrt geprueft hat."
+  },
+  "wege": [
+    {
+      "datei": "admin.js",
+      "methode": "patch",
+      "pfad": "/admin/organizations/:id/pilot-policy",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAdmin` (Administration) steht vor diesem Weg."
+    },
+    {
+      "datei": "admin.js",
+      "methode": "patch",
+      "pfad": "/admin/requests/:id/status",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAdmin` (Administration) steht vor diesem Weg."
+    },
+    {
+      "datei": "admin.js",
+      "methode": "patch",
+      "pfad": "/admin/strategic-collaboration/requests/:id/status",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAdmin` (Administration) steht vor diesem Weg."
+    },
+    {
+      "datei": "admin.js",
+      "methode": "patch",
+      "pfad": "/admin/strategic-collaboration/requests/:id/assign",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAdmin` (Administration) steht vor diesem Weg."
+    },
+    {
+      "datei": "admin.js",
+      "methode": "patch",
+      "pfad": "/admin/strategic-collaboration/requests/:id/notes",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAdmin` (Administration) steht vor diesem Weg."
+    },
+    {
+      "datei": "admin.js",
+      "methode": "patch",
+      "pfad": "/admin/users/:id",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAdmin` (Administration) steht vor diesem Weg."
+    },
+    {
+      "datei": "admin.js",
+      "methode": "post",
+      "pfad": "/admin/users/:id/deactivate",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAdmin` (Administration) steht vor diesem Weg."
+    },
+    {
+      "datei": "admin.js",
+      "methode": "put",
+      "pfad": "/admin/feature-overrides",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAdmin` (Administration) steht vor diesem Weg."
+    },
+    {
+      "datei": "admin.js",
+      "methode": "delete",
+      "pfad": "/admin/feature-overrides/:id",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAdmin` (Administration) steht vor diesem Weg."
+    },
+    {
+      "datei": "agencyPortal.js",
+      "methode": "post",
+      "pfad": "/agency/submissions/:id([0-9a-fA-F-]{36})/start-review",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "agencyPortal.js",
+      "methode": "post",
+      "pfad": "/agency/submissions/:id([0-9a-fA-F-]{36})/approve",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "agencyPortal.js",
+      "methode": "post",
+      "pfad": "/agency/submissions/:id([0-9a-fA-F-]{36})/send-to-customer",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "agencyPortal.js",
+      "methode": "post",
+      "pfad": "/agency/submissions/:id([0-9a-fA-F-]{36})/customer-confirm",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "agencyPortal.js",
+      "methode": "post",
+      "pfad": "/agency/submissions/:id([0-9a-fA-F-]{36})/customer-reject",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "agencyPortal.js",
+      "methode": "post",
+      "pfad": "/agency/submissions/:id([0-9a-fA-F-]{36})/post-to-timesheet",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "agencyPortal.js",
+      "methode": "post",
+      "pfad": "/agency/submissions/:id([0-9a-fA-F-]{36})/request-correction",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "agencyPortal.js",
+      "methode": "post",
+      "pfad": "/agency/submissions/:id([0-9a-fA-F-]{36})/reject",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "agencyPortal.js",
+      "methode": "post",
+      "pfad": "/agency/submissions/bundles/send",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "agencyPortal.js",
+      "methode": "post",
+      "pfad": "/agency/submissions/bundles/:bundleKey/post-to-timesheet",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "analytics.js",
+      "methode": "post",
+      "pfad": "/analytics/track-public",
+      "wachart": "oeffentlich",
+      "begruendung": "Oeffentliche Sichtereignisse; sie tragen keine Kundendaten und haengen an einer eigenen Mengenbremse."
+    },
+    {
+      "datei": "approvals.js",
+      "methode": "post",
+      "pfad": "/approvals/:id/approve",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "approvals.js",
+      "methode": "post",
+      "pfad": "/approvals/:id/reject",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "assignments.js",
+      "methode": "post",
+      "pfad": "/assignments",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "assignments.js",
+      "methode": "patch",
+      "pfad": "/assignments/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "assignments.js",
+      "methode": "post",
+      "pfad": "/assignments/:id/transition",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "assignments.js",
+      "methode": "post",
+      "pfad": "/assignments/:id/complete",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "auth.js",
+      "methode": "post",
+      "pfad": "/auth/register",
+      "wachart": "oeffentlich",
+      "begruendung": "Anmeldung, Registrierung und Ruecksetzung laufen VOR jedem Mandantenkontext. Es gibt hier keine Rolle, gegen die man pruefen koennte."
+    },
+    {
+      "datei": "auth.js",
+      "methode": "post",
+      "pfad": "/auth/resend-verification",
+      "wachart": "oeffentlich",
+      "begruendung": "Anmeldung, Registrierung und Ruecksetzung laufen VOR jedem Mandantenkontext. Es gibt hier keine Rolle, gegen die man pruefen koennte."
+    },
+    {
+      "datei": "auth.js",
+      "methode": "post",
+      "pfad": "/auth/login",
+      "wachart": "oeffentlich",
+      "begruendung": "Anmeldung, Registrierung und Ruecksetzung laufen VOR jedem Mandantenkontext. Es gibt hier keine Rolle, gegen die man pruefen koennte."
+    },
+    {
+      "datei": "auth.js",
+      "methode": "post",
+      "pfad": "/auth/logout",
+      "wachart": "oeffentlich",
+      "begruendung": "Anmeldung, Registrierung und Ruecksetzung laufen VOR jedem Mandantenkontext. Es gibt hier keine Rolle, gegen die man pruefen koennte."
+    },
+    {
+      "datei": "auth.js",
+      "methode": "post",
+      "pfad": "/auth/logout-all",
+      "wachart": "oeffentlich",
+      "begruendung": "Anmeldung, Registrierung und Ruecksetzung laufen VOR jedem Mandantenkontext. Es gibt hier keine Rolle, gegen die man pruefen koennte."
+    },
+    {
+      "datei": "auth.js",
+      "methode": "post",
+      "pfad": "/auth/forgot-password",
+      "wachart": "oeffentlich",
+      "begruendung": "Anmeldung, Registrierung und Ruecksetzung laufen VOR jedem Mandantenkontext. Es gibt hier keine Rolle, gegen die man pruefen koennte."
+    },
+    {
+      "datei": "auth.js",
+      "methode": "post",
+      "pfad": "/auth/reset-password",
+      "wachart": "oeffentlich",
+      "begruendung": "Anmeldung, Registrierung und Ruecksetzung laufen VOR jedem Mandantenkontext. Es gibt hier keine Rolle, gegen die man pruefen koennte."
+    },
+    {
+      "datei": "auth.js",
+      "methode": "post",
+      "pfad": "/auth/worker/accept-invite",
+      "wachart": "oeffentlich",
+      "begruendung": "Anmeldung, Registrierung und Ruecksetzung laufen VOR jedem Mandantenkontext. Es gibt hier keine Rolle, gegen die man pruefen koennte."
+    },
+    {
+      "datei": "capacities.js",
+      "methode": "post",
+      "pfad": "/capacities",
+      "wachart": "inline-rolle",
+      "begruendung": "`POST /capacities` prueft `me.role !== 'agency'` im Handler (capacities.js:84) — nur Agenturen bieten Kapazitaeten an."
+    },
+    {
+      "datei": "capacities.js",
+      "methode": "patch",
+      "pfad": "/capacities/:id",
+      "wachart": "inline-rolle",
+      "begruendung": "`POST /capacities` prueft `me.role !== 'agency'` im Handler (capacities.js:84) — nur Agenturen bieten Kapazitaeten an.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "capacities.js",
+      "methode": "post",
+      "pfad": "/capacities/:capacityId/reserve",
+      "wachart": "inline-rolle",
+      "begruendung": "`POST /capacities` prueft `me.role !== 'agency'` im Handler (capacities.js:84) — nur Agenturen bieten Kapazitaeten an.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "capacityExchange.js",
+      "methode": "post",
+      "pfad": "/capacity-exchange/entries",
+      "wachart": "besitz",
+      "begruendung": "Wie marketplace. Ausnahme: /admin/process-reminders prueft die Administrationsrolle im Handler."
+    },
+    {
+      "datei": "capacityExchange.js",
+      "methode": "post",
+      "pfad": "/capacity-exchange/workers/:workerProfileId/generate-offers",
+      "wachart": "besitz",
+      "begruendung": "Wie marketplace. Ausnahme: /admin/process-reminders prueft die Administrationsrolle im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "capacityExchange.js",
+      "methode": "post",
+      "pfad": "/capacity-exchange/pool/generate",
+      "wachart": "besitz",
+      "begruendung": "Wie marketplace. Ausnahme: /admin/process-reminders prueft die Administrationsrolle im Handler."
+    },
+    {
+      "datei": "capacityExchange.js",
+      "methode": "patch",
+      "pfad": "/capacity-exchange/entries/:id",
+      "wachart": "besitz",
+      "begruendung": "Wie marketplace. Ausnahme: /admin/process-reminders prueft die Administrationsrolle im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "capacityExchange.js",
+      "methode": "post",
+      "pfad": "/capacity-exchange/entries/:id/activate",
+      "wachart": "besitz",
+      "begruendung": "Wie marketplace. Ausnahme: /admin/process-reminders prueft die Administrationsrolle im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "capacityExchange.js",
+      "methode": "post",
+      "pfad": "/capacity-exchange/entries/:id/pause",
+      "wachart": "besitz",
+      "begruendung": "Wie marketplace. Ausnahme: /admin/process-reminders prueft die Administrationsrolle im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "capacityExchange.js",
+      "methode": "post",
+      "pfad": "/capacity-exchange/entries/:id/reactivate",
+      "wachart": "besitz",
+      "begruendung": "Wie marketplace. Ausnahme: /admin/process-reminders prueft die Administrationsrolle im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "capacityExchange.js",
+      "methode": "post",
+      "pfad": "/capacity-exchange/entries/:id/fill",
+      "wachart": "besitz",
+      "begruendung": "Wie marketplace. Ausnahme: /admin/process-reminders prueft die Administrationsrolle im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "capacityExchange.js",
+      "methode": "post",
+      "pfad": "/capacity-exchange/entries/:id/archive",
+      "wachart": "besitz",
+      "begruendung": "Wie marketplace. Ausnahme: /admin/process-reminders prueft die Administrationsrolle im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "capacityExchange.js",
+      "methode": "post",
+      "pfad": "/capacity-exchange/entries/:id/confirm",
+      "wachart": "besitz",
+      "begruendung": "Wie marketplace. Ausnahme: /admin/process-reminders prueft die Administrationsrolle im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "capacityExchange.js",
+      "methode": "delete",
+      "pfad": "/capacity-exchange/entries/:id/interactions/save",
+      "wachart": "besitz",
+      "begruendung": "Wie marketplace. Ausnahme: /admin/process-reminders prueft die Administrationsrolle im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "capacityExchange.js",
+      "methode": "post",
+      "pfad": "/capacity-exchange/entries/:id/interactions",
+      "wachart": "besitz",
+      "begruendung": "Wie marketplace. Ausnahme: /admin/process-reminders prueft die Administrationsrolle im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "capacityExchange.js",
+      "methode": "post",
+      "pfad": "/capacity-exchange/entries/:id/click",
+      "wachart": "besitz",
+      "begruendung": "Wie marketplace. Ausnahme: /admin/process-reminders prueft die Administrationsrolle im Handler."
+    },
+    {
+      "datei": "capacityExchange.js",
+      "methode": "post",
+      "pfad": "/capacity-exchange/admin/process-reminders",
+      "wachart": "inline-rolle",
+      "begruendung": "Prueft `me.role !== 'admin'` im Handler (capacityExchange.js:745)."
+    },
+    {
+      "datei": "companyProfile.js",
+      "methode": "put",
+      "pfad": "/company-profile/overview",
+      "wachart": "eigene-daten",
+      "begruendung": "Das Firmenprofil gehoert dem NUTZER (`user_id`); die Dienste binden im WHERE. Wer ein zweites Profil pflegen wollte, braeuchte eine fremde Kennung — die gibt es auf diesen Wegen nicht."
+    },
+    {
+      "datei": "companyProfile.js",
+      "methode": "post",
+      "pfad": "/company-profile/photo",
+      "wachart": "eigene-daten",
+      "begruendung": "Das Firmenprofil gehoert dem NUTZER (`user_id`); die Dienste binden im WHERE. Wer ein zweites Profil pflegen wollte, braeuchte eine fremde Kennung — die gibt es auf diesen Wegen nicht."
+    },
+    {
+      "datei": "companyProfile.js",
+      "methode": "delete",
+      "pfad": "/company-profile/photo",
+      "wachart": "eigene-daten",
+      "begruendung": "Das Firmenprofil gehoert dem NUTZER (`user_id`); die Dienste binden im WHERE. Wer ein zweites Profil pflegen wollte, braeuchte eine fremde Kennung — die gibt es auf diesen Wegen nicht."
+    },
+    {
+      "datei": "companyProfile.js",
+      "methode": "put",
+      "pfad": "/company-profile/capabilities",
+      "wachart": "eigene-daten",
+      "begruendung": "Das Firmenprofil gehoert dem NUTZER (`user_id`); die Dienste binden im WHERE. Wer ein zweites Profil pflegen wollte, braeuchte eine fremde Kennung — die gibt es auf diesen Wegen nicht."
+    },
+    {
+      "datei": "companyProfile.js",
+      "methode": "post",
+      "pfad": "/company-profile/locations",
+      "wachart": "eigene-daten",
+      "begruendung": "Das Firmenprofil gehoert dem NUTZER (`user_id`); die Dienste binden im WHERE. Wer ein zweites Profil pflegen wollte, braeuchte eine fremde Kennung — die gibt es auf diesen Wegen nicht."
+    },
+    {
+      "datei": "companyProfile.js",
+      "methode": "put",
+      "pfad": "/company-profile/locations/:id",
+      "wachart": "eigene-daten",
+      "begruendung": "Das Firmenprofil gehoert dem NUTZER (`user_id`); die Dienste binden im WHERE. Wer ein zweites Profil pflegen wollte, braeuchte eine fremde Kennung — die gibt es auf diesen Wegen nicht.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "companyProfile.js",
+      "methode": "delete",
+      "pfad": "/company-profile/locations/:id",
+      "wachart": "eigene-daten",
+      "begruendung": "Das Firmenprofil gehoert dem NUTZER (`user_id`); die Dienste binden im WHERE. Wer ein zweites Profil pflegen wollte, braeuchte eine fremde Kennung — die gibt es auf diesen Wegen nicht.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "companyProfile.js",
+      "methode": "post",
+      "pfad": "/company-profile/certifications",
+      "wachart": "eigene-daten",
+      "begruendung": "Das Firmenprofil gehoert dem NUTZER (`user_id`); die Dienste binden im WHERE. Wer ein zweites Profil pflegen wollte, braeuchte eine fremde Kennung — die gibt es auf diesen Wegen nicht."
+    },
+    {
+      "datei": "companyProfile.js",
+      "methode": "put",
+      "pfad": "/company-profile/certifications/:id",
+      "wachart": "eigene-daten",
+      "begruendung": "Das Firmenprofil gehoert dem NUTZER (`user_id`); die Dienste binden im WHERE. Wer ein zweites Profil pflegen wollte, braeuchte eine fremde Kennung — die gibt es auf diesen Wegen nicht.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "companyProfile.js",
+      "methode": "delete",
+      "pfad": "/company-profile/certifications/:id",
+      "wachart": "eigene-daten",
+      "begruendung": "Das Firmenprofil gehoert dem NUTZER (`user_id`); die Dienste binden im WHERE. Wer ein zweites Profil pflegen wollte, braeuchte eine fremde Kennung — die gibt es auf diesen Wegen nicht.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "companyProfile.js",
+      "methode": "post",
+      "pfad": "/company-profile/contacts",
+      "wachart": "eigene-daten",
+      "begruendung": "Das Firmenprofil gehoert dem NUTZER (`user_id`); die Dienste binden im WHERE. Wer ein zweites Profil pflegen wollte, braeuchte eine fremde Kennung — die gibt es auf diesen Wegen nicht."
+    },
+    {
+      "datei": "companyProfile.js",
+      "methode": "put",
+      "pfad": "/company-profile/contacts/:id",
+      "wachart": "eigene-daten",
+      "begruendung": "Das Firmenprofil gehoert dem NUTZER (`user_id`); die Dienste binden im WHERE. Wer ein zweites Profil pflegen wollte, braeuchte eine fremde Kennung — die gibt es auf diesen Wegen nicht.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "companyProfile.js",
+      "methode": "delete",
+      "pfad": "/company-profile/contacts/:id",
+      "wachart": "eigene-daten",
+      "begruendung": "Das Firmenprofil gehoert dem NUTZER (`user_id`); die Dienste binden im WHERE. Wer ein zweites Profil pflegen wollte, braeuchte eine fremde Kennung — die gibt es auf diesen Wegen nicht.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "companyTimesheets.js",
+      "methode": "post",
+      "pfad": "/company/blocklist",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "companyTimesheets.js",
+      "methode": "delete",
+      "pfad": "/company/blocklist/:workerUserId([0-9a-fA-F-]{36})",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "companyTimesheets.js",
+      "methode": "post",
+      "pfad": "/company/complaints",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "companyTimesheets.js",
+      "methode": "post",
+      "pfad": "/company/submissions/:id([0-9a-fA-F-]{36})/confirm",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "companyTimesheets.js",
+      "methode": "post",
+      "pfad": "/company/submissions/:id([0-9a-fA-F-]{36})/reject",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "complianceDocs.js",
+      "methode": "post",
+      "pfad": "/compliance-documents",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "complianceDocs.js",
+      "methode": "patch",
+      "pfad": "/compliance-documents/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "complianceDocs.js",
+      "methode": "post",
+      "pfad": "/compliance-documents/:id/verify",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "complianceDocs.js",
+      "methode": "post",
+      "pfad": "/compliance-documents/:id/reject",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "complianceDocs.js",
+      "methode": "delete",
+      "pfad": "/compliance-documents/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "contracts.js",
+      "methode": "post",
+      "pfad": "/contracts",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "contracts.js",
+      "methode": "patch",
+      "pfad": "/contracts/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "contracts.js",
+      "methode": "post",
+      "pfad": "/contracts/:id/activate",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "contracts.js",
+      "methode": "post",
+      "pfad": "/contracts/:id/terminate",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "credits.js",
+      "methode": "post",
+      "pfad": "/credits/purchase",
+      "wachart": "eigene-daten",
+      "begruendung": "Guthaben gehoeren dem eigenen Konto. Der Kauf erzeugt seit Befund P1-22 nur noch eine Stripe-Sitzung; gutgeschrieben wird ausschliesslich im signaturgeprueften Webhook, gegen den tatsaechlich gezahlten Betrag und einmalig (eindeutiger Index, Migration 186)."
+    },
+    {
+      "datei": "dataGovernance.js",
+      "methode": "post",
+      "pfad": "/data-governance/anonymize/user/:userId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "dataGovernance.js",
+      "methode": "post",
+      "pfad": "/data-governance/retention/cleanup",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "dataGovernance.js",
+      "methode": "post",
+      "pfad": "/data-governance/requests",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "dataGovernance.js",
+      "methode": "patch",
+      "pfad": "/data-governance/requests/:id/complete",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "dealFeedback.js",
+      "methode": "post",
+      "pfad": "/deal-feedback",
+      "wachart": "besitz",
+      "begruendung": "Rueckmeldungen binden ueber die Beteiligten des Abschlusses."
+    },
+    {
+      "datei": "dealFeedback.js",
+      "methode": "post",
+      "pfad": "/deal-feedback/:id/reply",
+      "wachart": "besitz",
+      "begruendung": "Rueckmeldungen binden ueber die Beteiligten des Abschlusses.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "demo.js",
+      "methode": "post",
+      "pfad": "/auth/demo-login",
+      "wachart": "oeffentlich",
+      "begruendung": "Demo-Zugang und -Ruecksetzung: ausdruecklich ohne Konto erreichbar, sonst waere die Demo keine."
+    },
+    {
+      "datei": "demo.js",
+      "methode": "post",
+      "pfad": "/demo/reset",
+      "wachart": "oeffentlich",
+      "begruendung": "Demo-Zugang und -Ruecksetzung: ausdruecklich ohne Konto erreichbar, sonst waere die Demo keine."
+    },
+    {
+      "datei": "documentCenter.js",
+      "methode": "post",
+      "pfad": "/document-center",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "documentCenter.js",
+      "methode": "patch",
+      "pfad": "/document-center/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "documentCenter.js",
+      "methode": "post",
+      "pfad": "/document-center/:id/archive",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "documentCenter.js",
+      "methode": "delete",
+      "pfad": "/document-center/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "emergency.js",
+      "methode": "post",
+      "pfad": "/emergency/request",
+      "wachart": "besitz",
+      "begruendung": "Die Bedarfsmeldung gehoert dem anfragenden NUTZER; dazu Rollentore im Handler."
+    },
+    {
+      "datei": "emergency.js",
+      "methode": "post",
+      "pfad": "/emergency/:id/respond",
+      "wachart": "besitz",
+      "begruendung": "Die Bedarfsmeldung gehoert dem anfragenden NUTZER; dazu Rollentore im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "emergency.js",
+      "methode": "post",
+      "pfad": "/emergency/:id/escalate",
+      "wachart": "besitz",
+      "begruendung": "Die Bedarfsmeldung gehoert dem anfragenden NUTZER; dazu Rollentore im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "emergency.js",
+      "methode": "post",
+      "pfad": "/emergency/:id/commitments",
+      "wachart": "besitz",
+      "begruendung": "Die Bedarfsmeldung gehoert dem anfragenden NUTZER; dazu Rollentore im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "emergency.js",
+      "methode": "patch",
+      "pfad": "/emergency/commitments/:id",
+      "wachart": "besitz",
+      "begruendung": "Die Bedarfsmeldung gehoert dem anfragenden NUTZER; dazu Rollentore im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "emergency.js",
+      "methode": "post",
+      "pfad": "/emergency/:id/commitments/:cid/create-agreement",
+      "wachart": "besitz",
+      "begruendung": "Die Bedarfsmeldung gehoert dem anfragenden NUTZER; dazu Rollentore im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "integrations.js",
+      "methode": "post",
+      "pfad": "/integrations",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "integrations.js",
+      "methode": "patch",
+      "pfad": "/integrations/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "integrations.js",
+      "methode": "delete",
+      "pfad": "/integrations/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "integrations.js",
+      "methode": "post",
+      "pfad": "/integrations/:id/test",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "integrations.js",
+      "methode": "post",
+      "pfad": "/integrations/retry-failed",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "integrations.js",
+      "methode": "post",
+      "pfad": "/org/erp-mappings",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "integrations.js",
+      "methode": "patch",
+      "pfad": "/org/erp-mappings/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "integrations.js",
+      "methode": "delete",
+      "pfad": "/org/erp-mappings/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/expire-reservations",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/reveal-due-feedback",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/sla-scan",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/invoice-overdue-scan",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/bounty-nudges",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/recurring-billing",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/dunning-sweep",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/document-center-retention-sweep",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/recompute-supplier-metrics",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/recompute-deal-reliability",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/recompute-compliance",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/notdienst-escalate",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/demand-sla-scan",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/demand-notdienst-escalate",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/cleanup-idempotency",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/sla-search-scan",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/sla-search-run",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/webhook-retry",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/webhook-cleanup",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/product-analytics-rollup",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/product-analytics-retention",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/pilot-expiry",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/usage-limit-scan",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/worker-document-expiry-scan",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/subscription-lifecycle-tick",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/staffing-maintenance",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/infrastructure-snapshots/ingest",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internal.js",
+      "methode": "post",
+      "pfad": "/internal/infrastructure-snapshot-ingest",
+      "wachart": "cron",
+      "begruendung": "Vom Zeitplan ausgeloest; weist sich per Cron-Geheimnis aus, nicht per Rolle."
+    },
+    {
+      "datei": "internalControlCenter.js",
+      "methode": "post",
+      "pfad": "/internal-control/support/users/:userId/resend-verification",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "invoices.js",
+      "methode": "post",
+      "pfad": "/invoices/:id/void",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "invoices.js",
+      "methode": "post",
+      "pfad": "/invoices/:id/paid",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "invoices.js",
+      "methode": "post",
+      "pfad": "/invoices/operational/generate",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "invoices.js",
+      "methode": "post",
+      "pfad": "/invoices/operational/:id/issue",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "invoices.js",
+      "methode": "post",
+      "pfad": "/invoices/operational/:id/paid",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "invoices.js",
+      "methode": "post",
+      "pfad": "/invoices/operational/:id/void",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "invoices.js",
+      "methode": "post",
+      "pfad": "/invoices/operational/:id/correction",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "listings.js",
+      "methode": "post",
+      "pfad": "/listings",
+      "wachart": "besitz",
+      "begruendung": "Anzeigen gehoeren einem NUTZER (`owner_id`)."
+    },
+    {
+      "datei": "listings.js",
+      "methode": "put",
+      "pfad": "/listings/:id",
+      "wachart": "besitz",
+      "begruendung": "Anzeigen gehoeren einem NUTZER (`owner_id`).",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "listings.js",
+      "methode": "delete",
+      "pfad": "/listings/:id",
+      "wachart": "besitz",
+      "begruendung": "Anzeigen gehoeren einem NUTZER (`owner_id`).",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/offers/:id/prepare-signature",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/capacity-posts",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org."
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/premium/feature",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org."
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/capacity-posts/:id/accept-deal",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org."
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/capacity-posts/:id/negotiate-deal",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org."
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/demand-requests",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org."
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/demand-requests/:id/accept-deal",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org."
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/demand-requests/:id/negotiate-deal",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org."
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/demand-requests/:id/offers",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org."
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "patch",
+      "pfad": "/marketplace/offers/:id/status",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/offers/:id/accept",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/offers/:id/counter",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/offers/:id/withdraw",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/offers/:id/create-agreement",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/offers/:id/confirm-agreement",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/offers/:id/activate",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/offers/:id/cancel-agreement",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/offers/:id/quick-assign-to-deal",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "delete",
+      "pfad": "/marketplace/demand-requests/:id/interactions/save",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org."
+    },
+    {
+      "datei": "marketplace.js",
+      "methode": "post",
+      "pfad": "/marketplace/demand-requests/:id/interactions",
+      "wachart": "besitz",
+      "begruendung": "Marktplatz-Wege binden ueber den Besitz am Vorgang (`canAccessAsOwner` seit D-M5), nicht ueber eine Rolle. Erzeugende Wege wirken in der eigenen Org."
+    },
+    {
+      "datei": "me.js",
+      "methode": "post",
+      "pfad": "/me/change-password",
+      "wachart": "eigene-daten",
+      "begruendung": "Alles unter /me wirkt ausschliesslich auf das eigene Konto und die eigene Sitzung (`req.session.userId`). Es gibt kein fremdes Ziel, das eine Rolle schuetzen muesste."
+    },
+    {
+      "datei": "me.js",
+      "methode": "post",
+      "pfad": "/me/active-org",
+      "wachart": "eigene-daten",
+      "begruendung": "Alles unter /me wirkt ausschliesslich auf das eigene Konto und die eigene Sitzung (`req.session.userId`). Es gibt kein fremdes Ziel, das eine Rolle schuetzen muesste."
+    },
+    {
+      "datei": "me.js",
+      "methode": "post",
+      "pfad": "/me/active-location",
+      "wachart": "eigene-daten",
+      "begruendung": "Alles unter /me wirkt ausschliesslich auf das eigene Konto und die eigene Sitzung (`req.session.userId`). Es gibt kein fremdes Ziel, das eine Rolle schuetzen muesste."
+    },
+    {
+      "datei": "me.js",
+      "methode": "delete",
+      "pfad": "/me/active-location",
+      "wachart": "eigene-daten",
+      "begruendung": "Alles unter /me wirkt ausschliesslich auf das eigene Konto und die eigene Sitzung (`req.session.userId`). Es gibt kein fremdes Ziel, das eine Rolle schuetzen muesste."
+    },
+    {
+      "datei": "me.js",
+      "methode": "post",
+      "pfad": "/me/plan",
+      "wachart": "eigene-daten",
+      "begruendung": "Alles unter /me wirkt ausschliesslich auf das eigene Konto und die eigene Sitzung (`req.session.userId`). Es gibt kein fremdes Ziel, das eine Rolle schuetzen muesste."
+    },
+    {
+      "datei": "me.js",
+      "methode": "post",
+      "pfad": "/me/plan/cancel",
+      "wachart": "eigene-daten",
+      "begruendung": "Alles unter /me wirkt ausschliesslich auf das eigene Konto und die eigene Sitzung (`req.session.userId`). Es gibt kein fremdes Ziel, das eine Rolle schuetzen muesste."
+    },
+    {
+      "datei": "me.js",
+      "methode": "delete",
+      "pfad": "/me",
+      "wachart": "eigene-daten",
+      "begruendung": "Alles unter /me wirkt ausschliesslich auf das eigene Konto und die eigene Sitzung (`req.session.userId`). Es gibt kein fremdes Ziel, das eine Rolle schuetzen muesste."
+    },
+    {
+      "datei": "me.js",
+      "methode": "post",
+      "pfad": "/me/onboarding-complete",
+      "wachart": "eigene-daten",
+      "begruendung": "Alles unter /me wirkt ausschliesslich auf das eigene Konto und die eigene Sitzung (`req.session.userId`). Es gibt kein fremdes Ziel, das eine Rolle schuetzen muesste."
+    },
+    {
+      "datei": "me.js",
+      "methode": "post",
+      "pfad": "/me/onboarding-reset",
+      "wachart": "eigene-daten",
+      "begruendung": "Alles unter /me wirkt ausschliesslich auf das eigene Konto und die eigene Sitzung (`req.session.userId`). Es gibt kein fremdes Ziel, das eine Rolle schuetzen muesste."
+    },
+    {
+      "datei": "me.js",
+      "methode": "put",
+      "pfad": "/me/profile",
+      "wachart": "eigene-daten",
+      "begruendung": "Alles unter /me wirkt ausschliesslich auf das eigene Konto und die eigene Sitzung (`req.session.userId`). Es gibt kein fremdes Ziel, das eine Rolle schuetzen muesste."
+    },
+    {
+      "datei": "me.js",
+      "methode": "post",
+      "pfad": "/me/totp/setup",
+      "wachart": "eigene-daten",
+      "begruendung": "Alles unter /me wirkt ausschliesslich auf das eigene Konto und die eigene Sitzung (`req.session.userId`). Es gibt kein fremdes Ziel, das eine Rolle schuetzen muesste."
+    },
+    {
+      "datei": "me.js",
+      "methode": "post",
+      "pfad": "/me/totp/verify",
+      "wachart": "eigene-daten",
+      "begruendung": "Alles unter /me wirkt ausschliesslich auf das eigene Konto und die eigene Sitzung (`req.session.userId`). Es gibt kein fremdes Ziel, das eine Rolle schuetzen muesste."
+    },
+    {
+      "datei": "me.js",
+      "methode": "post",
+      "pfad": "/me/totp/disable",
+      "wachart": "eigene-daten",
+      "begruendung": "Alles unter /me wirkt ausschliesslich auf das eigene Konto und die eigene Sitzung (`req.session.userId`). Es gibt kein fremdes Ziel, das eine Rolle schuetzen muesste."
+    },
+    {
+      "datei": "mentoring.js",
+      "methode": "post",
+      "pfad": "/mentoring/sessions",
+      "wachart": "besitz",
+      "begruendung": "Mentoring-Sitzungen binden ueber die Beteiligten."
+    },
+    {
+      "datei": "mentoring.js",
+      "methode": "post",
+      "pfad": "/mentoring/sessions/:id/complete",
+      "wachart": "besitz",
+      "begruendung": "Mentoring-Sitzungen binden ueber die Beteiligten.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "mentoring.js",
+      "methode": "post",
+      "pfad": "/mentoring/sessions/:id/cancel",
+      "wachart": "besitz",
+      "begruendung": "Mentoring-Sitzungen binden ueber die Beteiligten.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "mentoring.js",
+      "methode": "post",
+      "pfad": "/mentoring/sessions/:id/feedback",
+      "wachart": "besitz",
+      "begruendung": "Mentoring-Sitzungen binden ueber die Beteiligten.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "mfa.js",
+      "methode": "post",
+      "pfad": "/mfa/setup",
+      "wachart": "eigene-daten",
+      "begruendung": "Zweiter Faktor des eigenen Kontos."
+    },
+    {
+      "datei": "mfa.js",
+      "methode": "post",
+      "pfad": "/mfa/enable",
+      "wachart": "eigene-daten",
+      "begruendung": "Zweiter Faktor des eigenen Kontos."
+    },
+    {
+      "datei": "mfa.js",
+      "methode": "post",
+      "pfad": "/mfa/verify",
+      "wachart": "eigene-daten",
+      "begruendung": "Zweiter Faktor des eigenen Kontos."
+    },
+    {
+      "datei": "mfa.js",
+      "methode": "post",
+      "pfad": "/mfa/disable",
+      "wachart": "eigene-daten",
+      "begruendung": "Zweiter Faktor des eigenen Kontos."
+    },
+    {
+      "datei": "notifications.js",
+      "methode": "patch",
+      "pfad": "/notifications/:id/read",
+      "wachart": "eigene-daten",
+      "begruendung": "Eigene Benachrichtigungen und deren Einstellungen.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "notifications.js",
+      "methode": "post",
+      "pfad": "/notifications/read-all",
+      "wachart": "eigene-daten",
+      "begruendung": "Eigene Benachrichtigungen und deren Einstellungen."
+    },
+    {
+      "datei": "notifications.js",
+      "methode": "put",
+      "pfad": "/notification-preferences",
+      "wachart": "eigene-daten",
+      "begruendung": "Eigene Benachrichtigungen und deren Einstellungen."
+    },
+    {
+      "datei": "notifications.js",
+      "methode": "patch",
+      "pfad": "/match-alerts/:id/read",
+      "wachart": "eigene-daten",
+      "begruendung": "Eigene Benachrichtigungen und deren Einstellungen.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "notifications.js",
+      "methode": "post",
+      "pfad": "/match-alerts/read-all",
+      "wachart": "eigene-daten",
+      "begruendung": "Eigene Benachrichtigungen und deren Einstellungen."
+    },
+    {
+      "datei": "oauth.js",
+      "methode": "post",
+      "pfad": "/oauth/token",
+      "wachart": "oeffentlich",
+      "begruendung": "Token-Ausgabe nach dem OAuth-Ablauf — das Geheimnis IST die Berechtigung."
+    },
+    {
+      "datei": "occ/automation.js",
+      "methode": "post",
+      "pfad": "/automation/trigger",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `mfaGuard` (zweiter Faktor) steht vor diesem Weg."
+    },
+    {
+      "datei": "occ/decisionsRequests.js",
+      "methode": "post",
+      "pfad": "/decisions-requests/decide",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `mfaGuard` (zweiter Faktor) steht vor diesem Weg."
+    },
+    {
+      "datei": "occ/decisionsRequests.js",
+      "methode": "post",
+      "pfad": "/decisions-requests/triage",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `mfaGuard` (zweiter Faktor) steht vor diesem Weg."
+    },
+    {
+      "datei": "occ/warp.js",
+      "methode": "post",
+      "pfad": "/warp/execute",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `mfaGuard` (zweiter Faktor) steht vor diesem Weg."
+    },
+    {
+      "datei": "occ/warp.js",
+      "methode": "post",
+      "pfad": "/warp/dry-run",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `mfaGuard` (zweiter Faktor) steht vor diesem Weg."
+    },
+    {
+      "datei": "offerAssets.js",
+      "methode": "post",
+      "pfad": "/offer-assets/:offerId/upload",
+      "wachart": "besitz",
+      "begruendung": "Angebots-Anhaenge binden ueber `canAccessAsOwner`.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "offerAssets.js",
+      "methode": "delete",
+      "pfad": "/offer-assets/:assetId",
+      "wachart": "besitz",
+      "begruendung": "Angebots-Anhaenge binden ueber `canAccessAsOwner`.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "onboarding.js",
+      "methode": "post",
+      "pfad": "/onboarding/complete-step",
+      "wachart": "eigene-daten",
+      "begruendung": "Fortschritt der eigenen Einrichtung."
+    },
+    {
+      "datei": "onboarding.js",
+      "methode": "post",
+      "pfad": "/onboarding/dismiss",
+      "wachart": "eigene-daten",
+      "begruendung": "Fortschritt der eigenen Einrichtung."
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "patch",
+      "pfad": "/org/members/:userId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "delete",
+      "pfad": "/org/members/:userId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "post",
+      "pfad": "/org/members/invite",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "delete",
+      "pfad": "/org/invitations/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "post",
+      "pfad": "/org/invitations/accept",
+      "wachart": "eigene-daten",
+      "begruendung": "Eine Einladung annehmen kann nur, wer sie bekommen hat — der Weg bindet ueber das Einladungsgeheimnis, nicht ueber eine Rolle."
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "post",
+      "pfad": "/org/api-keys",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "delete",
+      "pfad": "/org/api-keys/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "post",
+      "pfad": "/org/api-keys/:id/rotate",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "patch",
+      "pfad": "/org/security",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "post",
+      "pfad": "/org/locations",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "patch",
+      "pfad": "/org/locations/:locId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "delete",
+      "pfad": "/org/locations/:locId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "post",
+      "pfad": "/org/departments",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "patch",
+      "pfad": "/org/departments/:deptId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "delete",
+      "pfad": "/org/departments/:deptId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "patch",
+      "pfad": "/org/members/:membershipId/role",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "orgControlCenter.js",
+      "methode": "patch",
+      "pfad": "/org/members/:membershipId/scope",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "post",
+      "pfad": "/organizations",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `parentOrgBoundary` (Konzerngrenze) steht vor diesem Weg."
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "patch",
+      "pfad": "/organizations/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "post",
+      "pfad": "/organizations/:id/locations",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "put",
+      "pfad": "/organizations/:id/locations/:locId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "delete",
+      "pfad": "/organizations/:id/locations/:locId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "post",
+      "pfad": "/organizations/:id/departments",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "put",
+      "pfad": "/organizations/:id/departments/:deptId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "delete",
+      "pfad": "/organizations/:id/departments/:deptId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "post",
+      "pfad": "/organizations/:id/members",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "ownerControlCenter.js",
+      "methode": "post",
+      "pfad": "/owner-control/decisions-requests/decide",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `ownerControlAuth` (Owner-Freigabe) steht vor diesem Weg."
+    },
+    {
+      "datei": "ownerControlCenter.js",
+      "methode": "post",
+      "pfad": "/owner-control/decisions-requests/triage",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `ownerControlAuth` (Owner-Freigabe) steht vor diesem Weg."
+    },
+    {
+      "datei": "ownerControlCenter.js",
+      "methode": "post",
+      "pfad": "/owner-control/warp/execute",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `ownerControlAuth` (Owner-Freigabe) steht vor diesem Weg."
+    },
+    {
+      "datei": "ownerControlCenter.js",
+      "methode": "post",
+      "pfad": "/owner-control/warp/dry-run",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `ownerControlAuth` (Owner-Freigabe) steht vor diesem Weg."
+    },
+    {
+      "datei": "ownerControlCenter.js",
+      "methode": "post",
+      "pfad": "/owner-control/automation/trigger",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `ownerControlAuth` (Owner-Freigabe) steht vor diesem Weg."
+    },
+    {
+      "datei": "payment.js",
+      "methode": "post",
+      "pfad": "/payment/customer-portal",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `mfaGuard` (zweiter Faktor) steht vor diesem Weg."
+    },
+    {
+      "datei": "payment.js",
+      "methode": "post",
+      "pfad": "/payment/checkout",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `mfaGuard` (zweiter Faktor) steht vor diesem Weg."
+    },
+    {
+      "datei": "payment.js",
+      "methode": "post",
+      "pfad": "/payment/checkout/individuell",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `mfaGuard` (zweiter Faktor) steht vor diesem Weg."
+    },
+    {
+      "datei": "payment.js",
+      "methode": "post",
+      "pfad": "/payment/confirm",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `mfaGuard` (zweiter Faktor) steht vor diesem Weg."
+    },
+    {
+      "datei": "payment.js",
+      "methode": "post",
+      "pfad": "/payment/webhook/stripe",
+      "wachart": "oeffentlich",
+      "begruendung": "Zahlungs-Rueckmeldungen kommen vom Anbieter, nicht von einem Nutzer; sie weisen sich per Signatur aus, nicht per Rolle."
+    },
+    {
+      "datei": "payment.js",
+      "methode": "post",
+      "pfad": "/payment/webhook/paypal",
+      "wachart": "oeffentlich",
+      "begruendung": "Zahlungs-Rueckmeldungen kommen vom Anbieter, nicht von einem Nutzer; sie weisen sich per Signatur aus, nicht per Rolle."
+    },
+    {
+      "datei": "pilotPreregistration.js",
+      "methode": "post",
+      "pfad": "/pilot-preregistration",
+      "wachart": "oeffentlich",
+      "begruendung": "Voranmeldung zum Pilotbetrieb: der Sinn ist, dass noch niemand ein Konto hat."
+    },
+    {
+      "datei": "preferredVendors.js",
+      "methode": "post",
+      "pfad": "/preferred-vendors",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "preferredVendors.js",
+      "methode": "post",
+      "pfad": "/preferred-vendors/bulk",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "preferredVendors.js",
+      "methode": "delete",
+      "pfad": "/preferred-vendors/:supplierOrgId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "productReleases.js",
+      "methode": "post",
+      "pfad": "/product-releases/mark-all-seen",
+      "wachart": "eigene-daten",
+      "begruendung": "Die eigene Lesebestaetigung. Ausnahme: die Pflege liegt unter /admin/."
+    },
+    {
+      "datei": "productReleases.js",
+      "methode": "post",
+      "pfad": "/product-releases/:id/ack",
+      "wachart": "eigene-daten",
+      "begruendung": "Die eigene Lesebestaetigung. Ausnahme: die Pflege liegt unter /admin/."
+    },
+    {
+      "datei": "productReleases.js",
+      "methode": "post",
+      "pfad": "/admin/product-releases",
+      "wachart": "inline-rolle",
+      "begruendung": "Pflege der Mitteilungen, unter /admin/ mit eigener Pruefung."
+    },
+    {
+      "datei": "productReleases.js",
+      "methode": "patch",
+      "pfad": "/admin/product-releases/:id",
+      "wachart": "eigene-daten",
+      "begruendung": "Die eigene Lesebestaetigung. Ausnahme: die Pflege liegt unter /admin/."
+    },
+    {
+      "datei": "productReleases.js",
+      "methode": "post",
+      "pfad": "/admin/product-releases/:id/publish",
+      "wachart": "eigene-daten",
+      "begruendung": "Die eigene Lesebestaetigung. Ausnahme: die Pflege liegt unter /admin/."
+    },
+    {
+      "datei": "productReleases.js",
+      "methode": "post",
+      "pfad": "/admin/product-releases/:id/send-email",
+      "wachart": "eigene-daten",
+      "begruendung": "Die eigene Lesebestaetigung. Ausnahme: die Pflege liegt unter /admin/."
+    },
+    {
+      "datei": "productReleases.js",
+      "methode": "delete",
+      "pfad": "/admin/product-releases/:id",
+      "wachart": "eigene-daten",
+      "begruendung": "Die eigene Lesebestaetigung. Ausnahme: die Pflege liegt unter /admin/."
+    },
+    {
+      "datei": "profileAnalytics.js",
+      "methode": "post",
+      "pfad": "/profile-analytics/events",
+      "wachart": "oeffentlich",
+      "begruendung": "Sichtereignisse oeffentlicher Profile; sie tragen keine fremden Daten und haengen an einer eigenen Mengenbremse."
+    },
+    {
+      "datei": "profileBounties.js",
+      "methode": "post",
+      "pfad": "/profile-bounties/me",
+      "wachart": "eigene-daten",
+      "begruendung": "Die eigene Praemien-Teilnahme."
+    },
+    {
+      "datei": "profileBounties.js",
+      "methode": "post",
+      "pfad": "/profile-bounties/:id/submit",
+      "wachart": "eigene-daten",
+      "begruendung": "Die eigene Praemien-Teilnahme."
+    },
+    {
+      "datei": "profileBounties.js",
+      "methode": "delete",
+      "pfad": "/profile-bounties/:id",
+      "wachart": "eigene-daten",
+      "begruendung": "Die eigene Praemien-Teilnahme."
+    },
+    {
+      "datei": "profileVisibility.js",
+      "methode": "post",
+      "pfad": "/profile-visibility/settings/opt-in",
+      "wachart": "eigene-daten",
+      "begruendung": "Die Sichtbarkeitseinstellungen des eigenen Profils."
+    },
+    {
+      "datei": "profileVisibility.js",
+      "methode": "post",
+      "pfad": "/profile-visibility/settings/submit",
+      "wachart": "eigene-daten",
+      "begruendung": "Die Sichtbarkeitseinstellungen des eigenen Profils."
+    },
+    {
+      "datei": "profileVisibility.js",
+      "methode": "post",
+      "pfad": "/profile-visibility/settings/pause",
+      "wachart": "eigene-daten",
+      "begruendung": "Die Sichtbarkeitseinstellungen des eigenen Profils."
+    },
+    {
+      "datei": "profileVisibility.js",
+      "methode": "post",
+      "pfad": "/profile-visibility/:orgId/like",
+      "wachart": "eigene-daten",
+      "begruendung": "Die Sichtbarkeitseinstellungen des eigenen Profils."
+    },
+    {
+      "datei": "profileVisibility.js",
+      "methode": "delete",
+      "pfad": "/profile-visibility/:orgId/like",
+      "wachart": "eigene-daten",
+      "begruendung": "Die Sichtbarkeitseinstellungen des eigenen Profils."
+    },
+    {
+      "datei": "profileVisibility.js",
+      "methode": "post",
+      "pfad": "/profile-visibility/:orgId/favorite",
+      "wachart": "eigene-daten",
+      "begruendung": "Die Sichtbarkeitseinstellungen des eigenen Profils."
+    },
+    {
+      "datei": "profileVisibility.js",
+      "methode": "delete",
+      "pfad": "/profile-visibility/:orgId/favorite",
+      "wachart": "eigene-daten",
+      "begruendung": "Die Sichtbarkeitseinstellungen des eigenen Profils."
+    },
+    {
+      "datei": "profileVisibility.js",
+      "methode": "post",
+      "pfad": "/profile-visibility/:orgId/report",
+      "wachart": "eigene-daten",
+      "begruendung": "Die Sichtbarkeitseinstellungen des eigenen Profils."
+    },
+    {
+      "datei": "proofs.js",
+      "methode": "post",
+      "pfad": "/proofs",
+      "wachart": "eigene-daten",
+      "begruendung": "Nachweise zum eigenen Konto."
+    },
+    {
+      "datei": "rateCards.js",
+      "methode": "post",
+      "pfad": "/rate-cards",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "rateCards.js",
+      "methode": "patch",
+      "pfad": "/rate-cards/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "rateCards.js",
+      "methode": "post",
+      "pfad": "/rate-cards/:id/activate",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "rateCards.js",
+      "methode": "post",
+      "pfad": "/rate-cards/:id/archive",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "rateCards.js",
+      "methode": "post",
+      "pfad": "/rate-cards/check",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "ratings.js",
+      "methode": "post",
+      "pfad": "/ratings",
+      "wachart": "besitz",
+      "begruendung": "Eine Bewertung schreibt der Bewertende ueber sich und die Gegenseite; der Handelnde kommt aus der Sitzung."
+    },
+    {
+      "datei": "referralProgram.js",
+      "methode": "post",
+      "pfad": "/referral/register-pilot",
+      "wachart": "eigene-daten",
+      "begruendung": "Empfehlungen des eigenen Kontos."
+    },
+    {
+      "datei": "referralProgram.js",
+      "methode": "post",
+      "pfad": "/referral/invite",
+      "wachart": "eigene-daten",
+      "begruendung": "Empfehlungen des eigenen Kontos."
+    },
+    {
+      "datei": "referralProgram.js",
+      "methode": "post",
+      "pfad": "/referral/track",
+      "wachart": "eigene-daten",
+      "begruendung": "Empfehlungen des eigenen Kontos."
+    },
+    {
+      "datei": "referralProgram.js",
+      "methode": "post",
+      "pfad": "/referral/survey",
+      "wachart": "eigene-daten",
+      "begruendung": "Empfehlungen des eigenen Kontos."
+    },
+    {
+      "datei": "reports.js",
+      "methode": "post",
+      "pfad": "/reports",
+      "wachart": "eigene-daten",
+      "begruendung": "Ein Bericht wird fuer die eigene Organisation erzeugt."
+    },
+    {
+      "datei": "requests.js",
+      "methode": "post",
+      "pfad": "/requests",
+      "wachart": "besitz",
+      "begruendung": "Anfragen binden zweiseitig ueber `requester_id`/`receiver_id`."
+    },
+    {
+      "datei": "requests.js",
+      "methode": "post",
+      "pfad": "/requests/broadcast",
+      "wachart": "besitz",
+      "begruendung": "Anfragen binden zweiseitig ueber `requester_id`/`receiver_id`."
+    },
+    {
+      "datei": "requests.js",
+      "methode": "post",
+      "pfad": "/requests/:id/sla",
+      "wachart": "besitz",
+      "begruendung": "Anfragen binden zweiseitig ueber `requester_id`/`receiver_id`.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "requests.js",
+      "methode": "post",
+      "pfad": "/policies/compliance",
+      "wachart": "besitz",
+      "begruendung": "Anfragen binden zweiseitig ueber `requester_id`/`receiver_id`."
+    },
+    {
+      "datei": "requests.js",
+      "methode": "patch",
+      "pfad": "/requests/:id/status",
+      "wachart": "besitz",
+      "begruendung": "Anfragen binden zweiseitig ueber `requester_id`/`receiver_id`.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "requisitions.js",
+      "methode": "post",
+      "pfad": "/requisitions",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "requisitions.js",
+      "methode": "patch",
+      "pfad": "/requisitions/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "requisitions.js",
+      "methode": "post",
+      "pfad": "/requisitions/:id/transition",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "requisitions.js",
+      "methode": "post",
+      "pfad": "/requisitions/:id/submit",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "requisitions.js",
+      "methode": "post",
+      "pfad": "/requisitions/:id/approve",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "requisitions.js",
+      "methode": "post",
+      "pfad": "/requisitions/:id/comment",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "requisitions.js",
+      "methode": "post",
+      "pfad": "/requisitions/:id/candidates",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "requisitions.js",
+      "methode": "patch",
+      "pfad": "/requisitions/:reqId/candidates/:candId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "scim.js",
+      "methode": "post",
+      "pfad": "/scim/v2/Users",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `scimGate` (SCIM-Schluessel) steht vor diesem Weg."
+    },
+    {
+      "datei": "scim.js",
+      "methode": "patch",
+      "pfad": "/scim/v2/Users/:id",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `scimGate` (SCIM-Schluessel) steht vor diesem Weg."
+    },
+    {
+      "datei": "scim.js",
+      "methode": "put",
+      "pfad": "/scim/v2/Users/:id",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `scimGate` (SCIM-Schluessel) steht vor diesem Weg."
+    },
+    {
+      "datei": "scim.js",
+      "methode": "delete",
+      "pfad": "/scim/v2/Users/:id",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `scimGate` (SCIM-Schluessel) steht vor diesem Weg."
+    },
+    {
+      "datei": "search.js",
+      "methode": "delete",
+      "pfad": "/search/recent",
+      "wachart": "eigene-daten",
+      "begruendung": "Der eigene Suchverlauf. Ausnahme: /search/reindex prueft ein Administrationsgeheimnis im Handler."
+    },
+    {
+      "datei": "search.js",
+      "methode": "post",
+      "pfad": "/search/reindex/:indexName",
+      "wachart": "eigene-daten",
+      "begruendung": "Der eigene Suchverlauf. Ausnahme: /search/reindex prueft ein Administrationsgeheimnis im Handler."
+    },
+    {
+      "datei": "search.js",
+      "methode": "post",
+      "pfad": "/search/reindex",
+      "wachart": "inline-rolle",
+      "begruendung": "Prueft `x-admin-secret` gegen `config.ADMIN_SECRET` im Handler (search.js:148)."
+    },
+    {
+      "datei": "settings.js",
+      "methode": "patch",
+      "pfad": "/settings",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "skills.js",
+      "methode": "post",
+      "pfad": "/skills/propose",
+      "wachart": "eigene-daten",
+      "begruendung": "Einen Skill VORSCHLAGEN darf jeder Angemeldete; die Aufnahme in den Katalog ist ein eigener, bewachter Weg."
+    },
+    {
+      "datei": "slaSearchJobs.js",
+      "methode": "post",
+      "pfad": "/sla/search-jobs",
+      "wachart": "besitz",
+      "begruendung": "Suchauftraege gehoeren einem NUTZER (`owner_company_id`); die Wege binden ueber `canAccessAsOwner`. Ausnahme: /run-batch prueft Administrationsrolle oder -geheimnis im Handler."
+    },
+    {
+      "datei": "slaSearchJobs.js",
+      "methode": "put",
+      "pfad": "/sla/search-jobs/:id",
+      "wachart": "besitz",
+      "begruendung": "Suchauftraege gehoeren einem NUTZER (`owner_company_id`); die Wege binden ueber `canAccessAsOwner`. Ausnahme: /run-batch prueft Administrationsrolle oder -geheimnis im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "slaSearchJobs.js",
+      "methode": "delete",
+      "pfad": "/sla/search-jobs/:id",
+      "wachart": "besitz",
+      "begruendung": "Suchauftraege gehoeren einem NUTZER (`owner_company_id`); die Wege binden ueber `canAccessAsOwner`. Ausnahme: /run-batch prueft Administrationsrolle oder -geheimnis im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "slaSearchJobs.js",
+      "methode": "post",
+      "pfad": "/sla/search-jobs/:id/close",
+      "wachart": "besitz",
+      "begruendung": "Suchauftraege gehoeren einem NUTZER (`owner_company_id`); die Wege binden ueber `canAccessAsOwner`. Ausnahme: /run-batch prueft Administrationsrolle oder -geheimnis im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "slaSearchJobs.js",
+      "methode": "post",
+      "pfad": "/sla/search-jobs/:id/pause",
+      "wachart": "besitz",
+      "begruendung": "Suchauftraege gehoeren einem NUTZER (`owner_company_id`); die Wege binden ueber `canAccessAsOwner`. Ausnahme: /run-batch prueft Administrationsrolle oder -geheimnis im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "slaSearchJobs.js",
+      "methode": "post",
+      "pfad": "/sla/search-jobs/:id/resume",
+      "wachart": "besitz",
+      "begruendung": "Suchauftraege gehoeren einem NUTZER (`owner_company_id`); die Wege binden ueber `canAccessAsOwner`. Ausnahme: /run-batch prueft Administrationsrolle oder -geheimnis im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "slaSearchJobs.js",
+      "methode": "post",
+      "pfad": "/sla/search-and-save",
+      "wachart": "besitz",
+      "begruendung": "Suchauftraege gehoeren einem NUTZER (`owner_company_id`); die Wege binden ueber `canAccessAsOwner`. Ausnahme: /run-batch prueft Administrationsrolle oder -geheimnis im Handler."
+    },
+    {
+      "datei": "slaSearchJobs.js",
+      "methode": "post",
+      "pfad": "/sla/match-alerts/:id/read",
+      "wachart": "besitz",
+      "begruendung": "Suchauftraege gehoeren einem NUTZER (`owner_company_id`); die Wege binden ueber `canAccessAsOwner`. Ausnahme: /run-batch prueft Administrationsrolle oder -geheimnis im Handler.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "slaSearchJobs.js",
+      "methode": "post",
+      "pfad": "/sla/match-alerts/read-all",
+      "wachart": "besitz",
+      "begruendung": "Suchauftraege gehoeren einem NUTZER (`owner_company_id`); die Wege binden ueber `canAccessAsOwner`. Ausnahme: /run-batch prueft Administrationsrolle oder -geheimnis im Handler."
+    },
+    {
+      "datei": "slaSearchJobs.js",
+      "methode": "post",
+      "pfad": "/sla/search-jobs/run-batch",
+      "wachart": "inline-rolle",
+      "begruendung": "Prueft Administrationsrolle ODER -geheimnis im Handler (slaSearchJobs.js:280)."
+    },
+    {
+      "datei": "sso.js",
+      "methode": "post",
+      "pfad": "/sso/callback",
+      "wachart": "oeffentlich",
+      "begruendung": "Der Rueckweg der Einmalanmeldung wird vom Identitaetsanbieter aufgerufen, bevor eine Sitzung besteht."
+    },
+    {
+      "datei": "sso.js",
+      "methode": "put",
+      "pfad": "/sso/config/:orgId",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireSsoAdminAccess` (SSO-Verwaltung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "sso.js",
+      "methode": "delete",
+      "pfad": "/sso/config/:orgId",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireSsoAdminAccess` (SSO-Verwaltung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "sso.js",
+      "methode": "post",
+      "pfad": "/sso/test/:orgId",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireSsoAdminAccess` (SSO-Verwaltung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/auth/login",
+      "wachart": "oeffentlich",
+      "begruendung": "Die Staff-Anmeldung selbst liegt naturgemaess vor dem Staff-Tor."
+    },
+    {
+      "datei": "strategicCollaboration.js",
+      "methode": "post",
+      "pfad": "/strategic-collaboration/interest",
+      "wachart": "eigene-daten",
+      "begruendung": "Interessensbekundung der eigenen Organisation; der Statuswechsel traegt dagegen ein Rollentor."
+    },
+    {
+      "datei": "strategicCollaboration.js",
+      "methode": "patch",
+      "pfad": "/strategic-collaboration/requests/:id/status",
+      "wachart": "eigene-daten",
+      "begruendung": "Interessensbekundung der eigenen Organisation; der Statuswechsel traegt dagegen ein Rollentor.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "strategicCollaboration.js",
+      "methode": "post",
+      "pfad": "/enterprise-request",
+      "wachart": "eigene-daten",
+      "begruendung": "Interessensbekundung der eigenen Organisation; der Statuswechsel traegt dagegen ein Rollentor."
+    },
+    {
+      "datei": "subscriptionDocuments.js",
+      "methode": "post",
+      "pfad": "/subscription-documents/cost-preview",
+      "wachart": "oeffentlich",
+      "begruendung": "Die Kostenvorschau ist bewusst ohne Konto erreichbar — sie zeigt Listenpreise, keine Kundendaten."
+    },
+    {
+      "datei": "subscriptionRequests.js",
+      "methode": "post",
+      "pfad": "/subscription-requests/upgrade",
+      "wachart": "inline-rolle",
+      "begruendung": "`requireBillingActor` klaert im Handler, wer fuer die Organisation abrechnen darf (subscriptionRequests.js:111)."
+    },
+    {
+      "datei": "subscriptionRequests.js",
+      "methode": "post",
+      "pfad": "/subscription-requests/downgrade",
+      "wachart": "inline-rolle",
+      "begruendung": "`requireBillingActor` klaert im Handler, wer fuer die Organisation abrechnen darf (subscriptionRequests.js:111)."
+    },
+    {
+      "datei": "subscriptionRequests.js",
+      "methode": "post",
+      "pfad": "/subscription-requests/cancellation",
+      "wachart": "inline-rolle",
+      "begruendung": "`requireBillingActor` klaert im Handler, wer fuer die Organisation abrechnen darf (subscriptionRequests.js:111)."
+    },
+    {
+      "datei": "supplierPools.js",
+      "methode": "post",
+      "pfad": "/supplier-pools/distribute",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "supplierPools.js",
+      "methode": "post",
+      "pfad": "/supplier-pools/distribution/:requisitionId/advance",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "suppliers.js",
+      "methode": "post",
+      "pfad": "/suppliers/invite",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "suppliers.js",
+      "methode": "patch",
+      "pfad": "/suppliers/:id/approve",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "suppliers.js",
+      "methode": "patch",
+      "pfad": "/suppliers/:id/suspend",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "suppliers.js",
+      "methode": "patch",
+      "pfad": "/suppliers/:id/block",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "suppliers.js",
+      "methode": "patch",
+      "pfad": "/suppliers/:id/categorize",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "suppliers.js",
+      "methode": "patch",
+      "pfad": "/suppliers/:id/tier",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "suppliers.js",
+      "methode": "post",
+      "pfad": "/suppliers/:vpId/notes",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "support.js",
+      "methode": "post",
+      "pfad": "/support/cases/:id/action",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `supportAuth` (Support-Agent) steht vor diesem Weg."
+    },
+    {
+      "datei": "support.js",
+      "methode": "post",
+      "pfad": "/support/escalations",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `supportAuth` (Support-Agent) steht vor diesem Weg."
+    },
+    {
+      "datei": "support.js",
+      "methode": "post",
+      "pfad": "/support/user-actions",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `supportAuth` (Support-Agent) steht vor diesem Weg."
+    },
+    {
+      "datei": "timesheetTemplates.js",
+      "methode": "post",
+      "pfad": "/timesheet-templates",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
+    },
+    {
+      "datei": "timesheetTemplates.js",
+      "methode": "patch",
+      "pfad": "/timesheet-templates/:id",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
+    },
+    {
+      "datei": "timesheetTemplates.js",
+      "methode": "delete",
+      "pfad": "/timesheet-templates/:id",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
+    },
+    {
+      "datei": "timesheetTemplates.js",
+      "methode": "post",
+      "pfad": "/timesheet-templates/:id/assign",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
+    },
+    {
+      "datei": "timesheetTemplates.js",
+      "methode": "delete",
+      "pfad": "/timesheet-templates/assignment/:assignmentId",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
+    },
+    {
+      "datei": "timesheets.js",
+      "methode": "post",
+      "pfad": "/timesheets",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "timesheets.js",
+      "methode": "patch",
+      "pfad": "/timesheets/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "timesheets.js",
+      "methode": "post",
+      "pfad": "/timesheets/:id/entries",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "timesheets.js",
+      "methode": "patch",
+      "pfad": "/timesheets/:id/entries/:entryId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "timesheets.js",
+      "methode": "delete",
+      "pfad": "/timesheets/:id/entries/:entryId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "timesheets.js",
+      "methode": "post",
+      "pfad": "/timesheets/:id/submit",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "timesheets.js",
+      "methode": "post",
+      "pfad": "/timesheets/:id/approve",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "timesheets.js",
+      "methode": "post",
+      "pfad": "/timesheets/:id/reject",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "timesheets.js",
+      "methode": "post",
+      "pfad": "/timesheets/:id/cancel",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "timesheets.js",
+      "methode": "post",
+      "pfad": "/timesheets/:id/return-to-draft",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "timesheets.js",
+      "methode": "post",
+      "pfad": "/timesheets/prefill",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "timesheets.js",
+      "methode": "post",
+      "pfad": "/timesheets/:id/sign",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "timesheets.js",
+      "methode": "post",
+      "pfad": "/timesheets/batch-approve",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "timesheets.js",
+      "methode": "post",
+      "pfad": "/timesheets/batch-reject",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "vendorPool.js",
+      "methode": "post",
+      "pfad": "/vendor-pool",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "vendorPool.js",
+      "methode": "post",
+      "pfad": "/vendor-pool/from-deal/:offerId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "vendorPool.js",
+      "methode": "patch",
+      "pfad": "/vendor-pool/:id/tier",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "vendorPool.js",
+      "methode": "patch",
+      "pfad": "/vendor-pool/:id/status",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "vendorPool.js",
+      "methode": "delete",
+      "pfad": "/vendor-pool/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "patch",
+      "pfad": "/worker/me",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg."
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "post",
+      "pfad": "/worker/me/abwesenheit/vorgang",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg."
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "post",
+      "pfad": "/worker/me/abwesenheit",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg."
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "post",
+      "pfad": "/worker/me/verspaetung",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg."
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "put",
+      "pfad": "/worker/me/skills",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg."
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "patch",
+      "pfad": "/worker/me/availability",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg."
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "post",
+      "pfad": "/worker/documents",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg."
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "delete",
+      "pfad": "/worker/documents/:documentId",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "post",
+      "pfad": "/worker/me/photo",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg."
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "delete",
+      "pfad": "/worker/me/photo",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg."
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "post",
+      "pfad": "/worker/staffing-requests/:id/respond",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "post",
+      "pfad": "/worker/staffing-requests/:id/question",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "post",
+      "pfad": "/worker/staffing-requests/:id/remind",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "post",
+      "pfad": "/worker/staffing-choice-sets/:id/respond",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "post",
+      "pfad": "/worker/submissions",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg."
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "put",
+      "pfad": "/worker/submissions/:id/entries",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "delete",
+      "pfad": "/worker/submissions/:id/entries/:entryId",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "post",
+      "pfad": "/worker/submissions/:id/submit",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "post",
+      "pfad": "/worker/submissions/:id/correct",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "post",
+      "pfad": "/worker/submissions/:id/comment",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "post",
+      "pfad": "/worker/assignments/:id/confirm",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "post",
+      "pfad": "/worker/assignments/:id/decline",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "post",
+      "pfad": "/worker/assignments/:id/report-unavailable",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "patch",
+      "pfad": "/worker/notifications/:id/read",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg.",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workerPortal.js",
+      "methode": "patch",
+      "pfad": "/worker/notifications/read-all",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireWorkerRole` (Arbeitersitzung) steht vor diesem Weg."
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/workers/import/map-columns",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/workers/import/field-alias",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/workers/import",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/workers/check-duplicates",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/workers",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/workers/absences",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/workers/absences/:id([0-9a-fA-F-]{36})/aufheben",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/workers/dsgvo/anonymize",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "workers.js",
+      "methode": "patch",
+      "pfad": "/workers/complaints/:id([0-9a-fA-F-]{36})",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "patch",
+      "pfad": "/workers/:userId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/workers/:userId/documents",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "patch",
+      "pfad": "/workers/:userId/documents/:documentId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/workers/:userId/documents/:documentId/verify",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/workers/:userId/documents/:documentId/reject",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "delete",
+      "pfad": "/workers/:userId/documents/:documentId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/workers/:userId/deactivate",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/workers/:userId/activate",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/worker-invites",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/worker-invites/bulk",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/worker-invites/:id/resend",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/worker-invites/:id/revoke",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/worker-assignment-links",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "workers.js",
+      "methode": "patch",
+      "pfad": "/worker-assignment-links/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/worker-assignment-links/:id/replace",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/worker-submissions/:id/start-review",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/worker-submissions/:id/request-correction",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/worker-submissions/:id/accept",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/worker-submissions/:id/reject",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/worker-submissions/:id/comment",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/assign-capacity-to-worker",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/staffing-assignments/:id/quick-assign",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/staffing-assignments/:id/campaigns",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/staffing-assignments/:id/waitlist",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/staffing-assignments/:id/waitlist/next-wave",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/staffing-choice-sets",
+      "wachart": "berechtigung"
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/staffing-choice-sets/:id/assign",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/staffing-reservations/:id/finalize",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
+      "pfad": "/assign-deal-to-worker",
+      "wachart": "berechtigung"
+    }
+  ],
+  "grundlinie": {
+    "wege": 415,
+    "berechtigung": 161,
+    "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung."
+  }
+}

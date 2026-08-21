@@ -206,6 +206,29 @@ export function listRoutes(router) {
  * Der Name ist eine BINDUNG an den Bestand: verschwindet der Middleware aus der
  * Kette, wirft diese Funktion.
  */
+/**
+ * Ein per `router.use(praefix, ...)` montiertes Middleware finden.
+ *
+ * WARUM ES DAS BRAUCHT: `support.js` setzt sein Tor nicht je Route, sondern
+ * einmal auf dem Praefix (`router.use("/support", ..., supportAuth)`). Das ist
+ * die STRENGERE Bauart — auf einer neuen Route kann man es nicht vergessen —,
+ * aber ein Test, der nur `route.stack` liest, sieht es nicht und haelt die
+ * Flaeche faelschlich fuer ungeschuetzt.
+ *
+ * Gibt `{ handler, praefix }` zurueck oder null.
+ */
+export function findPrefixMiddleware(router, mwName) {
+  for (const layer of router.stack) {
+    if (layer.route) continue;
+    const handler = layer.handle;
+    if (typeof handler !== "function" || handler.name !== mwName) continue;
+    // Express speichert den Montagepfad nur als Regexp; die Rohform steht in
+    // layer.regexp.source. Fuer die Abdeckungspruefung reicht der Test selbst.
+    return { handler, deckt: (pfad) => layer.regexp.test(pfad.split("?")[0]) };
+  }
+  return null;
+}
+
 export function findChainFrom(router, method, path, mwName) {
   for (const layer of router.stack) {
     if (!layer.route || layer.route.path !== path) continue;
@@ -213,13 +236,26 @@ export function findChainFrom(router, method, path, mwName) {
 
     const stack = layer.route.stack.map((s) => s.handle);
     const start = stack.findIndex((h) => h.name === mwName);
+    let kette;
     if (start === -1) {
-      throw new Error(
-        `Route ${method.toUpperCase()} ${path} traegt keinen Middleware '${mwName}' mehr — ` +
-        "das Register behauptet, dort liege die Org-Grenze."
-      );
+      // Zweite Bauart: das Tor haengt am Praefix statt an der Route.
+      const praefix = findPrefixMiddleware(router, mwName);
+      if (!praefix) {
+        throw new Error(
+          `Route ${method.toUpperCase()} ${path} traegt keinen Middleware '${mwName}' mehr — ` +
+          "weder auf der Route noch auf dem Praefix. Das Register behauptet, dort liege die Grenze."
+        );
+      }
+      if (!praefix.deckt(path)) {
+        throw new Error(
+          `Route ${method.toUpperCase()} ${path} liegt AUSSERHALB des Praefixes, auf dem ` +
+          `'${mwName}' montiert ist — sie steht damit offen.`
+        );
+      }
+      kette = [praefix.handler, stack[stack.length - 1]];
+    } else {
+      kette = [stack[start], stack[stack.length - 1]];
     }
-    const kette = [stack[start], stack[stack.length - 1]];
     return async (req, res, next) => {
       for (const fn of kette) {
         let weiter = false;
@@ -249,14 +285,45 @@ export function findChainFrom(router, method, path, mwName) {
  * welchem Praefix sie haengen. Deshalb `montiert: true` statt eines geratenen
  * Pfades.
  */
-export function listRoutesTief(router, tiefe = 0) {
+/**
+ * Den Montagepfad aus der Express-Regexp zurueckgewinnen.
+ *
+ * Express behaelt den rohen Pfad einer `router.use(pfad, ...)`-Schicht nicht —
+ * nur die daraus gebaute Regexp. Ohne diese Rueckgewinnung meldet
+ * `listRoutesTief` die INNEREN Pfade ("/bootstrap") statt der aufrufbaren
+ * ("/owner-control/bootstrap"). Jede Pruefung der Form "liegt diese Route unter
+ * dem Tor?" waere damit wertlos: sie verglaeche gegen einen Pfad, den es nach
+ * aussen gar nicht gibt.
+ *
+ * Nur statische Praefixe werden zurueckgegeben. Traegt der Montagepfad selbst
+ * einen Platzhalter, gibt es hier "" zurueck — lieber kein Praefix als ein
+ * falsches, denn ein falsches Praefix wuerde eine ungeschuetzte Route als
+ * geschuetzt ausweisen.
+ */
+function montagepfad(layer) {
+  const quelle = layer?.regexp?.source;
+  if (!quelle) return "";
+  // Form: ^\/owner-control\/?(?=\/|$)   bzw.  ^\/?(?=\/|$)  fuer die Wurzel
+  const kern = quelle
+    .replace(/^\^/, "")
+    .replace(/\\\/\?\(\?=\\\/\|\$\)$/, "")
+    .replace(/\$$/, "");
+  if (!kern || kern === "\\/") return "";
+  const pfad = kern.replace(/\\(.)/g, "$1");
+  // Ein Platzhalter im Montagepfad (Regexp-Sonderzeichen uebrig) waere geraten.
+  if (/[()[\]{}*+?|^$]/.test(pfad)) return "";
+  return pfad.startsWith("/") ? pfad : "";
+}
+
+export function listRoutesTief(router, tiefe = 0, praefix = "") {
   const routen = [];
   if (tiefe > 5) return routen;                 // Schleifenschutz
   for (const layer of router.stack || []) {
     if (layer.route) {
       routen.push({
         method: Object.keys(layer.route.methods)[0],
-        path: layer.route.path,
+        path: praefix + layer.route.path,
+        innerPath: layer.route.path,
         middlewareCount: layer.route.stack.length,
         montiert: tiefe > 0
       });
@@ -265,7 +332,7 @@ export function listRoutesTief(router, tiefe = 0) {
     // Ein montierter Sub-Router: express legt ihn als handle mit eigenem stack ab.
     const unter = layer.handle;
     if (unter && typeof unter === "function" && Array.isArray(unter.stack)) {
-      routen.push(...listRoutesTief(unter, tiefe + 1));
+      routen.push(...listRoutesTief(unter, tiefe + 1, praefix + montagepfad(layer)));
     }
   }
   return routen;

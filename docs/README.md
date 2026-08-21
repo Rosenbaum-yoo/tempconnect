@@ -69,6 +69,7 @@ Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeita
 | [features/E_LIVE_BELEGSCHAFT.md](features/E_LIVE_BELEGSCHAFT.md) | Live-Belegschaft: gemessener Ist-Stand der Zustaende, die drei Owner-Entscheidungen und die Wellen E2-E5. |
 | [features/F1_SYSTEMZEIT_LANDKARTE.md](features/F1_SYSTEMZEIT_LANDKARTE.md) | 33 belegte Datumsfehler und ihre Ursache: pg liefert DATE als lokale Mitternacht, der UTC-Schnitt ergibt ganztaegig den Vortag. |
 | [features/P10_IMPORT_LIVE_ZEIT.md](features/P10_IMPORT_LIVE_ZEIT.md) | **Nächste Sitzung startet hier:** CSV-Import (Spur D), echte Live-Belegschaft (E), Systemzeit im Einsatzportal (F) — mit Wellen, Gates und Ist-Stand. |
+| [features/I_AUDIT_ZUWEISUNG_SUPPORT.md](features/I_AUDIT_ZUWEISUNG_SUPPORT.md) | **Nächste Sitzung startet hier:** Audit-Log hart trennen (8.1.1, aktiver Befund: 135 Zeilen in der falschen Organisation), aktive Sitzungen (8.1.2), Ersatz-Zuweisung aus der Live-Belegschaft (8.2), Support-Weg Kunde → TempConnect (10), Entscheidung zu Kunde ↔ Kunde (10b). |
 | [ENTERPRISE_ARCHITECTURE.md](ENTERPRISE_ARCHITECTURE.md) | Enterprise-Schicht: Mandanten, Standorte, Freigaben. |
 | [PRODUCT_ANALYTICS_ARCHITECTURE.md](PRODUCT_ANALYTICS_ARCHITECTURE.md) | Produktdaten: Ereignisse, Trichter, Auswertung. |
 

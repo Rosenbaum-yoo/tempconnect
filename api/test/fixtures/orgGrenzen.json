@@ -17,11 +17,12 @@
     "identitaet": "org (Standard) | nutzer — welche Kennung variiert wird. Nicht jede Grenze ist eine Org-Grenze.",
     "schreibenGrenztSelbst": "true = die schreibende Anweisung traegt ihre Grenze im eigenen WHERE; ein Spion kann das nicht erzwingen, geprueft wird die Kennung in den Parametern. Braucht einen hinweis.",
     "gegenprobe": "false = die Gegenprobe ist mit einem Mock nicht stellbar. Braucht einen hinweis.",
-    "leereAntwortFuer": "Tabellen, die der Spion leer beantwortet — z. B. org_memberships, weil eine fremde Kennung eben KEIN Mitglied ist."
+    "leereAntwortFuer": "Tabellen, die der Spion leer beantwortet — z. B. org_memberships, weil eine fremde Kennung eben KEIN Mitglied ist.",
+    "flaechenTor": "Flaechen OHNE Platzhalter-Route mit EINEM Tor: Name des Middleware, Montagepfad, erwarteter Status ohne Voraussetzung, Mindestzahl der Routen (sonst wird die Pruefung blind, wenn eine Teilflaeche verschwindet), und die Tabellen, in die das Tor selbst protokollieren darf."
   },
   "grundlinie": {
-    "verhaltensgeprueft": 194,
-    "hinweis": "Sperrklinke: die Zahl darf wachsen, nicht fallen. Wer eine Route auf 'bewusste-ausnahme' zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung."
+    "verhaltensgeprueft": 256,
+    "hinweis": "Sperrklinke: die Zahl darf wachsen, nicht fallen. Wer eine Route auf 'bewusste-ausnahme' zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-20 von 257 auf 256 gesenkt, weil /matching/worker/:id mit Befund P1-19 ENTFERNT wurde — eine Route, die es nicht mehr gibt, kann nicht geprueft werden. Drei andere Zusicherungen halten stattdessen fest, dass sie nicht zurueckkehrt."
   },
   "abgedeckteRouter": [
     {
@@ -1334,7 +1335,10 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bewusst EINSEITIG: nur der Anfragende darf das. Beleg steht als Kommentar und Vergleich in der Route selbst (requester_company_id !== session.userId)."
+          "hinweis": "Bewusst EINSEITIG: nur der Anfragende darf das. Beleg steht als Kommentar und Vergleich in der Route selbst (requester_company_id !== session.userId). Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "post",
@@ -1359,7 +1363,7 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). ACHTUNG Befund E-11: dessen Org-Zweig ist wirkungslos (utils/ownerCheck.js:28-33 fragt eine Spalte 'status' ab, die es nicht gibt) — wirksam ist nur der direkte Besitzer-Vergleich.",
+          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). Seit Befund E-11 (geschlossen 2026-08-20) traegt dessen Org-Zweig wirklich: eine Kollegin mit aktiver Mitgliedschaft in DERSELBEN Organisation darf handeln, Arbeiter (`role_key = 'worker'`) ausdruecklich nicht.",
           "leereAntwortFuer": [
             "org_memberships"
           ]
@@ -1373,7 +1377,7 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). ACHTUNG Befund E-11: dessen Org-Zweig ist wirkungslos (utils/ownerCheck.js:28-33 fragt eine Spalte 'status' ab, die es nicht gibt) — wirksam ist nur der direkte Besitzer-Vergleich.",
+          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). Seit Befund E-11 (geschlossen 2026-08-20) traegt dessen Org-Zweig wirklich: eine Kollegin mit aktiver Mitgliedschaft in DERSELBEN Organisation darf handeln, Arbeiter (`role_key = 'worker'`) ausdruecklich nicht.",
           "leereAntwortFuer": [
             "org_memberships"
           ]
@@ -1387,7 +1391,7 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). ACHTUNG Befund E-11: dessen Org-Zweig ist wirkungslos (utils/ownerCheck.js:28-33 fragt eine Spalte 'status' ab, die es nicht gibt) — wirksam ist nur der direkte Besitzer-Vergleich.",
+          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). Seit Befund E-11 (geschlossen 2026-08-20) traegt dessen Org-Zweig wirklich: eine Kollegin mit aktiver Mitgliedschaft in DERSELBEN Organisation darf handeln, Arbeiter (`role_key = 'worker'`) ausdruecklich nicht.",
           "leereAntwortFuer": [
             "org_memberships"
           ]
@@ -1422,7 +1426,7 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). ACHTUNG Befund E-11: dessen Org-Zweig ist wirkungslos (utils/ownerCheck.js:28-33 fragt eine Spalte 'status' ab, die es nicht gibt) — wirksam ist nur der direkte Besitzer-Vergleich.",
+          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). Seit Befund E-11 (geschlossen 2026-08-20) traegt dessen Org-Zweig wirklich: eine Kollegin mit aktiver Mitgliedschaft in DERSELBEN Organisation darf handeln, Arbeiter (`role_key = 'worker'`) ausdruecklich nicht.",
           "leereAntwortFuer": [
             "org_memberships"
           ]
@@ -1436,7 +1440,7 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Die Grenze haengt hier am ZIELSTATUS, nicht an der Route: 'sent'/'withdrawn' darf nur der Lieferant, 'accepted'/'rejected'/'countered' nur der Anfragende (marketplaceService.js:842-847). Die Probe faehrt den Zweig 'accepted', also die Anfragenden-Seite; der Lieferanten-Zweig ist ueber /withdraw abgedeckt. Die Mock-Zeile traegt status='sent', sonst greift INVALID_TRANSITION vorher.",
+          "hinweis": "Die Grenze haengt hier am ZIELSTATUS, nicht an der Route: 'sent'/'withdrawn' darf nur der Lieferant, 'accepted'/'rejected'/'countered' nur der Anfragende (marketplaceService.js:842-847). Die Probe faehrt den Zweig 'accepted', also die Anfragenden-Seite; der Lieferanten-Zweig ist ueber /withdraw abgedeckt. Die Mock-Zeile traegt status='sent', sonst greift INVALID_TRANSITION vorher. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
           "anfrage": {
             "body": {
               "status": "accepted"
@@ -1444,7 +1448,10 @@
           },
           "zeile": {
             "status": "sent"
-          }
+          },
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "post",
@@ -1455,10 +1462,13 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bewusst EINSEITIG: annehmen darf nur, wer angefragt hat — die liefernde Agentur nimmt ihr eigenes Angebot nicht an. Die Mock-Zeile traegt status='sent', sonst greift INVALID_TRANSITION (409) vor der Besitzpruefung.",
+          "hinweis": "Bewusst EINSEITIG: annehmen darf nur, wer angefragt hat — die liefernde Agentur nimmt ihr eigenes Angebot nicht an. Die Mock-Zeile traegt status='sent', sonst greift INVALID_TRANSITION (409) vor der Besitzpruefung. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
           "zeile": {
             "status": "sent"
-          }
+          },
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "post",
@@ -1469,7 +1479,10 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bewusst EINSEITIG: das Gegenangebot kommt vom Anfragenden; der Dienst meldet FORBIDDEN."
+          "hinweis": "Bewusst EINSEITIG: das Gegenangebot kommt vom Anfragenden; der Dienst meldet FORBIDDEN. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "post",
@@ -1480,7 +1493,10 @@
           "traegerspalten": [
             "supplier_company_id"
           ],
-          "hinweis": "Bewusst EINSEITIG: ein Angebot zurueckziehen darf nur, wer es abgegeben hat."
+          "hinweis": "Bewusst EINSEITIG: ein Angebot zurueckziehen darf nur, wer es abgegeben hat. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "get",
@@ -1492,7 +1508,10 @@
             "requester_company_id",
             "supplier_company_id"
           ],
-          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "post",
@@ -1503,7 +1522,10 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bewusst EINSEITIG: nur der Anfragende darf das. Beleg steht als Kommentar und Vergleich in der Route selbst (requester_company_id !== session.userId)."
+          "hinweis": "Bewusst EINSEITIG: nur der Anfragende darf das. Beleg steht als Kommentar und Vergleich in der Route selbst (requester_company_id !== session.userId). Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "post",
@@ -1514,7 +1536,10 @@
           "traegerspalten": [
             "supplier_company_id"
           ],
-          "hinweis": "Bewusst EINSEITIG: nur die liefernde Agentur darf das (supplier_company_id !== session.userId)."
+          "hinweis": "Bewusst EINSEITIG: nur die liefernde Agentur darf das (supplier_company_id !== session.userId). Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "post",
@@ -1525,7 +1550,10 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bewusst EINSEITIG: nur der Anfragende darf das. Beleg steht als Kommentar und Vergleich in der Route selbst (requester_company_id !== session.userId)."
+          "hinweis": "Bewusst EINSEITIG: nur der Anfragende darf das. Beleg steht als Kommentar und Vergleich in der Route selbst (requester_company_id !== session.userId). Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "get",
@@ -1561,7 +1589,10 @@
             "requester_company_id",
             "supplier_company_id"
           ],
-          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "get",
@@ -1573,7 +1604,10 @@
             "requester_company_id",
             "supplier_company_id"
           ],
-          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "post",
@@ -1584,7 +1618,10 @@
           "traegerspalten": [
             "supplier_company_id"
           ],
-          "hinweis": "Bewusst EINSEITIG: nur die liefernde Agentur darf das (supplier_company_id !== session.userId)."
+          "hinweis": "Bewusst EINSEITIG: nur die liefernde Agentur darf das (supplier_company_id !== session.userId). Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "get",
@@ -1596,7 +1633,10 @@
             "requester_company_id",
             "supplier_company_id"
           ],
-          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "get",
@@ -1608,7 +1648,10 @@
             "requester_company_id",
             "supplier_company_id"
           ],
-          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "get",
@@ -1631,7 +1674,7 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). ACHTUNG Befund E-11: dessen Org-Zweig ist wirkungslos (utils/ownerCheck.js:28-33 fragt eine Spalte 'status' ab, die es nicht gibt) — wirksam ist nur der direkte Besitzer-Vergleich.",
+          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). Seit Befund E-11 (geschlossen 2026-08-20) traegt dessen Org-Zweig wirklich: eine Kollegin mit aktiver Mitgliedschaft in DERSELBEN Organisation darf handeln, Arbeiter (`role_key = 'worker'`) ausdruecklich nicht.",
           "leereAntwortFuer": [
             "org_memberships"
           ]
@@ -2434,7 +2477,21 @@
     {
       "datei": "ownerControlCenter.js",
       "routen": [],
-      "hinweis": "Keine Route mit Pfad-Platzhalter (31 Routen, tief gezaehlt). Damit gibt es hier keine Zeile, die ueber eine Kennung aus dem Pfad adressiert wird — die Klasse von Luecke, die diese Pruefung sucht, kann nicht auftreten. Der Waechter RECHNET das bei jedem Lauf nach: kommt eine :id-Route dazu, wird er rot."
+      "hinweis": "Owner Control Center: die privilegierteste Flaeche des Systems, org-uebergreifend PER BAUART (sie soll ueber alle Organisationen blicken). Sie hat KEINE Platzhalter-Route — alles laeuft ueber Abfrageparameter — und war deshalb fuer die Schichten A, B und B2 unsichtbar: der Eintrag stand mit `routen: []` da und galt als abgedeckt, waehrend die 13 montierten Unterrouter mit 31 Wegen niemand angefasst hat. Schicht B3 prueft sie als GANZE Flaeche: jede Route liegt unter `/owner-control`, das Tor `ownerControlAuth` haengt VOR allen Teilflaechen, und ohne Owner-Freigabe weist es mit 403 ab.",
+      "flaechenTor": {
+        "middleware": "ownerControlAuth",
+        "montiertAuf": "/owner-control",
+        "erwarteterStatus": 403,
+        "mindestens": 31,
+        "ohneVoraussetzung": {
+          "session": {
+            "userId": "user-alpha-001"
+          }
+        },
+        "darfSchreibenIn": [
+          "owner_control_access_audit"
+        ]
+      }
     },
     {
       "datei": "payment.js",
@@ -3466,52 +3523,1404 @@
         }
       ],
       "hinweis": "Das Organisations-Kontrollzentrum arbeitet AUSSCHLIESSLICH in der eigenen Org: die Platzhalter adressieren ein Mitglied, einen Standort oder einen Schluessel INNERHALB von req.orgId. `ensureOrg` (orgControlCenter.js:94-97) ist nur eine Null-Wache (400 ohne Org), keine Grenze — die Grenze steht im WHERE der Dienste ('... AND org_id = $2'). Ein Spion kann kein WHERE erzwingen, deshalb sql-grenze statt 403."
+    },
+    {
+      "datei": "companyProfile.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/company-profile/public/:userId",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "AUSDRUECKLICH OEFFENTLICH: die Route traegt '/public/' im Pfad, haengt an keiner Anmeldung (companyProfile.js:72) und liefert ueber getPublicProfile nur die freigegebenen Felder. Keine Mandantengrenze, sondern eine Feldauswahl."
+        },
+        {
+          "methode": "put",
+          "pfad": "/company-profile/locations/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "user_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "anfrage": {
+            "body": {
+              "city": "Bonn",
+              "name": "Werk"
+            }
+          }
+        },
+        {
+          "methode": "delete",
+          "pfad": "/company-profile/locations/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "user_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "anfrage": {
+            "body": {
+              "city": "Bonn",
+              "name": "Werk"
+            }
+          }
+        },
+        {
+          "methode": "put",
+          "pfad": "/company-profile/certifications/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "user_id"
+          ],
+          "erwartung": "zero-state",
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Dienst baut aus einem Mock-Koerper kein aenderbares Feld und antwortet beidseitig mit 404; die Bindung selbst ist dieselbe wie bei Standorten und Kontakten (updateCertification(pool, id, uid(req), ...)) — beide sind gruen.",
+          "anfrage": {
+            "body": {
+              "name": "ISO 9001"
+            }
+          },
+          "gegenprobe": false
+        },
+        {
+          "methode": "delete",
+          "pfad": "/company-profile/certifications/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "user_id"
+          ],
+          "erwartung": "zero-state",
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Dienst baut aus einem Mock-Koerper kein aenderbares Feld und antwortet beidseitig mit 404; die Bindung selbst ist dieselbe wie bei Standorten und Kontakten (updateCertification(pool, id, uid(req), ...)) — beide sind gruen.",
+          "anfrage": {
+            "body": {
+              "name": "ISO 9001"
+            }
+          },
+          "gegenprobe": false
+        },
+        {
+          "methode": "put",
+          "pfad": "/company-profile/contacts/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "user_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "anfrage": {
+            "body": {
+              "name": "Max Muster"
+            }
+          }
+        },
+        {
+          "methode": "delete",
+          "pfad": "/company-profile/contacts/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "user_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "anfrage": {
+            "body": {
+              "name": "Max Muster"
+            }
+          }
+        }
+      ],
+      "hinweis": "Firmenprofil: nutzer-gebunden. Die Unterobjekte (Standorte, Zertifikate, Kontakte) binden im SQL ueber `user_id`; eine Route ist ausdruecklich oeffentlich."
+    },
+    {
+      "datei": "slaSearchJobs.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/sla/search-jobs/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "owner_company_id"
+          ],
+          "erwartung": "zero-state",
+          "orgImSql": false,
+          "schreibenGrenztSelbst": false,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "gegenprobe": false,
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
+        },
+        {
+          "methode": "put",
+          "pfad": "/sla/search-jobs/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "owner_company_id"
+          ],
+          "erwartung": "zero-state",
+          "orgImSql": false,
+          "schreibenGrenztSelbst": false,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "gegenprobe": false,
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
+        },
+        {
+          "methode": "delete",
+          "pfad": "/sla/search-jobs/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "owner_company_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": false,
+          "hinweis": "Befund E-15: die drei Aufraeum-Loeschungen liefen ohne Bindung, nur die vierte Anweisung prueft den Besitzer — ein DELETE auf eine fremde Kennung hat deren Treffer, Ereignisse und Meldungen geloescht und danach 404 gemeldet. Seit der Reparatur steht die Besitzpruefung vorn; geprueft wird die REIHENFOLGE.",
+          "gegenprobe": false,
+          "leereAntwortFuer": [
+            "org_memberships"
+          ],
+          "schreibenNachGrenze": true
+        },
+        {
+          "methode": "post",
+          "pfad": "/sla/search-jobs/:id/close",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "owner_company_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "hinweis": "Die bindende Anweisung ist hier selbst ein Schreibvorgang: 'UPDATE sla_search_jobs ... WHERE id = $1 AND owner_company_id = $2' (slaSearchService.js:156-161); liefert sie nichts, endet die Route mit 404. Das danach geschriebene Dienstgueteereignis traegt nur die Auftragskennung — es ist fuer Fremde unerreichbar. Geprueft wird die Reihenfolge.",
+          "gegenprobe": false,
+          "leereAntwortFuer": [
+            "org_memberships"
+          ],
+          "schreibenNachGrenze": true
+        },
+        {
+          "methode": "post",
+          "pfad": "/sla/search-jobs/:id/pause",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "owner_company_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE ('... AND owner_company_id = $2' bzw. '... AND user_id = $2'). Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "gegenprobe": false,
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/sla/search-jobs/:id/resume",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "owner_company_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE ('... AND owner_company_id = $2' bzw. '... AND user_id = $2'). Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "gegenprobe": false,
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/sla/match-alerts/:id/read",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "user_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE ('... AND owner_company_id = $2' bzw. '... AND user_id = $2'). Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "gegenprobe": false,
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
+        }
+      ],
+      "hinweis": "Suchauftraege gehoeren einem NUTZER: die Routen pruefen ueber `canAccessAsOwner(pool, job.owner_company_id, req.session.userId)` (slaSearchJobs.js:52). Seit Befund E-11 (geschlossen 2026-08-20) traegt dessen Org-Zweig wirklich: eine Kollegin mit aktiver Mitgliedschaft in DERSELBEN Organisation darf handeln, Arbeiter (`role_key = 'worker'`) ausdruecklich nicht. Die Grenze ist ein JS-Vergleich nach dem Laden (canAccessAsOwner bzw. ein Besitzvergleich im Handler), nicht das SQL — belegt wird sie daran, dass die Antwort keine fremde Kennung traegt. Der Spion beantwortet SONST auch die Mitgliedschaftsabfrage von `canAccessAsOwner` mit einer Zeile und GEWAEHRT damit Zugriff. `leereAntwortFuer` bildet die Wirklichkeit nach: ein fremder Nutzer teilt keine Organisation. Seit Befund E-11 wiegt das schwerer als vorher — vorher warf die Abfrage in Produktion ohnehin, heute entscheidet sie wirklich, und der Unterschied zwischen Mitglied und Nichtmitglied ist echt."
+    },
+    {
+      "datei": "emergency.js",
+      "routen": [
+        {
+          "methode": "post",
+          "pfad": "/emergency/:id/respond",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "erwartung": "zero-state",
+          "orgImSql": false,
+          "gegenprobe": false,
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "company"
+            }
+          },
+          "hinweis": "Zustandsautomat und Rollentor hinter der Besitzpruefung; mit einer erfundenen Zeile enden Eigen- und Fremdlauf fachlich gleich. Die Bindung selbst ist requester_company_id gegen die Sitzung.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/emergency/:id/escalate",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "erwartung": "zero-state",
+          "orgImSql": false,
+          "gegenprobe": false,
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "company"
+            }
+          },
+          "hinweis": "Zustandsautomat und Rollentor hinter der Besitzpruefung; mit einer erfundenen Zeile enden Eigen- und Fremdlauf fachlich gleich. Die Bindung selbst ist requester_company_id gegen die Sitzung.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
+        },
+        {
+          "methode": "get",
+          "pfad": "/emergency/:id/commitments",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "erwartung": "zero-state",
+          "orgImSql": false,
+          "gegenprobe": false,
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "company"
+            }
+          },
+          "hinweis": "Zustandsautomat und Rollentor hinter der Besitzpruefung; mit einer erfundenen Zeile enden Eigen- und Fremdlauf fachlich gleich. Die Bindung selbst ist requester_company_id gegen die Sitzung.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/emergency/:id/commitments",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "erwartung": "zero-state",
+          "orgImSql": false,
+          "gegenprobe": false,
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "company"
+            }
+          },
+          "hinweis": "Zustandsautomat und Rollentor hinter der Besitzpruefung; mit einer erfundenen Zeile enden Eigen- und Fremdlauf fachlich gleich. Die Bindung selbst ist requester_company_id gegen die Sitzung.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
+        },
+        {
+          "methode": "patch",
+          "pfad": "/emergency/commitments/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "erwartung": "zero-state",
+          "orgImSql": false,
+          "gegenprobe": false,
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "company"
+            }
+          },
+          "hinweis": "Zustandsautomat und Rollentor hinter der Besitzpruefung; mit einer erfundenen Zeile enden Eigen- und Fremdlauf fachlich gleich. Die Bindung selbst ist requester_company_id gegen die Sitzung.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/emergency/:id/commitments/:cid/create-agreement",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "erwartung": "zero-state",
+          "orgImSql": false,
+          "gegenprobe": false,
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "company"
+            }
+          },
+          "hinweis": "Zustandsautomat und Rollentor hinter der Besitzpruefung; mit einer erfundenen Zeile enden Eigen- und Fremdlauf fachlich gleich. Die Bindung selbst ist requester_company_id gegen die Sitzung.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
+        }
+      ],
+      "hinweis": "Notdienst: die Bedarfsmeldung gehoert einem NUTZER (requester_company_id, emergency.js:57), dazu Rollentore (COMPANY_ONLY :84 / AGENCY_ONLY :139). Eine Zusage ABZUGEBEN ist fuer die Gegenseite der Normalfall — deshalb keine Org-Grenze, sondern eine Rollen- und Besitzfrage. Die Grenze ist ein JS-Vergleich nach dem Laden (canAccessAsOwner bzw. ein Besitzvergleich im Handler), nicht das SQL — belegt wird sie daran, dass die Antwort keine fremde Kennung traegt. Der Spion beantwortet SONST auch die Mitgliedschaftsabfrage von `canAccessAsOwner` mit einer Zeile und GEWAEHRT damit Zugriff. `leereAntwortFuer` bildet die Wirklichkeit nach: ein fremder Nutzer teilt keine Organisation. Seit Befund E-11 wiegt das schwerer als vorher — vorher warf die Abfrage in Produktion ohnehin, heute entscheidet sie wirklich, und der Unterschied zwischen Mitglied und Nichtmitglied ist echt."
+    },
+    {
+      "datei": "integrations.js",
+      "routen": [
+        {
+          "methode": "patch",
+          "pfad": "/integrations/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck."
+        },
+        {
+          "methode": "delete",
+          "pfad": "/integrations/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck."
+        },
+        {
+          "methode": "post",
+          "pfad": "/integrations/:id/test",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck."
+        },
+        {
+          "methode": "get",
+          "pfad": "/integrations/:id/deliveries",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck."
+        },
+        {
+          "methode": "patch",
+          "pfad": "/org/erp-mappings/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck."
+        },
+        {
+          "methode": "delete",
+          "pfad": "/org/erp-mappings/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck."
+        }
+      ],
+      "hinweis": "Integrationen und ERP-Zuordnungen gehoeren der Org; die Dienste binden im WHERE ('... AND org_id = $n')."
+    },
+    {
+      "datei": "profileVisibility.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/profile-visibility/public/:orgId",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "AUSDRUECKLICH OEFFENTLICH ('/public/' im Pfad): die Aussenansicht eines Profils."
+        },
+        {
+          "methode": "post",
+          "pfad": "/profile-visibility/:orgId/like",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Ein FREMDES Profil mit 'gefaellt mir' zu versehen ist der Zweck. Die Zeile bindet den Handelnden ueber liker_user_id, nicht die Ziel-Org."
+        },
+        {
+          "methode": "delete",
+          "pfad": "/profile-visibility/:orgId/like",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Ein FREMDES Profil mit 'gefaellt mir' zu versehen ist der Zweck. Die Zeile bindet den Handelnden ueber liker_user_id, nicht die Ziel-Org."
+        },
+        {
+          "methode": "post",
+          "pfad": "/profile-visibility/:orgId/favorite",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Ein FREMDES Profil zu merken ist der Zweck; die Merkliste bindet ueber owner_user_id."
+        },
+        {
+          "methode": "delete",
+          "pfad": "/profile-visibility/:orgId/favorite",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Ein FREMDES Profil zu merken ist der Zweck; die Merkliste bindet ueber owner_user_id."
+        },
+        {
+          "methode": "post",
+          "pfad": "/profile-visibility/:orgId/report",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Ein FREMDES Profil zu melden ist der Zweck der Meldefunktion."
+        }
+      ],
+      "hinweis": "Profil-Sichtbarkeit ist eine Marktplatz-Flaeche: fremde Profile ansehen, mit 'gefaellt mir' versehen, merken oder melden ist der ZWECK. Der Handelnde wird ueber die Sitzung gebunden (liker_user_id / owner_user_id), nicht ueber die Ziel-Org."
+    },
+    {
+      "datei": "sso.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/sso/login/:orgId",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "VORANMELDUNG: der Weg wird aufgerufen, BEVOR jemand angemeldet ist — er leitet zum Identitaetsanbieter der genannten Organisation weiter (sso.js:58, keine requireAuth). Eine Mandantengrenze kann es hier nicht geben, weil es noch keinen Mandanten gibt."
+        },
+        {
+          "methode": "get",
+          "pfad": "/sso/metadata/:orgId",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "VORANMELDUNG: oeffentliche Metadaten des Dienstanbieters, die der Identitaetsanbieter des Kunden abruft (sso.js:137, keine requireAuth). Sie enthalten keine Mandantendaten, sondern Zertifikat und Endpunkte."
+        },
+        {
+          "methode": "get",
+          "pfad": "/sso/config/:orgId",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad",
+          "orgPlatzhalter": "orgId",
+          "gegenprobe": false,
+          "hinweis": "Die Verwaltung haengt am Middleware `requireSsoAdminAccess`, das die Org-Kennung aus dem Pfad gegen den eigenen Kontext prueft — die Kette wird deshalb ab dort ausgefuehrt. Die Gegenprobe laesst sich nicht stellen: der Dienst erzeugt echte Metadaten.",
+          "grenzeIn": "requireSsoAdminAccess"
+        },
+        {
+          "methode": "put",
+          "pfad": "/sso/config/:orgId",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad",
+          "orgPlatzhalter": "orgId",
+          "gegenprobe": false,
+          "hinweis": "Die Verwaltung haengt am Middleware `requireSsoAdminAccess`, das die Org-Kennung aus dem Pfad gegen den eigenen Kontext prueft — die Kette wird deshalb ab dort ausgefuehrt. Die Gegenprobe laesst sich nicht stellen: der Dienst erzeugt echte Metadaten.",
+          "grenzeIn": "requireSsoAdminAccess"
+        },
+        {
+          "methode": "delete",
+          "pfad": "/sso/config/:orgId",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad",
+          "orgPlatzhalter": "orgId",
+          "gegenprobe": false,
+          "hinweis": "Die Verwaltung haengt am Middleware `requireSsoAdminAccess`, das die Org-Kennung aus dem Pfad gegen den eigenen Kontext prueft — die Kette wird deshalb ab dort ausgefuehrt. Die Gegenprobe laesst sich nicht stellen: der Dienst erzeugt echte Metadaten.",
+          "grenzeIn": "requireSsoAdminAccess"
+        },
+        {
+          "methode": "post",
+          "pfad": "/sso/test/:orgId",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad",
+          "orgPlatzhalter": "orgId",
+          "gegenprobe": false,
+          "hinweis": "Die Verwaltung haengt am Middleware `requireSsoAdminAccess`, das die Org-Kennung aus dem Pfad gegen den eigenen Kontext prueft — die Kette wird deshalb ab dort ausgefuehrt. Die Gegenprobe laesst sich nicht stellen: der Dienst erzeugt echte Metadaten.",
+          "grenzeIn": "requireSsoAdminAccess"
+        }
+      ],
+      "hinweis": "Einmalanmeldung wird je Organisation eingerichtet — die Org-Kennung steht im PFAD (:orgId) und wird von `requireSsoAdminAccess` gegen den eigenen Kontext geprueft."
+    },
+    {
+      "datei": "productReleases.js",
+      "routen": [
+        {
+          "methode": "post",
+          "pfad": "/product-releases/:id/ack",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung: die Pflege liegt unter /admin/ hinter der Administrationsrolle, die Lesebestaetigung bindet den Nutzer ueber die Sitzung. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt."
+        },
+        {
+          "methode": "patch",
+          "pfad": "/admin/product-releases/:id",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung: die Pflege liegt unter /admin/ hinter der Administrationsrolle, die Lesebestaetigung bindet den Nutzer ueber die Sitzung. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt."
+        },
+        {
+          "methode": "post",
+          "pfad": "/admin/product-releases/:id/publish",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung: die Pflege liegt unter /admin/ hinter der Administrationsrolle, die Lesebestaetigung bindet den Nutzer ueber die Sitzung. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt."
+        },
+        {
+          "methode": "post",
+          "pfad": "/admin/product-releases/:id/send-email",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung: die Pflege liegt unter /admin/ hinter der Administrationsrolle, die Lesebestaetigung bindet den Nutzer ueber die Sitzung. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt."
+        },
+        {
+          "methode": "delete",
+          "pfad": "/admin/product-releases/:id",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung: die Pflege liegt unter /admin/ hinter der Administrationsrolle, die Lesebestaetigung bindet den Nutzer ueber die Sitzung. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt."
+        }
+      ],
+      "hinweis": "Produktmitteilungen sind PLATTFORMWEIT — sie gehoeren keiner Org. Die Pflege-Routen liegen unter /admin/ und haengen an der Administrationsrolle; die Bestaetigung (/ack) bindet den Leser ueber die Sitzung."
+    },
+    {
+      "datei": "requests.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/requests/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_id",
+            "receiver_id"
+          ]
+        },
+        {
+          "methode": "get",
+          "pfad": "/requests/:id/sla-report",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_id",
+            "receiver_id"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/requests/:id/sla",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_id"
+          ],
+          "hinweis": "Bewusst EINSEITIG: die Dienstgueteschwelle setzt der Anfragende, nicht der Empfaenger."
+        },
+        {
+          "methode": "get",
+          "pfad": "/suppliers/:agencyId/scorecard",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Die Bewertungskarte einer Agentur ist eine AGGREGATION (Kennzahlen ueber ein Zeitfenster) und im Marktplatz bewusst fuer Gegenseiten einsehbar — sie ist die Grundlage der Lieferantenauswahl. Keine Mandantengrenze, sondern eine Veroeffentlichung."
+        },
+        {
+          "methode": "patch",
+          "pfad": "/requests/:id/status",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_id",
+            "receiver_id"
+          ],
+          "anfrage": {
+            "body": {
+              "status": "ACCEPTED"
+            }
+          },
+          "gegenprobe": false,
+          "hinweis": "Der Zustandsautomat urteilt vor der Besitzpruefung (409 fuer einen unmoeglichen Uebergang). Belegt wird deshalb, dass die Antwort keine fremde Kennung traegt und nichts geschrieben wird.",
+          "erwartung": "zero-state"
+        }
+      ],
+      "hinweis": "Anfragen sind zweiseitig und NUTZER-gebunden: `row.requester_id !== req.session.userId && row.receiver_id !== req.session.userId` -> 403 (requests.js:186)."
+    },
+    {
+      "datei": "analytics.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/analytics/product/funnels/:key",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Bezieht sich per Bauart auf eine fremde Kennung (Bewertung, Ruf, Praemie, Suchtreffer). Der Handelnde wird ueber die Sitzung gebunden; eine Mandantengrenze auf dem Ziel waere hier falsch."
+        }
+      ],
+      "hinweis": "Marktplatz-Flaeche: Bewertungen, Ruf, Praemien und Suche beziehen sich auf die GEGENSEITE — sie ueber eine fremde Kennung abzurufen ist der Zweck, nicht der Fehler."
+    },
+    {
+      "datei": "auth.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/auth/verify/:token",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Token-Weg vor der Anmeldung: das Geheimnis IST die Berechtigung. Eine Mandantengrenze kann es hier nicht geben, weil noch kein Mandant feststeht — der Token wird beim Einloesen entwertet."
+        },
+        {
+          "methode": "get",
+          "pfad": "/auth/reset-password/:token",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Token-Weg vor der Anmeldung: das Geheimnis IST die Berechtigung. Eine Mandantengrenze kann es hier nicht geben, weil noch kein Mandant feststeht — der Token wird beim Einloesen entwertet."
+        },
+        {
+          "methode": "get",
+          "pfad": "/auth/worker/invite/:token",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Token-Weg vor der Anmeldung: das Geheimnis IST die Berechtigung. Eine Mandantengrenze kann es hier nicht geben, weil noch kein Mandant feststeht — der Token wird beim Einloesen entwertet."
+        }
+      ],
+      "hinweis": "Anmeldung und Kontobestaetigung laufen VOR jedem Mandantenkontext: die Wege werden ueber ein Geheimnis im Pfad adressiert (Bestaetigungs- oder Ruecksetz-Token), nicht ueber eine Kennung, die jemand raten koennte."
+    },
+    {
+      "datei": "notifications.js",
+      "routen": [
+        {
+          "methode": "patch",
+          "pfad": "/notifications/:id/read",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "user_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "gegenprobe": false
+        },
+        {
+          "methode": "patch",
+          "pfad": "/match-alerts/:id/read",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "user_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "gegenprobe": false
+        }
+      ],
+      "hinweis": "Nutzer-gebunden: die Dienste binden im WHERE ('... WHERE id = $1 AND user_id = $2')."
+    },
+    {
+      "datei": "profileBounties.js",
+      "routen": [
+        {
+          "methode": "post",
+          "pfad": "/profile-bounties/:id/submit",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Bezieht sich per Bauart auf eine fremde Kennung (Bewertung, Ruf, Praemie, Suchtreffer). Der Handelnde wird ueber die Sitzung gebunden; eine Mandantengrenze auf dem Ziel waere hier falsch."
+        },
+        {
+          "methode": "delete",
+          "pfad": "/profile-bounties/:id",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Bezieht sich per Bauart auf eine fremde Kennung (Bewertung, Ruf, Praemie, Suchtreffer). Der Handelnde wird ueber die Sitzung gebunden; eine Mandantengrenze auf dem Ziel waere hier falsch."
+        }
+      ],
+      "hinweis": "Marktplatz-Flaeche: Bewertungen, Ruf, Praemien und Suche beziehen sich auf die GEGENSEITE — sie ueber eine fremde Kennung abzurufen ist der Zweck, nicht der Fehler."
+    },
+    {
+      "datei": "ratings.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/users/:id/ratings",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Bezieht sich per Bauart auf eine fremde Kennung (Bewertung, Ruf, Praemie, Suchtreffer). Der Handelnde wird ueber die Sitzung gebunden; eine Mandantengrenze auf dem Ziel waere hier falsch."
+        },
+        {
+          "methode": "get",
+          "pfad": "/users/:id/reputation",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Bezieht sich per Bauart auf eine fremde Kennung (Bewertung, Ruf, Praemie, Suchtreffer). Der Handelnde wird ueber die Sitzung gebunden; eine Mandantengrenze auf dem Ziel waere hier falsch."
+        }
+      ],
+      "hinweis": "Marktplatz-Flaeche: Bewertungen, Ruf, Praemien und Suche beziehen sich auf die GEGENSEITE — sie ueber eine fremde Kennung abzurufen ist der Zweck, nicht der Fehler."
+    },
+    {
+      "datei": "reputation.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/reputation/:id/card",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Bezieht sich per Bauart auf eine fremde Kennung (Bewertung, Ruf, Praemie, Suchtreffer). Der Handelnde wird ueber die Sitzung gebunden; eine Mandantengrenze auf dem Ziel waere hier falsch."
+        },
+        {
+          "methode": "get",
+          "pfad": "/reputation/:id/signals",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Bezieht sich per Bauart auf eine fremde Kennung (Bewertung, Ruf, Praemie, Suchtreffer). Der Handelnde wird ueber die Sitzung gebunden; eine Mandantengrenze auf dem Ziel waere hier falsch."
+        }
+      ],
+      "hinweis": "Marktplatz-Flaeche: Bewertungen, Ruf, Praemien und Suche beziehen sich auf die GEGENSEITE — sie ueber eine fremde Kennung abzurufen ist der Zweck, nicht der Fehler."
+    },
+    {
+      "datei": "search.js",
+      "routen": [
+        {
+          "methode": "post",
+          "pfad": "/search/reindex/:indexName",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Bezieht sich per Bauart auf eine fremde Kennung (Bewertung, Ruf, Praemie, Suchtreffer). Der Handelnde wird ueber die Sitzung gebunden; eine Mandantengrenze auf dem Ziel waere hier falsch."
+        }
+      ],
+      "hinweis": "Marktplatz-Flaeche: Bewertungen, Ruf, Praemien und Suche beziehen sich auf die GEGENSEITE — sie ueber eine fremde Kennung abzurufen ist der Zweck, nicht der Fehler."
+    },
+    {
+      "datei": "subscriptionRequests.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/subscription-requests/:id/history",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource"
+        },
+        {
+          "methode": "get",
+          "pfad": "/subscription-requests/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource"
+        }
+      ]
+    },
+    {
+      "datei": "capacities.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/capacities/:id",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "MARKTPLATZ-LESEN, bewusst offen: `getCapacityById` blendet nur INAKTIVE Anzeigen fuer Fremde aus (capacityService.js:221) — eine aktive Kapazitaet ist das Angebot, das gefunden werden SOLL. Eine Mandantengrenze hier waere das Ende des Marktplatzes. Der Schreibweg auf derselben Kennung (PATCH) ist dagegen gebunden und wird geprueft."
+        },
+        {
+          "methode": "patch",
+          "pfad": "/capacities/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "agency_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "gegenprobe": false,
+          "anfrage": {
+            "body": {
+              "role": "Staplerfahrer",
+              "region": "Koeln",
+              "available_from": "2026-09-01",
+              "available_workers": 3
+            }
+          },
+          "hinweis": "'UPDATE capacities ... WHERE id = $n AND agency_id = $n+1' (capacityService.js:290). Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "zeile": {
+            "is_active": true
+          }
+        },
+        {
+          "methode": "post",
+          "pfad": "/capacities/:capacityId/reserve",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_id"
+          ],
+          "erwartung": "403",
+          "gegenprobe": false,
+          "anfrage": {
+            "body": {
+              "request_id": "11111111-1111-4111-a111-111111111111",
+              "quantity": 1
+            }
+          },
+          "hinweis": "Reserviert wird gegen die EIGENE Anfrage: 'r.requester_id !== req.session.userId -> 403' (capacities.js:123). Die Kapazitaet selbst gehoert der Gegenseite — das ist der Handel."
+        }
+      ],
+      "hinweis": "Kapazitaetsanzeigen sind ANGEBOTE im Marktplatz: eine aktive Anzeige soll jeder Kunde finden koennen. Die Grenze liegt deshalb nicht auf dem Lesen, sondern auf dem Aendern — und die traegt der Dienst im WHERE ueber `agency_id`."
+    },
+    {
+      "datei": "dataGovernance.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/data-governance/export/user/:userId",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "403",
+          "gegenprobe": false,
+          "leereAntwortFuer": [
+            "org_memberships"
+          ],
+          "hinweis": "Befund E-20: der Vollexport lief allein ueber die Pfad-Kennung. Ein Org-Admin mit `data_governance.export` konnte den kompletten Datensatz eines beliebigen fremden Nutzers ziehen — Mailadresse, Telefon, Anschrift, Steuernummer, alle Anfragen, Angebote, Bewertungen, Einsaetze, Stundenzettel."
+        },
+        {
+          "methode": "get",
+          "pfad": "/data-governance/anonymize/user/:userId/check",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "gegenprobe": false,
+          "leereAntwortFuer": [
+            "org_memberships"
+          ],
+          "hinweis": "Die Zugehoerigkeitsabfrage wird wie eine echte Datenbank beantwortet — ein fremder Nutzer ist kein Mitglied. Ohne das gewaehrt der Spion Zugriff und die Probe pruefte sich selbst."
+        },
+        {
+          "methode": "post",
+          "pfad": "/data-governance/anonymize/user/:userId",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "gegenprobe": false,
+          "leereAntwortFuer": [
+            "org_memberships"
+          ],
+          "hinweis": "Die Zugehoerigkeitsabfrage wird wie eine echte Datenbank beantwortet — ein fremder Nutzer ist kein Mitglied. Ohne das gewaehrt der Spion Zugriff und die Probe pruefte sich selbst."
+        },
+        {
+          "methode": "patch",
+          "pfad": "/data-governance/requests/:id/complete",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "gegenprobe": false,
+          "leereAntwortFuer": [],
+          "hinweis": "Befund E-18: 'UPDATE data_governance_requests ... WHERE id = $1 AND org_id = $4' — die Org-Bindung fehlte, ein Org-Admin konnte die Betroffenenanfrage einer fremden Organisation als erledigt schliessen. Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "schreibenGrenztSelbst": true,
+          "anfrage": {
+            "body": {
+              "result_summary": {
+                "erledigt": true
+              }
+            }
+          }
+        }
+      ],
+      "hinweis": "Datenschutz-Werkzeuge, DREI geschlossene Befunde: E-17 (fremden Nutzer anonymisieren), E-18 (Betroffenenanfrage einer fremden Org schliessen) und E-20 (VOLLEXPORT eines fremden Nutzers). Alle drei binden jetzt ueber die Organisation des Aufrufers; die Selbstauskunft laeuft ueber /me und bleibt unberuehrt."
+    },
+    {
+      "datei": "dealFeedback.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/deal-feedback/org/:orgId",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Die Rueckmelde-Uebersicht einer Organisation ist eine AGGREGATION fuer die Gegenseite — wie die Bewertungskarte in requests.js. Sie ueber eine fremde Kennung abzurufen ist der Zweck: ohne sie kann niemand einen Partner beurteilen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/deal-feedback/:id/reply",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "anfrage": {
+            "body": {
+              "reply": "Danke fuer die Rueckmeldung."
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "author_user_id",
+            "target_user_id"
+          ],
+          "erwartung": "zero-state",
+          "gegenprobe": false,
+          "hinweis": "Antworten darf nur, wer an der Rueckmeldung beteiligt ist; der Dienst entscheidet."
+        }
+      ],
+      "hinweis": "Rueckmeldungen zu Abschluessen sind gegenseitig: man bewertet die GEGENSEITE, und die Zusammenfassung einer Organisation ist im Marktplatz die Grundlage der Partnerwahl."
+    },
+    {
+      "datei": "internalControlCenter.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/internal-control/platform/organizations/:orgId",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Interne Plattform-Steuerung, org-uebergreifend per Bauart: sie soll gerade ueber alle Organisationen blicken. Getragen wird sie von den `internal.*`-Berechtigungen, nicht von einer Mandantengrenze."
+        },
+        {
+          "methode": "get",
+          "pfad": "/internal-control/platform/product-insights/funnels/:key",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Interne Plattform-Steuerung, org-uebergreifend per Bauart: sie soll gerade ueber alle Organisationen blicken. Getragen wird sie von den `internal.*`-Berechtigungen, nicht von einer Mandantengrenze."
+        },
+        {
+          "methode": "post",
+          "pfad": "/internal-control/support/users/:userId/resend-verification",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Interne Plattform-Steuerung, org-uebergreifend per Bauart: sie soll gerade ueber alle Organisationen blicken. Getragen wird sie von den `internal.*`-Berechtigungen, nicht von einer Mandantengrenze."
+        }
+      ],
+      "hinweis": "Interne Steuerung von TempConnect: org-uebergreifend PER BAUART. Die Flaeche haengt an `guard('internal.*')`-Berechtigungen, die keine Kundenorganisation vergeben kann — eine Org-Grenze waere hier falsch."
+    },
+    {
+      "datei": "listings.js",
+      "routen": [
+        {
+          "methode": "put",
+          "pfad": "/listings/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "owner_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": false,
+          "gegenprobe": false,
+          "hinweis": "'UPDATE listings ... WHERE id=$9 AND owner_id=$10' (listingService.js:66) ist der bindende Schritt. Die anschliessende Geo-Nachfuehrung (`updateListingGeo`, listingService.js:74) traegt keine Besitzkennung mehr — sie wird aber NUR erreicht, wenn der bindende Schritt eine Zeile geliefert hat. Geprueft wird deshalb die REIHENFOLGE: vor der Klaerung darf nichts geschrieben werden.",
+          "anfrage": {
+            "body": {
+              "category": "Lager",
+              "region": "Koeln",
+              "qty": 5,
+              "start_date": "2026-09-01",
+              "city": "Koeln"
+            }
+          },
+          "schreibenNachGrenze": true
+        },
+        {
+          "methode": "delete",
+          "pfad": "/listings/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "owner_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "gegenprobe": false,
+          "hinweis": "'UPDATE listings ... WHERE id=$9 AND owner_id=$10' (listingService.js:66). Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "anfrage": {
+            "body": {
+              "category": "Lager",
+              "region": "Koeln",
+              "qty": 5,
+              "start_date": "2026-09-01",
+              "city": "Koeln"
+            }
+          }
+        }
+      ],
+      "hinweis": "Anzeigen gehoeren einem NUTZER: 'WHERE id=$1 AND owner_id=$2'."
+    },
+    {
+      "datei": "me.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/me/entitlements/feature/:key",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Der Platzhalter ist ein MERKMALSSCHLUESSEL ('worker_module', 'sla_access'), keine Ressourcenkennung. Die Antwort betrifft ausschliesslich die eigene Organisation des Anfragenden — es gibt hier keine fremde Zeile, die man treffen koennte."
+        }
+      ],
+      "hinweis": "Eigene Sicht: der Platzhalter ist ein Merkmalsschluessel, keine fremde Zeile."
+    },
+    {
+      "datei": "mentoring.js",
+      "routen": [
+        {
+          "methode": "post",
+          "pfad": "/mentoring/sessions/:id/complete",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "mentor_id",
+            "mentee_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "gegenprobe": false,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck."
+        },
+        {
+          "methode": "post",
+          "pfad": "/mentoring/sessions/:id/cancel",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "mentor_id",
+            "mentee_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenGrenztSelbst": true,
+          "gegenprobe": false,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck."
+        },
+        {
+          "methode": "post",
+          "pfad": "/mentoring/sessions/:id/feedback",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "mentor_id",
+            "mentee_id"
+          ],
+          "erwartung": "zero-state",
+          "orgImSql": false,
+          "schreibenGrenztSelbst": false,
+          "gegenprobe": false,
+          "hinweis": "Befund E-16: wer weder Mentor noch Mentee ist, bekommt jetzt null — vorher galt er als Mentee und schrieb auf eine fremde Sitzung.",
+          "anfrage": {
+            "body": {
+              "feedback": "Sehr hilfreich",
+              "rating": 5
+            }
+          }
+        }
+      ],
+      "hinweis": "Mentoring-Sitzungen binden ueber die Beteiligten: 'WHERE id = $1 AND (mentor_id = $2 OR mentee_id = $2)'. Seit Befund E-16 gilt das auch fuer die Rueckmeldung — vorher galt jeder Unbeteiligte stillschweigend als Mentee."
+    },
+    {
+      "datei": "offerAssets.js",
+      "routen": [
+        {
+          "methode": "post",
+          "pfad": "/offer-assets/:offerId/upload",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "erwartung": "zero-state",
+          "gegenprobe": false,
+          "leereAntwortFuer": [
+            "org_memberships"
+          ],
+          "traegerspalten": [
+            "supplier_company_id",
+            "requester_company_id"
+          ],
+          "hinweis": "Die Mitgliedschaftsabfrage wird wie eine echte Datenbank beantwortet — sonst gewaehrt der Spion Zugriff."
+        },
+        {
+          "methode": "get",
+          "pfad": "/offer-assets/:offerId",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "erwartung": "zero-state",
+          "gegenprobe": false,
+          "leereAntwortFuer": [
+            "org_memberships"
+          ],
+          "traegerspalten": [
+            "supplier_company_id",
+            "requester_company_id"
+          ],
+          "hinweis": "Die Mitgliedschaftsabfrage wird wie eine echte Datenbank beantwortet — sonst gewaehrt der Spion Zugriff."
+        },
+        {
+          "methode": "delete",
+          "pfad": "/offer-assets/:assetId",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "erwartung": "zero-state",
+          "gegenprobe": false,
+          "leereAntwortFuer": [
+            "org_memberships"
+          ],
+          "traegerspalten": [
+            "supplier_company_id",
+            "requester_company_id"
+          ],
+          "hinweis": "Die Mitgliedschaftsabfrage wird wie eine echte Datenbank beantwortet — sonst gewaehrt der Spion Zugriff."
+        }
+      ],
+      "hinweis": "Angebots-Anhaenge: nutzer-gebunden ueber `canAccessAsOwner`. Seit Befund E-11 (geschlossen 2026-08-20) traegt dessen Org-Zweig wirklich: eine Kollegin mit aktiver Mitgliedschaft in DERSELBEN Organisation darf handeln, Arbeiter (`role_key = 'worker'`) ausdruecklich nicht."
+    },
+    {
+      "datei": "preferredVendors.js",
+      "routen": [
+        {
+          "methode": "delete",
+          "pfad": "/preferred-vendors/:supplierOrgId",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "gegenprobe": false,
+          "hinweis": "Die Org steht in der Leseabfrage, der Lieferant wird danach in JS gesucht (preferredVendors.js:176-178). Belegt wird die Grenze deshalb an der ANTWORT: sie darf die fremde Kennung nicht enthalten.",
+          "erwartung": "zero-state"
+        }
+      ],
+      "hinweis": "Bevorzugte Lieferanten gehoeren der KUNDEN-Organisation. Gelesen wird org-gebunden (`listForClient(pool, req.orgId, ...)`), der Lieferant aus dem Pfad wird erst danach in JS gesucht — eine fremde Kennung findet nichts."
+    },
+    {
+      "datei": "strategicCollaboration.js",
+      "routen": [
+        {
+          "methode": "patch",
+          "pfad": "/strategic-collaboration/requests/:id/status",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "gegenprobe": false,
+          "anfrage": {
+            "body": {
+              "status": "rueckfrage_offen"
+            }
+          },
+          "hinweis": "Der Statuswechsel traegt seine Grenze selbst: 'UPDATE ... WHERE id = $1 AND (requester_org_id = $2 OR target_org_id = $2)'. Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "reqZusatz": {
+            "orgRole": "owner"
+          },
+          "traegerspalten": [
+            "requester_org_id",
+            "target_org_id"
+          ],
+          "schreibenGrenztSelbst": true
+        }
+      ],
+      "hinweis": "Strategische Kooperationsanfragen sind ZWEISEITIG: '(requester_org_id = $2 OR target_org_id = $2)' (strategicCollaborationService.js:146). Davor steht ein Rollentor (`isOrgBackofficeRole`), das die Probe mitbringen muss — sonst endet sie bei 403 und erreicht das SQL nie."
+    },
+    {
+      "datei": "subscriptionDocuments.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/subscription-documents/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "403",
+          "gegenprobe": false,
+          "hinweis": "Der Handler vergleicht row.org_id gegen req.orgId und antwortet mit 403 FORBIDDEN_CROSS_ORG. Beim Download steht die Pruefung VOR markDownloaded — ein fremder Zugriff hinterlaesst keine Spur an fremden Daten."
+        },
+        {
+          "methode": "get",
+          "pfad": "/subscription-documents/:id/download",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "403",
+          "gegenprobe": false,
+          "hinweis": "Der Handler vergleicht row.org_id gegen req.orgId und antwortet mit 403 FORBIDDEN_CROSS_ORG. Beim Download steht die Pruefung VOR markDownloaded — ein fremder Zugriff hinterlaesst keine Spur an fremden Daten."
+        },
+        {
+          "methode": "get",
+          "pfad": "/subscription-documents/:id/public-download",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "AUSDRUECKLICH OEFFENTLICH ('public-download' im Pfad): der Weg wird mit einem Token aufgerufen, damit ein Kunde sein Angebot oder seine Rechnung ohne Anmeldung oeffnen kann. Das Geheimnis IST die Berechtigung; eine Org-Grenze gaebe es hier nicht zu pruefen."
+        }
+      ],
+      "hinweis": "Abo-Dokumente pruefen die Org ausdruecklich im Handler: '!row.org_id || row.org_id !== orgId -> 403 FORBIDDEN_CROSS_ORG' (subscriptionDocuments.js:60, :74). Der oeffentliche Download laeuft dagegen ueber ein Geheimnis statt ueber eine Org-Kennung."
+    },
+    {
+      "datei": "supplierPools.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/supplier-pools/distribution/:requisitionId",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "gegenprobe": false,
+          "hinweis": "Befund E-19: 'JOIN requisitions r ON r.id = ds.requisition_id AND r.org_id = $2'. Der Schreibweg (advance) haengt am selben Plan — ohne Treffer keine aktive Stufe, also kein Schreibvorgang."
+        },
+        {
+          "methode": "post",
+          "pfad": "/supplier-pools/distribution/:requisitionId/advance",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "gegenprobe": false,
+          "hinweis": "Befund E-19: 'JOIN requisitions r ON r.id = ds.requisition_id AND r.org_id = $2'. Der Schreibweg (advance) haengt am selben Plan — ohne Treffer keine aktive Stufe, also kein Schreibvorgang."
+        },
+        {
+          "methode": "get",
+          "pfad": "/supplier-pools/distribution/:requisitionId/eligible",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "gegenprobe": false,
+          "hinweis": "Befund E-19: 'JOIN requisitions r ON r.id = ds.requisition_id AND r.org_id = $2'. Der Schreibweg (advance) haengt am selben Plan — ohne Treffer keine aktive Stufe, also kein Schreibvorgang."
+        }
+      ],
+      "hinweis": "Lieferantenpools und Verteilung. Befund E-19 ist geschlossen: der Verteilplan wurde allein ueber die Ausschreibungs-Kennung geladen — jeder Angemeldete konnte lesen, an WELCHE Lieferanten eine fremde Ausschreibung in welcher Reihenfolge geht, und die Verteilung sogar weiterschalten. Die Bindung laeuft ueber `requisitions.org_id`."
+    },
+    {
+      "datei": "support.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/support/cases/:id",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Support-Flaeche: org-uebergreifend PER BAUART — die Faelle aller Organisationen laufen hier zusammen und werden von Support-Kraeften der Plattform bearbeitet. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche vom Torwaechter 'supportAuth', der EINMAL auf dem Praefix montiert ist (support.js:664) und damit jede Route darunter deckt — die strengere Bauart, weil man ihn auf einer neuen Route nicht vergessen kann. Der Zuschnitt dahinter kommt aus dem Agenten-Datensatz (buildScope, support.js:160): erlaubte Warteschlangen, Fallarten und data_scope (assigned_only / vendor_scoped)."
+        },
+        {
+          "methode": "post",
+          "pfad": "/support/cases/:id/action",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Support-Flaeche: org-uebergreifend PER BAUART — die Faelle aller Organisationen laufen hier zusammen und werden von Support-Kraeften der Plattform bearbeitet. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche vom Torwaechter 'supportAuth', der EINMAL auf dem Praefix montiert ist (support.js:664) und damit jede Route darunter deckt — die strengere Bauart, weil man ihn auf einer neuen Route nicht vergessen kann. Der Zuschnitt dahinter kommt aus dem Agenten-Datensatz (buildScope, support.js:160): erlaubte Warteschlangen, Fallarten und data_scope (assigned_only / vendor_scoped)."
+        }
+      ],
+      "hinweis": "Der Support ist KEINE Mandantenflaeche: die Faelle aller Organisationen laufen hier zusammen, bearbeitet von Support-Kraeften der Plattform. Die Eintrittsbedingung ist `supportAuth`, montiert einmal auf dem Praefix (support.js:664) — die strengere Bauart, weil man sie auf einer neuen Route nicht vergessen kann. Der Zuschnitt DAHINTER kommt aus dem Agenten-Datensatz (`buildScope`, support.js:160): erlaubte Warteschlangen, Fallarten und `data_scope` (assigned_only / vendor_scoped). Eine Org-Grenze waere hier falsch.",
+      "torwaechter": {
+        "middleware": "supportAuth",
+        "erwarteterStatus": 403,
+        "alsPraefix": true,
+        "ohneVoraussetzung": {
+          "supportAgent": null,
+          "session": {
+            "userId": "user-alpha-001"
+          }
+        }
+      }
+    },
+    {
+      "datei": "matching.js",
+      "hinweis": "Matching-Wege. Befund E-14 ist geschlossen: `findMatches` und `matchCapacityToRequisitions` luden ihre Quelle mit 'WHERE id = $1' und sonst nichts — jeder Angemeldete mit `requisition.view` konnte die Engine gegen einen FREMDEN Bedarf laufen lassen und erfuhr, dass es ihn gibt und welche Lieferanten zu ihm passen; `logMatch` schrieb den fremden Vorgang zusaetzlich unter der EIGENEN Org ins ML-Protokoll. Die Geschwister-Route /matching/instant/:requisitionId machte es von Anfang an richtig. Die Regel musste nicht erfunden werden: ein Bedarf ist genau dann sichtbar, wenn der Marktplatz ihn zeigt (offen, freie Plaetze, kein Ursprungsauftrag, nicht abgelaufen) — 'SELECT * WHERE id = $1' erreichte dagegen auch 'closed', 'cancelled' und 'fulfilled', war also die Hintertuer zu genau den Daten, die die Sichtbarkeitsregel schuetzt. Der Weg /matching/worker/:id ist mit Befund P1-19 ENTFERNT: er las 'FROM workers', eine Tabelle, die keine Migration je angelegt hat, und endete seit jeher in 500. Dass er nicht zurueckkehrt, halten drei Zusicherungen fest (matchingEngine.coverage, rbac-hardening, sqlSchemaWaechter).",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/matching/demand/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "erwartung": "403",
+          "gegenprobe": false,
+          "hinweis": "Befund E-14: Klaerung vor jeder Arbeit, 403 bei fremdem, nicht ausgespieltem Bedarf. Die Grenze ist hier KEINE reine Org-Grenze, sondern die Sichtbarkeitsregel des Marktplatzes — dieselbe, die `capacityExchangeService` fuehrt. Der Spion antwortet wie eine echte Datenbank: die fremde Zeile ist weder eigen noch marktplatz-sichtbar.",
+          "zeile": {
+            "status": "closed",
+            "offene_plaetze": 0,
+            "hat_ursprungsauftrag": false,
+            "end_date": null
+          }
+        },
+        {
+          "methode": "get",
+          "pfad": "/matching/supply/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "403",
+          "gegenprobe": false,
+          "hinweis": "Befund E-14: dieselbe Klaerung fuer das Angebot (aktiv und nicht privat). Die Grenze ist hier KEINE reine Org-Grenze, sondern die Sichtbarkeitsregel des Marktplatzes — dieselbe, die `capacityExchangeService` fuehrt. Der Spion antwortet wie eine echte Datenbank: die fremde Zeile ist weder eigen noch marktplatz-sichtbar.",
+          "zeile": {
+            "status": "expired",
+            "visibility_status": "private",
+            "org_id": null
+          }
+        },
+        {
+          "methode": "get",
+          "pfad": "/matching/instant/:requisitionId",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "403",
+          "gegenprobe": false,
+          "hinweis": "Die Route, die es von Anfang an richtig machte: sie reicht req.orgId durch und beantwortet ORG_BOUNDARY_VIOLATION mit 403. Sie war die Vorlage fuer die Reparatur der drei anderen."
+        },
+        {
+          "methode": "get",
+          "pfad": "/matching/smart-explain/:supplierId",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Das Smart-Rank-Profil eines Lieferanten ist eine AGGREGATION fuer die Gegenseite — Erfuellungsquote, SLA-Treue, Rollen-Erfahrung, Aktualitaet — und damit dieselbe Klasse wie die Bewertungskarte in requests.js: die Grundlage der Lieferantenauswahl. Sie ueber eine fremde Kennung abzurufen ist der Zweck, nicht der Fehler. Sie enthaelt keine Einzelvorgaenge, nur verdichtete Kennzahlen; ohne sie kann im Marktplatz niemand einen Lieferanten beurteilen."
+        }
+      ]
     }
   ],
   "nichtAbgedeckt": {
-    "analytics.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "auth.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "capacities.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "companyProfile.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "dataGovernance.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "dealFeedback.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "emergency.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "integrations.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "internalControlCenter.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "listings.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "me.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "mentoring.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "notifications.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "offerAssets.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "preferredVendors.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "productReleases.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "profileBounties.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "profileVisibility.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "ratings.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "reputation.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "requests.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "search.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "slaSearchJobs.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "sso.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "strategicCollaboration.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "subscriptionDocuments.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "subscriptionRequests.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "supplierPools.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "support.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "occ/audit.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
-    "occ/automation.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
-    "occ/bootstrap.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
-    "occ/dataExplorer.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
-    "occ/decisionsRequests.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
-    "occ/executive.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
-    "occ/infrastructure.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
-    "occ/operations.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
-    "occ/platform.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
-    "occ/revenue.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
-    "occ/risk.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
-    "occ/support.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
-    "occ/warp.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
-    "occ/_helpers.js": "Helfermodul ohne Router-Fabrik — enthaelt keine Routen.",
-    "matching.js": "ZURUECKGESTELLT wegen Befund E-14 (offene Owner-Frage, kein stiller Patch): alle vier Platzhalter-Routen rufen die Matching-Engine NUR mit der Pfad-Kennung, ohne Org — `engine.findMatches(pool, req.params.id, ...)` (matching.js:25), ebenso matchCapacityToRequisitions (:65), matchWorkerToAssignments (:90) und smart-explain (:178). `findMatches` laedt 'SELECT * FROM demand_requests WHERE id = $1' (matchingEngine.js:353) ohne Bindung. Die Geschwister-Route /matching/instant/:requisitionId (:144-151) macht es anders: sie reicht req.orgId durch und mappt ORG_BOUNDARY_VIOLATION auf 403. Damit kann ein Angemeldeter mit requisition.view die Engine gegen eine FREMDE Bedarfsmeldung laufen lassen und erfaehrt, dass es sie gibt und wonach sie sucht; zusaetzlich schreibt logMatch den fremden Vorgang mit der EIGENEN org_id ins ML-Protokoll (matching.js:38). WARUM NICHT AUTONOM REPARIERT: Bedarfsmeldungen werden im Marktplatz bewusst an Lieferanten ausgespielt — ob dieser Weg offen sein SOLL, ist eine Produktentscheidung, keine Ableitung. Und demand_requests gehoert einem NUTZER (requester_company_id -> users), nicht einer Org, was die Frage mit D-M5/E-11 verbindet."
+    "occ/audit.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
+    "occ/automation.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
+    "occ/bootstrap.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
+    "occ/dataExplorer.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
+    "occ/decisionsRequests.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
+    "occ/executive.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
+    "occ/infrastructure.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
+    "occ/operations.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
+    "occ/platform.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
+    "occ/revenue.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
+    "occ/risk.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
+    "occ/support.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
+    "occ/warp.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
+    "occ/_helpers.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route."
   }
 }

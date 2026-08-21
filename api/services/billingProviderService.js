@@ -129,6 +129,10 @@ export function mapStripeEvent(event = {}) {
         // liegenden subscription_request (Slice B/C). Fuer BASIS/PLUS/PRO bleibt
         // dies null → der bestehende Aktivierungspfad ist unveraendert.
         request_id: md.request_id || null,
+        // Befund P1-22: Guthabenkauf. Steht die Kennung im Metadatensatz, war
+        // es kein Abo-Checkout, sondern ein Einmalkauf von Guthaben — der
+        // Webhook schreibt dann gut statt zu aktivieren.
+        credit_package_id: md.credit_package_id || null,
         // Bezahlte Betraege (in Cent) fuer den Manipulationsschutz: der Webhook
         // verifiziert sie gegen den server-eingefrorenen Preis, bevor aktiviert
         // wird. amount_subtotal = netto (ohne Steuer); amount_total inkl. Steuer.

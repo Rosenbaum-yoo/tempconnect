@@ -8,6 +8,20 @@ import { withTransaction } from "../utils/transaction.js";
 import { createServiceLogger } from "../utils/logger.js";
 import { assertTransition, TransitionError } from "./stateMachine.js";
 import * as capacityExchangeService from "./capacityExchangeService.js";
+/* Entscheidung D-M5 (Owner, 2026-08-20): die Grenze dieser Flaeche ist der
+ * NUTZER (`supplier_company_id` / `requester_company_id` sind Fremdschluessel
+ * auf `users`), und sie wurde bis hierher als blosse Namensgleichheit geprueft.
+ * Damit sah eine Kollegin derselben Firma die Vorgaenge ihres Teams nicht — bei
+ * Urlaub oder Personalwechsel war der Deal fuer die Firma unerreichbar.
+ *
+ * `canAccessAsOwner` beantwortet genau diese Frage und traegt sie seit Befund
+ * E-11 wirklich: Eigentuemer ODER aktives Mitglied DERSELBEN Organisation,
+ * Arbeiter ausdruecklich nicht. Der direkte Vergleich bleibt der Kurzschluss,
+ * der haeufigste Fall kostet also weiterhin keine Abfrage.
+ *
+ * In `updateOfferStatus` laeuft die Pruefung auf dem `client` der Transaktion,
+ * nicht auf dem Pool — sonst laese sie an der eigenen Transaktion vorbei. */
+import { canAccessAsOwner } from "../utils/ownerCheck.js";
 
 const log = createServiceLogger("marketplace");
 
@@ -840,10 +854,10 @@ export async function updateOfferStatus(pool, offerId, newStatus, userId) {
 
     // Actor guards: who is allowed to trigger this transition?
     if (newStatus === "sent" || newStatus === "withdrawn") {
-      if (offer.supplier_company_id !== userId) return { error: "FORBIDDEN" };
+      if (!await canAccessAsOwner(client, offer.supplier_company_id, userId)) return { error: "FORBIDDEN" };
     }
     if (["accepted", "rejected", "countered"].includes(newStatus)) {
-      if (offer.requester_company_id !== userId) return { error: "FORBIDDEN" };
+      if (!await canAccessAsOwner(client, offer.requester_company_id, userId)) return { error: "FORBIDDEN" };
     }
 
     if (newStatus === "accepted" && offer.capacity_post_id) {
@@ -897,7 +911,7 @@ export function acceptOffer(pool, offerId, userId) {
 export async function counterOffer(pool, offerId, userId, payload) {
   const offer = await getOfferById(pool, offerId);
   if (!offer) return { error: "NOT_FOUND" };
-  if (offer.requester_company_id !== userId) return { error: "FORBIDDEN" };
+  if (!await canAccessAsOwner(pool, offer.requester_company_id, userId)) return { error: "FORBIDDEN" };
   if (offer.status !== "sent") return { error: "INVALID_TRANSITION", current: offer.status, requested: "countered" };
   const { rows } = await pool.query(
     `UPDATE offers SET status = 'countered', notes = COALESCE($2, notes), updated_at = NOW() WHERE id = $1 RETURNING *`,
@@ -910,7 +924,7 @@ export async function counterOffer(pool, offerId, userId, payload) {
 export async function withdrawOffer(pool, offerId, userId) {
   const offer = await getOfferById(pool, offerId);
   if (!offer) return { error: "NOT_FOUND" };
-  if (offer.supplier_company_id !== userId) return { error: "FORBIDDEN" };
+  if (!await canAccessAsOwner(pool, offer.supplier_company_id, userId)) return { error: "FORBIDDEN" };
   if (!["draft", "sent", "countered"].includes(offer.status)) {
     return { error: "INVALID_TRANSITION", current: offer.status, requested: "withdrawn" };
   }

@@ -21,6 +21,23 @@ Selbstprobe), volle Suite **8804/0**. Vier Mutationen gegen den echten Bestand
 gefahren: Handler-Mutationen macht der Wächter rot, SQL-Mutationen die
 Service-Tests.
 
+### 2026-08-20 — E-15/E-16/E-17: drei weitere Cross-Org-Schreibzugriffe geschlossen
+
+**Status:** erledigt · **Fakt:** (E-17, der schwerste) `data_governance.anonymize`
+halten owner/admin JEDER Kundenorganisation (rbacService.js:121), und
+`anonymizeUser` prueste die Organisation des Ziels nie — ein Org-Inhaber konnte
+das Konto eines FREMDEN Nutzers unwiderruflich anonymisieren.
+(E-15) `deleteSearchJob` loeschte Treffer, Ereignisse und Meldungen OHNE Bindung
+und prueste den Besitzer erst in der vierten Anweisung — Datenverlust bei einem
+Dritten, mit 404 quittiert.
+(E-16) `addFeedback` behandelte jeden Unbeteiligten als Mentee und schrieb
+Bewertung samt Note auf eine fremde Sitzung.
+**Aktion:** alle drei an der Wurzel geschlossen (Zugehoerigkeit bzw. Beteiligung
+zuerst, Bindung im SQL). E-17 zusaetzlich auf dem /check-Weg, der sonst die
+Existenz und die Blocker eines fremden Nutzers verraten haette.
+**Verify:** `orgGrenzeLuecken.test.js` Abschnitte E-15/E-16/E-17, je mit
+Gegenprobe, dass der eigene Weg weiterhin funktioniert.
+
 ### 2026-08-19 — E-13: derselbe Fehler ein zweites Mal, in einer anderen Datei
 
 **Status:** erledigt · **Fakt:** `getStaffingChoiceSet`
@@ -53,9 +70,10 @@ Gegenprobe, dass die Neuberechnung fuer die eigene Org weiterhin laeuft.
 Architekturbefunde: die ersten beiden Dateien sind **nutzer-** statt
 org-gebunden (D-M5), das Arbeiterportal und das Staff Control Center haben je
 *eine* Eintrittsbedingung statt einer Grenze je Route (neue Wächter-Schicht B2),
-und `canAccessAsOwner` funktioniert nicht (P1-17).
-**Verify:** `api/test/orgGrenzenWaechter.test.js` 185/185, volle Suite 8927/0.
-Abdeckung 15 von 82 Route-Dateien, 137 verhaltensgeprüft, 56 belegte Ausnahmen.
+und `canAccessAsOwner` funktionierte nicht (P1-17, seit dem 2026-08-20 behoben).
+**Verify:** `api/test/orgGrenzenWaechter.test.js` 457/457, volle Suite 9210/0.
+Abdeckung **82 von 82** Route-Dateien, 257 verhaltensgeprüft, 123 belegte
+Ausnahmen — dazu Schicht B3 für Flächen ganz ohne Platzhalter-Route (OCC).
 
 ### 2026-08-19 — Betriebswissen: gemessen gegen die laufende Datenbank
 
@@ -296,51 +314,248 @@ unvollständig ist, ein Passwort fehlt oder der Vorgang vier Stunden dauert.
 - Tier-2 erledigt (2026-06-05) via `126_rls_forward_repair.sql`: NICHT-transaktional, EIN per-`to_regclass` abgesicherter `DO`-Block pro Tabelle (requisitions/timesheets/invoices/org_memberships/compliance_documents/subscription_requests/commercial_offers/audit_log; vendor_pool_entries als out-of-scope-Guard) — CREATE OR REPLACE der Helfer `current_org_id()`/`is_staff_context()`, dann je Tabelle ENABLE RLS + DROP der IS-NULL-Wildcards + DROP/CREATE same_org & staff_bypass (USING-Klauseln 1:1 aus 031/116), FORCE RLS nur auf req/ts/inv. Idempotent (DROP IF EXISTS + identisches CREATE), resilient (ein fehlendes Objekt ueberspringt nur SEINEN Block, reisst nie den Backstop mit), auf Bestands-DBs erstmals wirksam, auf frischen DBs folgenloser No-Op. `subscriptions`-RLS-Exclusion bestaetigt (user-skaliert via user_id, kein org_id; eine Membership-Bruecke wuerde persoenliche Billing-Daten cross-org leaken — Schutz bleibt App-Layer). **AKTIVIERUNGS-HINWEIS:** 126 schaltet Deny-by-Default + FORCE RLS beim NAECHSTEN migrate-Lauf gegen Bestands-/Managed-DBs scharf. Lokal ist `tempconnect` Superuser → RLS-inert (kein Breakage); auf Managed-DB (Nicht-Superuser-App-User) wird der Backstop real wirksam = gewollter Mandanten-Schutz.
 ## P1 - Vor Pilotkunde (Summe 2-3 Personentage)
 
-### P1-18 — Matching-Engine laeuft ohne Org-Bindung (4 Routen)
+### ~~P1-19 — `GET /matching/worker/:id` liest eine Tabelle, die es nicht gibt~~ ✅ ERLEDIGT (2026-08-20)
 
-**Status:** offen · **Fakt:** `matching.js` ruft die Engine auf vier Routen nur
-mit der Pfad-Kennung (`:25`, `:65`, `:90`, `:178`); `findMatches` laedt
-`SELECT * FROM demand_requests WHERE id = $1` ohne Bindung
-(`matchingEngine.js:353`). Die Geschwister-Route `/matching/instant/:requisitionId`
-(`:144-151`) reicht dagegen `req.orgId` durch und mappt 403. Wer angemeldet ist
-und `requisition.view` hat, kann die Engine gegen eine fremde Bedarfsmeldung
-laufen lassen; `logMatch` schreibt den fremden Vorgang zudem mit der eigenen
-org_id ins ML-Protokoll.
-**Aktion:** Owner entscheidet, denn es ist eine Produktfrage: Bedarfsmeldungen
-werden im Marktplatz bewusst an Lieferanten ausgespielt. Soll dieser Weg offen
-sein? Bei "nein": die Org in der Route pruefen wie bei /matching/instant. Bei
-"ja": im Register als bewusste Ausnahme festschreiben, damit es niemand fuer ein
-Versehen haelt. Haengt mit D-M5 und P1-17 zusammen (demand_requests gehoert
-einem NUTZER, nicht einer Org).
-**Aufwand:** Entscheidung 15 Minuten, Umsetzung 2 Stunden ·
-**Verify:** `orgGrenzenWaechter` mit matching.js im abgedeckten Satz.
+**Entfernt, nicht gebaut.** Ausschlaggebend war, dass das Projekt die Frage
+längst beantwortet hatte: der SQL-Schema-Wächter führte den Fall selbst als
+„workers: Altbestand. Die Arbeiterdaten liegen in `worker_profiles`." Es war kein
+unfertiges Feature, sondern ein Rest. Auf `worker_profiles` zu bauen wäre ein
+Feature gewesen — dort gibt es weder `role` noch Koordinaten, und die Bewertung
+der Engine ruht auf genau diesen beiden.
 
-### P1-17 — `canAccessAsOwner` hat nie funktioniert (10 Aufrufstellen)
+Mit der Funktion fiel `getReputationScore` weg (kein anderer Aufrufer), und mit
+beiden drei Einträge der Ausnahmeliste des Schema-Wächters — den er **selbst
+eingefordert** hat, weil er Einträge meldet, die nicht mehr auftreten. Das ist
+der Beweis, der bei P1-17 fehlte.
 
-**Status:** offen · **Fakt:** `utils/ownerCheck.js:28-33` soll „direkter Besitzer
-ODER Mitglied derselben Organisation" prüfen. Zwei Fehler: (1) die Abfrage nennt
-`org_memberships.status` — diese Spalte existiert nicht, sie heißt `is_active`;
-gegen die laufende Datenbank ausgeführt: `column "status" does not exist`.
-(2) Als `org_id` wird eine **Nutzer**-Kennung übergeben
-(`demand_requests.requester_company_id` → `users`), verglichen mit einer
-**Org**-Kennung (`org_memberships.org_id` → `organizations`) — selbst mit
-richtiger Spalte könnte das nie treffen. Der `catch` darunter macht daraus
-stillschweigend `false`. Wirkung an **10 Aufrufstellen** (`emergency.js`,
-`marketplace.js`, `offerAssets.js`, `slaSearchJobs.js`): die Funktion ist auf
-„nur der direkte Besitzer" degradiert, bei jedem Aufruf mit einer wirkungslosen
-Datenbankrunde. `offerAssets.js:127` trägt sogar den Kommentar
-„canAccessAsOwner beruecksichtigt auch Organisations-Member".
-**Kein Leck** — zu streng, nicht zu lasch.
-**Aktion:** Owner entscheidet, denn die Reparatur **weitet Zugriff aus**: soll
-ein Kollege derselben Organisation die Einträge seines Teams sehen und
-bearbeiten? Dieselbe Frage stellt sich bei D-M4 (Requisitions, `created_by`) und
-D-M5 (capacityExchange/marketplace, nutzergebunden) — **eine Entscheidung für
-drei Stellen**. Bei „ja": Besitzer-Nutzer → Org auflösen, dann Mitgliedschaft
-prüfen, Spalte `is_active`. Bei „nein": den toten Zweig entfernen, damit der
-Kommentar nicht weiter etwas verspricht, das nicht gilt.
-**Aufwand:** Entscheidung 15 Minuten, Umsetzung 0,5 Tage ·
-**Verify:** ein Test, der die Org-Kollegin auf einen fremd angelegten Bedarf
-loslaesst — heute rot in der Absicht, nach der Entscheidung eindeutig.
+Die neun Coverage-Tests wurden nicht gelöscht, sondern umgestellt auf die Frage,
+die ab jetzt zählt: kommt der tote Weg zurück? Vier Zusicherungen antworten
+darauf, gemessen an einer simulierten Rückkehr — alle vier werden rot.
+
+### ~~P1-20 — Statuswechsel einer Ausschreibung ohne Berechtigungsprüfung~~ ✅ ERLEDIGT (2026-08-20)
+
+**Es war keine Produktfrage.** `requisition.cancel` steht seit jeher im
+Berechtigungskatalog (`rbacService.js:30`) — mit einer eigenen, engeren
+Rollenliste — und war an **keiner einzigen Stelle** verdrahtet. Die Wache
+existierte, sie hing nur an nichts.
+
+Dazu kam: `requireScope("write:requisitions")` sieht wie eine Prüfung aus, lässt
+aber **jede Sitzung** durch (`apiKeyAuth.js:153`) — es gilt nur für API-Keys.
+Drei Routen standen damit offen: `/transition`, `/submit`, `/comment`.
+Geschlossen mit `requisition.edit` (Statuswechsel, Einreichen),
+`requisition.cancel` zusätzlich für `CANCELLED`, und bewusst nur
+`requisition.view` fürs Kommentieren.
+
+**Vierte anonyme Wache dieser Welle:** `requirePermission` gab eine namenlose
+Closure zurück. Deshalb konnte `rbac-hardening.test.js` nur Middleware **zählen**
+(`assert.ok(names.length >= 2)`) statt sie zu benennen — eine Route ohne Prüfung
+sah aus wie eine mit. `requirePermission` und `requireRole` sind jetzt benannt.
+
+### N-1 — nginx sendet eine gefaltete Kopfzeile ✅ ERLEDIGT (2026-08-21)
+
+**Beim Verdrahtungs-Check der Guthabenseite gefunden.** `nginx/nginx.conf`
+schrieb die Content-Security-Policy über elf Zeilen — lesbar, ordentlich
+eingerückt, und falsch: nginx gibt den Wert **verbatim** aus. Über die Leitung
+ging eine **gefaltete** Kopfzeile (obs-fold).
+
+RFC 7230 §3.2.4 hat diese Faltung abgeschafft: Sender dürfen sie nicht erzeugen,
+Empfänger **müssen** die Nachricht ablehnen. Gemessen: Nodes Standard-HTTP-Parser
+bricht mit *„Parse Error: Invalid header value char"* ab — er kann damit **keine
+einzige** Antwort dieses Servers lesen. Browser und curl sind nachsichtig und
+verdecken es vollständig; aufgefallen ist es erst, als ein Node-Prozess die API
+sprechen sollte.
+
+Behoben (Wert in einer Zeile) und gehalten von `api/test/nginxKopfzeilen.test.js`:
+kein `add_header` darf über mehrere Zeilen laufen. Gemessen: die alte Fassung
+macht den Test rot.
+
+> **Der Fehler sieht wie guter Stil aus.** Wer die CSP das nächste Mal
+> erweitert, bricht sie mit hoher Wahrscheinlichkeit wieder um — und merkt
+> nichts, weil der Browser weiterläuft. Deshalb ein Test und kein Kommentar.
+
+**Scharf geschaltet am 2026-08-21.** Der laufende `tempconnect_frontend` mountet
+`nginx/nginx.conf` aus dem **Haupt-Checkout**; die Korrektur wurde dort auf
+Zuruf nachgezogen (nur diese eine Zeile) und nginx neu geladen. Gemessen: ein
+Aufruf mit Nodes strengem Parser liefert 200/525 Bytes, wo er vorher abbrach.
+Die Änderung liegt im Haupt-Checkout **uncommitted** — beim Merge dieses
+Branches kommt derselbe Inhalt regulär nach.
+
+### ~~P1-21 — Welche Wache gehört auf welche Fläche?~~ ✅ ERLEDIGT (2026-08-21)
+
+**Gebaut:** `api/test/fixtures/wachen.json` + `api/test/wachenWaechter.test.js`,
+nach dem Vorbild des Org-Grenzen-Registers.
+
+**415 schreibende Wege, alle mit Urteil und Begründung:**
+
+| Wachart | Wege | was sie trägt |
+|---|---|---|
+| `berechtigung` | 161 | `requirePermission` / `requireRole` / `requireInternalPermission` |
+| `eigene-daten` | 67 | kein fremdes Ziel erreichbar (`/me`, MFA, eigenes Profil) |
+| `besitz` | 65 | Bindung am Vorgang — vom Org-Grenzen-Wächter **ausgeführt** geprüft |
+| `flaechentor` | 64 | eine Eintrittsbedingung je Fläche (Staff, Arbeiter, Support, Owner, …) |
+| `cron` | 28 | Zeitplan-Geheimnis (`checkCronAuth`) |
+| `oeffentlich` | 19 | bewusst ohne Mandant (Anmeldung, Webhooks, Kostenvorschau) |
+| `inline-rolle` | 10 | Rolle oder Geheimnis im Handler statt als Middleware |
+| `BEFUND` | 1 | P1-22 (siehe unten) |
+
+**Der Wächter fordert ausdrücklich NICHT pauschal `requirePermission`** — das
+wären 254 Falschmeldungen gewesen, und ein Wächter, der falsch meldet, wird
+abgeschaltet. Er verlangt ein *Urteil mit Begründung* und prüft die
+`berechtigung`-Klasse **ausgeführt**: der Aufruf läuft mit einem Rollenschlüssel,
+den der Katalog nicht kennt — wer trotzdem durchkommt, hat keine wirksame
+Prüfung.
+
+Vier Mutationen werden rot: Wache von einer Route nehmen · neue schreibende
+Route ohne Registereintrag · Urteil ohne Begründung · Route auf eine
+schwächere Wachart zurücksetzen.
+
+**Fünfter anonymer Wächter gefunden und benannt:** `requireInternalPermission`
+trägt die gesamte interne Steuerungsfläche und war unsichtbar — ihre Routen
+fielen in der Bestandsaufnahme als „ohne Wache" auf, obwohl sie bewacht sind.
+
+### ~~P1-22 — Guthaben werden ohne Bezahlschritt gutgeschrieben~~ ✅ ERLEDIGT (2026-08-21)
+
+**Owner-Entscheidung: Stripe.** Der Kauf geht jetzt denselben Weg wie die Abos —
+`POST /credits/purchase` erzeugt nur noch eine Checkout-Sitzung, gutgeschrieben
+wird ausschließlich im **signaturgeprüften Webhook**.
+
+Die Aufteilung in zwei Funktionen ist die eigentliche Absicherung: es gibt keine
+Funktion mehr, die „gutschreiben" heißt und ohne Zahlungsnachweis aufrufbar ist.
+
+| | |
+|---|---|
+| `startPurchase` | schlägt nach, was das Paket kostet und enthält — schreibt **nichts** |
+| `grantPurchasedPackage` | nur aus dem Webhook: prüft den **gezahlten Betrag** und die **Einmaligkeit** |
+
+**Ohne Stripe kein Kauf:** ist kein Schlüssel gesetzt, antwortet die Route mit
+**503** statt auf einen kostenlosen Ersatzweg zu fallen. Genau dieser Ersatzweg
+*war* der Befund.
+
+**Migration 186** legt den Riegel dorthin, wo Gleichzeitigkeit entschieden wird:
+ein **eindeutiger Index** auf der Kauf-Referenz (partiell, nur für
+`source = 'purchase'`). Stripe stellt Webhooks *wiederholt* zu — das ist die
+Zusicherung des Anbieters, kein Fehler. Eine Idempotenz aus „erst SELECT, dann
+INSERT" hält zwei gleichzeitige Zustellungen nicht auf.
+
+> **Der Lauf gegen die echte Datenbank hat einen echten Fehler gefangen.** Die
+> erste Fassung schrieb über `earnCredits` gut — und diese Funktion erhöht
+> **zuerst** den Saldo und schreibt **danach** die Buchung. Der Index feuerte
+> also erst, als das Guthaben schon oben war: eine wiederholte Zustellung kam auf
+> den **doppelten** Stand. Die Mock-Tests waren dabei grün. Repariert: die
+> Buchung ist der erste Schritt, und beides läuft in einer Transaktion.
+
+Gemessen (`test/integration/guthabenKauf.flow.test.js`, sechs Prüfungen gegen das
+echte Schema): zu wenig gezahlt → nichts · bezahlt → 500 + 10 % Bonus ·
+Wiederholung → Stand unverändert · **zweiter** Kauf → wird gutgeschrieben · der
+Index ist partiell · `bounty` darf seine Referenz weiterhin wiederholen.
+Dazu neun Mock-Prüfungen in `test/security/guthabenNurGegenZahlung.test.js`, die
+den Stolperdraht ablösen.
+
+**Die Oberfläche steht** (2026-08-21): `frontend/public/credits.html` +
+`js/pages/credits.js` — Stand, Verlauf, Paketauswahl, Weiterleitung zu Stripe
+und die Deutung der Rückkehr. Im Browser gegen den laufenden Stapel geprüft:
+Pakete laden mit echten Preisen (Bonus, Währungsformat, Stückpreis), 401 wird
+als eigener Zustand benannt statt als Ladefehler, der Kaufknopf erholt sich nach
+einem Fehlschlag, `?payment=cancelled` und `?payment=success` zeigen ihre
+Meldungen, und das Warten auf die Gutschrift endet nach rund 20 Sekunden
+**ehrlich** statt endlos zu drehen. Keine JS-Konsolenfehler.
+
+**Die Navigation steht** (2026-08-21): `credits.html` hängt am Menüpunkt
+*Steuerung* (`match`-Eintrag in `pageShell.js`, sonst hätte auf der Seite **kein**
+Punkt geleuchtet und der Nutzer hätte seinen Ort verloren), ist über die Suche
+findbar („guthaben", „credits", „aufladen", …) und von zwei Seiten verlinkt:
+`sla_abo.html` (Teaser neben dem Bounty-Teaser — beide berühren den Preis, aber
+von verschiedenen Seiten) und `bounties.html` (die Schwesterwährung). Im Browser
+geprüft: die Zuordnungsregel des Shells trifft den Pfad, der Suchtreffer
+erscheint live, beide Links stehen.
+
+Bewusst **keine** Hub-Karte auf `enterprise.html`: die hängt an einer *Surface*
+der Sichtbarkeitsmatrix, und eine neue Surface ist eine RBAC-nahe Entscheidung
+(wer sie sieht, hängt an `allowed_org_types` und der Surface-Zugriffslogik).
+Wenn Guthaben prominenter werden soll, ist das der nächste Schritt — und einer
+mit Owner-Freigabe.
+
+**Offen bleibt allein der Betrieb:** `STRIPE_SECRET_KEY` und
+`STRIPE_WEBHOOK_SECRET` setzen. Die Rückkehr-URLs zeigen standardmäßig auf
+`/public/credits.html` und sind über `STRIPE_CREDITS_SUCCESS_URL` /
+`STRIPE_CREDITS_CANCEL_URL` überschreibbar. Solange nichts gesetzt ist,
+antwortet die Route 503 und die Seite sagt das auch — niemand bekommt etwas
+geschenkt.
+
+### ~~M0-B9 — Ein roter Integrationstest aus Welle G4b~~ ✅ ERLEDIGT (2026-08-21)
+
+**Er hat richtig gemeldet und wurde falsch verstanden.** Zwei Dinge lagen
+uebereinander:
+
+**1. Die Pruefung suchte eine Schreibweise, die Postgres nicht ausgibt.** Sie
+suchte die Werte als `'info'` — mit Anfuehrungszeichen — im Text des
+Constraints. Postgres rendert ihn aber je nach Schreibweise anders:
+
+```
+CHECK (severity IN ('a','b'))       ->  ... = ANY (ARRAY['a'::text, ...])
+CHECK (severity = ANY ('{a,b}'))    ->  ... = ANY ('{a,b}'::text[])
+```
+
+In der zweiten Form steht **kein einziger** Wert in Anfuehrungszeichen. Die
+erste Zusicherung schlug also schon bei `info` fehl — und verdeckte damit genau
+den Befund, den die zweite finden sollte. Repariert: die Werte werden jetzt
+**ausgelesen** statt gesucht, und **beide Richtungen** geprueft. Das ist strenger
+als vorher — es faellt nicht nur auf, wenn ein bekannter Wert fehlt, sondern
+auch, wenn ein unbekannter dazukommt, gleich welcher.
+
+**2. Der eigentliche Befund: die laufende Datenbank war weiter als jede
+Migration.** `notifications.severity` wird an genau einer Stelle definiert
+(Migration 019, vier Werte). Die laufende Datenbank erlaubte fünf — zusätzlich
+`urgent`. Gesucht wurde in allen 184 Migrationen, in `init.sql` und in den Seeds:
+**keine Quelle.** Der Wert ist an `sql/` vorbei entstanden.
+
+Das ist der Kern, nicht der fehlende Wert: **das Schema war aus `sql/` nicht mehr
+reproduzierbar.** Eine frische Installation und die laufende Datenbank hätten
+sich unterschieden.
+
+**Zurück statt vor**, weil `urgent` keinen Nutzer hat: kein Dienst schreibt es
+nach `notifications`, keine der 765 Zeilen trägt es (warning 660, info 54,
+success 50, error 1), und das Frontend kennt es weder in den Toast-Varianten noch
+in der Stufen-Abbildung. `match_alerts.severity` ist eine **andere** Spalte
+(Migration 027) und benutzt `urgent` sehr wohl — dort bleibt alles.
+
+Migration `185_severity_zurueck_auf_die_vier.sql`, mit Sicherheitsnetz (bricht
+mit klarer Meldung ab, falls doch eine Zeile `urgent` trägt) und Rollback im
+Kopf. Gemessen: gefahren, Test 8/8 grün; Drift wieder hergestellt, Test wird rot
+mit *„der CHECK erlaubt mehr als die Konstante kennt: urgent"*; Migration erneut
+gefahren, wieder grün.
+
+> **Übertragbar:** Ein Test, der eine Zusicherung als **Zeichenkette** im
+> generierten SQL sucht, prüft die Schreibweise des Datenbanksystems mit — und
+> die ändert sich, ohne dass jemand etwas falsch macht. Werte auslesen und
+> **Mengen** vergleichen, nicht Text suchen.
+
+### ~~P1-17 — `canAccessAsOwner` hat nie funktioniert~~ ✅ ERLEDIGT (2026-08-20)
+
+**Entscheidung des Owners: reparieren, also weiten.** Umgesetzt in
+`utils/ownerCheck.js`. Die Kollegin mit **aktiver** Mitgliedschaft in **derselben**
+Organisation darf jetzt handeln — die Weitung endet aber an der Arbeiterrolle:
+`org_memberships` führt auch 33 Arbeiter (`role_key = 'worker'`), und
+„gleiche Organisation genügt" hätte ihnen die Suchaufträge, Angebote und
+Dealakten ihrer Agentur geöffnet.
+
+Gegen das echte Schema gemessen, alte gegen neue Fassung: **genau die zwei
+Gewährungen ändern sich, keine einzige Verweigerung.** Der `catch` schließt
+weiterhin zu, protokolliert den Fehler aber — sein Schweigen war der Grund, warum
+der Befund sechs Jahre überlebte.
+
+**Nebenbefund mit Folgen für andere Reparaturen:** der SQL-Schema-Wächter hatte
+Fehler 1 gefunden (Ausnahmeliste), aber die Reparatur schob den Code aus seinem
+Sichtfeld — er prüft Spalten nur bei **einrelationalen** Anweisungen, die neue
+Fassung verbindet drei. Abgedeckt durch
+`test/integration/ownerCheck.flow.test.js`: ein Lauf gegen die echte Datenbank
+mit erfundenen Kennungen, bei dem Postgres die volle Abfrage parst und plant.
+Gemessen: die Rückmutation auf `status` macht ihn rot.
+
+**Weiterhin offen sind die Geschwisterfragen D-M4** (Requisitions, `created_by`)
+**und D-M5** (capacityExchange/marketplace, nutzergebunden). Sie stellen dieselbe
+Frage an anderen Stellen; die hier getroffene Antwort ist die naheliegende
+Vorlage, wurde aber bewusst nicht ungefragt übertragen.
 
 ### P1-16 — Migration 117 existiert nicht (RLS für 28 Tabellen)
 

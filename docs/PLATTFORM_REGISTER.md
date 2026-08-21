@@ -277,8 +277,11 @@ strategische Zusammenarbeit.
 Abwanderung nach dem ersten Monat.
 *Beleg:* `api/routes/bounties.js` (6), `api/routes/referralProgram.js` (6),
 `api/routes/mentoring.js` (5), `api/routes/strategicCollaboration.js` (5),
-`api/routes/credits.js` (4). Oberfläche: `bounties.html`.
-*Einschränkung, belegt:* `/credits/*` (4 Endpunkte) hat null Treffer im Frontend.
+`api/routes/credits.js` (4). Oberfläche: `bounties.html`, `credits.html`.
+*Nachtrag 2026-08-21:* Die Einschränkung „`/credits/*` hat null Treffer im
+Frontend" gilt nicht mehr — `credits.html` bedient alle vier Endpunkte. Der Kauf
+läuft seit Befund P1-22 über Stripe; gutgeschrieben wird ausschließlich im
+signaturgeprüften Webhook.
 
 ### 17. Tarife, Abonnement und Abrechnung
 
@@ -488,6 +491,7 @@ Weiterleitung oder für keinen Nutzer erreichbar.
 | `sla_abo.html` | beide | Tarifauswahl und Buchung; Ziel jeder Bezahlschranke der Plattform | aktiv |
 | `enterprise_anfrage.html` | Unternehmen | Konfigurator für den individuellen Tarif | aktiv |
 | `bounties.html` | beide | Aufgaben, mit denen Kunden sich Rabatte erarbeiten | aktiv |
+| `credits.html` | beide | Guthabenstand, Verlauf und Kauf über Stripe (Befund P1-22) | aktiv |
 | `organization.html` | beide (Admin) | Mitglieder, API-Schlüssel, Sicherheitseinstellungen, Finanz-Export | aktiv |
 | `org-invite.html` | neue Mitglieder | Einladung aus der E-Mail annehmen; bewusst ohne Navigation | aktiv |
 | `integrations.html` | beide | Slack/Teams, DATEV, SAP, zvoove anbinden | aktiv |
@@ -628,7 +632,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | Router-Dateien | 83 | `ls api/routes/ \| wc -l` (inkl. Verzeichnis `api/routes/occ/`) |
 | Service-Dateien | 175 | `ls api/services/ \| wc -l` |
 | Datenbanktabellen | **180** | eindeutige `CREATE TABLE`-Namen in `sql/init.sql` + `sql/migrations/*.sql`, bereinigt um einen Treffer aus einem deutschen Kommentar. Davon 4 aus dem Grundschema (`users`, `listings`, `requests`, `subscriptions`), 176 aus Migrationen |
-| Migrationsdateien | **188** | `ls sql/migrations/*.sql \| wc -l` — nummeriert `001_ratings.sql` bis `184_der_kunde_erfaehrt_dass_nicht_warum.sql`; neun Nummern sind doppelt belegt (`027`/`027b`, `045`/`045b`, `064`, `070`, `074`, `075`, `086`, `130`, `140`). `NUMBERING.md` ist keine Migration |
+| Migrationsdateien | **190** | `ls sql/migrations/*.sql \| wc -l` — nummeriert `001_ratings.sql` bis `186_guthaben_nur_gegen_zahlung.sql`; neun Nummern sind doppelt belegt (`027`/`027b`, `045`/`045b`, `064`, `070`, `074`, `075`, `086`, `130`, `140`). `NUMBERING.md` ist keine Migration |
 | Nutzerflächen | **89** | 77 in `frontend/public/*.html` + 6 `legal/` + 4 `trust/` + `frontend/landing.html` + `frontend/demo.html` |
 | davon reine Weiterleitungen | 9 | je 14 nicht-leere Zeilen, reiner Meta-Refresh |
 | davon Attrappen | 3 | `sla_nachweise.html`, `impressum.html`, `datenschutz.html` (Wurzel) |
@@ -869,7 +873,7 @@ Ehrlichkeit über die eigenen Grenzen gehört in ein Dokument, das später an In
    Bedienungsanleitung des Teams braucht es einen eigenen Durchgang in derselben Tiefe wie für
    die Kundenfläche.
 
-5. **Die Datenbank ist nur gezählt, nicht beschrieben.** 180 Tabellen und 188 Migrationsdateien
+5. **Die Datenbank ist nur gezählt, nicht beschrieben.** 180 Tabellen und 190 Migrationsdateien
    sind belegt; welche Tabellen tot sind, welche redundant, welche ohne Index auf einem heißen
    Lesepfad liegen — offen. Ein Schema-Register wäre der nächste sinnvolle Schritt
    (`api/scripts/schema-snapshot.js` existiert bereits als unversionierte Arbeitsdatei).

@@ -30,7 +30,7 @@
     { label: "Personal finden", key: "marktplatz", termKey: "navMarketplace", href: "/public/capacity_exchange_feed.html", match: ["/public/capacity_exchange_feed.html", "/public/capacity_exchange", "/public/capacity_search", "/public/agency_inbox", "/public/angebote_verwalten", "/public/matching_results", "/public/marketplace_capacity", "/public/sla_search_jobs", "/public/sla_angebote"], desc: "Pilot-Standard: Personal finden, passende Einsaetze und Vermittlungsreaktionen ohne Medienbruch steuern." },
     { label: "Arbeitsplatzangebote", key: "bedarfe", termKey: "navDemands", href: "/public/requisitions.html", match: ["/public/requisitions", "/public/company_requests", "/public/demand_create", "/public/request_detail", "/public/marketplace_demand_"], desc: "Pilot-Standard: Arbeitsplatzangebote anlegen, priorisieren und gezielt in belastbare Angebote ueberfuehren." },
     { label: "Deals & Einsaetze", key: "deals_einsaetze", href: "/public/deal_management.html", match: ["/public/deal_management", "/public/offer_detail", "/public/worker-submissions-review", "/public/timesheets", "/public/company-timesheets", "/public/mitarbeiter", "/public/approvals", "/public/sla_nachweise"], desc: "Pilot-Standard: Deals abschliessen, Besetzungen fuehren, Stundenzettel freigeben und Folgeprozesse sauber halten." },
-    { label: "Steuerung", key: "steuerung", href: "/public/executive_dashboard.html", match: ["/public/executive_dashboard", "/public/vendor_pool", "/public/supplier_scorecard", "/public/rate-cards", "/public/spend-analytics", "/public/system-health", "/public/compliance_overview", "/public/admin_panel", "/public/organization", "/public/integrations", "/public/sso_config", "/public/sla_profil", "/public/sla_abo"], desc: "Nachgelagerte Steuerungs- und Ausbauflaeche fuer Lieferantenleistung, Spend, Executive-Sicht und Governance." },
+    { label: "Steuerung", key: "steuerung", href: "/public/executive_dashboard.html", match: ["/public/executive_dashboard", "/public/vendor_pool", "/public/supplier_scorecard", "/public/rate-cards", "/public/spend-analytics", "/public/system-health", "/public/compliance_overview", "/public/admin_panel", "/public/organization", "/public/integrations", "/public/sso_config", "/public/sla_profil", "/public/sla_abo", "/public/credits"], desc: "Nachgelagerte Steuerungs- und Ausbauflaeche fuer Lieferantenleistung, Spend, Executive-Sicht und Governance." },
     { label: "\u2753", key: "help", href: "/public/hilfe.html", match: ["/public/hilfe.html", "/public/sla_hilfe"], desc: "FAQ, Anleitungen, Support-Kontakt und Onboarding-Assistent.", isIcon: true }
   ];
 
@@ -1249,6 +1249,8 @@
         t: ["sso","saml","single sign on","anmeldung einrichten","login einrichten","identity"] },
       { label: "Übersicht", sub: "Start & nächste Schritte", href: "/public/enterprise.html", key: "uebersicht",
         t: ["uebersicht","start","startseite","home","dashboard","cockpit"] },
+      { label: "Guthaben", sub: "Stand, Verlauf & Guthaben kaufen", href: "/public/credits.html", key: "steuerung",
+        t: ["guthaben","credits","kredit","aufladen","kaufen","paket","pakete","stand","kontostand","bonus"] },
       { label: "Hilfe & Support", sub: "FAQ, Anleitungen, Kontakt", href: "/public/hilfe.html", key: "help",
         t: ["hilfe","support","anleitung","faq","kontakt","frage","problem","wie geht"] }
     ];

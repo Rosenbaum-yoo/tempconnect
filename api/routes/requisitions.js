@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Router } from "express";
 import * as requisitionService from "../services/requisitionService.js";
 import { requirePermission } from "../middleware/rbac.js";
+import { hasPermission } from "../services/rbacService.js";
 import { requireScope } from "../middleware/apiKeyAuth.js";
 import { RequisitionTransitionError } from "../services/requisitionService.js";
 import { scheduleMatchTrigger } from "../services/matchTriggerService.js";
@@ -128,14 +129,16 @@ export function createRequisitionsRouter(deps) {
     const partial = createSchema.partial().safeParse(req.body);
     if (!partial.success) return res.status(400).json({ error: "VALIDATION", details: partial.error.issues });
     try {
-      // Org-Boundary (Befund E-4): Der Service begrenzt per
-      // `WHERE id = $1 AND created_by = $2` — eine ERSTELLER-Grenze. Sie deckt
-      // den Cross-Org-Fall zufaellig mit ab (fremde Zeile, fremder Ersteller),
-      // aber sie sagt nicht, was sie meint, und sie antwortet mit einem
-      // irrefuehrenden 404. Die Org-Grenze steht jetzt explizit davor; die
-      // Ersteller-Bedingung bleibt unveraendert bestehen.
+      // Org-Boundary (Befund E-4) steht explizit davor und antwortet mit 403
+      // statt mit einem irrefuehrenden 404.
+      //
+      // Entscheidung D-M4 (Owner, 2026-08-20): der Dienst begrenzte zusaetzlich
+      // per `created_by` — eine vierte Einschraenkung ueber drei vorhandenen,
+      // die KEINE andere Mutation an derselben Zeile kennt. Eine Kollegin durfte
+      // die Ausschreibung stornieren, aber keinen Tippfehler korrigieren. Die
+      // Grenze ist jetzt die Organisation, in Handler UND SQL.
       await assertOrgOwnership(pool, 'requisitions', req.params.id, req.orgId);
-      const updated = await requisitionService.updateRequisition(pool, req.params.id, req.session.userId, partial.data);
+      const updated = await requisitionService.updateRequisition(pool, req.params.id, req.session.userId, partial.data, req.orgId);
       if (!updated) return res.status(404).json({ error: "NOT_FOUND_OR_FORBIDDEN" });
       res.locals.audit = { action: "requisition.update", entity_type: "requisition", entity_id: req.params.id, details: { changed_fields: Object.keys(partial.data) } };
       res.json(updated);
@@ -148,9 +151,34 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** POST /requisitions/:id/transition – Status aendern */
-  router.post("/requisitions/:id/transition", requireAuth, requireScope("write:requisitions"), async (req, res, next) => {
+  /* Befund P1-20 (2026-08-20): diese Route trug KEINE Berechtigungspruefung.
+   * `requireScope` sieht dabei nach einer — es prueft aber ausschliesslich
+   * API-Key-Scopes und laesst jede Sitzung ungefragt durch
+   * (`apiKeyAuth.js:153`). Fuer einen angemeldeten Nutzer stand hier also nur
+   * `requireAuth` plus die Org-Grenze.
+   *
+   * Damit verlangte die SCHWAECHERE Handlung — ein Feld aendern — die
+   * Berechtigung `requisition.edit` (Zeile 127), waehrend die
+   * folgenschwerere — den Status auf CANCELLED setzen — gar nichts verlangte.
+   * Jede Mitgliedschaft der Organisation, bis hinunter zu `viewer`, konnte die
+   * Ausschreibung durch ihren gesamten Lebenszyklus schieben.
+   *
+   * Dass das keine Absicht war, sagt der Katalog: `requisition.cancel` steht
+   * dort seit jeher mit einer EIGENEN, engeren Rollenliste (`rbacService.js:30`
+   * — ohne `recruiter`), war aber an keiner einzigen Stelle verdrahtet. Die
+   * Berechtigung fuers Stornieren existierte, sie hing nur an nichts. */
+  router.post("/requisitions/:id/transition", requireAuth, requireScope("write:requisitions"), requirePermission("requisition.edit", { pool, logger }), async (req, res, next) => {
     const parsed = transitionSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+    // Stornieren ist kein gewoehnlicher Uebergang: es beendet den Vorgang. Der
+    // Katalog fuehrt dafuer eine eigene Berechtigung — hier wird sie erstmals
+    // gefragt. Die Rolle kommt aus der Mitgliedschaft, nicht aus dem Koerper.
+    if (parsed.data.status === "CANCELLED") {
+      const rolle = req.orgMembership?.role_key || req.orgRole || null;
+      if (!hasPermission(rolle, "requisition.cancel")) {
+        return res.status(403).json({ error: "PERMISSION_DENIED", required: "requisition.cancel" });
+      }
+    }
     try {
       // Org-Boundary: Transition nur auf eigene Requisitions erlaubt.
       if (req.orgId) await assertOrgOwnership(pool, 'requisitions', req.params.id, req.orgId);
@@ -173,7 +201,12 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** POST /requisitions/:id/submit – Zur Freigabe einreichen (Shortcut) */
-  router.post("/requisitions/:id/submit", requireAuth, requireScope("write:requisitions"), async (req, res, next) => {
+  /* Befund P1-20: dieselbe Luecke wie bei /transition — und derselbe Raum.
+   * `submitForApproval` landet in `transitionStatus` (DRAFT -> PENDING_APPROVAL),
+   * ist also eine Bearbeitung und verlangt jetzt `requisition.edit`. Bei der
+   * Org-Grenze war es Befund E-4 mit demselben Bild: zwei von drei Tueren zum
+   * selben Raum waren bewacht. */
+  router.post("/requisitions/:id/submit", requireAuth, requireScope("write:requisitions"), requirePermission("requisition.edit", { pool, logger }), async (req, res, next) => {
     try {
       // Org-Boundary (Befund E-4, 2026-08-19): /transition und /approve rufen
       // assertOrgOwnership, /submit nicht — und es landet ueber
@@ -243,7 +276,14 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** POST /requisitions/:id/comment – Kommentar hinzufuegen */
-  router.post("/requisitions/:id/comment", requireAuth, requireScope("write:requisitions"), async (req, res, next) => {
+  /* Befund P1-20, dritte Stelle — hier aber BEWUSST die Lese-Berechtigung.
+   * Kommentieren ist Zusammenarbeit, keine Bearbeitung: wer die Ausschreibung
+   * sehen darf, soll etwas dazu sagen duerfen. `requisition.edit` zu verlangen
+   * wuerde Einkauf, Disposition und Lieferantenbetreuung aussperren, die genau
+   * dafuer da sind. Geschlossen wird trotzdem etwas: wer GAR KEINE
+   * Requisitions-Berechtigung hat (Arbeiter, Lieferantenkonten), schreibt
+   * jetzt nicht mehr an die Ausschreibungen einer Organisation. */
+  router.post("/requisitions/:id/comment", requireAuth, requireScope("write:requisitions"), requirePermission("requisition.view", { pool, logger }), async (req, res, next) => {
     const parsed = commentSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
     try {
