@@ -93,6 +93,33 @@ Dazu die zweite Hälfte: **1796 von 2740 Zeilen tragen gar keine `org_id`** —
 bei `auth.login` 977 von 1013. Diese Zeilen sind heute in *keinem* Org-Audit
 sichtbar und damit für den Admin unsichtbar, der sie eigentlich braucht.
 
+### Die Messung zum Nachrechnen
+
+Beide Zahlen sind mit **einer** Abfrage reproduzierbar. Sie ist zugleich das
+Abnahmekriterium: `fremde_org` muss am Ende **0** sein.
+
+```sql
+SELECT
+  (SELECT COUNT(*) FROM audit_log)                                    AS gesamt,
+  (SELECT COUNT(*) FROM audit_log WHERE org_id IS NULL)               AS ohne_org,
+  (SELECT COUNT(*)
+     FROM audit_log al
+     JOIN org_memberships om ON om.user_id = al.actor_id
+    WHERE al.org_id IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM org_memberships m2
+                       WHERE m2.user_id = al.actor_id
+                         AND m2.org_id  = al.org_id))                 AS fremde_org;
+```
+
+Stand 2026-08-21: `gesamt = 2740`, `ohne_org = 1796`, `fremde_org = 135`.
+
+Ausfuehren (der Container mountet das Haupt-Repo — deshalb kein `docker cp`
+nach `/app`):
+
+```bash
+docker exec tempconnect_api node -e "const pg=require('pg');const p=new pg.Pool({connectionString:process.env.DATABASE_URL});p.query(require('fs').readFileSync('/tmp/audit.sql','utf8')).then(r=>{console.log(r.rows[0]);return p.end()})"
+```
+
 > **Zwei Defekte in einer Tabelle, mit gegenläufiger Wirkung:** ein Teil der
 > Zeilen liegt in der **falschen** Organisation (Leck), der größere Teil in
 > **keiner** (Lücke in der Nachvollziehbarkeit). Wer nur den ersten behebt,
