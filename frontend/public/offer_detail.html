@@ -1077,7 +1077,7 @@
          Warnfarbe: eine Meldefunktion, die wie ein Hauptknopf aussieht, wird
          aus Versehen gedrueckt — und jede Fehlmeldung kostet das
          TempConnect-Team dieselbe Bearbeitung wie eine echte. */
-      h += '<div class="od-card" style="margin-top:16px">';
+      h += '<div class="od-card" id="od-melden-card" style="margin-top:16px;display:none">';
       h += '<div class="od-card__title">' + esc(TCi18n.t('demd.od.melden.title')) + '</div>';
       h += '<div style="font-size:12px;color:var(--ds-text-secondary);line-height:1.6;margin-bottom:10px">' + esc(TCi18n.t('demd.od.melden.hint')) + '</div>';
       h += '<div id="od-melden-form" style="display:none;margin-bottom:10px">';
@@ -1110,7 +1110,23 @@
     function verdrahteMelden(o) {
       var oeffnen = document.getElementById('od-melden-oeffnen');
       var senden = document.getElementById('od-melden-senden');
-      if (!oeffnen || !senden) return;
+      var karte = document.getElementById('od-melden-card');
+      if (!oeffnen || !senden || !karte) return;
+
+      /* Der Anbieter kann sein eigenes Angebot nicht melden — die Route weist
+         es mit SELF_REPORT_NOT_ALLOWED ab. Ein Knopf, der nur eine
+         Fehlermeldung erzeugt, ist ein toter Knopf, und tote Knoepfe sind in
+         diesem Projekt ausdruecklich verboten. Deshalb erscheint die Karte
+         ERST, wenn feststeht, dass der Betrachter nicht der Anbieter ist.
+         Die Entscheidung faellt weiterhin am Server; das hier ist Anzeige. */
+      fetch('/api/me', { credentials: 'include' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (m) {
+          var ich = m && (m.user ? m.user.id : m.id);
+          if (ich && String(ich) === String(o.supplier_company_id)) return;
+          karte.style.display = '';
+        })
+        .catch(function () { /* im Zweifel nicht anzeigen — der Server bliebe ohnehin die Instanz */ });
 
       oeffnen.addEventListener('click', function () {
         var form = document.getElementById('od-melden-form');
