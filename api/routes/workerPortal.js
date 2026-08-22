@@ -1241,8 +1241,59 @@ export function createWorkerPortalRouter(deps) {
           pool, result.link.created_by, result.link.id, workerName
         );
       }
-      res.locals.audit = { action: "worker_assignment.confirm", entity_type: "worker_assignment_link", entity_id: req.params.id };
-      res.json(result);
+      /* ── Ersatz an den Kunden (Welle G4b, hierher verlegt in 8.2) ────────
+       *
+       * Das Gate von G4b lautet: "die Ersatz-Meldung geht erst nach echter
+       * Neubesetzung raus" — der Kunde plant auf diese Meldung hin seine
+       * Schicht, und ein Versprechen laesst sich nicht zurueckrollen.
+       *
+       * Bis 2026-08-21 stand sie in `POST /worker-assignment-links/:id/replace`.
+       * Das war damals richtig: der Ersatz-Link war `auto_confirmed`, die
+       * Besetzung mit dem Zuweisen also vollzogen. Seit der Ersatz ZUSAGEN muss,
+       * ist sie erst HIER eine Tatsache — vorher war sie eine Anfrage.
+       *
+       * `ersetzt_link_id` sagt, dass dieser Einsatz ein Ersatz ist und fuer wen
+       * (Migration 188). Bei einer regulaeren Zuweisung ist sie NULL und es
+       * passiert nichts — der Kunde hat dort nie einen Ausfall gemeldet bekommen.
+       *
+       * Fire-and-forget nach dem Schreiben, wie die Meldung an den Disponenten
+       * darueber: eine fehlgeschlagene Benachrichtigung darf die Zusage nicht
+       * zurueckdrehen. */
+      let kundeInformiert = 0;
+      if (result.link.ersetzt_link_id) {
+        try {
+          const supplierOrgId = result.link.supplier_org_id;
+          const original = await workerService.getAssignmentLink(pool, result.link.ersetzt_link_id);
+          const ausgefallen = original
+            ? await abwesenheit.profilZuNutzer(pool, supplierOrgId, original.worker_user_id)
+            : null;
+          if (ausgefallen) {
+            const ersatz = await abwesenheit.profilZuNutzer(pool, supplierOrgId, req.session.userId);
+            const einsatz = await abwesenheit.einsatzFuerKundenmeldung(
+              pool, supplierOrgId, result.link.assignment_id
+            );
+            if (einsatz) {
+              const k = await abwesenheit.benachrichtigeKunde(pool, supplierOrgId, {
+                anlass: "ersatz",
+                workerProfileId: ausgefallen.id,
+                einsaetze: [einsatz],
+                ersatzName: ersatz ? ersatz.name : null,
+              });
+              kundeInformiert = k.benachrichtigt;
+            }
+          }
+        } catch (e) {
+          deps.logger?.error?.({ err: e?.message }, "worker_assignment.confirm: Kundenmeldung fehlgeschlagen");
+        }
+      }
+
+      res.locals.audit = {
+        action: "worker_assignment.confirm",
+        entity_type: "worker_assignment_link",
+        entity_id: req.params.id,
+        details: { ersatz_fuer: result.link.ersetzt_link_id || null, kunde_informiert: kundeInformiert }
+      };
+      res.json({ ...result, kunde_informiert: kundeInformiert });
     } catch (err) { next(err); }
   });
 

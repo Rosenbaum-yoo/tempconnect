@@ -559,6 +559,28 @@ export async function getCompanyLiveWorkforce(pool, companyOrgId, filters = {}) 
       WHERE wal.org_id = $1
         AND wal.is_active = TRUE
         AND wal.worker_confirmation_status NOT IN ('worker_declined','worker_unavailable')
+        /*
+         * Ein ANGEFRAGTER Ersatz ist noch keine Besetzung (8.2, 2026-08-21).
+         *
+         * Seit replaceAssignmentWorker den Ersatz mit pending_confirmation
+         * anlegt statt ihn ungefragt zu binden, wartet die Meldung "Ersatz
+         * gestellt" bewusst bis zur Zusage (Gate aus Welle G4b: erst nach
+         * echter Neubesetzung). Ohne diese Zeile lernt der Kunde es trotzdem
+         * frueher - aus der Tafel. Dann liefe die Verlegung der Meldung leer,
+         * und er plant seine Schicht auf eine Anfrage statt auf eine Zusage.
+         *
+         * Bewusst NUR der Ersatzfall: eine regulaere Zuweisung, die noch auf
+         * Bestaetigung wartet, war hier immer schon sichtbar. Ihr Kunde hat nie
+         * eine Ausfallmeldung bekommen, es gibt also nichts, wovor die Zeile
+         * vorauseilen koennte.
+         *
+         * OHNE BACKTICKS: dieser Kommentar steht INNERHALB eines
+         * Template-Literals. Ein Backtick fuer einen Code-Verweis - im Projekt
+         * sonst ueblich - beendet hier die Zeichenkette. Beim Schreiben genau
+         * so passiert.
+         */
+        AND NOT (wal.ersetzt_link_id IS NOT NULL
+                 AND wal.worker_confirmation_status = 'pending_confirmation')
         AND wal.start_date <= CURRENT_DATE
         AND (wal.end_date IS NULL OR wal.end_date >= CURRENT_DATE)
         AND ${lifecycleStateSql} IN ('active','ends_today')

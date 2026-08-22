@@ -49,6 +49,106 @@ const origLinkRow = (over = {}) => ({
   notes: "Original", ...over
 });
 
+describe("replaceAssignmentWorker — der Ersatz wird GEFRAGT, nicht gebunden (8.2)", () => {
+  /*
+   * BEFUND 2026-08-21: Es gab ZWEI Wege, denselben Einsatz zu besetzen, und nur
+   * einer fragte den Menschen, den er besetzt.
+   *
+   *   quick-assign   legt `pending_confirmation` an und benachrichtigt zur Zusage
+   *   replace        legte `auto_confirmed` an — eine Absage war damit nicht
+   *                  bloss unueblich, sondern UNMOEGLICH: `declineAssignment`
+   *                  verlangt ausdruecklich `pending_confirmation` und haette
+   *                  den Link abgewiesen.
+   *
+   * Owner-Vorgabe (Plan I, 8.2): "Eine Zuweisung, die der Zugewiesene nicht
+   * bestaetigt hat, ist eine Absichtserklaerung, keine Besetzung."
+   */
+
+  it("legt den Ersatz-Link als pending_confirmation an, nicht als auto_confirmed", async () => {
+    const pool = fakePool([
+      { rows: [], rowCount: 0 },
+      { rows: [origLinkRow()], rowCount: 1 },
+      { rows: [{ user_id: REPLACEMENT, is_active: true }], rowCount: 1 },
+      { rows: [], rowCount: 0 },
+      { rows: [], rowCount: 0 },
+      { rows: [origLinkRow({ is_active: false, worker_confirmation_status: "worker_unavailable" })], rowCount: 1 },
+      { rows: [{ id: "new-link", worker_user_id: REPLACEMENT, assignment_id: ASG }], rowCount: 1 },
+      { rows: [], rowCount: 0 }
+    ]);
+
+    await replaceAssignmentWorker(pool, {
+      linkId: LINK, supplierOrgId: ORG, replacementWorkerUserId: REPLACEMENT,
+      effectiveDate: "2026-08-10", reason: "Krankmeldung", createdBy: "chef-1"
+    });
+
+    const insert = pool.calls.map((c) => c.sql).find((q) => q.includes("INSERT INTO worker_assignment_links"));
+    assert.ok(insert, "das INSERT muss laufen");
+    assert.ok(insert.includes("'pending_confirmation'"),
+      "der Ersatz muss zusagen koennen — sonst ist die Zuweisung eine Absichtserklaerung");
+    assert.ok(!insert.includes("'auto_confirmed'"),
+      "auto_confirmed bindet den Ersatz ungefragt und macht declineAssignment unmoeglich");
+  });
+
+  it("traegt ein, WESSEN Ersatz es ist — sonst kann die Kundenmeldung nicht warten", async () => {
+    /*
+     * `ersetzt_link_id` (Migration 188) traegt den Zusammenhang in die Daten.
+     * Ohne ihn lebte er nur im Ablauf der Route — und die Kundenmeldung "Ersatz
+     * gestellt" kann erst bei der ZUSAGE rausgehen, nicht schon beim Zuweisen
+     * (Gate aus Welle G4b: erst nach echter Neubesetzung).
+     */
+    const pool = fakePool([
+      { rows: [], rowCount: 0 },
+      { rows: [origLinkRow()], rowCount: 1 },
+      { rows: [{ user_id: REPLACEMENT, is_active: true }], rowCount: 1 },
+      { rows: [], rowCount: 0 },
+      { rows: [], rowCount: 0 },
+      { rows: [origLinkRow({ is_active: false, worker_confirmation_status: "worker_unavailable" })], rowCount: 1 },
+      { rows: [{ id: "new-link", worker_user_id: REPLACEMENT, assignment_id: ASG }], rowCount: 1 },
+      { rows: [], rowCount: 0 }
+    ]);
+
+    await replaceAssignmentWorker(pool, {
+      linkId: LINK, supplierOrgId: ORG, replacementWorkerUserId: REPLACEMENT,
+      effectiveDate: "2026-08-10", reason: "Krankmeldung", createdBy: "chef-1"
+    });
+
+    const aufruf = pool.calls.find((c) => c.sql.includes("INSERT INTO worker_assignment_links"));
+    assert.ok(aufruf.sql.includes("ersetzt_link_id"), "die Spalte muss geschrieben werden");
+    assert.ok((aufruf.params || []).includes(LINK),
+      "es muss der Link des AUSGEFALLENEN sein — sonst zeigt der Zusammenhang ins Leere");
+  });
+
+  it("setzt eine fruehere Absage zurueck, wenn derselbe Mensch erneut gefragt wird", async () => {
+    /*
+     * Der ON-CONFLICT-Zweig. Wer einmal abgelehnt hat, traegt `worker_declined_at`
+     * und einen Grund. Wird er spaeter erneut angefragt, muessen diese Spuren
+     * weg — sonst steht an einer offenen Anfrage eine alte Absage, und niemand
+     * weiss, welche gilt.
+     */
+    const pool = fakePool([
+      { rows: [], rowCount: 0 },
+      { rows: [origLinkRow()], rowCount: 1 },
+      { rows: [{ user_id: REPLACEMENT, is_active: true }], rowCount: 1 },
+      { rows: [], rowCount: 0 },
+      { rows: [], rowCount: 0 },
+      { rows: [origLinkRow({ is_active: false })], rowCount: 1 },
+      { rows: [{ id: "new-link", worker_user_id: REPLACEMENT, assignment_id: ASG }], rowCount: 1 },
+      { rows: [], rowCount: 0 }
+    ]);
+
+    await replaceAssignmentWorker(pool, {
+      linkId: LINK, supplierOrgId: ORG, replacementWorkerUserId: REPLACEMENT,
+      effectiveDate: "2026-08-10", reason: "Krankmeldung", createdBy: "chef-1"
+    });
+
+    const insert = pool.calls.map((c) => c.sql).find((q) => q.includes("ON CONFLICT"));
+    assert.ok(insert, "der ON-CONFLICT-Zweig muss existieren");
+    assert.ok(/worker_declined_at\s*=\s*NULL/.test(insert), "alte Absage-Zeit muss geloescht werden");
+    assert.ok(/worker_declined_reason\s*=\s*NULL/.test(insert), "alter Absage-Grund muss geloescht werden");
+    assert.ok(/worker_confirmed_at\s*=\s*NULL/.test(insert), "alte Zusage-Zeit muss geloescht werden");
+  });
+});
+
 describe("replaceAssignmentWorker — Happy Path", () => {
   it("stellt A frei, legt Ersatz-Link ab Wirk-Datum an und committet", async () => {
     const pool = fakePool([

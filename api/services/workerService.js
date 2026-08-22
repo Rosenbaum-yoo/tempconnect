@@ -1773,6 +1773,27 @@ export async function getAssignmentLinksForSupplier(pool, supplierOrgId, { assig
  * Worker bestätigt einen zugewiesenen Einsatz.
  * Nur möglich bei worker_confirmation_status = 'pending_confirmation'.
  */
+/**
+ * Einen einzelnen Zuweisungs-Link lesen.
+ *
+ * Gebraucht seit 8.2: die Kundenmeldung haengt an der ZUSAGE des Ersatzes und
+ * muss von dort aus den Link des Ausgefallenen nachschlagen
+ * (`ersetzt_link_id`, Migration 188). Bewusst hier und nicht als Abfrage in der
+ * Route — Routen machen HTTP, Dienste machen Daten (AGENTS.md).
+ *
+ * KEINE Org-Pruefung: der Aufrufer hat den Link ueber `ersetzt_link_id` eines
+ * Links erreicht, dessen Zugehoerigkeit bereits geprueft wurde. Die Funktion
+ * ist deshalb NICHT fuer freie Kennungen aus einer Anfrage gedacht.
+ */
+export async function getAssignmentLink(pool, linkId) {
+  if (!linkId) return null;
+  const { rows } = await pool.query(
+    "SELECT * FROM worker_assignment_links WHERE id = $1",
+    [linkId]
+  );
+  return rows[0] || null;
+}
+
 export async function confirmAssignment(pool, linkId, workerUserId) {
   const context = await getWorkerAssignmentActionContext(pool, linkId, workerUserId);
   if (!context) return { error: "NOT_FOUND" };
@@ -1929,12 +1950,30 @@ export async function replaceAssignmentWorker(pool, {
 
     // 4) Ersatz-Link ab X bis Original-Enddatum anlegen (Defaults/Enddatum/Rolle geerbt)
     const { rows: repLinkRows } = await client.query(
+      /*
+       * `pending_confirmation`, NICHT `auto_confirmed` (8.2, 2026-08-21).
+       *
+       * Vorher stand hier `auto_confirmed`: der Ersatz war gebunden, ohne
+       * gefragt worden zu sein. Eine Absage war damit nicht bloss unueblich,
+       * sondern UNMOEGLICH — `declineAssignment` verlangt ausdruecklich
+       * `pending_confirmation` und haette den Link abgewiesen.
+       *
+       * Damit gab es zwei Wege, denselben Einsatz zu besetzen, und nur einer
+       * fragte den Menschen: `quick-assign` legt seit jeher
+       * `pending_confirmation` an. Owner-Vorgabe: "Eine Zuweisung, die der
+       * Zugewiesene nicht bestaetigt hat, ist eine Absichtserklaerung, keine
+       * Besetzung."
+       *
+       * `ersetzt_link_id` traegt den Zusammenhang in die Daten (Migration 188).
+       * Ohne ihn lebte er nur im Ablauf der Route — und die Kundenmeldung
+       * kann erst bei der ZUSAGE rausgehen, nicht schon hier.
+       */
       `INSERT INTO worker_assignment_links
          (worker_user_id, assignment_id, org_id, supplier_org_id, role,
           default_hours_per_day, default_shift_start, default_shift_end,
           default_break_minutes, start_date, end_date, notes, created_by,
-          worker_confirmation_status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'auto_confirmed')
+          worker_confirmation_status, ersetzt_link_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending_confirmation',$14)
        ON CONFLICT (worker_user_id, assignment_id) DO UPDATE
          SET is_active=TRUE, role=EXCLUDED.role,
              default_hours_per_day=EXCLUDED.default_hours_per_day,
@@ -1943,13 +1982,16 @@ export async function replaceAssignmentWorker(pool, {
              default_break_minutes=EXCLUDED.default_break_minutes,
              start_date=EXCLUDED.start_date, end_date=EXCLUDED.end_date,
              notes=EXCLUDED.notes,
-             worker_confirmation_status='auto_confirmed',
+             worker_confirmation_status='pending_confirmation',
+             ersetzt_link_id=EXCLUDED.ersetzt_link_id,
+             worker_confirmed_at=NULL, worker_declined_at=NULL, worker_declined_reason=NULL,
              unavailable_from=NULL, unavailable_reason=NULL, unavailable_reported_at=NULL,
              updated_at=NOW()
        RETURNING *`,
       [replacementWorkerUserId, orig.assignment_id, orig.org_id, supplierOrgId, orig.role,
        orig.default_hours_per_day, orig.default_shift_start, orig.default_shift_end,
-       orig.default_break_minutes, effectiveDate, orig.end_date, orig.notes, createdBy || null]
+       orig.default_break_minutes, effectiveDate, orig.end_date, orig.notes, createdBy || null,
+       linkId]
     );
 
     await client.query("COMMIT");

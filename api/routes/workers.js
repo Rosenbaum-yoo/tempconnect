@@ -1711,43 +1711,36 @@ export function createWorkersRouter(deps) {
 
       // Notifications: Ersatz über neuen Einsatz, Ausfallenden über Herausnahme.
       const clientName = result.replacement_link.client_name || null;
-      workerNotifications.notifyAssignmentNew(pool, parsed.data.replacement_worker_user_id, result.replacement_link.id, clientName);
+      /* ZUSAGE ERBITTEN, nicht Vollzug melden (8.2, 2026-08-21).
+       *
+       * Hier stand `notifyAssignmentNew` ("du hast einen neuen Einsatz") — bei
+       * einem Link, den der Arbeiter gar nicht ablehnen konnte. Jetzt ist der
+       * Link `pending_confirmation`, und er wird gefragt. Dieselbe
+       * Benachrichtigung wie beim regulaeren `quick-assign`: ein Weg, eine
+       * Erwartung. */
+      workerNotifications.notifyAssignmentPendingConfirmation(
+        pool, parsed.data.replacement_worker_user_id, result.replacement_link.id, clientName
+      );
       workerNotifications.notifyAssignmentRemoved(pool, result.ailing_worker_user_id, req.params.id, {
         effectiveFrom: parsed.data.effective_date, reason: parsed.data.reason
       });
 
-      /* ── Ersatz an den Kunden (Welle G4b) ──────────────────────────────
+      /* ── Ersatz an den Kunden: WANDERT AN DIE ZUSAGE (Welle G4b + 8.2) ───
        *
-       * DAS GATE DIESER WELLE: "die Ersatz-Meldung geht erst nach echter
-       * Neubesetzung raus". Genau hier ist sie echt — `replaceAssignmentWorker`
-       * hat committet, der neue Link steht, `result.replacement_link` ist der
-       * Beleg. Eine Meldung an einer frueheren Stelle (etwa beim Einladen eines
-       * Kandidaten) waere ein Versprechen statt einer Tatsache, und der Kunde
-       * plant auf ein Versprechen hin seine Schicht.
+       * Das Gate von G4b lautete: "die Ersatz-Meldung geht erst nach echter
+       * Neubesetzung raus" — weil der Kunde auf diese Meldung hin seine Schicht
+       * plant, und ein Versprechen laesst sich nicht zurueckrollen.
        *
-       * NACH dem COMMIT, wie die beiden Worker-Benachrichtigungen darueber:
-       * innerhalb der Transaktion waere die Meldung raus, auch wenn danach
-       * zurueckgerollt wird — und eine Zusage laesst sich nicht zurueckrollen. */
-      let kundeInformiert = 0;
-      const ausgefallen = await absenceSvc.profilZuNutzer(pool, req.orgId, result.ailing_worker_user_id);
-      if (ausgefallen) {
-        const ersatz = await absenceSvc.profilZuNutzer(pool, req.orgId, parsed.data.replacement_worker_user_id);
-        const einsatz = await absenceSvc.einsatzFuerKundenmeldung(
-          pool, req.orgId, result.original_link.assignment_id
-        );
-        if (einsatz) {
-          const k = await absenceSvc.benachrichtigeKunde(pool, req.orgId, {
-            anlass: "ersatz",
-            workerProfileId: ausgefallen.id,
-            einsaetze: [einsatz],
-            ersatzName: ersatz ? ersatz.name : null,
-          });
-          kundeInformiert = k.benachrichtigt;
-        }
-      }
-      if (res.locals.audit && res.locals.audit.details) {
-        res.locals.audit.details.kunde_informiert = kundeInformiert;
-      }
+       * Seit der Ersatz ZUSAGEN muss (8.2), ist die Zuweisung an dieser Stelle
+       * keine Neubesetzung mehr, sondern erst eine Anfrage. Die Meldung hier zu
+       * senden waere genau das, was G4b abstellen wollte — nur eine Ebene
+       * frueher.
+       *
+       * Sie steht deshalb jetzt in `POST /worker/assignments/:id/confirm`
+       * (api/routes/workerPortal.js), ausgeloest ueber `ersetzt_link_id`.
+       * Lehnt der Ersatz ab, erfaehrt der Kunde nichts Neues — und das ist
+       * richtig: fuer ihn hat sich seit der Ausfallmeldung nichts geaendert. */
+      const kundeInformiert = 0;
 
       res.status(200).json({
         original_link:    result.original_link,
