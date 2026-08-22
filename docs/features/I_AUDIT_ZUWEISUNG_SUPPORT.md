@@ -645,10 +645,64 @@ Pfad (`login.html`) sofort gemeldet; richtig ist `/?auth=login`
 
 Voller Lauf **9653/0**, 13 übersprungen.
 
+### Gebaut: Inhalte melden (10 b)
+
+**Der Befund zuerst — die Meldefunktion hat noch nie einen Bericht gespeichert.**
+Am 2026-08-22 gegen die *laufende* Datenbank bewiesen, in einer zurückgerollten
+Transaktion ausgeführt statt aus dem Quelltext geschlossen. Drei Fehler
+übereinander, alle drei lautlos:
+
+| # | Was | Beleg |
+|---|---|---|
+| 1 | Drei der fünf erlaubten Gründe verletzten den CHECK | `ERROR: new row … violates check constraint "…_reason_check"` |
+| 2 | `ON CONFLICT (reported_org_id, reporter_user_id)` hatte keinen passenden eindeutigen Index | `ERROR: there is no unique or exclusion constraint matching the ON CONFLICT specification` |
+| 3 | `catch { return … }` ohne Protokoll | der Nutzer las „konnte nicht gespeichert werden", niemand erfuhr warum |
+
+Dazu las der Posteingang `WHERE status = 'pending'` — ein Wert, den der CHECK
+**nie** erlaubt hat — und `resolveAbuseReport` schrieb `'resolved'`/`'dismissed'`
+statt `resolved_action_taken`/`resolved_dismissed`. Zwei Fehler, die sich
+gegenseitig verdeckt haben: die Bedingung traf nie etwas, also kam der CHECK nie
+zum Zug. **Beide Meldetabellen hatten 0 Zeilen.** Das war kein Zufall.
+
+**Warum es so lange unbemerkt blieb — und was jetzt dagegen steht.** Der
+Schema-Wächter prüft, ob *Spalten* existieren. Sie existierten. Über die
+erlaubten *Werte* wusste er nichts. Der Abzug trägt sie ab jetzt: `pruefwerte`,
+**240 Spalten in 119 Tabellen**, erzeugt aus der laufenden Datenbank. Eine Probe
+hält jeden geschriebenen Literal dagegen — gebunden an die **Anweisung**, nicht
+an die Datei: `status` heißt auf 22 Tabellen `status`, und `'pending'` ist auf 22
+davon erlaubt. Ein Wächter, der nur den Spaltennamen kennt, hätte genau diesen
+Fehler *nicht* gefunden.
+
+**Keine vierte Meldetabelle.** Es gibt bereits drei angefangene Meldewege
+(`reports` mit einem INSERT und null Lesern, `profile_abuse_reports`,
+`flagged_search_queries`). `profile_abuse_reports` ist der einzige mit fertigem
+Ausgang im Staff Control Center — also wächst dieser: Migration 189 gibt ihm
+`ziel_art`/`ziel_id`, und Angebote laufen in denselben Posteingang.
+
+| Stück | Ort |
+|---|---|
+| Migration | `sql/migrations/189_meldungen_die_ankommen.sql` |
+| Melden | `POST /offers/:id/report` (`profileVisibility.js`) |
+| Posteingang | Staff CC → Marketplace Visibility → Meldungen, jetzt mit Spalte „Was" |
+| Am Angebot | `frontend/public/offer_detail.html`, unten, klein, ohne Warnfarbe |
+
+**End-to-end nachgewiesen:** POST **200** → eine Zeile `ziel_art='angebot'`, im
+Posteingang sichtbar; dieselbe Person ein zweites Mal → weiterhin **eine** Zeile
+(`ON CONFLICT` greift endlich); unbekanntes Angebot **404**; erfundener Grund
+**400**; eigenes Angebot **400**; Anbieter ohne Organisation **409** statt einer
+Meldung, die niemand sieht. Und der Gegenbeweis für „Erledigen":
+`status='resolved_action_taken'` → `UPDATE 1`, `status='resolved'` → CHECK-Verletzung.
+
+28 neue Proben. Voller Lauf **9682**, 9668 grün, 13 übersprungen, ein bekannter
+Ausreißer (`me.route.coverage.test.js` fällt im vollen Lauf als *Datei* aus —
+`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`, libuv unter Windows;
+allein laufen ihre 68 Untertests grün, siehe `scripts/run-tests.js:148`).
+
 ### Noch zu bauen
 
-- **Am Angebot** eine Meldefunktion, die im Staff Control Center landet — und
-  dabei die tote `reports`-Tabelle mit an denselben Eingang hängen.
+- **Die tote `reports`-Tabelle** an denselben Posteingang hängen (ein INSERT,
+  null Leser — Nutzer-Meldungen wegen Spam, Betrug und Belästigung landen in
+  einer Tabelle, die niemand liest).
 - **Das Support Center ausbauen** — es war für die Abgabe nach Indien gedacht
   und ist verankert, aber nicht fertig. Mit dem Eingang hat es jetzt überhaupt
   erst etwas zu bearbeiten.

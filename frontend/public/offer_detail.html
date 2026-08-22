@@ -126,6 +126,19 @@
      - Firmen-, Personen-, Orts- und Rollennamen aus der API.
      - Waehrungs-/Einheitenkuerzel (EUR/h). */
   TCi18n.register('de', {
+    'demd.od.melden.title': 'Inhalt melden',
+    'demd.od.melden.hint': 'Wirkt dieses Angebot betruegerisch, unserioes oder unangemessen? Eine Meldung geht direkt an das TempConnect-Team und wird dort geprueft. Der Anbieter erfaehrt nicht, wer gemeldet hat.',
+    'demd.od.melden.open': 'Angebot melden',
+    'demd.od.melden.send': 'Meldung absenden',
+    'demd.od.melden.sending': 'Wird gesendet \u2026',
+    'demd.od.melden.ok': 'Danke \u2014 die Meldung ist beim TempConnect-Team eingegangen.',
+    'demd.od.melden.err': 'Die Meldung konnte nicht gesendet werden.',
+    'demd.od.melden.detailsPlaceholder': 'Was genau ist Ihnen aufgefallen? (optional)',
+    'demd.od.melden.grund.spam': 'Spam oder Werbung',
+    'demd.od.melden.grund.fake_profile': 'Gefaelschter Anbieter',
+    'demd.od.melden.grund.misleading_info': 'Irrefuehrende Angaben',
+    'demd.od.melden.grund.inappropriate_content': 'Unangemessener Inhalt',
+    'demd.od.melden.grund.other': 'Sonstiges',
     'demd.od.docTitle': 'Angebotsdetail \u2013 TempConnect',
     'demd.od.page.title': 'Dealakte',
     'demd.od.page.subtitle': 'Angebot, Einsatzvereinbarung, Dokumente und Verlauf eines Deals an einem Ort.',
@@ -372,6 +385,19 @@
     'demd.od.pool.errOrgContext': 'Kein Organisations-Kontext aktiv.'
   });
   TCi18n.register('en', {
+    'demd.od.melden.title': 'Report content',
+    'demd.od.melden.hint': 'Does this offer look fraudulent, dubious or inappropriate? A report goes straight to the TempConnect team for review. The supplier is not told who reported it.',
+    'demd.od.melden.open': 'Report offer',
+    'demd.od.melden.send': 'Send report',
+    'demd.od.melden.sending': 'Sending \u2026',
+    'demd.od.melden.ok': 'Thank you \u2014 the TempConnect team has received your report.',
+    'demd.od.melden.err': 'The report could not be sent.',
+    'demd.od.melden.detailsPlaceholder': 'What exactly did you notice? (optional)',
+    'demd.od.melden.grund.spam': 'Spam or advertising',
+    'demd.od.melden.grund.fake_profile': 'Fake supplier',
+    'demd.od.melden.grund.misleading_info': 'Misleading information',
+    'demd.od.melden.grund.inappropriate_content': 'Inappropriate content',
+    'demd.od.melden.grund.other': 'Other',
     'demd.od.docTitle': 'Offer detail \u2013 TempConnect',
     'demd.od.page.title': 'Deal file',
     'demd.od.page.subtitle': 'Offer, assignment agreement, documents and history of one deal in one place.',
@@ -1047,8 +1073,90 @@
       }
       h += '</div>';
 
+      /* Inhalt melden (Plan I, Abschnitt 10). Bewusst unten, klein und ohne
+         Warnfarbe: eine Meldefunktion, die wie ein Hauptknopf aussieht, wird
+         aus Versehen gedrueckt — und jede Fehlmeldung kostet das
+         TempConnect-Team dieselbe Bearbeitung wie eine echte. */
+      h += '<div class="od-card" style="margin-top:16px">';
+      h += '<div class="od-card__title">' + esc(TCi18n.t('demd.od.melden.title')) + '</div>';
+      h += '<div style="font-size:12px;color:var(--ds-text-secondary);line-height:1.6;margin-bottom:10px">' + esc(TCi18n.t('demd.od.melden.hint')) + '</div>';
+      h += '<div id="od-melden-form" style="display:none;margin-bottom:10px">';
+      h += '<select id="od-melden-grund" class="ds-input" style="width:100%;max-width:340px;margin-bottom:8px"></select>';
+      h += '<textarea id="od-melden-text" class="ds-input" style="width:100%;min-height:80px;margin-bottom:8px" maxlength="500" placeholder="' + esc(TCi18n.t('demd.od.melden.detailsPlaceholder')) + '"></textarea>';
+      h += '<div><button type="button" class="ds-btn ds-btn--primary" id="od-melden-senden">' + esc(TCi18n.t('demd.od.melden.send')) + '</button></div>';
+      h += '</div>';
+      h += '<div id="od-melden-msg" style="display:none;font-size:12px;line-height:1.6;margin-bottom:8px"></div>';
+      h += '<button type="button" class="ds-btn" id="od-melden-oeffnen">' + esc(TCi18n.t('demd.od.melden.open')) + '</button>';
+      h += '</div>';
+
       root.innerHTML = h;
+      verdrahteMelden(o);
       renderStaffingBlock(o).catch(function () { /* non-critical */ });
+    }
+
+    /* Gruende und Werte kommen aus dem Zod-Schema von POST /offers/:id/report.
+       Wer hier einen Wert erfindet, bekommt 400 — die verbindliche Liste steht
+       am Server. */
+    var MELDE_GRUENDE = ['spam', 'fake_profile', 'misleading_info', 'inappropriate_content', 'other'];
+
+    function meldeMeldung(text, gut) {
+      var el = document.getElementById('od-melden-msg');
+      if (!el) return;
+      el.textContent = text;
+      el.style.color = gut ? 'var(--ds-success-text,#1a7f37)' : 'var(--ds-danger-text,#b42318)';
+      el.style.display = 'block';
+    }
+
+    function verdrahteMelden(o) {
+      var oeffnen = document.getElementById('od-melden-oeffnen');
+      var senden = document.getElementById('od-melden-senden');
+      if (!oeffnen || !senden) return;
+
+      oeffnen.addEventListener('click', function () {
+        var form = document.getElementById('od-melden-form');
+        var auswahl = document.getElementById('od-melden-grund');
+        if (!auswahl.options.length) {
+          MELDE_GRUENDE.forEach(function (g) {
+            var opt = document.createElement('option');
+            opt.value = g;
+            opt.textContent = TCi18n.t('demd.od.melden.grund.' + g);
+            auswahl.appendChild(opt);
+          });
+        }
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+      });
+
+      senden.addEventListener('click', function () {
+        senden.disabled = true;
+        var vorher = senden.textContent;
+        senden.textContent = TCi18n.t('demd.od.melden.sending');
+        fetch('/api/csrf', { credentials: 'include' })
+          .then(function (r) { return r.ok ? r.json() : {}; })
+          .then(function (csrf) {
+            return fetch('/api/offers/' + encodeURIComponent(o.id) + '/report', {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf.token || '' },
+              body: JSON.stringify({
+                reason: document.getElementById('od-melden-grund').value || 'other',
+                details: document.getElementById('od-melden-text').value.trim() || null
+              })
+            });
+          })
+          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
+          .then(function (a) {
+            if (a.ok) {
+              meldeMeldung(TCi18n.t('demd.od.melden.ok'), true);
+              document.getElementById('od-melden-form').style.display = 'none';
+              return;
+            }
+            /* Die Antwort der Route woertlich zeigen: bei SELF_REPORT und
+               OFFER_WITHOUT_ORG sagt sie etwas Konkretes, das dem Nutzer hilft. */
+            meldeMeldung((a.body && (a.body.message || (a.body.error && a.body.error.message))) || TCi18n.t('demd.od.melden.err'), false);
+          })
+          .catch(function () { meldeMeldung(TCi18n.t('demd.od.melden.err'), false); })
+          .then(function () { senden.disabled = false; senden.textContent = vorher; });
+      });
     }
 
     // Welle 7 - Phase 6+7+8: Staffing-Kontext + One-click-/Bulk-Zuweisung.

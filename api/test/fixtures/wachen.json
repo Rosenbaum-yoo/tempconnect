@@ -1788,6 +1788,13 @@
     },
     {
       "datei": "profileVisibility.js",
+      "methode": "post",
+      "pfad": "/offers/:id/report",
+      "wachart": "eigene-daten",
+      "begruendung": "Ein FREMDES Angebot zu melden ist der Zweck der Meldefunktion — dieselbe Begruendung wie bei `/profile-visibility/:orgId/report`. Der Melder kommt aus der Sitzung, nie aus dem Anfragekoerper; die eigene Meldung wird ausdruecklich abgewiesen (SELF_REPORT_NOT_ALLOWED)."
+    },
+    {
+      "datei": "profileVisibility.js",
       "methode": "delete",
       "pfad": "/profile-visibility/:orgId/favorite",
       "wachart": "eigene-daten",
@@ -2938,8 +2945,8 @@
     }
   ],
   "grundlinie": {
-    "wege": 416,
+    "wege": 417,
     "berechtigung": 161,
-    "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-22 von 415 auf 416 erhoeht: Abschnitt 10 hat mit `POST /support-requests` den Weg eines Kunden INS Support Center angelegt — vorher hatte `support_cases` im gesamten Repo kein einziges INSERT, das Support Center war ein Lesesaal ueber einer Tabelle, die niemand fuellen konnte. Die Wachart bleibt `eigene-daten`: der Melder kommt aus der Sitzung, nicht aus dem Anfragekoerper. `berechtigung` unveraendert bei 161."
+    "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-22 von 415 auf 416 erhoeht: Abschnitt 10 hat mit `POST /support-requests` den Weg eines Kunden INS Support Center angelegt — vorher hatte `support_cases` im gesamten Repo kein einziges INSERT, das Support Center war ein Lesesaal ueber einer Tabelle, die niemand fuellen konnte. Die Wachart bleibt `eigene-daten`: der Melder kommt aus der Sitzung, nicht aus dem Anfragekoerper. Am 2026-08-22 weiter auf 417: `POST /offers/:id/report` (Abschnitt 10, Inhalte melden). `berechtigung` unveraendert bei 161."
   }
 }

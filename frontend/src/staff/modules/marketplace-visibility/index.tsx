@@ -78,6 +78,11 @@ interface AbuseReportItem {
   created_at:          string;
   reported_org_name:   string | null;
   reported_org_id:     string;
+  /* Seit Migration 189 traegt derselbe Posteingang auch gemeldete ANGEBOTE.
+     Ohne diese beiden Felder saehe Staff nur "Org X wurde gemeldet" und
+     muesste raten, ob das Profil oder ein einzelnes Angebot gemeint ist. */
+  ziel_art?:           string;
+  ziel_id?:            string;
 }
 
 // ─── Tab definition ──────────────────────────────────────────
@@ -713,6 +718,11 @@ function BountiesTab() {
 
 // ─── Tab: Meldungen (Abuse Reports) ─────────────────────────
 
+const ZIEL_LABELS: Record<string, string> = {
+  profil:  "Profil",
+  angebot: "Angebot",
+};
+
 const REASON_LABELS: Record<string, string> = {
   spam:                  "Spam",
   fake_profile:          "Gefälschtes Profil",
@@ -787,6 +797,7 @@ function AbuseReportsTab() {
           <thead>
             <tr>
               <th>Gemeldete Org</th>
+              <th>Was</th>
               <th>Grund</th>
               <th>Details</th>
               <th>Gemeldet am</th>
@@ -801,6 +812,16 @@ function AbuseReportsTab() {
                   <div style={{ fontSize: 10, color: "var(--scc-muted)" }}>
                     {r.reported_org_id.slice(0, 12)}…
                   </div>
+                </td>
+                <td>
+                  <span className="scc-pill" style={{ fontSize: 11 }}>
+                    {ZIEL_LABELS[r.ziel_art ?? "profil"] ?? r.ziel_art}
+                  </span>
+                  {r.ziel_art === "angebot" && r.ziel_id ? (
+                    <div style={{ fontSize: 10, color: "var(--scc-muted)" }} title={r.ziel_id}>
+                      {r.ziel_id.slice(0, 12)}…
+                    </div>
+                  ) : null}
                 </td>
                 <td>
                   <span className="scc-pill scc-pill--warn" style={{ fontSize: 11 }}>

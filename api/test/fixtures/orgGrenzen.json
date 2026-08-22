@@ -2704,22 +2704,17 @@
       "datei": "profileVisibility.js",
       "routen": [
         {
-          "methode": "get",
-          "pfad": "/profile-visibility/public/:orgId",
-          "urteil": "bewusste-ausnahme",
-          "begruendung": "AUSDRUECKLICH OEFFENTLICH ('/public/' im Pfad): die Aussenansicht eines Profils."
-        },
-        {
           "methode": "post",
-          "pfad": "/profile-visibility/:orgId/like",
+          "pfad": "/offers/:id/report",
           "urteil": "bewusste-ausnahme",
-          "begruendung": "Ein FREMDES Profil mit 'gefaellt mir' zu versehen ist der Zweck. Die Zeile bindet den Handelnden ueber liker_user_id, nicht die Ziel-Org."
+          "begruendung": "Ein FREMDES Angebot zu melden ist der ZWECK der Meldefunktion — wortgleich zur bereits eingetragenen Ausnahme fuer `/profile-visibility/:orgId/report`. Eine Org-Grenze waere hier das Gegenteil von richtig: sie liesse nur zu, das eigene Angebot zu melden. Was die Route stattdessen sperrt, ist der SELBST-Report (`supplier_company_id === req.session.userId`), und das ist eine Nutzer- keine Org-Grenze.",
+          "art": "ressource"
         },
         {
           "methode": "delete",
-          "pfad": "/profile-visibility/:orgId/like",
+          "pfad": "/profile-visibility/:orgId/favorite",
           "urteil": "bewusste-ausnahme",
-          "begruendung": "Ein FREMDES Profil mit 'gefaellt mir' zu versehen ist der Zweck. Die Zeile bindet den Handelnden ueber liker_user_id, nicht die Ziel-Org."
+          "begruendung": "Ein FREMDES Profil zu merken ist der Zweck; die Merkliste bindet ueber owner_user_id."
         },
         {
           "methode": "post",
@@ -2729,15 +2724,27 @@
         },
         {
           "methode": "delete",
-          "pfad": "/profile-visibility/:orgId/favorite",
+          "pfad": "/profile-visibility/:orgId/like",
           "urteil": "bewusste-ausnahme",
-          "begruendung": "Ein FREMDES Profil zu merken ist der Zweck; die Merkliste bindet ueber owner_user_id."
+          "begruendung": "Ein FREMDES Profil mit 'gefaellt mir' zu versehen ist der Zweck. Die Zeile bindet den Handelnden ueber liker_user_id, nicht die Ziel-Org."
+        },
+        {
+          "methode": "post",
+          "pfad": "/profile-visibility/:orgId/like",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Ein FREMDES Profil mit 'gefaellt mir' zu versehen ist der Zweck. Die Zeile bindet den Handelnden ueber liker_user_id, nicht die Ziel-Org."
         },
         {
           "methode": "post",
           "pfad": "/profile-visibility/:orgId/report",
           "urteil": "bewusste-ausnahme",
           "begruendung": "Ein FREMDES Profil zu melden ist der Zweck der Meldefunktion."
+        },
+        {
+          "methode": "get",
+          "pfad": "/profile-visibility/public/:orgId",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "AUSDRUECKLICH OEFFENTLICH ('/public/' im Pfad): die Aussenansicht eines Profils."
         }
       ],
       "hinweis": "Profil-Sichtbarkeit ist eine Marktplatz-Flaeche: fremde Profile ansehen, mit 'gefaellt mir' versehen, merken oder melden ist der ZWECK. Der Handelnde wird ueber die Sitzung gebunden (liker_user_id / owner_user_id), nicht ueber die Ziel-Org."

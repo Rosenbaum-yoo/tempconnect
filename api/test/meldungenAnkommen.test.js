@@ -299,3 +299,107 @@ describe("Meldungen — der Fehler wird nicht mehr verschluckt", () => {
       "Der Dienst reicht den Fehler heraus — wenn die Route ihn wegwirft, ist nichts gewonnen.");
   });
 });
+
+describe("Angebot melden — die Route, an echten Antworten geprueft", () => {
+  /*
+   * Nicht am Quelltext: `if (false && ...)` enthaelt die gesuchte Zeichenkette
+   * weiterhin. Der Handler wird gebaut und aufgerufen.
+   *
+   * Zusaetzlich am 2026-08-22 gegen die LAUFENDE Datenbank durchgespielt:
+   * POST 200 -> eine Zeile mit ziel_art='angebot', im Posteingang sichtbar;
+   * dieselbe Person ein zweites Mal -> weiterhin EINE Zeile (ON CONFLICT
+   * greift); unbekanntes Angebot 404; erfundener Grund 400.
+   */
+  const MELDER = "d0a00000-0000-0000-0000-000000000002";
+  const ANBIETER = "98f83a6f-5d68-428c-86d1-75295aae4f34";
+  const OFFER = "d7c857d3-e93a-4883-bcb2-31f79354d33b";
+  const ANBIETER_ORG = "ae376d4b-8608-4f80-aa7f-1c28614e461f";
+
+  async function ruf(angebotZeile, koerper = { reason: "spam" }) {
+    const { createProfileVisibilityRouter } = await import("../routes/profileVisibility.js");
+    const calls = [];
+    const pool = {
+      calls,
+      query: async (sql, params) => {
+        calls.push({ sql: String(sql), params: params || [] });
+        if (/FROM offers/.test(String(sql))) {
+          return { rows: angebotZeile ? [angebotZeile] : [], rowCount: angebotZeile ? 1 : 0 };
+        }
+        return { rows: [{ id: "report-1" }], rowCount: 1 };
+      },
+    };
+    const router = createProfileVisibilityRouter({
+      pool, requireAuth: (_q, _s, n) => n(), requireFeature: () => (_q, _s, n) => n(),
+      logger: { error() {}, warn() {}, info() {} },
+    });
+    const schicht = router.stack.find((s) => s.route?.path === "/offers/:id/report");
+    assert.ok(schicht, "die Route /offers/:id/report fehlt");
+    const handler = schicht.route.stack[schicht.route.stack.length - 1].handle;
+
+    let status = 200; let json = null;
+    const res = {
+      status(c) { status = c; return this; },
+      json(j) { json = j; return this; },
+    };
+    await handler(
+      { params: { id: OFFER }, body: koerper, session: { userId: MELDER }, headers: {} },
+      res
+    );
+    return { status, json, calls };
+  }
+
+  const zeile = (extra = {}) => ({
+    id: OFFER, supplier_company_id: ANBIETER, anbieter_org_id: ANBIETER_ORG, ...extra,
+  });
+
+  it("ein fremdes Angebot laesst sich melden", async () => {
+    const r = await ruf(zeile());
+    assert.equal(r.status, 200);
+    assert.equal(r.json?.data?.reported, true);
+    const insert = r.calls.find((c) => /INSERT INTO profile_abuse_reports/.test(c.sql));
+    assert.ok(insert, "es muss eine Meldung entstehen");
+    assert.ok(insert.params.includes("angebot") && insert.params.includes(OFFER));
+    assert.ok(insert.params.includes(ANBIETER_ORG),
+      "die Organisation des Anbieters traegt die Meldung — sonst kann der Posteingang sie nicht anzeigen");
+  });
+
+  it("das eigene Angebot laesst sich NICHT melden", async () => {
+    const r = await ruf(zeile({ supplier_company_id: MELDER }));
+    assert.equal(r.status, 400);
+    assert.equal(r.json?.error?.code, "SELF_REPORT_NOT_ALLOWED");
+    assert.ok(!r.calls.some((c) => /INSERT INTO profile_abuse_reports/.test(c.sql)));
+  });
+
+  it("ein Angebot, das es nicht gibt, ergibt 404 statt einer Geisterzeile", async () => {
+    const r = await ruf(null);
+    assert.equal(r.status, 404);
+    assert.equal(r.json?.error?.code, "OFFER_NOT_FOUND");
+  });
+
+  it("ohne Anbieter-Organisation wird ABGEWIESEN, nicht halb gespeichert", async () => {
+    /* Fail-closed, dieselbe Regel wie beim Support-Eingang: der Posteingang
+     * verbindet ueber `reported_org_id`. Eine Meldung ohne Organisation waere
+     * eine, die niemand sieht — und das ist schlimmer als eine abgelehnte. */
+    const r = await ruf(zeile({ anbieter_org_id: null }));
+    assert.equal(r.status, 409);
+    assert.equal(r.json?.error?.code, "OFFER_WITHOUT_ORG");
+    assert.ok(!r.calls.some((c) => /INSERT INTO profile_abuse_reports/.test(c.sql)));
+  });
+
+  it("die Organisation wird BESTIMMT gewaehlt, nicht zufaellig", async () => {
+    const r = await ruf(zeile());
+    const laden = r.calls.find((c) => /FROM offers/.test(c.sql));
+    assert.match(laden.sql, /ORDER BY m\.created_at ASC\s*\n?\s*LIMIT 1/,
+      "Bei mehreren Mitgliedschaften muss die Wahl bestimmt sein — sonst landet dieselbe Meldung " +
+      "mal bei der einen, mal bei der anderen Organisation.");
+    assert.match(laden.sql, /m\.is_active = TRUE/,
+      "eine beendete Mitgliedschaft darf die Meldung nicht tragen");
+  });
+
+  it("ein erfundener Grund wird abgewiesen, bevor das Angebot ueberhaupt geladen wird", async () => {
+    const r = await ruf(zeile(), { reason: "erfunden" });
+    assert.equal(r.status, 400);
+    assert.equal(r.json?.error?.code, "VALIDATION");
+    assert.equal(r.calls.length, 0);
+  });
+});
