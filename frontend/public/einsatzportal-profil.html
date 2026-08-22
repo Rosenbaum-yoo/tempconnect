@@ -1385,10 +1385,38 @@ async function loadSessions() {
     const offen = res.offen || 0, weitere = res.weitere_geraete || 0;
     const btn = document.getElementById('btnLogoutOthers');
     if (btn) btn.disabled = weitere === 0;
-    box.textContent = offen
-      ? offen + ' aktive Sitzung' + (offen === 1 ? '' : 'en') +
-        (weitere ? ' — davon ' + weitere + ' auf anderen Geräten' : ' — nur dieses Gerät')
-      : 'Keine aktiven Sitzungen gefunden.';
+
+    /* 8.1.2: Bis 2026-08-21 stand hier nur "davon N auf anderen Geraeten" —
+       und das war schlicht `offen - 1`. Die Anwendung kannte keine Geraete.
+       Wer daraufhin entscheidet, ob er sein Konto fernabmeldet, entschied auf
+       einer Behauptung. Jetzt liefert die Route je Sitzung Zeitpunkt und
+       groben Geraetetyp (keine IP, kein Standort, keine Geraetekennung). */
+    const sitzungen = Array.isArray(res.sitzungen) ? res.sitzungen : [];
+    if (!offen) { box.textContent = 'Keine aktiven Sitzungen gefunden.'; return; }
+
+    const ART = { handy: 'Handy', tablet: 'Tablet', rechner: 'Rechner', unbekannt: 'Unbekanntes Gerät' };
+    const kopf = offen + ' aktive Sitzung' + (offen === 1 ? '' : 'en');
+
+    if (!sitzungen.length) {
+      // Aeltere Antwort ohne Liste: die Zahl steht, aber nichts wird behauptet.
+      box.textContent = kopf + (weitere ? ' — ' + weitere + ' weitere' : ' — nur diese');
+      return;
+    }
+
+    const zeilen = sitzungen.map(function (s) {
+      const g = s.geraet || {};
+      const name = (ART[g.art] || ART.unbekannt) +
+        (g.browser && g.browser !== 'unbekannt' ? ', ' + g.browser : '');
+      let seit = '';
+      if (s.seit) {
+        const d = new Date(s.seit);
+        if (!isNaN(d)) seit = ' — seit ' + d.toLocaleString('de-DE',
+          { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      }
+      return '<li>' + esc(name) + esc(seit) + (s.aktuell ? ' <strong>(dieses Gerät)</strong>' : '') + '</li>';
+    }).join('');
+
+    box.innerHTML = '<p>' + esc(kopf) + '</p><ul class="ds-list-plain">' + zeilen + '</ul>';
   } catch (e) {
     box.textContent = 'Sitzungen konnten nicht geladen werden.';
   }

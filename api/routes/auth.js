@@ -10,7 +10,7 @@ import { writeAudit } from "../services/auditLog.js";
 import { trackProductEvent, deriveCustomerSegment } from "../services/productAnalyticsService.js";
 import { catchAsync } from "../utils/routeHandler.js";
 import { domainLogger, swallow } from "../utils/logger.js";
-import { stampSession, bindSessionToDevice, destroyAllUserSessions, countUserSessions } from "../services/sessionSecurityService.js";
+import { stampSession, bindSessionToDevice, destroyAllUserSessions, countUserSessions, listUserSessions, vermerkeGeraet } from "../services/sessionSecurityService.js";
 import { isEnforceSSO } from "../services/ssoService.js";
 import * as totpService from "../services/totpService.js";
 
@@ -183,7 +183,9 @@ export function createAuthRouter(deps) {
     // SEC-001: Regenerate session to prevent session fixation
     await new Promise((resolve, reject) => req.session.regenerate((err) => err ? reject(err) : resolve()));
     req.session.userId = userId;
-    stampSession(req.session); // P5.1: Hoechstalter zaehlt ab hier — nach regenerate, sonst verworfen
+    stampSession(req.session); // P5.1: Hoechstalter zaehlt ab hier
+    vermerkeGeraet(req.session, req.headers?.["user-agent"]);  // 8.1.2: grober Typ, kein roher User-Agent — nach regenerate, sonst verworfen
+    vermerkeGeraet(req.session, req.headers?.["user-agent"]);  // 8.1.2: grober Typ, kein roher User-Agent
     const me = await getUserAndPlan(userId);
     try {
       await trackProductEvent(pool, {
@@ -284,6 +286,7 @@ export function createAuthRouter(deps) {
     await new Promise((resolve, reject) => req.session.regenerate((err) => err ? reject(err) : resolve()));
     req.session.userId = creds.id;
     stampSession(req.session); // P5.1: Hoechstalter zaehlt ab hier
+    vermerkeGeraet(req.session, req.headers?.["user-agent"]);  // 8.1.2: grober Typ, kein roher User-Agent
     // Geteilte Rechner (Lagerbuero, Pfoertnerloge): ohne "angemeldet bleiben"
     // stirbt die Sitzung mit dem Fenster. Verkuerzt die Fristen, verlaengert nie.
     bindSessionToDevice(req.session, rememberMe !== false);
@@ -330,7 +333,23 @@ export function createAuthRouter(deps) {
    */
   router.get("/auth/sessions", requireAuth, catchAsync(async (req, res) => {
     const offen = await countUserSessions(pool, req.session.userId);
-    res.json({ offen, weitere_geraete: Math.max(0, offen - 1) });
+    /*
+     * 8.1.2: bisher gab es nur zwei Zahlen. Die zweite, "weitere_geraete", war
+     * `offen - 1` — die Anwendung kannte keine Geraete, das Portal schrieb
+     * trotzdem "davon 1 auf anderen Geraeten". Wer daraufhin entscheidet, ob er
+     * sein Konto fernabmeldet, entscheidet auf einer Behauptung.
+     *
+     * Jetzt kommt die Liste dazu: je Sitzung Zeitpunkt und grober Geraetetyp
+     * (Owner-Entscheidung: keine IP, kein Standort, keine Geraetekennung).
+     * `offen`/`weitere_geraete` bleiben erhalten, damit die bestehende
+     * Oberflaeche nicht bricht.
+     *
+     * AUSSCHLIESSLICH das eigene Konto — `listUserSessions` nimmt keine fremde
+     * Kennung entgegen. Wer die Sitzungen anderer sehen darf, ist eine
+     * Flaechen-Frage und war nicht entschieden.
+     */
+    const sitzungen = await listUserSessions(pool, req.session.userId, req.sessionID);
+    res.json({ offen, weitere_geraete: Math.max(0, offen - 1), sitzungen });
   }));
 
   /**
@@ -450,6 +469,7 @@ export function createAuthRouter(deps) {
     await new Promise((resolve, reject) => req.session.regenerate((err) => err ? reject(err) : resolve()));
     req.session.userId = result.user.id;
     stampSession(req.session); // P5.1: Hoechstalter zaehlt ab hier
+    vermerkeGeraet(req.session, req.headers?.["user-agent"]);  // 8.1.2: grober Typ, kein roher User-Agent
     req.session.userRole = result.user.role;  // needed by requireWorkerRole gate
     try {
       await trackProductEvent(pool, {

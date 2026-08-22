@@ -5,6 +5,7 @@
  * — Demo-Reset (bereinigt Session-Daten)
  */
 import { Router } from "express";
+import { vermerkeGeraet } from "../services/sessionSecurityService.js";
 
 /* ── Rollen-basierte Demo-Accounts (primär) ───────────── */
 const ROLE_ACCOUNTS = {
@@ -80,6 +81,7 @@ export function createDemoRouter(deps) {
     req.session.userId   = user.id;
     req.session.userRole = user.role;
     req.session.isDemo   = true;
+    vermerkeGeraet(req.session, req.headers?.["user-agent"]);  // 8.1.2
 
     const me = await getUserAndPlan(user.id);
     res.locals.audit = {
