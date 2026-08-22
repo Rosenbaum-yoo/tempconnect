@@ -75,6 +75,7 @@ function serviceError(code) {
 }
 import { REQUEST_TYPES as SUB_REQUEST_TYPES, STATUS as SUB_STATUS, listAllowedNextStatuses as subAllowedNext, canBypassStaffApproval as subCanBypass, applyApprovedChange } from "../services/subscriptionRequestService.js";
 import { writeStaffAudit, listStaffAudit, auditContextFromReq } from "../services/staffAuditService.js";
+import { queryAuditLog } from "../services/auditLog.js";
 import * as supportVendorAdmin from "../services/supportVendorAdminService.js";
 import {
   createStaffControlAccessMiddleware,
@@ -719,6 +720,57 @@ export function createStaffControlCenterRouter(deps) {
     };
     const items = await listStaffAudit(pool, filters);
     res.json({ success: true, data: { items, filters } });
+  });
+
+  // ── Plattformweites Audit ueber ALLE Mandanten (8.1.1 e) ──────────────
+  //
+  // Nicht zu verwechseln mit `/audit` daneben: das liest
+  // `staff_control_audit_log`, also was das TEAM getan hat. Diese Route liest
+  // `audit_log` — was auf der PLATTFORM geschehen ist, ueber alle
+  // Organisationen hinweg.
+  //
+  // Bis 2026-08-21 gab es diese Sicht nur in `routes/admin.js`, also auf einer
+  // Flaeche, die laut `frontend/public/js/hubVisibility.js` bewusst fuer
+  // company UND agency sichtbar ist. Sie stand damit auf der falschen Seite der
+  // Trennung (`docs/FLAECHEN.md`: die Plattform als Ganzes gehoert ins Staff
+  // Control Center). Dort ist sie jetzt — hinter dem Flaechen-Tor `requireStaff`
+  // und der eigenen Staff-Session aus `app.js`.
+  //
+  // Bewusst DERSELBE Dienst wie die Kundensicht (`queryAuditLog`): eine zweite
+  // Abfrage waere eine zweite Stelle, an der die Mandantengrenze zu pflegen
+  // waere. Welle H2 hat gezeigt, wohin das fuehrt — gefaehrlich waren die
+  // Stellen OHNE Kopie. Der Unterschied ist hier ausschliesslich, dass kein
+  // Mandant vorgegeben wird.
+  router.get("/platform-audit", requireStaff, async (req, res) => {
+    const limit  = Math.min(500, parseInt(req.query.limit, 10) || 100);
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+    const orgId  = req.query.org_id || null;   // optional: auf einen Mandanten verengen
+    const result = await queryAuditLog(pool, {
+      org_id:       orgId,
+      actor_id:     req.query.actor_id     || null,
+      actor_search: req.query.actor_search || null,
+      org_search:   req.query.org_search   || null,
+      entity_type:  req.query.entity_type  || null,
+      action:       req.query.action       || null,
+      action_type:  req.query.action_type  || null,
+      status:       req.query.status       || null,
+      from:         req.query.from         || null,
+      to:           req.query.to           || null,
+      limit,
+      offset
+    });
+    res.json({
+      success: true,
+      data: {
+        items: result.items,
+        total: result.total,
+        limit,
+        offset,
+        // Scope-Transparenz (Produktionspfeiler 3): ohne org_id ist es die
+        // Plattformsicht — der Leser muss das sehen, nicht raten.
+        scope: { plattformweit: !orgId, org_id: orgId }
+      }
+    });
   });
 
   router.get("/customer-requests-meta/statuses", requireStaff, (_req, res) => {
