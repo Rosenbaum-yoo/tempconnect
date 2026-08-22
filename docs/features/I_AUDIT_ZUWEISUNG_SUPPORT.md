@@ -273,9 +273,92 @@ Datenbank der Quelltext-Riegel (kein Rückfall auf `req.orgId`, Demo-Login
 regeneriert **vor** dem Eintragen, Zwischenspeicher trägt seinen Nutzer), mit
 Datenbank die Abnahme selbst. Host 6/6, Container **10/10**.
 
-**Noch offen:** die Register `orgGrenzen.json` und `wachen.json` nachziehen, und
-die Teile (c) bis (e) — die drei getrennten Sichten, der Admin-Bereich und die
-Plattformsicht im Staff Center.
+### (c) bis (e) — gebaut 2026-08-21
+
+**(c) Drei Sichten, hart getrennt — erledigt** (`a971979`).
+Die Hälfte stimmte schon: Zeitarbeitsfirma und Unternehmen laufen über
+denselben Code, es gibt **keinen `org_type`-Zweig** — weder in
+`organizations.js` noch in `orgControlCenter.js` noch in `services/auditLog.js`.
+Der einzige Datenselektor ist `al.org_id`. Genau wie vorgegeben.
+
+Nicht gestimmt hat die **Form** der Grenze. Sie stand als
+`if (req.orgId && req.params.id !== req.orgId)` — das schaltet sich bei `null`
+selbst ab, und `null` heißt dann: der Pfad-Parameter wählt die Organisation
+frei. Auf diesen Routen heute nicht erreichbar, weil `requireRole` davor
+fail-closed abbricht — aber die Route verlässt sich damit auf einen Nachbarn.
+Jetzt `if (!req.orgId || …)`. Neuer Wächter: `api/test/auditDreiSichten.test.js`.
+
+> **Zwei Kunden-Routen für dieselbe Sache** bleiben bestehen:
+> `GET /org/audit-log` (benutzt von `organization.html:587`) und
+> `GET /organizations/:id/audit-log` (**kein Aufrufer im ganzen Repo**). Die
+> zweite ist die schwächere Bauart — Org aus dem Pfad statt aus dem geprüften
+> Kontext. Sie zu entfernen ist eine **Owner-Entscheidung**: die Ratsche in
+> `orgGrenzen.json` fällt dabei von 256 auf 254, wie zuletzt bei P1-19.
+
+**(d) Der Admin-Bereich — zwei Lecks geschlossen, der Rest ist eine Entscheidung**
+(`5677f70`, `bcf03b9`).
+
+`requireAdmin` lässt jeden mit der **Org**-Rolle `owner` oder `admin` durch:
+**201 von 395 Konten**, davon 142 in Unternehmens- und 59 in
+Zeitarbeits-Organisationen. Kein einziges gehört TempConnect.
+
+| geschlossen | was es war |
+|---|---|
+| `GET /admin/audit-log` | plattformweite Liste — `org_id: req.query.org_id \|\| null` heißt ohne Angabe *alles* |
+| `GET /admin/audit-log/export/csv` | dieselbe Menge als Datei außer Haus |
+| `GET /admin/audit-log/recent-changes` | rief `getRecentChangesPlatformWide` für jeden Passierer |
+| `PATCH /admin/users/:id` | `role`/`plan`/`is_verified` auf **jeden** Nutzer der Plattform |
+| `POST /admin/users/:id/deactivate` | jedes Konto sperrbar, auch fremde und die von TempConnect |
+
+Die Liste `GET /admin/users` war längst org-begrenzt — die **Mutationen** nicht.
+Die Grenze lebte nur in dem, was die Oberfläche *zeigt*, nicht in dem, was der
+Endpunkt *zulässt*. Wer die Kennung kennt, braucht die Liste nicht.
+
+`role` und `plan` sind jetzt der Plattformverwaltung vorbehalten (die Org-Rolle
+steht in `org_memberships.role_key`, der wirksame Tarif in `subscriptions`), und
+`adminPanel.js` blendet die beiden Auswahlfelder aus, wenn der Umfang nicht
+plattformweit ist — sonst blieben zwei tote Knöpfe stehen.
+
+> **Nicht überzeichnet:** die Tarif-Auswahl war *kein* Freischalt-Bypass. Kein
+> Feature-Gate liest `users.plan`; die Spalte fällt nur in Analytik und
+> DSGVO-Auskunft an. Sie verfälscht Zahlen, sie kauft nichts frei.
+
+**Offen und owner-gated:** die übrigen `admin.js`-Routen sind weiterhin
+plattformweit — `/admin/organizations`, `/admin/requests`,
+`/admin/strategic-collaboration/*`, `/admin/metrics`, `/admin/revenue`,
+`/admin/system-health`, `/admin/activity-feed`, `/admin/feature-overrides`,
+`/admin/organizations/:id/pilot-policy`. Die Fläche selbst ist laut
+`frontend/public/js/hubVisibility.js` **bewusst für company UND agency
+sichtbar**. Entweder wird jede Route org-begrenzt, oder die Fläche wandert ins
+Staff Center und die Kundenseite behält einen reduzierten Bereich. Das ist eine
+Flächen-Entscheidung nach `docs/FLAECHEN.md`, kein Patch.
+
+**(e) Die Plattformsicht im Staff Center — erledigt** (`0259d94`).
+Zuerst war zu klären, ob es sie dort nicht längst gibt: `GET /staff/audit` sieht
+danach aus, liest aber `staff_control_audit_log` — was das **Team** getan hat,
+nicht was auf der **Plattform** geschehen ist. Zwei verschiedene Tabellen.
+
+Neu: `GET /staff/platform-audit`, hinter dem Flächen-Tor `requireStaff` und der
+eigenen Staff-Session. Bewusst **derselbe Dienst** wie die Kundensicht
+(`queryAuditLog`) — eine zweite Abfrage wäre eine zweite Stelle, an der die
+Mandantengrenze zu pflegen wäre. Der einzige Unterschied: hier wird kein Mandant
+vorgegeben; `?org_id=` verengt optional. Antwort trägt
+`scope: { plattformweit, org_id }`.
+
+**Befund nebenbei, nicht gefixt (außerhalb (c)–(e)):** `organizations.js` hat
+**fünf weitere Routen** mit dem selbstabschaltenden Muster (Zeilen 60, 89, 116,
+171, 230 — darunter `GET /organizations/:id/{members,locations,departments}`).
+Anders als die Audit-Route tragen sie **nur `requireAuth`**, also keinen Guard,
+der `req.orgId` fail-closed setzt. Der C-11-Kommentar in
+`middleware/orgContext.js` beschreibt genau diese neun Routen und stützt sich
+darauf, dass der Kontext auf die eigene Org zurückfällt — das gilt nur für
+Nutzer, die überhaupt eine Mitgliedschaft haben. Die Reichweite ist noch nicht
+gemessen (Docker war unten).
+
+**Register nachgezogen** (`ca17694`): kein Weg, kein Urteil geändert (415/161
+und 256 stehen). Ergänzt wurde die **Prämisse**, auf der beide Register
+stillschweigend aufbauen — dass `req.orgId` dem Anfragenden gehört. Genau das
+war bis 8.1.1 verletzt.
 
 ---
 
