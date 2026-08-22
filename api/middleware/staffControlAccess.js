@@ -32,28 +32,103 @@ export function createStaffControlAccessMiddleware(deps) {
         });
       }
 
+      /*
+       * ABLAUF UND WIDERRUF STEHEN IM `WHERE`, NICHT IN EINER JS-NACHPRUEFUNG.
+       *
+       * BEFUND (2026-08-22, gegen die laufende Datenbank belegt): Der Kommentar
+       * von Migration 118 nennt woertlich DIESE Funktion als die Stelle, die
+       * das Ablaufdatum prueft —
+       *
+       *   COMMENT ON COLUMN tempconnect_staff.expires_at IS
+       *     'Optionales Ablaufdatum — NULL = kein Ablauf.
+       *      Pruefung in createStaffControlAccessMiddleware (WAVE 11)'
+       *
+       * — und die Abfrage holte die Spalte nicht einmal. Es gibt sogar einen
+       * Teilindex dafuer (118:40-42): jemand hat den Index fuer eine Pruefung
+       * gebaut, die nie geschrieben wurde. Ein befristeter Berater-Zugang lief
+       * damit nie ab, waehrend ein Access-Reviewer der Zusage glaubte.
+       *
+       * `revoked_at` war noch schwaecher: NIEMAND setzt es (die Deaktivierung
+       * schreibt nur `is_active = FALSE`, staffControlCenter.js:548) und
+       * NIEMAND prueft es. Wer es von Hand setzt, weil die Spalte danach
+       * aussieht, sperrt niemanden aus. Jetzt schon.
+       *
+       * Im WHERE und nicht in JS, weil eine Bedingung, die erst nach dem Laden
+       * greift, beim naechsten Aufrufer dieser Abfrage fehlt — und weil das
+       * Vorbild nebenan es genauso macht (requireOwnerControlAccess.js:43-49).
+       *
+       * WIRKUNG HEUTE: keine. Gemessen — eine Zeile, `expires_at IS NULL`,
+       * `revoked_at IS NULL`. Es wird niemand ausgesperrt; es kann kuenftig nur
+       * niemand mehr drinbleiben, der draussen sein soll.
+       */
       const { rows } = await pool.query(
-        `SELECT user_id, email, display_name, is_active, requires_step_up, last_access_at
-         FROM tempconnect_staff WHERE user_id = $1`,
+        `SELECT user_id, email, display_name, is_active, requires_step_up, last_access_at,
+                expires_at
+         FROM tempconnect_staff
+          WHERE user_id = $1
+            AND revoked_at IS NULL
+            AND (expires_at IS NULL OR expires_at > NOW())`,
         [userId]
       );
       let staff = rows[0] || null;
 
       if (!staff && STAFF_BOOTSTRAP_IDS.includes(userId)) {
+        /* `expires_at = NULL` gehoert AUSDRUECKLICH dazu, seit der Ablauf oben
+         * wirklich greift. Sonst haette dieser Zweig genau das Loch gerissen,
+         * das er nicht schliessen soll: die Abfrage oben liefert bei
+         * abgelaufenem Zugang KEINE Zeile, der Bootstrap liefe an, das
+         * ON CONFLICT setzte `is_active` und `revoked_at` zurueck — und der
+         * abgelaufene Zugang waere wieder da, ohne dass jemand ihn verlaengert
+         * haette.
+         *
+         * Das ist die Notoeffnung: wer die Umgebungsvariable setzen kann, hat
+         * ohnehin Zugriff auf den Server. Sie soll aber ABSICHTLICH oeffnen,
+         * nicht nebenbei — deshalb steht es hier und wird laut protokolliert. */
         const { rows: bootstrapRows } = await pool.query(
           `INSERT INTO tempconnect_staff (user_id, email, is_active, requires_step_up, notes)
            SELECT u.id, u.email, TRUE, TRUE, 'Bootstrap via STAFF_USER_IDS env'
            FROM users u WHERE u.id = $1
-           ON CONFLICT (user_id) DO UPDATE SET is_active = TRUE, revoked_at = NULL
-           RETURNING user_id, email, display_name, is_active, requires_step_up, last_access_at`,
+           ON CONFLICT (user_id) DO UPDATE
+             SET is_active = TRUE, revoked_at = NULL, expires_at = NULL
+           RETURNING user_id, email, display_name, is_active, requires_step_up, last_access_at,
+                     expires_at`,
           [userId]
         );
         staff = bootstrapRows[0] || null;
-        if (staff) logger?.warn({ userId }, "SCC: bootstrap-staff via STAFF_USER_IDS env");
+        if (staff) {
+          logger?.warn({ userId }, "SCC: bootstrap-staff via STAFF_USER_IDS env — Ablauf und Widerruf wurden dabei zurueckgesetzt");
+        }
       }
 
       if (!staff || staff.is_active !== true) {
-        logger?.warn({ userId, path: req.path }, "SCC access denied: not in tempconnect_staff");
+        /*
+         * FAIL-CLOSED, ABER NICHT STILL. Die ANTWORT bleibt fuer alle
+         * Ablehnungsgruende dieselbe — sonst waere sie ein Orakel. Das
+         * PROTOKOLL darf und muss unterscheiden: ohne diese Zeile sieht ein
+         * Betreiber nicht, ob jemand nie Staff war oder ob sein Zugang
+         * abgelaufen ist, und ein abgelaufener Berater bekaeme dieselbe
+         * ratlose Fehlersuche wie ein Fremder. Die Abfrage laeuft nur im
+         * Ablehnungsfall, kostet also nichts auf dem heissen Pfad.
+         */
+        let grund = "not_in_tempconnect_staff";
+        try {
+          const { rows: diag } = await pool.query(
+            `SELECT is_active, revoked_at IS NOT NULL AS widerrufen,
+                    (expires_at IS NOT NULL AND expires_at <= NOW()) AS abgelaufen
+               FROM tempconnect_staff WHERE user_id = $1`,
+            [userId]
+          );
+          const z = diag[0];
+          if (z) {
+            if (z.abgelaufen) grund = "expired";
+            else if (z.widerrufen) grund = "revoked";
+            else if (z.is_active !== true) grund = "inactive";
+            else grund = "unknown_row_present";
+          }
+        } catch (err) {
+          logger?.error({ err: err.message }, "SCC: Ablehnungsgrund konnte nicht bestimmt werden");
+        }
+        logger?.warn({ userId, path: req.path, grund }, "SCC access denied");
         return res.status(403).json({
           success: false,
           error: { code: "SCC_NOT_AUTHORIZED", message: "Kein Zugriff auf Staff Control Center." }

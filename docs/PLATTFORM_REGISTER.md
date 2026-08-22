@@ -389,7 +389,7 @@ der jede Router-Datei gegen dieses Dokument hält. Genau dafür gibt es ihn.
 | `api/routes/preferredVendors.js` | `/preferred-vendors` | Vorzugslieferanten eines Unternehmens verwalten |
 | `api/routes/supplierPools.js` | `/supplier-pools/distribute` | Eine Anfrage an mehrere Zeitarbeitsfirmen gleichzeitig verteilen |
 | `api/routes/capacityDiscovery.js` | `/capacity-discovery/by-role` | Freie Kapazität nach Rolle finden |
-| `api/routes/reports.js` | `/reports` | Auswertungen abrufen |
+| `api/routes/reports.js` | `/reports` | Missbrauchsmeldung gegen einen Nutzer (**nicht** Auswertungen — die liegen in `api/routes/reporting.js`) |
 | `api/routes/smartPricing.js` | `/pricing/suggest` | Preisvorschlag für ein Angebot |
 
 Das ist **keine Fehlerliste.** Der Code sagt nur, dass keine Oberfläche darauf

@@ -517,8 +517,15 @@ export function createStaffControlCenterRouter(deps) {
   /** GET /staff-access — vollstaendige Staff-Liste (aktiv + inaktiv) fuer Access Review */
   router.get("/staff-access", requireStaff, async (req, res) => {
     try {
+      /* `expires_at` und `revoked_at` gehoeren in die Zugangsuebersicht — sie
+       * IST die Access-Review. Bis 2026-08-22 fehlten beide: ein Reviewer sah
+       * nur `is_active` und konnte einen befristeten Zugang nicht von einem
+       * unbefristeten unterscheiden. Jetzt greifen beide Spalten wirklich
+       * (staffControlAccess.js), also muss man sie auch sehen. */
       const { rows } = await pool.query(
-        `SELECT user_id, email, display_name, role, is_active, created_at
+        `SELECT user_id, email, display_name, role, is_active, created_at,
+                expires_at, revoked_at, last_reviewed_at,
+                (expires_at IS NOT NULL AND expires_at <= NOW()) AS abgelaufen
            FROM tempconnect_staff
            ORDER BY is_active DESC, COALESCE(display_name, email)`
       );
@@ -2386,10 +2393,18 @@ export function createStaffControlAuthRouter(deps) {
       if (!email || !password) return res.status(400).json({ success: false, error: { code: "MISSING_CREDENTIALS" } });
 
       const bcrypt = await import("bcryptjs");
+      /* Dasselbe Tor wie in `staffControlAccess.js`: Ablauf und Widerruf
+       * stehen im WHERE. Zwei Tore mit verschiedenen Bedingungen sind auf
+       * Dauer ein Tor — und zwar das schwaechere von beiden. Wer hier
+       * hereinkommt, bekommt `req.session.staffUserId` und damit den Schluessel
+       * fuer alle Routen darunter. */
       const { rows } = await pool.query(
         `SELECT u.id, u.email, u.password_hash
            FROM users u JOIN tempconnect_staff s ON s.user_id = u.id
-           WHERE LOWER(u.email) = $1 AND s.is_active = TRUE`,
+           WHERE LOWER(u.email) = $1
+             AND s.is_active = TRUE
+             AND s.revoked_at IS NULL
+             AND (s.expires_at IS NULL OR s.expires_at > NOW())`,
         [email]
       );
       const user = rows[0];

@@ -1935,8 +1935,9 @@
       "datei": "reports.js",
       "methode": "post",
       "pfad": "/reports",
-      "wachart": "eigene-daten",
-      "begruendung": "Ein Bericht wird fuer die eigene Organisation erzeugt."
+      "wachart": "BEFUND",
+      "begruendung": "OFFENER PUNKT, am 2026-08-22 belegt. Der vorherige Eintrag lautete 'eigene-daten' mit der Begruendung 'Ein Bericht wird fuer die eigene Organisation erzeugt.' — beides ist sachlich falsch und hat die Luecke als geprueft zertifiziert. `POST /reports` ist eine MISSBRAUCHSMELDUNG gegen einen FREMDEN Nutzer (reports.js:5-10 `reported_user_id: z.string().uuid()`); `eigene-daten` heisst laut Vokabular dieser Datei aber 'kein fremdes Ziel erreichbar'. Die Beteiligungspruefung ist bedingt: `request_id` ist optional (reports.js:7) und die Pruefung steht hinter `if (request_id)` (:26). Ohne das Feld bleibt als einzige Huerde `userExists` — ein nacktes SELECT id FROM users. Verwechselt wurde die Route offenbar mit `reporting.js` (Auswertungen); PILOT_GO_LIVE_TODOS.md:705 haelt diese Verwechslung bereits fest, die Korrektur ist nur nie in die Register geflossen.",
+      "hinweis": "Bleibt BEFUND, bis der Owner entschieden hat, ob es Personen-Meldungen im Produkt geben soll (Route entfernen / haerten mit Pflicht-`request_id` / in profile_abuse_reports zusammenfuehren). Bis dahin ist wenigstens das Orakel geschlossen: 'Nutzer gibt es nicht' und 'nicht beteiligt' antworten gleich. 0 Aufrufer im Repo, 0 Zeilen in der Datenbank."
     },
     {
       "datei": "requests.js",

@@ -735,6 +735,78 @@ und nimmt der Meldefunktion genau die Leute weg, für die sie da ist.
 **End-to-end nachgewiesen:** Kapazitätsseite → „Eintrag melden" → **200** → zwei
 Meldungen unterschiedlicher Zielart im selben Posteingang, beide sichtbar.
 
+## Erhebung 2026-08-22 — 18 Agenten, 12 riskante Befunde, 11 haben gehalten
+
+Eine Erhebung mit fünf parallelen Lesern über die drei offenen Stücke, jeder
+sicherheitskritische Befund danach von einem **Skeptiker angegriffen**, der ihn
+widerlegen sollte. Einer ist gefallen (`resolved/closed` ist keine Sackgasse —
+`POST /support/escalations` führt zurück). Elf haben gehalten.
+
+### Sofort gebaut — kein Entscheid nötig
+
+**S1 · Befristete Staff-Zugänge liefen nie ab — und die Migration behauptete
+das Gegenteil.** Migration 118:56 nennt **wörtlich** die Funktion, die prüfen
+soll:
+
+> `COMMENT ON COLUMN tempconnect_staff.expires_at IS 'Optionales Ablaufdatum —`
+> `NULL = kein Ablauf. Prüfung in createStaffControlAccessMiddleware (WAVE 11)'`
+
+Die Abfrage dieser Funktion holte die Spalte nicht einmal. Es gibt sogar einen
+**Teilindex** dafür (118:40-42) — jemand hat den Index für eine Prüfung gebaut,
+die nie geschrieben wurde. `revoked_at` war noch schwächer: die Deaktivierung
+schreibt nur `is_active = FALSE`, niemand setzt es, niemand prüft es.
+
+Jetzt stehen beide Bedingungen **im `WHERE`** — an *beiden* Toren (Wache und
+Login; zwei Tore mit verschiedenen Bedingungen sind auf Dauer das schwächere von
+beiden). Vorbild ist `requireOwnerControlAccess.js:43-49`, das nebenan schon
+genau so arbeitet. Die Notöffnung über `STAFF_USER_IDS` löst Ablauf und Widerruf
+jetzt **ausdrücklich** — sonst hätte die Reparatur dort ein Loch gerissen. Die
+Zugangsübersicht zeigt beide Spalten, denn sie *ist* die Access-Review.
+
+**Wirkung heute: keine.** Gemessen — eine Zeile, `expires_at IS NULL`,
+`revoked_at IS NULL`. Es wird niemand ausgesperrt; es kann künftig nur niemand
+mehr drinbleiben, der draußen sein soll.
+
+**S2 · Zwei Registereinträge zertifizierten eine Lücke als geprüft.**
+
+| Stelle | Stand | Wirklichkeit |
+|---|---|---|
+| `wachen.json` | `eigene-daten`, „Ein Bericht wird für die eigene Organisation erzeugt" | `POST /reports` meldet einen **fremden** Nutzer; `eigene-daten` heißt im Vokabular derselben Datei „kein fremdes Ziel erreichbar" |
+| `PLATTFORM_REGISTER.md:392` | „Auswertungen abrufen" | Missbrauchsmeldung; die Auswertungen liegen in `reporting.js` |
+| `docs/api/API_SURFACE.md:138` | `GET /api/reports/executive` | **existiert nicht** — nie existiert |
+
+`PILOT_GO_LIVE_TODOS.md:705` hält die Verwechslung längst fest; die Korrektur ist
+nur nie in die Register geflossen. Der Eintrag steht jetzt auf `BEFUND` — dem
+Wert, den das Vokabular für offene Punkte vorsieht und den bis heute **niemand
+benutzt hatte**.
+
+**S3 · `POST /reports` war ein Orakel.** Vier unterscheidbare Antworten (404
+`USER_NOT_FOUND`, 404 `REQUEST_NOT_FOUND`, 403 `NOT_PARTICIPANT`, 400
+`REPORTED_USER_NOT_IN_REQUEST`) verrieten jedem angemeldeten Nutzer, ob eine
+Nutzer- oder Anfragekennung existiert und wer daran beteiligt war. Jetzt eine
+Antwort für alle vier; das Protokoll unterscheidet weiter. Die Route hatte
+vorher **keine einzige Probe**.
+
+### Bestätigt, aber owner-gated — siehe Fragen unten
+
+| | Befund | Schwere |
+|---|---|---|
+| **R2** | `request_id` ist optional, damit ist die *gesamte* Beteiligungsprüfung bedingt — ohne das Feld bleibt nur `userExists` | Sicherheit |
+| **R3** | `change_status` kennt **keine Übergänge**: ein einfacher Agent erreicht `escalated_*` und umgeht dabei Pflichtbegründung, `occ_decisions`, `support_escalations` und Ops-Signal. Ausgeführter Beweis: HTTP 200, ein UPDATE, `is_escalated` unberührt. **CLAUDE.md Stop-Regel 5 ist formal ausgelöst.** | Sicherheit |
+| **R4** | `support_escalations` kann **nie** abgeschlossen werden — zwei INSERTs mit festem `'pending'`, repo-weit null UPDATE. Die Staff-Liste filtert nicht auf Fall-Status: jede je erzeugte Eskalation bleibt für immer stehen | defekt |
+| **R5** | `resend_verification` / `resend_invite` am Fall sind **Attrappen** — sie schreiben eine Zeitleisten-Zeile und antworten `success`, ohne zu versenden. Der einzige POST der Support-Oberfläche geht genau dorthin | defekt |
+| **R6** | Die Erstreaktionszeit misst „ein Agent hat geklickt": `add_note` stempelt **ohne** Rücksicht auf `note_type`, obwohl der Code selbst `external` als Kundenantwort definiert | defekt |
+| **R7** | Die Antwort erreicht den Kunden nie: nur die Detailroute liefert `antworten`, und die Fallliste in `hilfe.html` verlinkt sie nicht | defekt |
+| **R8** | **144 von 395 Nutzern** sind keiner Organisation zuzuordnen. Die Garantie aus Migration 041 ist ein einmaliger `DO`-Block ohne Trigger — sie ist verfallen und die Lücke wächst nach | Blocker der Vereinigung |
+| **R9** | Die Grund-Vokabulare beider Meldewege sind fast disjunkt: nur `spam` ist gemeinsam. `betrug` und `belaestigung` haben **keine** Entsprechung | Blocker der Vereinigung |
+
+### Was die Erhebung NICHT geprüft hat
+
+Kein Laufzeit-Beweis über HTTP (außer dem ausgeführten `change_status`-Handler);
+alle DB-Zahlen sind Stichtagswerte der Entwicklungsdatenbank; fünf Wächter-Dateien
+wurden nicht gelesen (`auditCoverageCheck`, `notificationSurfaceMap`,
+`visibilityMatrix`, `openapi.spec`, `uiNoEmoji`); nginx wurde nicht gelesen.
+
 ### Noch zu bauen
 
 - **Die tote `reports`-Tabelle** an denselben Posteingang hängen (ein INSERT,
