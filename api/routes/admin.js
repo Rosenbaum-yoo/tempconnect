@@ -35,6 +35,31 @@ export function createAdminRouter(deps) {
   }
 
   /**
+   * Sperrt eine Route auf die PLATTFORMVERWALTUNG.
+   *
+   * Manche Routen dieser Datei haben keine sinnvolle org-begrenzte Fassung:
+   * Plattformkonfiguration, kaufmaennische Hebel, Systeminternes,
+   * kundenuebergreifende Bearbeitungs-Workflows. Sie einem Kunden-Admin zu
+   * zeigen ist nicht "zu viel Information", sondern die falsche Flaeche
+   * (`docs/FLAECHEN.md`: die Plattform als Ganzes gehoert ins Staff Control
+   * Center, nicht in eine Kundenoberflaeche).
+   *
+   * Gibt `true` zurueck, wenn der Aufruf weiterlaufen darf. Sonst ist die
+   * Antwort bereits geschrieben ${D} der Aufrufer MUSS dann zurueckkehren.
+   */
+  function nurPlattform(req, res) {
+    if (isGlobalAdminScope(req)) return true;
+    res.status(403).json({
+      success: false,
+      error: {
+        code: "NUR_PLATTFORMVERWALTUNG",
+        message: "Dieser Bereich gehoert zur Plattformverwaltung."
+      }
+    });
+    return false;
+  }
+
+  /**
    * Darf dieser Aufrufer den Nutzer `zielId` ueberhaupt anfassen?
    *
    * BEFUND 8.1.1 (d), gemessen am 2026-08-21: `PATCH /admin/users/:id` und
@@ -170,7 +195,9 @@ export function createAdminRouter(deps) {
     };
   }
 
-  router.get("/admin/visibility-audit", requireAuth, requireAdmin, (_req, res) => {
+  router.get("/admin/visibility-audit", requireAuth, requireAdmin, (req, res) => {
+    // Sichtbarkeitsmatrix = Plattformkonfiguration, keine Kundendaten.
+    if (!nurPlattform(req, res)) return;
     try {
       const report = buildVisibilityAuditReport();
       res.json({ success: true, data: report });
@@ -185,6 +212,8 @@ export function createAdminRouter(deps) {
       const viewer = await getUserAndPlan(req.session.userId);
       if (!viewer) return res.status(401).json({ success: false, error: { code: "NOT_AUTHENTICATED" } });
       const data = await buildAdminControlCenter(pool, viewer, {
+        // Nur die Plattformverwaltung sieht plattformweite Zahlen (8.1.1 d).
+        plattformweit: isGlobalAdminScope(req),
         orgId: req.orgId || viewer.org_id || null,
         orgName: req.orgName || viewer.org_name || null,
         orgRole: req.orgRole || viewer.org_role || null,
@@ -266,20 +295,38 @@ export function createAdminRouter(deps) {
     try {
       const limit = parseIntegerParam(req.query.limit, { defaultValue: 50, min: 1, max: 200 });
       const offset = parseIntegerParam(req.query.offset, { defaultValue: 0, min: 0, max: 500000 });
+      /* Ohne Begrenzung listet ein Kunden-Admin JEDE Organisation der Plattform
+       * — Namen, Tarife, Mitglieder- und Standortzahlen der Mitbewerber. */
+      const umfang = bestimmeAdminUmfang(req);
+      if (umfang.fehler) return res.status(403).json({ success: false, error: umfang.fehler });
+      const grenze = umfang.plattformweit ? "" : "WHERE o.id = $3";
+      const werte = umfang.plattformweit ? [limit, offset] : [limit, offset, umfang.orgId];
       const { rows } = await pool.query(
         `SELECT o.*,
                 (SELECT COUNT(*)::int FROM org_memberships WHERE org_id = o.id AND is_active = TRUE) AS member_count,
                 (SELECT COUNT(*)::int FROM org_locations WHERE org_id = o.id AND is_active = TRUE) AS location_count
-         FROM organizations o ORDER BY o.created_at DESC LIMIT $1 OFFSET $2`,
-        [limit, offset]
+         FROM organizations o${grenze ? " " + grenze : ""} ORDER BY o.created_at DESC LIMIT $1 OFFSET $2`,
+        werte
       );
-      const { rows: countRows } = await pool.query(`SELECT COUNT(*)::int AS total FROM organizations`);
+      const { rows: countRows } = await pool.query(
+        `SELECT COUNT(*)::int AS total FROM organizations o${umfang.plattformweit ? "" : " WHERE o.id = $1"}`,
+        umfang.plattformweit ? [] : [umfang.orgId]
+      );
       const total = Number.parseInt(countRows[0]?.total || 0, 10) || 0;
-      res.json({ success: true, data: { items: rows, total, limit, offset } });
+      res.json({
+        success: true,
+        data: {
+          items: rows, total, limit, offset,
+          scope: { plattformweit: umfang.plattformweit, org_id: umfang.orgId }
+        }
+      });
     } catch (e) { logger.error({ err: e }, "admin orgs"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
   });
 
   router.patch("/admin/organizations/:id/pilot-policy", requireAuth, requireAdmin, async (req, res) => {
+    // Pilot-Ausnahme ist eine kaufmaennische Konzession von TempConnect,
+    // keine Selbstbedienung des Kunden.
+    if (!nurPlattform(req, res)) return;
     try {
       const orgId = String(req.params.id || "").trim();
       const allowException = req.body?.allow_exception === true;
@@ -322,8 +369,22 @@ export function createAdminRouter(deps) {
       const limit = Math.min(200, parseInt(req.query.limit) || 100);
       const offset = Math.max(0, parseInt(req.query.offset) || 0);
       const status = sanitize(req.query.status || "", 20) || null;
-      const { items, total } = await requestService.listRequestsAdmin(pool, { limit, offset, status });
-      res.json({ success: true, data: { items, total, limit, offset } });
+      /* `requests` traegt keine org_id (gemessen: 47 von 47 Zeilen NULL) — die
+       * Beteiligten haengen an `requester_id`/`receiver_id`. Die Begrenzung
+       * laeuft deshalb ueber die Mitgliedschaft, nicht ueber eine Spalte. */
+      const umfang = bestimmeAdminUmfang(req);
+      if (umfang.fehler) return res.status(403).json({ success: false, error: umfang.fehler });
+      const { items, total } = await requestService.listRequestsAdmin(pool, {
+        limit, offset, status,
+        beteiligteOrgId: umfang.plattformweit ? null : umfang.orgId
+      });
+      res.json({
+        success: true,
+        data: {
+          items, total, limit, offset,
+          scope: { plattformweit: umfang.plattformweit, org_id: umfang.orgId }
+        }
+      });
     } catch (e) {
       logger.error({ err: e }, "admin requests list");
       res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
@@ -331,6 +392,12 @@ export function createAdminRouter(deps) {
   });
 
   router.patch("/admin/requests/:id/status", requireAuth, requireAdmin, async (req, res) => {
+    // Statuswechsel einer Marktplatz-Anfrage von aussen: `requests` traegt keine
+    // org_id (gemessen 2026-08-21: 47 von 47 Zeilen NULL), die Beteiligten
+    // haengen an `requester_id`/`receiver_id`. Eine org-begrenzte Fassung gaebe
+    // es nur ueber eine Mitgliedschafts-Bruecke — und ein Statuswechsel von
+    // aussen ist ohnehin Eingriff des Teams, nicht Selbstverwaltung.
+    if (!nurPlattform(req, res)) return;
     try {
       const id = String(req.params.id || "").trim();
       const status = String(req.body?.status || "").trim().toUpperCase();
@@ -379,8 +446,21 @@ export function createAdminRouter(deps) {
       const limit = Math.min(200, parseInt(req.query.limit) || 50);
       const offset = Math.max(0, parseInt(req.query.offset) || 0);
       const status = sanitize(req.query.status || "", 40) || null;
-      const { items, total } = await strategicCollaborationService.listAllRequestsAdmin(pool, { limit, offset, status });
-      res.json({ success: true, data: { items, total, limit, offset } });
+      /* Zweiseitiger Vorgang: die eigene Org kann Anfragende ODER Angefragte
+       * sein. Beides zaehlt — sonst sieht eine Seite ihren eigenen Vorgang nicht. */
+      const umfang = bestimmeAdminUmfang(req);
+      if (umfang.fehler) return res.status(403).json({ success: false, error: umfang.fehler });
+      const { items, total } = await strategicCollaborationService.listAllRequestsAdmin(pool, {
+        limit, offset, status,
+        beteiligteOrgId: umfang.plattformweit ? null : umfang.orgId
+      });
+      res.json({
+        success: true,
+        data: {
+          items, total, limit, offset,
+          scope: { plattformweit: umfang.plattformweit, org_id: umfang.orgId }
+        }
+      });
     } catch (e) {
       logger.error({ err: e }, "admin strategic-collaboration list");
       res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
@@ -388,6 +468,9 @@ export function createAdminRouter(deps) {
   });
 
   router.patch("/admin/strategic-collaboration/requests/:id/status", requireAuth, requireAdmin, async (req, res) => {
+    // Bearbeitungsstand einer Anfrage ZWISCHEN zwei Kunden — das ist die Arbeit
+    // des TempConnect-Teams, nicht die einer der beiden Seiten.
+    if (!nurPlattform(req, res)) return;
     try {
       const id = String(req.params.id || "").trim();
       const status = String(req.body?.status || "").trim();
@@ -418,6 +501,8 @@ export function createAdminRouter(deps) {
   });
 
   router.patch("/admin/strategic-collaboration/requests/:id/assign", requireAuth, requireAdmin, async (req, res) => {
+    // Zuweisung an einen Bearbeiter — Team-Workflow.
+    if (!nurPlattform(req, res)) return;
     try {
       const id = String(req.params.id || "").trim();
       if (!id) return res.status(400).json({ success: false, error: { code: "INVALID_ID" } });
@@ -450,6 +535,8 @@ export function createAdminRouter(deps) {
   });
 
   router.patch("/admin/strategic-collaboration/requests/:id/notes", requireAuth, requireAdmin, async (req, res) => {
+    // Interne Notizen (`ops_notes`) — sie gehoeren keiner der beiden Kundenseiten.
+    if (!nurPlattform(req, res)) return;
     try {
       const id = String(req.params.id || "").trim();
       if (!id) return res.status(400).json({ success: false, error: { code: "INVALID_ID" } });
@@ -542,6 +629,8 @@ export function createAdminRouter(deps) {
 
   /* ── Platform Metrics ───────────────────── */
   router.get("/admin/metrics", requireAuth, requireAdmin, async (req, res) => {
+    // Zaehlt ueber ALLE Nutzer, Organisationen, Anforderungen und Angebote.
+    if (!nurPlattform(req, res)) return;
     try {
       const [users, orgs, reqs, offers, events, caps] = await Promise.all([
         pool.query("SELECT COUNT(*)::int AS total, COUNT(*) FILTER(WHERE created_at > NOW() - INTERVAL '30 days')::int AS last_30d FROM users"),
@@ -687,7 +776,12 @@ export function createAdminRouter(deps) {
   /* ── Admin Activity Feed (Governance Timeline) ──────── */
   router.get("/admin/activity-feed", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const orgId = req.orgId || null;
+      /* `queryActivityFeed` liest `orgId ? queryOrgAuditLog : queryAuditLog`
+       * — `null` heisst dort PLATTFORMWEIT. `req.orgId || null` war damit
+       * dieselbe selbstabschaltende Form wie in 8.1.1 (c). */
+      const umfang = bestimmeAdminUmfang(req);
+      if (umfang.fehler) return res.status(403).json({ success: false, error: umfang.fehler });
+      const orgId = umfang.plattformweit ? (req.query.org_id || null) : umfang.orgId;
       const limit  = Math.min(200, parseInt(req.query.limit) || 50);
       const offset = Math.max(0, parseInt(req.query.offset) || 0);
       const result = await queryActivityFeed(pool, orgId, {
@@ -716,6 +810,8 @@ export function createAdminRouter(deps) {
 
   /* ── Revenue / SaaS KPIs ──────────────── */
   router.get("/admin/revenue", requireAuth, requireAdmin, async (req, res) => {
+    // Plattformumsatz ueber alle Kunden.
+    if (!nurPlattform(req, res)) return;
     try {
       const { getRevenueMetrics } = await import("../services/revenueMetricsService.js");
       const metrics = await getRevenueMetrics(pool);
@@ -728,6 +824,8 @@ export function createAdminRouter(deps) {
 
   /* ── System Health Diagnostics ──────────── */
   router.get("/admin/system-health", requireAuth, requireAdmin, async (req, res) => {
+    // Systeminternes (Datenbank, Jobs, Diagnose).
+    if (!nurPlattform(req, res)) return;
     try {
       const diagnostics = await getSystemDiagnostics(pool);
       res.json({ success: true, data: diagnostics });
@@ -769,6 +867,8 @@ export function createAdminRouter(deps) {
 
   /* ── Feature Overrides (Admin Feature Dashboard) ─────── */
   router.get("/admin/feature-overrides", requireAuth, requireAdmin, async (req, res) => {
+    // Freischalt-Hebel: `checkOverride` entscheidet ueber bezahlte Funktionen.
+    if (!nurPlattform(req, res)) return;
     try {
       const { listOverrides } = await import("../services/featureOverrideService.js");
       const orgId = req.query.org_id ? parseInt(req.query.org_id, 10) : null;
@@ -780,6 +880,9 @@ export function createAdminRouter(deps) {
   });
 
   router.put("/admin/feature-overrides", requireAuth, requireAdmin, async (req, res) => {
+    // Nahm `org_id` frei aus dem Rumpf: ein Kunden-Admin konnte damit eine
+    // Funktion fuer JEDE Organisation freischalten, auch die eigene.
+    if (!nurPlattform(req, res)) return;
     try {
       const { upsertOverride } = await import("../services/featureOverrideService.js");
       const { feature_key, org_id, enabled, reason, expires_at } = req.body;
@@ -804,6 +907,7 @@ export function createAdminRouter(deps) {
   });
 
   router.delete("/admin/feature-overrides/:id", requireAuth, requireAdmin, async (req, res) => {
+    if (!nurPlattform(req, res)) return;
     try {
       const { deleteOverride } = await import("../services/featureOverrideService.js");
       const id = parseInt(req.params.id, 10);
@@ -821,7 +925,9 @@ export function createAdminRouter(deps) {
   });
 
   /** List all known feature keys (for dropdown in dashboard) */
-  router.get("/admin/feature-keys", requireAuth, requireAdmin, (_req, res) => {
+  router.get("/admin/feature-keys", requireAuth, requireAdmin, (req, res) => {
+    // Der Katalog der Freischalt-Schluessel gehoert zum Hebel darueber.
+    if (!nurPlattform(req, res)) return;
     try {
       const { planFeatures } = require("../config/planFeatures.js");
       const keys = Object.keys(planFeatures);

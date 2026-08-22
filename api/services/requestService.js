@@ -187,13 +187,34 @@ export async function listRequestsAdmin(pool, opts = {}) {
   const limit = Math.min(200, Math.max(1, Number(opts.limit || 50)));
   const offset = Math.max(0, Number(opts.offset || 0));
   const status = opts.status ? String(opts.status).trim().toUpperCase() : null;
+  /*
+   * `beteiligteOrgId` begrenzt auf Anfragen, an denen diese Organisation
+   * beteiligt ist — als Anfragende ODER als Angefragte. `null` heisst
+   * plattformweit und ist ausschliesslich der Plattformverwaltung vorbehalten
+   * (`routes/admin.js`, `bestimmeAdminUmfang`).
+   *
+   * Die Bruecke laeuft ueber `org_memberships`, weil `requests` KEINE org_id
+   * traegt: am 2026-08-21 gegen die laufende Datenbank gemessen sind 47 von 47
+   * Zeilen dort NULL. Der Bezug haengt an `requester_id`/`receiver_id`, und die
+   * zeigen auf `users`.
+   */
+  const beteiligteOrgId = opts.beteiligteOrgId || null;
 
   const params = [];
-  let where = "";
+  const bedingungen = [];
   if (status) {
     params.push(status);
-    where = `WHERE r.status = $${params.length}`;
+    bedingungen.push(`r.status = $${params.length}`);
   }
+  if (beteiligteOrgId) {
+    params.push(beteiligteOrgId);
+    bedingungen.push(
+      `(r.requester_id IN (SELECT user_id FROM org_memberships WHERE org_id = $${params.length})
+        OR r.receiver_id IN (SELECT user_id FROM org_memberships WHERE org_id = $${params.length}))`
+    );
+  }
+  const where = bedingungen.length ? `WHERE ${bedingungen.join(" AND ")}` : "";
+  const zaehlWerte = params.slice();
   params.push(limit, offset);
   const limIdx = params.length - 1;
   const offIdx = params.length;
@@ -214,7 +235,7 @@ export async function listRequestsAdmin(pool, opts = {}) {
   );
   const { rows: countRows } = await pool.query(
     `SELECT COUNT(*)::int AS total FROM requests r ${where}`,
-    status ? [status] : []
+    zaehlWerte
   );
   return { items: rows, total: countRows[0]?.total || 0 };
 }

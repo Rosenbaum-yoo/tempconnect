@@ -134,31 +134,61 @@ describe("G1.5: requireAdmin — Whitelist (owner/admin/platform_admin)", () => 
     }
   });
 
-  it("owner bekommt NICHT 403 (Whitelist greift korrekt via session.userRole-Fallback)", async () => {
-    // requireAdmin hat zwei Pruefpfade:
-    //   1) req.orgRole (gesetzt von orgContextMiddleware — in Prod-Middleware-Stack)
-    //   2) req.session.userRole (Fallback fuer Legacy-/direkte Logins)
-    // In Unit-Tests ohne volle App-Middleware nutzen wir den Fallback-Pfad.
-    //
-    // WICHTIG: Wir testen hier /admin/visibility-audit, NICHT /admin/users.
-    // /admin/users hat einen sekundaeren isGlobalAdminScope-Check, der "owner" via
-    // session.userRole-Fallback auf Org-Scope begrenzt (ORG_CONTEXT_REQUIRED — 403).
-    // /admin/visibility-audit hat ausschliesslich requireAdmin als Gate — reiner Whitelist-Test.
-    const router = makeAdminRouter();
-    const res = await hitRoute(router, {
-      path: "/admin/visibility-audit",
-      session: { userId: "user-owner", userRole: "owner" }
-    });
-    assert.notEqual(res._status, 403, `owner sollte kein ADMIN_REQUIRED auf /admin/visibility-audit bekommen`);
+  /*
+   * Diese beiden Proben pruefen den TORWAECHTER, nicht eine bestimmte Route.
+   *
+   * Bis 2026-08-21 taten sie das ueber /admin/visibility-audit, ausdruecklich
+   * weil diese Route "ausschliesslich requireAdmin als Gate" hatte. Damit hing
+   * die Probe daran, welche Route zufaellig KEINE zweite Pruefung besitzt — und
+   * sie brach, als 8.1.1 (d) genau dort eine zweite Pruefung einzog
+   * (Plattformkonfiguration gehoert nicht auf eine Kundenflaeche).
+   *
+   * Die Aussage bleibt unveraendert: `requireAdmin` laesst `owner` und `admin`
+   * durch, auch ueber den Legacy-Pfad `session.userRole`. Geprueft wird sie
+   * jetzt am Waechter selbst, nicht an einer Route — damit kann keine kuenftige
+   * Scope-Haertung sie wieder sproede machen.
+   *
+   * Was die Routen DAHINTER dann noch pruefen, ist Sache der Routen-Tests
+   * (`admin.route.coverage.test.js`) — und genau diese Trennung fehlte hier.
+   */
+  function requireAdminAus(router) {
+    // requireAdmin steht auf jeder Route als vorletzte Schicht vor dem Handler.
+    for (const layer of router.stack) {
+      if (!layer.route || layer.route.path !== "/admin/users") continue;
+      const stack = layer.route.stack;
+      return stack[stack.length - 2].handle;
+    }
+    throw new Error("Route /admin/users nicht gefunden");
+  }
+
+  function torPassiert(session, orgRole = null) {
+    const guard = requireAdminAus(makeAdminRouter({ orgRole }));
+    let durchgelassen = false;
+    let status = 200;
+    guard(
+      { session, orgRole, orgMembership: null, path: "/admin/users", headers: {} },
+      { status(c) { status = c; return this; }, json() { return this; } },
+      () => { durchgelassen = true; }
+    );
+    return { durchgelassen, status };
+  }
+
+  it("owner passiert requireAdmin (Whitelist via session.userRole-Fallback)", () => {
+    const { durchgelassen } = torPassiert({ userId: "user-owner", userRole: "owner" });
+    assert.equal(durchgelassen, true, "owner muss requireAdmin passieren");
   });
 
-  it("admin-Rolle bekommt NICHT 403 (via session.userRole-Fallback)", async () => {
-    const router = makeAdminRouter();
-    const res = await hitRoute(router, {
-      path: "/admin/visibility-audit",
-      session: { userId: "user-admin", userRole: "admin" }
-    });
-    assert.notEqual(res._status, 403);
+  it("admin-Rolle passiert requireAdmin (via session.userRole-Fallback)", () => {
+    const { durchgelassen } = torPassiert({ userId: "user-admin", userRole: "admin" });
+    assert.equal(durchgelassen, true, "admin muss requireAdmin passieren");
+  });
+
+  it("die Whitelist ist nicht offen — eine fremde Rolle passiert nicht", () => {
+    /* Gegenprobe: ohne sie koennte `torPassiert` immer true liefern und beide
+     * Proben darueber waeren still gruen. */
+    const { durchgelassen, status } = torPassiert({ userId: "user-x", userRole: "recruiter" });
+    assert.equal(durchgelassen, false, "recruiter darf requireAdmin nicht passieren");
+    assert.equal(status, 403);
   });
 });
 

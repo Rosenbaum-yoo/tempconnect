@@ -35,6 +35,24 @@ function mockReq(overrides = {}) {
   };
 }
 
+/**
+ * Ein Aufrufer der PLATTFORMVERWALTUNG.
+ *
+ * `mockReq` oben ist ein KUNDEN-Owner (`orgRole: "owner"`) — bis 2026-08-21 sah
+ * der die plattformweite Organisationsliste, und die Proben unten haben genau
+ * das als Sollzustand festgehalten. Seit 8.1.1 (d) begrenzt `/admin/organizations`
+ * auf die eigene Org; wer die unbegrenzte Abfrage pruefen will, muss jetzt sagen,
+ * dass er sie als Plattformverwaltung stellt.
+ */
+function plattformReq(overrides = {}) {
+  return mockReq({
+    session: { userId: "user-plattform", userRole: "platform_admin" },
+    orgRole: "platform_admin",
+    orgMembership: { org_id: "org-1", role_key: "platform_admin" },
+    ...overrides
+  });
+}
+
 function mockRes() {
   const res = {
     _status: 200,
@@ -249,7 +267,7 @@ describe("admin routes — GET /admin/organizations", () => {
     );
     const router = createAdminRouter(createDeps(pool));
     const handler = getOrgListHandler(router);
-    const req = mockReq({ query: { limit: "50", offset: "0" } });
+    const req = plattformReq({ query: { limit: "50", offset: "0" } });
     const res = mockRes();
 
     await handler(req, res);
@@ -270,13 +288,35 @@ describe("admin routes — GET /admin/organizations", () => {
     const pool = recordingSequencePool({ rows: [] }, { rows: [{ total: 0 }] });
     const router = createAdminRouter(createDeps(pool));
     const handler = getOrgListHandler(router);
-    const req = mockReq({ query: { limit: "abc", offset: "-10" } });
+    const req = plattformReq({ query: { limit: "abc", offset: "-10" } });
     const res = mockRes();
 
     await handler(req, res);
 
     assert.equal(res._status, 200);
     assert.deepEqual(pool.calls[0].params, [50, 0]);
+  });
+
+  it("ein Kunden-Owner sieht nur die eigene Organisation", async () => {
+    /*
+     * Befund 8.1.1 (d): `SELECT o.* FROM organizations` lief ohne jede Grenze
+     * fuer jeden `requireAdmin`-Passierer — 201 von 395 Konten, alle Kunden.
+     * Damit lagen Namen, Tarife sowie Mitglieder- und Standortzahlen der
+     * Mitbewerber offen.
+     */
+    const pool = recordingSequencePool({ rows: [] }, { rows: [{ total: 0 }] });
+    const router = createAdminRouter(createDeps(pool));
+    const handler = getOrgListHandler(router);
+    const res = mockRes();
+
+    await handler(mockReq({ query: {} }), res);
+
+    assert.equal(res._status, 200);
+    assert.match(pool.calls[0].sql, /WHERE o\.id = \$3/,
+      "ohne Grenze listet ein Kunden-Owner jede Organisation der Plattform");
+    assert.ok(pool.calls[0].params.includes("org-1"), "die eigene Org muss der Filter sein");
+    assert.match(pool.calls[1].sql, /WHERE o\.id = \$1/, "auch die Zaehlung muss begrenzt sein");
+    assert.deepEqual(res._json.data.scope, { plattformweit: false, org_id: "org-1" });
   });
 
   it("caps page size at 200 to bound platform-wide scans (300-customer safety)", async () => {

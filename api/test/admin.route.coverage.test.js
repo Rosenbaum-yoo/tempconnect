@@ -706,6 +706,141 @@ describe("GET /admin/audit-log", () => {
 
 /* ── GET /admin/audit-log/recent-changes ───────────────────────────────── */
 
+describe("Admin-Flaeche — was der Plattformverwaltung vorbehalten bleibt", () => {
+  /*
+   * BEFUND 8.1.1 (d), Abschluss. `routes/admin.js` ist laut
+   * `frontend/public/js/hubVisibility.js` bewusst fuer company UND agency
+   * sichtbar und aus `enterprise.html` verlinkt — es ist also eine
+   * KUNDENFLAECHE. Sie lieferte trotzdem Plattformdaten an jeden
+   * `requireAdmin`-Passierer: 201 von 395 Konten, alle Kunden.
+   *
+   * Owner-Entscheidung 2026-08-21: jede Route wird org-begrenzt. Wo es keine
+   * sinnvolle org-begrenzte Fassung gibt — Plattformkonfiguration,
+   * kaufmaennische Hebel, Systeminternes, Team-Workflows —, bleibt die Route
+   * der Plattformverwaltung vorbehalten (`docs/FLAECHEN.md`).
+   */
+
+  const kunde = (extra = {}) => mockReq({
+    orgRole: "owner",
+    orgId: "org-A",
+    orgMembership: { org_id: "org-A", role_key: "owner" },
+    session: { userId: "u-kunde", userRole: "company" },
+    ...extra,
+  });
+
+  /** Routen ohne sinnvolle org-begrenzte Fassung. */
+  const NUR_PLATTFORM = [
+    ["get", "/admin/visibility-audit", "Sichtbarkeitsmatrix = Plattformkonfiguration"],
+    ["patch", "/admin/organizations/:id/pilot-policy", "Pilot-Ausnahme = kaufmaennische Konzession"],
+    ["get", "/admin/metrics", "zaehlt ueber alle Nutzer und Organisationen"],
+    ["get", "/admin/revenue", "Plattformumsatz ueber alle Kunden"],
+    ["get", "/admin/system-health", "Systeminternes"],
+    ["get", "/admin/feature-overrides", "Freischalt-Hebel"],
+    ["put", "/admin/feature-overrides", "schaltet Funktionen fuer JEDE Org frei"],
+    ["delete", "/admin/feature-overrides/:id", "Freischalt-Hebel"],
+    ["get", "/admin/feature-keys", "Katalog der Freischalt-Schluessel"],
+    ["patch", "/admin/requests/:id/status", "Eingriff von aussen in einen Marktplatz-Vorgang"],
+    ["patch", "/admin/strategic-collaboration/requests/:id/status", "Team-Workflow zwischen zwei Kunden"],
+    ["patch", "/admin/strategic-collaboration/requests/:id/assign", "Zuweisung an einen Bearbeiter"],
+    ["patch", "/admin/strategic-collaboration/requests/:id/notes", "interne Notizen"],
+  ];
+
+  const RUMPF = { feature_key: "k", reason: "ein ausreichend langer Grund", status: "SENT" };
+
+  for (const [methode, pfad, warum] of NUR_PLATTFORM) {
+    it(`${methode.toUpperCase()} ${pfad} ist fuer Kunden gesperrt (${warum})`, async () => {
+      const pool = trackingPool([{ match: () => true, respond: { rows: [], rowCount: 0 } }]);
+      const handler = getHandler(createAdminRouter(makeDeps(pool)), methode, pfad);
+      const res = mockRes();
+      await handler(kunde({ params: { id: "x" }, body: { ...RUMPF } }), res);
+
+      assert.strictEqual(res._status, 403, `${pfad} laesst einen Kunden-Admin durch`);
+      assert.strictEqual(res._json.error.code, "NUR_PLATTFORMVERWALTUNG");
+      assert.strictEqual(pool.calls.length, 0, "vor der Sperre darf keine Abfrage gelaufen sein");
+    });
+  }
+
+  it("der platform_admin erreicht sie alle weiterhin", async () => {
+    /* Gegenprobe: eine Sperre, die auch die Plattformverwaltung aussperrt,
+     * waere kein Schutz, sondern ein Ausfall. */
+    for (const [methode, pfad] of NUR_PLATTFORM) {
+      const pool = trackingPool([{ match: () => true, respond: { rows: [{ id: "x" }], rowCount: 1 } }]);
+      const handler = getHandler(createAdminRouter(makeDeps(pool)), methode, pfad);
+      const res = mockRes();
+      await handler(mockReq({ params: { id: "x" }, body: { ...RUMPF } }), res);
+      assert.notStrictEqual(res._json?.error?.code, "NUR_PLATTFORMVERWALTUNG",
+        `${pfad} sperrt die Plattformverwaltung aus`);
+    }
+  });
+
+  it("die Organisationsliste zeigt einem Kunden nur die eigene Organisation", async () => {
+    const pool = trackingPool([
+      { match: (t) => t.includes("COUNT("), respond: { rows: [{ total: 0 }] } },
+      { match: () => true, respond: { rows: [] } },
+    ]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/organizations");
+    const res = mockRes();
+    await handler(kunde({ query: {} }), res);
+
+    assert.strictEqual(res._status, 200);
+    assert.ok(pool.calls.flatMap((c) => c.params).includes("org-A"),
+      "ohne Filter listet ein Kunden-Admin jede Organisation der Plattform");
+    assert.deepStrictEqual(res._json.data.scope, { plattformweit: false, org_id: "org-A" });
+  });
+
+  it("die Anfragenliste begrenzt ueber die Mitgliedschaft, weil requests keine org_id traegt", async () => {
+    /* Gemessen am 2026-08-21: 47 von 47 Zeilen in `requests` haben org_id NULL.
+     * Der Bezug haengt an `requester_id`/`receiver_id` — die zeigen auf `users`. */
+    const pool = trackingPool([
+      { match: (t) => t.includes("COUNT("), respond: { rows: [{ total: 0 }] } },
+      { match: () => true, respond: { rows: [] } },
+    ]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/requests");
+    const res = mockRes();
+    await handler(kunde({ query: {} }), res);
+
+    assert.strictEqual(res._status, 200);
+    const sql = pool.calls.map((c) => c.sql).join(" ");
+    assert.ok(sql.includes("org_memberships"),
+      "ohne die Mitgliedschafts-Bruecke gibt es hier keine Grenze");
+    assert.ok(pool.calls.flatMap((c) => c.params).includes("org-A"));
+  });
+
+  it("die strategischen Anfragen zaehlen BEIDE Seiten", async () => {
+    /* Zweiseitiger Vorgang: die eigene Org kann Anfragende oder Angefragte sein.
+     * Nur eine Seite zu pruefen liesse eine Haelfte der eigenen Vorgaenge
+     * verschwinden — eine Trennung, die das eigene Haus leert, ist keine. */
+    const pool = trackingPool([
+      { match: (t) => t.includes("COUNT("), respond: { rows: [{ total: 0 }] } },
+      { match: () => true, respond: { rows: [] } },
+    ]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/strategic-collaboration/requests");
+    const res = mockRes();
+    await handler(kunde({ query: {} }), res);
+
+    assert.strictEqual(res._status, 200);
+    const sql = pool.calls.map((c) => c.sql).join(" ");
+    assert.ok(/requester_org_id/.test(sql) && /target_org_id/.test(sql),
+      "beide Seiten des Vorgangs muessen im Filter stehen");
+  });
+
+  it("der Taetigkeitsverlauf faellt nicht mehr auf plattformweit zurueck", async () => {
+    /* `queryActivityFeed(pool, orgId)` liest bei `orgId === null` die ganze
+     * Plattform. `req.orgId || null` war damit dieselbe selbstabschaltende Form
+     * wie in 8.1.1 (c). */
+    const pool = trackingPool([
+      { match: (t) => t.includes("COUNT("), respond: { rows: [{ total: 0 }] } },
+      { match: () => true, respond: { rows: [] } },
+    ]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/activity-feed");
+    const res = mockRes();
+    await handler(kunde({ orgId: null, orgMembership: null, query: {} }), res);
+
+    assert.strictEqual(res._status, 403, "ohne Organisationskontext gibt es keine Ersatz-Plattformsicht");
+    assert.strictEqual(res._json.error.code, "ORG_CONTEXT_REQUIRED");
+  });
+});
+
 describe("Admin-Nutzerverwaltung — die Mandantengrenze am SCHREIBPFAD", () => {
   /*
    * BEFUND 8.1.1 (d), zweite Haelfte. `GET /admin/users` war laengst

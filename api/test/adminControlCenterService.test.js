@@ -98,6 +98,11 @@ describe("adminControlCenterService — buildAdminControlCenter", () => {
       org_name: "Acme GmbH",
       org_role: "owner"
     }, {
+      // Seit 8.1.1 (d) liefert `buildAdminControlCenter` die plattformweiten
+      // Zahlen nur noch, wenn der Aufrufer sie haben darf. Diese Probe prueft
+      // genau diese Zahlen — sie stellt sich also ausdruecklich als
+      // Plattformverwaltung.
+      plattformweit: true,
       orgId: "org-1",
       orgName: "Acme GmbH",
       orgRole: "owner"
@@ -111,6 +116,69 @@ describe("adminControlCenterService — buildAdminControlCenter", () => {
     assert.equal(data.summary.audit_events_30d, 44);
     assert.ok(data.context.access.allowed_tabs.includes("metrics"));
     assert.equal(data.cards.users_orgs.summary[0].value, 12);
+  });
+
+  it("ein Kunden-Admin bekommt KEINE plattformweiten Zahlen", async () => {
+    /*
+     * Befund 8.1.1 (d): `queryAdminSummary` zaehlt ueber ALLE Nutzer,
+     * Organisationen, Angebote und Audit-Ereignisse — und lief unbedingt, also
+     * auch fuer die 201 Kundenkonten, die `requireAdmin` passieren.
+     *
+     * Die Karten bleiben bestehen (sonst waere es ein Ausfall statt einer
+     * Trennung), sie tragen nur keine fremden Zahlen mehr.
+     */
+    const pool = makeSummaryPool();
+    const data = await buildAdminControlCenter(pool, {
+      id: "user-2",
+      email: "admin@kunde.de",
+      plan: "PRO",
+      plan_display_label: "PRO",
+      org_id: "org-1",
+      org_name: "Acme GmbH",
+      org_role: "owner"
+    }, {
+      plattformweit: false,
+      orgId: "org-1",
+      orgName: "Acme GmbH",
+      orgRole: "owner"
+    });
+
+    assert.equal(data.summary.requisition_backlog, 0, "kein plattformweiter Backlog");
+    assert.equal(data.summary.audit_events_30d, 0, "keine plattformweiten Audit-Zahlen");
+    assert.equal(data.summary.total_users, 0, "keine plattformweite Nutzerzahl");
+    assert.equal(data.summary.total_orgs, 0, "keine plattformweite Organisationszahl");
+    assert.ok(data.cards.users_orgs, "die Karte selbst bleibt bestehen");
+  });
+
+  it("ein Kunden-Admin bekommt die Plattform-Reiter gar nicht erst angeboten", async () => {
+    /*
+     * CLAUDE.md verbietet tote Knoepfe. Die Routen hinter `metrics`, `revenue`,
+     * `features`, `strategic` und `releases` sind seit 8.1.1 (d) der
+     * Plattformverwaltung vorbehalten — blieben die Reiter stehen, lieferte
+     * jeder Klick nur noch 403.
+     */
+    const pool = makeSummaryPool();
+    const viewer = {
+      id: "user-2", email: "admin@kunde.de", plan: "PRO", plan_display_label: "PRO",
+      org_id: "org-1", org_name: "Acme GmbH", org_role: "owner"
+    };
+    const kunde = await buildAdminControlCenter(pool, viewer, {
+      plattformweit: false, orgId: "org-1", orgName: "Acme GmbH", orgRole: "owner"
+    });
+    const plattform = await buildAdminControlCenter(pool, viewer, {
+      plattformweit: true, orgId: "org-1", orgName: "Acme GmbH", orgRole: "owner"
+    });
+
+    for (const reiter of ["metrics", "revenue", "features", "strategic", "releases"]) {
+      assert.ok(!kunde.context.access.allowed_tabs.includes(reiter),
+        `${reiter} darf einem Kunden-Admin nicht angeboten werden`);
+      assert.ok(plattform.context.access.allowed_tabs.includes(reiter),
+        `${reiter} muss der Plattformverwaltung erhalten bleiben`);
+    }
+    for (const reiter of ["users", "orgs", "audit", "activity", "requests"]) {
+      assert.ok(kunde.context.access.allowed_tabs.includes(reiter),
+        `${reiter} ist org-begrenzt und muss dem Kunden bleiben — sonst ist es ein Ausfall`);
+    }
   });
 
   it("keeps non-admin viewers in soft-locked hub mode without workspace tabs", async () => {
