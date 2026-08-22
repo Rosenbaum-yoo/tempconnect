@@ -250,8 +250,22 @@ export function createOrganizationsRouter(deps) {
     requireRole(["owner", "admin", "platform_admin"], { pool, logger }),
     async (req, res) => {
       try {
-        // Org-Boundary: nur eigene Org
-        if (req.orgId && req.params.id !== req.orgId) {
+        /*
+         * Org-Grenze, FAIL-CLOSED (8.1.1 c, gehaertet 2026-08-21).
+         *
+         * Hier stand `if (req.orgId && req.params.id !== req.orgId)`. Diese Form
+         * schaltet sich bei `req.orgId === null` selbst ab — und `null` heisst
+         * dann: der Pfad-Parameter waehlt die Organisation frei. Erreichbar ist
+         * das heute nicht, weil `requireRole` davor fail-closed abbricht und
+         * `req.orgId` aus einer geprueften Mitgliedschaft neu setzt
+         * (`middleware/rbac.js`). Aber die Route verlaesst sich damit auf einen
+         * Nachbarn: wer die Guard-Reihenfolge aendert, oeffnet sie lautlos.
+         *
+         * Dieselbe Klasse wie Audit-Backlog C-11, dort an 45 Routen gefunden.
+         * Die Grenze gehoert an die Quelle der Wahrheit, nicht an die Annahme,
+         * dass vorher schon jemand geprueft hat.
+         */
+        if (!req.orgId || req.params.id !== req.orgId) {
           return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
         }
         const limit  = Math.min(500, parseInt(req.query.limit) || 100);
@@ -286,7 +300,8 @@ export function createOrganizationsRouter(deps) {
     requireRole(["owner", "admin", "platform_admin"], { pool, logger }),
     async (req, res) => {
       try {
-        if (req.orgId && req.params.id !== req.orgId) {
+        /* Fail-closed wie oben (8.1.1 c) — dieselbe Grenze, dieselbe Form. */
+        if (!req.orgId || req.params.id !== req.orgId) {
           return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
         }
         const entityType = req.query.entity_type;
