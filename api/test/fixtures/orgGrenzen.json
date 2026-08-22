@@ -2705,6 +2705,13 @@
       "routen": [
         {
           "methode": "post",
+          "pfad": "/capacity-posts/:id/report",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Einen FREMDEN Eintrag zu melden ist der ZWECK. Eine Org-Grenze waere hier das Gegenteil von richtig: sie liesse nur zu, den eigenen Eintrag zu melden — also genau den, den man nicht melden darf. Was die Route sperrt, ist der SELBST-Report ueber `canAccessAsOwner`, und das ist eine Nutzer- keine Org-Grenze. Wortgleich zu `/offers/:id/report` und `/profile-visibility/:orgId/report`.",
+          "art": "ressource"
+        },
+        {
+          "methode": "post",
           "pfad": "/offers/:id/report",
           "urteil": "bewusste-ausnahme",
           "begruendung": "Ein FREMDES Angebot zu melden ist der ZWECK der Meldefunktion — wortgleich zur bereits eingetragenen Ausnahme fuer `/profile-visibility/:orgId/report`. Eine Org-Grenze waere hier das Gegenteil von richtig: sie liesse nur zu, das eigene Angebot zu melden. Was die Route stattdessen sperrt, ist der SELBST-Report (`supplier_company_id === req.session.userId`), und das ist eine Nutzer- keine Org-Grenze.",

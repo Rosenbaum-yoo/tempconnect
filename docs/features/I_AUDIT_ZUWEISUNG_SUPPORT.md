@@ -698,6 +698,43 @@ Ausreißer (`me.route.coverage.test.js` fällt im vollen Lauf als *Datei* aus �
 `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`, libuv unter Windows;
 allein laufen ihre 68 Untertests grün, siehe `scripts/run-tests.js:148`).
 
+### Nachgezogen: „Angebot" heißt zweierlei — und melden darf nur, wer sieht
+
+Beim Nachprüfen der Oberfläche (nicht im Quelltext) fielen **zwei** Fehler in
+meiner eigenen Arbeit auf.
+
+**1. Die Sichtbarkeit wurde nicht geprüft.** Dieselbe Sitzung bekam bei
+`/marketplace/offers/:id/detail` ein **403** und konnte das Angebot trotzdem
+melden. Zwei unnötige Folgen: ein **Orakel** für Angebotskennungen (404 gegen
+200) und ein Weg, wahllos Meldungen gegen Angebote abzusetzen, die man nie
+gesehen hat — jede kostet das Team dieselbe Bearbeitung wie eine echte. Jetzt
+gilt dieselbe Bedingung wie in `marketplace.js:1414` (`canAccessAsOwner`,
+dieselbe Funktion, keine zweite Kopie), und „gibt es nicht" und „gehört nicht zu
+dir" bekommen **dieselbe** Antwort.
+
+**2. „Angebot" meint im Produkt zwei Dinge, und die wichtigere Hälfte fehlte:**
+
+| | Wer sieht es | Beleg |
+|---|---|---|
+| `offers` | nur die **zwei Parteien** | `marketplace.js:1414` antwortet allen anderen 403 |
+| `capacity_posts` | **jeder** angemeldete Nutzer mit SLA-Zugang | `marketplace.js:296-302` filtert nicht nach Anbieter |
+
+„Freche oder betrügerische Inhalte" trifft vor allem die zweite — das ist die
+Fläche, auf der Fremde die Inhalte von Fremden sehen. Statt zu raten, welche
+gemeint war, tragen jetzt **beide**: Migration 190 gibt `ziel_art` den Wert
+`kapazitaet`, `POST /capacity-posts/:id/report` nimmt sie entgegen, und der
+Melde-Knopf steht auf `capacity_exchange_detail.html` im Fremd-Zweig (den
+eigenen Eintrag weist die Route ohnehin ab — ein Knopf, der nur eine
+Fehlermeldung erzeugt, ist ein toter Knopf).
+
+Dort steht **bewusst keine** Sichtbarkeitsprüfung: der Feed zeigt jedem jeden
+Eintrag, eine Prüfung wäre eine Attrappe. Eine Zusicherung hält fest, dass der
+Unterschied *gewollt* ist — sonst „repariert" ihn jemand in die falsche Richtung
+und nimmt der Meldefunktion genau die Leute weg, für die sie da ist.
+
+**End-to-end nachgewiesen:** Kapazitätsseite → „Eintrag melden" → **200** → zwei
+Meldungen unterschiedlicher Zielart im selben Posteingang, beide sichtbar.
+
 ### Noch zu bauen
 
 - **Die tote `reports`-Tabelle** an denselben Posteingang hängen (ein INSERT,

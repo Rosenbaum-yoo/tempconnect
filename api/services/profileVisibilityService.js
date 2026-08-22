@@ -366,7 +366,12 @@ export async function reportProfileAbuse(pool, {
   if (!ERLAUBTE_GRUENDE.includes(grund)) {
     return { ok: false, reason: "INVALID_REASON" };
   }
-  if (!["profil", "angebot"].includes(zielArt)) {
+  /* profil = die Organisation selbst, angebot = eine Zeile aus `offers`
+   * (sehen nur die zwei Parteien), kapazitaet = eine Zeile aus
+   * `capacity_posts` (sieht jeder angemeldete Nutzer mit SLA-Zugang).
+   * Die Liste muss mit dem CHECK aus Migration 190 uebereinstimmen — eine
+   * Probe haelt beide gegeneinander. */
+  if (!["profil", "angebot", "kapazitaet"].includes(zielArt)) {
     return { ok: false, reason: "INVALID_TARGET" };
   }
   // Kein Selbst-Report

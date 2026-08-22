@@ -24,6 +24,11 @@ import * as visSvc from "../services/profileVisibilityService.js";
 import * as analyticsSvc from "../services/profileAnalyticsService.js";
 import { writeAudit } from "../services/auditLog.js";
 import { swallow } from "../utils/logger.js";
+/* Melden darf nur, wer sehen darf — und "sehen" heisst bei einem `offer`
+ * dasselbe wie in `marketplace.js:1414`. Dieselbe Bedingung, dieselbe Funktion:
+ * zwei Kopien einer Sichtbarkeitsregel driften, und die Kopie in der
+ * Meldefunktion wuerde als letzte auffallen. */
+import { canAccessAsOwner } from "../utils/ownerCheck.js";
 
 export function createProfileVisibilityRouter(deps) {
   const { pool, requireAuth, requireFeature, logger } = deps;
@@ -312,19 +317,44 @@ export function createProfileVisibilityRouter(deps) {
       const { rows } = await pool.query(
         `SELECT o.id,
                 o.supplier_company_id,
+                dr.requester_company_id,
                 (SELECT m.org_id
                    FROM org_memberships m
                   WHERE m.user_id = o.supplier_company_id AND m.is_active = TRUE
                   ORDER BY m.created_at ASC
                   LIMIT 1) AS anbieter_org_id
            FROM offers o
+           LEFT JOIN demand_requests dr ON dr.id = o.demand_request_id
           WHERE o.id = $1`,
         [req.params.id]
       );
       const angebot = rows[0];
       if (!angebot) return fail(res, 404, "OFFER_NOT_FOUND", "Angebot nicht gefunden.");
 
-      if (angebot.supplier_company_id === req.session.userId) {
+      /*
+       * MELDEN DARF NUR, WER SEHEN DARF.
+       *
+       * Die erste Fassung dieser Route hat das nicht geprueft — im Browser
+       * gefunden, nicht im Quelltext: dieselbe Sitzung bekam bei
+       * `/marketplace/offers/:id/detail` ein 403 und konnte das Angebot
+       * trotzdem melden. Zwei Folgen, beide unnoetig:
+       *
+       *   1. Ein ORAKEL fuer Angebotskennungen: 404 gegen 200 haette verraten,
+       *      welche Kennung existiert. Deshalb bekommt "gibt es nicht" und
+       *      "gehoert nicht zu dir" ab jetzt DIESELBE Antwort.
+       *   2. Ein Weg, wahllos Meldungen gegen Angebote abzusetzen, die man nie
+       *      gesehen hat — jede davon kostet das Team dieselbe Bearbeitung.
+       *
+       * Ein `offer` sehen ohnehin nur die zwei Parteien (marketplace.js:1414
+       * benutzt genau diese Bedingung). Wer eine dritte Meinung zu einem
+       * Angebot hat, hat es nicht gesehen.
+       */
+      const istPartei =
+        await canAccessAsOwner(pool, angebot.requester_company_id, req.session.userId)
+        || await canAccessAsOwner(pool, angebot.supplier_company_id, req.session.userId);
+      if (!istPartei) return fail(res, 404, "OFFER_NOT_FOUND", "Angebot nicht gefunden.");
+
+      if (await canAccessAsOwner(pool, angebot.supplier_company_id, req.session.userId)) {
         return fail(res, 400, "SELF_REPORT_NOT_ALLOWED", "Eigenes Angebot kann nicht gemeldet werden.");
       }
       if (!angebot.anbieter_org_id) {
@@ -363,6 +393,92 @@ export function createProfileVisibilityRouter(deps) {
       ok(res, { reported: true });
     } catch (e) {
       logger.error({ err: e }, "POST /offers/:id/report");
+      fail(res, 500, "SERVER_ERROR", "Meldung fehlgeschlagen.");
+    }
+  });
+
+  /*
+   * KAPAZITAET MELDEN — die Flaeche, auf der Fremde die Inhalte von Fremden sehen.
+   *
+   * "Angebot" meint im Produkt ZWEI Dinge, und die wichtigere Haelfte fehlte
+   * zuerst:
+   *   `offers`         Gebot auf einen konkreten Bedarf. Sehen nur die ZWEI
+   *                    Parteien (marketplace.js:1414 antwortet allen anderen 403).
+   *   `capacity_posts` Personalangebote im Vermittlungs-Feed. `GET
+   *                    /marketplace/capacity-posts` steht hinter `requireAuth` +
+   *                    `slaAccess` und filtert NICHT nach Anbieter
+   *                    (marketplace.js:296-302) — jeder angemeldete Nutzer mit
+   *                    SLA-Zugang sieht sie alle.
+   *
+   * "Freche oder betruegerische Inhalte" (Owner-Vorgabe) trifft vor allem die
+   * zweite. Statt zu raten, welche gemeint war, tragen beide.
+   */
+  router.post("/capacity-posts/:id/report", requireAuth, async (req, res) => {
+    const parsed = angebotMeldenSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return fail(res, 400, "VALIDATION", "reason erforderlich (spam | fake_profile | misleading_info | inappropriate_content | other).");
+    }
+    try {
+      /* `capacity_posts` traegt `org_id` DIREKT (gemessen: 30 von 33 gefuellt).
+       * Die drei ohne kommen ueber die Mitgliedschaft des Anbieters; Anbieter
+       * ohne aktive Organisation gibt es keine (gemessen: 0 von 33). Der
+       * COALESCE haelt beide Faelle, ohne dass ein Aufrufer davon wissen muss. */
+      const { rows } = await pool.query(
+        `SELECT cp.id,
+                cp.supplier_company_id,
+                cp.is_active,
+                COALESCE(cp.org_id,
+                  (SELECT m.org_id
+                     FROM org_memberships m
+                    WHERE m.user_id = cp.supplier_company_id AND m.is_active = TRUE
+                    ORDER BY m.created_at ASC
+                    LIMIT 1)) AS anbieter_org_id
+           FROM capacity_posts cp
+          WHERE cp.id = $1`,
+        [req.params.id]
+      );
+      const eintrag = rows[0];
+      if (!eintrag) return fail(res, 404, "CAPACITY_POST_NOT_FOUND", "Eintrag nicht gefunden.");
+
+      /* Anders als bei `offers` gibt es hier KEINE Sichtbarkeitspruefung — und
+       * das ist Absicht, nicht Nachlaessigkeit: der Feed zeigt jedem
+       * angemeldeten Nutzer jeden Eintrag. Wer ihn melden will, hat ihn auch
+       * gesehen. Eine Pruefung waere hier eine Attrappe. */
+      if (await canAccessAsOwner(pool, eintrag.supplier_company_id, req.session.userId)) {
+        return fail(res, 400, "SELF_REPORT_NOT_ALLOWED", "Eigener Eintrag kann nicht gemeldet werden.");
+      }
+      if (!eintrag.anbieter_org_id) {
+        logger.error({ capacityPostId: eintrag.id }, "Kapazitaet ohne Anbieter-Organisation — Meldung nicht zustellbar");
+        return fail(res, 409, "CAPACITY_POST_WITHOUT_ORG", "Dieser Eintrag laesst sich derzeit nicht melden. Bitte wenden Sie sich an den Support.");
+      }
+
+      const result = await visSvc.reportProfileAbuse(pool, {
+        reportedOrgId:  eintrag.anbieter_org_id,
+        reporterUserId: req.session.userId,
+        reason:         parsed.data.reason,
+        details:        parsed.data.details || null,
+        zielArt:        "kapazitaet",
+        zielId:         eintrag.id
+      });
+
+      if (!result.ok) {
+        if (result.fehler) {
+          logger.error({ err: result.fehler, capacityPostId: eintrag.id }, "Kapazitaets-Meldung konnte nicht gespeichert werden");
+        }
+        return fail(res, 400, result.reason, "Meldung konnte nicht gespeichert werden.");
+      }
+
+      writeAudit(pool, {
+        action:      "capacity_post.abuse_reported",
+        entity_type: "profile_abuse_report",
+        entity_id:   result.id || eintrag.id,
+        actor_id:    req.session.userId,
+        details:     { reason: parsed.data.reason, capacity_post_id: eintrag.id, supplier_user_id: eintrag.supplier_company_id }
+      }).catch(swallow("profileVisibility"));
+
+      ok(res, { reported: true });
+    } catch (e) {
+      logger.error({ err: e }, "POST /capacity-posts/:id/report");
       fail(res, 500, "SERVER_ERROR", "Meldung fehlgeschlagen.");
     }
   });

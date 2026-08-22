@@ -11,6 +11,22 @@
    - der an die Gegenseite gesendete Nachrichtentext (buildInteractionMessage):
      das ist ein Datenwert, dessen Empfaengersprache hier unbekannt ist        */
 TCi18n.register('de', {
+  /* Inhalt melden (Abschnitt 10). Diese Flaeche sieht jeder angemeldete Nutzer
+     mit SLA-Zugang — deshalb liegt hier der Melde-Knopf und nicht nur an der
+     Dealakte, die nur zwei Parteien sehen. */
+  'capm.melden.open': 'Eintrag melden',
+  'capm.melden.title': 'Inhalt melden',
+  'capm.melden.hint': 'Wirkt dieser Eintrag betruegerisch, unserioes oder unangemessen? Die Meldung geht an das TempConnect-Team. Der Anbieter erfaehrt nicht, wer gemeldet hat.',
+  'capm.melden.send': 'Meldung absenden',
+  'capm.melden.sending': 'Wird gesendet …',
+  'capm.melden.ok': 'Danke — die Meldung ist beim TempConnect-Team eingegangen.',
+  'capm.melden.err': 'Die Meldung konnte nicht gesendet werden.',
+  'capm.melden.detailsPlaceholder': 'Was genau ist Ihnen aufgefallen? (optional)',
+  'capm.melden.grund.spam': 'Spam oder Werbung',
+  'capm.melden.grund.fake_profile': 'Gefaelschter Anbieter',
+  'capm.melden.grund.misleading_info': 'Irrefuehrende Angaben',
+  'capm.melden.grund.inappropriate_content': 'Unangemessener Inhalt',
+  'capm.melden.grund.other': 'Sonstiges',
   'capm.paywall.home': 'Startseite',
   'capm.paywall.title': 'Bereich nicht verfuegbar',
   'capm.paywall.currentPlan': 'Aktueller Plan:',
@@ -398,6 +414,19 @@ TCi18n.register('de', {
 });
 
 TCi18n.register('en', {
+  'capm.melden.open': 'Report listing',
+  'capm.melden.title': 'Report content',
+  'capm.melden.hint': 'Does this listing look fraudulent, dubious or inappropriate? The report goes to the TempConnect team. The supplier is not told who reported it.',
+  'capm.melden.send': 'Send report',
+  'capm.melden.sending': 'Sending …',
+  'capm.melden.ok': 'Thank you — the TempConnect team has received your report.',
+  'capm.melden.err': 'The report could not be sent.',
+  'capm.melden.detailsPlaceholder': 'What exactly did you notice? (optional)',
+  'capm.melden.grund.spam': 'Spam or advertising',
+  'capm.melden.grund.fake_profile': 'Fake supplier',
+  'capm.melden.grund.misleading_info': 'Misleading information',
+  'capm.melden.grund.inappropriate_content': 'Inappropriate content',
+  'capm.melden.grund.other': 'Other',
   'capm.paywall.home': 'Home',
   'capm.paywall.title': 'Section not available',
   'capm.paywall.currentPlan': 'Current plan:',
@@ -821,6 +850,84 @@ function capmSetPlain(el, text) {
     if (!entryId) { window.location.href = "/public/capacity_exchange_feed.html"; return; }
 
     function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+    /*
+     * INHALT MELDEN (Plan I, Abschnitt 10).
+     *
+     * Diese Flaeche ist der Grund, warum die Meldefunktion ueberhaupt eine
+     * dritte Zielart bekommen hat: `GET /marketplace/capacity-posts` filtert
+     * NICHT nach Anbieter (marketplace.js:296-302) — jeder angemeldete Nutzer
+     * mit SLA-Zugang sieht jeden Eintrag. Ein `offer` dagegen sehen nur die
+     * zwei Vertragsparteien. "Freche oder betruegerische Inhalte" trifft also
+     * vor allem hier.
+     */
+    var MELDE_GRUENDE = ["spam", "fake_profile", "misleading_info", "inappropriate_content", "other"];
+
+    function verdrahteMelden(postId) {
+      var knopf = document.getElementById("capm-melden-oeffnen");
+      if (!knopf || knopf.dataset.verdrahtet === "1") return;
+      knopf.dataset.verdrahtet = "1";
+
+      knopf.addEventListener("click", function () {
+        var alt = document.getElementById("capm-melden-box");
+        if (alt) { alt.remove(); return; }
+
+        var box = document.createElement("div");
+        box.id = "capm-melden-box";
+        box.style.cssText = "margin-top:12px;padding:12px;border:1px solid var(--ds-border);border-radius:10px;max-width:520px";
+        box.innerHTML =
+          '<div style="font-size:13px;font-weight:700;margin-bottom:6px">' + esc(t("capm.melden.title")) + '</div>'
+          + '<div style="font-size:12px;color:var(--ds-text-secondary);line-height:1.6;margin-bottom:8px">' + esc(t("capm.melden.hint")) + '</div>'
+          + '<select id="capm-melden-grund" class="ds-input" style="width:100%;margin-bottom:8px">'
+          + MELDE_GRUENDE.map(function (g) { return '<option value="' + esc(g) + '">' + esc(t("capm.melden.grund." + g)) + '</option>'; }).join("")
+          + '</select>'
+          + '<textarea id="capm-melden-text" class="ds-input" style="width:100%;min-height:70px;margin-bottom:8px" maxlength="500" placeholder="' + esc(t("capm.melden.detailsPlaceholder")) + '"></textarea>'
+          + '<div id="capm-melden-msg" style="display:none;font-size:12px;line-height:1.6;margin-bottom:8px"></div>'
+          + '<button type="button" class="ds-btn ds-btn--primary" id="capm-melden-senden">' + esc(t("capm.melden.send")) + '</button>';
+        knopf.parentNode.parentNode.appendChild(box);
+
+        document.getElementById("capm-melden-senden").addEventListener("click", function () {
+          var senden = document.getElementById("capm-melden-senden");
+          var msg = document.getElementById("capm-melden-msg");
+          function zeige(text, gut) {
+            msg.textContent = text;
+            msg.style.color = gut ? "var(--ds-success-text,#1a7f37)" : "var(--ds-danger-text,#b42318)";
+            msg.style.display = "block";
+          }
+          senden.disabled = true;
+          var vorher = senden.textContent;
+          senden.textContent = t("capm.melden.sending");
+          fetch(API + "/csrf", { credentials: "include" })
+            .then(function (r) { return r.ok ? r.json() : {}; })
+            .then(function (csrf) {
+              return fetch(API + "/capacity-posts/" + encodeURIComponent(postId) + "/report", {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json", "x-csrf-token": csrf.token || "" },
+                body: JSON.stringify({
+                  reason: document.getElementById("capm-melden-grund").value || "other",
+                  details: document.getElementById("capm-melden-text").value.trim() || null
+                })
+              });
+            })
+            .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
+            .then(function (a) {
+              if (a.ok) {
+                zeige(t("capm.melden.ok"), true);
+                document.getElementById("capm-melden-grund").disabled = true;
+                document.getElementById("capm-melden-text").disabled = true;
+                senden.style.display = "none";
+                return;
+              }
+              /* Die Antwort der Route woertlich zeigen: bei SELF_REPORT und
+                 CAPACITY_POST_WITHOUT_ORG sagt sie etwas Konkretes. */
+              zeige((a.body && a.body.error && a.body.error.message) || t("capm.melden.err"), false);
+            })
+            .catch(function () { zeige(t("capm.melden.err"), false); })
+            .then(function () { senden.disabled = false; senden.textContent = vorher; });
+        });
+      });
+    }
     function fmtDate(d) { return d ? String(d).substring(0,10) : "—"; }
     function fmtSize(bytes) { if (!bytes) return ""; if (bytes < 1024) return bytes + " B"; if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB"; return (bytes / 1048576).toFixed(1) + " MB"; }
     function toAssetUrl(rawPath) {
@@ -1774,7 +1881,14 @@ function capmSetPlain(el, text) {
       if (isOwner) {
         ha.innerHTML = '<a href="/public/capacity_exchange_form.html?id=' + esc(e.id) + '" class="ds-btn" data-i18n="capm.hdr.edit">' + esc(t("capm.hdr.edit")) + '</a><a href="/public/capacity_exchange_manage.html" class="ds-btn ds-btn--ghost" data-i18n="capm.hdr.toList">' + esc(t("capm.hdr.toList")) + '</a>';
       } else {
-        ha.innerHTML = '<a href="/public/capacity_exchange_feed.html" class="ds-btn" data-i18n="capm.hdr.backToFeed">' + esc(t("capm.hdr.backToFeed")) + '</a>';
+        /* Melden nur hier, im Fremd-Zweig: den eigenen Eintrag zu melden weist
+           die Route ohnehin ab (SELF_REPORT_NOT_ALLOWED), und ein Knopf, der
+           nur eine Fehlermeldung erzeugt, ist ein toter Knopf.
+           Nur fuer Kapazitaeten (`supply`) — ein Bedarf ist keine
+           `capacity_posts`-Zeile und hat keine Melderoute. */
+        ha.innerHTML = '<a href="/public/capacity_exchange_feed.html" class="ds-btn" data-i18n="capm.hdr.backToFeed">' + esc(t("capm.hdr.backToFeed")) + '</a>'
+          + (currentIsDemand ? '' : '<button type="button" class="ds-btn ds-btn--ghost" id="capm-melden-oeffnen">' + esc(t("capm.melden.open")) + '</button>');
+        if (!currentIsDemand) verdrahteMelden(e.id);
       }
 
       // Status bar
