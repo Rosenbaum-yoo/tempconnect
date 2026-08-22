@@ -3295,7 +3295,7 @@ function renderWorkerAssignCardBody(assignment,cardState){
   const canManualAssign=!!(suggestion&&suggestion.is_selectable&&open>0);
   return `
     <div style="margin-top:12px;border-top:1px solid var(--tc-tone-neutral-border);padding-top:12px;display:grid;gap:12px">
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:10px">
         <div style="padding:10px 12px;border:1px solid var(--tc-tone-neutral-border);border-radius:10px;background:var(--tc-surface-subtle)">
           <div style="font-size:11px;color:var(--wk-text-muted);text-transform:uppercase;letter-spacing:.05em">${esc(tt('ts.rev.drawer.contextHeading'))}</div>
           <div style="display:grid;gap:6px;margin-top:8px;font-size:12px">
@@ -4037,9 +4037,17 @@ function staffingFactorText(factorScores){
     .map(f=>`${staffingFactorLabel(f.factor)} ${Number(f.points||0)}/${Number(f.max||0)}`)
     .join(' · ');
 }
+/* Blocker und fehlende Anforderungen sind eine Vollstaendigkeits-Aussage, kein
+ * Auszug: Wer "2 Blocker" liest, obwohl es 5 sind, disponiert auf einer
+ * falschen Grundlage. Die Kappung auf 3 bleibt (sonst sprengt es die Kachel),
+ * aber sie sagt jetzt, dass sie kappt. Zusammen mit `nenneListe` im Service
+ * endet damit die doppelte stille Kuerzung 3-von-N und nochmals 3-von-N. */
 function staffingCriteriaText(items){
   if(!Array.isArray(items)||!items.length)return '';
-  return items.map(item=>item.label||item.reason||'').filter(Boolean).slice(0,3).join(' · ');
+  const alle=items.map(item=>item.label||item.reason||'').filter(Boolean);
+  if(!alle.length)return '';
+  const rest=alle.length-3;
+  return rest>0?`${alle.slice(0,3).join(' · ')} (+${rest} weitere)`:alle.join(' · ');
 }
 function staffingWorkerLabel(worker){
   return `${worker?.first_name||''} ${worker?.last_name||''}`.trim()||worker?.personnel_number||worker?.worker_user_id||'Worker';

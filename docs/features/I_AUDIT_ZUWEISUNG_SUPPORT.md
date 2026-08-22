@@ -482,12 +482,69 @@ erscheint erneut → zweite Anfrage → Zusage → **jetzt erst** Kundenmeldung.
 Migration eingespielt und idempotent, Momentaufnahme erneuert. Acht neue Proben,
 Rückmutation vierfach. Voller Lauf **9612/0**.
 
-### Offen
+### 8.2 b — Die Begründungs-Darstellung
 
-Die **Begründungs-Darstellung** in `worker-submissions-review.html` — der Owner
-bemängelt die senkrechte Textsäule. Die Erhebung hat belegt: der Text ist kein
-ganzer Satz, sondern ein Etikett-Fragment aus einem Template-Literal
-(Substantivphrase + Doppelpunkt + roher Feldwert). Eigener, kleiner Schritt.
+Der Owner bemängelte die **senkrechte Textsäule**. Die Erhebung hat *zwei*
+Ursachen gefunden, nicht eine — und die zweite hätte man beim Lesen des
+Quelltextes nie gesehen.
+
+**Ursache 1 — die Sprache.** Die Etiketten waren keine Sätze, sondern Fragmente:
+Substantivphrase, Doppelpunkt, roher Feldwert. `Rollenfit nicht sauber belegt:
+Maler` lässt offen, ob „Maler" das ist, was **fehlt**, oder das, was der Mensch
+**kann**. Bei einer Besetzung ist das keine Feinheit. Jetzt: `Rollenfit nicht
+belegt — gesucht: Maler`.
+
+**Ursache 2 — die Kachelbreite**, im echten Schuber gemessen (`.drw-lg`,
+`max-width:540px`):
+
+| Raster | Spalten | Kachel | Texthöhe |
+|---|---|---|---|
+| `minmax(220px,1fr)` (vorher) | 2 × 229 px | 229 px | **183 px** |
+| `minmax(min(100%,320px),1fr)` | 1 × 468 px | 468 px | **117 px** |
+
+320 px ist die Schwelle, ab der im 467 px breiten Raster keine zweite Spalte mehr
+passt (320 + 10 + 320 = 650 > 467). Auf breiteren Flächen entstehen weiterhin
+zwei Spalten; `min(100%, …)` verhindert zusätzlich den Überlauf auf schmalen
+Geräten. Die Zahl steht in einer Probe fest, damit sie ihren Grund nicht
+verliert, sobald jemand sie zurückdreht.
+
+**Zwei Funde, die erst die Proben hervorgeholt haben:**
+
+1. **Die Liste wurde ZWEIMAL still gekappt** — im Dienst auf 3 und im Frontend
+   (`staffingCriteriaText`) nochmals auf 3. Aus neun fehlenden Nachweisen wurden
+   drei, und nichts sagte, dass etwas fehlt. Eine Liste, die verschweigt, dass sie
+   unvollständig ist, liest sich wie eine vollständige — und ist damit schlimmer
+   als gar keine. Beide Stellen zählen den Rest jetzt sichtbar mit
+   (`(+3 weitere)`).
+2. **Die Skills erschienen kleingeschrieben.** Der Abgleich normalisiert alles
+   auf Kleinschreibung — zu Recht, sonst verfehlt `Gerüstbau` ein `gerüstbau`.
+   Nur wurde dieselbe normalisierte Marke auch *angezeigt*: der Disponent las
+   `gesucht: gerüstbau, a-fach` und musste annehmen, die Plattform habe den
+   Bedarf seines Kunden verstümmelt. Marke und Schreibweise sind jetzt getrennt
+   (`sammleSchreibweisen` / `zeigeMarken`); eine Probe hält fest, dass der
+   Abgleich **weiterhin** normalisiert — sonst wäre die Anzeige teuer erkauft.
+
+**Testlage:** Die Begründung — der Satz, auf den hin ein Mensch disponiert wird —
+hatte vorher **keine einzige Probe**. Jetzt 13, am Verhalten geprüft statt an
+Zeichenketten im Quelltext (`scoreWorkersForAssignment` ist synchron und
+DB-frei), inklusive Rückmutation gegen die stille Kürzung.
+
+Voller Lauf **9625/0**, 13 übersprungen (die DB-gebundenen).
+
+---
+
+## Owner-Entscheidungen 2026-08-21
+
+Vier Fragen, die sich aus den Erhebungen ergaben und **nicht** aus dem Code
+ableitbar waren. Hier festgehalten, damit sie nicht in einem Sitzungsprotokoll
+verschwinden.
+
+| Frage | Entscheidung | Folge |
+|---|---|---|
+| **Frist einer Ersatz-Anfrage** | **4 Stunden**, dann verfällt sie automatisch; Erinnerung nach 2 h | Heute gibt es für Zuweisungs-Links **keine** Frist — eine unbeantwortete Anfrage blockiert den Einsatz unbegrenzt über `reserved`, und er sieht dabei versorgt aus. Zu bauen: Verfall + Erinnerung, danach wird der Einsatz wieder offen und der Knopf erscheint erneut (der Weg dorthin steht seit `9faaf94`). |
+| **„Bester Treffer"** | **Vorbewertung in die Datenbank ziehen** | Der Kandidatenpool wird heute **alphabetisch** auf ~60 Zeilen geschnitten (`assignmentStaffingService.js`, `ORDER BY wp.last_name ASC`), *bevor* bewertet wird. Ab ~60 aktiven Kräften wäre „bester Treffer" eine Behauptung. Abwesenheit, Entfernung und Pflicht-Skills wandern in die SQL. **Achtung: die Basisabfrage hat sechs Aufrufer** — alle sind betroffen, das ist eine eigene Welle. |
+| **Kunde ↔ Kunde (10b)** | **Keine Nachrichtenfunktion.** Ansprechperson mit Telefonnummer wird Pflichtfeld | Ein Nachrichtenkanal erzeugt Erwartungen an *TempConnect*: Zustellung, Aufbewahrung, Moderation, DSGVO-Auskunft über fremde Gespräche — und die Beschwerden landen am Ende doch dort. `contact_name`/`contact_phone` stehen bereits auf `offers`. Sichtbar an der Besetzung und in der Live-Belegschaft, nicht nur in der Deal-Akte. Eskalation geht über Abschnitt 10. |
+| **Reihenfolge** | Begründungs-Darstellung, dann Abschnitt 10 | — |
 
 ---
 

@@ -89,12 +89,27 @@ function buildDurationLabel(startDate, endDate) {
   return `${startLabel} – ${endLabel}${daySpan && daySpan > 1 ? ` (${daySpan} Tage)` : ""}`;
 }
 
-function uniqueStrings(values) {
-  return [...new Set(
-    (Array.isArray(values) ? values : [])
-      .map((entry) => String(entry || "").trim().toLowerCase())
-      .filter(Boolean)
-  )];
+/*
+ * `roh = true` behaelt die Schreibweise, dedupliziert aber weiterhin ueber die
+ * kleingeschriebene Marke — sonst stuenden "Gerüstbau" und "gerüstbau"
+ * nebeneinander in derselben Liste.
+ *
+ * WARUM ES DEN SCHALTER BRAUCHT: Der Abgleich MUSS normalisieren, sonst
+ * verfehlt "Gerüstbau" ein "gerüstbau" und die Kraft gilt faelschlich als
+ * ungeeignet. Die BEGRUENDUNG dagegen liest ein Mensch — und "gesucht:
+ * gerüstbau, a-fach" sieht aus, als haette die Plattform den Wunsch des Kunden
+ * verstuemmelt. Beides in einer Liste zu fuehren hiesse, eines von beiden
+ * kaputtzumachen; darum zwei Sichten auf dieselbe Quelle.
+ */
+function uniqueStrings(values, roh = false) {
+  const gesehen = new Map();
+  for (const entry of Array.isArray(values) ? values : []) {
+    const getrimmt = String(entry || "").trim();
+    if (!getrimmt) continue;
+    const marke = getrimmt.toLowerCase();
+    if (!gesehen.has(marke)) gesehen.set(marke, roh ? getrimmt : marke);
+  }
+  return [...gesehen.values()];
 }
 
 function parseJson(value) {
@@ -107,29 +122,30 @@ function parseJson(value) {
   }
 }
 
-function parseStringList(value) {
+function parseStringList(value, roh = false) {
   if (!value) return [];
-  if (Array.isArray(value)) return uniqueStrings(value);
+  if (Array.isArray(value)) return uniqueStrings(value, roh);
   if (typeof value === "string") {
     const parsed = parseJson(value);
-    if (parsed) return parseStringList(parsed);
+    if (parsed) return parseStringList(parsed, roh);
     return uniqueStrings(
       value
         .split(/[,;\n]/g)
         .map((entry) => entry.trim())
-        .filter(Boolean)
+        .filter(Boolean),
+      roh
     );
   }
   if (typeof value === "object") {
     return uniqueStrings([
       ...Object.keys(value),
-      ...Object.values(value).flatMap((entry) => parseStringList(entry))
-    ]);
+      ...Object.values(value).flatMap((entry) => parseStringList(entry, roh))
+    ], roh);
   }
   return [];
 }
 
-function parseQualificationKeywords(value) {
+function parseQualificationKeywords(value, roh = false) {
   if (!value) return [];
   if (Array.isArray(value)) {
     return uniqueStrings(value.flatMap((entry) => {
@@ -145,17 +161,17 @@ function parseQualificationKeywords(value) {
         ];
       }
       return [];
-    }));
+    }), roh);
   }
   if (typeof value === "string") {
     const parsed = parseJson(value);
-    return parsed ? parseQualificationKeywords(parsed) : parseStringList(value);
+    return parsed ? parseQualificationKeywords(parsed, roh) : parseStringList(value, roh);
   }
   if (typeof value === "object") {
     return uniqueStrings([
       ...Object.keys(value),
-      ...Object.values(value).flatMap((entry) => parseQualificationKeywords(entry))
-    ]);
+      ...Object.values(value).flatMap((entry) => parseQualificationKeywords(entry, roh))
+    ], roh);
   }
   return [];
 }
@@ -185,6 +201,28 @@ function getAssignmentRequestedQuantity(assignment) {
       1
     )
   );
+}
+
+/* Erste gesehene Schreibweise gewinnt: mehrere Quellen (Requisition, Bedarf,
+ * Anforderungsobjekt) koennen dieselbe Marke unterschiedlich schreiben, und
+ * eine Begruendung, die "Gerüstbau" und "gerüstbau" nebeneinander zeigt, wirkt
+ * wie ein Fehler der Plattform. */
+function sammleSchreibweisen(...listen) {
+  const zuordnung = new Map();
+  for (const liste of listen) {
+    for (const rohwert of Array.isArray(liste) ? liste : []) {
+      const marke = String(rohwert || "").trim().toLowerCase();
+      if (marke && !zuordnung.has(marke)) zuordnung.set(marke, String(rohwert).trim());
+    }
+  }
+  return zuordnung;
+}
+
+/* Faellt auf die Marke zurueck, wenn keine Schreibweise bekannt ist — eine
+ * Begruendung darf nie LEER sein, nur weil eine Zuordnung fehlt. */
+function zeigeMarken(marken, zuordnung) {
+  const map = zuordnung instanceof Map ? zuordnung : new Map();
+  return (Array.isArray(marken) ? marken : []).map((m) => map.get(m) || m);
 }
 
 function deriveAssignmentRequirements(assignment) {
@@ -222,7 +260,19 @@ function deriveAssignmentRequirements(assignment) {
       ...parseQualificationKeywords(requisitionQualifications),
       ...parseQualificationKeywords(demandRequirements.qualifications),
       ...parseQualificationKeywords(demandRequirements.certifications)
-    ])
+    ]),
+    /* Marke -> Schreibweise, wie der Kunde sie eingetragen hat. Der Abgleich
+     * oben laeuft weiter auf den kleingeschriebenen Marken; nur die Begruendung
+     * greift hier hinein. Ohne das las der Disponent "gesucht: gerüstbau,
+     * a-fach" — die Plattform sah aus, als haette sie den Bedarf verstuemmelt. */
+    schreibweisen: sammleSchreibweisen(
+      parseStringList(assignment?.requisition_skill_tags, true),
+      parseStringList(assignment?.demand_skill_tags, true),
+      parseStringList(demandRequirements.skills, true),
+      parseQualificationKeywords(requisitionQualifications, true),
+      parseQualificationKeywords(demandRequirements.qualifications, true),
+      parseQualificationKeywords(demandRequirements.certifications, true)
+    )
   };
 }
 
@@ -1213,6 +1263,31 @@ function computeNeedleCoverage(needle, corpusTokens, corpusText) {
   };
 }
 
+/*
+ * DIE BEGRUENDUNG IST DER SATZ, AUF DEN HIN EIN MENSCH DISPONIERT WIRD.
+ *
+ * Befund (Owner-Beanstandung, Plan I / 8.2 "Begruendungs-Darstellung"): Die
+ * Etiketten waren keine Saetze, sondern Fragmente — Substantivphrase,
+ * Doppelpunkt, roher Feldwert ("Rollenfit nicht sauber belegt: Maler"). Wer das
+ * liest, weiss nicht, ob "Maler" das ist, was FEHLT, oder das, was der Mensch
+ * KANN. Genau die Verwechslung, die man sich bei einer Besetzung nicht leisten
+ * kann. Deshalb steht jetzt ueberall "— gesucht: X": das Etikett benennt den
+ * Mangel, der Zusatz die Anforderung.
+ *
+ * Und: die Aufzaehlung wurde ZWEIMAL still gekappt — hier auf 3 und im Frontend
+ * (`staffingCriteriaText`) nochmals auf 3. Aus neun fehlenden Nachweisen wurden
+ * drei, ohne dass irgendwo stand, dass etwas fehlt. Eine Liste, die verschweigt,
+ * dass sie unvollstaendig ist, liest sich wie eine vollstaendige — und ist damit
+ * schlimmer als gar keine. `nenneListe` zaehlt den Rest sichtbar mit.
+ */
+function nenneListe(werte, sichtbar = 3) {
+  const alle = (Array.isArray(werte) ? werte : []).filter(Boolean);
+  if (!alle.length) return "";
+  const gezeigt = alle.slice(0, sichtbar);
+  const rest = alle.length - gezeigt.length;
+  return rest > 0 ? `${gezeigt.join(", ")} (+${rest} weitere)` : gezeigt.join(", ");
+}
+
 function createFactorScore(factor, points, max, detail, { applicable = true } = {}) {
   return {
     factor,
@@ -1480,25 +1555,25 @@ export function scoreWorkersForAssignment(_client, assignment, workerRows, filte
     if (missingRequiredQualifications.length > 0) {
       hardFailures.push({
         code: "missing_required_qualifications",
-        label: `Pflichtnachweise fehlen: ${missingRequiredQualifications.slice(0, 3).join(", ")}`
+        label: `Pflichtnachweise fehlen — gesucht: ${nenneListe(zeigeMarken(missingRequiredQualifications, requirements.schreibweisen))}`
       });
     }
     if (requirements.role && !roleCoverage.isMatch) {
       missingRequirements.push({
         code: "role",
-        label: `Rollenfit nicht sauber belegt: ${requirements.role}`
+        label: `Rollenfit nicht belegt — gesucht: ${requirements.role}`
       });
     }
     if (requirements.shift_model && !shiftCoverage.isMatch) {
       missingRequirements.push({
         code: "shift",
-        label: `Schichtfähigkeit nicht belegt: ${requirements.shift_model}`
+        label: `Schichtfähigkeit nicht belegt — gesucht: ${requirements.shift_model}`
       });
     }
     if (missingSkills.length > 0) {
       missingRequirements.push({
         code: "skills",
-        label: `Fehlende Skill-Treffer: ${missingSkills.slice(0, 3).join(", ")}`
+        label: `Skills fehlen — gesucht: ${nenneListe(zeigeMarken(missingSkills, requirements.schreibweisen))}`
       });
     }
 
