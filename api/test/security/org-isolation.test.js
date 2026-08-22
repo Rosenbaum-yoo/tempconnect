@@ -15,7 +15,8 @@ import assert from "node:assert/strict";
 import {
   mockReq, mockRes, noop, mockLogger, returnPool, sequencePool,
   baseDeps, findHandlerExact,
-  USER_A, USER_B, ORG_A, ORG_B, MEMBERSHIPS
+  USER_A, USER_B, ORG_A, ORG_B, MEMBERSHIPS,
+  findChainFrom
 } from "../helpers/security-mocks.js";
 
 import { createOrganizationsRouter }  from "../../routes/organizations.js";
@@ -39,7 +40,13 @@ describe("ORG-ISO: organizations — org boundary", () => {
 
   for (const { method, path, label } of orgBoundaryEndpoints) {
     it(`${label}: user from Org A blocked from Org B`, async () => {
-      const handler = findHandlerExact(router, method, path);
+      /* Die Grenze steht in `sameOrgParam`, nicht im Handler (zusammengefasst
+       * am 2026-08-21: vier Kopien zu einer Stelle). `findHandlerExact` liefert
+       * nur den letzten Handler und saehe sie deshalb nicht — Fallstrick 5
+       * aus Plan H2. `findChainFrom` fuehrt die Kette ab dem benannten
+       * Middleware aus und bindet die Probe zugleich an seinen Bestand: faellt
+       * `sameOrgParam` aus der Kette, wirft der Helfer. */
+      const handler = findChainFrom(router, method, path, "sameOrgParam");
       // User belongs to ORG_A, but requests ORG_B resource
       const req = mockReq({ orgId: ORG_A, params: { id: ORG_B } });
       const res = mockRes();

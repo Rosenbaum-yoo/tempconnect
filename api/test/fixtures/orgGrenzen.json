@@ -381,7 +381,9 @@
           "methode": "get",
           "pfad": "/organizations/:id",
           "urteil": "verhaltensgeprueft",
-          "art": "orgpfad"
+          "art": "orgpfad",
+          "grenzeIn": "sameOrgParam",
+          "hinweis": "Die Grenze stand hier als KOPIE im Handler und trug die selbstabschaltende Form `if (req.orgId && ...)`. Am 2026-08-21 in die gemeinsame Middleware zusammengefasst und fail-closed gemacht: vier Kopien, eine Stelle. Ausser requireAuth stand vor diesen Lese-Routen kein weiterer Guard — anders als bei den schreibenden, die requirePermission tragen."
         },
         {
           "methode": "patch",
@@ -400,7 +402,9 @@
           "methode": "get",
           "pfad": "/organizations/:id/locations",
           "urteil": "verhaltensgeprueft",
-          "art": "orgpfad"
+          "art": "orgpfad",
+          "grenzeIn": "sameOrgParam",
+          "hinweis": "Die Grenze stand hier als KOPIE im Handler und trug die selbstabschaltende Form `if (req.orgId && ...)`. Am 2026-08-21 in die gemeinsame Middleware zusammengefasst und fail-closed gemacht: vier Kopien, eine Stelle. Ausser requireAuth stand vor diesen Lese-Routen kein weiterer Guard — anders als bei den schreibenden, die requirePermission tragen."
         },
         {
           "methode": "post",
@@ -449,7 +453,9 @@
           "methode": "get",
           "pfad": "/organizations/:id/departments",
           "urteil": "verhaltensgeprueft",
-          "art": "orgpfad"
+          "art": "orgpfad",
+          "grenzeIn": "sameOrgParam",
+          "hinweis": "Die Grenze stand hier als KOPIE im Handler und trug die selbstabschaltende Form `if (req.orgId && ...)`. Am 2026-08-21 in die gemeinsame Middleware zusammengefasst und fail-closed gemacht: vier Kopien, eine Stelle. Ausser requireAuth stand vor diesen Lese-Routen kein weiterer Guard — anders als bei den schreibenden, die requirePermission tragen."
         },
         {
           "methode": "post",
@@ -496,7 +502,9 @@
           "methode": "get",
           "pfad": "/organizations/:id/members",
           "urteil": "verhaltensgeprueft",
-          "art": "orgpfad"
+          "art": "orgpfad",
+          "grenzeIn": "sameOrgParam",
+          "hinweis": "Die Grenze stand hier als KOPIE im Handler und trug die selbstabschaltende Form `if (req.orgId && ...)`. Am 2026-08-21 in die gemeinsame Middleware zusammengefasst und fail-closed gemacht: vier Kopien, eine Stelle. Ausser requireAuth stand vor diesen Lese-Routen kein weiterer Guard — anders als bei den schreibenden, die requirePermission tragen."
         },
         {
           "methode": "post",

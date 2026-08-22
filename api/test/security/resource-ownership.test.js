@@ -11,7 +11,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  mockReq, mockRes, noop, baseDeps, findHandlerExact, returnPool,
+  mockReq, mockRes, noop, baseDeps, findHandlerExact, findChainFrom, returnPool,
   USER_A, USER_B, ORG_A, ORG_B
 } from "../helpers/security-mocks.js";
 
@@ -123,7 +123,13 @@ describe("OWNERSHIP: organizations — cross-org subresource access", () => {
 
   for (const { method, path, label } of endpoints) {
     it(`User B (Org B) cannot read Org A ${label}`, async () => {
-      const handler = findHandlerExact(router, method, path);
+      /* Die Grenze steht in `sameOrgParam`, nicht im Handler (zusammengefasst
+       * am 2026-08-21: vier Kopien zu einer Stelle). `findHandlerExact` liefert
+       * nur den letzten Handler und saehe sie deshalb nicht — Fallstrick 5
+       * aus Plan H2. `findChainFrom` fuehrt die Kette ab dem benannten
+       * Middleware aus und bindet die Probe zugleich an seinen Bestand: faellt
+       * `sameOrgParam` aus der Kette, wirft der Helfer. */
+      const handler = findChainFrom(router, method, path, "sameOrgParam");
       const req = mockReq({ orgId: ORG_B, params: { id: ORG_A } });
       const res = mockRes();
       await handler(req, res, noop);

@@ -56,8 +56,30 @@ export function createOrganizationsRouter(deps) {
   const sitesLimitGate = requireOrgLimit("sites", { pool, logger });
   const multiOrgSlotsGate = requireOrgLimit("multi_org_slots", { pool, logger });
 
+  /*
+   * Die Mandantengrenze dieser Datei — FAIL-CLOSED (gehaertet 2026-08-21).
+   *
+   * Hier stand `if (req.orgId && req.params.id !== req.orgId)`. Diese Form
+   * schaltet sich bei `req.orgId === null` selbst ab, und `null` heisst dann:
+   * der Pfad-Parameter waehlt die Organisation frei. Sie bewacht 12 Routen.
+   *
+   * Bemerkenswert: die richtige Form stand die ganze Zeit zwei Zeilen tiefer.
+   * `parentOrgBoundary` prueft `if (!req.orgId || ...)`. Zwei Grenzen
+   * nebeneinander, eine davon mit Selbstabschaltung — genau die Sorte
+   * Unterschied, die man beim Lesen nicht sieht.
+   *
+   * Erreichbar ist die Luecke fuer jeden Aufrufer ohne aufloesbaren
+   * Org-Kontext. Bei den vier reinen Lese-Routen unten stand vor dieser
+   * Haertung KEIN weiterer Guard davor (nur `requireAuth`), waehrend die
+   * schreibenden zusaetzlich `requirePermission` tragen. Der C-11-Kommentar in
+   * `middleware/orgContext.js` beschreibt dieselbe Klasse und stuetzt sich
+   * darauf, dass der Kontext auf die eigene Org zurueckfaellt — das gilt nur
+   * fuer Nutzer, die ueberhaupt eine Mitgliedschaft haben.
+   */
   const sameOrgParam = (req, res, next) => {
-    if (req.orgId && req.params.id !== req.orgId) return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+    if (!req.orgId || req.params.id !== req.orgId) {
+      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+    }
     next();
   };
   const parentOrgBoundary = (req, res, next) => {
@@ -84,11 +106,11 @@ export function createOrganizationsRouter(deps) {
     }
   });
 
-  router.get("/organizations/:id", requireAuth, async (req, res) => {
-    // F-001 fix: user must be member of the requested org
-    if (req.orgId && req.params.id !== req.orgId) {
-      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
-    }
+  // F-001: der Aufrufer muss Mitglied der angefragten Org sein. Die Pruefung
+  // stand hier als KOPIE von `sameOrgParam` — vier solche Kopien gab es, und
+  // alle vier trugen die selbstabschaltende Form weiter, als die Middleware
+  // laengst danebenstand. Eine Grenze, eine Stelle (Lehre aus Welle H2).
+  router.get("/organizations/:id", requireAuth, sameOrgParam, async (req, res) => {
     const org = await orgService.getOrganization(pool, req.params.id);
     if (!org) return res.status(404).json({ error: "NOT_FOUND" });
     res.json(org);
@@ -112,10 +134,7 @@ export function createOrganizationsRouter(deps) {
 
   /* ── Locations ─────────────────────────── */
 
-  router.get("/organizations/:id/locations", requireAuth, async (req, res) => {
-    if (req.orgId && req.params.id !== req.orgId) {
-      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
-    }
+  router.get("/organizations/:id/locations", requireAuth, sameOrgParam, async (req, res) => {
     const locations = await orgService.listLocations(pool, req.params.id);
     res.json({ items: locations });
   });
@@ -167,10 +186,7 @@ export function createOrganizationsRouter(deps) {
 
   /* ── Departments ───────────────────────── */
 
-  router.get("/organizations/:id/departments", requireAuth, async (req, res) => {
-    if (req.orgId && req.params.id !== req.orgId) {
-      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
-    }
+  router.get("/organizations/:id/departments", requireAuth, sameOrgParam, async (req, res) => {
     const depts = await orgService.listDepartments(pool, req.params.id);
     res.json({ items: depts });
   });
@@ -226,10 +242,7 @@ export function createOrganizationsRouter(deps) {
 
   /* ── Members ───────────────────────────── */
 
-  router.get("/organizations/:id/members", requireAuth, async (req, res) => {
-    if (req.orgId && req.params.id !== req.orgId) {
-      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
-    }
+  router.get("/organizations/:id/members", requireAuth, sameOrgParam, async (req, res) => {
     const members = await orgService.listOrgMembers(pool, req.params.id);
     res.json({ items: members });
   });
