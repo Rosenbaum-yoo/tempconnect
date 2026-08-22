@@ -362,30 +362,58 @@ war bis 8.1.1 verletzt.
 
 ---
 
-## 8.1.2 — Aktive Sitzungen im Audit (Einsatzportal)
+## 8.1.2 — Aktive Sitzungen im Einsatzportal — **erledigt 2026-08-21** (`4b40675`)
 
-Das Einsatzportal zeigt heute „2 aktive Sitzungen — davon 1 auf anderen Geräten"
-mit *Andere Geräte abmelden* / *Überall abmelden* (Screenshot 2). Was fehlt: die
-**Nachverfolgbarkeit** — welches Gerät, seit wann, von wo.
+### Was gemessen wurde
 
-**Vorhanden:** eine Tabelle `session`. Zu klären ist zuerst, ob sie Gerät,
-Zeitpunkt und Herkunft überhaupt führt, oder ob das mitgebaut werden muss.
+Das Portal schrieb „2 aktive Sitzungen — davon 1 auf anderen Geräten". Die
+zweite Zahl war schlicht `offen - 1`:
 
-**Die Grenze ist hier heikler als sonst.** Owner-Vorgabe: „nur intern pro Firma".
-Ein Arbeiter im Einsatzportal ist Mitglied **einer** Zeitarbeitsfirma, arbeitet
-aber im Einsatz **eines Kunden**. Zu entscheiden ist:
+| | Stand vorher |
+|---|---|
+| `session` | die reine `connect-pg-simple`-Tabelle: `sid`, `sess`, `expire` |
+| **Gerät** | **nicht aufgezeichnet** — `bindSessionToDevice` setzt trotz seines Namens nur die Cookie-Lebensdauer |
+| **Herkunft** | **nicht aufgezeichnet** |
+| **Zeitpunkt** | vorhanden als `sess.createdAt`, nur nie ausgeliefert |
 
-- Sieht die Zeitarbeitsfirma die Sitzungen ihrer Arbeiter? *(vermutlich ja —
-  sie ist der Arbeitgeber)*
-- Sieht das **Einsatzunternehmen** sie? *(vermutlich nein — es bekommt Arbeit
-  geliefert, nicht Personalverwaltung)*
+> Der Text versprach eine Unterscheidung, die die Daten nicht hatten — und genau
+> darauf soll jemand entscheiden, ob er sein Konto nach einem Geräteverlust
+> fernabmeldet.
 
-Das ist eine Flächen-Frage nach `docs/FLAECHEN.md` und gehört **entschieden,
-nicht abgeleitet**.
+### Owner-Entscheidung 2026-08-21
 
-**Datenschutz:** Sitzungsdaten sind personenbezogen. Was aufgezeichnet wird
-(IP? Gerätekennung? Standort?), gehört in `TENANT_ISOLATION_MODEL.md` und in die
-Datenschutzerklärung, bevor es gebaut wird — nicht danach.
+**„Zeitpunkt + grober Gerätetyp".** Keine IP, kein Standort, keine
+Gerätekennung — und auch nicht der rohe User-Agent, der ein
+Wiedererkennungsmerkmal ist. Gespeichert wird nur das *Ergebnis* der Einordnung
+(Handy/Tablet/Rechner + Browserfamilie), nicht ihre Grundlage. Eine eigene Probe
+hält fest, dass weder „Mozilla" noch eine Versionsnummer in der Sitzung landet.
+
+**Die Flächen-Frage blieb offen und wurde deshalb nicht vorweggenommen.**
+`listUserSessions` nimmt **gar keine** fremde Kennung entgegen — es gibt keine
+Fremdsicht, statt sie vorsorglich zu bauen. Die Sitzungskennung wird nie
+ausgeliefert; sie ist das Anmeldegeheimnis.
+
+> **Nicht zu verwechseln mit den aktiven EINSÄTZEN.** Auf die Frage, wer die
+> Sitzungen eines Arbeiters sehen darf, kam die Antwort: der Arbeiter selbst und
+> der Zeitarbeitschef, damit er im Voraus planen und benachrichtigt werden kann.
+> Das beschreibt die **Live-Belegschaft** (`docs/features/E_LIVE_BELEGSCHAFT.md`)
+> und Abschnitt 8.2 unten — nicht die Browser-Anmeldungen. Zwei Dinge, die fast
+> gleich heissen.
+
+### Beim Bauen in die eigene Falle gelaufen
+
+`` wurde beim Erzeugen des Codes zum **Backspace-Zeichen** (0x08) statt zur
+Wortgrenze. Die Muster trafen fast nichts: ein iPhone galt als „rechner", jeder
+Browser als „unbekannt". Genau die Falle, die `docs/UEBERGABE.md` seit dem
+2026-08-19 beschreibt — damals traf es den Org-Grenzen-Wächter, der deshalb
+**nie** traf und vier bewachte Routen als Lücke meldete.
+
+Der Merksatz stand seither in der Übergabe. **Eine Regel in einer Doku ist aber
+keine Sperre.** Neu ist die Sperre: eine Probe prüft **jede** Quelldatei unter
+`api/` auf Steuerzeichen. Im Diff sieht man ein 0x08 nicht.
+
+Sie hat sofort einen zweiten Fund gemacht: `test/helpers/orgGrenzenSpion.js:193`
+— der Kommentar, der *vor* dem Backspace warnt, enthielt selbst einen.
 
 ---
 
