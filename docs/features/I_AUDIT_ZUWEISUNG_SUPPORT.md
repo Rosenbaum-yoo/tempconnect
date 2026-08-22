@@ -417,50 +417,77 @@ Sie hat sofort einen zweiten Fund gemacht: `test/helpers/orgGrenzenSpion.js:193`
 
 ---
 
-## 8.2 — Die Ersatz-Zuweisung vereinfachen
+## 8.2 — Die Ersatz-Zuweisung — **erledigt 2026-08-21** (`ae6830a`, `9faaf94`)
 
-### Was heute stört (Screenshot 3)
+### Der Plan lag falsch — und das ist der wichtigere Teil
 
-`worker-submissions-review.html` zeigt die Begründung als senkrecht umbrechende
-Textsäule („Fehlt: Rollenfit nicht sauber belegt: Maler"). Der Weg ist außerdem
-umständlich: man muss ihn kennen und aufrufen.
+Dieser Abschnitt sagte: *„Der Ersatz-Mitarbeiter muss benachrichtigt werden und
+annehmen oder ablehnen können. **Das ist der Teil, der heute fehlt.**"*
 
-### Die Frage des Owners — ja, das geht
+Am Code gemessen stimmt das nicht. Es existierte alles — und war bei Abfassung
+des Plans bereits gebaut (Welle G6):
 
-> *„Oder hier auch mit einem Button, der sofort sichtbar ist, wenn jemand
-> ausfällt, und sofort verfügbares Personal vorschlägt und automatisch
-> vorgefüllte Zuweisungen macht, aber nichts bestätigt?"*
+| Baustein | Stand vorher |
+|---|---|
+| Ausfall melden | `POST /worker/assignments/:id/report-unavailable` |
+| Knopf an der Zeile | `mitarbeiter.js:1777`, in der Live-Belegschaft |
+| Vorschläge mit Bewertung | `/suggestions?only_available=true` (Abwesende gesperrt) |
+| Ersatz einsetzen | `POST /worker-assignment-links/:id/replace` |
+| Annehmen / Ablehnen | `POST /worker/assignments/:id/{confirm,decline}` |
+| Einsatz wieder offen | `declineAssignment` → `recalcAssignmentStaffing` |
 
-Ja. Und die Teile dafür liegen bereits alle da:
+### Der echte Befund lag eine Ebene tiefer
 
-- **Der Ausfall ist schon ein Ereignis.** Wellen G1–G4b haben Abwesenheit,
-  Verspätung und die Kundenmeldung gebaut (`assignment_worker_unavailable`).
-- **Der Vorschlag existiert schon.** `assignmentStaffingService` liefert
-  Auswahlmengen samt Bewertung (Verfügbarkeit/Distanz/Zuverlässigkeit — die
-  Zahlen im Screenshot).
-- **Die Live-Belegschaft ist die richtige Fläche.** Dort sieht man, wer heute
-  arbeitet — also auch, wer heute fehlt.
+Es gab **zwei Wege, denselben Einsatz zu besetzen, und nur einer fragte den
+Menschen**, den er besetzt:
 
-**Zu bauen:** Fällt jemand aus, erscheint **in der Live-Belegschaft** an der
-betroffenen Zeile eine Handlung *„Ersatz vorschlagen"*. Sie öffnet eine
-**vorausgefüllte** Zuweisung — bester Treffer vorgewählt, Begründung lesbar
-daneben. Der Disponent klickt *Zuweisen*, sonst nichts. **Nichts wird ohne
-diesen Klick bestätigt.**
+- `quick-assign` legt `pending_confirmation` an und bittet um Zusage.
+- `replace` legte **`auto_confirmed`** an.
 
-### Was dabei nicht vergessen werden darf
+Eine Absage war damit nicht bloss unüblich, sondern **unmöglich**:
+`declineAssignment` verlangt ausdrücklich `pending_confirmation` und hätte den
+Link abgewiesen. Die Oberfläche sagte dazu ehrlich „Die Zuweisung gilt
+**sofort**" und „**Verbindlich** einsetzen".
 
-**Der Ersatz-Mitarbeiter muss benachrichtigt werden und annehmen oder ablehnen
-können — genau wie bei einer regulären Zuweisung.** Das ist der Teil, der heute
-fehlt und der die Sache erst zu Ende bringt: eine Zuweisung, die der
-Zugewiesene nicht bestätigt hat, ist eine Absichtserklärung, keine Besetzung.
+### Gebaut
 
-**Karte und Text überarbeiten:** die Begründung als Zeile statt als Säule, in
-ganzen Sätzen („Rollenfit nicht belegt — gesucht: Maler").
+- **Migration 188** (`ersetzt_link_id`): trägt den Zusammenhang in die Daten.
+  Ohne ihn lebte er nur im Ablauf der Route — beim nächsten Aufrufer wäre er weg.
+- Der Ersatz wird **gefragt** (`pending_confirmation` +
+  `notifyAssignmentPendingConfirmation`) statt gebunden.
+- Die **Kundenmeldung aus Welle G4b wandert an die Zusage**. G4bs Gate lautet
+  „erst nach echter Neubesetzung" — seit der Ersatz zusagen muss, ist die
+  Zuweisung an der alten Stelle keine Neubesetzung mehr, sondern eine Anfrage.
+- **Der zweite Anlauf nach einer Absage** (`9faaf94`): der Link des Ausgefallenen
+  bleibt liegen, die Tafel liefert ihn als `ersatz_link_id` — aber nur, solange
+  keine Anfrage läuft.
+- **Der Riegel gegen doppelte Besetzung**, innerhalb der Transaktion und **nach**
+  dem `FOR UPDATE`. Ohne ihn könnten zwei Ersatzkräfte parallel zusagen und
+  beide beim Kunden stehen: `confirmAssignment` prüft nur den eigenen Link, und
+  `recalcAssignmentStaffing` zählt nur, es sperrt nicht.
 
-**Verify:** Ausfall melden → Vorschlag erscheint in der Live-Belegschaft →
-vorausgefüllte Zuweisung → Absenden → Ersatz bekommt Benachrichtigung → er
-lehnt ab → der Einsatz ist wieder offen und der Vorschlag erscheint erneut.
-Der Ablehnungsweg ist der wichtigere Test.
+### Ein Rückschlag der eigenen Änderung, von der Erhebung gefunden
+
+`getCompanyLiveWorkforce` liess `pending_confirmation` durch — der Kunde hätte
+den Ersatz als besetzt gesehen, **bevor** die Meldung rausgeht, und die Verlegung
+wäre leer gelaufen. Angefragte Ersatzkräfte sind dort jetzt ausgenommen;
+reguläre pending-Zuweisungen bleiben sichtbar wie bisher.
+
+### Verify — die Kette des Plans, wörtlich
+
+Ausfall → Knopf in der Live-Belegschaft → vorausgefüllte Vorschläge → Anfrage
+→ Ersatz wird benachrichtigt → **er lehnt ab** → Einsatz wieder offen → Knopf
+erscheint erneut → zweite Anfrage → Zusage → **jetzt erst** Kundenmeldung.
+
+Migration eingespielt und idempotent, Momentaufnahme erneuert. Acht neue Proben,
+Rückmutation vierfach. Voller Lauf **9612/0**.
+
+### Offen
+
+Die **Begründungs-Darstellung** in `worker-submissions-review.html` — der Owner
+bemängelt die senkrechte Textsäule. Die Erhebung hat belegt: der Text ist kein
+ganzer Satz, sondern ein Etikett-Fragment aus einem Template-Literal
+(Substantivphrase + Doppelpunkt + roher Feldwert). Eigener, kleiner Schritt.
 
 ---
 
