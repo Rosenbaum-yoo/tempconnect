@@ -244,13 +244,41 @@
 
     <hr class="ds-divider"/>
 
-    <!-- Support Contact -->
-    <section style="text-align:center;padding:var(--ds-space-6) 0">
-      <h2 style="font-size:20px;font-weight:700;margin:0 0 var(--ds-space-2)" data-i18n="help.contact.title">Support &amp; Kontakt</h2>
-      <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-4);max-width:500px;margin-left:auto;margin-right:auto;line-height:1.6" data-i18n="help.contact.desc">Ihre Frage wurde nicht beantwortet? Kontaktieren Sie unser Support-Team. Wir antworten in der Regel innerhalb von 24 Stunden.</p>
-      <div style="display:flex;gap:var(--ds-space-3);justify-content:center;flex-wrap:wrap">
-        <a href="/public/legal/kontakt.html" class="ds-btn ds-btn--primary" data-i18n="help.contact.btn">Kontakt aufnehmen</a>
-        <a href="/public/trust/platform-sla.html" class="ds-btn" data-i18n="help.contact.sla">Plattform-SLA</a>
+    <!-- Support-Trichter (Plan I, Abschnitt 10).
+         Die Reihenfolge Hilfe -> Telefon -> Support Center ist eine
+         Kostenentscheidung, keine Gestaltungsfrage: der teuerste Kanal steht
+         zuletzt. Sie kommt deshalb vom Server (GET /api/support-channels) und
+         wird hier nur dargestellt - eine Reihenfolge, die jede Seite fuer sich
+         festlegt, driftet auseinander. -->
+    <section id="supportFunnel" style="padding:var(--ds-space-6) 0">
+      <h2 style="font-size:20px;font-weight:700;margin:0 0 var(--ds-space-2);text-align:center" data-i18n="help.contact.title">Support &amp; Kontakt</h2>
+      <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 auto var(--ds-space-5);max-width:560px;line-height:1.6;text-align:center" data-i18n="help.contact.desc">Ihre Frage wurde nicht beantwortet? Gehen Sie diese drei Schritte der Reihe nach &ndash; der erste beantwortet die meisten Fragen sofort.</p>
+
+      <div id="supportFunnelLoading" style="text-align:center;color:var(--ds-text-secondary);font-size:14px;padding:var(--ds-space-4) 0" data-i18n="help.funnel.loading">Support-Wege werden geladen&hellip;</div>
+      <div id="supportFunnelError" style="display:none;text-align:center;color:var(--ds-text-secondary);font-size:14px;padding:var(--ds-space-4) 0">
+        <span data-i18n="help.funnel.error">Die Support-Wege konnten nicht geladen werden.</span>
+        <a href="/public/legal/kontakt.html" class="ds-btn" style="margin-left:var(--ds-space-2)" data-i18n="help.contact.btn">Kontakt aufnehmen</a>
+      </div>
+      <div id="supportFunnelSteps" style="display:none;gap:var(--ds-space-3);grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))"></div>
+
+      <!-- Stufe 3: Anfrage ins Support Center -->
+      <div id="supportCaseForm" style="display:none;margin-top:var(--ds-space-5);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg,12px);padding:var(--ds-space-4);background:var(--ds-surface-subtle,transparent)">
+        <h3 style="font-size:16px;font-weight:700;margin:0 0 var(--ds-space-1)" data-i18n="help.case.title">Anfrage an den Support</h3>
+        <p style="color:var(--ds-text-secondary);font-size:13px;margin:0 0 var(--ds-space-3);line-height:1.6" data-i18n="help.case.hint">Beschreiben Sie Ihr Anliegen so genau wie moeglich. Je konkreter, desto schneller die Antwort.</p>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:var(--ds-space-1)" for="supportCaseType" data-i18n="help.case.type">Worum geht es?</label>
+        <select id="supportCaseType" class="ds-input" style="width:100%;margin-bottom:var(--ds-space-3)"></select>
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:var(--ds-space-1)" for="supportCaseSubject" data-i18n="help.case.subject">Betreff</label>
+        <input id="supportCaseSubject" class="ds-input" style="width:100%;margin-bottom:var(--ds-space-3)" maxlength="200" />
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:var(--ds-space-1)" for="supportCaseBody" data-i18n="help.case.body">Beschreibung</label>
+        <textarea id="supportCaseBody" class="ds-input" style="width:100%;min-height:120px;margin-bottom:var(--ds-space-3)" maxlength="5000"></textarea>
+        <div id="supportCaseMsg" style="display:none;font-size:13px;margin-bottom:var(--ds-space-3);line-height:1.6"></div>
+        <button id="supportCaseSubmit" type="button" class="ds-btn ds-btn--primary" data-i18n="help.case.submit">Anfrage senden</button>
+      </div>
+
+      <!-- Eigene Faelle: ohne diese Liste waere die Anfrage ein Briefkasten ohne Rueckseite. -->
+      <div id="supportCaseList" style="display:none;margin-top:var(--ds-space-5)">
+        <h3 style="font-size:16px;font-weight:700;margin:0 0 var(--ds-space-2)" data-i18n="help.cases.title">Ihre Anfragen</h3>
+        <div id="supportCaseListBody" style="display:grid;gap:var(--ds-space-2)"></div>
       </div>
     </section>
 
@@ -352,9 +380,58 @@
       'help.reset.working': 'Wird zurueckgesetzt …',
       'help.reset.error': 'Fehler beim Zuruecksetzen.',
       'help.contact.title': 'Support & Kontakt',
-      'help.contact.desc': 'Ihre Frage wurde nicht beantwortet? Kontaktieren Sie unser Support-Team. Wir antworten in der Regel innerhalb von 24 Stunden.',
+      'help.contact.desc': 'Ihre Frage wurde nicht beantwortet? Gehen Sie diese drei Schritte der Reihe nach – der erste beantwortet die meisten Fragen sofort.',
       'help.contact.btn': 'Kontakt aufnehmen',
       'help.contact.sla': 'Plattform-SLA',
+
+      /* Support-Trichter (Abschnitt 10). Die Reihenfolge ist eine
+         Kostenentscheidung: der teuerste Kanal steht zuletzt. */
+      'help.funnel.loading': 'Support-Wege werden geladen…',
+      'help.funnel.error': 'Die Support-Wege konnten nicht geladen werden.',
+      'help.funnel.help.title': 'Hilfe & Anleitungen',
+      'help.funnel.help.desc': 'Die meisten Fragen sind hier bereits beantwortet – meist schneller, als eine Anfrage bearbeitet wäre.',
+      'help.funnel.help.cta': 'Anleitungen öffnen',
+      'help.funnel.phone.title': 'Telefon',
+      'help.funnel.phone.desc': 'Dringend oder schwer zu beschreiben? Rufen Sie an – im Tagesgeschäft ist das der schnellste Weg.',
+      'help.funnel.center.title': 'Anfrage an den Support',
+      'help.funnel.center.desc': 'Bleibt die Frage offen, stellen Sie eine Anfrage. Sie erhalten eine Fallnummer und können den Stand jederzeit hier verfolgen.',
+      'help.funnel.center.cta': 'Anfrage stellen',
+      'help.funnel.center.login': 'Zum Anmelden',
+
+      'help.case.title': 'Anfrage an den Support',
+      'help.case.hint': 'Beschreiben Sie Ihr Anliegen so genau wie möglich. Je konkreter, desto schneller die Antwort.',
+      'help.case.type': 'Worum geht es?',
+      'help.case.subject': 'Betreff',
+      'help.case.body': 'Beschreibung',
+      'help.case.submit': 'Anfrage senden',
+      'help.case.sending': 'Wird gesendet …',
+      'help.case.ok': 'Ihre Anfrage ist eingegangen. Fallnummer:',
+      'help.case.err': 'Die Anfrage konnte nicht gesendet werden.',
+      'help.case.errSubject': 'Bitte einen Betreff mit mindestens 5 Zeichen angeben.',
+      'help.case.errBody': 'Bitte beschreiben Sie Ihr Anliegen mit mindestens 20 Zeichen.',
+      'help.case.type.general': 'Allgemeine Frage',
+      'help.case.type.login_access': 'Anmeldung & Zugang',
+      'help.case.type.billing': 'Rechnung & Tarif',
+      'help.case.type.verification': 'Verifizierung',
+      'help.case.type.invite': 'Einladung',
+      'help.case.type.onboarding': 'Einrichtung',
+      'help.case.type.feature_question': 'Frage zu einer Funktion',
+      'help.case.type.bug_report': 'Etwas funktioniert nicht',
+      'help.case.type.complaint': 'Beschwerde',
+      'help.case.type.other': 'Sonstiges',
+      'help.case.status.new': 'Eingegangen',
+      'help.case.status.open': 'Offen',
+      'help.case.status.in_progress': 'In Bearbeitung',
+      'help.case.status.waiting_customer': 'Wartet auf Ihre Antwort',
+      'help.case.status.waiting_internal': 'Wird intern geklärt',
+      'help.case.status.escalated': 'Weitergegeben',
+      'help.case.status.escalated_decisions': 'Weitergegeben',
+      'help.case.status.escalated_commercial': 'Weitergegeben',
+      'help.case.status.escalated_ops': 'Weitergegeben',
+      'help.case.status.resolved': 'Gelöst',
+      'help.case.status.closed': 'Abgeschlossen',
+      'help.case.status.reopened': 'Wieder geöffnet',
+      'help.cases.title': 'Ihre Anfragen',
       'help.disclaimer': 'Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr.'
     });
     TCi18n.register('en', {
@@ -440,9 +517,56 @@
       'help.reset.working': 'Resetting …',
       'help.reset.error': 'Reset failed.',
       'help.contact.title': 'Support & contact',
-      'help.contact.desc': 'Your question has not been answered? Contact our support team. We usually reply within 24 hours.',
+      'help.contact.desc': 'Your question has not been answered? Work through these three steps in order — the first one answers most questions right away.',
       'help.contact.btn': 'Get in touch',
       'help.contact.sla': 'Platform SLA',
+
+      'help.funnel.loading': 'Loading support channels…',
+      'help.funnel.error': 'Support channels could not be loaded.',
+      'help.funnel.help.title': 'Help & guides',
+      'help.funnel.help.desc': 'Most questions are already answered here — usually faster than a request could be processed.',
+      'help.funnel.help.cta': 'Open guides',
+      'help.funnel.phone.title': 'Phone',
+      'help.funnel.phone.desc': 'Urgent or hard to describe? Give us a call — in day-to-day operations that is the fastest route.',
+      'help.funnel.center.title': 'Support request',
+      'help.funnel.center.desc': 'Still unresolved? Raise a request. You get a case number and can follow its status here at any time.',
+      'help.funnel.center.cta': 'Raise a request',
+      'help.funnel.center.login': 'Sign in first',
+
+      'help.case.title': 'Support request',
+      'help.case.hint': 'Describe your issue as precisely as you can. The more concrete, the faster the answer.',
+      'help.case.type': 'What is it about?',
+      'help.case.subject': 'Subject',
+      'help.case.body': 'Description',
+      'help.case.submit': 'Send request',
+      'help.case.sending': 'Sending …',
+      'help.case.ok': 'Your request has been received. Case number:',
+      'help.case.err': 'The request could not be sent.',
+      'help.case.errSubject': 'Please provide a subject with at least 5 characters.',
+      'help.case.errBody': 'Please describe your issue with at least 20 characters.',
+      'help.case.type.general': 'General question',
+      'help.case.type.login_access': 'Sign-in & access',
+      'help.case.type.billing': 'Invoice & plan',
+      'help.case.type.verification': 'Verification',
+      'help.case.type.invite': 'Invitation',
+      'help.case.type.onboarding': 'Setup',
+      'help.case.type.feature_question': 'Question about a feature',
+      'help.case.type.bug_report': 'Something is not working',
+      'help.case.type.complaint': 'Complaint',
+      'help.case.type.other': 'Other',
+      'help.case.status.new': 'Received',
+      'help.case.status.open': 'Open',
+      'help.case.status.in_progress': 'In progress',
+      'help.case.status.waiting_customer': 'Waiting for your reply',
+      'help.case.status.waiting_internal': 'Being clarified internally',
+      'help.case.status.escalated': 'Escalated',
+      'help.case.status.escalated_decisions': 'Escalated',
+      'help.case.status.escalated_commercial': 'Escalated',
+      'help.case.status.escalated_ops': 'Escalated',
+      'help.case.status.resolved': 'Resolved',
+      'help.case.status.closed': 'Closed',
+      'help.case.status.reopened': 'Reopened',
+      'help.cases.title': 'Your requests',
       'help.disclaimer': 'This content is for guidance only and does not replace a legal review. All information without warranty.'
     });
   }
@@ -479,6 +603,206 @@
         alert(t('help.reset.error', 'Fehler beim Zuruecksetzen.'));
       });
   };
+
+  /* ===================================================================== */
+  /* SUPPORT-TRICHTER (Plan I, Abschnitt 10)                               */
+  /*                                                                       */
+  /* Die Reihenfolge Hilfe -> Telefon -> Support Center kommt vom Server   */
+  /* (GET /api/support-channels) und wird hier NUR dargestellt. Sie ist    */
+  /* eine Kostenentscheidung: der teuerste Kanal steht zuletzt. Eine       */
+  /* Reihenfolge, die jede Seite fuer sich festlegt, driftet auseinander.  */
+  /* ===================================================================== */
+
+  function esc(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  var angemeldet = false;
+  var fallarten = [];
+
+  var STUFEN_TEXTE = {
+    hilfe: { titel: 'help.funnel.help.title', text: 'help.funnel.help.desc' },
+    telefon: { titel: 'help.funnel.phone.title', text: 'help.funnel.phone.desc' },
+    support_center: { titel: 'help.funnel.center.title', text: 'help.funnel.center.desc' }
+  };
+
+  function karte(nummer, titel, text, aktionHtml) {
+    return '<div style="border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg,12px);padding:var(--ds-space-4);display:flex;flex-direction:column;gap:var(--ds-space-2)">'
+      + '<div style="display:flex;align-items:center;gap:var(--ds-space-2)">'
+      + '<span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--ds-brand,#333);color:#fff;font-size:13px;font-weight:700;flex:0 0 auto">' + esc(nummer) + '</span>'
+      + '<strong style="font-size:15px">' + esc(titel) + '</strong>'
+      + '</div>'
+      + '<p style="color:var(--ds-text-secondary);font-size:13px;margin:0;line-height:1.6;flex:1">' + esc(text) + '</p>'
+      + '<div>' + aktionHtml + '</div>'
+      + '</div>';
+  }
+
+  function zeichneTrichter(stufen) {
+    var ziel = document.getElementById('supportFunnelSteps');
+    var html = '';
+    stufen.forEach(function (stufe) {
+      /* Eine Stufe, die es nicht gibt, wird nicht angezeigt - nicht ausgegraut.
+         Ein toter Knopf kostet den Kunden einen Versuch, bevor er weitergeht. */
+      if (!stufe.verfuegbar) return;
+      var texte = STUFEN_TEXTE[stufe.kanal];
+      if (!texte) return;
+
+      var aktion = '';
+      if (stufe.kanal === 'hilfe') {
+        aktion = '<a href="' + esc(stufe.ziel || '/public/sla_hilfe.html') + '" class="ds-btn ds-btn--primary">'
+          + esc(t('help.funnel.help.cta', 'Anleitungen oeffnen')) + '</a>'
+          + ' <a href="/public/trust/platform-sla.html" class="ds-btn">'
+          + esc(t('help.contact.sla', 'Plattform-SLA')) + '</a>';
+      } else if (stufe.kanal === 'telefon') {
+        var roh = String(stufe.nummer || '');
+        aktion = '<a href="tel:' + esc(roh.replace(/[^+0-9]/g, '')) + '" class="ds-btn ds-btn--primary">' + esc(roh) + '</a>'
+          + (stufe.zeiten ? '<div style="color:var(--ds-text-secondary);font-size:12px;margin-top:var(--ds-space-1)">' + esc(stufe.zeiten) + '</div>' : '');
+      } else {
+        fallarten = Array.isArray(stufe.fallarten) ? stufe.fallarten : [];
+        aktion = angemeldet
+          ? '<button type="button" class="ds-btn ds-btn--primary" id="supportCaseOpen">' + esc(t('help.funnel.center.cta', 'Anfrage stellen')) + '</button>'
+          /* `/?auth=login`: eine eigene Anmeldeseite gibt es NICHT. Die Anmeldung
+             ist ein Bereich der Startseite, den `js/pages/landing.js:108` ueber
+             den Parameter `auth` oeffnet. Die erste Fassung hier hat eine
+             Anmeldeseite erfunden; der Waechter "kein Verweis fuehrt ins Nichts"
+             hat sie sofort gemeldet — genau dafuer steht er. Wer hier einen Pfad
+             eintraegt, prueft vorher, dass die Datei existiert. */
+          : '<a href="/?auth=login" class="ds-btn">' + esc(t('help.funnel.center.login', 'Zum Anmelden')) + '</a>';
+      }
+      html += karte(stufe.stufe, t(texte.titel, ''), t(texte.text, ''), aktion);
+    });
+
+    ziel.innerHTML = html;
+    ziel.style.display = 'grid';
+    document.getElementById('supportFunnelLoading').style.display = 'none';
+
+    var oeffnen = document.getElementById('supportCaseOpen');
+    if (oeffnen) oeffnen.addEventListener('click', zeigeFormular);
+  }
+
+  function zeigeFormular() {
+    var form = document.getElementById('supportCaseForm');
+    var auswahl = document.getElementById('supportCaseType');
+    if (!auswahl.options.length) {
+      fallarten.forEach(function (art) {
+        var o = document.createElement('option');
+        o.value = art;
+        o.textContent = t('help.case.type.' + art, art);
+        auswahl.appendChild(o);
+      });
+    }
+    form.style.display = 'block';
+    document.getElementById('supportCaseSubject').focus();
+  }
+
+  function meldung(text, art) {
+    var el = document.getElementById('supportCaseMsg');
+    el.textContent = text;
+    el.style.color = art === 'ok' ? 'var(--ds-success-text,#1a7f37)' : 'var(--ds-danger-text,#b42318)';
+    el.style.display = 'block';
+  }
+
+  function sendeAnfrage() {
+    var knopf = document.getElementById('supportCaseSubmit');
+    var betreff = document.getElementById('supportCaseSubject').value.trim();
+    var text = document.getElementById('supportCaseBody').value.trim();
+
+    /* Dieselben Grenzen wie im Zod-Schema der Route. Doppelt gefuehrt, aber
+       hier nur zur Bequemlichkeit: verbindlich prueft der Server, das hier
+       erspart dem Kunden nur den Umweg ueber eine 400er-Antwort. */
+    if (betreff.length < 5) { meldung(t('help.case.errSubject', 'Bitte einen Betreff mit mindestens 5 Zeichen angeben.'), 'err'); return; }
+    if (text.length < 20) { meldung(t('help.case.errBody', 'Bitte beschreiben Sie Ihr Anliegen mit mindestens 20 Zeichen.'), 'err'); return; }
+
+    knopf.disabled = true;
+    knopf.textContent = t('help.case.sending', 'Wird gesendet …');
+
+    fetch('/api/csrf', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : {}; })
+      .then(function (csrf) {
+        return fetch('/api/support-requests', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf.token || '' },
+          body: JSON.stringify({
+            subject: betreff,
+            description: text,
+            case_type: document.getElementById('supportCaseType').value || 'general',
+            kontext: { seite: 'hilfe.html' }
+          })
+        });
+      })
+      .then(function (r) {
+        return r.json().then(function (j) { return { ok: r.ok, body: j }; });
+      })
+      .then(function (a) {
+        if (a.ok && a.body && a.body.fall) {
+          meldung(t('help.case.ok', 'Ihre Anfrage ist eingegangen. Fallnummer:') + ' ' + a.body.fall.case_number, 'ok');
+          document.getElementById('supportCaseSubject').value = '';
+          document.getElementById('supportCaseBody').value = '';
+          ladeEigeneFaelle();
+          return;
+        }
+        /* 503 heisst: der Eingang ist da, aber nicht bedienbar. Der Kunde soll
+           dann NICHT warten, sondern zum Telefon greifen - genau das sagt die
+           Antwort der Route, und deshalb wird sie woertlich gezeigt. */
+        meldung((a.body && a.body.message) || t('help.case.err', 'Die Anfrage konnte nicht gesendet werden.'), 'err');
+      })
+      .catch(function () {
+        meldung(t('help.case.err', 'Die Anfrage konnte nicht gesendet werden.'), 'err');
+      })
+      .then(function () {
+        knopf.disabled = false;
+        knopf.textContent = t('help.case.submit', 'Anfrage senden');
+      });
+  }
+
+  function ladeEigeneFaelle() {
+    if (!angemeldet) return;
+    fetch('/api/support-requests?limit=10', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        var kasten = document.getElementById('supportCaseList');
+        var koerper = document.getElementById('supportCaseListBody');
+        if (!d || !Array.isArray(d.faelle) || !d.faelle.length) { kasten.style.display = 'none'; return; }
+        koerper.innerHTML = d.faelle.map(function (f) {
+          return '<div style="border:1px solid var(--ds-border);border-radius:var(--ds-radius-md,8px);padding:var(--ds-space-3);display:flex;justify-content:space-between;gap:var(--ds-space-3);flex-wrap:wrap">'
+            + '<div style="min-width:0"><strong style="font-size:14px">' + esc(f.subject) + '</strong>'
+            + '<div style="color:var(--ds-text-secondary);font-size:12px;margin-top:2px">' + esc(f.case_number) + '</div></div>'
+            + '<span style="font-size:12px;align-self:center">' + esc(t('help.case.status.' + f.status, f.status)) + '</span>'
+            + '</div>';
+        }).join('');
+        kasten.style.display = 'block';
+      })
+      .catch(function () { /* eine leere Liste ist kein Fehler, den der Kunde sehen muss */ });
+  }
+
+  function starteTrichter() {
+    /* Erst klaeren, ob jemand angemeldet ist - Stufe 3 saehe sonst anders aus,
+       als sie sich verhaelt. 401 ist hier ein gueltiges Ergebnis, kein Fehler. */
+    fetch('/api/me', { credentials: 'include' })
+      .then(function (r) { angemeldet = r.ok; })
+      .catch(function () { angemeldet = false; })
+      .then(function () { return fetch('/api/support-channels', { credentials: 'include' }); })
+      .then(function (r) { if (!r.ok) throw new Error('channels'); return r.json(); })
+      .then(function (d) {
+        zeichneTrichter(Array.isArray(d.trichter) ? d.trichter : []);
+        var senden = document.getElementById('supportCaseSubmit');
+        if (senden) senden.addEventListener('click', sendeAnfrage);
+        ladeEigeneFaelle();
+      })
+      .catch(function () {
+        document.getElementById('supportFunnelLoading').style.display = 'none';
+        document.getElementById('supportFunnelError').style.display = 'block';
+      });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', starteTrichter);
+  } else {
+    starteTrichter();
+  }
 })();
 </script>
 

@@ -573,13 +573,89 @@ Präfix (`supportAuth`), Warteschlangen, Fallarten und `data_scope`
 (`assigned_only` / `vendor_scoped`), dazu eine Mengenbremse gegen Massenabruf
 durch externe Agenten. **Was fehlt, ist die Kundenseite:** ein Weg *hinein*.
 
-### Zu bauen
+### Der Befund, der alles andere umgestellt hat
 
-- **Im Hilfe-Center** die drei Schaltflächen in der Reihenfolge oben.
-- **Am Angebot** eine Meldefunktion, die im Staff Control Center landet.
+`support_cases` hatte im **gesamten Repo kein einziges `INSERT`**. Warteschlangen,
+Fallarten, SLA-Fristen, Eskalationen, Wissensdatenbank, Qualitätskennzahlen — und
+kein Weg, einen Fall entstehen zu lassen. Das Support Center war ein **Lesesaal
+über einer Tabelle, die niemand füllen konnte**; Fälle konnten nur von Hand in der
+Datenbank entstehen. Ohne Eingang wäre Stufe 3 des Trichters ein toter Knopf
+gewesen — deshalb wurde sie zuerst gebaut.
+
+Zwei weitere Befunde derselben Art, unabhängig nachgeprüft:
+
+- **Die `reports`-Tabelle hat einen `INSERT` und null Leser.** `POST /reports`
+  nimmt Meldungen wegen Spam, Betrug und Belästigung entgegen (`reportService.js:27`)
+  — und **keine** Staff- oder Support-Route liest sie je aus. Ein Melden-Knopf,
+  der ins Leere schreibt. Gehört zur Meldefunktion unten.
+- **`tempconnect_staff.role` wird nirgends durchgesetzt.** Migration 118 legt sechs
+  Rollen an (`staff_admin`, `staff_commercial`, …); repo-weit gibt es **keinen
+  einzigen Treffer** darauf in `api/`. Jedes aktive Staff-Mitglied darf alles;
+  abgestuft wird nur über Step-up-Stufen pro Route. Auch `expires_at` prüft
+  `staffControlAccess.js` nicht, obwohl der Migrationskommentar es behauptet.
+
+### Gebaut: der Weg hinein (10 a)
+
+| Stück | Ort |
+|---|---|
+| Eingang | `api/services/supportIntakeService.js`, `api/routes/supportIntake.js` |
+| Trichter-Reihenfolge | `GET /support-channels` — **serverseitig**, damit sie zwischen Seiten nicht driftet |
+| Fall eröffnen | `POST /support-requests` (`requireAuth`, CSRF, Mengenbremse) |
+| Eigene Sicht | `GET /support-requests`, `GET /support-requests/:id` |
+| Darstellung | `frontend/public/hilfe.html` — drei Stufen, Formular, eigene Fälle |
+| Telefonnummer | `SUPPORT_PHONE` / `SUPPORT_PHONE_HOURS` (`.env.example`) |
+
+**Warum der Eingang nicht unter `/support` liegt.** `support.js:664` setzt das Tor
+am **Präfix**: `router.use("/support", supportRateLimit, requireAuth, supportAuth)`.
+Das ist die strengere Bauart — auf einer neuen Route nicht vergessbar — und die
+Owner-Vorgabe ist hart: kein Zugang für Unternehmen, kein Zugang für
+Personaldienstleister. Eine Kundenroute darunter wäre ein Loch, das ab da für
+**alle** Routen darunter gälte. Der Eingang liegt daneben; eine Zusicherung hält
+fest, dass keine Route der neuen Datei unter `/support/` rutscht — und eine
+zweite, dass das Präfix-Tor überhaupt noch steht.
+
+**Drei Entscheidungen, die je eine Zusicherung tragen:**
+
+1. **Ohne Warteschlange entsteht kein Fall.** `support.js:164-167` schneidet die
+   Agentensicht mit `queue_id::text = ANY(...)` zu — ein Fall mit `queue_id = NULL`
+   ist für **jeden** Agenten mit gesetzten `allowed_queues` unsichtbar. Der bequeme
+   Weg wäre gewesen, ihn trotzdem anzulegen. Das Gegenteil stimmt: der Kunde hält
+   dann eine Fallnummer in der Hand und glaubt, er sei gehört worden. Eine
+   angenommene Nachricht, die niemand liest, ist schlimmer als eine abgelehnte —
+   also 503 mit dem Hinweis aufs Telefon.
+2. **Die Dringlichkeit gehört nicht dem Kunden.** Dürfte er sie setzen, wäre binnen
+   Wochen jeder Fall `critical`; ein Feld, das jeder selbst setzt, misst nur noch,
+   wer es gelesen hat.
+3. **Die Sicht des Kunden ist eine Nutzer-, keine Org-Grenze.** Ein Support-Fall
+   kann persönlich sein (Zugangsprobleme, Beschwerde über einen Kollegen). Ihn
+   allen Mitgliedern derselben Organisation zu zeigen wäre eine Entscheidung, die
+   niemand getroffen hat. Nur `note_type = 'external'` geht hinaus, und die Grenze
+   steht im SQL, nicht in der Anzeige.
+
+**End-to-end nachgewiesen** (2026-08-22, Worktree-API gegen die echte Datenbank):
+Hilfeseite → „Anfrage stellen" → `POST /support-requests` **201** → **SC-2026-00001**
+in `support_cases`, Warteschlange „Allgemein", 48-h-Lösungsfrist aus der Queue,
+Melder und Organisation gesetzt, Ereignis `case_opened_by_customer` ohne Agenten
+und mit Herkunft `hilfe.html` — und der Fall erscheint in der eigenen Liste.
+Der erste Support-Fall, den dieses System je hatte.
+
+Der Wächter „kein Verweis führt ins Nichts" hat dabei einen von mir erfundenen
+Pfad (`login.html`) sofort gemeldet; richtig ist `/?auth=login`
+(`js/pages/landing.js:108`). Genau dafür steht er.
+
+Voller Lauf **9653/0**, 13 übersprungen.
+
+### Noch zu bauen
+
+- **Am Angebot** eine Meldefunktion, die im Staff Control Center landet — und
+  dabei die tote `reports`-Tabelle mit an denselben Eingang hängen.
 - **Das Support Center ausbauen** — es war für die Abgabe nach Indien gedacht
-  und ist verankert, aber nicht fertig.
-- **Audit darüber im Staff Center**, und verwaltbar, wer was bearbeiten darf.
+  und ist verankert, aber nicht fertig. Mit dem Eingang hat es jetzt überhaupt
+  erst etwas zu bearbeiten.
+- **Audit darüber im Staff Center**, und verwaltbar, wer was bearbeiten darf —
+  hier ist die Vorarbeit schon da und ungenutzt (siehe `role`-Befund oben).
+- **Telefonnummer setzen** (`SUPPORT_PHONE`) — Owner-Angabe; bis dahin bietet der
+  Trichter Stufe 2 bewusst gar nicht erst an, statt eine tote Nummer zu zeigen.
 
 ### Die Zugangsregel — hart
 

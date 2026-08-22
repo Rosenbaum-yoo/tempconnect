@@ -97,6 +97,7 @@ import { createStrategicCollaborationRouter } from "./routes/strategicCollaborat
 import { createInternalControlCenterRouter } from "./routes/internalControlCenter.js";
 import { createOwnerControlCenterRouter } from "./routes/ownerControlCenter.js";
 import { createSupportRouter } from "./routes/support.js";
+import { createSupportIntakeRouter } from "./routes/supportIntake.js";
 import { createNotificationStreamRouter } from "./routes/notificationStream.js";
 import { createStaffControlCenterRouter, createStaffControlAuthRouter } from "./routes/staffControlCenter.js";
 import { staffApiCacheControl, staffSecurityHeaders, createStaffOriginGuard } from "./middleware/staffSecurity.js";
@@ -433,6 +434,10 @@ export async function createApp() {
   v1.use(createStrategicCollaborationRouter(deps));
   v1.use(createInternalControlCenterRouter(deps));
   v1.use(createSupportRouter(deps));
+  // Der Weg HINEIN (Plan I, Abschnitt 10). Bewusst NICHT unter dem Praefix
+  // `/support` — dort steht das Staff-Tor `supportAuth`, und eine Kundenroute
+  // darunter waere ein Loch, das ab da fuer alle Routen darunter gilt.
+  v1.use(createSupportIntakeRouter(deps));
   // Marketplace Visibility Center (Phase 4 Track A — M-04 2026-05-30)
   v1.use(createProfileVisibilityRouter(deps));
   v1.use(createProfileAnalyticsRouter(deps));

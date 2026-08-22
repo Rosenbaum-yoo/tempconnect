@@ -133,6 +133,15 @@ export const config = {
   RATE_LIMIT_WARP_EXEC_WINDOW_MS: Number(process.env.RATE_LIMIT_WARP_EXEC_WINDOW_MS) || 60 * 60 * 1000,
   RATE_LIMIT_WARP_EXEC_MAX: Number(process.env.RATE_LIMIT_WARP_EXEC_MAX) || 10,
   SUPPORT_OPS_ENABLED: process.env.SUPPORT_OPS_ENABLED || "true",
+  /* Stufe 2 des Support-Trichters (Plan I, Abschnitt 10: Hilfeseite → Telefon →
+   * Support Center). Im Repo stand bis 2026-08-22 an JEDER Stelle nur ein
+   * Platzhalter ("Telefon: [+49 ...]" in Impressum und Kontakt). Eine Nummer
+   * gehoert nicht in den Quelltext, sondern an EINE Stelle — sonst steht sie in
+   * drei Dateien und in zweien davon bald falsch. Ist sie nicht gesetzt, meldet
+   * `GET /support-channels` die Stufe als nicht verfuegbar; der Trichter zeigt
+   * sie dann gar nicht erst an, statt eine tote Nummer anzubieten. */
+  SUPPORT_PHONE: process.env.SUPPORT_PHONE || "",
+  SUPPORT_PHONE_HOURS: process.env.SUPPORT_PHONE_HOURS || "Mo–Fr 09:00–18:00 Uhr",
   WARP_SSH_ENABLED: ["true", "1", "yes", "on"].includes(String(process.env.WARP_SSH_ENABLED || "").toLowerCase().trim()),
   WARP_SSH_USER: process.env.WARP_SSH_USER || "deploy",
   WARP_SSH_PORT: Number(process.env.WARP_SSH_PORT) || 22,

@@ -350,6 +350,13 @@ Staff Control Center (`api/routes/staffControlCenter.js`, 104 Endpunkte — grö
 Einzeldatei des Backends), Owner Control Center (`api/routes/occ/`, 31 Endpunkte in 13
 Modul-Routern), Support Center (`api/routes/support.js`, 17 Endpunkte).
 
+Der **Weg hinein** liegt bewusst außerhalb dieser Flächen: `api/routes/supportIntake.js`
+(`/support-requests`) ist die Kundenseite des Support Centers. Sie hängt **nicht** unter dem
+Präfix `/support` — dort steht das Staff-Tor `supportAuth` (`support.js:664`), und eine
+Kundenroute darunter wäre ein Loch, das ab da für alle Routen darunter gälte. Bis dahin hatte
+`support_cases` im gesamten Repo **kein einziges `INSERT`**: das Support Center war ein
+Lesesaal über einer Tabelle, die niemand füllen konnte.
+
 *Nutzt:* dem Betreiber. Für die Investorendarstellung relevant als Beleg, dass der Betrieb der
 Plattform selbst produktisiert ist und nicht per Datenbankkonsole läuft.
 
@@ -629,8 +636,8 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | API-Endpunkte insgesamt | **938** | `grep -rE "^\s*(router\|app)\.(get\|post\|put\|patch\|delete)\(" api/routes/ --include=*.js \| wc -l` |
 | davon Owner Control Center | 31 | dieselbe Zählung, beschränkt auf `api/routes/occ/` (13 Modul-Router) |
 | davon Staff Control Center | 104 | `api/routes/staffControlCenter.js` — größte Einzeldatei |
-| Router-Dateien | 83 | `ls api/routes/ \| wc -l` (inkl. Verzeichnis `api/routes/occ/`) |
-| Service-Dateien | 175 | `ls api/services/ \| wc -l` |
+| Router-Dateien | 84 | `ls api/routes/ \| wc -l` (inkl. Verzeichnis `api/routes/occ/`) |
+| Service-Dateien | 176 | `ls api/services/ \| wc -l` |
 | Datenbanktabellen | **180** | eindeutige `CREATE TABLE`-Namen in `sql/init.sql` + `sql/migrations/*.sql`, bereinigt um einen Treffer aus einem deutschen Kommentar. Davon 4 aus dem Grundschema (`users`, `listings`, `requests`, `subscriptions`), 176 aus Migrationen |
 | Migrationsdateien | **192** | `ls sql/migrations/*.sql \| wc -l` — nummeriert `001_ratings.sql` bis `188_ersatz_braucht_eine_zusage.sql`; neun Nummern sind doppelt belegt (`027`/`027b`, `045`/`045b`, `064`, `070`, `074`, `075`, `086`, `130`, `140`). `NUMBERING.md` ist keine Migration |
 | Nutzerflächen | **89** | 77 in `frontend/public/*.html` + 6 `legal/` + 4 `trust/` + `frontend/landing.html` + `frontend/demo.html` |
