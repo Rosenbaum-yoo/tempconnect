@@ -211,9 +211,13 @@ export function createAdminRouter(deps) {
     try {
       const viewer = await getUserAndPlan(req.session.userId);
       if (!viewer) return res.status(401).json({ success: false, error: { code: "NOT_AUTHENTICATED" } });
+      /* Nur die Plattformverwaltung sieht plattformweite Zahlen (8.1.1 d).
+       * Bewusst OHNE Abbruch bei fehlendem Org-Kontext: diese Karte ist die
+       * Einstiegsansicht der Flaeche. Ein 403 wuerde sie ganz leeren, statt nur
+       * die fremden Zahlen wegzulassen — Trennung, nicht Ausfall. */
+      const umfang = bestimmeAdminUmfang(req);
       const data = await buildAdminControlCenter(pool, viewer, {
-        // Nur die Plattformverwaltung sieht plattformweite Zahlen (8.1.1 d).
-        plattformweit: isGlobalAdminScope(req),
+        plattformweit: umfang.plattformweit,
         orgId: req.orgId || viewer.org_id || null,
         orgName: req.orgName || viewer.org_name || null,
         orgRole: req.orgRole || viewer.org_role || null,

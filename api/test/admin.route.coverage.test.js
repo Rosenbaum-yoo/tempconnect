@@ -21,6 +21,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { createAdminRouter } from "../routes/admin.js";
 
 /* ── Mocks ─────────────────────────────────────────────────────────────── */
@@ -705,6 +706,83 @@ describe("GET /admin/audit-log", () => {
 });
 
 /* ── GET /admin/audit-log/recent-changes ───────────────────────────────── */
+
+describe("Admin-Flaeche — jede Route bekennt ihren Umfang", () => {
+  /*
+   * DER RIEGEL. Die 25 Routen dieser Datei sind einzeln eingestuft — aber die
+   * naechste, die jemand hinzufuegt, ist es nicht. Genau so ist der Befund
+   * entstanden: `/admin/users` war seit jeher org-begrenzt, die drei
+   * Audit-Routen und die beiden Nutzer-Mutationen kamen spaeter dazu und haben
+   * die Frage nie gestellt.
+   *
+   * Deshalb muss JEDE Route dieser Datei sichtbar Stellung beziehen: entweder
+   * `bestimmeAdminUmfang` (org-begrenzt), `zielNutzerErlaubt` (Ziel gehoert zur
+   * eigenen Org) oder `nurPlattform` (der Plattformverwaltung vorbehalten).
+   * Wer eine Route ohne eines der drei hinzufuegt, wird rot.
+   *
+   * Bewusste Ausnahme, mit Grund: Routen, die nur einen statischen Katalog
+   * zurueckgeben und KEINE Abfrage stellen, brauchen keinen Umfang. Sie sind
+   * unten namentlich genannt, damit die Ausnahme nicht stillschweigend waechst —
+   * und die Probe darunter prueft nach, dass sie wirklich keine Daten anfassen.
+   */
+
+  /** Statische Kataloge ohne Datenzugriff — geprueft, nicht behauptet. */
+  const OHNE_DATEN = ["/admin/activity-feed/action-types"];
+
+  function routenAbschnitte(quelle) {
+    const zeilen = quelle.split("\n");
+    const starts = [];
+    zeilen.forEach((z, i) => {
+      const m = z.match(/^\s*router\.(get|post|patch|put|delete)\("([^"]+)"/);
+      if (m) starts.push({ methode: m[1], pfad: m[2], von: i });
+    });
+    return starts.map((s, i) => ({
+      ...s,
+      text: zeilen.slice(s.von, i + 1 < starts.length ? starts[i + 1].von : zeilen.length).join("\n"),
+    }));
+  }
+
+  const adminQuelle = fs.readFileSync(new URL("../routes/admin.js", import.meta.url), "utf8");
+  const abschnitte = routenAbschnitte(adminQuelle);
+
+  it("erkennt ueberhaupt Routen — sonst prueft der Riegel nichts", () => {
+    assert.ok(abschnitte.length >= 20,
+      `nur ${abschnitte.length} Routen erkannt — greift das Muster noch?`);
+  });
+
+  it("jede Route nennt bestimmeAdminUmfang, zielNutzerErlaubt oder nurPlattform", () => {
+    const ohne = abschnitte
+      .filter((a) => !OHNE_DATEN.includes(a.pfad))
+      .filter((a) => !/bestimmeAdminUmfang|zielNutzerErlaubt|nurPlattform/.test(a.text))
+      .map((a) => `${a.methode.toUpperCase()} ${a.pfad}`);
+    assert.deepEqual(ohne, [],
+      "Diese Routen beziehen keine Stellung zum Umfang. `admin.js` ist eine " +
+      "KUNDENFLAECHE (hubVisibility.js: company und agency) — eine Route ohne " +
+      "Umfang liefert dort Plattformdaten an 201 Kundenkonten.\n" +
+      "Entweder `bestimmeAdminUmfang` (org-begrenzt), `zielNutzerErlaubt` " +
+      "(Ziel in der eigenen Org) oder `nurPlattform` (Plattformverwaltung).");
+  });
+
+  it("die Ausnahme gilt nur fuer Routen, die wirklich keine Abfrage stellen", () => {
+    /* Sonst waere `OHNE_DATEN` eine Hintertuer: man traegt eine Route ein und
+     * die Umfangspflicht faellt weg. */
+    for (const pfad of OHNE_DATEN) {
+      const a = abschnitte.find((x) => x.pfad === pfad);
+      assert.ok(a, `${pfad} steht auf der Ausnahmeliste, existiert aber nicht mehr`);
+      assert.ok(!/pool\.query|await \w+Service\.|await import\(/.test(a.text),
+        `${pfad} greift auf Daten zu und darf keine Ausnahme sein`);
+    }
+  });
+
+  it("S: der Riegel wuerde eine Route ohne Umfang bemerken", () => {
+    const erfunden = 'router.get("/admin/erfunden", requireAuth, requireAdmin, async (req, res) => {\n  const { rows } = await pool.query("SELECT 1");\n});';
+    assert.ok(!/bestimmeAdminUmfang|zielNutzerErlaubt|nurPlattform/.test(erfunden),
+      "der Riegel wuerde eine Route ohne Umfang durchlassen");
+    const brav = 'router.get("/admin/brav", requireAuth, requireAdmin, async (req, res) => {\n  if (!nurPlattform(req, res)) return;\n});';
+    assert.ok(/bestimmeAdminUmfang|zielNutzerErlaubt|nurPlattform/.test(brav),
+      "der Riegel wuerde eine korrekte Route als Fehler melden");
+  });
+});
 
 describe("Admin-Flaeche — was der Plattformverwaltung vorbehalten bleibt", () => {
   /*
