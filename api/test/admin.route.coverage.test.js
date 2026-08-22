@@ -706,6 +706,125 @@ describe("GET /admin/audit-log", () => {
 
 /* ── GET /admin/audit-log/recent-changes ───────────────────────────────── */
 
+describe("Admin-Nutzerverwaltung — die Mandantengrenze am SCHREIBPFAD", () => {
+  /*
+   * BEFUND 8.1.1 (d), zweite Haelfte. `GET /admin/users` war laengst
+   * org-begrenzt — `PATCH /admin/users/:id` und
+   * `POST /admin/users/:id/deactivate` nicht. Die Grenze lebte damit nur in dem,
+   * was die Oberflaeche ZEIGT, nicht in dem, was der Endpunkt ZULAESST.
+   * Wer die Kennung kennt, braucht die Liste nicht.
+   *
+   * Erreichbar fuer jeden `requireAdmin`-Passierer: 201 von 395 Konten, alle in
+   * Kunden-Organisationen — bis hin zum Deaktivieren fremder Konten.
+   */
+
+  const kunde = (extra = {}) => mockReq({
+    orgRole: "owner",
+    orgId: "org-A",
+    orgMembership: { org_id: "org-A", role_key: "owner" },
+    session: { userId: "u-kunde", userRole: "company" },
+    params: { id: "u-fremd" },
+    ...extra,
+  });
+
+  /** Mitgliedschaftsabfrage: liefert einen Treffer nur fuer die eigene Org. */
+  function mitgliedschaftsPool(trefferFuer = []) {
+    return trackingPool([
+      { match: (s) => s.includes("FROM org_memberships"),
+        respond: (_s, params) => ({
+          rows: trefferFuer.includes(`${params[0]}|${params[1]}`) ? [{ "?column?": 1 }] : [],
+          rowCount: trefferFuer.includes(`${params[0]}|${params[1]}`) ? 1 : 0,
+        }) },
+      { match: (s) => s.includes("UPDATE users"),
+        respond: { rows: [{ id: "x", email: "a@b.c", role: "company" }], rowCount: 1 } },
+    ]);
+  }
+
+  it("ein Kunden-Admin kann einen FREMDEN Nutzer nicht aendern", async () => {
+    const pool = mitgliedschaftsPool([]);   // keine Mitgliedschaft in org-A
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "patch", "/admin/users/:id");
+    const res = mockRes();
+    await handler(kunde({ body: { is_verified: true } }), res);
+
+    assert.strictEqual(res._status, 403);
+    assert.strictEqual(res._json.error.code, "ORG_BOUNDARY_VIOLATION");
+    assert.ok(!pool.calls.some((c) => c.sql.includes("UPDATE users")),
+      "es darf kein UPDATE abgesetzt worden sein");
+  });
+
+  it("ein Kunden-Admin kann einen FREMDEN Nutzer nicht deaktivieren", async () => {
+    /* Der schwerere Fall: `role = 'inactive'` sperrt das Konto aus. */
+    const pool = mitgliedschaftsPool([]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "post", "/admin/users/:id/deactivate");
+    const res = mockRes();
+    await handler(kunde(), res);
+
+    assert.strictEqual(res._status, 403);
+    assert.strictEqual(res._json.error.code, "ORG_BOUNDARY_VIOLATION");
+    assert.ok(!pool.calls.some((c) => c.sql.includes("UPDATE users")),
+      "kein fremdes Konto darf deaktiviert werden");
+  });
+
+  it("den EIGENEN Nutzer darf er weiterhin freischalten", async () => {
+    /* Gegenprobe: eine Grenze, die auch die eigene Verwaltung sperrt, waere
+     * keine Reparatur, sondern ein Ausfall. */
+    const pool = mitgliedschaftsPool(["u-eigen|org-A"]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "patch", "/admin/users/:id");
+    const res = mockRes();
+    await handler(kunde({ params: { id: "u-eigen" }, body: { is_verified: true } }), res);
+
+    assert.strictEqual(res._status, 200);
+    assert.ok(pool.calls.some((c) => c.sql.includes("UPDATE users")), "das UPDATE muss laufen");
+  });
+
+  it("Rolle und Tarif bleiben der Plattformverwaltung vorbehalten", async () => {
+    /*
+     * `users.role` und `users.plan` sind Plattform-Felder: die Org-Rolle steht
+     * in `org_memberships.role_key`, der wirksame Tarif in `subscriptions`.
+     * Die Oberflaeche bot beides trotzdem als Auswahlfeld an — auch dem
+     * Kunden-Admin, auch fuer die eigene Zeile.
+     */
+    const pool = mitgliedschaftsPool(["u-eigen|org-A"]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "patch", "/admin/users/:id");
+
+    for (const feld of ["role", "plan"]) {
+      const res = mockRes();
+      await handler(kunde({ params: { id: "u-eigen" }, body: { [feld]: "PRO" } }), res);
+      assert.strictEqual(res._status, 403, `${feld} darf ein Kunden-Admin nicht setzen`);
+      assert.strictEqual(res._json.error.code, "PLATTFORM_FELD");
+    }
+    assert.ok(!pool.calls.some((c) => c.sql.includes("UPDATE users")),
+      "keines der beiden Felder darf geschrieben werden");
+  });
+
+  it("der platform_admin aendert und deaktiviert weiterhin jeden", async () => {
+    const pool = mitgliedschaftsPool([]);   // ohne Mitgliedschaft — darf trotzdem
+    const patch = getHandler(createAdminRouter(makeDeps(pool)), "patch", "/admin/users/:id");
+    const res = mockRes();
+    await patch(mockReq({ params: { id: "u-fremd" }, body: { plan: "PRO" } }), res);
+
+    assert.strictEqual(res._status, 200);
+    assert.ok(pool.calls.some((c) => c.sql.includes("UPDATE users")));
+    assert.ok(!pool.calls.some((c) => c.sql.includes("FROM org_memberships")),
+      "plattformweit braucht es keine Mitgliedschaftsabfrage");
+  });
+
+  it("die Liste sagt der Oberflaeche, wessen Daten sie zeigt", async () => {
+    /* Ohne diese Angabe rendert die Oberflaeche plattformweite Schalter fuer
+     * einen Kunden-Admin, und jeder Klick endet in einem 403 (tote Knoepfe). */
+    const pool = trackingPool([
+      { match: (s) => s.includes("COUNT("), respond: { rows: [{ total: 0 }] } },
+      { match: () => true, respond: { rows: [] } },
+    ]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/users");
+    const res = mockRes();
+    await handler(kunde({ params: {}, query: {} }), res);
+
+    assert.strictEqual(res._status, 200);
+    assert.deepStrictEqual(res._json.data.scope, { plattformweit: false, org_id: "org-A" });
+  });
+});
+
 describe("Admin-Audit — die Mandantengrenze", () => {
   /*
    * DER BEFUND, am 2026-08-21 gegen die laufende Datenbank gemessen:

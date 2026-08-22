@@ -1164,6 +1164,10 @@ TCi18n.register('en', {
       usersOffset = toInteger(payload.offset, usersOffset, 0);
       var items = Array.isArray(payload.items) ? payload.items : [];
       var total = toInteger(payload.total, 0, 0);
+      // Scope-Transparenz: der Server sagt, wessen Daten das sind. Rolle und
+      // Tarif sind Plattform-Felder — ein Kunden-Admin bekommt dafuer 403.
+      // Ohne diese Abfrage stuenden hier zwei tote Auswahlfelder (Befund 8.1.1 d).
+      var plattformweit = !payload.scope || payload.scope.plattformweit === true;
       if (!items.length) {
         usersTable.innerHTML = emptyState(TCi18n.t('adm.a.users.empty'));
         return;
@@ -1181,17 +1185,20 @@ TCi18n.register('en', {
       items.forEach(function (u) {
         var userId = safeJson(u.id);
         var userPlan = String(u.plan || 'DEMO').toUpperCase();
-        var actions = '<select onchange="adminEditUser(' + userId + ',&quot;role&quot;,this.value)" class="ds-select ds-select--xs">';
-        ['company', 'agency', 'admin', 'inactive'].forEach(function (role) {
-          actions += '<option value="' + role + '"' + (u.role === role ? ' selected' : '') + '>' + role + '</option>';
-        });
-        actions += '</select>';
-        actions += '<select onchange="adminEditUser(' + userId + ',&quot;plan&quot;,this.value)" class="ds-select ds-select--xs">';
-        ['DEMO', 'BASIS', 'PLUS', 'PRO', 'INDIVIDUELL'].forEach(function (plan) {
-          var selected = userPlan === plan || (plan === 'INDIVIDUELL' && userPlan === 'ENTERPRISE') || (plan === 'DEMO' && userPlan === 'FREE');
-          actions += '<option value="' + plan + '"' + (selected ? ' selected' : '') + '>' + esc(displayPlanLabel(plan)) + '</option>';
-        });
-        actions += '</select>';
+        var actions = '';
+        if (plattformweit) {
+          actions += '<select onchange="adminEditUser(' + userId + ',&quot;role&quot;,this.value)" class="ds-select ds-select--xs">';
+          ['company', 'agency', 'admin', 'inactive'].forEach(function (role) {
+            actions += '<option value="' + role + '"' + (u.role === role ? ' selected' : '') + '>' + role + '</option>';
+          });
+          actions += '</select>';
+          actions += '<select onchange="adminEditUser(' + userId + ',&quot;plan&quot;,this.value)" class="ds-select ds-select--xs">';
+          ['DEMO', 'BASIS', 'PLUS', 'PRO', 'INDIVIDUELL'].forEach(function (plan) {
+            var selected = userPlan === plan || (plan === 'INDIVIDUELL' && userPlan === 'ENTERPRISE') || (plan === 'DEMO' && userPlan === 'FREE');
+            actions += '<option value="' + plan + '"' + (selected ? ' selected' : '') + '>' + esc(displayPlanLabel(plan)) + '</option>';
+          });
+          actions += '</select>';
+        }
         if (!u.is_verified) actions += ' <button class="btn good ds-btn--xs" onclick="adminEditUser(' + userId + ',&quot;is_verified&quot;,true)">' + esc(TCi18n.t('adm.a.users.verify')) + '</button>';
         if (u.role !== 'inactive') actions += ' <button class="btn bad ds-btn--xs" onclick="adminDeactivate(' + userId + ')">' + esc(TCi18n.t('adm.a.users.deactivate')) + '</button>';
 

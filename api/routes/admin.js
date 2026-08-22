@@ -34,6 +34,43 @@ export function createAdminRouter(deps) {
     res.status(403).json({ success: false, error: { code: "ADMIN_REQUIRED", message: "Administratorrechte erforderlich." } });
   }
 
+  /**
+   * Darf dieser Aufrufer den Nutzer `zielId` ueberhaupt anfassen?
+   *
+   * BEFUND 8.1.1 (d), gemessen am 2026-08-21: `PATCH /admin/users/:id` und
+   * `POST /admin/users/:id/deactivate` schrieben
+   *     UPDATE users SET ... WHERE id = $1
+   * ohne jede Org-Pruefung. Die LISTE war laengst org-begrenzt ${D} die Mutation
+   * nicht. Die Grenze lebte also nur in dem, was die Oberflaeche ZEIGT, nicht in
+   * dem, was der Endpunkt ZULAESST. Wer die Kennung kennt, braucht die Liste nicht.
+   *
+   * Erreichbar fuer jeden `requireAdmin`-Passierer: **201 von 395 Konten**, alle
+   * in Kunden-Organisationen. Betroffen waren damit auch Nutzer fremder Kunden
+   * und die Konten von TempConnect selbst ${D} bis hin zum Deaktivieren.
+   *
+   * Dieselbe Lehre wie in Welle H2: die Grenze gehoert an die Quelle der
+   * Wahrheit, nicht an den Kontext des Aufrufers oder an die Sicht der UI.
+   */
+  async function zielNutzerErlaubt(req, zielId) {
+    const umfang = bestimmeAdminUmfang(req);
+    if (umfang.fehler) return { erlaubt: false, fehler: umfang.fehler };
+    if (umfang.plattformweit) return { erlaubt: true, umfang };
+    const { rows } = await pool.query(
+      `SELECT 1 FROM org_memberships WHERE user_id = $1 AND org_id = $2 LIMIT 1`,
+      [zielId, umfang.orgId]
+    );
+    if (!rows.length) {
+      return {
+        erlaubt: false,
+        fehler: {
+          code: "ORG_BOUNDARY_VIOLATION",
+          message: "Dieser Nutzer gehoert nicht zur eigenen Organisation."
+        }
+      };
+    }
+    return { erlaubt: true, umfang };
+  }
+
   /** Sanitize search input — strip SQL/XSS-dangerous chars */
   function sanitize(str, maxLen = 200) {
     if (!str || typeof str !== "string") return "";
@@ -166,13 +203,9 @@ export function createAdminRouter(deps) {
       const limit = parseIntegerParam(req.query.limit, { defaultValue: 50, min: 1, max: 200 });
       const offset = parseIntegerParam(req.query.offset, { defaultValue: 0, min: 0, max: 500000 });
       const search = sanitize(req.query.q || "", 100);
-      const scopedOrgId = isGlobalAdminScope(req) ? null : (req.orgId || req.orgMembership?.org_id || null);
-      if (!isGlobalAdminScope(req) && !scopedOrgId) {
-        return res.status(403).json({
-          success: false,
-          error: { code: "ORG_CONTEXT_REQUIRED", message: "Organisationskontext für Benutzerverwaltung erforderlich." }
-        });
-      }
+      const umfang = bestimmeAdminUmfang(req);
+      if (umfang.fehler) return res.status(403).json({ success: false, error: umfang.fehler });
+      const scopedOrgId = umfang.orgId;
       const fromClause = `
         FROM users u
         LEFT JOIN LATERAL (
@@ -211,7 +244,17 @@ export function createAdminRouter(deps) {
         countFilter.values
       );
       const total = Number.parseInt(countRows[0]?.total || 0, 10) || 0;
-      res.json({ success: true, data: { items: rows, total, limit, offset } });
+      /* Scope-Transparenz (Produktionspfeiler 3): die Oberflaeche muss wissen,
+       * wessen Daten sie zeigt — und welche Bedienelemente sie NICHT anbieten
+       * darf. Ohne diese Angabe rendert sie plattformweite Schalter fuer einen
+       * Kunden-Admin, und jeder Klick endet in einem 403 (tote Knoepfe). */
+      res.json({
+        success: true,
+        data: {
+          items: rows, total, limit, offset,
+          scope: { plattformweit: umfang.plattformweit, org_id: umfang.orgId }
+        }
+      });
     } catch (e) {
       logger.error({ err: e }, "admin users");
       res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: "Benutzer konnten nicht geladen werden." } });
@@ -554,7 +597,38 @@ export function createAdminRouter(deps) {
     try {
       const userId = String(req.params.id || "").trim();
       if (!userId) return res.status(400).json({ success: false, error: { code: "INVALID_ID" } });
-      const allowed = ["role", "plan", "is_verified"];
+
+      const ziel = await zielNutzerErlaubt(req, userId);
+      if (!ziel.erlaubt) return res.status(403).json({ success: false, error: ziel.fehler });
+
+      /*
+       * `role` und `plan` sind PLATTFORM-Felder auf `users`, keine
+       * Org-Verwaltung: die Rolle innerhalb einer Organisation steht in
+       * `org_memberships.role_key`, und der wirksame Tarif kommt aus
+       * `subscriptions` (`userService.getUserAndPlan`), nicht aus `users.plan`.
+       *
+       * Die Oberflaeche bot beides trotzdem als Auswahlfeld an — auch dem
+       * Kunden-Admin, auch fuer ihn selbst (`adminPanel.js:1184` Rolle,
+       * `:1189` Tarif). Ein Kunde konnte damit die eigene Zeile auf
+       * `INDIVIDUELL` stellen. Kein Freischalt-Bypass, weil kein Feature-Gate
+       * `users.plan` liest — aber es verfaelscht Analytik und DSGVO-Auskunft
+       * und ist schlicht nicht seine Entscheidung.
+       */
+      const allowed = ziel.umfang.plattformweit
+        ? ["role", "plan", "is_verified"]
+        : ["is_verified"];
+      const verweigert = Object.keys(req.body || {}).filter(
+        (k) => ["role", "plan"].includes(k) && !ziel.umfang.plattformweit
+      );
+      if (verweigert.length) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "PLATTFORM_FELD",
+            message: `Diese Felder kann nur die Plattformverwaltung setzen: ${verweigert.join(", ")}.`
+          }
+        });
+      }
       const updates = [];
       const values = [];
       let idx = 1;
@@ -588,6 +662,13 @@ export function createAdminRouter(deps) {
     try {
       const userId = String(req.params.id || "").trim();
       if (!userId) return res.status(400).json({ success: false, error: { code: "INVALID_ID" } });
+
+      /* Ohne diese Pruefung deaktiviert ein Kunden-Admin JEDEN Nutzer der
+       * Plattform — auch Konten fremder Kunden und die von TempConnect
+       * selbst (Befund 8.1.1 d). */
+      const ziel = await zielNutzerErlaubt(req, userId);
+      if (!ziel.erlaubt) return res.status(403).json({ success: false, error: ziel.fehler });
+
       const { rows } = await pool.query(
         `UPDATE users SET is_verified = FALSE, role = 'inactive', updated_at = NOW() WHERE id = $1 RETURNING id, email, role`,
         [userId]
