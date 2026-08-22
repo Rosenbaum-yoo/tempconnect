@@ -1899,9 +1899,53 @@ export async function replaceAssignmentWorker(pool, {
     );
     const orig = origRows[0];
     if (!orig) { await client.query("ROLLBACK"); return { error: "NOT_FOUND" }; }
-    if (orig.is_active !== true) {
+    /*
+     * ZWEITER ANLAUF NACH EINER ABSAGE (8.2, 2026-08-21).
+     *
+     * Vorher galt schlicht `is_active !== true` -> 409. Seit der Ersatz absagen
+     * DARF, ist das die haeufigste Sackgasse: sagt er ab, bleibt der Alt-Link
+     * des Ausgefallenen auf `worker_unavailable` + `is_active = FALSE` liegen,
+     * und der Disponent kann niemand anderen mehr anfragen. Der Verify-Satz des
+     * Plans — "er lehnt ab, der Einsatz ist wieder offen und der Vorschlag
+     * erscheint erneut" — scheiterte genau hier.
+     *
+     * Geoeffnet wird deshalb GENAU EIN Fall: der Ausgefallene selbst
+     * (`worker_unavailable`). `worker_confirmed`, `auto_confirmed` oder
+     * `worker_declined` bleiben gesperrt — sonst waere ein laufender Einsatz
+     * ueberschreibbar.
+     */
+    const wiederaufnahme = orig.is_active !== true
+      && orig.worker_confirmation_status === "worker_unavailable";
+    if (orig.is_active !== true && !wiederaufnahme) {
       await client.query("ROLLBACK");
       return { error: "LINK_NOT_ACTIVE", current_status: orig.worker_confirmation_status };
+    }
+
+    /*
+     * DER RIEGEL GEGEN DOPPELTE BESETZUNG.
+     *
+     * Sobald die Zeile darueber einen zweiten Anlauf erlaubt, koennte der
+     * Disponent zwei Ersaetze parallel anfragen — beide
+     * `pending_confirmation`, beide aktiv. Sagen beide zu, stehen zwei Menschen
+     * beim Kunden: `confirmAssignment` prueft nur den eigenen Link, und
+     * `recalcAssignmentStaffing` ZAEHLT nur, es sperrt nicht.
+     *
+     * Die Pruefung steht bewusst INNERHALB der Transaktion und NACH dem
+     * `FOR UPDATE` auf dem Alt-Link. Davor gewaennen zwei gleichzeitige
+     * Anfragen beide — der Zeilenriegel auf `orig` ist es, der sie
+     * serialisiert.
+     */
+    const { rows: laufende } = await client.query(
+      `SELECT 1 FROM worker_assignment_links
+        WHERE ersetzt_link_id = $1
+          AND is_active = TRUE
+          AND worker_confirmation_status IN ('pending_confirmation','worker_confirmed','auto_confirmed')
+        LIMIT 1`,
+      [linkId]
+    );
+    if (laufende.length) {
+      await client.query("ROLLBACK");
+      return { error: "REPLACEMENT_PENDING" };
     }
     if (orig.worker_user_id === replacementWorkerUserId) {
       await client.query("ROLLBACK"); return { error: "SAME_WORKER" };

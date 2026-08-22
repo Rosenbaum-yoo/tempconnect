@@ -413,9 +413,36 @@ describe("G6 — der Weg misst genau drei Klicks", () => {
     const block = js.slice(js.indexOf('w.live_status === "abwesend" && w.absence_id'),
                            js.indexOf("} else if (w.live_status !== "));
     assert.match(block, /openErsatzModal/, "aus der Tafel fuehrt kein Weg zum Ersatz");
-    assert.match(block, /if \(w\.link_id\)/,
-      "der Knopf erscheint auch ohne laufenden Einsatz — er fuehrte in eine Sackgasse, " +
-      "die erst NACH dem Klick sichtbar wird");
+    /*
+     * Der Knopf bleibt an eine Verknuepfung gebunden — sonst fuehrt er in eine
+     * Sackgasse, die erst NACH dem Klick sichtbar wird.
+     *
+     * Seit 8.2 gibt es dafuer ZWEI Quellen: `link_id` (laufender Einsatz) und
+     * `ersatz_link_id` (der liegengebliebene Bedarf, nachdem ein Ersatz
+     * abgesagt hat). Ohne die zweite war die Zeile nach einer Absage nicht mehr
+     * erreichbar: der Einsatz war wieder offen, aber niemand kam an ihn heran.
+     */
+    assert.match(block, /if \(w\.link_id \|\| w\.ersatz_link_id\)/,
+      "der Knopf haengt nicht mehr an einer Verknuepfung — oder der zweite Anlauf fehlt");
+  });
+
+  it("nach einer Absage fuehrt die Tafel zurueck zur Zeile (8.2)", () => {
+    /*
+     * Die Sackgasse, die entstand, sobald der Ersatz absagen DARF: der Link des
+     * Ausgefallenen steht auf `is_active = FALSE`, `link_id` ist leer, der Knopf
+     * verschwand. Der Verify-Satz des Plans ("der Vorschlag erscheint erneut")
+     * scheiterte genau hier.
+     */
+    const dienst = fs.readFileSync(path.join(HIER, "..", "services", "workforceService.js"), "utf8");
+    assert.match(dienst, /ersatz\.ersatz_link_id/,
+      "die Tafel liefert den liegengebliebenen Bedarf nicht aus");
+    assert.match(dienst, /worker_confirmation_status = 'worker_unavailable'/,
+      "es muss GENAU der Ausgefallene sein, nicht irgendein inaktiver Link");
+    assert.match(dienst, /NOT EXISTS \(\s*SELECT 1 FROM worker_assignment_links nachf/,
+      "laeuft schon eine Anfrage, darf der Knopf nicht erscheinen — sonst bietet die " +
+      "Oberflaeche etwas an, das der Server mit REPLACEMENT_PENDING abweist");
+    assert.match(dienst, /nachf\.ersetzt_link_id = wal\.id/,
+      "der Bezug zum Vorgaenger fehlt");
   });
 
   it("Klick 2 und 3 sind getrennt — die Rueckfrage ist Pflicht", () => {
@@ -451,7 +478,12 @@ describe("G6 — der Weg misst genau drei Klicks", () => {
     const js = liesF(LOGIK);
     assert.match(js, /worker-assignment-links\/" \+ encodeURIComponent\(_ersatzLinkId\)/,
       "der Ersatz-Aufruf benutzt die falsche Kennung");
-    assert.match(js, /_ersatzLinkId = w\.link_id/, "die Verknuepfung wird nicht uebernommen");
+    /* Seit 8.2 kommt die Verknuepfung aus zwei Quellen (laufender Einsatz oder
+     * liegengebliebener Bedarf nach einer Absage) — uebernommen wird weiterhin
+     * genau eine, und zwar die Verknuepfung, nicht der Einsatz. */
+    assert.match(js, /var zielLink = w\.link_id \|\| w\.ersatz_link_id/,
+      "die Verknuepfung wird nicht uebernommen");
+    assert.match(js, /_ersatzLinkId = zielLink/, "die uebernommene Kennung wird nicht benutzt");
   });
 
   it("die Tafel liefert die Verknuepfung ueberhaupt mit", () => {

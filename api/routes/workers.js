@@ -1662,6 +1662,8 @@ export function createWorkersRouter(deps) {
         createdBy:               req.session.userId
       });
       if (result.error) {
+        // REPLACEMENT_PENDING = es laeuft bereits eine Ersatz-Anfrage fuer
+        // diesen Ausfall (8.2). 409 wie die uebrigen Zustandskonflikte.
         const code = result.error === "NOT_FOUND" ? 404
           : result.error === "REPLACEMENT_NOT_IN_ORG" ? 403
           : 409;

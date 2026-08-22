@@ -707,6 +707,7 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
     `SELECT wp.id, wp.user_id, wp.first_name, wp.last_name, wp.personnel_number, wp.is_active,
             cur.assignment_id, cur.link_id, cur.assignment_status, cur.client_name, cur.start_date,
             cur.effective_end_date, cur.lifecycle_state,
+            ersatz.ersatz_link_id,
             abw.id AS absence_id, abw.art AS absence_art,
             abw.von AS absence_von, abw.bis AS absence_bis, abw.notiz AS absence_notiz,
             COALESCE(cur.is_montage, FALSE) AS is_montage,
@@ -759,6 +760,44 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
           ORDER BY ${effEndSql} ASC NULLS LAST
           LIMIT 1
        ) cur ON TRUE
+       LEFT JOIN LATERAL (
+         /*
+          * DER OFFENE ERSATZBEDARF (8.2, 2026-08-21).
+          *
+          * Die cur-LATERAL oben findet nur AKTIVE Verknuepfungen. Faellt jemand aus,
+          * steht seine auf is_active = FALSE - die Zeile verliert ihre link_id,
+          * und der Knopf "Ersatz suchen" verschwindet. Solange der erste Ersatz
+          * gleich gebunden wurde, fiel das nicht auf. Seit er absagen darf, ist
+          * es die haeufigste Sackgasse: nach der Absage gibt es keinen Weg
+          * zurueck zur Zeile.
+          *
+          * Diese LATERAL findet genau den liegengebliebenen Link - und nur,
+          * wenn KEIN lebender Ersatz daran haengt. Laeuft bereits eine Anfrage,
+          * bleibt der Knopf weg: sonst boete die Oberflaeche etwas an, das der
+          * Riegel in replaceAssignmentWorker mit REPLACEMENT_PENDING abweist,
+          * und ein Knopf, der das erst nach dem Klick sagt, ist eine Sackgasse.
+          *
+          * supplier_org_id = $1 auch hier: die Mandantengrenze gilt in JEDER
+          * Unterabfrage, nicht nur in der ersten.
+          */
+         SELECT wal.id AS ersatz_link_id
+           FROM worker_assignment_links wal
+           JOIN assignments a ON a.id = wal.assignment_id
+          WHERE wal.worker_user_id = wp.user_id
+            AND wal.supplier_org_id = $1
+            AND wal.is_active = FALSE
+            AND wal.worker_confirmation_status = 'worker_unavailable'
+            AND ${lifecycleStateSql} IN ('active', 'ends_today')
+            AND NOT EXISTS (
+              SELECT 1 FROM worker_assignment_links nachf
+               WHERE nachf.ersetzt_link_id = wal.id
+                 AND nachf.is_active = TRUE
+                 AND nachf.worker_confirmation_status
+                     IN ('pending_confirmation','worker_confirmed','auto_confirmed')
+            )
+          ORDER BY wal.unavailable_reported_at DESC NULLS LAST
+          LIMIT 1
+       ) ersatz ON TRUE
        LEFT JOIN (
          SELECT worker_user_id, COUNT(*) AS pending_count
            FROM worker_time_submissions

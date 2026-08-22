@@ -150,6 +150,7 @@ TCi18n.register('de', {
   'mit.ersatz.done': '{name} wurde gefragt. Sobald zugesagt wird, ist der Einsatz besetzt — und der Kunde wird informiert.',
   'mit.ersatz.failBlocked': 'Diese Kraft ist beim Kunden gesperrt.',
   'mit.ersatz.failConflict': 'Diese Kraft hat im Zeitraum bereits einen Einsatz.',
+  'mit.ersatz.failPending': 'Für diesen Ausfall läuft bereits eine Ersatz-Anfrage. Sie muss erst beantwortet werden.',
   'mit.ersatz.failGeneric': 'Der Ersatz konnte nicht eingesetzt werden.',
   'mit.ersatz.noAssignment': 'Zu dieser Person ist kein laufender Einsatz hinterlegt.',
   'mit.live.absence.title': 'Abwesenheit erfassen',
@@ -747,6 +748,7 @@ TCi18n.register('en', {
   'mit.ersatz.done': '{name} has been asked. Once they accept, the assignment is staffed — and the client is informed.',
   'mit.ersatz.failBlocked': 'This person is blocked by the client.',
   'mit.ersatz.failConflict': 'This person already has an assignment in that period.',
+  'mit.ersatz.failPending': 'A replacement request for this absence is already open. It has to be answered first.',
   'mit.ersatz.failGeneric': 'The replacement could not be assigned.',
   'mit.ersatz.noAssignment': 'No running assignment is recorded for this person.',
   'mit.live.absence.title': 'Record an absence',
@@ -1771,9 +1773,17 @@ function renderLiveList(workers) {
       }
       if (w.live_status === "abwesend" && w.absence_id) {
         /* KLICK 1 von dreien (Welle G6). Nur wenn wirklich ein Einsatz
-           betroffen ist — ohne link_id gaebe es nichts zu ersetzen, und ein
-           Knopf, der das erst nach dem Klick sagt, ist eine Sackgasse. */
-        if (w.link_id) {
+           betroffen ist — ohne Verknuepfung gaebe es nichts zu ersetzen, und
+           ein Knopf, der das erst nach dem Klick sagt, ist eine Sackgasse.
+
+           ersatz_link_id kam mit 8.2 dazu: Sobald jemand ausfaellt, steht seine
+           Verknuepfung auf is_active = FALSE und link_id ist leer. Solange der
+           erste Ersatz gleich gebunden wurde, fiel das nicht auf. Seit er
+           absagen darf, war die Zeile nach der Absage nicht mehr erreichbar —
+           der Einsatz war wieder offen, aber niemand kam an ihn heran.
+           Das Feld traegt genau diesen liegengebliebenen Bedarf und ist leer,
+           solange eine Anfrage laeuft. */
+        if (w.link_id || w.ersatz_link_id) {
           aktion += '<button class="btn primary" style="padding:5px 10px;font-size:12px" onclick="openErsatzModal(\'' + esc(w.id) + '\')">' +
                     esc(TCi18n.t("mit.ersatz.btn")) + '</button>';
         }
@@ -4250,9 +4260,14 @@ function openErsatzModal(profileId) {
      kein Fehler. Der Knopf erscheint in diesem Fall gar nicht erst; die
      Pruefung steht hier trotzdem, weil die Tafel zwischen Rendern und Klick
      neu geladen worden sein kann. */
-  if (!w.link_id) { toast(TCi18n.t("mit.ersatz.noAssignment"), "err"); return; }
+  /* link_id = laufender Einsatz. ersatz_link_id = die liegengebliebene
+     Verknuepfung des Ausgefallenen, nachdem ein Ersatz abgesagt hat (8.2).
+     Beide fuehren zu derselben Route; der Server entscheidet, ob der zweite
+     Anlauf zulaessig ist (REPLACEMENT_PENDING, wenn schon eine Anfrage laeuft). */
+  var zielLink = w.link_id || w.ersatz_link_id;
+  if (!zielLink) { toast(TCi18n.t("mit.ersatz.noAssignment"), "err"); return; }
 
-  _ersatzLinkId = w.link_id;
+  _ersatzLinkId = zielLink;
   _ersatzKunde = w.client_name || "";
   _ersatzFuer = ((w.first_name || "") + " " + (w.last_name || "")).trim();
   _ersatzAbwesendAb = w.absence_von || null;
@@ -4395,6 +4410,11 @@ function bestaetigeErsatz(workerUserId, name) {
       var code = e && (e.error || e.code);
       if (code === "BLOCKED_BY_COMPANY") showErsatzFehler(TCi18n.t("mit.ersatz.failBlocked"));
       else if (code === "SCHEDULE_CONFLICT") showErsatzFehler(TCi18n.t("mit.ersatz.failConflict"));
+      /* 8.2: fuer diesen Ausfall laeuft schon eine Anfrage. Der Knopf sollte in
+         dem Fall gar nicht erscheinen — aber die Tafel kann zwischen Rendern
+         und Klick veraltet sein, und dann braucht es einen klaren Satz statt
+         eines generischen Fehlers. */
+      else if (code === "REPLACEMENT_PENDING") showErsatzFehler(TCi18n.t("mit.ersatz.failPending"));
       else showErsatzFehler(TCi18n.t("mit.ersatz.failGeneric"));
     });
 }
