@@ -637,8 +637,8 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | davon reine Weiterleitungen | 9 | je 14 nicht-leere Zeilen, reiner Meta-Refresh |
 | davon Attrappen | 3 | `sla_nachweise.html`, `impressum.html`, `datenschutz.html` (Wurzel) |
 | davon für keinen Nutzer erreichbar | 1 | `timesheet-templates.html` — null eingehende Verweise in `frontend/`, `api/`, `nginx/`, `e2e/` |
-| Backend-Testdateien | 340 | `ls api/test/*.test.js \| wc -l` |
-| E2E-Testdateien | 17 | `ls e2e/tests/ \| wc -l` |
+| Backend-Testdateien | <!--zahl:backend-testdateien-->360<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
+| E2E-Testdateien | <!--zahl:e2e-testdateien-->17<!--/zahl--> | `ls e2e/tests/ \| wc -l` |
 | Rollen im Rechtemodell | 12 | `ROLE_HIERARCHY` in `api/services/rbacService.js:9-22` |
 | Benannte Berechtigungen | 63 | `PERMISSIONS` in `api/services/rbacService.js:25 ff.` |
 | Benachrichtigungs-Ereignistypen | 46 | Schlüssel in `MATRIX`, `api/services/notificationMatrix.js` |
@@ -648,6 +648,11 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | Buchbare Zusatzmodule | 4 | `api/config/planCatalog.js:383-386` |
 | Interne Module (Staff / Owner) | 27 / 11 | `frontend/src/staff/modules/` bzw. Registry in `docs/FLAECHEN.md` |
 
+*Die beiden Testdateizahlen schreibt `api/scripts/doku-generieren.js` fort; zuletzt
+geändert am <!--zahl:stand-->2026-08-22<!--/zahl-->. Die übrigen Zahlen sind handgepflegt und
+werden von `api/test/dokuWaechter.test.js` (Z1) gegen den Bestand geprüft — mit Ausnahme der
+beiden, die eine Ermessensentscheidung enthalten (Datenbanktabellen, Nutzerflächen).*
+
 > **Zwei Zahlen, die man nicht verwechseln darf.** 938 Endpunkte sind *Routen*, nicht
 > *Kundenfunktionen*: 104 davon gehören dem TempConnect-Team, 31 den Eigentümern, 17 dem
 > Support. Für eine Investorendarstellung ist die belastbare Aussage „rund 780 Endpunkte in der
@@ -655,9 +660,10 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 >
 > **Eine Zahl, die hier bewusst fehlt:** die Gesamtzahl grüner Tests. Sie steht in mehreren
 > Projektdokumenten (3979+), wurde für dieses Register aber **nicht** nachgerechnet, weil das
-> einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die 340 Testdateien und
-> 17 E2E-Dateien. Wer die Testzahl in ein Investorendokument schreibt, muss sie vorher unter
-> `api/scripts/run-tests.js` real erzeugen.
+> einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die
+> <!--zahl:backend-testdateien-->360<!--/zahl--> Testdateien und
+> <!--zahl:e2e-testdateien-->17<!--/zahl--> E2E-Dateien. Wer die Testzahl in ein
+> Investorendokument schreibt, muss sie vorher unter `api/scripts/run-tests.js` real erzeugen.
 
 ---
 
@@ -849,16 +855,26 @@ Hauptsuche beziehungsweise eine Kampagnenseite ohne Impressum.
 
 Ehrlichkeit über die eigenen Grenzen gehört in ein Dokument, das später an Investoren geht.
 
-1. **Es ist handgeschrieben, nicht generiert.** Der Kopf verspricht ein generiertes, per Test
-   geprüftes Register. Das ist der Zielzustand, nicht der heutige. Bis ein
-   `docs-consistency`-Test existiert, der tote Verweise und verwaiste Dateien rot werden lässt,
-   veraltet diese Datei still. Vorbild für die Mechanik: `api/test/flaechenZuordnung.test.js`.
+1. **Es ist überwiegend handgeschrieben.** Der Kopf verspricht ein generiertes, per Test
+   geprüftes Register; erreicht ist davon der geprüfte Teil und ein Anfang des generierten.
+   Geprüft: `api/test/dokuWaechter.test.js` lässt fehlende Einträge, tote Belege und falsche
+   Strukturzahlen rot werden — in beide Richtungen. Generiert: die beiden Testdateizahlen
+   schreibt `api/scripts/doku-generieren.js` fort (`npm run doku:generieren` aus `api/`),
+   geprüft von `api/test/dokuGenerator.test.js`. Alles andere — jede Beschreibung, jede
+   Einordnung, jede Zahl mit einer Ermessensentscheidung darin — ist Handarbeit und veraltet
+   entsprechend. Die nächsten generierbaren Teile nennt `docs/features/P11_DOKUMENTATION_ALS_SYSTEM.md`
+   unter Welle W3: Endpunktliste, Seitenliste, Migrationen, Jobs.
 
-2. **Die Testzahl ist nicht nachgerechnet.** Belegt sind 340 Backend-Testdateien und 17
-   E2E-Dateien. Die in mehreren Projektdokumenten genannte Gesamtzahl grüner Tests (3979+)
-   wurde für dieses Register **nicht** verifiziert — dazu wäre ein vollständiger Suite-Lauf
-   unter `api/scripts/run-tests.js` nötig gewesen. Wer sie in eine Investorendarstellung
-   übernimmt, muss sie vorher erzeugen.
+2. **Die Zahl grüner Tests ist nicht nachgerechnet — die Zahl der Testdateien schon.**
+   Belegt sind <!--zahl:backend-testdateien-->360<!--/zahl--> Backend-Testdateien und
+   <!--zahl:e2e-testdateien-->17<!--/zahl--> E2E-Dateien; diese beiden Werte schreibt
+   `api/scripts/doku-generieren.js` fort und `api/test/dokuGenerator.test.js` lässt sie rot
+   werden, sobald sie veralten. Der Anlass dafür steht hier, weil er die Grenze zeigt:
+   am 2026-08-22 nannte diese Datei an drei Stellen 340 Backend-Testdateien, tatsächlich
+   waren es 359. Die in mehreren Projektdokumenten genannte Gesamtzahl grüner Tests (3979+)
+   bleibt davon unberührt — sie wurde für dieses Register **nicht** verifiziert, dazu wäre
+   ein vollständiger Suite-Lauf unter `api/scripts/run-tests.js` nötig. Wer sie in eine
+   Investorendarstellung übernimmt, muss sie vorher erzeugen.
 
 3. **Die Verdrahtungsprüfung ist statisch, nicht dynamisch.** „Endpunkt hat keinen Aufrufer im
    Frontend" beruht auf Textsuche über `frontend/`. Ein Endpunkt, der ausschließlich dynamisch
