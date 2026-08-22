@@ -64,6 +64,47 @@ SELECT json_build_object(
       GROUP BY c.table_name
     ) t
   ), '{}'::json),
+  /*
+   * ERLAUBTE WERTE aus den CHECK-Constraints.
+   *
+   * WARUM DAS DAZUKAM: Der Abzug wusste bisher, WELCHE Spalten es gibt — aber
+   * nicht, welche WERTE sie annehmen duerfen. Genau in dieser Luecke lebte ein
+   * Fehler, der am 2026-08-22 gefunden wurde: getPendingAbuseReports las
+   * WHERE status = 'pending' auf einer Tabelle, deren CHECK nur
+   * open | under_review | resolved_dismissed | resolved_action_taken erlaubt.
+   * Der Posteingang war dauerhaft leer, und reportProfileAbuse schrieb drei
+   * Gruende, die der CHECK ablehnte. Beides lautlos, ueber Monate.
+   *
+   * Eine Spaltenliste haette das nie bemerkt: die Spalten waren ja da. Ab jetzt
+   * traegt der Abzug auch die erlaubte Wertemenge, sodass eine Probe einen
+   * geschriebenen Literal gegen die Wirklichkeit halten kann.
+   *
+   * Erfasst wird nur die einfache, mit Abstand haeufigste Form
+   * spalte = ANY (ARRAY['a','b',...]) (227 davon im Bestand). Zusammengesetzte
+   * Bedingungen bleiben aussen vor — lieber eine Teilmenge, die STIMMT, als
+   * eine vollstaendige, die raet.
+   */
+  'pruefwerte', COALESCE((
+    SELECT json_object_agg(p.tab, p.spalten)
+    FROM (
+      SELECT tab, json_object_agg(spalte, werte) AS spalten
+      FROM (
+        SELECT t.relname AS tab,
+               (regexp_match(pg_get_constraintdef(c.oid), '\\(?([a-z_]+)\\)?(::text)? = ANY'))[1] AS spalte,
+               (SELECT json_agg(w ORDER BY w)
+                  FROM regexp_matches(pg_get_constraintdef(c.oid), '''([^'']+)''::', 'g') AS m(w2),
+                       LATERAL (SELECT m.w2[1]) AS x(w)) AS werte
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.conrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        WHERE c.contype = 'c'
+          AND n.nspname = 'public'
+          AND pg_get_constraintdef(c.oid) LIKE '% = ANY %ARRAY[%'
+      ) roh
+      WHERE spalte IS NOT NULL
+      GROUP BY tab
+    ) p
+  ), '{}'::json),
   'sichten', COALESCE((
     SELECT json_agg(table_name ORDER BY table_name)
     FROM information_schema.tables
@@ -170,6 +211,9 @@ const ausgabe = {
   erzeugt_am: new Date().toISOString(),
   quelle: `docker exec ${CONTAINER} psql -U ${DB_USER} -d ${DB_NAME}`,
   migrations_fingerabdruck: migrationsFingerabdruck(REPO_ROOT),
+  pruefwerte: Object.fromEntries(
+    Object.entries(daten.pruefwerte || {}).sort(([a], [b]) => a.localeCompare(b))
+  ),
   sichten: (daten.sichten || []).sort(),
   funktionen: (daten.funktionen || []).sort(),
   enums: (daten.enums || []).sort(),

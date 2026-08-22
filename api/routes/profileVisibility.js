@@ -246,7 +246,17 @@ export function createProfileVisibilityRouter(deps) {
         details: parsed.data.details || null
       });
 
-      if (!result.ok) return fail(res, 400, result.reason, "Meldung konnte nicht gespeichert werden.");
+      if (!result.ok) {
+        /* Bis 2026-08-22 endete hier JEDE Meldung — und niemand erfuhr es.
+         * Der Dienst gab nur "DB_ERROR" zurueck, die Route protokollierte
+         * nichts, und die leere Tabelle sah aus wie "es meldet halt niemand".
+         * Ein Fehlerpfad, den niemand sieht, ist kein Fehlerpfad, sondern eine
+         * Luecke, die sich als Ruhe tarnt. */
+        if (result.fehler) {
+          logger.error({ err: result.fehler, orgId: reportedOrgId }, "profile abuse report konnte nicht gespeichert werden");
+        }
+        return fail(res, 400, result.reason, "Meldung konnte nicht gespeichert werden.");
+      }
 
       // Audit — keine sensiblen Details loggen
       writeAudit(pool, {
