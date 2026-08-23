@@ -94,6 +94,9 @@ TCi18n.register('de', {
   'mit.live.empty': 'Noch keine Mitarbeiter in der Belegschaft.',
   'mit.live.asOf': 'Stand: {time}',
   'mit.live.atClient': 'bei {client}',
+  /* Ansprechperson beim Kunden (Plan I, 10b) — wer vor einer leeren Schicht
+     steht, ruft an, statt die Dealakte zu suchen. */
+  'mit.live.kontakt': 'Ansprechperson:',
   'mit.live.until': 'bis {date}',
   'mit.live.timesheetsBadge': '{count} Stundenzettel',
   'mit.live.status.endingSoon': 'Endet bald',
@@ -695,6 +698,7 @@ TCi18n.register('en', {
   'mit.live.empty': 'No workers in the workforce yet.',
   'mit.live.asOf': 'As of: {time}',
   'mit.live.atClient': 'at {client}',
+  'mit.live.kontakt': 'Contact:',
   'mit.live.until': 'until {date}',
   'mit.live.timesheetsBadge': '{count} timesheets',
   'mit.live.status.endingSoon': 'Ending soon',
@@ -1752,6 +1756,22 @@ function renderLiveList(workers) {
         sub.push(esc(absParts.join(" · ")));
       }
       if (w.client_name) sub.push(esc(TCi18n.t("mit.live.atClient", { client: w.client_name })));
+      /* DIE ANSPRECHPERSON BEIM KUNDEN (Plan I, 10b, Owner-Entscheid 2026-08-23).
+         "Sichtbar an der Besetzung und in der Live-Belegschaft, nicht nur in der
+         Deal-Akte" — wer morgens um sechs vor einer leeren Schicht steht, sucht
+         nicht erst die Dealakte. Die Nummer ist waehlbar, nicht nur lesbar.
+         Fehlt sie, steht hier NICHTS statt eines leeren Feldes: gemessen am
+         2026-08-23 haben nur 5 von 68 Einsaetzen ueberhaupt einen
+         Angebotsbezug, und ein Platzhalter an 63 Zeilen waere Laerm. */
+      if (w.kontakt_name || w.kontakt_telefon) {
+        var kontakt = esc(w.kontakt_name || "");
+        if (w.kontakt_telefon) {
+          var waehlbar = String(w.kontakt_telefon).replace(/[^+0-9]/g, "");
+          kontakt += (kontakt ? " · " : "")
+            + '<a href="tel:' + esc(waehlbar) + '" style="color:inherit">' + esc(w.kontakt_telefon) + "</a>";
+        }
+        sub.push(esc(TCi18n.t("mit.live.kontakt")) + " " + kontakt);
+      }
       if (w.effective_end_date) sub.push(esc(TCi18n.t("mit.live.until", { date: formatDateLabel(w.effective_end_date) })));
       /* 'montage' ueberdeckt 'endet_bald' im Zustand — der Hinweis darf deshalb
          nicht verloren gehen, sonst uebersieht der Disponent genau die Rueckkehr,

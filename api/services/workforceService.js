@@ -706,6 +706,7 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
   const { rows } = await pool.query(
     `SELECT wp.id, wp.user_id, wp.first_name, wp.last_name, wp.personnel_number, wp.is_active,
             cur.assignment_id, cur.link_id, cur.assignment_status, cur.client_name, cur.start_date,
+            cur.kontakt_name, cur.kontakt_telefon,
             cur.effective_end_date, cur.lifecycle_state,
             ersatz.ersatz_link_id,
             abw.id AS absence_id, abw.art AS absence_art,
@@ -749,10 +750,22 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
          SELECT a.id AS assignment_id, wal.id AS link_id,
                 a.status AS assignment_status, o.name AS client_name,
                 wal.start_date, wal.is_montage,
+                /* DIE ANSPRECHPERSON (Plan I, 10b, Owner-Entscheid 2026-08-23).
+                 * "Sichtbar an der Besetzung und in der Live-Belegschaft, nicht
+                 * nur in der Deal-Akte" - wer morgens um sechs vor einer leeren
+                 * Schicht steht, sucht nicht erst die Dealakte.
+                 * GEMESSEN am 2026-08-23: nur 5 von 68 Einsaetzen haben
+                 * ueberhaupt einen offer_id. Fuer die uebrigen bleibt das Feld
+                 * leer - das ist keine Luecke dieser Abfrage, sondern eine des
+                 * Datenmodells: ein Einsatz ohne Angebotsbezug hat keine
+                 * hinterlegte Ansprechperson, egal wo man sie anzeigt. */
+                ang.contact_name AS kontakt_name,
+                ang.contact_phone AS kontakt_telefon,
                 ${effEndSql} AS effective_end_date, ${lifecycleStateSql} AS lifecycle_state
            FROM worker_assignment_links wal
            JOIN assignments a ON a.id = wal.assignment_id
            LEFT JOIN organizations o ON o.id = a.org_id
+           LEFT JOIN offers ang ON ang.id = a.offer_id
           WHERE wal.worker_user_id = wp.user_id
             AND wal.supplier_org_id = $1
             AND wal.is_active = TRUE
