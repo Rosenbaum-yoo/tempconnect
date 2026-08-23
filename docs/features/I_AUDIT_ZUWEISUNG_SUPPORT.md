@@ -806,7 +806,7 @@ vorher **keine einzige Probe**.
 |---|---|---|
 | Wer erreicht `escalated_*`? | **Nur über `escalate`** | ✅ Übergangstabelle in `support.js` |
 | Bleibt `POST /reports`? | **Entfernen** | ✅ Migration 191, Route + Dienst + Tabelle weg |
-| Was zählt als Erstreaktion? | **Nur eine externe Notiz** + Zahl „ohne Erstreaktion" | offen (R6) |
+| Was zählt als Erstreaktion? | **Nur eine externe Notiz** + Zahl „ohne Erstreaktion" | ✅ R6 gebaut |
 | Wo liegt der Melde-Posteingang? | **Bleibt im Staff CC** | ✅ nichts zu tun — bestätigt |
 
 **R3 gebaut.** `change_status` hat jetzt eine Übergangstabelle. Die vier
@@ -834,6 +834,35 @@ Der einzige Rückweg aus `closed` führt heute über `POST /support/escalations`
 dessen Rechteprüfung mit einer **fest verdrahteten** Zeile `{status:"open"}`
 arbeitet (`support.js:1495`) und die Sperre damit umgeht. „Um einen Fall wieder
 zu öffnen, eskaliere ihn" ist kein Arbeitsablauf.
+
+**R6 gebaut — die Erstreaktion misst wieder eine Antwort.** Die Uhr stand an
+drei Stellen, keine davon eine Antwort: `accept` (jemand nimmt den Fall an),
+`change_status` mit `$2 <> 'new'` (also stoppte schon das Verschieben nach
+`waiting_internal` die Uhr) und `add_note` **ohne jede Unterscheidung** nach
+Notiztyp. Jetzt nur noch `note_type = 'external'` — dieselbe Grenze, die die
+Kundensicht zieht; eine Probe hält beide Stellen gegeneinander.
+
+Dazu die zweite Hälfte: `ohne_erstreaktion` und
+`ohne_erstreaktion_abgeschlossen`. `AVG()` überspringt NULL still — ein nie
+beantworteter Fall verschlechtert den Mittelwert nicht, er *verschwindet* aus
+ihm. Je schlechter der Support arbeitete, desto besser sah die Zahl aus.
+
+**R7 gebaut — die Antwort erreicht den Kunden.** Die Fallliste in `hilfe.html`
+war eine Sackgasse: kein `<a>`, kein `data-id`, kein Handler. Der Kunde sah
+Fallnummer und Status, und die Antwort des Supports lag in einer Route, die
+niemand aufrief. Die Zeile ist jetzt ein Knopf, der den Fall aufklappt.
+
+Nachgewiesen an **einem** Fall mit **zwei** Notizen — schärfer lässt sich die
+Grenze nicht prüfen:
+
+| | |
+|---|---|
+| externe Antwort | **sichtbar**, mit Berlin-Zeit (`23.08.2026, 06:55 Uhr`) |
+| interne Notiz | **nicht sichtbar** |
+| Fall ohne Antwort | „Noch keine Antwort. Wir melden uns bis: 23.08.2026, 10:…" |
+
+Der Leerzustand *sagt* etwas: „noch keine Antwort" ist eine andere Nachricht als
+ein leerer Kasten, und mit der Frist daneben weiß der Kunde, woran er ist.
 
 ### Was die Erhebung NICHT geprüft hat
 

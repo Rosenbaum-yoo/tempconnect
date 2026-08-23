@@ -432,6 +432,11 @@
       'help.case.status.closed': 'Abgeschlossen',
       'help.case.status.reopened': 'Wieder geöffnet',
       'help.cases.title': 'Ihre Anfragen',
+      'help.case.loading': 'Wird geladen …',
+      'help.case.loadErr': 'Der Fall konnte nicht geladen werden.',
+      'help.case.answers': 'Antworten vom Support',
+      'help.case.noAnswerYet': 'Noch keine Antwort.',
+      'help.case.answerBy': 'Wir melden uns bis:',
       'help.disclaimer': 'Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr.'
     });
     TCi18n.register('en', {
@@ -567,6 +572,11 @@
       'help.case.status.closed': 'Closed',
       'help.case.status.reopened': 'Reopened',
       'help.cases.title': 'Your requests',
+      'help.case.loading': 'Loading …',
+      'help.case.loadErr': 'The case could not be loaded.',
+      'help.case.answers': 'Replies from support',
+      'help.case.noAnswerYet': 'No reply yet.',
+      'help.case.answerBy': 'We will get back to you by:',
       'help.disclaimer': 'This content is for guidance only and does not replace a legal review. All information without warranty.'
     });
   }
@@ -766,16 +776,104 @@
         var kasten = document.getElementById('supportCaseList');
         var koerper = document.getElementById('supportCaseListBody');
         if (!d || !Array.isArray(d.faelle) || !d.faelle.length) { kasten.style.display = 'none'; return; }
+        /* Die Zeile ist ein KNOPF, kein Text.
+           Bis 2026-08-23 war sie beides nicht: kein <a>, kein data-id, kein
+           Handler. Der Kunde sah seine Fallnummer und einen Status — und die
+           Antwort des Supports lag in einer Route, die niemand aufrief.
+           `GET /support-requests/:id` liefert `antworten` (nur externe Notizen);
+           die Liste liefert sie bewusst nicht mit, sonst laedt man bei jedem
+           Aufruf alle Antworten aller Faelle. */
         koerper.innerHTML = d.faelle.map(function (f) {
-          return '<div style="border:1px solid var(--ds-border);border-radius:var(--ds-radius-md,8px);padding:var(--ds-space-3);display:flex;justify-content:space-between;gap:var(--ds-space-3);flex-wrap:wrap">'
-            + '<div style="min-width:0"><strong style="font-size:14px">' + esc(f.subject) + '</strong>'
-            + '<div style="color:var(--ds-text-secondary);font-size:12px;margin-top:2px">' + esc(f.case_number) + '</div></div>'
-            + '<span style="font-size:12px;align-self:center">' + esc(t('help.case.status.' + f.status, f.status)) + '</span>'
+          return '<div style="border:1px solid var(--ds-border);border-radius:var(--ds-radius-md,8px);overflow:hidden">'
+            + '<button type="button" class="tc-fall-kopf" data-fall="' + esc(f.id) + '" '
+            + 'style="width:100%;text-align:left;background:none;border:0;cursor:pointer;padding:var(--ds-space-3);display:flex;justify-content:space-between;gap:var(--ds-space-3);flex-wrap:wrap;align-items:center">'
+            + '<span style="min-width:0"><strong style="font-size:14px">' + esc(f.subject) + '</strong>'
+            + '<span style="display:block;color:var(--ds-text-secondary);font-size:12px;margin-top:2px">' + esc(f.case_number) + '</span></span>'
+            + '<span style="font-size:12px">' + esc(t('help.case.status.' + f.status, f.status)) + '</span>'
+            + '</button>'
+            + '<div class="tc-fall-koerper" id="fall-' + esc(f.id) + '" style="display:none;padding:0 var(--ds-space-3) var(--ds-space-3)"></div>'
             + '</div>';
         }).join('');
+
+        Array.prototype.forEach.call(koerper.querySelectorAll('.tc-fall-kopf'), function (k) {
+          k.addEventListener('click', function () { klappeFallAuf(k.getAttribute('data-fall')); });
+        });
         kasten.style.display = 'block';
       })
       .catch(function () { /* eine leere Liste ist kein Fehler, den der Kunde sehen muss */ });
+  }
+
+  /* Merkt sich, welche Faelle bereits geladen sind — ein zweiter Klick soll
+     zuklappen, nicht erneut laden. */
+  var geladeneFaelle = {};
+
+  function klappeFallAuf(fallId) {
+    var kasten = document.getElementById('fall-' + fallId);
+    if (!kasten) return;
+    if (kasten.style.display !== 'none') { kasten.style.display = 'none'; return; }
+    kasten.style.display = 'block';
+    if (geladeneFaelle[fallId]) return;
+
+    kasten.innerHTML = '<div style="font-size:12px;color:var(--ds-text-secondary);padding:var(--ds-space-2) 0">'
+      + esc(t('help.case.loading', 'Wird geladen …')) + '</div>';
+
+    fetch('/api/support-requests/' + encodeURIComponent(fallId), { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        var f = d && d.fall;
+        if (!f) {
+          kasten.innerHTML = '<div style="font-size:12px;color:var(--ds-danger-text,#b42318);padding:var(--ds-space-2) 0">'
+            + esc(t('help.case.loadErr', 'Der Fall konnte nicht geladen werden.')) + '</div>';
+          return;
+        }
+        geladeneFaelle[fallId] = true;
+
+        var h = '<div style="border-top:1px solid var(--ds-border);padding-top:var(--ds-space-3)">';
+        h += '<div style="font-size:12px;color:var(--ds-text-secondary);line-height:1.6;white-space:pre-wrap">' + esc(f.description || '') + '</div>';
+
+        var antworten = Array.isArray(f.antworten) ? f.antworten : [];
+        h += '<div style="margin-top:var(--ds-space-3);font-size:13px;font-weight:700">'
+          + esc(t('help.case.answers', 'Antworten vom Support')) + '</div>';
+        if (!antworten.length) {
+          /* Leerzustand, der etwas SAGT: "noch keine Antwort" ist eine andere
+             Nachricht als ein leerer Kasten, und mit der Frist daneben weiss
+             der Kunde, woran er ist. */
+          h += '<div style="font-size:12px;color:var(--ds-text-secondary);margin-top:var(--ds-space-1);line-height:1.6">'
+            + esc(t('help.case.noAnswerYet', 'Noch keine Antwort.'))
+            + (f.sla_first_response_deadline
+                ? ' ' + esc(t('help.case.answerBy', 'Wir melden uns bis:')) + ' ' + esc(fmtZeit(f.sla_first_response_deadline))
+                : '')
+            + '</div>';
+        } else {
+          h += antworten.map(function (a) {
+            return '<div style="margin-top:var(--ds-space-2);padding:var(--ds-space-2) var(--ds-space-3);border-left:3px solid var(--hub-accent,var(--ds-brand,#333));background:var(--ds-surface-subtle,transparent)">'
+              + '<div style="font-size:11px;color:var(--ds-text-secondary)">' + esc(fmtZeit(a.created_at)) + '</div>'
+              + '<div style="font-size:13px;line-height:1.6;margin-top:2px;white-space:pre-wrap">' + esc(a.body) + '</div>'
+              + '</div>';
+          }).join('');
+        }
+        h += '</div>';
+        kasten.innerHTML = h;
+      })
+      .catch(function () {
+        kasten.innerHTML = '<div style="font-size:12px;color:var(--ds-danger-text,#b42318);padding:var(--ds-space-2) 0">'
+          + esc(t('help.case.loadErr', 'Der Fall konnte nicht geladen werden.')) + '</div>';
+      });
+  }
+
+  /* Europe/Berlin, nicht der roher UTC-Schnitt — die Living-Platform-Direktive
+     der CLAUDE.md verlangt das ausdruecklich, und ein Kunde liest hier eine
+     Uhrzeit, nach der er sich richtet. */
+  function fmtZeit(wert) {
+    if (!wert) return '';
+    try {
+      return new Date(wert).toLocaleString('de-DE', {
+        timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      }) + ' Uhr';
+    } catch (e) {
+      return String(wert).slice(0, 16).replace('T', ' ');
+    }
   }
 
   function starteTrichter() {
