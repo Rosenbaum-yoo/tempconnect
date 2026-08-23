@@ -121,7 +121,13 @@ const demandRequestSchema = z.object({
   urgency: z.enum(["normal", "plus", "notdienst"]).optional().default("normal"),
   budget_min: z.number().optional().nullable(),
   budget_max: z.number().optional().nullable(),
-  sla_minutes: z.number().int().min(15).max(10080).optional().nullable()
+  sla_minutes: z.number().int().min(15).max(10080).optional().nullable(),
+  /* Weich wie beim Angebot, aus demselben Grund: die Pflicht setzt die ROUTE
+   * durch, mit Rueckfall aufs Profil. Im Schema waere sie eine Pflicht ohne
+   * Rueckfall — wer sie im Profil gepflegt hat, muesste sie bei JEDEM Bedarf
+   * erneut tippen. */
+  contact_name: z.string().max(200).optional().nullable(),
+  contact_phone: z.string().max(50).optional().nullable()
 });
 
 const demandInteractionSchema = z.object({
@@ -542,7 +548,18 @@ export function createMarketplaceRouter(deps) {
           radius_km: cap.radius_km || 25,
           urgency: "normal"
         };
-        const demand = await marketplaceService.createDemandRequest(client, req.session.userId, me?.plan || "FREE", demandData);
+        /* Der Bedarf entsteht hier NEBENBEI, waehrend der Kaeufer ein
+         * Kapazitaetsangebot annimmt bzw. verhandelt. Seine Ansprechperson wird
+         * aus dem Profil gefuellt — aber er wird NICHT blockiert: mitten in
+         * einem schnellen Abschluss nach einer Telefonnummer zu fragen ist eine
+         * Wand an genau der Stelle, an der Tempo der Zweck ist. Fehlt sie,
+         * fragt der ausdrueckliche Bedarf beim naechsten Mal danach. */
+        const kaeuferKontakt = await ansprechperson(client, req.session.userId, req.body || {});
+        const demand = await marketplaceService.createDemandRequest(client, req.session.userId, me?.plan || "FREE", {
+          ...demandData,
+          contact_name: kaeuferKontakt.name || null,
+          contact_phone: kaeuferKontakt.telefon || null
+        });
 
         /* Hier handelt der KAEUFER; der Anbieter ist die Gegenseite. Die
          * Ansprechperson wird aus seinem Profil gefuellt — fehlt sie dort,
@@ -719,7 +736,18 @@ export function createMarketplaceRouter(deps) {
           radius_km: cap.radius_km || 25,
           urgency: "normal"
         };
-        const demand = await marketplaceService.createDemandRequest(client, req.session.userId, me?.plan || "FREE", demandData);
+        /* Der Bedarf entsteht hier NEBENBEI, waehrend der Kaeufer ein
+         * Kapazitaetsangebot annimmt bzw. verhandelt. Seine Ansprechperson wird
+         * aus dem Profil gefuellt — aber er wird NICHT blockiert: mitten in
+         * einem schnellen Abschluss nach einer Telefonnummer zu fragen ist eine
+         * Wand an genau der Stelle, an der Tempo der Zweck ist. Fehlt sie,
+         * fragt der ausdrueckliche Bedarf beim naechsten Mal danach. */
+        const kaeuferKontakt = await ansprechperson(client, req.session.userId, req.body || {});
+        const demand = await marketplaceService.createDemandRequest(client, req.session.userId, me?.plan || "FREE", {
+          ...demandData,
+          contact_name: kaeuferKontakt.name || null,
+          contact_phone: kaeuferKontakt.telefon || null
+        });
 
         /* Hier handelt der KAEUFER; der Anbieter ist die Gegenseite. Die
          * Ansprechperson wird aus seinem Profil gefuellt — fehlt sie dort,
@@ -881,7 +909,18 @@ export function createMarketplaceRouter(deps) {
         });
         return;
       }
-      const demand = await marketplaceService.createDemandRequest(pool, req.session.userId, plan, parsed.data);
+      /* Hier legt das EINSATZUNTERNEHMEN seinen Bedarf an — seine
+       * Ansprechperson ist die Nummer, die die Agentur spaeter in Besetzung und
+       * Live-Belegschaft sieht. Dieselbe Mechanik wie beim Angebot, nur die
+       * andere Richtung. */
+      const kontakt = await ansprechperson(pool, req.session.userId, parsed.data);
+      if (kontakt.fehlt) return ansprechpersonFehltAntwort(res, kontakt);
+
+      const demand = await marketplaceService.createDemandRequest(pool, req.session.userId, plan, {
+        ...parsed.data,
+        contact_name: kontakt.name,
+        contact_phone: kontakt.telefon
+      });
 
       if (demand.sla_status === "RUNNING") {
         await marketplaceService.recordDemandSlaStarted(pool, demand.id);

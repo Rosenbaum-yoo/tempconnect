@@ -2333,6 +2333,12 @@ export async function listOpenStaffingAssignments(pool, supplierOrgId, { limit =
             dr.role AS demand_role,
             dr.title AS demand_title,
             dr.location_city AS demand_location_city,
+            /* Die Ansprechperson des KUNDEN (Plan I, 10b). Aus dem Bedarf, nicht
+             * aus dem Angebot: das Angebot traegt die Ansprechperson des
+             * ANBIETERS, und diese Liste ist die des Anbieters. Wer besetzt,
+             * braucht die Nummer der Gegenseite, nicht die eigene. */
+            dr.contact_name AS kunde_kontakt_name,
+            dr.contact_phone AS kunde_kontakt_telefon,
             COALESCE(NULLIF(r.role, ''), NULLIF(dr.role, ''), NULLIF(dr.title, ''), a.worker_description, 'Einsatz') AS request_title
      FROM assignments a
      LEFT JOIN organizations buyer ON buyer.id = a.org_id

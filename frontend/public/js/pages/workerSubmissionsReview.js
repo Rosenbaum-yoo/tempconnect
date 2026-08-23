@@ -411,6 +411,9 @@ TCi18n.register('de', {
   'ts.rev.asgn.workerPickNoAccess': 'Die Worker-Auswahl ist für Ihren aktuellen Organisationskontext nicht verfügbar.',
   'ts.rev.asgn.closedLoadFail': 'Abgeschlossene Deals konnten nicht geladen werden.',
   'ts.rev.asgn.slotsFilled': '{filled} von {requested} besetzt',
+  /* Ansprechperson beim KUNDEN — aus dem Bedarf. Das Angebot traegt die
+     eigene; diese Flaeche ist die des Anbieters. */
+  'ts.rev.asgn.clientContact': 'Ansprechperson beim Kunden:',
   'ts.rev.asgn.slots': '{filled} besetzt · {reserved} reserviert · {open} offen von {requested}',
   'ts.rev.asgn.statusActive': 'Aktiv',
   'ts.rev.asgn.statusArchived': 'Archiv',
@@ -1206,6 +1209,7 @@ TCi18n.register('en', {
   'ts.rev.asgn.workerPickNoAccess': 'The worker selection is not available for your current organisation context.',
   'ts.rev.asgn.closedLoadFail': 'Closed deals could not be loaded.',
   'ts.rev.asgn.slotsFilled': '{filled} of {requested} filled',
+  'ts.rev.asgn.clientContact': 'Client contact:',
   'ts.rev.asgn.slots': '{filled} filled · {reserved} reserved · {open} open of {requested}',
   'ts.rev.asgn.statusActive': 'Active',
   'ts.rev.asgn.statusArchived': 'Archive',
@@ -3998,6 +4002,25 @@ function renderClosedDealCard(a){
     +esc(tt('ts.rev.asgn.slotsFilled', { filled: filled, requested: requested }))
     +(linkTotal?' · '+linkActive+' aktive Verknuepfung'+(linkActive===1?'':'en')+' / '+linkTotal+' gesamt':'')
     +'</div>'
+    /* DIE ANSPRECHPERSON BEIM KUNDEN (Plan I, 10b).
+       "Sichtbar an der Besetzung und in der Live-Belegschaft, nicht nur in der
+       Deal-Akte" — bis hierher fuehrte von dieser Karte nur der Knopf "Dealakte
+       oeffnen" weiter, also genau der Umweg, den die Vorgabe abstellt.
+       Aus dem BEDARF, nicht aus dem Angebot: das Angebot traegt die
+       Ansprechperson des Anbieters, und das ist die Flaeche des Anbieters.
+       Die Nummer ist waehlbar. Fehlt sie, steht hier nichts — gemessen haben
+       61 von 68 Einsaetzen gar keinen Vorgang hinter sich. */
+    +((a.kunde_kontakt_name||a.kunde_kontakt_telefon)
+      ?'<div style="margin-top:4px;font-size:12px;color:var(--wk-text-muted);line-height:1.5">'
+        +'<strong style="color:var(--wk-text)">'+esc(tt('ts.rev.asgn.clientContact'))+'</strong> '
+        +esc(a.kunde_kontakt_name||'')
+        +(a.kunde_kontakt_telefon
+          ?(a.kunde_kontakt_name?' · ':'')
+            +'<a href="tel:'+esc(String(a.kunde_kontakt_telefon).replace(/[^+0-9]/g,''))+'" style="color:inherit">'
+            +esc(a.kunde_kontakt_telefon)+'</a>'
+          :'')
+        +'</div>'
+      :'')
     +(detailHref?'<div style="margin-top:10px"><a class="wk-btn wk-btn-ghost wk-btn-sm" href="'+detailHref+'">Dealakte oeffnen</a></div>':'')
     +'</div>';
 }

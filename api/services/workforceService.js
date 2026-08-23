@@ -706,7 +706,7 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
   const { rows } = await pool.query(
     `SELECT wp.id, wp.user_id, wp.first_name, wp.last_name, wp.personnel_number, wp.is_active,
             cur.assignment_id, cur.link_id, cur.assignment_status, cur.client_name, cur.start_date,
-            cur.kontakt_name, cur.kontakt_telefon,
+            cur.kunde_kontakt_name, cur.kunde_kontakt_telefon,
             cur.effective_end_date, cur.lifecycle_state,
             ersatz.ersatz_link_id,
             abw.id AS absence_id, abw.art AS absence_art,
@@ -750,22 +750,32 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
          SELECT a.id AS assignment_id, wal.id AS link_id,
                 a.status AS assignment_status, o.name AS client_name,
                 wal.start_date, wal.is_montage,
-                /* DIE ANSPRECHPERSON (Plan I, 10b, Owner-Entscheid 2026-08-23).
-                 * "Sichtbar an der Besetzung und in der Live-Belegschaft, nicht
-                 * nur in der Deal-Akte" - wer morgens um sechs vor einer leeren
-                 * Schicht steht, sucht nicht erst die Dealakte.
-                 * GEMESSEN am 2026-08-23: nur 5 von 68 Einsaetzen haben
-                 * ueberhaupt einen offer_id. Fuer die uebrigen bleibt das Feld
-                 * leer - das ist keine Luecke dieser Abfrage, sondern eine des
-                 * Datenmodells: ein Einsatz ohne Angebotsbezug hat keine
-                 * hinterlegte Ansprechperson, egal wo man sie anzeigt. */
-                ang.contact_name AS kontakt_name,
-                ang.contact_phone AS kontakt_telefon,
+                /* DIE ANSPRECHPERSON BEIM KUNDEN (Plan I, 10b).
+                 *
+                 * Aus dem BEDARF, nicht aus dem Angebot. Die erste Fassung las
+                 * offers.contact_name — und das ist die Ansprechperson des
+                 * ANBIETERS, also derselben Organisation, deren Tafel das hier
+                 * ist. Die Agentur bekam ihre EIGENE Nummer angezeigt. Belegt
+                 * an der Datenbank: assignments.supplier_org_id ist die
+                 * Agentur, und offers.supplier_company_id ist ein Mitglied
+                 * ebendieser Agentur.
+                 *
+                 * Besetzung und Live-Belegschaft sind Anbieter-Flaechen; dort
+                 * gehoert die Nummer des KUNDEN hin. Die Gegenrichtung traegt
+                 * offers.contact_name, wo der Kunde hinsieht.
+                 *
+                 * GEMESSEN 2026-08-23: 61 von 68 Einsaetzen haben weder Bedarf
+                 * noch Deal noch Angebot. Fuer die bleibt das Feld leer — das
+                 * ist keine Luecke dieser Abfrage, sondern eine der Herkunft:
+                 * ein Einsatz ohne Vorgang hat keine Gegenseite, die man
+                 * anrufen koennte. */
+                bedarf.contact_name AS kunde_kontakt_name,
+                bedarf.contact_phone AS kunde_kontakt_telefon,
                 ${effEndSql} AS effective_end_date, ${lifecycleStateSql} AS lifecycle_state
            FROM worker_assignment_links wal
            JOIN assignments a ON a.id = wal.assignment_id
            LEFT JOIN organizations o ON o.id = a.org_id
-           LEFT JOIN offers ang ON ang.id = a.offer_id
+           LEFT JOIN demand_requests bedarf ON bedarf.id = a.demand_request_id
           WHERE wal.worker_user_id = wp.user_id
             AND wal.supplier_org_id = $1
             AND wal.is_active = TRUE

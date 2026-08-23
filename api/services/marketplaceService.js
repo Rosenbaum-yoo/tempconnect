@@ -253,8 +253,9 @@ export async function createDemandRequest(pool, requesterId, plan, payload) {
       location_city, location_postal, location_lat, location_lng, radius_km,
       shifts, requirements, urgency, budget_min, budget_max,
       sla_started_at, sla_minutes, sla_due_at, sla_status,
-      required_total_count, remaining_open_count, currently_committed_count)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+      required_total_count, remaining_open_count, currently_committed_count,
+      contact_name, contact_phone)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
      RETURNING *`,
     [
       requesterId,
@@ -280,7 +281,13 @@ export async function createDemandRequest(pool, requesterId, plan, payload) {
       useSla ? "RUNNING" : null,
       payload.headcount ?? 1,
       payload.headcount ?? 1,
-      0
+      0,
+      /* Die Ansprechperson des EINSATZUNTERNEHMENS (Plan I, 10b). Sie ist die
+       * Nummer, die die Agentur spaeter in Besetzung und Live-Belegschaft sieht.
+       * Aufgeloest wird sie in der Route (mit Rueckfall aufs Profil); hier steht
+       * nur, was ankommt — der Dienst entscheidet nicht ueber Pflichten. */
+      payload.contact_name || null,
+      payload.contact_phone || null
     ]
   );
   return rows[0];
