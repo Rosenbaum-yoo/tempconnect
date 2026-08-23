@@ -966,6 +966,9 @@ function buildSupportRouter(deps) {
       const nowEventDetail = { action };
 
       let auditAction = action;
+      /* Was nach dem COMMIT zu versenden ist. Eine verschickte Mail holt kein
+       * Rollback zurueck — deshalb wird der Auftrag hier nur vermerkt. */
+      let versandAuftrag = null;
       if (action === "accept") {
         /* `sla_first_responded_at` wird hier NICHT mehr gestempelt.
          *
@@ -1228,6 +1231,37 @@ function buildSupportRouter(deps) {
           });
         }
       } else if (action === "resend_verification" || action === "resend_invite") {
+        /*
+         * DIESER ZWEIG WAR EINE ATTRAPPE.
+         *
+         * BEFUND (2026-08-22): Er schrieb eine Zeitleisten-Zeile, setzte
+         * `auditAction` und antwortete `success: true` — ohne eine einzige
+         * Mail. Kein `sendMail`, kein UPDATE, nicht einmal `updated_at`.
+         *
+         * Es war kein "Daten fehlen"-Fall: `createCaseBaseSelect` liefert
+         * `reporter_user_id` und `reporter_email` direkt in `currentRow`.
+         *
+         * Verschaerfend: der EINZIGE POST der gesamten Support-Oberflaeche ging
+         * auf diese Attrappe, waehrend die funktionierende Route
+         * `/support/user-actions` gar keinen Aufrufer hatte. Ein Agent klickte,
+         * bekam eine Bestaetigung, und der Kunde wartete weiter auf eine Mail,
+         * die nie kam.
+         *
+         * Owner-Entscheid 2026-08-23: echten Versand anschliessen.
+         *
+         * WARUM ERST NACH DEM COMMIT: Eine verschickte Mail holt kein Rollback
+         * zurueck. Wuerde hier gesendet und die Transaktion scheiterte danach,
+         * haette der Kunde eine Mail zu einem Vorgang, den es nicht gibt.
+         * Deshalb wird der Auftrag nur VERMERKT und unten ausgefuehrt.
+         */
+        if (!currentRow.reporter_user_id) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            error: "NO_REPORTER",
+            message: "Dieser Fall hat keinen hinterlegten Melder — es gibt niemanden, an den gesendet werden könnte."
+          });
+        }
+        versandAuftrag = { action, nutzerId: currentRow.reporter_user_id };
         await insertCaseEvent(client, currentRow.id, req.supportAgent.id, action, nowEventDetail);
         auditAction = action;
       } else if (action === "close") {
@@ -1278,8 +1312,25 @@ function buildSupportRouter(deps) {
 
       await client.query("COMMIT");
 
+      /* Erst jetzt. Der Vorgang steht in der Datenbank; was danach schiefgeht,
+       * kann ihn nicht mehr umwerfen. Umgekehrt waere es fatal: eine Mail, die
+       * raus ist, holt kein Rollback zurueck. */
+      let versandErgebnis = null;
+      if (versandAuftrag) {
+        versandErgebnis = await versendeAnNutzer(versandAuftrag.action, versandAuftrag.nutzerId);
+        if (!versandErgebnis.ok) {
+          logger?.error?.({ caseId: currentRow.id, action: versandAuftrag.action, grund: versandErgebnis.grund },
+            "Support-Versand fehlgeschlagen");
+        }
+      }
+
       return res.json({
         success: true,
+        /* Ehrlich statt beruhigend: `success: true` allein war genau das, was
+         * die Attrappe so lange unsichtbar gemacht hat. Wenn der Versand
+         * scheitert, steht es in der Antwort — der Agent muss es wissen, bevor
+         * er dem Kunden sagt, die Mail sei unterwegs. */
+        ...(versandErgebnis ? { versand: versandErgebnis } : {}),
         case: updatedRow ? caseDetailFromRow(updatedRow, req, notes, timeline) : null
       });
     } catch (err) {
@@ -1716,6 +1767,58 @@ function buildSupportRouter(deps) {
    * OCC. Diese Route ist die erste Haelfte; die zweite steht in
    * `api/routes/occ/decisionsRequests.js`.
    */
+  /*
+   * EIN Versandweg fuer beide Aufrufer.
+   *
+   * Bis 2026-08-23 gab es zwei: `/support/user-actions` versendete wirklich,
+   * der Zweig in der Fall-Aktion war eine Attrappe (Zeitleisten-Zeile,
+   * `success: true`, keine Mail). Die Oberflaeche rief ausgerechnet die
+   * Attrappe auf.
+   *
+   * Zwei Kopien desselben Vorgangs driften — das ist heute an drei anderen
+   * Stellen dieses Repos passiert (Grund-Vokabular, Sichtbarkeitsregel,
+   * Erstreaktionsgrenze). Deshalb EINE Funktion, und beide Aufrufer gehen
+   * hindurch.
+   *
+   * Gibt `{ ok, grund }` zurueck statt zu werfen: der Aufrufer hat seinen
+   * Vorgang schon geschrieben, ein Versandfehler darf ihn nicht umwerfen — er
+   * muss aber sichtbar sein.
+   */
+  async function versendeAnNutzer(action, nutzerId) {
+    if (!nutzerId) return { ok: false, grund: "NO_USER" };
+    try {
+      if (action === "resend_verification") {
+        const ergebnis = await internalControlCenterService.resendVerificationForUser(
+          pool, nutzerId, config?.BASE_URL || "", sendMail
+        );
+        if (ergebnis?.code === "NOT_FOUND") return { ok: false, grund: "USER_NOT_FOUND" };
+        /* `ALREADY_VERIFIED` ist kein Fehler, sondern eine Auskunft: es gab
+         * nichts zu senden. Der Agent soll das erfahren, statt zu glauben,
+         * eine Mail sei unterwegs. */
+        if (ergebnis?.code && ergebnis.code !== "OK") return { ok: false, grund: ergebnis.code };
+        return { ok: true, grund: null };
+      }
+      if (action === "resend_invite") {
+        const { rows } = await pool.query(
+          `SELECT email FROM users WHERE id = $1::uuid LIMIT 1`, [ nutzerId ]
+        );
+        const ziel = rows[0]?.email || null;
+        if (!ziel) return { ok: false, grund: "USER_NOT_FOUND" };
+        if (!sendMail) return { ok: false, grund: "NO_MAILER" };
+        await sendMail(
+          ziel,
+          "TempConnect Einladung",
+          "<p>Ihre TempConnect-Einladung wurde erneut gesendet. Bitte melden Sie sich mit Ihrem bestehenden Zugang an.</p>"
+        );
+        return { ok: true, grund: null };
+      }
+      return { ok: false, grund: "UNKNOWN_ACTION" };
+    } catch (err) {
+      logger?.error?.({ err, action, nutzerId }, "Support-Versand fehlgeschlagen");
+      return { ok: false, grund: "SEND_FAILED" };
+    }
+  }
+
   const ESKALATIONS_ABSCHLUSS = new Set([ "acknowledged", "resolved", "rejected" ]);
 
   router.post("/support/escalations/:id/resolve", async (req, res) => {
@@ -2310,33 +2413,20 @@ function buildSupportRouter(deps) {
         return res.status(404).json({ error: "USER_NOT_FOUND", message: "User konnte nicht aufgelöst werden." });
       }
 
-      if (action === "resend_verification") {
-        const result = await internalControlCenterService.resendVerificationForUser(
-          pool,
-          resolvedUserId,
-          config.BASE_URL || "",
-          sendMail
-        );
-        if (result.code === "NOT_FOUND") {
-          return res.status(404).json({ error: "USER_NOT_FOUND", message: "User nicht gefunden." });
-        }
-      } else if (action === "resend_invite") {
-        const userRows = await pool.query(
-          `SELECT email
-             FROM users
-            WHERE id = $1::uuid
-            LIMIT 1`,
-          [resolvedUserId]
-        );
-        const targetEmail = userRows.rows[0]?.email || null;
-        if (!targetEmail) {
-          return res.status(404).json({ error: "USER_NOT_FOUND", message: "User nicht gefunden." });
-        }
-        await sendMail?.(
-          targetEmail,
-          "TempConnect Einladung",
-          "<p>Ihre TempConnect-Einladung wurde erneut gesendet. Bitte melden Sie sich mit Ihrem bestehenden Zugang an.</p>"
-        );
+      /* Derselbe Versandweg wie im Fall-Zweig. Bis 2026-08-23 standen hier zwei
+       * Kopien: diese versendete wirklich, die andere war eine Attrappe — und
+       * die Oberflaeche rief ausgerechnet die Attrappe auf. Zwei Kopien
+       * desselben Vorgangs driften; jetzt gibt es eine. */
+      const versand = await versendeAnNutzer(action, resolvedUserId);
+      if (!versand.ok && versand.grund === "USER_NOT_FOUND") {
+        return res.status(404).json({ error: "USER_NOT_FOUND", message: "User nicht gefunden." });
+      }
+      if (!versand.ok) {
+        return res.status(502).json({
+          error: "SEND_FAILED",
+          message: "Der Versand ist nicht gelungen.",
+          grund: versand.grund
+        });
       }
 
       await insertSupportAudit(pool, {
