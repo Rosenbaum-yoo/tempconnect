@@ -27,6 +27,33 @@ Stattdessen erkennt `api/scripts/run-tests.js` die reale Suite-Struktur automati
 - `--suite=security` → `test/security/` + security/rbac/auth-hardening files
 - `--suite=tenant` → orgBoundary + org-boundary tests
 - `--suite=pilot` → pilot model/policy/conversion tests
+- `--suite=db-gated` → Dateien, die sich ohne `DATABASE_URL` selbst überspringen
+
+### Wenn ein Testkindprozess nativ abstürzt
+
+Unter Windows stirbt sporadisch ein Kindprozess beim Aufräumen — ein libuv-Wettlauf
+zwischen `--test-force-exit` und noch offenen Handles der Testdatei. Alle Untertests sind
+dann grün, die Datei wird trotzdem als Ganzes rot gemeldet. Das ist **kein**
+fehlgeschlagener Test.
+
+Der Runner erkennt das seit 2026-08-23 selbst und gibt am Ende einen eigenen Block aus:
+welche Datei betroffen ist, dass der Lauf für sie **keinen Befund** erbracht hat (nicht:
+dass sie in Ordnung ist), und — falls daneben **echte** rote Dateien stehen — dass ein
+Wiederholen die nicht beseitigt. Der Exit-Code bleibt in jedem Fall der des Testlaufs;
+der Runner färbt nichts grün.
+
+- `--retry-on-abort` wiederholt den Lauf **genau einmal**, aber nur wenn ein Abbruch
+  erkannt wurde *und* der Lauf keine echten roten Dateien hat. Bewusst ausgeschaltet:
+  automatisches Wiederholen kann ein neu eingebautes Handle-Leck dauerhaft zudecken.
+  Auf Linux-Runnern (CI) greift der Schalter nie — die Signatur ist Windows-spezifisch;
+  deshalb steht er in keinem npm-Skript und in keinem Workflow.
+- Stirbt ein Prozess nativ aus **unbekannter** Ursache, meldet der Runner das ebenfalls —
+  dann aber ausdrücklich *ohne* die Empfehlung zu wiederholen: solange niemand weiß,
+  warum, belegt auch ein grüner zweiter Lauf nichts.
+
+Erkennung und Formulierung liegen in `api/scripts/lib/nativerAbbruch.mjs`, geprüft von
+`api/test/nativerAbbruch.test.js` (Detektor) und `api/test/runTestsVerdrahtung.test.js`
+(die Kette im Runner, gegen einen Sandkasten im Temp-Verzeichnis).
 
 ---
 
