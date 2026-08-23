@@ -943,11 +943,22 @@ function buildSupportRouter(deps) {
 
       let auditAction = action;
       if (action === "accept") {
+        /* `sla_first_responded_at` wird hier NICHT mehr gestempelt.
+         *
+         * BEFUND (2026-08-22): Die Uhr stand an drei Stellen — `accept`,
+         * `change_status` und `add_note` (letzteres OHNE Ruecksicht auf den
+         * Notiztyp). Keine davon ist eine Antwort. Gemessen wurde damit "ein
+         * Agent hat den Fall angefasst", ausgewiesen wurde es als
+         * "Ø Erstreaktion" — und dem Kunden in seiner eigenen Fallakte gezeigt.
+         *
+         * Der Code definiert selbst, was der Kunde sieht:
+         * `supportIntakeService.js` filtert hart auf `note_type = 'external'`.
+         * Genau diese Grenze hat die Uhr ignoriert. Owner-Entscheid 2026-08-23:
+         * es zaehlt nur eine externe Notiz. Die Stelle dafuer ist `add_note`. */
         await client.query(
           `UPDATE support_cases
               SET assigned_to_agent_id = $2::uuid,
                   status = CASE WHEN status = 'new' THEN 'open' ELSE status END,
-                  sla_first_responded_at = COALESCE(sla_first_responded_at, NOW()),
                   updated_at = NOW()
             WHERE id = $1::uuid`,
           [currentRow.id, req.supportAgent.id]
@@ -1015,12 +1026,13 @@ function buildSupportRouter(deps) {
           });
         }
         await client.query(
+          /* Auch hier faellt der Stempel weg (siehe `accept`): ein Statuswechsel
+           * ist keine Antwort. Er war sogar die irrefuehrendste der drei
+           * Stellen — `$2 <> 'new'` heisst "irgendein anderer Zustand", also
+           * stoppte schon das Verschieben nach `waiting_internal` die Uhr, das
+           * der Kunde nie zu sehen bekommt. */
           `UPDATE support_cases
               SET status = $2,
-                  sla_first_responded_at = CASE
-                    WHEN sla_first_responded_at IS NULL AND $2 <> 'new' THEN NOW()
-                    ELSE sla_first_responded_at
-                  END,
                   sla_resolved_at = CASE
                     WHEN $2 IN ('resolved', 'closed') THEN COALESCE(sla_resolved_at, NOW())
                     ELSE sla_resolved_at
@@ -1063,12 +1075,27 @@ function buildSupportRouter(deps) {
            VALUES ($1::uuid, $2::uuid, $3, $4)`,
           [currentRow.id, req.supportAgent.id, noteType, note]
         );
+        /*
+         * DIE EINZIGE STELLE, an der die Erstreaktionsuhr noch stehenbleibt —
+         * und nur bei `external`.
+         *
+         * Vorher stand hier `COALESCE(sla_first_responded_at, NOW())` OHNE
+         * jede Unterscheidung: der Parameter war nur `[currentRow.id]`. Zwei
+         * von drei Notiztypen (`internal`, `system`) stoppten die Uhr also
+         * unsichtbar — eine interne Randnotiz galt als Antwort an den Kunden.
+         *
+         * Die Grenze steht im SQL und nicht in JS, damit sie nicht beim
+         * naechsten Umbau dieser Abfrage verlorengeht.
+         */
         await client.query(
           `UPDATE support_cases
               SET updated_at = NOW(),
-                  sla_first_responded_at = COALESCE(sla_first_responded_at, NOW())
+                  sla_first_responded_at = CASE
+                    WHEN $2 = 'external' THEN COALESCE(sla_first_responded_at, NOW())
+                    ELSE sla_first_responded_at
+                  END
             WHERE id = $1::uuid`,
-          [currentRow.id]
+          [currentRow.id, noteType]
         );
         await insertCaseEvent(client, currentRow.id, req.supportAgent.id, "note_added", { note_type: noteType });
         auditAction = "note_added";
@@ -1712,7 +1739,31 @@ function buildSupportRouter(deps) {
               CASE WHEN COUNT(*) = 0 THEN NULL
                    ELSE 100.0 * COUNT(*) FILTER (WHERE sc.status = 'reopened') / COUNT(*)
               END::numeric, 1
-            ) AS reopen_rate_percent
+            ) AS reopen_rate_percent,
+            /*
+             * DIE UNBEANTWORTETEN — die Haelfte, die der Mittelwert verschweigt.
+             *
+             * AVG() ueberspringt NULL still. Ein Fall, den nie jemand
+             * beantwortet hat, verschlechtert die "Ø Erstreaktion" also nicht,
+             * er verschwindet aus ihr. Je schlechter der Support arbeitet,
+             * desto besser sieht die Zahl aus — und close schreibt die Spalte
+             * ohnehin nie, ein Fall kann also ohne jede Antwort geschlossen
+             * werden. Owner-Entscheid 2026-08-23: die Zahl wird ausgewiesen.
+             *
+             * Nur Faelle, die alt genug fuer eine Antwort sind, zaehlen hier
+             * nicht mit — ein Fall von vor drei Minuten ist nicht unbeantwortet,
+             * sondern neu. Die Grenze ist die Erstreaktionsfrist des Falles
+             * selbst; wo keine gesetzt ist, gilt er als noch nicht faellig.
+             */
+            COUNT(*) FILTER (
+              WHERE sc.sla_first_responded_at IS NULL
+                AND sc.sla_first_response_deadline IS NOT NULL
+                AND sc.sla_first_response_deadline < NOW()
+            )::int AS ohne_erstreaktion,
+            COUNT(*) FILTER (
+              WHERE sc.sla_first_responded_at IS NULL
+                AND sc.status IN ('resolved', 'closed')
+            )::int AS ohne_erstreaktion_abgeschlossen
            FROM support_cases sc
           ${whereClause}`,
         params
@@ -1728,6 +1779,12 @@ function buildSupportRouter(deps) {
         sla_met_percent: toNumber(row.sla_met_percent, null),
         escalation_rate_percent: toNumber(row.escalation_rate_percent, null),
         reopen_rate_percent: toNumber(row.reopen_rate_percent, null),
+        /* Gehoert NEBEN den Mittelwert, nicht dahinter versteckt: `AVG()`
+         * ueberspringt NULL still, ein nie beantworteter Fall verschlechtert
+         * die "Ø Erstreaktion" also nicht, sondern verschwindet aus ihr. Ohne
+         * diese beiden Zahlen sieht schlechter Support besser aus als guter. */
+        ohne_erstreaktion: toInt(row.ohne_erstreaktion, 0),
+        ohne_erstreaktion_abgeschlossen: toInt(row.ohne_erstreaktion_abgeschlossen, 0),
         csat_score: null
       });
     } catch (err) {
