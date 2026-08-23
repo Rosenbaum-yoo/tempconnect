@@ -800,6 +800,41 @@ vorher **keine einzige Probe**.
 | **R8** | **144 von 395 Nutzern** sind keiner Organisation zuzuordnen. Die Garantie aus Migration 041 ist ein einmaliger `DO`-Block ohne Trigger — sie ist verfallen und die Lücke wächst nach | Blocker der Vereinigung |
 | **R9** | Die Grund-Vokabulare beider Meldewege sind fast disjunkt: nur `spam` ist gemeinsam. `betrug` und `belaestigung` haben **keine** Entsprechung | Blocker der Vereinigung |
 
+### Owner-Entscheide 2026-08-23 und was daraus gebaut wurde
+
+| Frage | Entscheidung | Gebaut |
+|---|---|---|
+| Wer erreicht `escalated_*`? | **Nur über `escalate`** | ✅ Übergangstabelle in `support.js` |
+| Bleibt `POST /reports`? | **Entfernen** | ✅ Migration 191, Route + Dienst + Tabelle weg |
+| Was zählt als Erstreaktion? | **Nur eine externe Notiz** + Zahl „ohne Erstreaktion" | offen (R6) |
+| Wo liegt der Melde-Posteingang? | **Bleibt im Staff CC** | ✅ nichts zu tun — bestätigt |
+
+**R3 gebaut.** `change_status` hat jetzt eine Übergangstabelle. Die vier
+`escalated_*` sind daraus entfernt: sie entstehen nur im `escalate`-Zweig, der
+Begründung, OCC-Vorgang, Eskalations-Zeile und Ops-Signal schreibt. Der Weg auf
+sich selbst wird beim **Bau** der Tabelle entfernt, nicht bei jeder Abfrage —
+die erste Fassung schloss ihn nur im Kommentar aus, und `open → open` wäre
+durchgegangen: keine Änderung, aber ein Ereignis in der Zeitleiste, das eine
+vorspiegelt.
+
+**Zwei Funde, die erst beim Bauen der Proben auffielen** — als BEFUND-Gruppe im
+Test festgehalten, nicht mitrepariert (Produktfrage):
+
+- **`resolved` und `closed` sind absolute Sackgassen.** `computeAllowedActions`
+  (`support.js:279`) streicht auf einem erledigten Fall *sechs* Aktionen. Ein
+  Fall in `resolved` kann nie `closed` werden — welcher der beiden Endzustände
+  gilt, entscheidet der Zufall des ersten Klicks.
+- **`reopened` ist unerreichbar** — der Zustand steht im CHECK der Migration 110
+  und wird im gesamten Repo nirgends gesetzt. Und genau darauf rechnet eine
+  veröffentlichte Qualitätskennzahl: `reopen_rate_percent` (`support.js:1696`)
+  zählt `COUNT(*) FILTER (WHERE sc.status = 'reopened')` und **kann nur 0 %
+  ergeben**. Eine Zahl, die gemessen aussieht und nur eines sagen kann.
+
+Der einzige Rückweg aus `closed` führt heute über `POST /support/escalations`,
+dessen Rechteprüfung mit einer **fest verdrahteten** Zeile `{status:"open"}`
+arbeitet (`support.js:1495`) und die Sperre damit umgeht. „Um einen Fall wieder
+zu öffnen, eskaliere ihn" ist kein Arbeitsablauf.
+
 ### Was die Erhebung NICHT geprüft hat
 
 Kein Laufzeit-Beweis über HTTP (außer dem ausgeführten `change_status`-Handler);

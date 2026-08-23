@@ -26,6 +26,91 @@ const CASE_STATUSES = new Set([
   "reopened"
 ]);
 
+/*
+ * DIE VIER ESKALATIONSZUSTAENDE GEHOEREN DEM `escalate`-ZWEIG.
+ *
+ * BEFUND (2026-08-22, am echten Handler ausgefuehrt): `change_status` pruefte
+ * ausschliesslich Mengenmitgliedschaft. Ein Agent mit der Rolle
+ * `internal_support_agent` konnte `new_status: "escalated_ops"` setzen und
+ * bekam HTTP 200 — ein einziges UPDATE, `is_escalated` unberuehrt.
+ *
+ * Damit umging er alles, was eine Eskalation ausmacht: die Pflichtbegruendung
+ * (>= 20 Zeichen), `createOccEscalation`, den `support_escalations`-INSERT und
+ * das Ops-Signal. `escalate` ist Supervisor-only, `change_status` ist
+ * Default-Aktion JEDER Rolle — der einfache Agent erreichte ueber die eine
+ * Aktion den Zustand, den ihm die andere verwehrt.
+ *
+ * Die Folge war nicht nur eine Rechteluecke, sondern eine LUEGE IN DEN ZAHLEN:
+ * der Fall trug sichtbar den Eskalationsstatus, zaehlte aber in keiner
+ * Eskalationsauswertung mit (die filtern auf `is_escalated`). Und da
+ * `is_escalated = FALSE` repo-weit nirgends gesetzt wird, blieb die Entkopplung
+ * dauerhaft.
+ *
+ * Owner-Entscheid 2026-08-23: erreichbar nur ueber `escalate`.
+ */
+const ESKALATIONS_STATUS = new Set([
+  "escalated", "escalated_decisions", "escalated_commercial", "escalated_ops"
+]);
+
+/*
+ * ERLAUBTE NACHFOLGER je Zustand — fuer `change_status`.
+ *
+ * CLAUDE.md Stop-Regel 5 ("Statusuebergaenge nicht definiert") war hier formal
+ * ausgeloest: es gab keinen Automaten, nur eine Menge. Eine Menge sagt, welche
+ * Woerter es gibt; sie sagt nicht, welcher Schritt Sinn ergibt.
+ *
+ * Absichtlich NICHT enthalten:
+ *   * die vier `escalated_*` (siehe oben — sie gehoeren dem `escalate`-Zweig),
+ *   * der Weg auf sich selbst. Ein Statuswechsel von `open` nach `open` ist
+ *     keine Aenderung, schreibt aber ein Ereignis in die Zeitleiste, das eine
+ *     vortaeuscht.
+ *
+ * Aus einem Eskalationszustand fuehrt der Weg zurueck — sonst waere eine
+ * Eskalation eine Sackgasse und der Fall nur noch ueber die Datenbank zu
+ * retten.
+ */
+const ARBEITSZUSTAENDE = [ "open", "in_progress", "waiting_customer", "waiting_internal" ];
+const ABSCHLUSS = [ "resolved", "closed" ];
+
+function nachfolger(...listen) {
+  return new Set(listen.flat());
+}
+
+/*
+ * Der Weg auf sich selbst wird beim BAU entfernt, nicht bei jeder Abfrage.
+ * Die erste Fassung schloss ihn nur im Kommentar aus — `open` stand in der
+ * Nachfolgerliste von `open`, und ein Wechsel von `open` nach `open` waere
+ * durchgegangen: keine Aenderung, aber ein Ereignis in der Zeitleiste, das
+ * eine vortaeuscht. Hier gilt die Regel EINMAL fuer die ganze Tabelle.
+ */
+function ohneSichSelbst(tabelle) {
+  const raus = {};
+  for (const [zustand, ziele] of Object.entries(tabelle)) {
+    const kopie = new Set(ziele);
+    kopie.delete(zustand);
+    raus[zustand] = kopie;
+  }
+  return Object.freeze(raus);
+}
+
+const STATUS_UEBERGAENGE = ohneSichSelbst({
+  new:                  nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  open:                 nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  in_progress:          nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  waiting_customer:     nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  waiting_internal:     nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  escalated:            nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  escalated_decisions:  nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  escalated_commercial: nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  escalated_ops:        nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  /* Aus `resolved` fuehrt der Weg zum endgueltigen Abschluss oder zurueck ins
+   * Verfahren — aber nicht mehr in die laufende Bearbeitung, ohne den Fall
+   * ausdruecklich wieder zu oeffnen. */
+  resolved:             nachfolger([ "closed", "reopened" ]),
+  closed:               nachfolger([ "reopened" ]),
+  reopened:             nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+});
+
 const CASE_PRIORITIES = new Set([ "low", "normal", "high", "urgent", "critical" ]);
 const CASE_TYPES = new Set([
   "general",
@@ -905,6 +990,29 @@ function buildSupportRouter(deps) {
         if (!CASE_STATUSES.has(nextStatus)) {
           await client.query("ROLLBACK");
           return res.status(400).json({ error: "INVALID_STATUS", message: "new_status ist ungültig." });
+        }
+        /* Der Eskalationszustand entsteht NUR im `escalate`-Zweig, der die
+         * Begruendung verlangt, den OCC-Entscheid anlegt, die
+         * `support_escalations`-Zeile schreibt und `is_escalated` setzt. Hier
+         * durchzulassen hiesse, all das umgehbar zu machen — und der Fall saehe
+         * eskaliert aus, ohne in einer Eskalationsauswertung zu erscheinen. */
+        if (ESKALATIONS_STATUS.has(nextStatus)) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            error: "ESCALATION_VIA_ACTION_ONLY",
+            message: "Eskalationszustände entstehen nur über die Aktion `escalate` — mit Begründung, OCC-Vorgang und Eskalations-Eintrag."
+          });
+        }
+        const erlaubt = STATUS_UEBERGAENGE[currentRow.status];
+        if (!erlaubt || !erlaubt.has(nextStatus)) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            error: "INVALID_TRANSITION",
+            message: `Von "${currentRow.status}" führt kein Weg nach "${nextStatus}".`,
+            from: currentRow.status,
+            to: nextStatus,
+            allowed: erlaubt ? [ ...erlaubt ].sort() : []
+          });
         }
         await client.query(
           `UPDATE support_cases
