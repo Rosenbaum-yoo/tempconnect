@@ -373,6 +373,85 @@ describe("Nativer Abbruch — erkennen, ohne rote Laeufe wegzuwiederholen", () =
     assert.equal(formuliereBefund(b), null);
   });
 
+  it("B1: eine Chunk-Grenze MITTEN IN EINEM ZEICHEN aendert nichts", () => {
+    /*
+     * Der Zeilenrest faengt zerschnittene ZEILEN ab — nicht zerschnittene
+     * ZEICHEN. `✖` ist drei Bytes; faellt die Grenze hinein, machte
+     * `chunk.toString("utf8")` aus jeder Haelfte ein Ersatzzeichen, die Zeile
+     * begann mit `���` und `EINTRAG_TITEL` traf nicht mehr. Gemessen am
+     * 2026-08-23: die abgestuerzte Datei wurde dadurch als "unabhaengig vom
+     * Abbruch rot" ausgewiesen — die eine Aussage, die dieses Modul nie machen
+     * darf. Bei rund 2500 Chunks im Volllauf ist das eine Frage der Zeit.
+     *
+     * Deshalb hier nicht eine Stichprobe, sondern JEDE moegliche Byte-Grenze.
+     */
+    const roh = Buffer.from(echterLauf(), "utf8");
+    const kaputt = [];
+    for (let i = 1; i < roh.length; i++) {
+      const s = neuerScanner();
+      s.aufnehmen(roh.subarray(0, i));
+      s.aufnehmen(roh.subarray(i));
+      s.abschliessen();
+      const b = s.beurteilen();
+      if (!b.abbruch ||
+          b.abgestuerzteDateien.length !== 1 ||
+          b.weitereRoteDateien.length !== 0) {
+        kaputt.push(i);
+      }
+    }
+    assert.deepEqual(kaputt, [],
+      `Bei diesen Byte-Grenzen bricht die Erkennung: ${kaputt.slice(0, 10).join(", ")}` +
+      (kaputt.length > 10 ? ` … (${kaputt.length} insgesamt)` : "") +
+      "\nEin StringDecoder je Kanal loest das — toString() je Chunk nicht.");
+  });
+
+  it("B1b: absoluter Titel und relative Herkunft sind dieselbe Datei", () => {
+    /*
+     * Gemessen am 2026-08-23 im Container (Node 20.20): die `test at`-Zeile
+     * nennt den Pfad relativ, die `✖`-Zeile darunter absolut. Node 24.11
+     * schreibt beide relativ. Ein Gleichheitsvergleich haelt den Totalausfall
+     * unter Node 20 deshalb fuer einen gewoehnlichen roten Test — und der
+     * Befund sagte "unabhaengig vom Abbruch rot" ueber genau die Datei, die
+     * abgestuerzt ist. Das ist die Umkehrung der Aussage.
+     */
+    const b = beurteileAusgabe([
+      ABBRUCH,
+      "✖ failing tests:",
+      "test at test/attrappe.test.js:1:1",
+      "✖ /tmp/sk/api/test/attrappe.test.js (170.907952ms)",
+      "  'test failed'",
+    ].join("\n"));
+
+    assert.equal(b.abbruch, true);
+    assert.deepEqual(b.abgestuerzteDateien, ["test/attrappe.test.js"],
+      "absoluter Titel und relative Herkunft wurden nicht als dieselbe Datei erkannt");
+    assert.deepEqual(b.weitereRoteDateien, [],
+      "die abgestuerzte Datei wurde zusaetzlich als echter Fehler ausgewiesen");
+    assert.match(formuliereBefund(b, { status: 1 }), /KEINEN Befund erbracht/);
+  });
+
+  it("B2: ein GRUENER Lauf mit gedruckter Signatur meldet keinen Abbruch", () => {
+    /* Die Zeichenkette kann auch harmlos in die Ausgabe geraten — ein Test, der
+       sie als Vorlage benutzt und ausgibt. Ohne diese Sperre stuende
+       "WIEDERHOLEN" ueber einem Lauf, dem nichts fehlt; beim naechsten echten
+       roten Lauf glaubt dann niemand mehr hin. Die Datei, die diese Zeichenkette
+       garantiert enthaelt, ist ausgerechnet dieser Test. */
+    const b = beurteileAusgabe([ABBRUCH, "ℹ pass 10", "ℹ fail 0"].join("\n"));
+    assert.equal(b.abbruch, true, "der Treffer selbst bleibt ein Treffer");
+
+    const beiGruen = formuliereBefund(b, { status: 0 });
+    assert.ok(beiGruen, "auch bei gruenem Lauf gehoert ein kurzer Hinweis ausgegeben");
+    assert.doesNotMatch(beiGruen, /WIEDERHOLEN/,
+      "ueber einem gruenen Lauf darf nie 'wiederholen' stehen");
+    assert.doesNotMatch(beiGruen, /NATIVER ABBRUCH ERKANNT/,
+      "ein gruener Lauf hatte keinen Abbruch — der Alarmtext gehoert dort nicht hin");
+    assert.match(beiGruen, /gruen/);
+
+    const beiRot = formuliereBefund(b, { status: 1 });
+    assert.match(beiRot, /NATIVER ABBRUCH ERKANNT/,
+      "bei rotem Lauf muss der volle Befund weiterhin kommen");
+  });
+
   it("D1: es gibt ueberhaupt Signaturen, und jede ist verankert", () => {
     assert.ok(SIGNATUREN.length >= 1, "keine einzige Signatur definiert");
     for (const s of SIGNATUREN) {

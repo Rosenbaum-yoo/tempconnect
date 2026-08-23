@@ -36,11 +36,23 @@ zwischen `--test-force-exit` und noch offenen Handles der Testdatei. Alle Untert
 dann grün, die Datei wird trotzdem als Ganzes rot gemeldet. Das ist **kein**
 fehlgeschlagener Test.
 
-Der Runner erkennt das seit 2026-08-23 selbst und gibt am Ende einen eigenen Block aus:
-welche Datei betroffen ist, dass der Lauf für sie **keinen Befund** erbracht hat (nicht:
-dass sie in Ordnung ist), und — falls daneben **echte** rote Dateien stehen — dass ein
-Wiederholen die nicht beseitigt. Der Exit-Code bleibt in jedem Fall der des Testlaufs;
-der Runner färbt nichts grün.
+Der Runner erkennt das seit 2026-08-23 selbst und gibt am Ende einen eigenen Block **auf
+stdout** aus: welche Datei betroffen ist, dass der Lauf für sie **keinen Befund** erbracht
+hat (nicht: dass sie in Ordnung ist), und — falls daneben **echte** rote Dateien stehen —
+dass ein Wiederholen die nicht beseitigt. Der Exit-Code bleibt in jedem Fall der des
+Testlaufs; der Runner färbt nichts grün. Ist der Lauf trotz Signatur grün, kommt statt des
+Alarms nur ein kurzer Hinweis — dann hat vermutlich ein Test die Zeichenkette selbst
+gedruckt.
+
+*stdout ist Absicht:* der Bericht von node:test steht dort, und wer einen Volllauf
+durchsuchbar macht, schreibt `npm test > lauf.log`. Auf stderr wäre der Befund genau in
+der Datei nicht drin, in der man ihn sucht.
+
+*Der Reporter ist festgenagelt* (`--test-reporter=spec`), und das ist tragend: welchen
+Reporter node:test ohne Vorgabe wählt, hängt von der Node-Fassung ab — Node 24.11 (lokal)
+nimmt `spec`, Node 20.20 (`api/Dockerfile`, beide CI-Workflows) nimmt `tap`. Unter TAP
+erkennt der Detektor keines seiner Muster wieder, er wäre also ausgerechnet im Container
+und in CI stumm. Nichts wertet die Ausgabe maschinell aus, das Pinnen kostet daher nichts.
 
 - `--retry-on-abort` wiederholt den Lauf **genau einmal**, aber nur wenn ein Abbruch
   erkannt wurde *und* der Lauf keine echten roten Dateien hat. Bewusst ausgeschaltet:

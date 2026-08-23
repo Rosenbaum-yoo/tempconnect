@@ -219,11 +219,24 @@ if (process.env.TC_TEST_PROBE !== "0" && existsSync(probePath)) {
 //  3. `FORCE_COLOR`, wenn unsere eigene Ausgabe ein Terminal ist: das Kind sieht
 //     jetzt eine Pipe und faerbt sonst nicht mehr ein. Der Bericht saehe im
 //     Terminal ploetzlich grau aus — eine Verschlechterung, die niemand bestellt
-//     hat. (Der Reporter selbst wechselt nicht: node:test nimmt `spec` auch ohne
-//     Terminal, geprueft mit Node 24.11.)
-//  4. `process.exitCode` statt `process.exit()` am Ende: `process.exit()` kann
+//     hat.
+//  4. `--test-reporter=spec` festgenagelt. Der Default HAENGT VON DER
+//     NODE-FASSUNG AB, und der Umbau macht das erst relevant: das Kind sieht
+//     jetzt immer eine Pipe. Gemessen am 2026-08-23 — Node 24.11 (lokal) waehlt
+//     `spec`, Node 20.20 (`api/Dockerfile`, beide CI-Workflows) waehlt `tap`.
+//     Unter TAP kennt der Detektor kein einziges seiner Muster wieder: die
+//     Abbruchzeile kommt dort mit `# `-Praefix, der Abschlussblock fehlt ganz.
+//     Ohne dieses Argument waere die Erkennung im Container und in CI stumm —
+//     also genau dort, wo das Release-Gate laeuft. Nichts wertet die Ausgabe
+//     maschinell aus (geprueft: kein Workflow-Schritt parst sie), das Pinnen
+//     kostet daher nichts und macht das Format ueberall gleich.
+//  5. `process.exitCode` statt `process.exit()` am Ende: `process.exit()` kann
 //     noch nicht geschriebene Ausgabe abschneiden, wenn stdout eine Pipe ist —
 //     und ausgerechnet der Befund steht ganz am Schluss.
+//  6. Der Befund geht nach STDOUT, nicht nach stderr. Der Bericht von node:test
+//     steht auf stdout; wer einen Volllauf durchsuchbar machen will, schreibt
+//     `npm test > lauf.log` — und haette den Befund darin sonst nicht. Genau
+//     diese Datei aber ist der Ort, an dem man ihn sucht.
 const farbigeAusgabe = Boolean(process.stdout.isTTY);
 if (farbigeAusgabe && !testEnv.FORCE_COLOR && !testEnv.NO_COLOR) {
   testEnv.FORCE_COLOR = "1";
@@ -241,7 +254,10 @@ if (farbigeAusgabe && !testEnv.FORCE_COLOR && !testEnv.NO_COLOR) {
 for (const senke of [process.stdout, process.stderr]) {
   senke.on("error", (e) => {
     if (e && (e.code === "EPIPE" || e.code === "ERR_STREAM_DESTROYED")) return;
-    throw e;
+    /* Kein `throw`: das waere eine uncaughtException und riss den Exitcode des
+       Testlaufs mit sich — der Lauf haette dann gar kein Ergebnis mehr. */
+    console.error(`[run-tests] Schreibfehler auf der Ausgabe: ${e?.message ?? e}`);
+    process.exitCode = 1;
   });
 }
 
@@ -258,7 +274,7 @@ function starteLauf() {
 
     const kind = spawn(
       process.execPath,
-      ["--test", "--test-force-exit", ...selectedFiles],
+      ["--test", "--test-force-exit", "--test-reporter=spec", ...selectedFiles],
       {
         cwd: PROJECT_DIR,
         env: testEnv,
@@ -300,8 +316,8 @@ if (lauf.fehler) {
   console.error(`[run-tests] Failed to execute Node test runner: ${lauf.fehler.message}`);
   process.exitCode = 1;
 } else {
-  const befundText = formuliereBefund(lauf.befund);
-  if (befundText) process.stderr.write(befundText);
+  const befundText = formuliereBefund(lauf.befund, { status: lauf.status });
+  if (befundText) process.stdout.write(befundText);
 
   /*
    * Wiederholen nur auf ausdruecklichen Wunsch, und nur bei erkanntem Abbruch.
@@ -322,13 +338,15 @@ if (lauf.fehler) {
   if (wiederholenErlaubt && lauf.befund.abbruch && lauf.befund.weitereRoteDateien.length) {
     console.error("[run-tests] --retry-on-abort: KEINE Wiederholung — der Lauf hat neben dem");
     console.error("[run-tests] Abbruch echte rote Dateien. Die verschwinden dadurch nicht.");
-  } else if (wiederholenErlaubt && lauf.befund.abbruch && lauf.status !== 0) {
+    /* `typeof`-Pruefung, weil `null !== 0` wahr ist: ein per Signal gestorbener
+     Lauf hat gar keinen Status und wuerde sonst wiederholt. */
+  } else if (wiederholenErlaubt && lauf.befund.abbruch && typeof lauf.status === "number" && lauf.status !== 0) {
     console.error("[run-tests] --retry-on-abort: der Lauf wird EINMAL wiederholt.");
     console.error("[run-tests] Ist der zweite Lauf gruen, war es der bekannte Wettlauf beim");
     console.error("[run-tests] Prozessende. Ist er wieder rot, gilt sein Ergebnis.");
     const zweiter = await starteLauf();
-    const zweiterText = formuliereBefund(zweiter.befund);
-    if (zweiterText) process.stderr.write(zweiterText);
+    const zweiterText = formuliereBefund(zweiter.befund, { status: zweiter.status });
+    if (zweiterText) process.stdout.write(zweiterText);
     if (zweiter.befund.abbruch) {
       console.error("[run-tests] Auch der zweite Lauf brach nativ ab — das ist kein Zufall mehr.");
       console.error("[run-tests] Die offenen Handles der betroffenen Datei gehoeren geschlossen.");

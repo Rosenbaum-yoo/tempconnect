@@ -71,6 +71,8 @@
  * dass die Zuordnung nicht entscheidbar ist, statt sich eine auszusuchen.
  */
 
+import { StringDecoder } from "node:string_decoder";
+
 /**
  * Bekannte native Abbruch-Signaturen.
  *
@@ -159,6 +161,20 @@ export function neuerScanner() {
   const verdacht = [];
   const eintraege = [];
   const reste = { stdout: "", stderr: "" };
+  /*
+   * Ein Dekoder je Kanal — und zwar zusaetzlich zum Zeilenrest, nicht statt
+   * seiner. Der Zeilenrest faengt zerschnittene ZEILEN ab, der Dekoder
+   * zerschnittene ZEICHEN. Das ist nicht dieselbe Haelfte des Problems:
+   *
+   *   `✖` ist drei Bytes. Faellt eine Chunk-Grenze mitten hinein, macht
+   *   `chunk.toString("utf8")` aus jeder Haelfte ein Ersatzzeichen — die Zeile
+   *   beginnt danach mit `���` statt mit `✖`, und `EINTRAG_TITEL` trifft nicht
+   *   mehr. Gemessen am 2026-08-23 gegen dieses Modul: die abgestuerzte Datei
+   *   wurde dadurch als "unabhaengig vom Abbruch rot" ausgewiesen — also genau
+   *   die Aussage, die dieses Modul nie machen darf. Bei rund 2500 Chunks im
+   *   Volllauf ist das kein Randfall, sondern eine Frage der Zeit.
+   */
+  const dekoder = { stdout: new StringDecoder("utf8"), stderr: new StringDecoder("utf8") };
   let imAbschluss = false;
   let offen = null;
 
@@ -215,7 +231,8 @@ export function neuerScanner() {
     /** Nimmt einen Chunk entgegen. `kanal` trennt die Zeilenpuffer. */
     aufnehmen(chunk, kanal = "stdout") {
       const schluessel = kanal === "stderr" ? "stderr" : "stdout";
-      const text = reste[schluessel] + (typeof chunk === "string" ? chunk : chunk.toString("utf8"));
+      const text = reste[schluessel] +
+        (typeof chunk === "string" ? chunk : dekoder[schluessel].write(chunk));
       const zeilen = text.split(/\r?\n/);
       reste[schluessel] = zeilen.pop() ?? "";
       for (const z of zeilen) zeileLesen(z);
@@ -227,6 +244,8 @@ export function neuerScanner() {
     /** Schliesst die Stroeme ab — die letzte Zeile hat oft keinen Umbruch mehr. */
     abschliessen() {
       for (const schluessel of ["stdout", "stderr"]) {
+        /* Erst den Dekoder leeren: ein halbes Zeichen am Ende gehoert noch dazu. */
+        reste[schluessel] += dekoder[schluessel].end();
         if (reste[schluessel]) {
           zeileLesen(reste[schluessel]);
           reste[schluessel] = "";
@@ -240,8 +259,29 @@ export function neuerScanner() {
      * Befund erbracht — nicht, dass sie in Ordnung sind.
      */
     beurteilen() {
+      /*
+       * "Titel ist der Dateipfad selbst" — aber die beiden Zeilen schreiben ihn
+       * nicht zwingend gleich. Gemessen am 2026-08-23 im Container:
+       *
+       *   Node 20.20   test at test/attrappe.test.js:1:1
+       *                ✖ /tmp/sk/api/test/attrappe.test.js (170.9ms)   ← absolut
+       *   Node 24.11   test at test\x.test.js:1:1
+       *                ✖ test\x.test.js (12ms)                          ← relativ
+       *
+       * Ein blosser Gleichheitsvergleich haelt den Totalausfall unter Node 20
+       * fuer einen gewoehnlichen roten Test — und der Befund sagte dann
+       * "unabhaengig vom Abbruch rot" ueber genau die Datei, die abgestuerzt
+       * ist. Deshalb wird auf Pfad-Ende verglichen, in beide Richtungen, mit
+       * vereinheitlichten Trennzeichen.
+       */
+      const gleicherPfad = (a, b) => {
+        const x = a.replace(/\\/g, "/");
+        const y = b.replace(/\\/g, "/");
+        return x === y || x.endsWith(`/${y}`) || y.endsWith(`/${x}`);
+      };
       const istTotalausfall = (e) =>
-        e.titel !== null && e.titel === e.datei && e.koerper !== null && OHNE_GRUND.test(e.koerper);
+        e.titel !== null && e.koerper !== null &&
+        gleicherPfad(e.titel, e.datei) && OHNE_GRUND.test(e.koerper);
 
       const abbruch = treffer.length > 0;
       const totalausfaelle = eintraege.filter(istTotalausfall).map((e) => e.datei);
@@ -280,8 +320,30 @@ export function beurteileAusgabe(text, kanal = "stdout") {
  * Der Text, den der Runner ausgibt. Getrennt vom Erkennen, damit die Formulierung
  * einzeln pruefbar ist — sie ist hier der eigentlich heikle Teil.
  */
-export function formuliereBefund(befund) {
+export function formuliereBefund(befund, { status = null } = {}) {
   const strich = "─".repeat(78);
+
+  /*
+   * Ein GRUENER Lauf kann keinen Abbruch gehabt haben.
+   *
+   * Die Zeichenkette kann auch auf anderem Weg in die Ausgabe geraten: ein Test,
+   * der sie als Vorlage benutzt und per console.log ausgibt, schreibt sie ab
+   * Spalte 0 in den Bericht. Ohne diese Sperre stuende dann "NATIVER ABBRUCH
+   * ERKANNT … WIEDERHOLEN" ueber einem Lauf, dem nichts fehlt — und beim
+   * naechsten echten roten Lauf glaubt niemand mehr hin. Die Datei, die diese
+   * Zeichenkette garantiert enthaelt, ist ausgerechnet der Test dieses Moduls.
+   */
+  if (status === 0 && (befund.abbruch || befund.verdacht?.length)) {
+    return [
+      "",
+      strich,
+      "[run-tests] Hinweis: die Ausgabe enthaelt eine Absturz-Signatur, der Lauf ist",
+      "[run-tests] aber gruen. Dann ist nichts abgestuerzt — vermutlich hat ein Test",
+      "[run-tests] die Zeichenkette selbst gedruckt. Keine Massnahme noetig.",
+      strich,
+      "",
+    ].join("\n");
+  }
 
   /*
    * Zweite Stufe zuerst abhandeln: nativ gestorben, Ursache unbekannt. Der Text

@@ -139,6 +139,24 @@ describe("Verdrahtung: run-tests.js liest seine eigene Ausgabe mit", () => {
       "Ergaenze sie in KOPIEN — sonst prueft dieser Test bald nur noch einen Importfehler.");
   });
 
+  it("V0b: der Runner nagelt den Reporter fest", () => {
+    /*
+     * Der ganze Detektor liest das Format des `spec`-Reporters. Dessen Auswahl
+     * haengt aber von der Node-Fassung ab, und seit dem Umbau sieht das Kind
+     * immer eine Pipe: Node 24.11 (lokal) waehlt `spec`, Node 20.20
+     * (`api/Dockerfile`, beide CI-Workflows) waehlt `tap`. Unter TAP kennt der
+     * Detektor kein einziges seiner Muster wieder — die Erkennung waere im
+     * Container und in CI stumm, also dort, wo das Release-Gate laeuft.
+     *
+     * Faellt das Argument weg, ist nichts rot ausser diesem Test. Deshalb gibt
+     * es ihn.
+     */
+    const quelle = fs.readFileSync(path.join(API, "scripts/run-tests.js"), "utf8");
+    assert.match(quelle, /"--test-reporter=spec"/,
+      "run-tests.js gibt den Reporter nicht mehr vor. Ohne ihn haengt das " +
+      "Ausgabeformat an der Node-Fassung, und der Detektor liest unter TAP nichts.");
+  });
+
   it("V1: der Lauf kommt ueberhaupt zustande und die Ausgabe wird durchgereicht", () => {
     /* Erst belegen, dass etwas gemessen wurde. Ein Test, der auf einer leeren
        Ausgabe nach Zeichenketten sucht, ist immer gruen und beweist nichts. */
