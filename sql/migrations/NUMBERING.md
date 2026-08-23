@@ -13,7 +13,9 @@
 > 185 severity zurueck auf die vier (Befund M0-B9: die laufende Datenbank
 > erlaubte ein fuenftes `urgent`, das keine Migration je gewaehrt hat),
 > 186 Guthaben nur gegen Zahlung (Befund P1-22, Owner-Entscheidung Stripe:
-> eindeutiger Index auf der Kauf-Referenz gegen doppelte Webhook-Zustellung)
+> eindeutiger Index auf der Kauf-Referenz gegen doppelte Webhook-Zustellung),
+> 187 die Rechnung braucht eine Anschrift (E-Rechnungspflicht EN 16931: Rechnungs-
+> stammdaten auf `organizations`, ohne die keine XRechnung/ZUGFeRD erzeugbar ist)
 
 This document records known legacy numbering anomalies and establishes the rule
 for all future migrations.
@@ -28,7 +30,7 @@ for all future migrations.
 
 ## Rule: Next migration number
 
-**Next migration MUST start at: 187**
+**Next migration MUST start at: 188**
 
 Format: `<NNN>_<short_description>.sql` (three-digit zero-padded)
 
@@ -104,8 +106,8 @@ alphabetical order within the number (e.g. `064_capacity_…` before `064_strate
 
 ## Checklist for new migrations
 
-1. Use the next sequential number (currently **187**)
-2. File name: `187_<short_snake_case>.sql`
+1. Use the next sequential number (currently **188**)
+2. File name: `188_<short_snake_case>.sql`
 3. Wrap DDL in a transaction if the DB supports transactional DDL
 4. Include a `-- Migration NNN:` comment header with a brief description
 5. Use `SET client_min_messages TO WARNING;` to suppress noise

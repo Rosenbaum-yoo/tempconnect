@@ -18,6 +18,7 @@ import { requireScope } from "../middleware/apiKeyAuth.js";
 import * as integrationService from "../services/integrationService.js";
 import * as erpMappingService from "../services/erpMappingService.js";
 import { buildFibuBuchungsstapel } from "../services/datevExportService.js";
+import { erzeugeERechnung, RECHNUNGSFORMATE } from "../services/eRechnungService.js";
 
 export function createInvoicesRouter(deps) {
   const { pool, requireAuth, logger, requestLimiter } = deps;
@@ -104,6 +105,19 @@ export function createInvoicesRouter(deps) {
     } catch (err) {
       next(err);
     }
+  });
+
+  /* GET /invoices/e-rechnung/bereitschaft — sind wir ab 2027 versandfaehig?
+     Prueft die Rechnungsstammdaten der eigenen Organisation gegen EN 16931 und nennt
+     jedes fehlende Feld im Klartext. Bewusst VOR `/invoices/:id` registriert: sonst
+     faengt die Detailroute den Pfad mit id="e-rechnung" ab. */
+  router.get("/invoices/e-rechnung/bereitschaft", requireAuth, rperm("org.billing"), async (req, res, next) => {
+    try {
+      const ergebnis = await opInvoice.pruefeERechnungBereitschaft(pool, req.orgId);
+      if (!ergebnis) return res.status(404).json({ error: "ORG_NOT_FOUND" });
+      if (ergebnis.error) return res.status(400).json(ergebnis);
+      res.json(ergebnis);
+    } catch (err) { next(err); }
   });
 
   /* GET /invoices/:id — detail with line items */
@@ -365,6 +379,55 @@ export function createInvoicesRouter(deps) {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       res.send(csv);
+    } catch (err) { next(err); }
+  });
+
+  /* GET /invoices/operational/:id/e-rechnung — E-Rechnung nach EN 16931.
+     ?format=xrechnung (UBL 2.1, Vorgabe) | zugferd (CII, Anhang fuer PDF/A-3).
+
+     WARUM DIESER ENDPUNKT: Seit 01.01.2025 muss jedes inlaendische Unternehmen
+     E-Rechnungen empfangen koennen; ab 01.01.2027 muessen Unternehmen mit mehr als
+     800.000 EUR Vorjahresumsatz sie versenden, ab 01.01.2028 alle. CSV und PDF sind
+     dafuer nicht zulaessig — ohne diesen Weg faellt TempConnect als Rechnungsquelle aus.
+
+     FAIL-CLOSED: Fehlen Stammdaten, kommt 422 mit der Liste der fehlenden Felder statt
+     eines halben Dokuments. Eine unvollstaendige E-Rechnung sieht aus wie eine Rechnung,
+     wird beim Empfaenger aber stumm abgewiesen — und niemand erfaehrt, woran es lag. */
+  router.get("/invoices/operational/:id/e-rechnung", requireAuth, exportLimiter, rperm("org.billing"), async (req, res, next) => {
+    try {
+      const daten = await opInvoice.ladeERechnungsdaten(pool, req.params.id, req.orgId);
+      if (!daten) return res.status(404).json({ error: "NOT_FOUND" });
+      if (daten.error) return res.status(403).json(daten);
+
+      const ergebnis = erzeugeERechnung({
+        format: req.query.format || "xrechnung",
+        invoice: daten.invoice,
+        items: daten.items,
+        verkaeufer: daten.verkaeufer,
+        kaeufer: daten.kaeufer
+      });
+
+      if (!ergebnis.ok && ergebnis.fehler === "FORMAT_UNBEKANNT") {
+        return res.status(400).json({ error: "FORMAT_UNBEKANNT", erlaubt: RECHNUNGSFORMATE });
+      }
+      if (!ergebnis.ok) {
+        return res.status(422).json({
+          error: "PFLICHTFELDER_FEHLEN",
+          message: "Die Rechnung ist noch nicht normkonform. Bitte die genannten Felder in den Firmenstammdaten ergaenzen.",
+          fehlend: ergebnis.fehlend
+        });
+      }
+
+      res.setHeader("Content-Type", ergebnis.contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${ergebnis.dateiname}"`);
+      res.send(ergebnis.xml);
+      integrationService.dispatchToIntegrations(pool, "invoice.exported", {
+        orgId: req.orgId,
+        entityType: "e_rechnung",
+        entityId: daten.invoice.id,
+        message: `Rechnung ${daten.invoice.invoice_number} als ${ergebnis.format.toUpperCase()} exportiert`,
+        count: 1
+      }).catch(swallow("invoice.integration.dispatch"));
     } catch (err) { next(err); }
   });
 

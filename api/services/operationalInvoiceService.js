@@ -11,6 +11,8 @@
  * Separiert von invoiceService.js (SaaS-Subscription), gleiche DB-Tabellen.
  */
 
+import { firmaZuPartei, pruefeFirmenstammdaten } from "./eRechnungService.js";
+
 import * as auditLog from "./auditLog.js";
 import { swallow } from "../utils/logger.js";
 
@@ -563,4 +565,111 @@ export function exportOperationalInvoiceCsv(invoice) {
   rows.push(`,,Gesamtbetrag,,,,,,${esc(((invoice.total_cents || 0) / 100).toFixed(2))}`);
 
   return [headers.join(","), ...rows].join("\n");
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ladeERechnungsdaten — Rechnung + Positionen + beide Firmen
+   ═══════════════════════════════════════════════════════════ */
+
+/**
+ * Laedt alles, was eine E-Rechnung nach EN 16931 verlangt: die Rechnung, ihre
+ * Positionen und BEIDE Firmen mit vollstaendigen Rechnungsstammdaten (Migration 187).
+ *
+ * WARUM NICHT getOperationalInvoice ALLEIN: die liefert von den Firmen nur den Namen.
+ * Die Norm verlangt fuer beide Seiten Anschrift und Laendercode und fuer den
+ * Rechnungssteller zusaetzlich eine steuerliche Kennung. Fehlt davon etwas, weist der
+ * Empfaenger das Dokument ab — deshalb werden die Stammdaten hier vollstaendig geholt.
+ *
+ * EINE Query fuer beide Firmen (ANY statt zwei Einzelabfragen): der Aufruf haengt am
+ * Download-Pfad und wird pro Rechnung ausgeloest.
+ *
+ * Mandantengrenze: `getOperationalInvoice` prueft sie bereits zweiseitig — die Rechnung
+ * gehoert Kaeufer UND Verkaeufer. Das Ergebnis wird hier unveraendert durchgereicht.
+ *
+ * @returns {null | {error: string} | {invoice: object, items: Array, verkaeufer: object, kaeufer: object}}
+ */
+export async function ladeERechnungsdaten(pool, invoiceId, orgId) {
+  const invoice = await getOperationalInvoice(pool, invoiceId, orgId);
+  if (!invoice) return null;
+  if (invoice.error) return invoice;
+
+  const ids = [invoice.supplier_org_id, invoice.org_id].filter(Boolean);
+  const { rows } = ids.length
+    ? await pool.query(
+        `SELECT id, name, legal_name, commercial_register, billing_email, billing_contact,
+                tax_id, vat_id, billing_street, billing_address_2, billing_postal_code,
+                billing_city, billing_country_code, iban, bic
+           FROM organizations
+          WHERE id = ANY($1::uuid[])`,
+        [ids]
+      )
+    : { rows: [] };
+
+  const nachId = new Map(rows.map((r) => [String(r.id), r]));
+  return {
+    invoice,
+    items: invoice.items || [],
+    // Leistungserbringer = Rechnungssteller. Faellt die Zeile aus, bleibt wenigstens
+    // der Name erhalten — die Pflichtfeldpruefung meldet den Rest im Klartext.
+    verkaeufer: nachId.get(String(invoice.supplier_org_id)) || { name: invoice.supplier_org_name },
+    kaeufer: nachId.get(String(invoice.org_id)) || { name: invoice.buyer_org_name }
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   pruefeERechnungBereitschaft — bin ich ab 2027 versandfaehig?
+   ═══════════════════════════════════════════════════════════ */
+
+/**
+ * Prueft die Stammdaten der EIGENEN Organisation gegen die Pflichtangaben der Norm.
+ *
+ * WARUM VORAB UND NICHT ERST BEIM VERSAND: Ab dem 01.01.2027 muessen Unternehmen mit
+ * mehr als 800.000 EUR Vorjahresumsatz strukturierte Rechnungen ausstellen, ab dem
+ * 01.01.2028 alle. Wer das am Tag der ersten abgewiesenen Rechnung merkt, hat ein
+ * Liquiditaetsproblem, kein Datenpflegeproblem. Diese Pruefung macht die Luecke
+ * sichtbar, solange sie noch billig zu schliessen ist.
+ *
+ * Geprueft wird die Rolle des RECHNUNGSSTELLERS — die strengere der beiden:
+ * nur sie verlangt zusaetzlich eine steuerliche Kennung.
+ *
+ * @returns {null | {error: string} | {bereit: boolean, fehlend: Array, hinweise: Array, fristen: object}}
+ */
+export async function pruefeERechnungBereitschaft(pool, orgId) {
+  if (!orgId) return { error: "ORG_REQUIRED" };
+
+  const { rows } = await pool.query(
+    `SELECT id, name, legal_name, commercial_register, billing_email, billing_contact,
+            tax_id, vat_id, billing_street, billing_address_2, billing_postal_code,
+            billing_city, billing_country_code, iban, bic
+       FROM organizations
+      WHERE id = $1`,
+    [orgId]
+  );
+  const org = rows[0];
+  if (!org) return null;
+
+  const partei = firmaZuPartei(org);
+  const fehlend = pruefeFirmenstammdaten(partei, "verkaeufer");
+
+  // Die Bankverbindung ist KEINE Pflichtangabe der Norm — ohne sie ist die Rechnung
+  // gueltig. Sie fehlt hier trotzdem als Hinweis: der Empfaenger muss die Kontodaten
+  // sonst woanders suchen, und das verzoegert jede Zahlung.
+  const hinweise = [];
+  if (!partei.iban) {
+    hinweise.push({
+      feld: "IBAN",
+      hinweis: "Keine Pflichtangabe. Ohne Bankverbindung im Beleg muss der Empfaenger sie woanders suchen."
+    });
+  }
+
+  return {
+    bereit: fehlend.length === 0,
+    fehlend,
+    hinweise,
+    fristen: {
+      empfangspflicht_seit: "2025-01-01",
+      versandpflicht_ab_800k_umsatz: "2027-01-01",
+      versandpflicht_alle: "2028-01-01"
+    }
+  };
 }

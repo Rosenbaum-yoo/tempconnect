@@ -2,6 +2,58 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-08-22 — E-Rechnung nach EN 16931: die Frist zum 01.01.2027 ist bedient
+
+**Status:** erledigt · **Fakt:** Rechnungen verließen die Plattform bisher nur als CSV
+und PDF. Beides ist ab dem 01.01.2027 für Unternehmen mit mehr als 800.000 € Vorjahres-
+umsatz kein zulässiger Rechnungsweg mehr, ab dem 01.01.2028 für niemanden. Ein PDF ist
+ausdrücklich keine E-Rechnung. Ohne dieses Format wäre TempConnect ab 2027 als
+Rechnungsquelle ausgefallen — bei Kunden, die bereits darüber abrechnen.
+
+**Was fehlte außerdem:** `organizations` trug nur Name und Steuernummer. Die Norm
+verlangt für beide Seiten eine vollständige Postanschrift und für den Rechnungssteller
+eine steuerliche Kennung. Die Adressdaten lagen bis dahin auf `users` und
+`org_locations` — also nicht auf der Rechtsperson, die tatsächlich Rechnungssteller ist.
+
+**Geliefert:**
+- Mig **187** — Rechnungsstammdaten auf `organizations` (Anschrift, USt-IdNr., IBAN/BIC),
+  add-only, ohne NOT NULL: ein Pflichtfeld auf Datenbankebene hätte Bestandszeilen
+  gebrochen, ohne irgendjemandem zu sagen, was fehlt.
+- `api/services/eRechnungService.js` — reine Funktionen, keine DB, kein IO. XRechnung
+  (UBL 2.1) und ZUGFeRD/Factur-X (CII, Profil EN 16931) aus **einer** normalisierten
+  Zwischenstruktur, damit die Formate nicht auseinanderlaufen können.
+- `GET /api/invoices/operational/:id/e-rechnung?format=xrechnung|zugferd` — zweiseitige
+  Mandantengrenze (Entleiher **und** Verleiher), im Org-Grenzen-Register eingetragen und
+  vom Wächter verhaltensgeprüft.
+- `GET /api/invoices/e-rechnung/bereitschaft` + Oberfläche auf `integrations.html` —
+  jede Firma sieht **vor** der ersten Rechnung, ob sie versandfähig ist. Wer die Lücke
+  erst bei der ersten abgewiesenen Rechnung bemerkt, hat ein Liquiditätsproblem statt
+  eines Datenpflegeproblems.
+- **Fail-closed:** fehlt eine Pflichtangabe, entsteht *kein* Dokument, sondern 422 mit
+  der Liste der fehlenden Felder samt Geschäftsbegriff-Nummer und Fundort. Eine
+  unvollständige E-Rechnung sieht aus wie eine Rechnung und wird beim Empfänger stumm
+  abgewiesen.
+
+**Zwei Befunde nebenbei:**
+1. Bei Rechnungen mit Bounty-Rabatt (Mig 170) gehen Positionssumme und Netto
+   auseinander. Ohne getrennten Ausweis als Nachlass auf Dokumentebene schlägt jede
+   solche Rechnung die Prüfregel BR-13 des Empfängers. Ist umgesetzt und getestet.
+2. `firmaZuPartei()` bildete die Bankverbindung nicht ab — die Bereitschaftsprüfung
+   meldete deshalb *immer* eine fehlende IBAN. Vom eigenen Test gefangen, an der
+   Wurzel behoben (eine Quelle statt zwei).
+
+**Tests:** `api/test/eRechnung.test.js` — 72 Prüfungen: Betragsformat (Punkt statt
+Komma), Datumsgrenze in Europe/Berlin (ein UTC-Schnitt legt den Beleg in den falschen
+Voranmeldungszeitraum), Maskierung von Freitext, rechnerische Schlüssigkeit,
+Wohlgeformtheit des erzeugten XML, Mandantengrenze, Bereitschaftsprüfung.
+Volle Suite: 9594 Tests grün.
+
+**Doku:** `docs/INTEGRATIONS.md` — neuer Abschnitt; zugleich korrigiert, dass die
+DATEV-Anbindung dort noch als "geplant" gefuehrt wurde, obwohl Lohn-Bewegungsdaten **und**
+Fibu-Buchungsstapel längst gebaut sind.
+
+---
+
 ### 2026-08-19 — H2: zehn Cross-Org-Lücken geschlossen + Wächter (Welle 3b)
 
 **Status:** erledigt · **Fakt:** Zehn Routen ohne Mandantengrenze, sechs davon
@@ -80,7 +132,30 @@ Ausnahmen — dazu Schicht B3 für Flächen ganz ohne Platzhalter-Route (OCC).
 `rate_cards` und `approval_requests` haben **keine RLS-Policy** (`rls=false`,
 0 Policies) — für diese Tabellen gibt es in keinem Deployment einen
 DB-Backstop. `audit_log` trägt 1782 von 2711 Zeilen ohne `org_id`.`. Neue Blocker, die in Sessions auftauchen, werden als P0/P1/P2 angelegt.
-Letzte Aktualisierung: 2026-08-19 — **Welle H2 (Mandantengrenzen) abgeschlossen: zehn Cross-Org-Lücken geschlossen, Wächter gebaut.** Neuer P1-Eintrag: Migration 117 existiert nicht, obwohl 28 Tabellen in `TENANT_ISOLATION_MODEL.md` auf sie verweisen. Vorher: 2026-08-07 — **P8 Deal-Verbindlichkeit (Wellen A-E) abgeschlossen und committet** (`4220693`..`67b0282`). Vier geerbte Defekte dabei gefunden und geschlossen, darunter eine Kennzahl, die das Feed-Ranking steuerte und in Produktion durchgehend NULL war, und ein Bounty, das notorische Kurzfrist-Stornierer mit 3 % Rabatt belohnte. **Neue Betriebs-Pflicht vor Go-Live: Cron `recompute-deal-reliability` einrichten + Migrationen 164/165 einspielen** (siehe Done-Eintrag). Vorher: 2026-07-26 — **P1.0 Schritt (d) erledigt**: `.env.prod.example` kannte `STAFF_SESSION_SECRET` nicht, obwohl die Variable in Produktion ein `fatal()` ausloest — ein Deploy nach dieser Vorlage waere nicht gestartet. Ergaenzt + Waechter `api/test/prodEnvTemplate.test.js`, der Pflichtvariablen aus dem Code gegen die Vorlage prueft. Ebenfalls am 2026-07-26: `docs/AUDIT_BACKLOG.md` vollstaendig abgearbeitet (u. a. ein ausnutzbares Cross-Org-Leck geschlossen). Vorher: 2026-06-13 — **Welle F1 (Code-Schlussarbeiten) abgeschlossen + committet** (`9f37250`/`1044343`/`878b022`/`845b6c9`): Prod-Härtung, Security-Quick-Wins, Hygiene-Sweep, Test-Harness-Folge inkl. eines gefundenen+gefixten requireMfa-SCC-Betriebsblockers; volle Suite 4508/0, Lint 0/0, Builds grün — siehe Abschlussbericht im Worklog. Marktstart-Ziel auf **01.09.2026** aktualisiert (UG-Gründung = kritischer Pfad). Vorher: 2026-06-11 — **Der konsolidierte Vorwaerts-Plan bis zur finalen Abnahme (Wellen F0-F6) liegt in `docs/finalization/FINALISIERUNGSPLAN_ABNAHME.md`** und mappt ALLE offenen Punkte dieses Files (P0.4, P1.0, P1.4, E-01, P2.x) + Gap-Register O-01-O-11 + Audit-Funde 2026-06-11 auf Wellen/Phasen mit Abnahmekriterien. Vorher: 2026-06-05 (Go-Live-Haertung abgeschlossen, „drei wie empfohlen" Owner-approved: P0.6 [052-Demo-Seed-Backdoor] via Env-Flag-Gate `SEED_DEMO_WORLD` [migrate.sh PGOPTIONS-GUC + 052 DO-Guard + Compose-Split base/prod=false, override=true] + Remediation-Migration 125 [Hash-Neutralisierung der 6 Demo-Konten, gegated+idempotent]; P0.7 Tier-2 [Bestands-DB-116-Backstop] via Forward-Repair-Migration 126 [nicht-transaktional, per-Tabelle-to_regclass-guarded, idempotent]; subscriptions-RLS-Exclusion bestaetigt. Verifiziert auf zwei Wegwerf-DBs [beide Flag-Pfade + Nicht-Superuser-Deny-by-Default-Laufzeitbeweis], realer Stack unberuehrt. AKTIVIERUNG: 126 schaltet Deny-by-Default+FORCE RLS beim naechsten migrate-Lauf gegen Bestands-/Managed-DB scharf. Alle Diffs uncommitted = Owner-Commit-Gate. Vorherige offene Owner-Tasks bleiben: P0.4, P1.4-Live-Run, E-01, R2/R9 extern).
+Letzte Aktualisierung: 2026-08-22 — **E-Rechnung nach EN 16931 geliefert**: XRechnung (UBL 2.1) und ZUGFeRD (CII) aus operativen Rechnungen, Migration 187 (Rechnungsstammdaten auf `organizations`), Bereitschaftspruefung mit Oberflaeche auf `integrations.html` (9595 Tests, 0 Fehler). Damit ist die Versandpflicht zum 01.01.2027 fuer die B2B-Einsatzabrechnung bedient. Neuer offener Punkt: die Abo-Rechnungen der Plattform an ihre eigenen Kunden laufen noch nicht ueber diesen Weg. Vorher: 2026-08-20 — **Welle H1 (Kundenansicht Ausfall) abgeschlossen** und mit H2 auf der Release-Linie zusammengefuehrt (9109 Tests, 0 Fehler); neuer P2-Eintrag W1 zu den Doku-Waechtern im Worktree. Vorher: 2026-08-19 — **Welle H2 (Mandantengrenzen) abgeschlossen: zehn Cross-Org-Lücken geschlossen, Wächter gebaut.** Neuer P1-Eintrag: Migration 117 existiert nicht, obwohl 28 Tabellen in `TENANT_ISOLATION_MODEL.md` auf sie verweisen. Vorher: 2026-08-07 — **P8 Deal-Verbindlichkeit (Wellen A-E) abgeschlossen und committet** (`4220693`..`67b0282`). Vier geerbte Defekte dabei gefunden und geschlossen, darunter eine Kennzahl, die das Feed-Ranking steuerte und in Produktion durchgehend NULL war, und ein Bounty, das notorische Kurzfrist-Stornierer mit 3 % Rabatt belohnte. **Neue Betriebs-Pflicht vor Go-Live: Cron `recompute-deal-reliability` einrichten + Migrationen 164/165 einspielen** (siehe Done-Eintrag). Vorher: 2026-07-26 — **P1.0 Schritt (d) erledigt**: `.env.prod.example` kannte `STAFF_SESSION_SECRET` nicht, obwohl die Variable in Produktion ein `fatal()` ausloest — ein Deploy nach dieser Vorlage waere nicht gestartet. Ergaenzt + Waechter `api/test/prodEnvTemplate.test.js`, der Pflichtvariablen aus dem Code gegen die Vorlage prueft. Ebenfalls am 2026-07-26: `docs/AUDIT_BACKLOG.md` vollstaendig abgearbeitet (u. a. ein ausnutzbares Cross-Org-Leck geschlossen). Vorher: 2026-06-13 — **Welle F1 (Code-Schlussarbeiten) abgeschlossen + committet** (`9f37250`/`1044343`/`878b022`/`845b6c9`): Prod-Härtung, Security-Quick-Wins, Hygiene-Sweep, Test-Harness-Folge inkl. eines gefundenen+gefixten requireMfa-SCC-Betriebsblockers; volle Suite 4508/0, Lint 0/0, Builds grün — siehe Abschlussbericht im Worklog. Marktstart-Ziel auf **01.09.2026** aktualisiert (UG-Gründung = kritischer Pfad). Vorher: 2026-06-11 — **Der konsolidierte Vorwaerts-Plan bis zur finalen Abnahme (Wellen F0-F6) liegt in `docs/finalization/FINALISIERUNGSPLAN_ABNAHME.md`** und mappt ALLE offenen Punkte dieses Files (P0.4, P1.0, P1.4, E-01, P2.x) + Gap-Register O-01-O-11 + Audit-Funde 2026-06-11 auf Wellen/Phasen mit Abnahmekriterien. Vorher: 2026-06-05 (Go-Live-Haertung abgeschlossen, „drei wie empfohlen" Owner-approved: P0.6 [052-Demo-Seed-Backdoor] via Env-Flag-Gate `SEED_DEMO_WORLD` [migrate.sh PGOPTIONS-GUC + 052 DO-Guard + Compose-Split base/prod=false, override=true] + Remediation-Migration 125 [Hash-Neutralisierung der 6 Demo-Konten, gegated+idempotent]; P0.7 Tier-2 [Bestands-DB-116-Backstop] via Forward-Repair-Migration 126 [nicht-transaktional, per-Tabelle-to_regclass-guarded, idempotent]; subscriptions-RLS-Exclusion bestaetigt. Verifiziert auf zwei Wegwerf-DBs [beide Flag-Pfade + Nicht-Superuser-Deny-by-Default-Laufzeitbeweis], realer Stack unberuehrt. AKTIVIERUNG: 126 schaltet Deny-by-Default+FORCE RLS beim naechsten migrate-Lauf gegen Bestands-/Managed-DB scharf. Alle Diffs uncommitted = Owner-Commit-Gate. Vorherige offene Owner-Tasks bleiben: P0.4, P1.4-Live-Run, E-01, R2/R9 extern).
+## Offene Blocker (neu 2026-08-19)
+
+- **E-Rechnung: die Abo-Rechnungen der Plattform laufen noch nicht über den neuen Weg.**
+  - *Status:* offen, **kein Produktionsrisiko heute**, aber dieselbe Frist.
+  - *Fakt:* `GET /api/invoices/operational/:id/e-rechnung` deckt Rechnungen zwischen zwei
+    Organisationen ab (aus freigegebenen Stundenzetteln). Bei den Abo-Rechnungen der
+    Plattform an ihre eigenen Kunden ist **TempConnect selbst** Rechnungssteller — dafür
+    braucht es Betreiber-Stammdaten aus der Konfiguration statt aus `organizations`.
+  - *Aktion:* Betreiber-Stammdaten als Konfiguration (Tier-1) ergänzen und denselben
+    Generator anschließen. Der Generator selbst ist fertig und formatunabhängig.
+  - *Frist:* 01.01.2027, sobald der eigene Vorjahresumsatz 800.000 € übersteigt —
+    spätestens 01.01.2028. **Owner-Entscheidung**, weil es die eigene Rechnungsstellung
+    betrifft.
+
+- **P2-W1 — Die beiden Doku-Waechter leiten aus einem FEHLENDEN Pfad einen Befund ab.**
+  - *Status:* offen, **kein Produktionsrisiko**, aber eine Falle, in die inzwischen **zwei Sitzungen unabhaengig voneinander** getappt sind.
+  - *Fakt:* `api/test/docsConsistency.test.js` und `api/test/dokuWaechter.test.js` scannen `.agents/`, `frontend/support-ops/` und `docs/launch/`. Alle drei sind gitignored und fehlen in einem frischen `git worktree`. Folge: `SKILL.md` und `support-ops` gelten als "belegter Pfad existiert nicht", acht `docs/launch/`-Eintraege der Bestandsliste als "erledigt", und vier Dokumente als neu verwaist — sie werden ausschliesslich aus den fehlenden Dateien verlinkt. Im Hauptbaum gruen (13/13 am 2026-08-19 und erneut am 2026-08-20 gemessen).
+  - *Zwischenloesung, bereits dokumentiert:* die drei Pfade aus dem Hauptbaum verknuepfen (siehe `docs/UEBERGABE.md`). Das macht den Baum benutzbar, behebt aber die Ursache nicht.
+  - *Aktion:* Die Waechter sollen eine fehlende Scan-Wurzel ausdruecklich als **nicht geprueft** melden, statt aus ihrer Abwesenheit einen Befund abzuleiten. Ein Waechter, der in einer von zwei Welten dauerhaft rot ist, wird irgendwann abgeschaltet — genau die Lehre, die nach der CRLF-Episode schon einmal in der Uebergabe stand. **Owner-Entscheidung**, weil es einen Waechter beruehrt.
+  - *Aufwand:* ~1 h. *Verify:* dieselbe Datei im Hauptbaum und in einem frischen Worktree, beide mit identischer Aussage.
+
+---
+
 ## Owner-Aufgaben im Klartext (Stand 2026-07-26)
 
 > **Warum dieser Abschnitt existiert:** die Punkte unten stehen weiter unten schon als P0.4 /
@@ -761,6 +836,14 @@ denselben Platzhalter teilen. Gegenprobe in beide Richtungen bestanden.
 - **C.3** Rollout-Playbook als Warp-Notebook ("Create Tenant", "Seed Demo", "Assign Program Manager"). Senkt Pilot-Onboarding von Stunden auf Minuten.
 - **C.4** Phase 4 Track A: Marketplace Visibility Center als Post-Launch-Premium-Feature fuer PRO/INDIVIDUELL. Kontrolliertes oeffentliches Anbieterprofil, anonymisierte Profil-Analytics, verifizierte Deal-basierte Bewertungen, kuratierte Rankings. 13 Wellen (M-00 bis M-13), Masterprompt: `finalization/phase 4/MASTERPROMPTS.md` Abschnitt A. NICHT vor Phase 3 WAVE 04 + Track C Phase 0+1 starten (Cross-Cutting-Abhaengigkeit).
 ## Done
+- **Welle H1 — der Kunde sieht den Ausfall, nie den Grund (2026-08-19)**
+  - **Auftrag:** Die Kundenansicht soll zeigen, DASS eine gebuchte Kraft ausfaellt und bis wann voraussichtlich — nie die Art ("krank" ist ein Gesundheitsdatum nach Art. 9 DSGVO, das Einsatzunternehmen ist ein Dritter). Der Deep-Link aus der G4b-Meldung soll auf der betroffenen Zeile landen.
+  - **Der gefaehrlichste Befund war kein fehlendes Feature, sondern eine Luege in Reserve:** `liveBadge()` war ein binaeres Ternaer — jeder Zustand ausser `endet_bald` fiel ins gruene "Im Einsatz". Ein serverseitig ergaenzter Zustand haette also nicht GEFEHLT, sondern das Gegenteil behauptet. Reihenfolge deshalb: Renderer + Waechter zuerst, dann das Feld.
+  - **Zweitens wurde die Antwort durchgereicht statt gebaut.** `getCompanyLiveWorkforce` gab die rohen Datenbankzeilen heraus; die naechste SELECT-Spalte waere ohne Zutun beim Kunden gelandet. Jetzt Positivliste, mit `fuerKunde()` als Schutzfunktion davor.
+  - **Drittens war die Sackgasse doppelt:** die Zielseite las weder `?einsatz=` noch `#live`, UND die Zeile trug keine `assignment_id`. Viertens hatte die "Live"-Tafel kein Polling.
+  - **Zusatzfund, mitbehoben:** Die Spalte "Rolle" rendert `wal.role` — ein geschlossener CHECK auf `'primary'|'backup'` (Besetzungsart, keine Taetigkeit), NOT NULL mit Vorgabe `'primary'`. Der Kunde las dort das englische Wort "primary", und zwar in **jeder** Zeile. Der Rueckfall `|| worker_description` war tot, weil die Spalte nicht leer sein kann.
+  - **Eine Recherche-Annahme war falsch und wurde korrigiert:** `worker_profiles(user_id)` galt als nicht eindeutig (gelesen war der *Index* in Mig 029:57-58; das inline `UNIQUE` steht in Zeile 35). Die daraus abgeleitete Empfehlung war zuerst gebaut und wurde wieder entfernt — sie haette nichts geschuetzt und bei abweichender Profil-Firma den **Namen** der Kraft aus der Kundenliste fallen lassen.
+  - **Verify:** `api/test/h1KundenansichtAusfall.test.js` (36 Tests: Antwort-Wortliste, Positivliste der Schluessel, Abfrageform, gerendertes Markup, Deep-Link, Takt, DE/EN-Paritaet ueber das ganze Woerterbuch) + `api/test/integration/h1KundeSiehtAusfall.flow.test.js` (13 Tests gegen das echte Schema). Nach dem Zusammenfuehren mit H2: **9109 Tests, 0 Fehler**.
 - **P8 Deal-Verbindlichkeit, Wellen A-E abgeschlossen 2026-08-07 (committet `4220693`, `bcecf3f`, `a7968d2`, `e02bb7f`, `67b0282`)**
   - **Was der Owner beauftragt hatte:** Beide Seiten sollen Deals zurueckziehen bzw. abbrechen koennen — mit Folgen, aber ohne Geldstrafen; Abschluss in drei Schritten bestaetigen; und die Zeitarbeitsfirma soll beim Ueberfahren eines Angebots sehen, ob sie es besetzen koennte. Alles gebaut, alle fuenf Gates nachgewiesen. Owner-Entscheidungen E1-E4 wie vorgeschlagen umgesetzt, **E5 neu entschieden**: beide Bounty-Stufen bleiben bei 3 %.
   - **Der eigentliche Ertrag waren vier geerbte Defekte**, die alle dasselbe Muster teilen — Code, der richtig aussieht, dessen Wirkung nie ankommt, bei durchgehend gruener Suite. Ein *fehlender* Effekt macht nichts rot:

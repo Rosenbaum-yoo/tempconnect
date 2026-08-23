@@ -93,6 +93,21 @@
       <a class="ds-btn ds-btn--sm" href="/api/invoices/export" data-feature-key="integrations">&#11015; <span data-i18n="sp.b.export.invoicesCsv">Rechnungen-CSV (generisch)</span></a>
     </div>
 
+    <!-- ── E-Rechnung nach EN 16931 — Versandpflicht ab 01.01.2027 ──
+         Die Pruefung steht bewusst offen auf der Seite und nicht hinter einem Menue:
+         wer die fehlenden Stammdaten erst bei der ersten abgewiesenen Rechnung
+         bemerkt, hat ein Liquiditaetsproblem statt eines Datenpflegeproblems. -->
+    <div id="eRechnungCard" class="ds-card" style="padding:var(--ds-space-4);margin-bottom:var(--ds-space-4)">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div style="max-width:62ch">
+          <h3 style="margin:0 0 4px;font-size:16px" data-i18n="sp.b.erech.title">E-Rechnung (XRechnung / ZUGFeRD)</h3>
+          <p style="margin:0;font-size:13px;color:var(--ds-text-secondary,var(--muted))" data-i18n="sp.b.erech.text">Ab 1. Januar 2027 m&uuml;ssen Unternehmen mit mehr als 800.000 &euro; Vorjahresumsatz ihre Rechnungen strukturiert ausstellen, ab 1. Januar 2028 alle. Ein PDF gen&uuml;gt daf&uuml;r nicht.</p>
+        </div>
+        <button class="ds-btn ds-btn--sm" id="btnERechnungPruefen" type="button" data-feature-key="integrations" data-i18n="sp.b.erech.check">Stammdaten pr&uuml;fen</button>
+      </div>
+      <div id="eRechnungStatus" style="margin-top:var(--ds-space-3)" aria-live="polite"></div>
+    </div>
+
     <div style="display:flex;justify-content:flex-end;margin-bottom:var(--ds-space-2)">
       <button class="btn primary" id="btnAddErp" data-feature-key="integrations" onclick="openErpModal()" data-i18n="sp.b.btn.addErp">+ Konnektor hinzuf&uuml;gen</button>
     </div>
@@ -192,6 +207,17 @@
         'sp.b.export.datevFibu': 'DATEV Fibu-Buchungsstapel (Rechnungen)',
         'sp.b.export.datevLohn': 'DATEV Lohn-Bewegungsdaten (Stunden)',
         'sp.b.export.invoicesCsv': 'Rechnungen-CSV (generisch)',
+        'sp.b.erech.title': 'E-Rechnung (XRechnung / ZUGFeRD)',
+        'sp.b.erech.text': 'Ab 1. Januar 2027 müssen Unternehmen mit mehr als 800.000 € Vorjahresumsatz ihre Rechnungen strukturiert ausstellen, ab 1. Januar 2028 alle. Ein PDF genügt dafür nicht.',
+        'sp.b.erech.check': 'Stammdaten prüfen',
+        'sp.b.erech.loading': 'Stammdaten werden geprüft …',
+        'sp.b.erech.ready': 'Ihre Stammdaten sind vollständig. Rechnungen aus TempConnect erfüllen die Norm EN 16931.',
+        'sp.b.erech.notReady': 'Diese Angaben fehlen noch. Ohne sie weist der Empfänger die Rechnung ab:',
+        'sp.b.erech.hintTitle': 'Empfehlung (keine Pflichtangabe):',
+        'sp.b.erech.where': 'Nachzutragen in den Firmenstammdaten Ihrer Organisation.',
+        'sp.b.erech.deadline': 'Versandpflicht ab 1. Januar 2027 (über 800.000 € Umsatz), ab 1. Januar 2028 für alle.',
+        'sp.b.erech.forbidden': 'Für die Prüfung wird die Berechtigung für Abrechnung benötigt.',
+        'sp.b.erech.error': 'Die Prüfung ist fehlgeschlagen. Bitte später erneut versuchen.',
 
         'sp.b.btn.add': '+ Integration hinzufügen',
         'sp.b.btn.addErp': '+ Konnektor hinzufügen',
@@ -274,6 +300,17 @@
         'sp.b.export.datevFibu': 'DATEV accounting batch (invoices)',
         'sp.b.export.datevLohn': 'DATEV payroll movement data (hours)',
         'sp.b.export.invoicesCsv': 'Invoices CSV (generic)',
+        'sp.b.erech.title': 'Electronic invoicing (XRechnung / ZUGFeRD)',
+        'sp.b.erech.text': 'From 1 January 2027, German companies with more than €800,000 in prior-year revenue must issue structured invoices; from 1 January 2028 this applies to everyone. A PDF does not qualify.',
+        'sp.b.erech.check': 'Check company details',
+        'sp.b.erech.loading': 'Checking company details …',
+        'sp.b.erech.ready': 'Your company details are complete. Invoices from TempConnect meet the EN 16931 standard.',
+        'sp.b.erech.notReady': 'These details are still missing. Without them the recipient will reject the invoice:',
+        'sp.b.erech.hintTitle': 'Recommended (not required):',
+        'sp.b.erech.where': 'Add these in your organisation\u2019s company details.',
+        'sp.b.erech.deadline': 'Mandatory from 1 January 2027 (over €800,000 revenue), and from 1 January 2028 for everyone.',
+        'sp.b.erech.forbidden': 'Checking requires the billing permission.',
+        'sp.b.erech.error': 'The check failed. Please try again later.',
 
         'sp.b.btn.add': '+ Add integration',
         'sp.b.btn.addErp': '+ Add connector',
@@ -614,6 +651,55 @@
       } catch { c.innerHTML = errHtml('sp.b.err.network'); }
     }
 
+    /* E-Rechnung: prueft die Stammdaten der eigenen Organisation gegen EN 16931.
+       Alle Werte laufen durch esc() — die Feldbezeichnungen kommen zwar aus einer
+       festen Liste im Backend, aber innerHTML ohne Maskierung ist auf dieser Seite
+       schlicht nicht erlaubt. */
+    async function ladeERechnungBereitschaft() {
+      const box = document.getElementById('eRechnungStatus');
+      if (!box) return;
+      const grau = 'color:var(--ds-text-secondary,var(--muted));font-size:13px';
+      box.innerHTML = '<p style="' + grau + '">' + esc(t('sp.b.erech.loading')) + '</p>';
+      try {
+        const r = await fetch(API + '/invoices/e-rechnung/bereitschaft', { credentials: 'include' });
+        if (r.status === 401 || r.status === 403) {
+          box.innerHTML = '<p style="' + grau + '">' + esc(t('sp.b.erech.forbidden')) + '</p>';
+          return;
+        }
+        if (!r.ok) {
+          box.innerHTML = '<p style="color:var(--ds-danger);font-size:13px">' + esc(t('sp.b.erech.error')) + '</p>';
+          return;
+        }
+        const d = await r.json();
+        const teile = [];
+
+        if (d.bereit) {
+          teile.push('<p style="color:var(--ds-success);font-size:13px;font-weight:600;margin:0 0 6px">' +
+            esc(t('sp.b.erech.ready')) + '</p>');
+        } else {
+          teile.push('<p style="color:var(--ds-danger);font-size:13px;font-weight:600;margin:0 0 6px">' +
+            esc(t('sp.b.erech.notReady')) + '</p>');
+          teile.push('<ul style="margin:0 0 8px;padding-left:18px;font-size:13px">' +
+            (d.fehlend || []).map(function (f) {
+              return '<li style="margin-bottom:3px">' + esc(f.feld) +
+                ' <span style="' + grau + '">(' + esc(f.bt) + ')</span></li>';
+            }).join('') + '</ul>');
+          teile.push('<p style="' + grau + ';margin:0 0 6px">' + esc(t('sp.b.erech.where')) + '</p>');
+        }
+
+        if ((d.hinweise || []).length) {
+          teile.push('<p style="color:var(--ds-warning);font-size:13px;margin:0 0 4px">' +
+            esc(t('sp.b.erech.hintTitle')) + ' ' +
+            d.hinweise.map(function (h) { return esc(h.feld); }).join(', ') + '</p>');
+        }
+
+        teile.push('<p style="' + grau + ';margin:0">' + esc(t('sp.b.erech.deadline')) + '</p>');
+        box.innerHTML = teile.join('');
+      } catch {
+        box.innerHTML = '<p style="color:var(--ds-danger);font-size:13px">' + esc(t('sp.b.erech.error')) + '</p>';
+      }
+    }
+
     function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
     // Init
@@ -621,6 +707,9 @@
       await loadEvents();
       await loadList();
       await loadErpMappings();
+      const btnERech = document.getElementById('btnERechnungPruefen');
+      if (btnERech) btnERech.addEventListener('click', ladeERechnungBereitschaft);
+      await ladeERechnungBereitschaft();
       applyIntegrationDomLocks(document);
     })();
   </script>
