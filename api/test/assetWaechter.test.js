@@ -231,11 +231,48 @@ function istPruefbar(roh) {
   return ENDUNGEN.has(path.extname(rein).toLowerCase());
 }
 
-function zuDatei(roh, quelle) {
+/*
+ * nginx hat NICHT EINEN Dateibaum, sondern mehrere.
+ *
+ * Der erste Entwurf loeste jede absolute Adresse gegen `frontend/` auf. Im
+ * Worktree ging das gut — dort fehlen die Vite-Ausgaben. Im Haupt-Checkout
+ * meldete der Waechter beim ersten Lauf `/staff/assets/index-Dvk2to9z.js` als
+ * tot; die Datei liegt aber da und liefert HTTP 200. Grund:
+ *
+ *     location /staff/assets/ { root /usr/share/nginx/html/public; }
+ *     location /legal/        { root /usr/share/nginx/html/public; }
+ *
+ * Fuer diese Praefixe steht die Wurzel eine Ebene tiefer. Ein Waechter, der das
+ * nicht weiss, meldet vorhandene Dateien als fehlend — und ein Waechter, der
+ * falsch Alarm schlaegt, wird abgeschaltet.
+ *
+ * Die Karte wird deshalb aus `nginx.conf` GELESEN, nicht abgeschrieben: eine
+ * handgepflegte Liste ist die naechste Doku, die still veraltet.
+ */
+const NGINX_WURZEL = "/usr/share/nginx/html";  // docker-compose: ./frontend
+
+function wurzelKarte(konfig) {
+  const karte = [];
+  /* Nur prefix-locations: regex-locations (`~`, `~*`) beschreiben keine
+     eigenen Teilbaeume, sie fassen nur Endungen zusammen. */
+  const re = /location\s+(\/[^\s{~*]*)\s*\{([^}]*)\}/g;
+  let m;
+  while ((m = re.exec(konfig)) !== null) {
+    const wurzel = /\broot\s+([^\s;]+)\s*;/.exec(m[2]);
+    if (!wurzel) continue;  // Proxy-Bloecke haben keine Wurzel
+    if (!wurzel[1].startsWith(NGINX_WURZEL)) continue;
+    karte.push({ praefix: m[1], unter: wurzel[1].slice(NGINX_WURZEL.length) });
+  }
+  /* Laengster Treffer gewinnt — genau wie bei nginx selbst. */
+  karte.sort((a, b) => b.praefix.length - a.praefix.length);
+  return karte;
+}
+
+function zuDatei(roh, quelle, karte) {
   const rein = roh.split("#")[0].split("?")[0];
-  return rein.startsWith("/")
-    ? path.join(ROOT, "frontend", rein)
-    : path.resolve(path.dirname(quelle), rein);
+  if (!rein.startsWith("/")) return path.resolve(path.dirname(quelle), rein);
+  const treffer = karte.find((k) => rein.startsWith(k.praefix));
+  return path.join(ROOT, "frontend", treffer ? treffer.unter : "", rein);
 }
 
 /* nginx beantwortet einige Adressen mit `return 30x`, ohne dass eine Datei
@@ -257,6 +294,7 @@ describe("Asset-Waechter — jede Adresse im Markup gegen den echten Bestand", (
   let adressen = [];
   let nginxKonfig = "";
   let landing = "";
+  let karte = [];
 
   before(() => {
     if (!ROOT) return;
@@ -269,6 +307,7 @@ describe("Asset-Waechter — jede Adresse im Markup gegen den echten Bestand", (
     /* Ohne Kommentare: der Erklaerblock ueber den Story-Sektionen spricht selbst
        ueber `data-img` — C3 wuerde sonst die Erklaerung fuer die Verdrahtung
        halten. Genau dieser Fehler ist beim Gegentest von E1 aufgetreten. */
+    karte = wurzelKarte(nginxKonfig);
     landing = ohneKommentare(
       fs.readFileSync(path.join(ROOT, "frontend", "landing.html"), "utf8"), "html");
   });
@@ -297,12 +336,41 @@ describe("Asset-Waechter — jede Adresse im Markup gegen den echten Bestand", (
    * Richtung A — Adresse ohne Datei
    * ═══════════════════════════════════════════════════════════════════════ */
 
+  it("A0: die Wurzel-Karte kommt aus nginx.conf und kennt die Ausnahmen",
+    { skip: !ROOT && "keine Wurzel" }, () => {
+      /*
+       * nginx hat nicht EINEN Dateibaum. `/staff/assets/` und `/legal/` liegen
+       * eine Ebene tiefer (`root …/html/public`). Der erste Entwurf loeste alles
+       * gegen `frontend/` auf und meldete im Haupt-Checkout beim ersten Lauf
+       * `/staff/assets/index-…js` als tot — die Datei liegt dort und liefert
+       * HTTP 200. Ein Waechter, der vorhandene Dateien als fehlend meldet, wird
+       * abgeschaltet; deshalb haengt diese Zusicherung hier.
+       *
+       * Im Worktree faellt das nicht auf, weil die Vite-Ausgaben fehlen. Also
+       * wird nicht das ERGEBNIS geprueft, sondern die AUFLOESUNG.
+       */
+      const unter = (adresse) =>
+        schraeg(path.relative(path.join(ROOT, "frontend"), zuDatei(adresse, "", karte)));
+
+      assert.equal(unter("/staff/assets/index-abc.js"), "public/staff/assets/index-abc.js",
+        "`/staff/assets/` wird gegen die falsche Wurzel aufgeloest");
+      assert.equal(unter("/legal/agb.html"), "public/legal/agb.html",
+        "`/legal/` wird gegen die falsche Wurzel aufgeloest");
+      assert.equal(unter("/public/enterprise.html"), "public/enterprise.html",
+        "der Normalfall darf sich dadurch nicht verschieben");
+      assert.equal(unter("/landing.html"), "landing.html");
+
+      assert.ok(karte.some((k) => k.praefix === "/"),
+        "die Standard-Wurzel `location /` fehlt in der Karte — dann faellt jede " +
+        "Adresse ohne eigenes Praefix durch");
+    });
+
   it("A1: jede Adresse mit Dateiendung zeigt auf eine vorhandene Datei",
     { skip: !ROOT && "keine Wurzel" }, () => {
       const umgeleitet = umgeleiteteAdressen(nginxKonfig);
       const tot = adressen
         .filter((a) => !umgeleitet.has(a.roh.split("#")[0].split("?")[0]))
-        .filter((a) => !fs.existsSync(zuDatei(a.roh, a.datei)))
+        .filter((a) => !fs.existsSync(zuDatei(a.roh, a.datei, karte)))
         .map((a) => `${a.roh}\n      referenziert in ${schraeg(path.relative(ROOT, a.datei))}:${a.zeile}`);
 
       assert.deepEqual([...new Set(tot)], [],
