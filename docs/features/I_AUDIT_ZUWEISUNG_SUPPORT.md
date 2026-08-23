@@ -899,9 +899,49 @@ sein Profil nicht gepflegt hat, wäre die falsche Adresse.
 
 Die Ansprechperson steht jetzt in der Live-Belegschaft, mit wählbarer Nummer.
 
-> **Offene Lücke im Datenmodell, gemessen:** nur **5 von 68** Einsätzen haben
-> überhaupt einen `offer_id`. Ohne Angebotsbezug gibt es keine hinterlegte
-> Ansprechperson — egal, wo man sie anzeigt. Das ist keine Lücke der Anzeige.
+#### Die Richtung — ein Fehler in der eigenen Arbeit, und wie er auffiel
+
+Die erste Fassung zeigte die Ansprechperson aus `offers.contact_name`. Beim
+Nachprüfen der **Richtung** — nicht durch einen Test, sondern durch die Frage
+„wer sieht das eigentlich?" — fiel auf:
+
+| | |
+|---|---|
+| `assignments.supplier_org_id` | die Agentur, **deren Tafel das ist** |
+| `offers.supplier_company_id` | ein Mitglied **ebendieser** Agentur |
+
+Die Agentur bekam ihre **eigene** Kontaktperson angezeigt. Es sah richtig aus und
+war wertlos — die schlimmste Sorte Fehler, weil niemand sie bemerkt, bis jemand
+um sechs Uhr morgens die falsche Nummer wählt. Der Commit ist zurückgenommen.
+
+Besetzung und Live-Belegschaft sind **Anbieter**-Flächen; dort gehört die Nummer
+des **Kunden** hin. Es fehlte also nicht die Anzeige, sondern die Hälfte der
+Daten: `demand_requests` hatte überhaupt keine Kontaktspalten.
+
+**Migration 192** legt sie an — auf dem **Bedarf**, nicht auf dem Einsatz. Der
+Bedarf ist die Stelle, an der das Einsatzunternehmen ohnehin spricht; auf
+`assignments` wäre die Angabe eine Spalte, die jemand nachtragen müsste, wenn der
+Einsatz schon läuft — also genau dann, wenn niemand mehr Zeit dafür hat.
+
+Erfasst mit derselben Mechanik wie beim Angebot: Pflicht am ausdrücklichen
+Bedarf, Rückfall aufs Profil, **kein** Blockieren bei den zwei impliziten
+Bedarfen (mitten in einem schnellen Abschluss nach einer Telefonnummer zu fragen
+ist eine Wand an der Stelle, an der Tempo der Zweck ist).
+
+**Gegen echte Daten geprüft**, nicht gegen einen Spion: beide Abfragen direkt
+gegen die laufende Datenbank ausgeführt. Die Live-Belegschaft der Agentur zeigt
+`Frau Neumann (Disposition) +49 30 5550123` — die Nummer des Kunden. Die
+Besetzungsliste ebenso, mit ehrlichem Leerzustand in der zweiten Zeile.
+
+Zehn Proben halten jetzt die **Richtung** fest. Sie sind billig und hätten den
+Fehler gefangen.
+
+> **Offene Lücke im Datenmodell, gemessen:** **61 von 68** Einsätzen haben *weder*
+> Bedarf noch Deal noch Angebot noch Anforderung — sie stehen für sich. Für die
+> trägt auch Migration 192 nichts bei. Das ist keine Lücke der Spalten, sondern
+> eine der **Herkunft**: ein Einsatz ohne Vorgang hat keine Gegenseite, die man
+> anrufen könnte. Wer das ändert, ändert, wie Einsätze entstehen — eine eigene
+> Entscheidung, keine Nebenwirkung dieser hier.
 
 ### Was die Erhebung NICHT geprüft hat
 
