@@ -135,7 +135,6 @@
 | Methode | Pfad | Beschreibung | Plan |
 |---|---|---|---|
 | GET | `/api/reporting/executive` | Executive Dashboard | PRO+ |
-| POST | `/api/reports` | Missbrauchsmeldung gegen einen Nutzer (requireAuth) | — |
 | GET | `/api/analytics` | Analytics | PLUS+ |
 
 ### Notifications & Activity

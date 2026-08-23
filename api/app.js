@@ -36,7 +36,6 @@ import { createGeoRouter } from "./routes/geo.js";
 import { createListingsRouter } from "./routes/listings.js";
 import { createCapacitiesRouter } from "./routes/capacities.js";
 import { createInternalRouter } from "./routes/internal.js";
-import { createReportsRouter } from "./routes/reports.js";
 import { createPaymentRouter } from "./routes/payment.js";
 import { createProofsRouter } from "./routes/proofs.js";
 import { createMarketplaceRouter } from "./routes/marketplace.js";
@@ -373,7 +372,6 @@ export async function createApp() {
   v1.use(createRateCardsRouter(deps));
   v1.use(createSpendAnalyticsRouter(deps));
   v1.use(createDataGovernanceRouter(deps));
-  v1.use(createReportsRouter(deps));
   v1.use(createPaymentRouter(deps));
   v1.use(createProofsRouter(deps));
   v1.use(createMarketplaceRouter(deps));

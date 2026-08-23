@@ -389,7 +389,6 @@ der jede Router-Datei gegen dieses Dokument hält. Genau dafür gibt es ihn.
 | `api/routes/preferredVendors.js` | `/preferred-vendors` | Vorzugslieferanten eines Unternehmens verwalten |
 | `api/routes/supplierPools.js` | `/supplier-pools/distribute` | Eine Anfrage an mehrere Zeitarbeitsfirmen gleichzeitig verteilen |
 | `api/routes/capacityDiscovery.js` | `/capacity-discovery/by-role` | Freie Kapazität nach Rolle finden |
-| `api/routes/reports.js` | `/reports` | Missbrauchsmeldung gegen einen Nutzer (**nicht** Auswertungen — die liegen in `api/routes/reporting.js`) |
 | `api/routes/smartPricing.js` | `/pricing/suggest` | Preisvorschlag für ein Angebot |
 
 Das ist **keine Fehlerliste.** Der Code sagt nur, dass keine Oberfläche darauf
@@ -636,10 +635,10 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | API-Endpunkte insgesamt | **938** | `grep -rE "^\s*(router\|app)\.(get\|post\|put\|patch\|delete)\(" api/routes/ --include=*.js \| wc -l` |
 | davon Owner Control Center | 31 | dieselbe Zählung, beschränkt auf `api/routes/occ/` (13 Modul-Router) |
 | davon Staff Control Center | 104 | `api/routes/staffControlCenter.js` — größte Einzeldatei |
-| Router-Dateien | 84 | `ls api/routes/ \| wc -l` (inkl. Verzeichnis `api/routes/occ/`) |
-| Service-Dateien | 176 | `ls api/services/ \| wc -l` |
+| Router-Dateien | 83 | `ls api/routes/ \| wc -l` (inkl. Verzeichnis `api/routes/occ/`) |
+| Service-Dateien | 175 | `ls api/services/ \| wc -l` |
 | Datenbanktabellen | **180** | eindeutige `CREATE TABLE`-Namen in `sql/init.sql` + `sql/migrations/*.sql`, bereinigt um einen Treffer aus einem deutschen Kommentar. Davon 4 aus dem Grundschema (`users`, `listings`, `requests`, `subscriptions`), 176 aus Migrationen |
-| Migrationsdateien | **194** | `ls sql/migrations/*.sql \| wc -l` — nummeriert `001_ratings.sql` bis `190_melden_nur_was_man_sieht.sql`; neun Nummern sind doppelt belegt (`027`/`027b`, `045`/`045b`, `064`, `070`, `074`, `075`, `086`, `130`, `140`). `NUMBERING.md` ist keine Migration |
+| Migrationsdateien | **195** | `ls sql/migrations/*.sql \| wc -l` — nummeriert `001_ratings.sql` bis `191_ein_meldeweg_weniger.sql`; neun Nummern sind doppelt belegt (`027`/`027b`, `045`/`045b`, `064`, `070`, `074`, `075`, `086`, `130`, `140`). `NUMBERING.md` ist keine Migration |
 | Nutzerflächen | **89** | 77 in `frontend/public/*.html` + 6 `legal/` + 4 `trust/` + `frontend/landing.html` + `frontend/demo.html` |
 | davon reine Weiterleitungen | 9 | je 14 nicht-leere Zeilen, reiner Meta-Refresh |
 | davon Attrappen | 3 | `sla_nachweise.html`, `impressum.html`, `datenschutz.html` (Wurzel) |
@@ -880,7 +879,7 @@ Ehrlichkeit über die eigenen Grenzen gehört in ein Dokument, das später an In
    Bedienungsanleitung des Teams braucht es einen eigenen Durchgang in derselben Tiefe wie für
    die Kundenfläche.
 
-5. **Die Datenbank ist nur gezählt, nicht beschrieben.** 180 Tabellen und 194 Migrationsdateien
+5. **Die Datenbank ist nur gezählt, nicht beschrieben.** 179 Tabellen und 195 Migrationsdateien
    sind belegt; welche Tabellen tot sind, welche redundant, welche ohne Index auf einem heißen
    Lesepfad liegen — offen. Ein Schema-Register wäre der nächste sinnvolle Schritt
    (`api/scripts/schema-snapshot.js` existiert bereits als unversionierte Arbeitsdatei).

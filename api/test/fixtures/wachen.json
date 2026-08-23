@@ -1932,14 +1932,6 @@
       "begruendung": "Empfehlungen des eigenen Kontos."
     },
     {
-      "datei": "reports.js",
-      "methode": "post",
-      "pfad": "/reports",
-      "wachart": "BEFUND",
-      "begruendung": "OFFENER PUNKT, am 2026-08-22 belegt. Der vorherige Eintrag lautete 'eigene-daten' mit der Begruendung 'Ein Bericht wird fuer die eigene Organisation erzeugt.' — beides ist sachlich falsch und hat die Luecke als geprueft zertifiziert. `POST /reports` ist eine MISSBRAUCHSMELDUNG gegen einen FREMDEN Nutzer (reports.js:5-10 `reported_user_id: z.string().uuid()`); `eigene-daten` heisst laut Vokabular dieser Datei aber 'kein fremdes Ziel erreichbar'. Die Beteiligungspruefung ist bedingt: `request_id` ist optional (reports.js:7) und die Pruefung steht hinter `if (request_id)` (:26). Ohne das Feld bleibt als einzige Huerde `userExists` — ein nacktes SELECT id FROM users. Verwechselt wurde die Route offenbar mit `reporting.js` (Auswertungen); PILOT_GO_LIVE_TODOS.md:705 haelt diese Verwechslung bereits fest, die Korrektur ist nur nie in die Register geflossen.",
-      "hinweis": "Bleibt BEFUND, bis der Owner entschieden hat, ob es Personen-Meldungen im Produkt geben soll (Route entfernen / haerten mit Pflicht-`request_id` / in profile_abuse_reports zusammenfuehren). Bis dahin ist wenigstens das Orakel geschlossen: 'Nutzer gibt es nicht' und 'nicht beteiligt' antworten gleich. 0 Aufrufer im Repo, 0 Zeilen in der Datenbank."
-    },
-    {
       "datei": "requests.js",
       "methode": "post",
       "pfad": "/policies/compliance",
@@ -2953,8 +2945,8 @@
     }
   ],
   "grundlinie": {
-    "wege": 418,
+    "wege": 417,
     "berechtigung": 161,
-    "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-22 von 415 auf 416 erhoeht: Abschnitt 10 hat mit `POST /support-requests` den Weg eines Kunden INS Support Center angelegt — vorher hatte `support_cases` im gesamten Repo kein einziges INSERT, das Support Center war ein Lesesaal ueber einer Tabelle, die niemand fuellen konnte. Die Wachart bleibt `eigene-daten`: der Melder kommt aus der Sitzung, nicht aus dem Anfragekoerper. Am 2026-08-22 weiter auf 417: `POST /offers/:id/report` (Abschnitt 10, Inhalte melden). `berechtigung` unveraendert bei 161."
+    "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-22 von 415 auf 416 erhoeht: Abschnitt 10 hat mit `POST /support-requests` den Weg eines Kunden INS Support Center angelegt — vorher hatte `support_cases` im gesamten Repo kein einziges INSERT, das Support Center war ein Lesesaal ueber einer Tabelle, die niemand fuellen konnte. Die Wachart bleibt `eigene-daten`: der Melder kommt aus der Sitzung, nicht aus dem Anfragekoerper. Am 2026-08-22 weiter auf 417: `POST /offers/:id/report` (Abschnitt 10, Inhalte melden). `berechtigung` unveraendert bei 161. Am 2026-08-23 von 418 auf 417 GESENKT: `POST /reports` wurde nach Owner-Entscheid ENTFERNT (0 Aufrufer, 0 Zeilen; Migration 191). Eine Route, die es nicht mehr gibt, kann nicht bewacht werden — stattdessen haelt eine Probe fest, dass sie nicht zurueckkehrt."
   }
 }

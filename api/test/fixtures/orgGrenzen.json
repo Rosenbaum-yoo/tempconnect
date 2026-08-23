@@ -2847,11 +2847,6 @@
       "hinweis": "Keine Route mit Pfad-Platzhalter (8 Routen, tief gezaehlt). Damit gibt es hier keine Zeile, die ueber eine Kennung aus dem Pfad adressiert wird — die Klasse von Luecke, die diese Pruefung sucht, kann nicht auftreten. Der Waechter RECHNET das bei jedem Lauf nach: kommt eine :id-Route dazu, wird er rot."
     },
     {
-      "datei": "reports.js",
-      "routen": [],
-      "hinweis": "Keine Route mit Pfad-Platzhalter (1 Routen, tief gezaehlt). Damit gibt es hier keine Zeile, die ueber eine Kennung aus dem Pfad adressiert wird — die Klasse von Luecke, die diese Pruefung sucht, kann nicht auftreten. Der Waechter RECHNET das bei jedem Lauf nach: kommt eine :id-Route dazu, wird er rot."
-    },
-    {
       "datei": "reputation.js",
       "routen": [
         {
