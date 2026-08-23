@@ -178,59 +178,103 @@ describe("Fall-Zustandsautomat — nicht jeder Schritt ergibt Sinn", () => {
   });
 });
 
-describe("BEFUND — `resolved` und `closed` sind absolute Sackgassen", () => {
+/** Supervisor-Rolle — die, die wiedereroeffnen darf. */
+function supervisor() {
+  return { ...einfacherAgent(), role: "internal_support_lead", display_name: "Lead" };
+}
+
+describe("Endzustaende — der Abschluss ist entschieden, nicht zufaellig", () => {
   /*
-   * DIESE GRUPPE BESCHREIBT EINEN BEFUND, KEINE GEWOLLTE EIGENSCHAFT.
+   * VORHER (Befund 2026-08-22): `computeAllowedActions` strich auf einem
+   * erledigten Fall SECHS Aktionen, darunter `change_status`. Folgen, die
+   * niemand entschieden hatte:
    *
-   * Beim Bauen des Automaten aufgefallen: `computeAllowedActions` (support.js:279)
-   * streicht auf einem erledigten Fall SECHS Aktionen —
-   * accept, assign, change_status, change_priority, escalate, close.
+   *   * Ein Fall in `resolved` konnte nie `closed` werden — welcher der beiden
+   *     Endzustaende galt, entschied der Zufall des ersten Klicks.
+   *   * `reopened` stand im CHECK der Migration 110 und wurde im GESAMTEN Repo
+   *     nirgends gesetzt. Und darauf rechnete eine veroeffentlichte
+   *     Qualitaetskennzahl: `reopen_rate_percent` konnte nur 0 % ergeben.
+   *   * Der einzige Rueckweg aus `closed` fuehrte ueber
+   *     `POST /support/escalations`, dessen Rechtepruefung mit einer FEST
+   *     VERDRAHTETEN Zeile `{status:"open"}` arbeitet und die Sperre umging.
+   *     "Um einen Fall wieder zu oeffnen, eskaliere ihn" ist kein Arbeitsablauf.
    *
-   * Folgen, die niemand entschieden hat:
-   *   * Ein Fall in `resolved` kann nie `closed` werden. Beide Endzustaende
-   *     existieren, aber welcher gilt, entscheidet der Zufall des ersten Klicks.
-   *   * `reopened` steht im CHECK der Migration 110 und wird im GESAMTEN Repo
-   *     an keiner Stelle gesetzt. Der Zustand ist unerreichbar.
-   *   * Und darauf rechnet eine veroeffentlichte Qualitaetskennzahl:
-   *     `reopen_rate_percent` (support.js:1696) zaehlt
-   *     `COUNT(*) FILTER (WHERE sc.status = 'reopened')`. Sie kann nur 0 %
-   *     ergeben — eine Zahl, die gemessen aussieht und nur eines sagen kann.
-   *
-   * Der einzige Rueckweg aus `closed` fuehrt heute ueber `POST /support/escalations`,
-   * dessen Rechtepruefung mit einer FEST VERDRAHTETEN Zeile `{status:"open"}`
-   * arbeitet (support.js:1495) und die Sperre damit umgeht. "Um einen Fall
-   * wieder zu oeffnen, eskaliere ihn" ist kein Arbeitsablauf.
-   *
-   * NICHT MITREPARIERT, weil es eine Produktfrage ist: Wer darf einen
-   * abgeschlossenen Fall wieder oeffnen, und unter welcher Bedingung? Die
-   * Zusicherungen hier werden ROT, sobald jemand das aendert — das ist ihr
-   * Zweck. Wer sie rot sieht, prueft bitte auch die Wiedereroeffnungs-Quote.
+   * Owner-Entscheid 2026-08-23: Wiedereroeffnen wird gebaut.
    */
 
-  it("ein erledigter Fall laesst change_status gar nicht erst zu", async () => {
-    for (const von of ["resolved", "closed"]) {
-      const r = await wechsle(von, "in_progress");
-      assert.equal(r.status, 403, `${von} sollte change_status verweigern`);
-      assert.equal(r.json?.error, "PERMISSION_DENIED");
-    }
-  });
-
-  it("`resolved` kann nicht `closed` werden — beide Endzustaende schliessen sich aus", async () => {
+  it("ein geloester Fall laesst sich abschliessen", async () => {
     const r = await wechsle("resolved", "closed");
-    assert.equal(r.status, 403,
-      "Welcher der beiden Endzustaende gilt, entscheidet heute der Zufall des ersten Klicks.");
+    assert.equal(r.status, 200,
+      "Beide Endzustaende existieren; welcher gilt, darf keine Frage des ersten Klicks sein.");
   });
 
-  it("`reopened` ist unerreichbar", async () => {
-    for (const von of ["resolved", "closed"]) {
-      const r = await wechsle(von, "reopened");
-      assert.equal(r.status, 403,
-        "Wenn diese Zusicherung rot wird, ist Wiedereroeffnen gebaut worden — dann gehoert " +
-        "`reopen_rate_percent` (support.js:1696) mitgeprueft: die Kennzahl existiert seit " +
-        "jeher und konnte bis dahin nur 0 % ergeben.");
-    }
+  it("aber nicht direkt zurueck in die Bearbeitung", async () => {
+    const r = await wechsle("resolved", "in_progress");
+    assert.equal(r.status, 400);
+    assert.equal(r.json?.error, "INVALID_TRANSITION");
+    assert.deepEqual(r.json?.allowed, ["closed", "reopened"],
+      "der Weg zurueck fuehrt ueber das ausdrueckliche Wiedereroeffnen, nicht nebenbei");
+  });
+
+  it("ein abgeschlossener Fall kennt genau EINEN Weg heraus", async () => {
+    const r = await wechsle("closed", "in_progress");
+    assert.equal(r.status, 400);
+    assert.deepEqual(r.json?.allowed, ["reopened"]);
   });
 });
+
+describe("Wiedereroeffnen — eine Aufsichtsentscheidung, keine Bearbeitungsentscheidung", () => {
+  it("ein Supervisor darf einen abgeschlossenen Fall wieder oeffnen", async () => {
+    for (const von of ["resolved", "closed"]) {
+      const r = await wechsle(von, "reopened", supervisor());
+      assert.equal(r.status, 200, `aus ${von} muss ein Supervisor wiedereroeffnen koennen`);
+    }
+  });
+
+  it("ein einfacher Agent nicht", async () => {
+    const r = await wechsle("closed", "reopened", einfacherAgent());
+    assert.equal(r.status, 403);
+    assert.equal(r.json?.error, "REOPEN_REQUIRES_SUPERVISOR",
+      "Wiedereroeffnen setzt eine Loesung zurueck, auf die sich der Kunde verlassen hat, " +
+      "und faellt in die Quote ein, an der die Arbeit des Teams gemessen wird — dieselbe " +
+      "Grenze wie bei `escalate`.");
+    assert.ok(!r.pool.calls.some((c) => /UPDATE support_cases/.test(c.sql)),
+      "es darf nichts geschrieben werden");
+  });
+
+  it("die Rollenpruefung greift VOR dem Automaten", async () => {
+    /* Sonst erfaehrt ein einfacher Agent aus der Fehlermeldung, welche Wege
+     * offen stehen, bevor geklaert ist, ob er sie gehen darf. */
+    const r = await wechsle("open", "reopened", einfacherAgent());
+    assert.equal(r.status, 403,
+      "auch bei einem Uebergang, den die Tabelle ohnehin verboten haette, entscheidet " +
+      "zuerst die Rolle");
+  });
+
+  it("beim Wiedereroeffnen werden Loesungs- UND Abschlusszeit geloescht", async () => {
+    const r = await wechsle("closed", "reopened", supervisor());
+    const update = r.pool.calls.find((c) => /UPDATE support_cases/.test(c.sql) && /sla_resolved_at/.test(c.sql));
+    assert.ok(update, "der Statuswechsel muss den Fall schreiben");
+    assert.match(update.sql, /sla_resolved_at = CASE\s*\n?\s*WHEN \$2 = 'reopened' THEN NULL/,
+      "Ohne das behielte der Fall den Zeitstempel der ersten Runde: COALESCE liesse ihn beim " +
+      "zweiten Abschluss stehen, und die Loesungsdauer waere ab der ERSTEN Meldung gerechnet — " +
+      "der zweite Durchgang bliebe in der Kennzahl unsichtbar.");
+    assert.match(update.sql, /closed_at = CASE\s*\n?\s*WHEN \$2 = 'reopened' THEN NULL/);
+  });
+
+  it("die Wiedereroeffnungs-Quote kann jetzt ueberhaupt etwas anderes als 0 ergeben", async () => {
+    /* Der Grund, warum dieser Befund mehr als ein Schoenheitsfehler war:
+     * `reopen_rate_percent` (support.js) zaehlt `WHERE sc.status = 'reopened'`
+     * und wird als Qualitaetskennzahl veroeffentlicht. Solange niemand den
+     * Zustand setzen konnte, war sie eine Null, die wie eine Messung aussah. */
+    const r = await wechsle("closed", "reopened", supervisor());
+    const update = r.pool.calls.find((c) => /UPDATE support_cases/.test(c.sql) && /SET status = \$2/.test(c.sql));
+    assert.ok(update, "der Status muss wirklich geschrieben werden");
+    assert.ok(update.params.includes("reopened"),
+      "sonst bleibt reopen_rate_percent eine Zahl, die nur eines sagen kann");
+  });
+});
+
 
 describe("Fall-Zustandsautomat — kein Zustand ist eine unbeabsichtigte Sackgasse", () => {
   /*

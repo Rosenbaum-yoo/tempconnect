@@ -293,7 +293,31 @@ function computeAllowedActions(caseRow, req) {
   for (const action of actions) {
     if (!ACTIONS.has(action)) continue;
     if (!roleAllowsAction(req.supportAgent.role, action)) continue;
-    if (isResolvedStatus(caseRow.status) && [ "accept", "assign", "change_status", "change_priority", "escalate", "close" ].includes(action)) {
+    /*
+     * `change_status` ist hier NICHT mehr gesperrt — und das war der Kern
+     * zweier Befunde auf einmal (2026-08-22):
+     *
+     *   * Ein Fall in `resolved` konnte nie `closed` werden. Beide Endzustaende
+     *     existieren, aber welcher galt, entschied der Zufall des ersten Klicks.
+     *   * `reopened` stand im CHECK der Migration 110 und wurde im GESAMTEN
+     *     Repo nirgends gesetzt — unerreichbar. Und genau darauf rechnete eine
+     *     veroeffentlichte Qualitaetskennzahl: `reopen_rate_percent` zaehlt
+     *     `WHERE sc.status = 'reopened'` und konnte nur 0 % ergeben. Eine Zahl,
+     *     die gemessen aussieht und nur eines sagen kann.
+     *
+     * Der einzige Rueckweg aus `closed` fuehrte ueber `POST /support/escalations`,
+     * dessen Rechtepruefung mit einer FEST VERDRAHTETEN Zeile `{status:"open"}`
+     * arbeitet und die Sperre damit umgeht. "Um einen Fall wieder zu oeffnen,
+     * eskaliere ihn" ist kein Arbeitsablauf.
+     *
+     * Owner-Entscheid 2026-08-23: Wiedereroeffnen wird gebaut. Welche Schritte
+     * aus einem Endzustand herausfuehren, sagt jetzt `STATUS_UEBERGAENGE`
+     * (`resolved` -> closed | reopened, `closed` -> reopened) — nicht mehr eine
+     * pauschale Sperre. Wer `reopened` setzen darf, entscheidet die Rolle;
+     * das steht im `change_status`-Zweig, weil es vom ZIEL abhaengt und nicht
+     * von der Aktion.
+     */
+    if (isResolvedStatus(caseRow.status) && [ "accept", "assign", "change_priority", "escalate", "close" ].includes(action)) {
       continue;
     }
     if (action === "accept" && caseRow.assigned_to_agent_id) continue;
@@ -1014,6 +1038,19 @@ function buildSupportRouter(deps) {
             message: "Eskalationszustände entstehen nur über die Aktion `escalate` — mit Begründung, OCC-Vorgang und Eskalations-Eintrag."
           });
         }
+        /* Einen abgeschlossenen Fall wieder aufzumachen ist keine
+         * Bearbeitungsentscheidung, sondern eine Aufsichtsentscheidung: sie
+         * setzt eine Loesung zurueck, auf die sich der Kunde bereits verlassen
+         * hat, und sie faellt in die Wiedereroeffnungs-Quote ein, an der die
+         * Arbeit des Teams gemessen wird. Deshalb Supervisor-Rollen — dieselbe
+         * Grenze wie bei `escalate`. */
+        if (nextStatus === "reopened" && !SUPERVISOR_ROLES.has(req.supportAgent.role)) {
+          await client.query("ROLLBACK");
+          return res.status(403).json({
+            error: "REOPEN_REQUIRES_SUPERVISOR",
+            message: "Einen abgeschlossenen Fall wieder zu öffnen ist Supervisor-Rollen vorbehalten."
+          });
+        }
         const erlaubt = STATUS_UEBERGAENGE[currentRow.status];
         if (!erlaubt || !erlaubt.has(nextStatus)) {
           await client.query("ROLLBACK");
@@ -1033,11 +1070,23 @@ function buildSupportRouter(deps) {
            * der Kunde nie zu sehen bekommt. */
           `UPDATE support_cases
               SET status = $2,
+                  /* Beim Wiedereroeffnen werden Loesungs- und Abschlusszeit
+                   * GELOESCHT. Ohne das behielte der Fall den Zeitstempel der
+                   * ersten Runde: COALESCE(sla_resolved_at, NOW()) liesse ihn
+                   * beim zweiten Abschluss stehen, und die Loesungsdauer waere
+                   * ab der ersten Meldung gerechnet — der zweite Durchgang
+                   * bliebe in der Kennzahl unsichtbar. Genau so entstehen
+                   * Zahlen, die eine Messung vortaeuschen. */
                   sla_resolved_at = CASE
+                    WHEN $2 = 'reopened' THEN NULL
                     WHEN $2 IN ('resolved', 'closed') THEN COALESCE(sla_resolved_at, NOW())
                     ELSE sla_resolved_at
                   END,
-                  closed_at = CASE WHEN $2 = 'closed' THEN NOW() ELSE closed_at END,
+                  closed_at = CASE
+                    WHEN $2 = 'reopened' THEN NULL
+                    WHEN $2 = 'closed' THEN NOW()
+                    ELSE closed_at
+                  END,
                   updated_at = NOW()
             WHERE id = $1::uuid`,
           [currentRow.id, nextStatus]
@@ -1640,6 +1689,107 @@ function buildSupportRouter(deps) {
       return res.status(500).json({ error: "SERVER_ERROR", message: "Eskalation konnte nicht erstellt werden." });
     } finally {
       client.release();
+    }
+  });
+
+  /*
+   * EINE ESKALATION KONNTE NIE ZU ENDE KOMMEN.
+   *
+   * BEFUND (2026-08-22): Zwei INSERTs mit fest verdrahtetem `'pending'`,
+   * repo-weit NULL `UPDATE` und NULL `DELETE` auf `support_escalations`, keine
+   * Trigger, keine Rules. `resolved_at`, `resolution_note` und
+   * `resolved_by_agent_id` existieren seit Migration 110 ohne Default — und
+   * ohne einen einzigen Schreiber. Die einzige Oberflaeche ist eine reine
+   * Anzeige (`frontend/src/support/modules.tsx`: `<td>{e.status}</td>`, kein
+   * Aktions-Knopf); es gab zwei GET und einen POST, kein PATCH.
+   *
+   * Zwei Folgen, beide dauerhaft:
+   *   * Im OCC zaehlt `occ/bootstrap.js` jede Eskalation als offen, solange der
+   *     Fall offen ist.
+   *   * Im Staff CC filtert die Liste zwar auf `status IN ('pending',
+   *     'acknowledged')` — nur konnte den Status nie jemand verlassen. Jede je
+   *     erzeugte Eskalation blieb fuer immer stehen, und die
+   *     Prioritaetssortierung schob die aeltesten toten Eintraege nach vorn.
+   *
+   * Owner-Entscheid 2026-08-23: Der Supervisor darf abhaken, UND ein
+   * Owner-Entscheid im OCC schlaegt automatisch durch — mit Vorrang fuer den
+   * OCC. Diese Route ist die erste Haelfte; die zweite steht in
+   * `api/routes/occ/decisionsRequests.js`.
+   */
+  const ESKALATIONS_ABSCHLUSS = new Set([ "acknowledged", "resolved", "rejected" ]);
+
+  router.post("/support/escalations/:id/resolve", async (req, res) => {
+    if (!SUPERVISOR_ROLES.has(req.supportAgent.role)) {
+      return res.status(403).json({ error: "PERMISSION_DENIED", message: "Eskalationen abschließen ist Supervisor-Rollen vorbehalten." });
+    }
+    const zielStatus = String(req.body?.status || "").trim().toLowerCase();
+    if (!ESKALATIONS_ABSCHLUSS.has(zielStatus)) {
+      return res.status(400).json({
+        error: "INVALID_STATUS",
+        message: "status muss acknowledged, resolved oder rejected sein.",
+        allowed: [ ...ESKALATIONS_ABSCHLUSS ]
+      });
+    }
+    /* Eine Eskalation abzuhaken ist eine Aussage darueber, was mit einem
+     * herausgehobenen Vorgang geschehen ist. Ohne Begruendung ist sie eine
+     * leere Geste — dieselbe Schwelle wie beim Eskalieren selbst. */
+    const notiz = nullableText(req.body?.resolution_note);
+    if (!notiz || notiz.length < 20) {
+      return res.status(400).json({ error: "RESOLUTION_NOTE_REQUIRED", message: "resolution_note mit mindestens 20 Zeichen ist erforderlich." });
+    }
+
+    try {
+      /* `status = 'pending' OR 'acknowledged'` im WHERE: ein bereits
+       * abgeschlossener Vorgang wird nicht ein zweites Mal abgeschlossen —
+       * sonst ueberschreibt der zweite Klick die Begruendung des ersten und
+       * verschiebt `resolved_at`. */
+      const { rows } = await pool.query(
+        `UPDATE support_escalations
+            SET status = $2,
+                resolved_by_agent_id = $3::uuid,
+                resolved_at = NOW(),
+                resolution_note = $4
+          WHERE id = $1::uuid
+            AND status IN ('pending', 'acknowledged')
+        RETURNING id, case_id, target, status, related_occ_request_id`,
+        [ req.params.id, zielStatus, req.supportAgent.id, notiz ]
+      );
+      if (!rows.length) {
+        return res.status(404).json({ error: "NOT_FOUND_OR_ALREADY_CLOSED", message: "Eskalation nicht gefunden oder bereits abgeschlossen." });
+      }
+      const eskalation = rows[0];
+
+      /* Der Fall traegt die Eskalation weiterhin sichtbar, solange nicht ALLE
+       * seine Eskalationen abgeschlossen sind. Ein Fall mit zwei Eskalationen,
+       * von denen eine erledigt ist, ist nicht "nicht mehr eskaliert". */
+      await pool.query(
+        `UPDATE support_cases sc
+            SET is_escalated = EXISTS (
+                  SELECT 1 FROM support_escalations se
+                   WHERE se.case_id = sc.id
+                     AND se.status IN ('pending', 'acknowledged')
+                ),
+                updated_at = NOW()
+          WHERE sc.id = $1::uuid`,
+        [ eskalation.case_id ]
+      );
+
+      await insertCaseEvent(pool, eskalation.case_id, req.supportAgent.id, "escalation_resolved", {
+        escalation_id: eskalation.id,
+        target: eskalation.target,
+        status: zielStatus
+      });
+
+      res.locals.audit = {
+        action: "support.escalation.resolved",
+        entity_type: "support_escalation",
+        entity_id: eskalation.id,
+        details: { status: zielStatus, target: eskalation.target }
+      };
+      return res.json({ success: true, escalation: eskalation });
+    } catch (err) {
+      logger?.error?.({ err }, "support escalation resolve failed");
+      return res.status(500).json({ error: "SERVER_ERROR", message: "Eskalation konnte nicht abgeschlossen werden." });
     }
   });
 

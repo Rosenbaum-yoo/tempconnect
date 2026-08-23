@@ -2327,6 +2327,13 @@
     {
       "datei": "support.js",
       "methode": "post",
+      "pfad": "/support/escalations/:id/resolve",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `supportAuth` (Support-Agent) steht am Praefix vor diesem Weg (support.js: `router.use(\"/support\", ...)`). Zusaetzlich rollenbegrenzt: nur SUPERVISOR_ROLES duerfen eine Eskalation abschliessen, und es braucht eine Begruendung von mindestens 20 Zeichen — dieselbe Schwelle wie beim Eskalieren selbst."
+    },
+    {
+      "datei": "support.js",
+      "methode": "post",
       "pfad": "/support/user-actions",
       "wachart": "flaechentor",
       "begruendung": "Eintrittsbedingung `supportAuth` (Support-Agent) steht vor diesem Weg."
@@ -2945,7 +2952,7 @@
     }
   ],
   "grundlinie": {
-    "wege": 417,
+    "wege": 418,
     "berechtigung": 161,
     "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-22 von 415 auf 416 erhoeht: Abschnitt 10 hat mit `POST /support-requests` den Weg eines Kunden INS Support Center angelegt — vorher hatte `support_cases` im gesamten Repo kein einziges INSERT, das Support Center war ein Lesesaal ueber einer Tabelle, die niemand fuellen konnte. Die Wachart bleibt `eigene-daten`: der Melder kommt aus der Sitzung, nicht aus dem Anfragekoerper. Am 2026-08-22 weiter auf 417: `POST /offers/:id/report` (Abschnitt 10, Inhalte melden). `berechtigung` unveraendert bei 161. Am 2026-08-23 von 418 auf 417 GESENKT: `POST /reports` wurde nach Owner-Entscheid ENTFERNT (0 Aufrufer, 0 Zeilen; Migration 191). Eine Route, die es nicht mehr gibt, kann nicht bewacht werden — stattdessen haelt eine Probe fest, dass sie nicht zurueckkehrt."
   }

@@ -3800,6 +3800,13 @@
           "pfad": "/support/cases/:id/action",
           "urteil": "bewusste-ausnahme",
           "begruendung": "Support-Flaeche: org-uebergreifend PER BAUART — die Faelle aller Organisationen laufen hier zusammen und werden von Support-Kraeften der Plattform bearbeitet. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche vom Torwaechter 'supportAuth', der EINMAL auf dem Praefix montiert ist (support.js:664) und damit jede Route darunter deckt — die strengere Bauart, weil man ihn auf einer neuen Route nicht vergessen kann. Der Zuschnitt dahinter kommt aus dem Agenten-Datensatz (buildScope, support.js:160): erlaubte Warteschlangen, Fallarten und data_scope (assigned_only / vendor_scoped)."
+        },
+        {
+          "methode": "post",
+          "pfad": "/support/escalations/:id/resolve",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Support-Flaeche: org-uebergreifend PER BAUART — wortgleich zu den uebrigen `/support/cases/:id`-Wegen dieser Datei. Ein Support-Agent bearbeitet die Faelle aller Organisationen; die Begrenzung ist keine Org-Grenze, sondern `buildScope` (allowed_queues/allowed_case_types/data_scope) plus das Praefix-Tor `supportAuth`.",
+          "art": "ressource"
         }
       ],
       "hinweis": "Der Support ist KEINE Mandantenflaeche: die Faelle aller Organisationen laufen hier zusammen, bearbeitet von Support-Kraeften der Plattform. Die Eintrittsbedingung ist `supportAuth`, montiert einmal auf dem Praefix (support.js:664) — die strengere Bauart, weil man sie auf einer neuen Route nicht vergessen kann. Der Zuschnitt DAHINTER kommt aus dem Agenten-Datensatz (`buildScope`, support.js:160): erlaubte Warteschlangen, Fallarten und `data_scope` (assigned_only / vendor_scoped). Eine Org-Grenze waere hier falsch.",
