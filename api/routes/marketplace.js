@@ -87,6 +87,10 @@ const offerSchema = z.object({
   validity_until: z.string().optional().nullable(),
   replacement_sla_minutes: z.number().int().min(0).optional().nullable(),
   response_time_minutes: z.number().int().min(0).optional().nullable(),
+  /* Bleiben optional — die Pflicht setzt die ROUTE durch, mit Rueckfall auf das
+   * Profil des Anbieters (siehe `ansprechperson`). Sie hier zur Pflicht zu
+   * machen wuerde den Rueckfall unmoeglich machen: wer sie im Profil gepflegt
+   * hat, muesste sie bei jedem Angebot erneut tippen. */
   contact_name: z.string().max(200).optional().nullable(),
   contact_phone: z.string().max(50).optional().nullable(),
   compliance_check: z.object({
@@ -286,6 +290,73 @@ const cancelAgreementSchema = z.object({
   note: z.string().max(2000).optional().nullable()
 });
 
+/*
+ * DIE ANSPRECHPERSON AM ANGEBOT (Plan I, 10b).
+ *
+ * Owner-Entscheid 2026-08-23: Ansprechperson mit Telefonnummer wird
+ * Pflichtfeld — mit Rueckfall auf das Profil des Anbieters. Der Grund steht im
+ * Plan: "Wer morgens um sechs vor einer leeren Schicht steht, schreibt keine
+ * Nachricht." Statt einen Nachrichtenkanal zu bauen, der Erwartungen an
+ * TempConnect erzeugt (Zustellung, Aufbewahrung, Moderation, DSGVO-Auskunft
+ * ueber fremde Gespraeche), tragen beide Seiten eine erreichbare Person.
+ *
+ * BESTAND, GEMESSEN am 2026-08-22: die Spalten `contact_name`/`contact_phone`
+ * stehen seit Migration 014 auf `offers` — und sind bei 0 von 38 Angeboten
+ * gefuellt. Nur 7 von 361 Konten haben ueberhaupt Name UND Nummer im Profil.
+ * Eine harte Pflicht ab sofort haette 20 von 21 Anbietern am Abschluss
+ * gehindert; deshalb der Rueckfall.
+ *
+ * WEN DIE PFLICHT TRIFFT: nur den, der auch handeln kann. Von den fuenf Wegen,
+ * die ein Angebot anlegen, handelt bei dreien der ANBIETER selbst
+ * (`/offers`, `/demand-requests/:id/accept-deal`, `.../negotiate-deal`) — dort
+ * gilt die Pflicht. Bei zweien handelt der KAEUFER und der Anbieter ist die
+ * Gegenseite (`/capacity-posts/:id/...`); dort wird nur aus dem Profil
+ * gefuellt. Den Kaeufer zu blockieren, weil ein anderer sein Profil nicht
+ * gepflegt hat, waere die falsche Adresse.
+ */
+async function ansprechperson(db, anbieterUserId, body = {}) {
+  const ausBody = {
+    name: String(body?.contact_name || "").trim(),
+    telefon: String(body?.contact_phone || "").trim(),
+  };
+  if (ausBody.name && ausBody.telefon) return { name: ausBody.name, telefon: ausBody.telefon };
+
+  let ausProfil = {};
+  try {
+    const { rows } = await db.query(
+      `SELECT NULLIF(TRIM(COALESCE(contact_person, '')), '') AS name,
+              NULLIF(TRIM(COALESCE(phone, '')), '')          AS telefon
+         FROM users WHERE id = $1::uuid LIMIT 1`,
+      [anbieterUserId]
+    );
+    ausProfil = rows[0] || {};
+  } catch {
+    /* Fail-closed im Ergebnis: ohne Profil gilt die Angabe als fehlend. */
+    ausProfil = {};
+  }
+
+  const name = ausBody.name || ausProfil.name || null;
+  const telefon = ausBody.telefon || ausProfil.telefon || null;
+  if (!name || !telefon) {
+    return { fehlt: true, name, telefon, fehltName: !name, fehltTelefon: !telefon };
+  }
+  return { name, telefon };
+}
+
+/** Die Antwort, die den Anbieter zum Nachtragen auffordert — an EINER Stelle. */
+function ansprechpersonFehltAntwort(res, kontakt) {
+  return res.status(409).json({
+    error: "CONTACT_REQUIRED",
+    message: "Für dieses Angebot fehlt eine Ansprechperson mit Telefonnummer. "
+      + "Bitte im Profil hinterlegen oder direkt am Angebot angeben — "
+      + "das Einsatzunternehmen muss jemanden erreichen können, wenn eine Schicht wackelt.",
+    fehlt: {
+      contact_name: kontakt.fehltName === true,
+      contact_phone: kontakt.fehltTelefon === true,
+    },
+  });
+}
+
 export function createMarketplaceRouter(deps) {
   const { pool, requireAuth, requireFeature, sendMail, getUserAndPlan, logger } = deps;
   const router = Router();
@@ -473,11 +544,19 @@ export function createMarketplaceRouter(deps) {
         };
         const demand = await marketplaceService.createDemandRequest(client, req.session.userId, me?.plan || "FREE", demandData);
 
+        /* Hier handelt der KAEUFER; der Anbieter ist die Gegenseite. Die
+         * Ansprechperson wird aus seinem Profil gefuellt — fehlt sie dort,
+         * bleibt sie leer und der Kaeufer wird NICHT blockiert. Ihn abzuweisen,
+         * weil ein anderer sein Profil nicht gepflegt hat, waere die falsche
+         * Adresse; der Anbieter wird gefragt, sobald er selbst handelt. */
+        const kontakt = await ansprechperson(client, cap.supplier_company_id);
+
         const { rows: offerRows } = await client.query(
           `INSERT INTO offers
            (demand_request_id, supplier_company_id, capacity_post_id, status,
-            price_type, price_min, price_max, offered_quantity, start_confirmed, end_date, notes)
-           VALUES ($1, $2, $3, 'accepted', $4, $5, $6, $7, $8, $9, $10)
+            price_type, price_min, price_max, offered_quantity, start_confirmed, end_date, notes,
+            contact_name, contact_phone)
+           VALUES ($1, $2, $3, 'accepted', $4, $5, $6, $7, $8, $9, $10, $11, $12)
            RETURNING *`,
           [
             demand.id,
@@ -489,7 +568,9 @@ export function createMarketplaceRouter(deps) {
             requestedHeadcount,
             cap.availability_from || null,
             cap.availability_to || null,
-            `Zustimmung zu Kapazitaetsangebot: ${cap.title}`
+            `Zustimmung zu Kapazitaetsangebot: ${cap.title}`,
+            kontakt.name || null,
+            kontakt.telefon || null
           ]
         );
         const offer = offerRows[0];
@@ -640,11 +721,19 @@ export function createMarketplaceRouter(deps) {
         };
         const demand = await marketplaceService.createDemandRequest(client, req.session.userId, me?.plan || "FREE", demandData);
 
+        /* Hier handelt der KAEUFER; der Anbieter ist die Gegenseite. Die
+         * Ansprechperson wird aus seinem Profil gefuellt — fehlt sie dort,
+         * bleibt sie leer und der Kaeufer wird NICHT blockiert. Ihn abzuweisen,
+         * weil ein anderer sein Profil nicht gepflegt hat, waere die falsche
+         * Adresse; der Anbieter wird gefragt, sobald er selbst handelt. */
+        const kontakt = await ansprechperson(client, cap.supplier_company_id);
+
         const { rows: offerRows } = await client.query(
           `INSERT INTO offers
            (demand_request_id, supplier_company_id, capacity_post_id, status, price_type, price_min, price_max,
-            offered_quantity, start_confirmed, end_date, notes)
-           VALUES ($1, $2, $3, 'sent', $4, $5, $6, $7, $8, $9, $10)
+            offered_quantity, start_confirmed, end_date, notes,
+            contact_name, contact_phone)
+           VALUES ($1, $2, $3, 'sent', $4, $5, $6, $7, $8, $9, $10, $11, $12)
            RETURNING *`,
           [
             demand.id,
@@ -656,7 +745,9 @@ export function createMarketplaceRouter(deps) {
             requestedHeadcount,
             body.start_date || cap.availability_from,
             body.end_date || cap.availability_to || null,
-            body.message || `Verhandlungsanfrage zu: ${cap.title}`
+            body.message || `Verhandlungsanfrage zu: ${cap.title}`,
+            kontakt.name || null,
+            kontakt.telefon || null
           ]
         );
         return {
@@ -943,11 +1034,20 @@ export function createMarketplaceRouter(deps) {
         );
         if (offeredQuantity <= 0) return { error: "DEMAND_NOT_OPEN" };
 
+        /* Hier handelt der ANBIETER (supplier_company_id = req.session.userId),
+         * also gilt die Pflicht — mit Rueckfall auf sein Profil. */
+        const kontakt = await ansprechperson(client, req.session.userId, body);
+        if (kontakt.fehlt) {
+          await client.query("ROLLBACK");
+          return ansprechpersonFehltAntwort(res, kontakt);
+        }
+
         const { rows: offerRows } = await client.query(
           `INSERT INTO offers
            (demand_request_id, supplier_company_id, status,
-            price_min, price_max, offered_quantity, notes)
-           VALUES ($1, $2, 'accepted', $3, $4, $5, $6)
+            price_min, price_max, offered_quantity, notes,
+            contact_name, contact_phone)
+           VALUES ($1, $2, 'accepted', $3, $4, $5, $6, $7, $8)
            RETURNING *`,
           [
             demand.id,
@@ -955,7 +1055,9 @@ export function createMarketplaceRouter(deps) {
             body.price_min ?? demand.budget_min ?? null,
             body.price_max ?? demand.budget_max ?? null,
             offeredQuantity,
-            `Zustimmung zu Bedarf: ${demand.title}`
+            `Zustimmung zu Bedarf: ${demand.title}`,
+            kontakt.name,
+            kontakt.telefon
           ]
         );
         const offer = offerRows[0];
@@ -1057,12 +1159,17 @@ export function createMarketplaceRouter(deps) {
       if (!isDemandCommerciallyOpen(demand)) return res.status(409).json({ error: "DEMAND_NOT_OPEN" });
 
       const body = req.body || {};
+      /* Auch hier handelt der ANBIETER. */
+      const kontakt = await ansprechperson(pool, req.session.userId, body);
+      if (kontakt.fehlt) return ansprechpersonFehltAntwort(res, kontakt);
+
       const { rows: offerRows } = await pool.query(
         `INSERT INTO offers
          (demand_request_id, supplier_company_id, status,
           price_min, price_max, offered_quantity,
-          start_confirmed, end_date, notes)
-         VALUES ($1, $2, 'sent', $3, $4, $5, $6, $7, $8)
+          start_confirmed, end_date, notes,
+          contact_name, contact_phone)
+         VALUES ($1, $2, 'sent', $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
         [
           demand.id, req.session.userId,
@@ -1074,7 +1181,9 @@ export function createMarketplaceRouter(deps) {
           ),
           body.start_date || demand.start_date,
           body.end_date || demand.end_date || null,
-          body.message || `Verhandlungsanfrage zu: ${demand.title}`
+          body.message || `Verhandlungsanfrage zu: ${demand.title}`,
+          kontakt.name,
+          kontakt.telefon
         ]
       );
       const offer = offerRows[0];
@@ -1116,7 +1225,18 @@ export function createMarketplaceRouter(deps) {
       if (demand.status === "fulfilled") return res.status(400).json({ error: "DEMAND_ALREADY_FULFILLED" });
       const parsed = offerSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
-      const offer = await marketplaceService.createOffer(pool, req.session.userId, demandId, parsed.data);
+      /* Hier handelt der ANBIETER selbst — also gilt die Pflicht. Der Rueckfall
+       * aufs Profil erspart ihm die Eingabe, wenn er sie dort schon gepflegt
+       * hat; fehlt sie auch dort, wird er hier aufgefordert. Genau an der
+       * Stelle, an der es ihn betrifft. */
+      const kontakt = await ansprechperson(pool, req.session.userId, parsed.data);
+      if (kontakt.fehlt) return ansprechpersonFehltAntwort(res, kontakt);
+
+      const offer = await marketplaceService.createOffer(pool, req.session.userId, demandId, {
+        ...parsed.data,
+        contact_name: kontakt.name,
+        contact_phone: kontakt.telefon,
+      });
       res.locals.audit = { action: "marketplace.offer.create", entity_type: "offer", entity_id: offer.id, details: { demand_request_id: demandId } };
       res.status(201).json(offer);
     } catch (e) {

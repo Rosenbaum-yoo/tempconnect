@@ -587,6 +587,12 @@ describe("POST /marketplace/demand-requests/:id/negotiate-deal", () => {
   it("201 creates negotiation offer for open demand", async () => {
     const pool = trackingPool([
       { match: isGetDemandById, respond: { rows: [{ id: UUID, requester_company_id: "other", status: "open", headcount: 2, remaining_open_count: 2, title: "Bedarf" }] } },
+      /* Ansprechperson aus dem PROFIL des Anbieters (Plan I, 10b, seit
+         2026-08-23 Pflicht). Ohne diese Antwort haelt `ansprechperson` sie fuer
+         fehlend und der Weg endet mit 409 CONTACT_REQUIRED — die Zusicherung
+         darunter ("ein Anbieter MIT Ansprechperson bekommt 201") ist unveraendert. */
+      { match: (s) => s.includes("FROM users") && s.includes("contact_person"),
+        respond: { rows: [{ name: "Frau Berger", telefon: "+49 30 1234567" }] } },
       { match: (s) => s.includes("INSERT INTO offers"), respond: { rows: [{ id: "OFF-1", status: "sent" }] } }
     ]);
     const handler = getHandler(createMarketplaceRouter(makeDeps(pool, { role: "agency" })), "post", "/marketplace/demand-requests/:id/negotiate-deal");
@@ -596,6 +602,44 @@ describe("POST /marketplace/demand-requests/:id/negotiate-deal", () => {
     assert.strictEqual(res._json.offer.id, "OFF-1");
     assert.strictEqual(res._json.status, "negotiating");
     assert.strictEqual(res.locals.audit.action, "demand.deal_negotiation_started");
+  });
+
+  it("409 CONTACT_REQUIRED wenn der Anbieter keine Ansprechperson hat", async () => {
+    /* Plan I, 10b (Owner-Entscheid 2026-08-23): Ansprechperson mit Telefon ist
+       Pflicht — mit Rueckfall aufs Profil. Hier gibt es weder das eine noch das
+       andere, und HIER handelt der Anbieter selbst. Gemessen am 2026-08-22:
+       nur 7 von 361 Konten haben beides, deshalb faengt die Antwort ihn auf,
+       statt ihn raten zu lassen. */
+    const pool = trackingPool([
+      { match: isGetDemandById, respond: { rows: [{ id: UUID, requester_company_id: "other", status: "open", headcount: 2, remaining_open_count: 2, title: "Bedarf" }] } },
+      { match: (s) => s.includes("FROM users") && s.includes("contact_person"), respond: { rows: [{ name: null, telefon: null }] } }
+    ]);
+    const handler = getHandler(createMarketplaceRouter(makeDeps(pool, { role: "agency" })), "post", "/marketplace/demand-requests/:id/negotiate-deal");
+    const res = mockRes();
+    await handler(mockReq({ params: { id: UUID }, body: {} }), res);
+    assert.strictEqual(res._status, 409);
+    assert.strictEqual(res._json.error, "CONTACT_REQUIRED");
+    assert.strictEqual(res._json.fehlt.contact_name, true);
+    assert.strictEqual(res._json.fehlt.contact_phone, true);
+    assert.ok(!pool.calls.some((c) => c.sql.includes("INSERT INTO offers")),
+      "es darf kein Angebot ohne Ansprechperson entstehen");
+  });
+
+  it("201 wenn die Ansprechperson am Angebot selbst mitkommt", async () => {
+    /* Der Rueckfall ist ein Rueckfall, keine Bedingung: wer sie direkt angibt,
+       braucht kein gepflegtes Profil. */
+    const pool = trackingPool([
+      { match: isGetDemandById, respond: { rows: [{ id: UUID, requester_company_id: "other", status: "open", headcount: 2, remaining_open_count: 2, title: "Bedarf" }] } },
+      { match: (s) => s.includes("FROM users") && s.includes("contact_person"), respond: { rows: [{ name: null, telefon: null }] } },
+      { match: (s) => s.includes("INSERT INTO offers"), respond: { rows: [{ id: "OFF-2", status: "sent" }] } }
+    ]);
+    const handler = getHandler(createMarketplaceRouter(makeDeps(pool, { role: "agency" })), "post", "/marketplace/demand-requests/:id/negotiate-deal");
+    const res = mockRes();
+    await handler(mockReq({ params: { id: UUID }, body: { contact_name: "Herr Adler", contact_phone: "+49 40 998877" } }), res);
+    assert.strictEqual(res._status, 201);
+    const insert = pool.calls.find((c) => c.sql.includes("INSERT INTO offers"));
+    assert.ok(insert.params.includes("Herr Adler"), "die Angabe muss in der Zeile landen");
+    assert.ok(insert.params.includes("+49 40 998877"));
   });
 });
 
