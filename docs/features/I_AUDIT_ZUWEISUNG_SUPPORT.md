@@ -864,6 +864,45 @@ Grenze nicht prüfen:
 Der Leerzustand *sagt* etwas: „noch keine Antwort" ist eine andere Nachricht als
 ein leerer Kasten, und mit der Frist daneben weiß der Kunde, woran er ist.
 
+### Owner-Entscheide, zweite Runde (2026-08-23)
+
+| Frage | Entscheidung | Stand |
+|---|---|---|
+| Wer hakt eine Eskalation ab? | **Beides, OCC hat Vorrang** | ✅ R4 gebaut |
+| `resend_verification` / `resend_invite` | **Echten Versand anschließen** | ✅ R5 gebaut |
+| `resolved`/`closed`/`reopened` | **Wiedereröffnen bauen** | ✅ gebaut |
+| Ansprechperson als Pflichtfeld | **Pflicht mit Profil-Rückfall** | ✅ 10b gebaut |
+
+**R4.** `POST /support/escalations/:id/resolve`, Supervisor-only, Begründung ≥ 20
+Zeichen. `is_escalated` wird **neu berechnet** statt blind auf `FALSE` gesetzt —
+ein Fall mit zwei Eskalationen, von denen eine erledigt ist, ist nicht „nicht
+mehr eskaliert". Und der OCC-Entscheid schlägt durch: `related_occ_request_id`
+gab es seit jeher, aber die Verbindung wirkte nur in *eine* Richtung. Vorrang
+heißt dabei **nicht**, vorhandene Arbeit zu überschreiben.
+
+**R5.** Beide Aufrufer gehen jetzt durch *eine* Funktion. Und die Mail geht
+**nach** dem COMMIT hinaus — eine verschickte Mail holt kein Rollback zurück.
+Umgekehrt wirft ein gescheiterter Versand den Vorgang nicht um, wird aber in der
+Antwort gemeldet: `success: true` allein war genau das, was die Attrappe so
+lange unsichtbar gemacht hat.
+
+**Wiedereröffnen.** `resolved → closed | reopened`, `closed → reopened`,
+Supervisor-only. Beim Wiedereröffnen werden `sla_resolved_at` **und**
+`closed_at` gelöscht — sonst behielte der Fall den Zeitstempel der ersten Runde
+und der zweite Durchgang bliebe in der Kennzahl unsichtbar. `reopen_rate_percent`
+kann damit zum ersten Mal etwas anderes als 0 % ergeben.
+
+**10b.** Die Pflicht trifft nur den, der handeln kann: bei drei der fünf Wege
+handelt der Anbieter selbst (Pflicht, mit Rückfall aufs Profil), bei zweien der
+Käufer (nur füllen, nicht blockieren). Den Käufer abzuweisen, weil ein *anderer*
+sein Profil nicht gepflegt hat, wäre die falsche Adresse.
+
+Die Ansprechperson steht jetzt in der Live-Belegschaft, mit wählbarer Nummer.
+
+> **Offene Lücke im Datenmodell, gemessen:** nur **5 von 68** Einsätzen haben
+> überhaupt einen `offer_id`. Ohne Angebotsbezug gibt es keine hinterlegte
+> Ansprechperson — egal, wo man sie anzeigt. Das ist keine Lücke der Anzeige.
+
 ### Was die Erhebung NICHT geprüft hat
 
 Kein Laufzeit-Beweis über HTTP (außer dem ausgeführten `change_status`-Handler);
