@@ -1248,7 +1248,7 @@ Am Code und an der laufenden Datenbank nachgeprüft, nicht am Plan abgelesen.
 | ~~**V-1** RLS-Backstop scharf schalten~~ | **erledigt 2026-08-24** | Migration 196: **8 → 26** Tabellen mit RLS, **3 → 21** mit FORCE. Einzelnachweis geführt (siehe unten). |
 | ~~**„Bester Treffer"** — Vorbewertung in die SQL~~ | **erledigt 2026-08-24** | Der Schnitt sortiert jetzt nach den harten Signalen statt nach dem Alphabet. An echten Daten belegt: mit `LIMIT 3` kommen Mustermann (82), nadi (78), Kraft (74) — nicht „Bauer", die alphabetisch erste. |
 | **`SUPPORT_PHONE`** setzen | **Owner-Handlung** | nicht baubar; beide Zustände des Trichters sind verifiziert |
-| **Erreicht die Erinnerung den Arbeiter?** | **Owner-Frage** | Die 2-h-Erinnerung ist eine `notifications`-Zeile; das Einsatzportal hat kein Polling und keinen Live-Strom. Wer nicht hineinsieht, erfährt es erst hinterher — die 4-h-Frist läuft trotzdem. SMS ist technisch vorhanden. |
+| **Erreicht die Erinnerung den Arbeiter?** | **halb erledigt 2026-08-24** | Die *entscheidungsfreie* Hälfte ist gebaut: die Meldung geht jetzt sofort über den Live-Strom, und das Portal hört zu (siehe unten). Offen bleibt nur die Frage mit Kosten und Einwilligung: **SMS für den, der das Portal gar nicht offen hat?** |
 | **Frist für reguläre Zuweisungen** | **eigenes Ticket** | Der Entscheid galt Ersatz-Anfragen. Derselbe Schaden existiert regulär (ein Einsatz blockiert seit dem 10.04.) — `docs/features/I2_FRIST_REGULAERE_ZUWEISUNG.md`. |
 
 ### Abschnitte 1–7, 9, 11, 12
@@ -1357,3 +1357,55 @@ Arbeiterliste** — dort lag nun ein Array. Eine Probe in
 Kennungsliste und lud niemanden mehr ein (`invited_workers` 2 → 1). Der Test war
 nicht falsch, meine Reihenfolge war es. Die Parameter hängen jetzt **hinter**
 dem Limit, und eine eigene Probe hält das fest.
+
+---
+
+## Die Arbeiter-Meldung kommt sofort an (2026-08-24)
+
+Die 4-Stunden-Frist war bis hierher eine Falle, und zwar aus zwei Gründen, die
+beide **keine Entscheidung** brauchten:
+
+**1. Der Server schwieg.** Der SSE-Strom `GET /api/notifications/stream`
+existiert und ist montiert. Welle G4 hat ihm einen Aufrufer gegeben —
+`dispatch()`. Aber `notifyWorker` schreibt **direkt** in `notifications` und
+geht an `dispatch` vorbei: *jede* Arbeiter-Meldung — neue Zuweisung, Erinnerung,
+Verfall — landete in der Tabelle und blieb dort liegen.
+
+**2. Das Portal sah nicht nach.** Kein Polling, kein Strom. `loadUnreadCount()`
+lief genau einmal beim Laden und danach nur nach einer Nutzeraktion.
+
+Zusammen hieß das: die Erinnerung nach zwei Stunden erreichte einen Arbeiter
+faktisch erst, wenn er ohnehin hineinsah — **die Uhr lief trotzdem**.
+
+Es ist dieselbe Lücke wie in G4, eine Ebene weiter: ein Zustellweg, der gebaut
+ist, montiert ist und den niemand benutzt.
+
+**Gebaut** — nichts Neues, das Vorhandene angeschlossen:
+
+- `notifyWorker` schickt die erzeugte Zeile in den Strom. **In `notifyWorker`,
+  nicht in den zwölf Faktories**: an der Faktory wäre der Push eine Sorgfalt,
+  die man vergessen kann — dann wäre wieder nur die eine Meldung live, an die
+  jemand gedacht hat.
+- Greift die Entdopplung (dieselbe Meldung binnen einer Stunde), geht **nichts**
+  raus — sonst zählt das Portal eine Meldung hoch, die es nicht gibt.
+- Ein Fehler beim Push ist folgenlos: die Zeile in der Datenbank ist die
+  Wahrheit, der Push nur die Abkürzung.
+- Die Portal-Schale abonniert denselben Strom wie die Hauptplattform, mit
+  Rückfall auf Polling (60 s) nach drei Fehlern — ohne ihn stünde ein Browser
+  ohne SSE schlechter da als vorher.
+
+**Am laufenden System belegt:** Verbindung geöffnet → `notifyWorker` →
+`event: notification` kam sofort an.
+
+> **Beim Bauen zweimal danebengegriffen, beides von Proben gefangen:** Der
+> Startaufruf landete zuerst *im* SSE-Zuhörer — jede eingehende Meldung hätte
+> eine neue Verbindung geöffnet; der Syntax-Check sieht so etwas nie. Und die
+> erste Probe ließ die Verbindung offen: der 30-Sekunden-Heartbeat hielt den
+> Node-Prozess am Leben und der Test lief in den Timeout. Der falsche Schluss
+> wäre `--test-force-exit` gewesen; richtig ist, sich wie ein Browser zu
+> verhalten und die Verbindung zu schließen.
+
+**Offen bleibt die Frage mit Kosten:** Wer das Portal gar nicht offen hat,
+erfährt die Erinnerung weiterhin erst beim nächsten Besuch. SMS ist technisch
+vorhanden (`smsService.js`, heute nur für Einladungen) — das ist eine
+Owner-Entscheidung über Kosten und Einwilligung, keine technische.

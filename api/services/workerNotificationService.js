@@ -58,7 +58,7 @@ export async function notifyWorker(pool, {
 }) {
   const insertWithType = async (effectiveType, effectiveTitle, effectiveMessage) => {
     const severity = SEVERITY_MAP[effectiveType] || "info";
-    await pool.query(
+    const { rows } = await pool.query(
       `INSERT INTO notifications
          (user_id, type, title, message, entity_type, entity_id, severity, link_path)
        SELECT $1, $2, $3, $4, $5, $6, $7, $8
@@ -66,10 +66,47 @@ export async function notifyWorker(pool, {
          SELECT 1 FROM notifications
          WHERE user_id = $1 AND type = $2 AND entity_type = $5 AND entity_id = $6
            AND created_at > NOW() - INTERVAL '1 hour'
-       )`,
+       )
+       RETURNING *`,
       [workerUserId, effectiveType, effectiveTitle, effectiveMessage || null,
        entityType || null, entityId || null, severity, linkPath || null]
     );
+
+    /*
+     * SOFORT ZUSTELLEN, NICHT ERST BEIM NAECHSTEN LADEN.
+     *
+     * DIESELBE LUECKE WIE IN WELLE G4 — eine Ebene weiter. Damals hatte
+     * `pushToUser` gar keinen Aufrufer; `dispatch()` (notificationMatrix.js)
+     * hat ihn bekommen. `notifyWorker` schreibt aber DIREKT in die Tabelle und
+     * ging an dispatch vorbei: JEDE Arbeiter-Meldung — neue Zuweisung,
+     * Erinnerung, Verfall — wartete darauf, dass jemand das Einsatzportal neu
+     * laedt. Bei einer 4-Stunden-Frist ist das dasselbe wie keine Erinnerung.
+     *
+     * Warum HIER und nicht bei den zwoelf Faktories darueber: `notifyWorker`
+     * ist die Stelle, durch die jede von ihnen geht. An der Faktory waere der
+     * Push eine Sorgfalt, die man vergessen kann — und dann waere wieder nur
+     * die eine Meldung live, an die jemand gedacht hat.
+     *
+     * FEHLER SIND HIER FOLGENLOS, UND ZWAR ABSICHTLICH: die Zeile in der
+     * Datenbank ist die Wahrheit, der Push nur die Abkuerzung. Haengt keine
+     * Verbindung, kehrt `pushToUser` sofort zurueck; faellt das Modul aus,
+     * bleibt die Meldung bestehen und erscheint beim naechsten Laden. Ein
+     * Zustellweg darf das Schreiben nie gefaehrden — auch nicht bei
+     * `throwOnError`, denn der Aufrufer will die geSCHRIEBENE Zeile absichern,
+     * nicht die Abkuerzung.
+     *
+     * `rows[0]` ist leer, wenn die Entdopplung gegriffen hat (dieselbe Meldung
+     * binnen einer Stunde). Dann gibt es auch nichts zu schicken.
+     */
+    if (rows[0]) {
+      try {
+        const { pushToUser } = await import("../routes/notificationStream.js");
+        pushToUser(workerUserId, rows[0]);
+      } catch (e) {
+        logger.warn({ err: e.message, workerUserId },
+          "SSE-Push fehlgeschlagen — Meldung bleibt bestehen");
+      }
+    }
   };
 
   try {
