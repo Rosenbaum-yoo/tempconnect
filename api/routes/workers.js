@@ -1641,6 +1641,53 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
+  /* ── Eine gestellte Anfrage zurueckziehen (Owner-Entscheid 2026-08-24) ─────
+   *
+   * Bis hierher konnte eine Anfrage NUR durch die Antwort des Arbeiters oder
+   * durch Zeitablauf enden. Der Dienst dafuer existierte, hatte aber keinen
+   * Aufrufer — der einzige indirekte Weg war, den ganzen Mitarbeiter zu
+   * deaktivieren, was alle seine Einsaetze trifft.
+   *
+   * `worker.manage`, nicht `worker.edit`: Wer eine Anfrage zurueckzieht,
+   * greift in eine laufende Zusage-Erwartung ein und loest Meldungen an
+   * Arbeiter UND Kunde aus — dieselbe Schwelle wie beim Ersatz-Weg darunter.
+   *
+   * Der GRUND ist Pflicht (min. 3 Zeichen, wie beim Ersatz): Er landet im
+   * Audit, nicht im Postfach des Arbeiters. Ohne ihn liesse sich spaeter nicht
+   * mehr sagen, warum jemandem eine Anfrage genommen wurde. */
+  const zurueckziehenSchema = z.object({
+    reason: z.string().trim().min(3).max(500)
+  });
+
+  router.post("/worker-assignment-links/:id([0-9a-fA-F-]{36})/zurueckziehen",
+    ...base, requireScope("write:workers"), rperm("worker.manage"), async (req, res, next) => {
+    try {
+      const parsed = zurueckziehenSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+
+      const result = await workerService.anfrageZurueckziehen(pool, req.params.id, req.orgId, {
+        actorId: req.session.userId
+      });
+      if (result.error) {
+        const statusMap = { NOT_FOUND: 404, NICHT_MEHR_OFFEN: 409 };
+        return res.status(statusMap[result.error] || 400).json(result);
+      }
+
+      res.locals.audit = {
+        action: "worker_assignment_link.withdrawn",
+        entity_type: "worker_assignment_link",
+        entity_id: req.params.id,
+        details: {
+          assignment_id: result.link.assignment_id,
+          worker_user_id: result.link.worker_user_id,
+          reason: parsed.data.reason,
+          responsible_actor_user_id: req.session.userId
+        }
+      };
+      res.json({ link: result.link });
+    } catch (err) { next(err); }
+  });
+
   /* ── Ersatz bei Krankheit/Abbruch (Chef weist Ersatz ab Wirk-Datum zu) — P1.1 ──── */
 
   const replaceAssignmentSchema = z.object({

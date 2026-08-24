@@ -36,15 +36,18 @@ const REPO = path.resolve(__dirname, "..", "..");
 const API = path.join(REPO, "api");
 const hasDb = Boolean(process.env.DATABASE_URL || (process.env.DB_HOST && process.env.POSTGRES_PASSWORD));
 
-/** Die sechs Werte, wie sie in Migration 034 + 073 + 193 entstanden sind. */
+/** Die sieben Werte, wie sie in Migration 034 + 073 + 193 + 198 entstanden sind. */
 const ERWARTETE_WERTE = [
   "auto_confirmed", "pending_confirmation", "worker_confirmed",
-  "worker_declined", "worker_unavailable", "expired",
+  "worker_declined", "worker_unavailable", "expired", "withdrawn",
 ];
 
 /** Werte, die KEINE lebende Besetzung sind — sie muessen ueberall auftauchen,
- *  wo Zustaende benannt werden, sonst sieht der Nutzer nichts oder Falsches. */
-const ERLEDIGT = ["worker_declined", "worker_unavailable", "expired"];
+ *  wo Zustaende benannt werden, sonst sieht der Nutzer nichts oder Falsches.
+ *  Vier Wege, aus einer Anfrage herauszukommen, und alle vier sind
+ *  verschieden: abgelehnt (der Arbeiter), abwesend (er kann nicht),
+ *  verfallen (niemand hat geantwortet), zurueckgezogen (die Firma). */
+const ERLEDIGT = ["worker_declined", "worker_unavailable", "expired", "withdrawn"];
 
 function lies(relativ) {
   const p = path.join(REPO, relativ);

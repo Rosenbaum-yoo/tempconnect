@@ -749,14 +749,20 @@ describe("createAssignmentLink", () => {
   });
 });
 
-describe("removeAssignmentLink", () => {
-  it("returns true when a link was deactivated", async () => {
-    assert.strictEqual(await svc.removeAssignmentLink(sequencePool({ rowCount: 1, rows: [] }), "l1", "o1"), true);
-  });
-  it("returns false when no link matched", async () => {
-    assert.strictEqual(await svc.removeAssignmentLink(sequencePool({ rowCount: 0, rows: [] }), "l1", "o1"), false);
-  });
-});
+/* `removeAssignmentLink` gibt es nicht mehr (Migration 199).
+ *
+ * Die Funktion hatte nie einen Aufrufer und war fachlich zu duenn: sie setzte
+ * `is_active=FALSE` und sonst nichts — der Status waere `pending_confirmation`
+ * geblieben (eine wartende Anfrage, die niemand mehr sieht), die
+ * Staffing-Zahlen waeren stehen geblieben, der Kapazitaets-Posten geschlossen,
+ * und weder Arbeiter noch Kunde haetten erfahren, dass die Sache vorbei ist.
+ * `anfrageZurueckziehen` ersetzt sie vollstaendig.
+ *
+ * Die beiden Proben, die hier standen, pruefen deshalb nichts mehr — sie
+ * wurden nicht abgeschwaecht, sondern mit ihrem Gegenstand entfernt. Das
+ * Verhalten des Nachfolgers deckt `anfrageFrist.test.js` ab
+ * (Gruppe "Rueckzug — die Firma nimmt eine Anfrage zurueck"), inklusive
+ * Org-Grenze, Statuswahl und Nachbereitung. */
 
 describe("getWorkerAssignments / getWorkerAssignmentDetail / getWorkerSchedule", () => {
   it("getWorkerAssignments adds is_active filter unless includeInactive", async () => {

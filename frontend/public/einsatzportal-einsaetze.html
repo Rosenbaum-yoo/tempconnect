@@ -161,6 +161,7 @@ TCi18n.register('de', {
   'ep.einsaetze.confUnavailable': 'Abwesend',
   /* Verfall ist keine Absage: der Text sagt, was passiert ist, ohne Vorwurf. */
   'ep.einsaetze.confExpired': 'Frist abgelaufen',
+  'ep.einsaetze.confWithdrawn': 'Zurückgezogen',
   'ep.einsaetze.toastDateRequired': 'Bitte Datum angeben.',
   'ep.einsaetze.toastUnavailDone': 'Abwesenheit gemeldet – Ihr Disponent wurde informiert.',
   'ep.einsaetze.toastConfirmed': 'Einsatz bestätigt!',
@@ -237,6 +238,7 @@ TCi18n.register('en', {
   'ep.einsaetze.confDeclined': 'Declined',
   'ep.einsaetze.confUnavailable': 'Absent',
   'ep.einsaetze.confExpired': 'Deadline passed',
+  'ep.einsaetze.confWithdrawn': 'Withdrawn',
   'ep.einsaetze.toastDateRequired': 'Please enter a date.',
   'ep.einsaetze.toastUnavailDone': 'Absence reported – your dispatcher has been notified.',
   'ep.einsaetze.toastConfirmed': 'Assignment confirmed!',
@@ -477,7 +479,10 @@ function confBadge(cs) {
        Eintrag fiel die Zeile auf '' zurueck und sah damit aus wie eine normal
        zugewiesene (auto_confirmed bekommt ebenfalls kein Abzeichen). Die Liste
        laedt include_inactive=true, die verfallene Zeile bleibt also sichtbar. */
-    expired:'<span class="ep-badge" style="background:rgba(148,163,184,.16);color:#94a3b8">' + TCi18n.t('ep.einsaetze.confExpired') + '</span>'
+    expired:'<span class="ep-badge" style="background:rgba(148,163,184,.16);color:#94a3b8">' + TCi18n.t('ep.einsaetze.confExpired') + '</span>',
+    /* Zurueckgezogen (198): die Firma hat entschieden, nicht der Arbeiter —
+       deshalb dieselbe neutrale Faerbung wie beim Verfall, kein Rot. */
+    withdrawn:'<span class="ep-badge" style="background:rgba(148,163,184,.16);color:#94a3b8">' + TCi18n.t('ep.einsaetze.confWithdrawn') + '</span>'
   };
   return m[cs]||'';
 }

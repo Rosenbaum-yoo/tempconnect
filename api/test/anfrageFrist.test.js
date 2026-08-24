@@ -6,6 +6,7 @@ import {
   confirmAssignment,
   declineAssignment,
 } from "../services/workerService.js";
+import * as workerService from "../services/workerService.js";
 
 /*
  * DIE ANFRAGE BEKOMMT EINE UHR — beide Arten.
@@ -530,6 +531,115 @@ describe("Anfrage-Frist — nach dem Verfall geht es weiter", () => {
       "ohne is_active haelt jede erledigte Zeile den Posten dauerhaft belegt");
     assert.ok(!/worker_confirmation_status != 'worker_declined'/.test(block),
       "die Einzelwert-Negativliste war der Defekt — sie kennt keinen neuen Zustand");
+  });
+});
+
+describe("Rueckzug — die Firma nimmt eine Anfrage zurueck", () => {
+  /* Owner-Entscheid 2026-08-24 (I2, Entscheidung 4). Vorher konnte eine
+   * gestellte Anfrage NUR durch die Antwort des Arbeiters oder durch Zeitablauf
+   * enden; `removeAssignmentLink` hatte keinen Aufrufer und war fachlich zu
+   * duenn (nur is_active=FALSE, kein Status, keine Zahlen, keine Meldung). */
+  const dienst = fs.readFileSync(new URL("../services/workerService.js", import.meta.url), "utf8");
+  const routen = fs.readFileSync(new URL("../routes/workers.js", import.meta.url), "utf8");
+
+  /** Pool, der das Rueckzugs-UPDATE beantwortet und alles Weitere leer laesst. */
+  function rueckzugPool({ trifft = true, kontext = null } = {}) {
+    const calls = [];
+    return {
+      calls,
+      query: async (sql, params) => {
+        const text = String(sql);
+        calls.push({ sql: text, params: params || [] });
+        if (/SET worker_confirmation_status = 'withdrawn'/.test(text)) {
+          return trifft
+            ? { rows: [zeile({ capacity_post_id: KAPAZITAET })], rowCount: 1 }
+            : { rows: [], rowCount: 0 };
+        }
+        if (/SELECT worker_confirmation_status, is_active FROM worker_assignment_links/.test(text)) {
+          return { rows: kontext ? [kontext] : [], rowCount: kontext ? 1 : 0 };
+        }
+        return { rows: [], rowCount: 0 };
+      },
+    };
+  }
+
+  it("nur eine OFFENE Anfrage laesst sich zurueckziehen — die Bedingung steht im UPDATE", async () => {
+    /* Im UPDATE, nicht davor: zwei gleichzeitige Klicks treffen so nur einmal,
+     * und eine Zusage, die in derselben Sekunde eintrifft, gewinnt. */
+    const pool = rueckzugPool();
+    await workerService.anfrageZurueckziehen(pool, LINK, SUPPLIER, { actorId: EMPFAENGER });
+    const update = pool.calls.find((c) => /SET worker_confirmation_status = 'withdrawn'/.test(c.sql));
+    assert.ok(update, "das Rueckzugs-UPDATE fehlt");
+    assert.match(update.sql, /AND worker_confirmation_status = 'pending_confirmation'/);
+    assert.match(update.sql, /AND is_active = TRUE/);
+    assert.match(update.sql, /AND supplier_org_id = \$2/,
+      "ohne Org-Bedingung koennte eine fremde Firma fremde Anfragen zurueckziehen");
+    assert.match(update.sql, /zurueckgezogen_am = NOW\(\)/);
+  });
+
+  it("'withdrawn' statt 'worker_declined' — der Mensch hat nicht abgelehnt", () => {
+    /* Eine Absage in seiner Historie waere eine Luege, die jede
+     * Zuverlaessigkeitsauswertung gegen ihn verwendet. */
+    const start = dienst.indexOf("export async function anfrageZurueckziehen");
+    assert.ok(start > 0, "anfrageZurueckziehen nicht gefunden");
+    const block = dienst.slice(start, start + 1400);
+    assert.match(block, /worker_confirmation_status = 'withdrawn'/);
+    assert.ok(!/'worker_declined'/.test(block));
+  });
+
+  it("eine bereits beantwortete Anfrage ergibt NICHT_MEHR_OFFEN, kein stilles Nichts", async () => {
+    const pool = rueckzugPool({ trifft: false, kontext: { worker_confirmation_status: "worker_confirmed", is_active: true } });
+    const r = await workerService.anfrageZurueckziehen(pool, LINK, SUPPLIER);
+    assert.equal(r.error, "NICHT_MEHR_OFFEN");
+    assert.equal(r.current_status, "worker_confirmed");
+  });
+
+  it("ein fremder Link sieht aus wie ein nicht existierender", async () => {
+    /* Die Nachfrage ist auf dieselbe supplier_org_id eingegrenzt — die
+     * Org-Grenze wird nicht ueber die Fehlermeldung verraten. */
+    const pool = rueckzugPool({ trifft: false, kontext: null });
+    const r = await workerService.anfrageZurueckziehen(pool, LINK, SUPPLIER);
+    assert.equal(r.error, "NOT_FOUND");
+    const nachfrage = pool.calls.find((c) => /SELECT worker_confirmation_status, is_active/.test(c.sql));
+    assert.ok(nachfrage.params.includes(SUPPLIER),
+      "die Nachfrage muss auf die eigene Org begrenzt bleiben");
+  });
+
+  it("der Rueckzug raeumt auf wie der Verfall", async () => {
+    const pool = rueckzugPool();
+    await workerService.anfrageZurueckziehen(pool, LINK, SUPPLIER);
+    const sqls = pool.calls.map((c) => c.sql).join("\n");
+    assert.match(sqls, /UPDATE capacity_posts/,
+      "der Kapazitaets-Posten muss zurueck — sonst bleibt das Angebot verschwunden");
+    assert.match(sqls, /INSERT INTO notifications/,
+      "der Arbeiter muss erfahren, dass die Anfrage weg ist");
+  });
+
+  it("die Route verlangt einen Grund und schreibt ihn ins Audit", () => {
+    const start = routen.indexOf("/zurueckziehen");
+    assert.ok(start > 0, "die Route fehlt");
+    const block = routen.slice(Math.max(0, start - 900), start + 1800);
+    assert.match(block, /reason: z\.string\(\)\.trim\(\)\.min\(3\)\.max\(500\)/,
+      "der Grund ist Pflicht — sonst laesst sich spaeter nicht sagen, warum");
+    assert.match(block, /rperm\("worker\.manage"\)/,
+      "der Rueckzug loest Meldungen an Arbeiter UND Kunde aus — dieselbe Schwelle wie der Ersatz");
+    assert.match(block, /action: "worker_assignment_link\.withdrawn"/);
+    assert.match(block, /responsible_actor_user_id/);
+    assert.match(block, /NICHT_MEHR_OFFEN: 409/);
+  });
+
+  it("der Knopf erscheint nur bei offener Anfrage und nur mit worker.manage", () => {
+    const seite = new URL("../../frontend/public/js/pages/workerSubmissionsReview.js", import.meta.url);
+    if (!fs.existsSync(seite)) return; // Checkout ohne frontend/
+    const text = fs.readFileSync(seite, "utf8");
+    const start = text.indexOf("const withdrawAction");
+    assert.ok(start > 0, "der Rueckzieh-Knopf fehlt in der Disponenten-Karte");
+    const block = text.slice(start, start + 500);
+    assert.match(block, /pageAccess\.permissions\.workerManage/);
+    assert.match(block, /worker_confirmation_status==='pending_confirmation'/);
+    assert.match(text, /openWithdrawModal/, "der Knopf braucht einen Handler");
+    assert.match(text, /\/zurueckziehen/, "der Handler muss die Route wirklich rufen");
+    assert.match(text, /getCsrf\(\)/, "ohne CSRF-Kopf weist der Server ab");
   });
 });
 

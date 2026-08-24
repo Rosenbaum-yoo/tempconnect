@@ -423,6 +423,14 @@ TCi18n.register('de', {
   'ts.rev.asgn.rowPeriodEmpty': 'Kein Datum gesetzt',
   'ts.rev.asgn.replaceCta': 'Ersatz zuweisen',
   'ts.rev.asgn.replaceTitle': 'Bei Krankheit/Ausfall: Ersatz ab Wirk-Datum zuweisen, Ausfallenden freistellen',
+  'ts.rev.asgn.withdrawCta': 'Anfrage zurückziehen',
+  'ts.rev.asgn.withdrawTitle': 'Die offene Anfrage zurückziehen — der Platz wird sofort wieder frei. Möglich, solange nicht zugesagt wurde.',
+  'ts.rev.asgn.withdrawPrompt': 'Warum wird die Anfrage zurückgezogen? Der Grund steht im Audit, nicht in der Nachricht an die Einsatzkraft.',
+  'ts.rev.asgn.withdrawNeedsReason': 'Bitte einen Grund angeben (mindestens 3 Zeichen).',
+  'ts.rev.asgn.withdrawDone': 'Anfrage zurückgezogen — der Platz ist wieder offen.',
+  'ts.rev.asgn.withdrawTooLate': 'Zu spät: Die Anfrage wurde inzwischen beantwortet oder ist verfallen.',
+  'ts.rev.asgn.withdrawGone': 'Diese Anfrage gibt es nicht mehr.',
+  'ts.rev.asgn.withdrawFailed': 'Die Anfrage konnte nicht zurückgezogen werden.',
   'ts.rev.asgn.hoursPerDay': 'h/Tag',
 
   'ts.rev.assign.title': 'Manuelle Zuweisung → Worker',
@@ -650,6 +658,7 @@ TCi18n.register('de', {
   'ts.rev.conf.declined': 'Abgelehnt',
   'ts.rev.conf.expired': 'Frist abgelaufen',
   'ts.rev.conf.unavailable': 'Abwesend',
+  'ts.rev.conf.withdrawn': 'Zurückgezogen',
   'ts.rev.due.overdue': 'Überfällig',
   'ts.rev.due.overdueTitle': 'Einreichfrist verstrichen, noch nicht eingereicht',
   'ts.rev.due.late': 'Verspätet',
@@ -1221,6 +1230,14 @@ TCi18n.register('en', {
   'ts.rev.asgn.rowPeriodEmpty': 'No date set',
   'ts.rev.asgn.replaceCta': 'Assign a replacement',
   'ts.rev.asgn.replaceTitle': 'On sickness/absence: assign a replacement from the effective date and release the absentee',
+  'ts.rev.asgn.withdrawCta': 'Withdraw request',
+  'ts.rev.asgn.withdrawTitle': 'Withdraw the open request — the spot frees up immediately. Possible until the worker has accepted.',
+  'ts.rev.asgn.withdrawPrompt': 'Why is the request being withdrawn? The reason goes into the audit trail, not into the message to the worker.',
+  'ts.rev.asgn.withdrawNeedsReason': 'Please give a reason (at least 3 characters).',
+  'ts.rev.asgn.withdrawDone': 'Request withdrawn — the spot is open again.',
+  'ts.rev.asgn.withdrawTooLate': 'Too late: the request has since been answered or expired.',
+  'ts.rev.asgn.withdrawGone': 'This request no longer exists.',
+  'ts.rev.asgn.withdrawFailed': 'The request could not be withdrawn.',
   'ts.rev.asgn.hoursPerDay': 'h/day',
 
   'ts.rev.assign.title': 'Manual assignment → worker',
@@ -1448,6 +1465,7 @@ TCi18n.register('en', {
   'ts.rev.conf.declined': 'Declined',
   'ts.rev.conf.expired': 'Deadline passed',
   'ts.rev.conf.unavailable': 'Absent',
+  'ts.rev.conf.withdrawn': 'Withdrawn',
   'ts.rev.due.overdue': 'Overdue',
   'ts.rev.due.overdueTitle': 'Submission deadline passed, not submitted yet',
   'ts.rev.due.late': 'Late',
@@ -5039,6 +5057,14 @@ function renderAsgnCard(l){
   const replaceAction=(pageAccess.permissions.workerEdit&&isCurrentAssignmentLink(l))
     ? '<button class="wk-btn wk-btn-sm" style="background:var(--tc-tone-danger-bg,#fef1f1);color:var(--tc-tone-danger-text,#b42318);border:1px solid var(--wk-danger,#e5484d)" onclick="openReplaceModal(\''+l.id+'\')" title="'+esc(tt('ts.rev.asgn.replaceTitle'))+'">&#8644; '+esc(tt('ts.rev.asgn.replaceCta'))+'</button>'
     : '';
+  /* Zurueckziehen (Migration 198): NUR solange die Anfrage offen ist. Wer schon
+     zugesagt hat, wird nicht zurueckgezogen — dafuer gibt es den Ersatz-Weg mit
+     Wirk-Datum. `worker.manage` statt `worker.edit`, wie in der Route: der
+     Rueckzug loest Meldungen an Arbeiter UND Kunde aus. */
+  const withdrawAction=(pageAccess.permissions.workerManage
+      &&l.worker_confirmation_status==='pending_confirmation'&&l.is_active!==false)
+    ? '<button class="wk-btn wk-btn-sm" onclick="openWithdrawModal(\''+l.id+'\')" title="'+esc(tt('ts.rev.asgn.withdrawTitle'))+'">&#8617; '+esc(tt('ts.rev.asgn.withdrawCta'))+'</button>'
+    : '';
   return '<div class="asgn-card">'
     +'<div class="asgn-card-head">'
     +'<div class="wk-avatar" style="'+aColor((l.first_name||'')+(l.last_name||''))+'">'+ini+'</div>'
@@ -5068,9 +5094,51 @@ function renderAsgnCard(l){
     +'</div>'
     +'<div class="asgn-card-foot">'
     +editAction
+    +withdrawAction
     +replaceAction
     +'</div>'
     +'</div>';
+}
+
+/* ── Anfrage zurueckziehen (Migration 198) ──────────────────────────────────
+ *
+ * Grund ist Pflicht (min. 3 Zeichen, wie beim Ersatz-Weg): er landet im Audit.
+ * Ohne ihn liesse sich spaeter nicht mehr sagen, warum jemandem eine Anfrage
+ * genommen wurde. Ein `prompt` statt eines eigenen Modals, weil genau das
+ * gebraucht wird — eine Frage, eine Antwort; ein Drawer waere hier Zierrat. */
+function openWithdrawModal(linkId){
+  if(!ensurePermission('workerManage',tt('ts.rev.perm.lnkEdit')))return;
+  var l=allLinks.find(function(x){return x.id===linkId;});
+  var wer=l?((l.first_name||'')+' '+(l.last_name||'')).trim():'';
+  var grund=window.prompt(tt('ts.rev.asgn.withdrawPrompt')+(wer?'\n\n'+wer:''),'');
+  if(grund===null)return;                       // abgebrochen
+  grund=String(grund).trim();
+  if(grund.length<3){toast(tt('ts.rev.asgn.withdrawNeedsReason'),'error');return;}
+  withdrawLink(linkId,grund);
+}
+async function withdrawLink(linkId,reason){
+  try{
+    var csrf=await getCsrf();
+    const r=await fetch(`${API}/worker-assignment-links/${encodeURIComponent(linkId)}/zurueckziehen`,{
+      method:'POST',credentials:'include',
+      headers:{'Content-Type':'application/json','x-csrf-token':csrf},
+      body:JSON.stringify({reason})
+    });
+    const d=await r.json().catch(function(){return {};});
+    if(!r.ok){
+      /* Rohe Fehlerschluessel gehoeren nicht in einen Toast. */
+      var txt=d.error==='NICHT_MEHR_OFFEN'?tt('ts.rev.asgn.withdrawTooLate')
+             :d.error==='NOT_FOUND'?tt('ts.rev.asgn.withdrawGone')
+             :tt('ts.rev.asgn.withdrawFailed');
+      toast(txt,'error');
+      await loadAsgn();                         // Ansicht auf den echten Stand ziehen
+      return;
+    }
+    toast(tt('ts.rev.asgn.withdrawDone'),'success');
+    await loadAsgn();
+  }catch(e){
+    toast(tt('ts.rev.asgn.withdrawFailed'),'error');
+  }
 }
 function openLnkDrwById(id){
   if(!ensurePermission('workerEdit',tt('ts.rev.perm.lnkEdit')))return;
@@ -5464,6 +5532,7 @@ function renderPlanungView(){
        gemeint ist beide Male "hier arbeitet niemand". */
     if(l.worker_confirmation_status==='worker_unavailable'
        ||l.worker_confirmation_status==='expired'
+       ||l.worker_confirmation_status==='withdrawn'
        ||l.worker_confirmation_status==='worker_declined')return 'pb-unavail';
     var s=parseD(l.start_date), e=parseD(l.end_date)||'9999-12-31';
     if(e<todayIso)return 'pb-past';
@@ -5537,7 +5606,8 @@ function confBadge(s){
        blieb die Karte wortlos, und der Disponent sah keinen Unterschied zu
        einer bestaetigten Besetzung. */
     expired:'<span class="pill" style="margin-left:6px">'+esc(tt('ts.rev.conf.expired'))+'</span>',
-    worker_unavailable:'<span class="pill pill-danger" style="margin-left:6px">'+esc(tt('ts.rev.conf.unavailable'))+'</span>'
+    worker_unavailable:'<span class="pill pill-danger" style="margin-left:6px">'+esc(tt('ts.rev.conf.unavailable'))+'</span>',
+    withdrawn:'<span class="pill" style="margin-left:6px">'+esc(tt('ts.rev.conf.withdrawn'))+'</span>'
   };
   return m[s]||'';
 }

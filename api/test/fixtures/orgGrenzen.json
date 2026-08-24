@@ -4726,6 +4726,29 @@
         },
         {
           "methode": "post",
+          "pfad": "/worker-assignment-links/:id([0-9a-fA-F-]{36})/zurueckziehen",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "anfrage": {
+            "body": {
+              "reason": "Bedarf hat sich geaendert"
+            }
+          },
+          "zeile": {
+            "worker_confirmation_status": "pending_confirmation",
+            "is_active": true
+          },
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "schreibenNachGrenze": true,
+          "gegenprobe": false,
+          "hinweis": "Die Grenze steht IM schreibenden UPDATE, nicht in einer Pruefung davor: 'UPDATE ... WHERE id=$1 AND supplier_org_id=$2 AND worker_confirmation_status=''pending_confirmation'' AND is_active=TRUE' (workerService.anfrageZurueckziehen, Migration 199). Eine fremde Zeile wird damit gar nicht erst getroffen; die Nachfrage nach dem Grund des Fehlschlags ist auf dieselbe supplier_org_id eingegrenzt, weshalb ein fremder Link wie ein nicht existierender aussieht (NOT_FOUND statt einer Aussage ueber fremde Daten). Der Spion kann das WHERE nicht erzwingen — an der echten Datenbank durchgespielt: fremde Org bekommt NOT_FOUND, zweiter Rueckzug NICHT_MEHR_OFFEN (13/13, siehe I2_FRIST_REGULAERE_ZUWEISUNG.md, Abschnitt 0c). Keine Gegenprobe mit Mock stellbar, weil derselbe Zustandsautomat beide Seiten gleich behandelt."
+        },
+        {
+          "methode": "post",
           "pfad": "/worker-assignment-links/:id/replace",
           "urteil": "verhaltensgeprueft",
           "art": "ressource",

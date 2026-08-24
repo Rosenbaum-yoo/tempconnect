@@ -3130,6 +3130,13 @@
     {
       "datei": "workers.js",
       "methode": "post",
+      "pfad": "/worker-assignment-links/:id([0-9a-fA-F-]{36})/zurueckziehen",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "workers.js",
+      "methode": "post",
       "pfad": "/worker-assignment-links/:id/replace",
       "wachart": "berechtigung",
       "orgGeprueft": true
@@ -3309,8 +3316,8 @@
     }
   ],
   "grundlinie": {
-    "wege": 469,
-    "berechtigung": 161,
+    "wege": 470,
+    "berechtigung": 162,
     "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-22 von 415 auf 416 erhoeht: Abschnitt 10 hat mit `POST /support-requests` den Weg eines Kunden INS Support Center angelegt — vorher hatte `support_cases` im gesamten Repo kein einziges INSERT, das Support Center war ein Lesesaal ueber einer Tabelle, die niemand fuellen konnte. Die Wachart bleibt `eigene-daten`: der Melder kommt aus der Sitzung, nicht aus dem Anfragekoerper. Am 2026-08-22 weiter auf 417: `POST /offers/:id/report` (Abschnitt 10, Inhalte melden). `berechtigung` unveraendert bei 161. Am 2026-08-23 von 418 auf 417 GESENKT: `POST /reports` wurde nach Owner-Entscheid ENTFERNT (0 Aufrufer, 0 Zeilen; Migration 191). Eine Route, die es nicht mehr gibt, kann nicht bewacht werden — stattdessen haelt eine Probe fest, dass sie nicht zurueckkehrt. Am 2026-08-24 weiter auf 419: `PATCH /staff-access/:userId/role` (Rollen vergeben, Owner-Entscheid). `berechtigung` unveraendert bei 161. Am 2026-08-24 sprunghaft auf 456: der Waechter montierte pro Datei nur die ERSTE `create*Router`-Fabrik. `staffControlCenter.js` exportiert zwei — die Auth-Fabrik (1 Weg) steht vor der Center-Fabrik (50 Wege). Die gesamte schreibende Flaeche des Staff Control Center war damit fuer das Bestandsbuch blind. Der Waechter montiert jetzt alle Fabriken."
   }
 }

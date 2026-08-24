@@ -1696,13 +1696,115 @@ export async function createAssignmentLink(pool, {
   return { link: rows[0] };
 }
 
-export async function removeAssignmentLink(pool, linkId, supplierOrgId) {
-  const { rowCount } = await pool.query(
-    `UPDATE worker_assignment_links SET is_active=FALSE, updated_at=NOW()
-     WHERE id=$1 AND supplier_org_id=$2`,
+/**
+ * Eine gestellte Anfrage zurueckziehen (Owner-Entscheid 2026-08-24,
+ * Migration 198).
+ *
+ * WAS ES VORHER GAB: `removeAssignmentLink` — dieselbe Absicht, aber ohne einen
+ * einzigen Aufrufer, ohne Route, ohne Knopf. Und fachlich zu duenn: Es setzte
+ * `is_active=FALSE` und sonst nichts. Der Status waere `pending_confirmation`
+ * geblieben, also eine wartende Anfrage, die niemand mehr sieht; die
+ * Staffing-Zahlen waeren stehen geblieben, der Kapazitaets-Posten geschlossen,
+ * der Marktplatz gesperrt, und weder Arbeiter noch Kunde haetten erfahren, dass
+ * die Sache vorbei ist. Diese Funktion ersetzt sie.
+ *
+ * WARUM 'withdrawn' UND NICHT 'worker_declined': Der Mensch hat nicht
+ * abgelehnt — ihm wurde die Anfrage genommen. Eine Absage in seiner Historie
+ * waere eine Luege, die jede Zuverlaessigkeitsauswertung gegen ihn verwendet.
+ * Dieselbe Trennung, die 193 zwischen Verfall und Absage gezogen hat.
+ *
+ * NUR OFFENE ANFRAGEN: Wer schon zugesagt hat, wird nicht "zurueckgezogen" —
+ * dafuer gibt es den Ersatz-Weg mit Wirk-Datum (`replaceAssignmentWorker`).
+ * Die Bedingung steht IM UPDATE, nicht davor: zwei gleichzeitige Klicks treffen
+ * so nur einmal, und eine Zusage, die in derselben Sekunde eintrifft, gewinnt.
+ *
+ * DER GRUND gehoert ins Audit, nicht an die Zeile — er ist eine Aussage der
+ * Firma ueber ihre Disposition, keine Eigenschaft des Menschen. Der Arbeiter
+ * erfaehrt, DASS zurueckgezogen wurde; das Warum steht dem Betrieb frei
+ * mitzuteilen, aber es wird nicht automatisch in sein Postfach getragen.
+ *
+ * @returns {{link}|{error}} kein Wurf — der Aufrufer bildet auf HTTP ab.
+ */
+export async function anfrageZurueckziehen(pool, linkId, supplierOrgId, { actorId = null } = {}) {
+  const { rows } = await pool.query(
+    `UPDATE worker_assignment_links
+        SET worker_confirmation_status = 'withdrawn',
+            is_active         = FALSE,
+            zurueckgezogen_am = NOW(),
+            updated_at        = NOW()
+      WHERE id = $1
+        AND supplier_org_id = $2
+        AND worker_confirmation_status = 'pending_confirmation'
+        AND is_active = TRUE
+      RETURNING id, assignment_id, worker_user_id, supplier_org_id,
+                capacity_post_id, client_name`,
     [linkId, supplierOrgId]
   );
-  return rowCount > 0;
+
+  if (!rows[0]) {
+    /* Warum es nicht ging, ohne die Org-Grenze zu verraten: die Nachfrage ist
+     * auf dieselbe supplier_org_id eingegrenzt. Ein fremder Link sieht damit
+     * genauso aus wie ein nicht existierender. */
+    const { rows: kontext } = await pool.query(
+      `SELECT worker_confirmation_status, is_active FROM worker_assignment_links
+        WHERE id = $1 AND supplier_org_id = $2`,
+      [linkId, supplierOrgId]
+    );
+    if (!kontext[0]) return { error: "NOT_FOUND" };
+    return {
+      error: "NICHT_MEHR_OFFEN",
+      current_status: kontext[0].worker_confirmation_status,
+      is_active: kontext[0].is_active
+    };
+  }
+
+  const zeile = rows[0];
+
+  /* Nachbereitung wie beim Verfall — dieselben Wirkungen, dieselbe Reihenfolge:
+   * erst die Zahlen (davon haengt "der Platz ist wieder offen" ab), dann der
+   * Kapazitaets-Posten und der Marktplatz, dann die Meldungen. Fehler einzelner
+   * Schritte werden geloggt und stoppen die uebrigen nicht — halb aufgeraeumt
+   * ist besser als gar nicht, und der Rueckzug IST passiert. */
+  try {
+    await assignmentStaffingService.recalcAssignmentStaffing(pool, zeile.assignment_id, { writeEvent: false });
+  } catch (err) {
+    logger.error({ err: err.message, linkId }, "Rueckzug: recalc fehlgeschlagen");
+  }
+
+  if (zeile.capacity_post_id) {
+    try {
+      await kapazitaetsPostenZurueckgeben(pool, zeile.capacity_post_id);
+    } catch (err) {
+      logger.error({ err: err.message, linkId }, "Rueckzug: Kapazitaets-Rueckgabe fehlgeschlagen");
+    }
+  }
+
+  let profil = null;
+  try {
+    profil = await abwesenheit.profilZuNutzer(pool, zeile.supplier_org_id, zeile.worker_user_id);
+    if (profil?.id) await workerOfferReservations.syncWorkerReservation(pool, profil.id);
+  } catch (err) {
+    logger.error({ err: err.message, linkId }, "Rueckzug: Marktplatz-Freigabe fehlgeschlagen");
+  }
+
+  try {
+    await workerNotifications.notifyAssignmentWithdrawn(
+      pool, zeile.worker_user_id, zeile.id, zeile.client_name || null
+    );
+  } catch (err) {
+    logger.error({ err: err.message, linkId }, "Rueckzug: Arbeiter-Meldung fehlgeschlagen");
+  }
+
+  /* Der Kunde sieht eine wartende regulaere Zuweisung auf seiner Live-Tafel
+   * (workforceService blendet nur den Ersatzfall aus) — verschwaende sie
+   * kommentarlos, plante er weiter mit jemandem, den es dort nicht mehr gibt. */
+  try {
+    await benachrichtigeKundePlatzWiederOffen(pool, zeile, profil?.name || null, "rueckzug");
+  } catch (err) {
+    logger.error({ err: err.message, linkId }, "Rueckzug: Kunden-Meldung fehlgeschlagen");
+  }
+
+  return { link: zeile, actor_id: actorId };
 }
 
 export async function getWorkerAssignments(pool, workerUserId, { includeInactive = false } = {}) {
@@ -2173,7 +2275,7 @@ export async function verfalleneAnfragen(pool) {
      * hier verschwindet jemand von seiner Tafel. */
     if (!istErsatz) {
       try {
-        await benachrichtigeKundeUeberVerfall(pool, zeile, profil?.name || null);
+        await benachrichtigeKundePlatzWiederOffen(pool, zeile, profil?.name || null, "verfall");
       } catch (err) {
         logger.error({ err: err.message, linkId: zeile.id }, `${art}: Kunden-Meldung fehlgeschlagen`);
       }
@@ -2246,7 +2348,7 @@ async function kapazitaetsPostenZurueckgeben(pool, capacityPostId) {
  * geantwortet" waere eine ueber den Menschen, und der Verfall ist ausdruecklich
  * keine Absage (Migration 193).
  */
-async function benachrichtigeKundeUeberVerfall(pool, zeile, name) {
+async function benachrichtigeKundePlatzWiederOffen(pool, zeile, name, anlass = "verfall") {
   const einsatz = await abwesenheit.einsatzFuerKundenmeldung(
     pool, zeile.supplier_org_id, zeile.assignment_id
   );
@@ -2266,6 +2368,14 @@ async function benachrichtigeKundeUeberVerfall(pool, zeile, name) {
   if (!empfaenger.length) return { benachrichtigt: 0, grund: "KEIN_EMPFAENGER" };
 
   const wer = name || "Eine vorgesehene Einsatzkraft";
+  /* Zwei Anlaesse, EIN Meldungstyp: fuer den Kunden ist das Ergebnis dasselbe —
+   * sein Platz ist wieder offen. Ein zweiter Typ fuer denselben Sachverhalt
+   * zerrisse die Zusammengehoerigkeit in Liste und Filter (Linie aus 184). Nur
+   * der Satz unterscheidet sich, und er bleibt in beiden Faellen wertfrei: der
+   * Kunde erfaehrt, was fuer SEINE Planung gilt, nicht wer was versaeumt hat. */
+  const satz = anlass === "rueckzug"
+    ? `${wer} steht fuer Ihren Einsatz nicht mehr zur Verfuegung. Der Platz ist wieder offen — Ihre Zeitarbeitsfirma besetzt ihn neu.`
+    : `${wer} ist fuer Ihren Einsatz nicht bestaetigt worden. Der Platz ist wieder offen — Ihre Zeitarbeitsfirma besetzt ihn neu.`;
   const ergebnis = await dispatch(pool, "assignment.worker_not_confirmed", {
     recipientUserIds: empfaenger,
     /* Die EMPFAENGER-Org, nicht die des Absenders: das Feld steuert den
@@ -2276,7 +2386,7 @@ async function benachrichtigeKundeUeberVerfall(pool, zeile, name) {
      * keinen Zugriff — genau wie bei Ausfall und Ersatz. */
     entityType: "assignment",
     entityId: einsatz.assignment_id,
-    message: `${wer} ist fuer Ihren Einsatz nicht bestaetigt worden. Der Platz ist wieder offen — Ihre Zeitarbeitsfirma besetzt ihn neu.`,
+    message: satz,
     linkPath: abwesenheit.kundenDeepLink(einsatz.assignment_id),
     emailQueue: true,
     emailSubject: "Platz auf Ihrem Einsatz wieder offen"

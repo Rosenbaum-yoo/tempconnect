@@ -393,6 +393,7 @@ TCi18n.register('de', {
   'mit.asgState.pendingConfirmation': 'Bestätigung offen',
   'mit.asgState.unavailable': 'Abwesend',
   'mit.asgState.expiredRequest': 'Anfrage verfallen',
+  'mit.asgState.withdrawnRequest': 'Anfrage zurückgezogen',
 
   /* Externe Profilfreigabe */
   'mit.public.title': 'Externe Profilfreigabe',
@@ -983,6 +984,7 @@ TCi18n.register('en', {
   'mit.asgState.pendingConfirmation': 'Confirmation pending',
   'mit.asgState.unavailable': 'Unavailable',
   'mit.asgState.expiredRequest': 'Request expired',
+  'mit.asgState.withdrawnRequest': 'Request withdrawn',
 
   'mit.public.title': 'External profile sharing',
   'mit.public.intro': 'No automatic public mode: only the fields you explicitly release become visible.',
@@ -3303,6 +3305,7 @@ function getOperationalAssignmentBadge(item) {
      `archived` oben das meistens, weil der Verfall is_active=FALSE setzt; fuer
      jede `expired`-Zeile, die aktiv bleibt, griff der gruene Rueckfall. */
   if (confirmation === "expired") return { tone: "warn", label: TCi18n.t("mit.asgState.expiredRequest") };
+  if (confirmation === "withdrawn") return { tone: "info", label: TCi18n.t("mit.asgState.withdrawnRequest") };
   return { tone: "good", label: TCi18n.t("mit.status.active") };
 }
 

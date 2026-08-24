@@ -118,7 +118,8 @@ export async function renderMonthlyPlanPdf({ orgName, year, month, links, genera
         worker_unavailable:   "  (freigestellt)",
         pending_confirmation: "  (unbestaetigt)",
         expired:              "  (Frist abgelaufen)",
-        worker_declined:      "  (abgelehnt)"
+        worker_declined:      "  (abgelehnt)",
+        withdrawn:            "  (zurueckgezogen)"
       };
       const flag = ZUSATZ[b.worker_confirmation_status] || "";
       T(san(label).slice(0, 46) + flag, cX.client, y, { size: 9 });

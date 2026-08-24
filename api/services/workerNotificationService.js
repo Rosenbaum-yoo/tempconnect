@@ -39,7 +39,9 @@ const SEVERITY_MAP = {
   // SEVERITY_MAP und CHECK gegeneinander.
   worker_assignment_reminder:               "warning",
   worker_assignment_expired:                "warning",
-  worker_replacement_expired:               "warning"
+  worker_replacement_expired:               "warning",
+  // Die Firma zieht eine gestellte Anfrage zurueck (Migration 198)
+  worker_assignment_withdrawn:              "info"
 };
 
 /**
@@ -311,6 +313,28 @@ export async function notifyAssignmentExpired(pool, workerUserId, assignmentLink
     type:        "worker_assignment_expired",
     title:       "Einsatz-Anfrage verfallen",
     message:     `Die Anfrage${clientName ? ` fuer den Einsatz bei ${clientName}` : ""} wurde nicht rechtzeitig beantwortet und ist verfallen. Der Platz wird neu vergeben — es entsteht Ihnen kein Nachteil.`,
+    entityType:  "worker_assignment_link",
+    entityId:    assignmentLinkId,
+    linkPath:    `/public/einsatzportal-benachrichtigungen.html`
+  });
+}
+
+/**
+ * Die Firma hat die Anfrage zurueckgezogen (Migration 198).
+ *
+ * `info`, nicht `warning`: Fuer den Arbeiter ist nichts schiefgegangen, und er
+ * hat nichts versaeumt — die Disposition hat sich geaendert. Der Text sagt das
+ * ausdruecklich, weil eine kommentarlos verschwundene Zeile sonst wie ein
+ * Fehler aussieht. Der GRUND steht bewusst nicht drin: er ist eine Aussage der
+ * Firma ueber ihre Planung und steht im Audit; sie mag ihn mitteilen, aber
+ * nicht automatisch ueber diesen Weg.
+ */
+export async function notifyAssignmentWithdrawn(pool, workerUserId, assignmentLinkId, clientName) {
+  await notifyWorker(pool, {
+    workerUserId,
+    type:        "worker_assignment_withdrawn",
+    title:       "Einsatz-Anfrage zurückgezogen",
+    message:     `Die Anfrage${clientName ? ` fuer den Einsatz bei ${clientName}` : ""} wurde von Ihrer Zeitarbeitsfirma zurueckgezogen. Sie muessen nichts weiter tun — es entsteht Ihnen kein Nachteil.`,
     entityType:  "worker_assignment_link",
     entityId:    assignmentLinkId,
     linkPath:    `/public/einsatzportal-benachrichtigungen.html`

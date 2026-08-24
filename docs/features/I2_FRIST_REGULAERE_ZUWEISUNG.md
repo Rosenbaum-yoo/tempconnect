@@ -1,12 +1,12 @@
 # I2 — Frist auch für reguläre Zuweisungen? (entschieden und gebaut)
 
-> **Status: Owner-Entscheid 2026-08-24 — „Option C mit 72h und Kundenmeldung".
-> Gebaut am selben Tag (Migration 195).** Was gebaut wurde, steht in
-> [Abschnitt 0](#0-was-gebaut-wurde); die Erhebung darunter bleibt als
-> Begründung stehen. **Drei Punkte sind weiterhin offen** und ausdrücklich
-> nicht mitgebaut: der Altbestand (Entscheidung 3), der Rückzieh-Knopf
-> (Entscheidung 4) und der Kapazitäts-Rückweg nach einer *Absage*
-> (Entscheidung 5).
+> **Status: abgeschlossen. Alle fünf Entscheidungen entschieden und gebaut
+> (2026-08-24).** Owner-Entscheid: „Option C mit 72h und Kundenmeldung", danach
+> die Freigabe für den Nachlauf und die beiden letzten Punkte.
+> Migrationen 195 (Frist), 197 (Altbestand), 199 (Rückzug).
+> Was gebaut wurde, steht in [Abschnitt 0](#0-was-gebaut-wurde), der Nachlauf in
+> 0b, die beiden letzten Punkte in 0c; die Erhebung darunter bleibt als
+> Begründung stehen.
 >
 > Ausarbeitung der offenen Frage aus
 > [`I_AUDIT_ZUWEISUNG_SUPPORT.md`](I_AUDIT_ZUWEISUNG_SUPPORT.md)
@@ -178,9 +178,67 @@ Fünf Entscheidungen lagen an; ausführlich in Abschnitt 8:
 |---|---|---|---|
 | 1 | Frist für reguläre Zuweisungen? | **Ja — Option C**: 72 Stunden, gedeckelt am Einsatzbeginn | ✅ entschieden + gebaut |
 | 2 | Was der Kunde beim Verfall erfährt | **Meldung an den Kunden** — er hat die Person auf der Tafel | ✅ entschieden + gebaut |
-| 3 | Altbestand (9 Zeilen) | **Nur die fünf unbeantwortbaren** auf `expired` setzen | ⏳ offen — die neun Zeilen liegen unverändert |
-| 4 | Rückzieh-Knopf für Disponenten | **Ja** — unabhängig von 1 sinnvoll, kleiner Aufwand | ⏳ offen |
+| 3 | Altbestand (9 Zeilen) | **Nur die fünf unbeantwortbaren** auf `expired` setzen | ✅ erledigt — Migration 197, fünf geschlossen, vier bleiben beantwortbar |
+| 4 | Rückzieh-Knopf für Disponenten | **Ja** — unabhängig von 1 sinnvoll, kleiner Aufwand | ✅ gebaut — Migration 199, eigener Zustand `withdrawn` |
 | 5 | `capacity_post` kehrt nach **Absage** nicht zurück | Eigenständiger Defekt, **eigenes Ticket** | ✅ miterledigt — der Filter in `getUnassignedCapacityPosts` schließt jetzt jede erledigte Zeile aus, also auch die abgesagte |
+
+---
+
+## 0c. Die letzten beiden Punkte
+
+### Der Altbestand (Migration 197)
+
+Von den neun Zeilen wurden **fünf geschlossen** — genau die, bei denen das
+effektive Ende des Einsatzes in der Vergangenheit liegt. Für sie weisen Zusage
+*und* Absage schon vorher mit `ASSIGNMENT_NOT_CURRENT` ab: der Mensch **kann**
+nicht mehr antworten, während die Zeile weiter als belegt zählt. Dort nimmt der
+Eingriff nachweislich nichts weg. Die übrigen vier sind technisch beantwortbar
+und bleiben stehen — eine Anfrage abzuräumen, die jemand noch annehmen könnte,
+wäre eine Entscheidung über seinen Kopf hinweg.
+
+Die Migration zieht die Staffing-Zahlen der betroffenen Einsätze mit nach; ohne
+das wäre die Zeile erledigt, der Platz aber weiter blockiert. Gemessen: der
+20-Personen-Einsatz stand auf 17 offen, jetzt auf 20; der 12er auf 9, jetzt
+auf 11. **Keine Benachrichtigung an die Arbeiter** — „Ihre Anfrage von vor vier
+Monaten ist verfallen" erklärt nichts. Der Vorgang steht im Audit.
+
+Beim zweiten Einspielen fiel ein Idempotenz-Mangel auf: Das Zeitfenster im
+Audit-Schritt („in den letzten fünf Minuten gestempelt") traf noch zu, und es
+entstand ein zweites Protokoll über dieselbe Datenwanderung. Behoben durch eine
+Existenzprüfung; zwei Läufe ergeben jetzt genau einen Eintrag.
+
+### Der Rückzieh-Knopf (Migration 199)
+
+**Ein eigener Zustand `withdrawn`**, kein Mitbenutzen von `expired` oder
+`worker_declined`. Eine Absage in der Historie wäre eine Lüge über den
+Menschen — er hat nicht abgelehnt, ihm wurde die Anfrage genommen, und jede
+Zuverlässigkeitsauswertung würde ihn dafür bestrafen. `expired` wäre eine Lüge
+über den Vorgang: nichts ist abgelaufen, jemand hat entschieden. Damit gibt es
+jetzt vier unterscheidbare Wege aus einer Anfrage heraus, und der Wächter aus
+0b erzwingt, dass jede Anzeige alle vier kennt — er hat beim Einbau prompt drei
+Flächen benannt, die den neuen Zustand nicht kannten.
+
+Die Bedingung steht **im UPDATE**, nicht davor: zwei gleichzeitige Klicks
+treffen so nur einmal, und eine Zusage, die in derselben Sekunde eintrifft,
+gewinnt. Der Rückzug räumt auf wie der Verfall — Zahlen, Kapazitäts-Posten,
+Marktplatz — und meldet an Arbeiter *und* Kunde. Der **Grund ist Pflicht**
+(min. 3 Zeichen, wie beim Ersatz-Weg) und landet im Audit, nicht im Postfach
+des Arbeiters: er ist eine Aussage der Firma über ihre Disposition, keine
+Eigenschaft des Menschen.
+
+Damit ersetzt diese Funktion `removeAssignmentLink` — dieselbe Absicht, aber
+ohne Aufrufer und fachlich zu dünn: sie setzte nur `is_active=FALSE`, der
+Status wäre `pending_confirmation` geblieben (eine wartende Anfrage, die
+niemand mehr sieht), die Zahlen wären stehen geblieben, und weder Arbeiter noch
+Kunde hätten erfahren, dass die Sache vorbei ist.
+
+**Verifikation beider Punkte:** 60/60 Proben. Migration 197 als Probelauf mit
+Rollback gegen die echten Daten geprüft, bevor sie lief; beide Migrationen
+zweimal eingespielt. Der Rückzug an der echten Datenbank durchgespielt (13/13):
+Anfrage gestellt, zurückgezogen, Zeile trägt `withdrawn` mit eigenem
+Zeitstempel und leerem `verfallen_am`, Platz von 7 auf 8 offen, beide Meldungen
+da, zweiter Rückzug ergibt sauber `NICHT_MEHR_OFFEN`, eine fremde Organisation
+bekommt `NOT_FOUND` — und danach lässt sich dieselbe Person wieder anfragen.
 
 ---
 

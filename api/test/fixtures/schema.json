@@ -1,11 +1,11 @@
 {
   "_hinweis": "GENERIERT — nicht von Hand bearbeiten. Neu erzeugen mit: npm run schema:snapshot (liest die laufende Datenbank im Container tempconnect_db).",
-  "erzeugt_am": "2026-08-24T10:02:53.278Z",
+  "erzeugt_am": "2026-08-24T14:38:19.886Z",
   "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
   "migrations_fingerabdruck": {
     "init": "49a1c9ef343102f593f1267155c30cea987684bf1a93826cf237e61101238c7e",
-    "dateien": 200,
-    "hash": "c03a2bae5962a7d86af523a89f6c079b6e10ec3dc18ac0a7771db20d3436e5b1"
+    "dateien": 203,
+    "hash": "b30a3c5295179b89d684170dc9b1cc3918066188cecf5a856971ce4b3b269dde"
   },
   "pruefwerte": {
     "approval_requests": {
@@ -723,6 +723,7 @@
         "worker_assignment_not_confirmed",
         "worker_assignment_pending_confirmation",
         "worker_assignment_reminder",
+        "worker_assignment_withdrawn",
         "worker_blocked_by_company",
         "worker_complaint_filed",
         "worker_delay_reported",
@@ -1037,14 +1038,6 @@
       ]
     },
     "pilot_preregistrations": {
-      "status": [
-        "accepted",
-        "confirmed",
-        "pending",
-        "qualified",
-        "rejected",
-        "waitlist"
-      ],
       "side": [
         "agency",
         "company"
@@ -1054,6 +1047,14 @@
         "industrie",
         "logistik",
         "pflege"
+      ],
+      "status": [
+        "accepted",
+        "confirmed",
+        "pending",
+        "qualified",
+        "rejected",
+        "waitlist"
       ]
     },
     "platform_events": {
@@ -1825,17 +1826,18 @@
       ]
     },
     "worker_assignment_links": {
-      "role": [
-        "backup",
-        "primary"
-      ],
       "worker_confirmation_status": [
         "auto_confirmed",
         "expired",
         "pending_confirmation",
+        "withdrawn",
         "worker_confirmed",
         "worker_declined",
         "worker_unavailable"
+      ],
+      "role": [
+        "backup",
+        "primary"
       ]
     },
     "worker_complaints": {
@@ -7102,7 +7104,8 @@
         "worker_confirmed_at",
         "worker_declined_at",
         "worker_declined_reason",
-        "worker_user_id"
+        "worker_user_id",
+        "zurueckgezogen_am"
       ],
       "nicht_null": [
         "assignment_id",
