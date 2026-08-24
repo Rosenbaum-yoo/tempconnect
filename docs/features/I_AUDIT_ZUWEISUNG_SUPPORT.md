@@ -1100,6 +1100,12 @@ Ausfallmeldung nichts geändert — dieselbe Linie wie bei der Absage).
 | **Erreicht die Erinnerung den Arbeiter überhaupt?** | Die Erinnerung ist eine `notifications`-Zeile; das Einsatzportal hat **kein** Polling und keinen Live-Strom — wer die Seite nicht offen hat, sieht sie erst beim nächsten Besuch, und die 4-h-Frist läuft trotzdem. Optionen: SMS (technisch vorhanden, `smsService.js`, Kosten + Einwilligung), E-Mail über `dispatch()`, Frist nur zu Geschäftszeiten, oder so lassen. Das ist eine Fairness-Frage, keine technische. |
 | **Frist auch für reguläre Zuweisungen?** | Der Entscheid galt Ersatz-Anfragen. Die Datenlage zeigt aber denselben Schaden im Regulären: ein Einsatz steht seit dem **10.04.** auf `open_quantity=0`, `staffing_status='sourcing'`, blockiert über `ASSIGNMENT_FILLED` jede neue Kampagne — gehalten von einer unbeantworteten regulären Anfrage. Eigenes Ticket, als Hintergrund-Chip angelegt. |
 
-Verify: Sweep-Proben 15/15 (inkl. DB-Smoke: fällige Zeile getroffen, Altbestand
-ohne Frist unberührt, CHECK kennt `expired`). Migration zweimal eingespielt
-(idempotent).
+Verify: Sweep-Proben 15/15 (inkl. DB-Smoke). Migration zweimal eingespielt
+(idempotent). **Und der Owner-Satz wörtlich, an der echten Datenbank, mit den
+echten Funktionen durchgespielt:** Anfrage gestellt (Frist 4 h ab Geburt) →
+zweiter Anlauf `REPLACEMENT_PENDING` → Uhr zurückgedreht → Zusage
+`ANFRAGE_VERFALLEN` → Sweep `{verfallen: 1}` → Zeile `expired`/inaktiv/gestempelt
+→ zweiter Anlauf **erlaubt** (ON-CONFLICT recycelt den Link und stellt die Uhr
+neu) → beide Meldungen geschrieben. Erinnerung separat: fällig gemacht → Sweep
+`{erinnert: 1}` → zweiter Sweep `{erinnert: 0}` — die Doppelversand-Bremse
+greift, genau eine Meldung.
