@@ -468,6 +468,71 @@ describe("Anfrage-Frist — die Anfrage wird mit Uhr geboren", () => {
   });
 });
 
+describe("Anfrage-Frist — nach dem Verfall geht es weiter", () => {
+  /* Der Verfall meldet "der Platz ist wieder offen". Was danach kommt, muss
+   * auch funktionieren — sonst ist die Meldung eine Einladung in einen Fehler.
+   * An der laufenden Datenbank nachgestellt: ohne diese Zweige endete der
+   * zweite Anlauf in 23505 (UNIQUE worker_user_id, assignment_id) und damit in
+   * einem HTTP 500 — nach Verfall wie nach Absage. */
+  const dienst = fs.readFileSync(new URL("../services/workerService.js", import.meta.url), "utf8");
+  const staffing = fs.readFileSync(
+    new URL("../services/assignmentStaffingService.js", import.meta.url), "utf8");
+
+  it("assignDealToWorker recycelt die Zeile, statt am UNIQUE zu scheitern", () => {
+    const start = dienst.indexOf("INSERT INTO worker_assignment_links", dienst.indexOf("export async function assignDealToWorker"));
+    assert.ok(start > 0, "der INSERT von assignDealToWorker ist nicht auffindbar");
+    const block = dienst.slice(start, start + 3000);
+    assert.match(block, /ON CONFLICT \(worker_user_id, assignment_id\) DO UPDATE/);
+    assert.match(block, /worker_confirmation_status='pending_confirmation'/,
+      "die recycelte Zeile muss wieder auf Antwort warten");
+    /* Im Quelltext steht der Aufruf, nicht das fertige SQL — die Formel wird
+     * erst beim Zusammenbauen der Abfrage eingesetzt. */
+    assert.match(block, /frist_bis=\$\{anfrageFristSql\(/,
+      "die Uhr muss NEU gestellt werden — sonst erbt der zweite Anlauf die abgelaufene Frist");
+    assert.match(block, /erinnerung_faellig_am=\$\{anfrageErinnerungSql\(/);
+    assert.match(block, /verfallen_am=NULL/);
+  });
+
+  it("die Ersatz-Herkunft wird beim Recyceln geloescht", () => {
+    /* Der Zwilling in replaceAssignmentWorker SETZT ersetzt_link_id. Recycelt
+     * der regulaere Pfad eine Zeile, die einmal ein Ersatz war, und bliebe die
+     * Herkunft stehen, hielte der Sweep die neue Anfrage fuer eine
+     * Ersatz-Anfrage: falscher Meldungstext, kein Kundenpfad. */
+    const start = dienst.indexOf("INSERT INTO worker_assignment_links", dienst.indexOf("export async function assignDealToWorker"));
+    assert.match(dienst.slice(start, start + 2600), /ersetzt_link_id=NULL/);
+  });
+
+  it("die Einladung sperrt nur LEBENDE Zuordnungen", () => {
+    /* Vorher: `WHERE assignment_id = $1 AND worker_user_id = $2` ohne Filter.
+     * Wer nach einem Verfall eine Staffing-Einladung ANNAHM, bekam 409
+     * "bereits zugeordnet" — und kam ueber diesen Weg nie wieder hinein. */
+    const start = staffing.indexOf("async function createWorkerAssignmentLink");
+    assert.ok(start > 0, "createWorkerAssignmentLink nicht gefunden");
+    const block = staffing.slice(start, start + 4200);
+    assert.match(block, /AND is_active = TRUE/,
+      "der Guard muss erledigte Zeilen durchlassen");
+    assert.match(block, /AND worker_confirmation_status NOT IN \('worker_declined','worker_unavailable'\)/);
+    assert.match(block, /ON CONFLICT \(worker_user_id, assignment_id\) DO UPDATE/,
+      "und der INSERT dahinter muss die Zeile dann auch recyceln koennen");
+    assert.match(block, /frist_bis=NULL/,
+      "eine befoerderte Reservierung traegt keine Frist — sonst liesse der Sweep "
+      + "eine bestaetigte Besetzung verfallen");
+  });
+
+  it("der Kapazitaets-Posten erscheint nach dem Verfall wieder im Drawer", () => {
+    /* Die Rueckgabe im Sweep allein genuegt nicht: die Liste der unbesetzten
+     * Kapazitaeten hielt den Posten ueber die verfallene Zeile weiterhin
+     * heraus. */
+    const start = dienst.indexOf("export async function getUnassignedCapacityPosts");
+    assert.ok(start > 0, "getUnassignedCapacityPosts nicht gefunden");
+    const block = dienst.slice(start, start + 2200);
+    assert.match(block, /wal\.is_active = TRUE/,
+      "ohne is_active haelt jede erledigte Zeile den Posten dauerhaft belegt");
+    assert.ok(!/worker_confirmation_status != 'worker_declined'/.test(block),
+      "die Einzelwert-Negativliste war der Defekt — sie kennt keinen neuen Zustand");
+  });
+});
+
 describe("Anfrage-Frist — der Betroffene erfaehrt sie im Erst-Text", () => {
   /* Eine Frist, die man dem Betroffenen nicht mitteilt, ist eine Falle. Vor
    * Migration 195 gab `deadlineLabel` nur der Ersatz-Pfad mit — die fuenf

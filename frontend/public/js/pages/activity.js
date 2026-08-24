@@ -324,6 +324,11 @@
          Waechter. Seit G4b tut es einer. */
       worker_absence_reported: "workforce", worker_delay_reported: "workforce",
       assignment_worker_unavailable: "workforce", assignment_worker_replaced: "workforce",
+      /* Der Verfall einer Anfrage (Migration 195): fuer den Kunden ein Ereignis
+         an seinem Einsatz, fuer die Disponenten Belegschafts-Betrieb — dieselbe
+         Gruppe wie Ausfall und Ersatz. Ohne diese zwei Zeilen wiederholte sich
+         exakt der oben beschriebene G4-Fehler. */
+      assignment_worker_not_confirmed: "workforce", worker_assignment_not_confirmed: "workforce",
       milestone: "bounty", bounty_near: "bounty", bounty_earned: "bounty", bounty_lost: "bounty",
       general: "system", system: "system"
     };
@@ -343,7 +348,8 @@
       capacity:    ["capacity_interest", "capacity_expiring", "capacity_match", "capacity_stale", "demand_match"],
       deal:        ["deal_offer_sent", "deal_accepted", "deal_confirmed", "deal_completed", "deal_assignment_started", "deal_staffing_ready"],
       timesheet:   ["timesheet_submitted", "timesheet_approved", "timesheet_rejected", "timesheet_signed"],
-      workforce:   ["worker_absence_reported", "worker_delay_reported", "assignment_worker_unavailable", "assignment_worker_replaced"],
+      workforce:   ["worker_absence_reported", "worker_delay_reported", "assignment_worker_unavailable", "assignment_worker_replaced",
+                    "assignment_worker_not_confirmed", "worker_assignment_not_confirmed"],
       bounty:      ["milestone", "bounty_near", "bounty_earned", "bounty_lost"],
       system:      ["general", "system", "vendor_pool_change", "emergency_request", "emergency_escalation"]
     };

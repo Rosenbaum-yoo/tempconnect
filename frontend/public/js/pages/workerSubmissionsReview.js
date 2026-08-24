@@ -648,6 +648,8 @@ TCi18n.register('de', {
   'ts.rev.conf.pending': 'Bestätigung offen',
   'ts.rev.conf.confirmed': 'Bestätigt',
   'ts.rev.conf.declined': 'Abgelehnt',
+  'ts.rev.conf.expired': 'Frist abgelaufen',
+  'ts.rev.conf.unavailable': 'Abwesend',
   'ts.rev.due.overdue': 'Überfällig',
   'ts.rev.due.overdueTitle': 'Einreichfrist verstrichen, noch nicht eingereicht',
   'ts.rev.due.late': 'Verspätet',
@@ -1444,6 +1446,8 @@ TCi18n.register('en', {
   'ts.rev.conf.pending': 'Confirmation pending',
   'ts.rev.conf.confirmed': 'Confirmed',
   'ts.rev.conf.declined': 'Declined',
+  'ts.rev.conf.expired': 'Deadline passed',
+  'ts.rev.conf.unavailable': 'Absent',
   'ts.rev.due.overdue': 'Overdue',
   'ts.rev.due.overdueTitle': 'Submission deadline passed, not submitted yet',
   'ts.rev.due.late': 'Late',
@@ -5452,7 +5456,15 @@ function renderPlanungView(){
     todayMarker='<div class="plan-today" style="left:'+(colFor(td.getDate())+dayPct/2)+'%" title="Heute"></div>';
   }
   var blockClass=function(l){
-    if(l.worker_confirmation_status==='worker_unavailable')return 'pb-unavail';
+    /* Nicht zustande gekommene Besetzungen duerfen im Monatsplan nicht wie
+       gebuchte aussehen — der Knopf weist ihn als abrechnungsrelevant aus.
+       `expired` (Frist verstrichen, Migration 195) und `worker_declined`
+       (abgelehnt) liefen vorher in die Datumslogik und wurden dort zu einem
+       blauen "Geplant"-Balken. Dieselbe Klasse wie bei einer Abwesenheit:
+       gemeint ist beide Male "hier arbeitet niemand". */
+    if(l.worker_confirmation_status==='worker_unavailable'
+       ||l.worker_confirmation_status==='expired'
+       ||l.worker_confirmation_status==='worker_declined')return 'pb-unavail';
     var s=parseD(l.start_date), e=parseD(l.end_date)||'9999-12-31';
     if(e<todayIso)return 'pb-past';
     if(l.assignment_lifecycle_state==='ends_today'||e===todayIso)return 'pb-ends';
@@ -5520,7 +5532,12 @@ function confBadge(s){
   const m={
     pending_confirmation:'<span class="pill pill-warn" style="margin-left:6px">'+esc(tt('ts.rev.conf.pending'))+'</span>',
     worker_confirmed:'<span class="pill pill-act" style="margin-left:6px">'+esc(tt('ts.rev.conf.confirmed'))+'</span>',
-    worker_declined:'<span class="pill pill-danger" style="margin-left:6px">'+esc(tt('ts.rev.conf.declined'))+'</span>'
+    worker_declined:'<span class="pill pill-danger" style="margin-left:6px">'+esc(tt('ts.rev.conf.declined'))+'</span>',
+    /* Verfall ist keine Absage — neutral statt rot. Ohne diese beiden Eintraege
+       blieb die Karte wortlos, und der Disponent sah keinen Unterschied zu
+       einer bestaetigten Besetzung. */
+    expired:'<span class="pill" style="margin-left:6px">'+esc(tt('ts.rev.conf.expired'))+'</span>',
+    worker_unavailable:'<span class="pill pill-danger" style="margin-left:6px">'+esc(tt('ts.rev.conf.unavailable'))+'</span>'
   };
   return m[s]||'';
 }

@@ -85,6 +85,72 @@ Datenbank-CHECK, die Oberflächen-Kopie und die Kanal-Zuordnung.
 
 ---
 
+## 0b. Der Nachlauf — was die Bestandsaufnahme danach fand
+
+Auf die Frage „alle Abfragen prüfen" (2026-08-24) wurde jede Stelle im Repo
+durchgesehen, die `worker_assignment_links` liest oder schreibt. **Die große
+Mehrheit war in Ordnung**: über zehn Abfragen verlangen `is_active = TRUE`, und
+weil der Verfall Status *und* `is_active` zugleich setzt, fällt eine verfallene
+Zeile dort automatisch heraus — auch bei der zentralen Terminkonflikt-Prüfung,
+der Verfall gibt den Menschen also wirklich frei.
+
+Vier Stellen waren es nicht. Alle vier sind repariert (Commit folgt auf
+`09bea1a`):
+
+**Ein HTTP 500, an der Datenbank nachgestellt.** `worker_assignment_links` trägt
+`UNIQUE (worker_user_id, assignment_id)` (Migration 029). Der Guard in
+`assignDealToWorker` lässt erledigte Zeilen bewusst durch — der Kommentar dort
+behauptete sogar, „ein neuer Eintrag entsteht" —, aber der INSERT dahinter hatte
+kein `ON CONFLICT`. Der zweite Zuweisungsversuch derselben Person endete in
+`23505` und damit in einem Serverfehler. **Der Defekt ist älter als die Frist**:
+die Gegenprobe nach einer *Absage* stürzte identisch ab. Der automatische
+Verfall machte ihn vom Sonderfall zum Regelfall — die Meldung „der Platz ist
+wieder offen" fordert genau diese Handlung. Behoben nach dem Vorbild von
+`replaceAssignmentWorker`, das die Zeile recycelt; zusätzlich wird
+`ersetzt_link_id` geleert, sonst hielte der Sweep die neue reguläre Anfrage für
+eine Ersatz-Anfrage.
+
+**Die Einladung wies den zusagenden Arbeiter ab.** `createWorkerAssignmentLink`
+prüfte ohne jeden Filter, ob schon ein Link existiert. Wer nach einem Verfall
+über eine Staffing-Kampagne erneut eingeladen wurde und **zusagte**, bekam 409
+„bereits zugeordnet" — und kam über diesen Weg nie wieder hinein. Guard auf
+lebende Zeilen begrenzt, INSERT mit `ON CONFLICT`.
+
+**Der Kapazitäts-Posten kehrte nicht in den Drawer zurück.**
+`getUnassignedCapacityPosts` schloss nur `worker_declined` aus und prüfte
+`is_active` gar nicht — der Sweep gab den Posten korrekt frei, aber
+„+ Kapazität zuweisen" zeigte ihn nie wieder. Zwei Abfragen weiter unten stand
+die korrekte Variante. Nachgewiesen per SQL-Vergleich an der Datenbank: mit
+einer verfallenen Zeile zeigt die alte Bedingung 3 Posten, die neue 4.
+
+**Die Oberfläche kannte den Zustand nirgends.** Das Einsatzportal zeigte kein
+Abzeichen (die Zeile sah aus wie eine normale Zuweisung, denn die Liste lädt
+`include_inactive=true`), die Bestätigungsknöpfe blieben nach Ablauf aktiv, und
+der Klick endete in einem Toast mit dem rohen Text `ANFRAGE_VERFALLEN`. Der
+Monats-Einsatzplan — als abrechnungsrelevant ausgewiesen — zeigte eine
+verfallene Zuweisung als regulären Einsatzblock, im PDF ebenso; dort leckte
+`worker_declined` schon immer genauso durch. Alles behoben, inklusive der
+sechs fehlenden Wörterbuch-Einträge (DE und EN) und der Aktivitäten-Seite, die
+die neuen Meldungstypen nicht kannte.
+
+**Zwei Bestandsfehler nebenbei belegt:** In der Datenbank stehen die
+Disponenten-Meldungen von 09:06 und 14:05 desselben Tages direkt untereinander —
+die ältere beginnt mit einem Leerzeichen (`" hat eine Ersatz-Anfrage…"`), die
+jüngere trägt den Namen. Der Namens-Fix aus `09bea1a` ist damit an echten Daten
+belegt.
+
+**Und ein Wächter, damit das nicht wiederkehrt.** `statuswertSpiegel.test.js`
+hält seitdem vier Dinge: dass die Datenbank keine unbekannten Statuswerte
+kennt, dass der UNIQUE noch besteht, dass jede benannte Anzeige-Fläche die
+erledigten Zustände kennt, dass keine Statusliste ohne `is_active` auskommt und
+dass kein INSERT ohne `ON CONFLICT` bleibt. Die einzige Ausnahme prüft sich
+selbst: Wo der Einsatz unmittelbar davor frisch angelegt wird, ist ein Konflikt
+unmöglich — baut jemand das um, schlägt der Wächter wieder an. Beim ersten Lauf
+hat er prompt einen INSERT gefunden, den die manuelle Durchsicht übersehen
+hatte.
+
+---
+
 ## Kurzfassung
 
 Migration 193 hat **Ersatz**-Anfragen eine Uhr gegeben: vier Stunden, dann
@@ -114,7 +180,7 @@ Fünf Entscheidungen lagen an; ausführlich in Abschnitt 8:
 | 2 | Was der Kunde beim Verfall erfährt | **Meldung an den Kunden** — er hat die Person auf der Tafel | ✅ entschieden + gebaut |
 | 3 | Altbestand (9 Zeilen) | **Nur die fünf unbeantwortbaren** auf `expired` setzen | ⏳ offen — die neun Zeilen liegen unverändert |
 | 4 | Rückzieh-Knopf für Disponenten | **Ja** — unabhängig von 1 sinnvoll, kleiner Aufwand | ⏳ offen |
-| 5 | `capacity_post` kehrt nach **Absage** nicht zurück | Eigenständiger Defekt, **eigenes Ticket** | ⏳ offen — der *Verfall* gibt ihn seit 195 zurück, die Absage weiterhin nicht |
+| 5 | `capacity_post` kehrt nach **Absage** nicht zurück | Eigenständiger Defekt, **eigenes Ticket** | ✅ miterledigt — der Filter in `getUnassignedCapacityPosts` schließt jetzt jede erledigte Zeile aus, also auch die abgesagte |
 
 ---
 

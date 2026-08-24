@@ -2652,10 +2652,23 @@ export async function getUnassignedCapacityPosts(pool, supplierOrgId, { supplier
        ($1::uuid IS NOT NULL AND cp.org_id = $1::uuid)
        OR ($2::uuid IS NOT NULL AND cp.supplier_company_id = $2::uuid)
      )
+     /* NUR LEBENDE Links halten einen Posten belegt. Vorher stand hier eine
+      * Negativliste mit einem einzigen Wert und ohne is_active — damit hielt
+      * auch eine verfallene oder freigestellte Zeile den Posten fuer immer aus
+      * dieser Liste heraus. Beim Verfall faellt das doppelt auf: der Sweep
+      * stellt den Posten ueber kapazitaetsPostenZurueckgeben korrekt wieder
+      * auf 'active', aber im Drawer "+ Kapazitaet zuweisen" tauchte er nie
+      * wieder auf. Dieselbe Bedingung wie in listAssignableSourcesForDispatcher
+      * zwei Abfragen weiter unten, die es schon immer richtig machte.
+      *
+      * OHNE BACKTICKS: dieser Kommentar steht INNERHALB eines Template-Literals
+      * — ein Backtick fuer einen Code-Verweis beendet hier die Zeichenkette.
+      * Dieselbe Falle wie in workerAbsenceService, und sie schnappt wieder zu. */
      AND cp.id NOT IN (
        SELECT wal.capacity_post_id FROM worker_assignment_links wal
        WHERE wal.capacity_post_id IS NOT NULL
-         AND wal.worker_confirmation_status != 'worker_declined'
+         AND wal.is_active = TRUE
+         AND wal.worker_confirmation_status NOT IN ('worker_declined','worker_unavailable')
      )
      ORDER BY cp.availability_from ASC, cp.created_at DESC`,
     [supplierOrgId || null, supplierUserId || null]
@@ -2889,7 +2902,25 @@ export async function assignDealToWorker(pool, {
 
     // 5) Assignment-Link erstellen
     /* Die Frist wird MIT der Anfrage geboren — $11 ist der effektive
-     * Einsatzbeginn (Owner-Entscheid 2026-08-24, siehe anfrageFristSql). */
+     * Einsatzbeginn (Owner-Entscheid 2026-08-24, siehe anfrageFristSql).
+     *
+     * DER ON-CONFLICT-ZWEIG IST KEIN LUXUS, SONDERN DIE BEDINGUNG DAFUER, DASS
+     * DER GUARD OBEN UEBERHAUPT FUNKTIONIEREN KANN. Er laesst erledigte
+     * Alt-Links absichtlich durch ("damit der gleiche Worker nach Genesung bzw.
+     * nach neuerlicher Freigabe wieder demselben Einsatz zugeordnet werden
+     * kann") — aber `UNIQUE (worker_user_id, assignment_id)` (Migration 029)
+     * verbietet die zweite Zeile. Ohne diesen Zweig endete jeder zweite Anlauf
+     * in 23505 und damit in einem HTTP 500: an der laufenden Datenbank
+     * nachgestellt, sowohl nach Verfall als auch nach Absage. Der Defekt ist
+     * aelter als die Frist — die Absage trifft ihn genauso —, aber der
+     * automatische Verfall macht ihn vom Sonderfall zum Regelfall: die Meldung
+     * "der Platz ist wieder offen" fordert genau diese Handlung.
+     *
+     * `ersetzt_link_id = NULL` ist der Unterschied zum Zwilling in
+     * `replaceAssignmentWorker`, der ihn SETZT: recycelt dieser Pfad eine Zeile,
+     * die einmal ein Ersatz war, muss die Herkunft weg. Bliebe sie stehen,
+     * hielte der Sweep die neue, regulaere Anfrage fuer eine Ersatz-Anfrage —
+     * mit falschem Meldungstext und ohne den Kundenpfad. */
     const { rows: [link] } = await client.query(
       `INSERT INTO worker_assignment_links
          (worker_user_id, assignment_id, org_id, supplier_org_id,
@@ -2900,6 +2931,26 @@ export async function assignDealToWorker(pool, {
           worker_confirmation_status, frist_bis, erinnerung_faellig_am)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'pending_confirmation',
                ${anfrageFristSql("$11")}, ${anfrageErinnerungSql("$11")})
+       ON CONFLICT (worker_user_id, assignment_id) DO UPDATE
+         SET is_active=TRUE,
+             org_id=EXCLUDED.org_id, supplier_org_id=EXCLUDED.supplier_org_id,
+             deal_request_id=EXCLUDED.deal_request_id,
+             capacity_post_id=EXCLUDED.capacity_post_id,
+             default_hours_per_day=EXCLUDED.default_hours_per_day,
+             default_shift_start=EXCLUDED.default_shift_start,
+             default_shift_end=EXCLUDED.default_shift_end,
+             default_break_minutes=EXCLUDED.default_break_minutes,
+             start_date=EXCLUDED.start_date, end_date=EXCLUDED.end_date,
+             client_name=EXCLUDED.client_name, notes=EXCLUDED.notes,
+             created_by=EXCLUDED.created_by,
+             worker_confirmation_status='pending_confirmation',
+             ersetzt_link_id=NULL,
+             worker_confirmed_at=NULL, worker_declined_at=NULL, worker_declined_reason=NULL,
+             unavailable_from=NULL, unavailable_reason=NULL, unavailable_reported_at=NULL,
+             frist_bis=${anfrageFristSql("EXCLUDED.start_date")},
+             erinnerung_faellig_am=${anfrageErinnerungSql("EXCLUDED.start_date")},
+             erinnert_am=NULL, verfallen_am=NULL,
+             updated_at=NOW()
        RETURNING *`,
       [workerUserId, assignmentId, asg.org_id, supplierOrgId,
        asg.deal_request_id, asg.capacity_post_id || null,

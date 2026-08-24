@@ -159,10 +159,16 @@ TCi18n.register('de', {
   'ep.einsaetze.confConfirmed': 'Bestätigt',
   'ep.einsaetze.confDeclined': 'Abgelehnt',
   'ep.einsaetze.confUnavailable': 'Abwesend',
+  /* Verfall ist keine Absage: der Text sagt, was passiert ist, ohne Vorwurf. */
+  'ep.einsaetze.confExpired': 'Frist abgelaufen',
   'ep.einsaetze.toastDateRequired': 'Bitte Datum angeben.',
   'ep.einsaetze.toastUnavailDone': 'Abwesenheit gemeldet – Ihr Disponent wurde informiert.',
   'ep.einsaetze.toastConfirmed': 'Einsatz bestätigt!',
   'ep.einsaetze.toastDeclined': 'Einsatz abgelehnt.',
+  'ep.einsaetze.errExpired': 'Die Antwortfrist ist abgelaufen – der Platz wurde neu vergeben. Ihnen entsteht kein Nachteil.',
+  'ep.einsaetze.errNotCurrent': 'Dieser Einsatz ist bereits vorbei.',
+  'ep.einsaetze.errInvalidStatus': 'Diese Anfrage wurde bereits beantwortet.',
+  'ep.einsaetze.errNotFound': 'Diese Anfrage gibt es nicht mehr.',
   'ep.einsaetze.errGeneric': 'Fehler'
 });
 TCi18n.register('en', {
@@ -230,10 +236,15 @@ TCi18n.register('en', {
   'ep.einsaetze.confConfirmed': 'Confirmed',
   'ep.einsaetze.confDeclined': 'Declined',
   'ep.einsaetze.confUnavailable': 'Absent',
+  'ep.einsaetze.confExpired': 'Deadline passed',
   'ep.einsaetze.toastDateRequired': 'Please enter a date.',
   'ep.einsaetze.toastUnavailDone': 'Absence reported – your dispatcher has been notified.',
   'ep.einsaetze.toastConfirmed': 'Assignment confirmed!',
   'ep.einsaetze.toastDeclined': 'Assignment declined.',
+  'ep.einsaetze.errExpired': 'The response deadline has passed – the spot was reassigned. This is not held against you.',
+  'ep.einsaetze.errNotCurrent': 'This assignment is already over.',
+  'ep.einsaetze.errInvalidStatus': 'This request has already been answered.',
+  'ep.einsaetze.errNotFound': 'This request no longer exists.',
   'ep.einsaetze.errGeneric': 'Error'
 });
 function applyDocTitle() { document.title = TCi18n.t('ep.einsaetze.docTitle'); }
@@ -388,15 +399,19 @@ function renderDetail(a) {
           ${a.dispatcher_name ? contactBlock(a.dispatcher_name, TCi18n.t('ep.einsaetze.contactDispatcher'), a.dispatcher_phone, a.dispatcher_email) : ''}
         ` : ''}
 
-        ${a.worker_confirmation_status==='pending_confirmation' && isCurrentAssignment(a) ? `
+        ${a.worker_confirmation_status==='pending_confirmation' && isCurrentAssignment(a) && !a.is_expired ? `
         <div style="margin-top:16px;padding:14px;background:rgba(74,158,255,.07);border:1px solid rgba(74,158,255,.2);border-radius:10px">
           <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">${TCi18n.t('ep.einsaetze.confirmTitle')}</div>
           <div style="font-size:.82rem;color:var(--ep-text-sub,var(--ep-text-muted));margin-bottom:10px">${TCi18n.t('ep.einsaetze.confirmText')}</div>
           ${a.response_deadline_label ? `
-          <!-- Ersatz-Frist (193): eine Frist, die man dem Betroffenen nicht
-               mitteilt, ist eine Falle. Das Feld ist nur bei Ersatz-Anfragen
-               gefuellt — regulaere Zuweisungen tragen (noch) keine Frist,
-               und eine behauptete Frist waere gelogen. -->
+          <!-- Eine Frist, die man dem Betroffenen nicht mitteilt, ist eine
+               Falle. Seit Migration 195 tragen ALLE Anfragen eine (Ersatz 4 h,
+               regulaer 72 h gedeckelt am Einsatzbeginn); das Feld ist leer,
+               solange keine gesetzt ist, und dann faellt der Satz weg.
+               is_expired oben blendet die Knoepfe aus, sobald sie abgelaufen
+               ist — sonst fuehrt der Klick garantiert in einen Fehler.
+               OHNE BACKTICKS: dieser Kommentar steht in einem Template-Literal,
+               ein Backtick beendet die Zeichenkette. -->
           <div style="font-size:.82rem;font-weight:700;color:#f59e0b;margin-bottom:10px">${TCi18n.t('ep.einsaetze.confirmDeadline', { deadline: a.response_deadline_label })}</div>` : ''}
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="ep-btn ep-btn-primary ep-btn-sm" onclick="confirmAsg('${a.id}')">${TCi18n.t('ep.einsaetze.confirmBtn')}</button>
@@ -457,7 +472,12 @@ function confBadge(cs) {
     pending_confirmation:'<span class="ep-badge" style="background:rgba(251,191,36,.12);color:#f59e0b">' + TCi18n.t('ep.einsaetze.confPending') + '</span>',
     worker_confirmed:'<span class="ep-badge" style="background:rgba(16,185,129,.12);color:#10b981">' + TCi18n.t('ep.einsaetze.confConfirmed') + '</span>',
     worker_declined:'<span class="ep-badge" style="background:rgba(239,68,68,.12);color:#ef4444">' + TCi18n.t('ep.einsaetze.confDeclined') + '</span>',
-    worker_unavailable:'<span class="ep-badge" style="background:rgba(239,68,68,.12);color:#ef4444">' + TCi18n.t('ep.einsaetze.confUnavailable') + '</span>'
+    worker_unavailable:'<span class="ep-badge" style="background:rgba(239,68,68,.12);color:#ef4444">' + TCi18n.t('ep.einsaetze.confUnavailable') + '</span>',
+    /* Verfall ist KEINE Absage — deshalb neutrales Grau statt Rot. Ohne diesen
+       Eintrag fiel die Zeile auf '' zurueck und sah damit aus wie eine normal
+       zugewiesene (auto_confirmed bekommt ebenfalls kein Abzeichen). Die Liste
+       laedt include_inactive=true, die verfallene Zeile bleibt also sichtbar. */
+    expired:'<span class="ep-badge" style="background:rgba(148,163,184,.16);color:#94a3b8">' + TCi18n.t('ep.einsaetze.confExpired') + '</span>'
   };
   return m[cs]||'';
 }
@@ -484,12 +504,25 @@ function showUnavailableForm(linkId) {
   location.href = ziel;
 }
 
+/* PortalApiError.message traegt den ROHEN Fehlerschluessel des Servers. Ohne
+   Uebersetzung stand im Toast woertlich "ANFRAGE_VERFALLEN" — ein Schluessel,
+   den niemand ausserhalb des Quelltexts kennt. Unbekannte Schluessel fallen
+   weiter auf die allgemeine Meldung zurueck, nie auf den Rohtext. */
+function asgFehlerText(e) {
+  const schluessel = {
+    ANFRAGE_VERFALLEN:      'ep.einsaetze.errExpired',
+    ASSIGNMENT_NOT_CURRENT: 'ep.einsaetze.errNotCurrent',
+    INVALID_STATUS:         'ep.einsaetze.errInvalidStatus',
+    NOT_FOUND:              'ep.einsaetze.errNotFound'
+  }[(e && e.message) || ''];
+  return TCi18n.t(schluessel || 'ep.einsaetze.errGeneric');
+}
 async function confirmAsg(linkId) {
   try {
     await PortalApi.post(`/worker/assignments/${linkId}/confirm`, {});
     toast(TCi18n.t('ep.einsaetze.toastConfirmed')); await load();
     if (selId) await selAsg(selId);
-  } catch(e) { toast(e.message||TCi18n.t('ep.einsaetze.errGeneric'), 'error'); }
+  } catch(e) { toast(asgFehlerText(e), 'error'); await load(); }
 }
 function toggleDeclineDetail() {
   const el = document.getElementById('declineDetail');
@@ -500,7 +533,7 @@ async function declineAsg(linkId) {
   try {
     await PortalApi.post(`/worker/assignments/${linkId}/decline`, { reason });
     toast(TCi18n.t('ep.einsaetze.toastDeclined')); await load();
-  } catch(e) { toast(e.message||TCi18n.t('ep.einsaetze.errGeneric'), 'error'); }
+  } catch(e) { toast(asgFehlerText(e), 'error'); await load(); }
 }
 function fmtD(d){return new Date(d).toLocaleDateString(TCi18n.dateLocale(),{day:'2-digit',month:'2-digit',year:'numeric'});}
 </script>

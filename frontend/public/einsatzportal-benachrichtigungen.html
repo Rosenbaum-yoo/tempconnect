@@ -409,7 +409,11 @@ TCi18n.register('de', {
   'ep.benachrichtigungen.ageHours': 'Vor {n} Stunden',
   'ep.benachrichtigungen.ageYesterday': 'Gestern',
   'ep.benachrichtigungen.toastAssignmentConfirmed': 'Einsatz bestätigt!',
-  'ep.benachrichtigungen.toastAssignmentDeclined': 'Einsatz abgelehnt — Disponent wurde benachrichtigt.'
+  'ep.benachrichtigungen.toastAssignmentDeclined': 'Einsatz abgelehnt — Disponent wurde benachrichtigt.',
+  'ep.benachrichtigungen.errAsgExpired': 'Die Antwortfrist ist abgelaufen – der Platz wurde neu vergeben. Ihnen entsteht kein Nachteil.',
+  'ep.benachrichtigungen.errAsgNotCurrent': 'Dieser Einsatz ist bereits vorbei.',
+  'ep.benachrichtigungen.errAsgInvalidStatus': 'Diese Anfrage wurde bereits beantwortet.',
+  'ep.benachrichtigungen.errAsgNotFound': 'Diese Anfrage gibt es nicht mehr.'
 });
 TCi18n.register('en', {
   'ep.benachrichtigungen.docTitle': 'Notifications – Worker Portal',
@@ -555,7 +559,11 @@ TCi18n.register('en', {
   'ep.benachrichtigungen.ageHours': '{n} hours ago',
   'ep.benachrichtigungen.ageYesterday': 'Yesterday',
   'ep.benachrichtigungen.toastAssignmentConfirmed': 'Assignment confirmed!',
-  'ep.benachrichtigungen.toastAssignmentDeclined': 'Assignment declined — your dispatcher has been notified.'
+  'ep.benachrichtigungen.toastAssignmentDeclined': 'Assignment declined — your dispatcher has been notified.',
+  'ep.benachrichtigungen.errAsgExpired': 'The response deadline has passed – the spot was reassigned. This is not held against you.',
+  'ep.benachrichtigungen.errAsgNotCurrent': 'This assignment is already over.',
+  'ep.benachrichtigungen.errAsgInvalidStatus': 'This request has already been answered.',
+  'ep.benachrichtigungen.errAsgNotFound': 'This request no longer exists.'
 });
 function applyDocTitle() { document.title = TCi18n.t('ep.benachrichtigungen.docTitle'); }
 applyDocTitle();
@@ -1267,8 +1275,33 @@ function fmtDateTime(d) {
   return new Date(d).toLocaleString(TCi18n.dateLocale(),{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
 }
 
+/* Die Meldungsliste kennt den Frist-Zustand des Links nicht — aber sie enthaelt
+   die Verfallsmeldung selbst. Liegt zu derselben Zuweisung ein
+   `worker_assignment_expired` vor, ist die Anfrage vorbei, und die Knoepfe
+   fuehren garantiert in einen Fehler. Vorher blieben sie aktiv und der Klick
+   endete in einem Toast mit dem rohen Text "ANFRAGE_VERFALLEN". */
+function istVerfallen(n) {
+  const id = n.entity_id;
+  if (!id) return false;
+  return notifications.some((x) =>
+    (x.type || x.notification_type) === 'worker_assignment_expired' && x.entity_id === id);
+}
+
 function isPending(n) {
-  return (n.type||n.notification_type) === 'worker_assignment_pending_confirmation' && !n._handled;
+  return (n.type||n.notification_type) === 'worker_assignment_pending_confirmation'
+    && !n._handled && !istVerfallen(n);
+}
+
+/* Rohe Serverschluessel uebersetzen; Unbekanntes faellt auf die allgemeine
+   Meldung zurueck, nie auf den Schluesselnamen. */
+function asgFehlerText(e) {
+  const schluessel = {
+    ANFRAGE_VERFALLEN:      'ep.benachrichtigungen.errAsgExpired',
+    ASSIGNMENT_NOT_CURRENT: 'ep.benachrichtigungen.errAsgNotCurrent',
+    INVALID_STATUS:         'ep.benachrichtigungen.errAsgInvalidStatus',
+    NOT_FOUND:              'ep.benachrichtigungen.errAsgNotFound'
+  }[(e && e.message) || ''];
+  return TCi18n.t(schluessel || 'ep.benachrichtigungen.errGeneric');
 }
 
 async function confirmAsg(linkId, notifId, event) {
@@ -1280,7 +1313,7 @@ async function confirmAsg(linkId, notifId, event) {
     renderList();
     toast(TCi18n.t('ep.benachrichtigungen.toastAssignmentConfirmed'));
     PortalApi.patch(`/worker/notifications/${notifId}/read`, {}).catch(()=>{});
-  } catch(e) { toast(e.message || TCi18n.t('ep.benachrichtigungen.errGeneric'), true); }
+  } catch(e) { toast(asgFehlerText(e), true); await load(); }
 }
 
 function toggleDecline(notifId, event) {
@@ -1299,7 +1332,7 @@ async function declineAsg(linkId, notifId, event) {
     renderList();
     toast(TCi18n.t('ep.benachrichtigungen.toastAssignmentDeclined'));
     PortalApi.patch(`/worker/notifications/${notifId}/read`, {}).catch(()=>{});
-  } catch(e) { toast(e.message || TCi18n.t('ep.benachrichtigungen.errGeneric'), true); }
+  } catch(e) { toast(asgFehlerText(e), true); await load(); }
 }
 </script>
 <script src="/public/js/demoBanner.js" defer></script>

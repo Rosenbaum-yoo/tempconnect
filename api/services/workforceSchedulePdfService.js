@@ -106,8 +106,21 @@ export async function renderMonthlyPlanPdf({ orgName, year, month, links, genera
       const ce = (!e || e > monthEnd) ? lastDay : parseInt(e.substring(8, 10), 10);
       const days = Math.max(1, ce - cs + 1);
       const label = b.client_name || b.location_address || b.worker_description || "Einsatz";
-      const flag = b.worker_confirmation_status === "worker_unavailable" ? "  (freigestellt)"
-        : (b.worker_confirmation_status === "pending_confirmation" ? "  (unbestaetigt)" : "");
+      /* JEDER Zustand, der KEINE Besetzung ist, muss hier stehen. Das PDF ist
+       * als abrechnungsrelevant ausgewiesen, und die Quelle
+       * (`getAssignmentLinksForSupplier`) filtert `is_active` nicht — eine
+       * verfallene oder abgelehnte Zuweisung stand deshalb als ganz normaler
+       * Einsatzblock im Plan, ununterscheidbar von einer bestaetigten.
+       * `expired` seit Migration 195, `worker_declined` war schon vorher
+       * unsichtbar. Ein unbekannter Wert bleibt lieber unmarkiert, als eine
+       * Besetzung zu behaupten — deshalb die ausdrueckliche Liste. */
+      const ZUSATZ = {
+        worker_unavailable:   "  (freigestellt)",
+        pending_confirmation: "  (unbestaetigt)",
+        expired:              "  (Frist abgelaufen)",
+        worker_declined:      "  (abgelehnt)"
+      };
+      const flag = ZUSATZ[b.worker_confirmation_status] || "";
       T(san(label).slice(0, 46) + flag, cX.client, y, { size: 9 });
       T(fmtDE(b.start_date), cX.von, y, { size: 9 });
       T(b.end_date ? fmtDE(b.end_date) : "offen", cX.bis, y, { size: 9 });

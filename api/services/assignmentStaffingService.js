@@ -1018,11 +1018,29 @@ async function createWorkerAssignmentLink(client, {
   workerConfirmationStatus,
   note = null
 }) {
+  /* NUR LEBENDE LINKS SPERREN — dieselbe Regel wie in `assignDealToWorker`
+   * (workerService.js), und aus demselben Grund: eine erledigte Zeile ist keine
+   * Zuordnung mehr.
+   *
+   * Vorher stand hier `WHERE assignment_id = $1 AND worker_user_id = $2` ohne
+   * jeden Filter. Damit sperrte JEDE je existierende Zeile auf ewig — und seit
+   * Anfragen von selbst verfallen (Migration 195), traf das den haeufigsten
+   * Weg ueberhaupt: Die Kraft hatte fuer diesen Einsatz eine Anfrage, die
+   * verfiel; der Disponent laedt sie ueber eine Staffing-Kampagne erneut ein;
+   * sie SAGT ZU — und bekam 409 "Der Worker ist diesem Einsatz bereits
+   * zugeordnet". Sie war ihm gerade nicht zugeordnet, und ueber den
+   * Einladungsweg kam sie nie wieder hinein.
+   *
+   * `is_active = TRUE` erledigt `expired` mit: der Verfall setzt beides
+   * zugleich. Die beiden Statuswerte bleiben trotzdem ausgeschrieben — sie
+   * koennen auch an einer aktiven Zeile stehen. */
   const { rows: existingRows } = await client.query(
     `SELECT id
      FROM worker_assignment_links
      WHERE assignment_id = $1
        AND worker_user_id = $2
+       AND is_active = TRUE
+       AND worker_confirmation_status NOT IN ('worker_declined','worker_unavailable')
      LIMIT 1`,
     [assignment.id, workerUserId]
   );
@@ -1035,6 +1053,15 @@ async function createWorkerAssignmentLink(client, {
   const clientName = assignment.client_org_name || null;
   const workerConfirmedAt = workerConfirmationStatus === "worker_confirmed" ? new Date() : null;
 
+  /* ON CONFLICT, weil der Guard oben erledigte Zeilen absichtlich durchlaesst
+   * und `UNIQUE (worker_user_id, assignment_id)` (Migration 029) die zweite
+   * Zeile verbietet — ohne diesen Zweig endete die Zusage in 23505 statt in
+   * einer Besetzung. Die Zeile wird recycelt, nicht verdoppelt.
+   *
+   * `ersetzt_link_id=NULL` und die vier Uhr-Spalten muessen mit: was hier
+   * entsteht, ist eine befoerderte Reservierung, keine Ersatz-Anfrage und keine
+   * Anfrage mit Frist. Bliebe eine alte Frist stehen, liesse der Sweep eine
+   * laengst bestaetigte Besetzung verfallen. */
   const { rows } = await client.query(
     `INSERT INTO worker_assignment_links
        (worker_user_id, assignment_id, org_id, supplier_org_id,
@@ -1042,6 +1069,23 @@ async function createWorkerAssignmentLink(client, {
         start_date, end_date, client_name, notes, created_by,
         worker_confirmation_status, worker_confirmed_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+     ON CONFLICT (worker_user_id, assignment_id) DO UPDATE
+       SET is_active=TRUE,
+           org_id=EXCLUDED.org_id, supplier_org_id=EXCLUDED.supplier_org_id,
+           deal_request_id=EXCLUDED.deal_request_id,
+           default_hours_per_day=EXCLUDED.default_hours_per_day,
+           default_break_minutes=EXCLUDED.default_break_minutes,
+           start_date=EXCLUDED.start_date, end_date=EXCLUDED.end_date,
+           client_name=EXCLUDED.client_name, notes=EXCLUDED.notes,
+           created_by=EXCLUDED.created_by,
+           worker_confirmation_status=EXCLUDED.worker_confirmation_status,
+           worker_confirmed_at=EXCLUDED.worker_confirmed_at,
+           ersetzt_link_id=NULL,
+           worker_declined_at=NULL, worker_declined_reason=NULL,
+           unavailable_from=NULL, unavailable_reason=NULL, unavailable_reported_at=NULL,
+           frist_bis=NULL, erinnerung_faellig_am=NULL,
+           erinnert_am=NULL, verfallen_am=NULL,
+           updated_at=NOW()
      RETURNING *`,
     [
       workerUserId,

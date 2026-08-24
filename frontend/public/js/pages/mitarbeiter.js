@@ -392,6 +392,7 @@ TCi18n.register('de', {
   'mit.asgState.archived': 'Archiv',
   'mit.asgState.pendingConfirmation': 'Bestätigung offen',
   'mit.asgState.unavailable': 'Abwesend',
+  'mit.asgState.expiredRequest': 'Anfrage verfallen',
 
   /* Externe Profilfreigabe */
   'mit.public.title': 'Externe Profilfreigabe',
@@ -981,6 +982,7 @@ TCi18n.register('en', {
   'mit.asgState.archived': 'Archive',
   'mit.asgState.pendingConfirmation': 'Confirmation pending',
   'mit.asgState.unavailable': 'Unavailable',
+  'mit.asgState.expiredRequest': 'Request expired',
 
   'mit.public.title': 'External profile sharing',
   'mit.public.intro': 'No automatic public mode: only the fields you explicitly release become visible.',
@@ -3296,6 +3298,11 @@ function getOperationalAssignmentBadge(item) {
   if (confirmation === "pending_confirmation") return { tone: "warn", label: TCi18n.t("mit.asgState.pendingConfirmation") };
   if (confirmation === "worker_unavailable") return { tone: "warn", label: TCi18n.t("mit.asgState.unavailable") };
   if (confirmation === "worker_declined") return { tone: "warn", label: TCi18n.t("mit.doc.status.rejected") };
+  /* Eine verfallene Anfrage (Migration 195) faellt sonst auf "Aktiv" durch —
+     gruen fuer etwas, das nie zustande kam. Heute maskiert der Zweig
+     `archived` oben das meistens, weil der Verfall is_active=FALSE setzt; fuer
+     jede `expired`-Zeile, die aktiv bleibt, griff der gruene Rueckfall. */
+  if (confirmation === "expired") return { tone: "warn", label: TCi18n.t("mit.asgState.expiredRequest") };
   return { tone: "good", label: TCi18n.t("mit.status.active") };
 }
 
