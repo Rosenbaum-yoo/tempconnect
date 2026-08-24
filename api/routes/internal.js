@@ -40,7 +40,29 @@ export function createInternalRouter(deps) {
       logger.warn({ path: req.path, clientIp, allowed: cronAllowedIps }, "Cron IP not allowlisted");
       return res.status(403).json({ error: "FORBIDDEN", message: "IP not allowlisted" });
     }
-    if (cronSecret && req.headers["x-internal-secret"] !== cronSecret) {
+    /*
+     * FAIL-CLOSED, AUCH OHNE KONFIGURIERTES SECRET.
+     *
+     * Vorher stand hier `if (cronSecret && …)` — eine Wache, die sich selbst
+     * abschaltet, sobald das Geheimnis fehlt. Bis zum 2026-08-24 fiel das nicht
+     * auf, weil `csrfProtect` diese Endpunkte ohnehin pauschal abwies (403
+     * CSRF_INVALID): CSRF war die eigentliche, unbeabsichtigte Sperre.
+     *
+     * Mit der CSRF-Ausnahme fuer `X-Internal-Secret` (auth.js) faellt dieser
+     * Zufall weg. Eine Umgebung ohne `INTERNAL_CRON_SECRET` haette danach 28
+     * ungeschuetzte Endpunkte — Stapel-Verfall, Loeschlaeufe, Abrechnung.
+     * In Produktion erzwingt `config/index.js` das Geheimnis per `fatal()`;
+     * hier wird der Rest geschlossen, statt sich darauf zu verlassen.
+     */
+    if (!cronSecret) {
+      logger.error({ path: req.path, clientIp },
+        "INTERNAL_CRON_SECRET nicht gesetzt — Cron-Endpunkt bleibt zu (fail-closed)");
+      return res.status(503).json({
+        error: "CRON_NOT_CONFIGURED",
+        message: "Interne Zeitplan-Endpunkte sind ohne INTERNAL_CRON_SECRET deaktiviert."
+      });
+    }
+    if (req.headers["x-internal-secret"] !== cronSecret) {
       logger.warn({ path: req.path, clientIp }, "Cron secret invalid");
       return res.status(403).json({ error: "FORBIDDEN" });
     }
