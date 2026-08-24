@@ -3,16 +3,15 @@
   "stand": "2026-08-21",
   "erhebung": "FK-Ziel organizations (pg_constraint.confrelid), plus Zeilen- und NULL-Zaehlung je Traegerspalte.",
   "einstufungen": {
-    "geschuetzt": "RLS aktiv — der Backstop steht.",
+    "geschuetzt": "RLS + FORCE aktiv — der Backstop steht. Fuer die 18 Tabellen aus Migration 196 einzeln nachgewiesen (Wegwerf-Datenbank, Nicht-Superuser-Rolle, 2026-08-24).",
     "bereit": "Traegerspalte in ALLEN Zeilen gefuellt und Mandanten-privat: RLS kann ohne Datenausfall aktiviert werden.",
     "bereit_ohne_daten": "Traegerspalte vorhanden, Tabelle leer: technisch moeglich, an echten Daten nicht nachweisbar.",
     "blockiert_daten": "Traegerspalte teilweise oder ganz NULL: RLS wuerde diese Zeilen fuer jeden unsichtbar machen. Erst die Schreibseite reparieren.",
-    "kein_mandantentraeger": "Die org-FK ist Selbstbezug, globaler Katalog, Gegenseite eines zweiseitigen Vorgangs oder eine Staff-/Owner-Flaeche — org-RLS waere hier das falsche Modell (dieselbe Begruendung wie fuer subscriptions in Migration 116)."
+    "kein_mandantentraeger": "Die org-FK ist Selbstbezug, globaler Katalog, Gegenseite eines zweiseitigen Vorgangs oder eine Staff-/Owner-Flaeche â€” org-RLS waere hier das falsche Modell (dieselbe Begruendung wie fuer subscriptions in Migration 116)."
   },
   "zusammenfassung": {
     "bereit_ohne_daten": 25,
-    "bereit": 18,
-    "geschuetzt": 8,
+    "geschuetzt": 26,
     "blockiert_daten": 10,
     "kein_mandantentraeger": 17
   },
@@ -51,11 +50,14 @@
       ],
       "zeilen": 1,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "asc_same_org",
+        "asc_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles. Zweiseitig zusaetzlich belegt: Kunde und Agentur sehen ihre Zeile, ein Dritter nicht."
     },
     {
       "tabelle": "assignment_staffing_choice_options",
@@ -91,11 +93,14 @@
       ],
       "zeilen": 1,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "asi_same_org",
+        "asi_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles. Zweiseitig zusaetzlich belegt: Kunde und Agentur sehen ihre Zeile, ein Dritter nicht."
     },
     {
       "tabelle": "assignment_staffing_reservations",
@@ -119,11 +124,14 @@
       ],
       "zeilen": 1,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "asw_same_org",
+        "asw_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles. Zweiseitig zusaetzlich belegt: Kunde und Agentur sehen ihre Zeile, ein Dritter nicht."
     },
     {
       "tabelle": "assignments",
@@ -133,11 +141,14 @@
       ],
       "zeilen": 68,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 68 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "asg_same_org",
+        "asg_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles. Zweiseitig zusaetzlich belegt: Kunde und Agentur sehen ihre Zeile, ein Dritter nicht."
     },
     {
       "tabelle": "audit_log",
@@ -235,11 +246,14 @@
       ],
       "zeilen": 3,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 3 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "ctr_same_org",
+        "ctr_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles. Zweiseitig zusaetzlich belegt: Kunde und Agentur sehen ihre Zeile, ein Dritter nicht."
     },
     {
       "tabelle": "csv_import_field_aliases",
@@ -288,11 +302,14 @@
       ],
       "zeilen": 158,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 158 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "doc_same_org",
+        "doc_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles."
     },
     {
       "tabelle": "flagged_search_queries",
@@ -396,11 +413,14 @@
       ],
       "zeilen": 4,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 4 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "oak_same_org",
+        "oak_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles."
     },
     {
       "tabelle": "org_departments",
@@ -409,11 +429,14 @@
       ],
       "zeilen": 4,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 4 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "odp_same_org",
+        "odp_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles."
     },
     {
       "tabelle": "org_erp_mappings",
@@ -448,11 +471,14 @@
       ],
       "zeilen": 1,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "oiv_same_org",
+        "oiv_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles."
     },
     {
       "tabelle": "org_locations",
@@ -461,11 +487,14 @@
       ],
       "zeilen": 4,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 4 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "olc_same_org",
+        "olc_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles."
     },
     {
       "tabelle": "org_memberships",
@@ -490,11 +519,14 @@
       ],
       "zeilen": 18,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 18 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "ost_same_org",
+        "ost_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles."
     },
     {
       "tabelle": "org_sso_config",
@@ -717,11 +749,14 @@
       ],
       "zeilen": 4,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 4 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "rcd_same_org",
+        "rcd_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles. Zweiseitig zusaetzlich belegt: Kunde und Agentur sehen ihre Zeile, ein Dritter nicht."
     },
     {
       "tabelle": "ratings",
@@ -785,11 +820,14 @@
       ],
       "zeilen": 36,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 36 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "shs_same_org",
+        "shs_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles."
     },
     {
       "tabelle": "sso_sessions",
@@ -978,11 +1016,14 @@
       ],
       "zeilen": 24,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 24 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "wal2_same_org",
+        "wal2_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles. Zweiseitig zusaetzlich belegt: Kunde und Agentur sehen ihre Zeile, ein Dritter nicht."
     },
     {
       "tabelle": "worker_billing_snapshots",
@@ -991,11 +1032,14 @@
       ],
       "zeilen": 1,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "wbs_same_org",
+        "wbs_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles."
     },
     {
       "tabelle": "worker_complaints",
@@ -1031,11 +1075,14 @@
       ],
       "zeilen": 7,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 7 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "wiv_same_org",
+        "wiv_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles."
     },
     {
       "tabelle": "worker_profile_documents",
@@ -1057,11 +1104,14 @@
       ],
       "zeilen": 33,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 33 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "wpf_same_org",
+        "wpf_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles."
     },
     {
       "tabelle": "worker_time_submissions",
@@ -1071,22 +1121,43 @@
       ],
       "zeilen": 19,
       "ohneOrg": 0,
-      "rls": false,
-      "force": false,
-      "policies": [],
-      "einstufung": "bereit",
-      "begruendung": "Traegerspalte in allen 19 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+      "rls": true,
+      "force": true,
+      "policies": [
+        "wts_same_org",
+        "wts_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles. Zweiseitig zusaetzlich belegt: Kunde und Agentur sehen ihre Zeile, ein Dritter nicht."
     }
   ],
   "rlsAktivLautDatenbank": [
+    "assignment_staffing_campaigns",
+    "assignment_staffing_invites",
+    "assignment_staffing_waitlist",
+    "assignments",
     "audit_log",
     "commercial_offers",
     "compliance_documents",
+    "contracts",
+    "document_center",
     "invoices",
+    "org_api_keys",
+    "org_departments",
+    "org_invitations",
+    "org_locations",
     "org_memberships",
+    "org_settings",
+    "rate_cards",
     "requisitions",
+    "search_history",
     "subscription_requests",
-    "timesheets"
+    "timesheets",
+    "worker_assignment_links",
+    "worker_billing_snapshots",
+    "worker_invites",
+    "worker_profiles",
+    "worker_time_submissions"
   ],
   "rlsAktivHinweis": "Am 2026-08-21 gegen die laufende Datenbank gemessen. Jede Stelle im Modell, die fuer eine Tabelle RLS behauptet (**JA**), muss hier stehen. Das Dokument fuehrte `subscriptions` als RLS-geschuetzt — Migration 116 nimmt sie ausdruecklich aus, und die Datenbank zeigt relrowsecurity=false. Eine behauptete Sicherung ist schlimmer als eine fehlende."
 }

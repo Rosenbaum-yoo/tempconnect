@@ -58,47 +58,47 @@ await withStaffContext(pool, async (client) => { /* ... */ }, {
 >
 > **Dieser Abschnitt wird generiert.** Von Hand geaendert haelt er nicht: der Waechter vergleicht ihn Zeichen fuer Zeichen mit der Registry. Neu rendern mit `node scripts/render-mandanten-modell.js --write`.
 
-**78 Tabellen** tragen einen Fremdschluessel auf `organizations`. 8 Backstop steht · 18 Backstop moeglich · 25 Backstop moeglich, aber nicht nachweisbar · 10 Backstop NICHT moeglich · 17 Kein Mandantentraeger.
+**78 Tabellen** tragen einen Fremdschluessel auf `organizations`. 26 Backstop steht · 0 Backstop moeglich · 25 Backstop moeglich, aber nicht nachweisbar · 10 Backstop NICHT moeglich · 17 Kein Mandantentraeger.
 
-### 🔴 Backstop steht — RLS aktiv (8)
+### 🔴 Backstop steht — RLS aktiv (26)
 
 Eine Verbindung ohne Org-Kontext und ohne Staff-Bypass sieht hier nichts. Angelegt von `116_rls_deny_by_default.sql`, auf Bestands-Datenbanken nachgezogen von `126_rls_forward_repair.sql`.
 
 | Tabelle | Traegerspalte(n) | Bestand | Anmerkung |
 |---|---|---|---|
+| `assignment_staffing_campaigns` | `org_id`, `supplier_org_id` | 1 Zeilen, lueckenlos | Policies: `asc_same_org`, `asc_staff_bypass` · FORCE |
+| `assignment_staffing_invites` | `org_id`, `supplier_org_id` | 1 Zeilen, lueckenlos | Policies: `asi_same_org`, `asi_staff_bypass` · FORCE |
+| `assignment_staffing_waitlist` | `org_id`, `supplier_org_id` | 1 Zeilen, lueckenlos | Policies: `asw_same_org`, `asw_staff_bypass` · FORCE |
+| `assignments` | `org_id`, `supplier_org_id` | 68 Zeilen, lueckenlos | Policies: `asg_same_org`, `asg_staff_bypass` · FORCE |
 | `audit_log` | `org_id` | **1796 von 2740 ohne Org** | Policies: `al_same_org`, `al_staff_bypass` |
 | `commercial_offers` | `org_id` | leer | Policies: `co_same_org`, `co_staff_bypass` |
 | `compliance_documents` | `org_id` | 5 Zeilen, lueckenlos | Policies: `cd_same_org`, `cd_staff_bypass` |
+| `contracts` | `buyer_org_id`, `supplier_org_id` | 3 Zeilen, lueckenlos | Policies: `ctr_same_org`, `ctr_staff_bypass` · FORCE |
+| `document_center` | `org_id` | 158 Zeilen, lueckenlos | Policies: `doc_same_org`, `doc_staff_bypass` · FORCE |
 | `invoices` | `org_id`, `supplier_org_id` | leer | Policies: `inv_same_org`, `inv_staff_bypass` · FORCE |
+| `org_api_keys` | `org_id` | 4 Zeilen, lueckenlos | Policies: `oak_same_org`, `oak_staff_bypass` · FORCE |
+| `org_departments` | `org_id` | 4 Zeilen, lueckenlos | Policies: `odp_same_org`, `odp_staff_bypass` · FORCE |
+| `org_invitations` | `org_id` | 1 Zeilen, lueckenlos | Policies: `oiv_same_org`, `oiv_staff_bypass` · FORCE |
+| `org_locations` | `org_id` | 4 Zeilen, lueckenlos | Policies: `olc_same_org`, `olc_staff_bypass` · FORCE |
 | `org_memberships` | `org_id` | 251 Zeilen, lueckenlos | Policies: `om_same_org`, `om_staff_bypass` |
+| `org_settings` | `org_id` | 18 Zeilen, lueckenlos | Policies: `ost_same_org`, `ost_staff_bypass` · FORCE |
+| `rate_cards` | `org_id`, `supplier_org_id` | 4 Zeilen, lueckenlos | Policies: `rcd_same_org`, `rcd_staff_bypass` · FORCE |
 | `requisitions` | `org_id` | 73 Zeilen, lueckenlos | Policies: `req_same_org`, `req_staff_bypass` · FORCE |
+| `search_history` | `org_id` | 36 Zeilen, lueckenlos | Policies: `shs_same_org`, `shs_staff_bypass` · FORCE |
 | `subscription_requests` | `org_id` | 11 Zeilen, lueckenlos | Policies: `subreq_same_org`, `subreq_staff_bypass` |
 | `timesheets` | `org_id`, `supplier_org_id` | 10 Zeilen, lueckenlos | Policies: `ts_same_org`, `ts_staff_bypass` · FORCE |
+| `worker_assignment_links` | `org_id`, `supplier_org_id` | 24 Zeilen, lueckenlos | Policies: `wal2_same_org`, `wal2_staff_bypass` · FORCE |
+| `worker_billing_snapshots` | `org_id` | 1 Zeilen, lueckenlos | Policies: `wbs_same_org`, `wbs_staff_bypass` · FORCE |
+| `worker_invites` | `supplier_org_id` | 7 Zeilen, lueckenlos | Policies: `wiv_same_org`, `wiv_staff_bypass` · FORCE |
+| `worker_profiles` | `supplier_org_id` | 33 Zeilen, lueckenlos | Policies: `wpf_same_org`, `wpf_staff_bypass` · FORCE |
+| `worker_time_submissions` | `org_id`, `supplier_org_id` | 19 Zeilen, lueckenlos | Policies: `wts_same_org`, `wts_staff_bypass` · FORCE |
 
-### 🟡 Backstop moeglich — Traegerspalte ist lueckenlos gefuellt (18)
+### 🟡 Backstop moeglich — Traegerspalte ist lueckenlos gefuellt (0)
 
 Mandanten-privat, und die Traegerspalte steht in **jeder** Zeile. RLS kann hier aktiviert werden, ohne dass Zeilen verschwinden.
 
 | Tabelle | Traegerspalte(n) | Bestand | Anmerkung |
 |---|---|---|---|
-| `assignment_staffing_campaigns` | `org_id`, `supplier_org_id` | 1 Zeilen, lueckenlos | Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `assignment_staffing_invites` | `org_id`, `supplier_org_id` | 1 Zeilen, lueckenlos | Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `assignment_staffing_waitlist` | `org_id`, `supplier_org_id` | 1 Zeilen, lueckenlos | Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `assignments` | `org_id`, `supplier_org_id` | 68 Zeilen, lueckenlos | Traegerspalte in allen 68 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `contracts` | `buyer_org_id`, `supplier_org_id` | 3 Zeilen, lueckenlos | Traegerspalte in allen 3 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `document_center` | `org_id` | 158 Zeilen, lueckenlos | Traegerspalte in allen 158 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `org_api_keys` | `org_id` | 4 Zeilen, lueckenlos | Traegerspalte in allen 4 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `org_departments` | `org_id` | 4 Zeilen, lueckenlos | Traegerspalte in allen 4 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `org_invitations` | `org_id` | 1 Zeilen, lueckenlos | Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `org_locations` | `org_id` | 4 Zeilen, lueckenlos | Traegerspalte in allen 4 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `org_settings` | `org_id` | 18 Zeilen, lueckenlos | Traegerspalte in allen 18 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `rate_cards` | `org_id`, `supplier_org_id` | 4 Zeilen, lueckenlos | Traegerspalte in allen 4 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `search_history` | `org_id` | 36 Zeilen, lueckenlos | Traegerspalte in allen 36 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `worker_assignment_links` | `org_id`, `supplier_org_id` | 24 Zeilen, lueckenlos | Traegerspalte in allen 24 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `worker_billing_snapshots` | `org_id` | 1 Zeilen, lueckenlos | Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `worker_invites` | `supplier_org_id` | 7 Zeilen, lueckenlos | Traegerspalte in allen 7 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `worker_profiles` | `supplier_org_id` | 33 Zeilen, lueckenlos | Traegerspalte in allen 33 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
-| `worker_time_submissions` | `org_id`, `supplier_org_id` | 19 Zeilen, lueckenlos | Traegerspalte in allen 19 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
 
 ### ⚪ Backstop moeglich, aber nicht nachweisbar — Tabelle ist leer (25)
 

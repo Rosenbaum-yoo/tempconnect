@@ -1245,7 +1245,7 @@ Am Code und an der laufenden Datenbank nachgeprüft, nicht am Plan abgelesen.
 
 | Punkt | Art | Stand, gemessen |
 |---|---|---|
-| **V-1** RLS-Backstop scharf schalten | **Vorlauf, nie abgeschlossen** | 18 Tabellen sind als `bereit` eingestuft, aber in der laufenden Datenbank haben nur **8 von 186** RLS aktiv und **3** FORCE. Das Register steht, die Aktivierung fehlt. Braucht den Einzelnachweis je Tabelle auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle. |
+| ~~**V-1** RLS-Backstop scharf schalten~~ | **erledigt 2026-08-24** | Migration 196: **8 → 26** Tabellen mit RLS, **3 → 21** mit FORCE. Einzelnachweis geführt (siehe unten). |
 | **„Bester Treffer"** — Vorbewertung in die SQL | **Owner-entschieden, nicht gebaut** | `assignmentStaffingService.js:1942` schneidet den Kandidatenpool weiterhin **alphabetisch** (`ORDER BY wp.last_name ASC … LIMIT`) — **vor** der Bewertung. Heute harmlos (größte Agentur: **12** aktive Kräfte), ab ~60 wird „bester Treffer" zur Behauptung. Sechs Aufrufer der Basisabfrage betroffen → eigene Welle. |
 | **`SUPPORT_PHONE`** setzen | **Owner-Handlung** | nicht baubar; beide Zustände des Trichters sind verifiziert |
 | **Erreicht die Erinnerung den Arbeiter?** | **Owner-Frage** | Die 2-h-Erinnerung ist eine `notifications`-Zeile; das Einsatzportal hat kein Polling und keinen Live-Strom. Wer nicht hineinsieht, erfährt es erst hinterher — die 4-h-Frist läuft trotzdem. SMS ist technisch vorhanden. |
@@ -1261,3 +1261,57 @@ auch nicht als erledigt oder offen geführt werden.
 
 Was aus den **vorangegangenen Spuren** stammt, ist dagegen dokumentiert und
 abgeschlossen: G1–G6, H1 und H2 sind gebaut und belegt (siehe `UEBERGABE.md`).
+
+---
+
+## V-1 — der RLS-Backstop steht (2026-08-24, Migration 196)
+
+Der Vorlauf ist abgeschlossen. **8 → 26** Tabellen mit RLS, **3 → 21** mit FORCE.
+
+### Der Nachweis, den der Owner verlangt hat
+
+> *„Nachweis je Tabelle einzeln an einer Wegwerf-Datenbank mit
+> Nicht-Superuser-Rolle: zwei echte Organisationen; ohne Kontext 0 Zeilen, mit
+> Org A nur A, mit Staff-Bypass alles. Kein Sammelnachweis, keine Aktivierung
+> ohne diesen Beweis."*
+
+Geführt auf `rls_probe` (Schema aus der laufenden Instanz, Rolle `rls_app` mit
+`rolsuper = false`):
+
+```
+18 von 18 Tabellen einzeln    ohne Kontext 0 · mit Org A nur A · Staff alles
+ 8 von  8 zweiseitigen        Kunde 1 · Agentur 1 · Dritter 0
+```
+
+**Der zweite Nachweis war der wichtigere** — und er fehlte zuerst. Der erste
+setzte bei den acht zweiseitigen Tabellen *beide* Org-Spalten auf dieselbe
+Organisation. Damit hätte auch eine Regel ohne `OR` bestanden. Ein Einsatz
+gehört aber dem **Kunden** (`org_id`) und wird von der **Agentur** besetzt
+(`supplier_org_id`): `org_id = current_org_id()` allein hätte jede Agentur für
+ihre eigene Arbeit blind gemacht — RLS wäre kein Schutz gewesen, sondern der
+Datenausfall, vor dem der Plan warnt. Beide Nachweise wurden anschließend
+**gegen die von der Migration selbst erzeugten** Regeln wiederholt.
+
+### Warum das lokal nichts beweist — und trotzdem nötig war
+
+Die App-Rolle `tempconnect` ist `superuser = true, bypassrls = true`. RLS ist
+hier **wirkungslos**; ein Fehler wäre von der Testsuite nie bemerkt worden.
+Genau deshalb die Wegwerf-Datenbank mit eigener Rolle. Die Anwendung setzt den
+Kontext bereits (`orgContext.js:273`, `SET LOCAL app.current_org_id`) — in
+Produktion mit einer Nicht-Superuser-Rolle greifen die Regeln damit sofort.
+
+> **Betriebs-Pflicht daraus:** In Produktion muss die Anwendungsrolle **ohne**
+> `SUPERUSER`/`BYPASSRLS` laufen. Solange sie es nicht tut, ist der Backstop
+> gesetzt, aber untätig.
+
+### Was bewusst nicht dabei ist
+
+Die **10 durch Daten blockierten** Tabellen (`requests`, `ratings`, `listings`
+zu 100 % ohne Trägerspalte, `notifications` zu 96 %) und die **25 leeren**. Bei
+ihnen wäre RLS heute ein Datenausfall, kein Schutz — erst die Schreibseite,
+dann der Backstop. Dieselbe Reihenfolge wie bei 8.1.1.
+
+Die Migration nennt jede Tabelle **einzeln** und prüft jede Spalte einzeln:
+Migration 116 ist daran gescheitert, dass sie eine Spalte voraussetzte, die es
+nicht gab — und riss dabei alles mit, wurde aber trotzdem als „applied" verbucht.
+Fehlt hier eine Spalte, wird die Tabelle übersprungen und **laut** gemeldet.
