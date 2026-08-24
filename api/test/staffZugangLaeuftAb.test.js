@@ -70,7 +70,7 @@ describe("Staff-Zugang — Ablauf und Widerruf stehen im WHERE, nicht in einer N
   const quelle = fs.readFileSync(new URL("../middleware/staffControlAccess.js", import.meta.url), "utf8");
 
   it("die Abfrage des Tors traegt beide Bedingungen", async () => {
-    const pool = spion([{ user_id: STAFF, is_active: true, requires_step_up: false, expires_at: null }]);
+    const pool = spion([{ user_id: STAFF, is_active: true, requires_step_up: false, expires_at: null, role: "staff_member" }]);
     await laufe(pool);
     const tor = pool.calls[0];
     assert.match(tor.sql, /revoked_at IS NULL/,
@@ -88,7 +88,7 @@ describe("Staff-Zugang — Ablauf und Widerruf stehen im WHERE, nicht in einer N
   });
 
   it("ein gueltiger Zugang kommt durch", async () => {
-    const pool = spion([{ user_id: STAFF, is_active: true, requires_step_up: false, expires_at: null }]);
+    const pool = spion([{ user_id: STAFF, is_active: true, requires_step_up: false, expires_at: null, role: "staff_member" }]);
     const r = await laufe(pool);
     assert.equal(r.weiter, true, "sonst sperrt die Reparatur die aus, die drinbleiben sollen");
     assert.equal(r.status, null);
@@ -152,7 +152,7 @@ describe("Staff-Zugang — die Ablehnung ist fuer alle Gruende gleich, das Proto
   });
 
   it("die Diagnose laeuft NUR im Ablehnungsfall", async () => {
-    const gut = spion([{ user_id: STAFF, is_active: true, requires_step_up: false, expires_at: null }]);
+    const gut = spion([{ user_id: STAFF, is_active: true, requires_step_up: false, expires_at: null, role: "staff_member" }]);
     await laufe(gut);
     assert.ok(!gut.calls.some((c) => /widerrufen/.test(c.sql)),
       "auf dem heissen Pfad darf keine zusaetzliche Abfrage laufen");

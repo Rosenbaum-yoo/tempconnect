@@ -27,6 +27,7 @@ import * as pilotPolicy from "../services/pilotPolicyService.js";
 import * as prereg from "../services/pilotPreregistrationService.js";
 import * as searchModeration from "../services/searchModerationService.js";
 import { config } from "../config/index.js";
+import { STAFF_ROLLEN } from "../config/staffRollen.js";
 import { withTransaction } from "../utils/transaction.js";
 import {
   notifyRequestStatusChanged,
@@ -573,6 +574,105 @@ export function createStaffControlCenterRouter(deps) {
       res.json({ success: true, data: { deactivated: userId } });
     } catch (err) {
       logger?.error({ err }, "SCC staff-access deactivate error");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  /*
+   * ROLLE VERGEBEN (Owner-Entscheid 2026-08-24).
+   *
+   * Ohne diese Route waere die Rollen-Durchsetzung zwar scharf, aber
+   * unverwaltbar: die einzige Art, eine Rolle zu aendern, waere ein UPDATE von
+   * Hand auf der Datenbank. Ein Rechtesystem, das man nur mit psql bedienen
+   * kann, wird nicht benutzt — und dann tragen alle den Vorgabewert, was das
+   * System wieder wirkungslos macht.
+   *
+   * Drei Riegel, jeder aus einem eigenen Grund:
+   *   - `NUR_ADMIN` deckt `/staff-access` bereits im Rollentor ab; nur
+   *     `staff_admin` kommt ueberhaupt hierher.
+   *   - Die eigene Rolle darf man nicht aendern: sonst koennte der letzte
+   *     Admin sich versehentlich degradieren und niemand kaeme mehr an die
+   *     Verwaltung (und umgekehrt koennte man sich still befoerdern).
+   *   - Der letzte aktive `staff_admin` darf nicht weggenommen werden —
+   *     dieselbe Aussperr-Falle, nur von der anderen Seite.
+   */
+  router.patch("/staff-access/:userId/role", requireStaff, requireStepUpHigh, requireConfirmAndReason, async (req, res) => {
+    const { userId } = req.params;
+    const neueRolle  = String(req.body?.role || "").trim();
+    const reason     = String(req.body?.reason || "").trim();
+    const actorId    = req.session.staffUserId;
+
+    if (!STAFF_ROLLEN.includes(neueRolle)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "SCC_ROLE_INVALID",
+          message: `Unbekannte Rolle. Erlaubt: ${STAFF_ROLLEN.join(", ")}`
+        }
+      });
+    }
+    if (userId === actorId) {
+      return res.status(400).json({
+        success: false,
+        error: { code: "SCC_SELF_ROLE_FORBIDDEN", message: "Die eigene Rolle kann nicht geaendert werden." }
+      });
+    }
+
+    try {
+      const ergebnis = await withTransaction(pool, async (client) => {
+        const { rows: vorher } = await client.query(
+          `SELECT role FROM tempconnect_staff WHERE user_id = $1 FOR UPDATE`,
+          [userId]
+        );
+        if (!vorher[0]) return { fehler: "SCC_STAFF_NOT_FOUND" };
+
+        /* Der letzte Admin. In der Transaktion und mit FOR UPDATE oben, damit
+         * zwei gleichzeitige Degradierungen nicht beide durchgehen und die
+         * Verwaltung herrenlos zuruecklassen. */
+        if (vorher[0].role === "staff_admin" && neueRolle !== "staff_admin") {
+          const { rows: uebrig } = await client.query(
+            `SELECT count(*)::int AS n FROM tempconnect_staff
+              WHERE role = 'staff_admin' AND is_active = TRUE AND revoked_at IS NULL
+                AND (expires_at IS NULL OR expires_at > NOW()) AND user_id <> $1`,
+            [userId]
+          );
+          if (uebrig[0].n === 0) return { fehler: "SCC_LAST_ADMIN" };
+        }
+
+        await client.query(
+          `UPDATE tempconnect_staff SET role = $2 WHERE user_id = $1`,
+          [userId, neueRolle]
+        );
+        return { vorherRolle: vorher[0].role };
+      });
+
+      if (ergebnis.fehler === "SCC_STAFF_NOT_FOUND") {
+        return res.status(404).json({ success: false, error: { code: "SCC_STAFF_NOT_FOUND" } });
+      }
+      if (ergebnis.fehler === "SCC_LAST_ADMIN") {
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "SCC_LAST_ADMIN",
+            message: "Das ist der letzte aktive staff_admin. Erst einen weiteren ernennen, dann degradieren."
+          }
+        });
+      }
+
+      writeStaffAudit(pool, {
+        actorId,
+        area: "staff_access",
+        action: "staff_access.member.role_changed",
+        status: "ok",
+        confirmed: true,
+        riskLevel: "high",
+        ...auditContextFromReq(req),
+        details: { target_user_id: userId, von: ergebnis.vorherRolle, nach: neueRolle, reason }
+      }).catch((e) => logger?.warn?.({ err: e }, "SCC staff-access role audit error"));
+
+      res.json({ success: true, data: { user_id: userId, role: neueRolle, vorher: ergebnis.vorherRolle } });
+    } catch (err) {
+      logger?.error({ err }, "SCC staff-access role error");
       res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
     }
   });

@@ -1098,7 +1098,7 @@ Ausfallmeldung nichts geändert — dieselbe Linie wie bei der Absage).
 |---|---|
 | ~~**CSRF-Ausnahme für `/internal/`?**~~ **entschieden und gebaut (2026-08-24)** | Owner-Entscheid: bauen. Umgesetzt **eng geführt**: Ausnahme greift nur **mit** `X-Internal-Secret`-Kopf (ohne Kopf bleibt CSRF in Kraft — sonst stünde in Umgebungen ohne Secret gar nichts mehr vor 28 Endpunkten) und nur für `/internal/`, **nicht** für das session-basierte `/internal-control/`. Mitgeschlossen: `checkCronAuth` schaltete sich ohne konfiguriertes Secret selbst ab — jetzt fail-closed (**503**). Am laufenden System belegt: 200 / 403 CSRF / 403 FORBIDDEN / 403 CSRF / 503. |
 | **Erreicht die Erinnerung den Arbeiter überhaupt?** | Die Erinnerung ist eine `notifications`-Zeile; das Einsatzportal hat **kein** Polling und keinen Live-Strom — wer die Seite nicht offen hat, sieht sie erst beim nächsten Besuch, und die 4-h-Frist läuft trotzdem. Optionen: SMS (technisch vorhanden, `smsService.js`, Kosten + Einwilligung), E-Mail über `dispatch()`, Frist nur zu Geschäftszeiten, oder so lassen. Das ist eine Fairness-Frage, keine technische. |
-| **Frist auch für reguläre Zuweisungen?** | Der Entscheid galt Ersatz-Anfragen. Die Datenlage zeigt aber denselben Schaden im Regulären: ein Einsatz steht seit dem **10.04.** auf `open_quantity=0`, `staffing_status='sourcing'`, blockiert über `ASSIGNMENT_FILLED` jede neue Kampagne — gehalten von einer unbeantworteten regulären Anfrage. Eigenes Ticket, als Hintergrund-Chip angelegt. |
+| **Frist auch für reguläre Zuweisungen?** | Der Entscheid galt Ersatz-Anfragen. Die Datenlage zeigt aber denselben Schaden im Regulären: ein Einsatz steht seit dem **10.04.** auf `open_quantity=0`, `staffing_status='sourcing'`, blockiert über `ASSIGNMENT_FILLED` jede neue Kampagne — gehalten von einer unbeantworteten regulären Anfrage. **Ausgearbeitet als Entscheidungsvorlage: [`I2_FRIST_REGULAERE_ZUWEISUNG.md`](I2_FRIST_REGULAERE_ZUWEISUNG.md)** (2026-08-24). Die Erhebung dort fand zwei Dinge, die 193 nicht kennt: die Kundenansicht blendet reguläre offene Anfragen **nicht** aus (vier Menschen stehen ohne Zusage auf einer Kundentafel, der älteste seit 136 Tagen), und fünf der neun Altfälle sind eingefroren — ihr Einsatzzeitraum ist vorbei, deshalb weist der Server Zusage *und* Absage ab. Fünf Owner-Entscheidungen liegen dort vor, nichts ist gebaut. |
 
 Verify: Sweep-Proben 15/15 (inkl. DB-Smoke). Migration zweimal eingespielt
 (idempotent). **Und der Owner-Satz wörtlich, an der echten Datenbank, mit den
@@ -1109,3 +1109,61 @@ zweiter Anlauf `REPLACEMENT_PENDING` → Uhr zurückgedreht → Zusage
 neu) → beide Meldungen geschrieben. Erinnerung separat: fällig gemacht → Sweep
 `{erinnert: 1}` → zweiter Sweep `{erinnert: 0}` — die Doppelversand-Bremse
 greift, genau eine Meldung.
+
+---
+
+## Staff-Rollen — gebaut am 2026-08-24 (Owner-Entscheid)
+
+Der offene Punkt aus Abschnitt 10 lautete: *„verwaltbar, wer was bearbeiten darf
+— hier ist die Vorarbeit schon da und ungenutzt."* Sie war genauer ungenutzt als
+gedacht.
+
+**Befund:** Migration 118 legt `tempconnect_staff.role` an, dokumentiert im
+Spaltenkommentar sechs Werte und baut sogar einen **Index** darauf — und niemand
+liest die Spalte. Jedes Staff-Mitglied konnte alles: Pilot verlängern, Hetzner
+neu starten, Zugänge vergeben. Ein Access-Reviewer sah sechs Rollen und durfte
+annehmen, sie trennten etwas.
+
+**Owner-Entscheid:** `staff_member` ist das **vollwertige Teammitglied** — alle
+Fachbereiche, nur die Staff-Verwaltung bleibt `staff_admin`. Die anderen Rollen
+sind damit bewusste *Einschränkungen*, die man vergibt. Wirkung heute: gemessen
+eine Staff-Zeile mit `staff_member` — sie verliert nichts.
+
+Gebaut: `api/config/staffRollen.js` (Rolle → Bereich, Pfad → Bereich), das Tor im
+**Wächter** statt an 105 Routen (eine Deklaration je Route wäre 105 Stellen, die
+man bei der 106. vergisst — genau so entstand der Befund), `staff_audit` liest
+überall und schreibt nirgends, `PATCH /staff-access/:userId/role` zum Vergeben
+mit drei Riegeln (unbekannte Rolle, eigene Rolle, letzter aktiver Admin — in
+einer Transaktion mit `FOR UPDATE`, sonst sperren zwei gleichzeitige
+Degradierungen die Verwaltung herrenlos aus).
+
+**An der echten Datenbank belegt:** `staff_member` kommt an Piloten und Betrieb
+durch, scheitert an `/staff-access` mit `NUR_ADMIN`; dieselbe Person als
+`staff_support` scheitert an Hetzner und Piloten mit `BEREICH_VERWEHRT`; ein
+unregistrierter Pfad ergibt `BEREICH_NICHT_REGISTRIERT`.
+
+### Der Nebenfund, der schwerer wiegt als die Aufgabe
+
+Beim Eintragen der neuen Route meldete der Wach-Wächter sie als **Karteileiche** —
+er kannte sie nicht. Ursache:
+
+```js
+const fabrik = Object.keys(mod).find((k) => /^create\w*Router$/.test(k));
+```
+
+Die **erste** Fabrik je Datei. `staffControlCenter.js` exportiert zwei, und
+`createStaffControlAuthRouter` (1 schreibender Weg) steht vor
+`createStaffControlCenterRouter` (**50** schreibende Wege). Der Wächter, dessen
+einzige Aufgabe es ist, jeden schreibenden Weg ins Bestandsbuch zu zwingen, war
+für die **gesamte schreibende Fläche des Staff Control Center** blind:
+Pilotverlängerung, Hetzner-Neustart, Abo-Entscheidungen, Zugangsvergabe — nichts
+davon stand je im Register.
+
+Das ist die teuerste Sorte Lücke: ein Wächter, der grün meldet, weil er nicht
+hinsieht. Er montiert jetzt **alle** Fabriken; die Grundlinie springt von 419 auf
+**468 Wege**, die 49 neuen Einträge tragen die *echte* Middleware-Kette je Route
+(Step-up-Stufe, Bestätigung, MFA-Audit), nicht eine Pauschale.
+
+Nebenbei sichtbar geworden und noch zu bewerten: `POST
+/preregistrations/:id/status` mutiert mit **nur** `requireStaff` — ohne Step-up,
+ohne Begründung.

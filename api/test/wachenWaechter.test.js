@@ -66,10 +66,27 @@ function deps(pool) {
   };
 }
 
+/*
+ * ALLE Router-Fabriken einer Datei, nicht nur die erste.
+ *
+ * BEFUND (2026-08-24): Hier stand `Object.keys(mod).find(...)` — die ERSTE
+ * passende Fabrik. `staffControlCenter.js` exportiert zwei:
+ * `createStaffControlAuthRouter` (1 schreibende Route) steht vor
+ * `createStaffControlCenterRouter` (50 schreibende Routen). Der Waechter sah
+ * also jahrelang genau eine Route dieser Datei — und **50 schreibende Wege des
+ * Staff Control Center standen nie im Bestandsbuch**: Pilotverlaengerung,
+ * Hetzner-Neustart, Abo-Entscheidungen, Zugangsvergabe.
+ *
+ * Das ist die teuerste Sorte Luecke: ein Waechter, der gruen meldet, weil er
+ * nicht hinsieht. Aufgefallen ist sie erst, als eine NEUE Route dieser Datei
+ * ins Register eingetragen wurde und der Waechter sie als "Karteileiche"
+ * meldete — er kannte sie nicht.
+ */
 async function montiere(datei, pool) {
   const mod = await import(`../routes/${datei}`);
-  const fabrik = Object.keys(mod).find((k) => /^create\w*Router$/.test(k));
-  return mod[fabrik](deps(pool));
+  const fabriken = Object.keys(mod).filter((k) => /^create\w*Router$/.test(k));
+  if (!fabriken.length) throw new Error("keine Router-Fabrik");
+  return fabriken.map((name) => mod[name](deps(pool)));
 }
 
 function alleRouteDateien(verzeichnis, praefix = "") {
@@ -92,14 +109,16 @@ describe("Wach-Waechter (A) — das Bestandsbuch der schreibenden Wege", () => {
   before(async () => {
     echt = [];
     for (const datei of alleRouteDateien(path.join(API, "routes")).sort()) {
-      let router;
+      let routerListe;
       try {
-        router = await montiere(datei, spionPool({ zeile: null }));
+        routerListe = await montiere(datei, spionPool({ zeile: null }));
       } catch {
         continue;   // `occ/_helpers.js` fuehrt keinen Router — kein Befund.
       }
-      for (const r of listRoutesTief(router)) {
-        if (SCHREIBEND.has(r.method)) echt.push(`${datei} ${r.method} ${r.path}`);
+      for (const router of routerListe) {
+        for (const r of listRoutesTief(router)) {
+          if (SCHREIBEND.has(r.method)) echt.push(`${datei} ${r.method} ${r.path}`);
+        }
       }
     }
   });
@@ -177,11 +196,16 @@ describe("Wach-Waechter (B) — die Berechtigungspruefung greift wirklich", () =
           ? { rows: [{ id: "m1", org_id: ORG_A, user_id: USER_A, role_key: "ohne-rechte", is_active: true }] }
           : undefined)
       });
-      const router = await montiere(w.datei, pool);
+      const routerListe = await montiere(w.datei, pool);
 
+      /* Die Kette kann in JEDEM Router der Datei stehen — seit dem Fund vom
+       * 2026-08-24 werden alle Fabriken montiert, nicht nur die erste. */
       let kette = null;
-      for (const name of NAMEN) {
-        try { kette = findChainFrom(router, w.methode, w.pfad, name); break; } catch { /* naechster */ }
+      for (const router of routerListe) {
+        for (const name of NAMEN) {
+          try { kette = findChainFrom(router, w.methode, w.pfad, name); break; } catch { /* naechster */ }
+        }
+        if (kette) break;
       }
       assert.ok(
         kette,

@@ -1,4 +1,5 @@
 import { swallow } from "../utils/logger.js";
+import { darfStaffBereich } from "../config/staffRollen.js";
 /**
  * staffControlAccess.js - Staff Control Center (SCC) Access Guard
  *
@@ -63,7 +64,7 @@ export function createStaffControlAccessMiddleware(deps) {
        */
       const { rows } = await pool.query(
         `SELECT user_id, email, display_name, is_active, requires_step_up, last_access_at,
-                expires_at
+                expires_at, role
          FROM tempconnect_staff
           WHERE user_id = $1
             AND revoked_at IS NULL
@@ -91,7 +92,7 @@ export function createStaffControlAccessMiddleware(deps) {
            ON CONFLICT (user_id) DO UPDATE
              SET is_active = TRUE, revoked_at = NULL, expires_at = NULL
            RETURNING user_id, email, display_name, is_active, requires_step_up, last_access_at,
-                     expires_at`,
+                     expires_at, role`,
           [userId]
         );
         staff = bootstrapRows[0] || null;
@@ -140,6 +141,49 @@ export function createStaffControlAccessMiddleware(deps) {
       }
       req.sccStaff = staff;
       req.sccActorId = userId;
+
+      /*
+       * DAS ROLLENTOR (Owner-Entscheid 2026-08-24).
+       *
+       * BEFUND: Migration 118 legt `tempconnect_staff.role` an, dokumentiert im
+       * Spaltenkommentar sechs Werte und baut sogar einen Index darauf — und
+       * NIEMAND liest die Spalte. Ein Access-Reviewer sah sechs Rollen und
+       * durfte annehmen, sie bedeuteten etwas. Sie bedeuteten nichts: jedes
+       * Staff-Mitglied konnte alles, von der Pilotverlaengerung bis zum
+       * Hetzner-Neustart.
+       *
+       * HIER UND NICHT AN 105 ROUTEN: Der Bereich steht bereits im Pfad
+       * (`/pilots/...` ist Pilotverwaltung). Eine Deklaration je Route waere
+       * 105 Stellen, die man bei der 106. vergisst — und genau so entsteht der
+       * naechste Befund dieser Art. Die Zuordnung liegt in EINER Tabelle
+       * (`config/staffRollen.js`) und faellt fail-closed: ein neuer Pfad ohne
+       * Eintrag wird abgewiesen, nicht durchgewunken. Eine Probe haelt jeden
+       * Router-Pfad gegen die Tabelle.
+       *
+       * NACH `req.sccStaff`, damit die Ablehnung den Akteur kennt und im
+       * Protokoll erklaerbar ist. Die ANTWORT nennt den Grund bewusst mit:
+       * anders als bei der Zugehoerigkeit oben ist hier nichts zu verbergen —
+       * der Betreffende IST Staff, er darf nur diesen Bereich nicht, und eine
+       * ratlose 403 wuerde ihn zum Support schicken statt zum Vorgesetzten.
+       */
+      const rollenUrteil = darfStaffBereich(staff.role, req.path, req.method);
+      if (!rollenUrteil.erlaubt) {
+        logger?.warn(
+          { userId, rolle: staff.role, path: req.path, methode: req.method,
+            grund: rollenUrteil.grund, detail: rollenUrteil.detail },
+          "SCC Rollentor: Zugriff verweigert"
+        );
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "SCC_ROLE_FORBIDDEN",
+            grund: rollenUrteil.grund,
+            message: rollenUrteil.grund === "BEREICH_NICHT_REGISTRIERT"
+              ? `Dieser Bereich ist keiner Rolle zugeordnet (${rollenUrteil.detail}). Eintrag in config/staffRollen.js fehlt.`
+              : `Ihre Rolle (${staff.role}) hat keinen Zugriff auf diesen Bereich.`
+          }
+        });
+      }
 
       // RLS-Integration (WAVE 05): Staff-Requests erhalten einen withStaffContext-Helper.
       // Alle DB-Operationen die Cross-Org-Daten lesen/schreiben MÜSSEN withStaffContext nutzen.

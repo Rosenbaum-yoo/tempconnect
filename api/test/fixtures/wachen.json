@@ -1430,6 +1430,69 @@
       "begruendung": "Fortschritt der eigenen Einrichtung."
     },
     {
+      "datei": "organizations.js",
+      "methode": "post",
+      "pfad": "/organizations",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `parentOrgBoundary` (Konzerngrenze) steht vor diesem Weg."
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "patch",
+      "pfad": "/organizations/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "post",
+      "pfad": "/organizations/:id/departments",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "delete",
+      "pfad": "/organizations/:id/departments/:deptId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "put",
+      "pfad": "/organizations/:id/departments/:deptId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "post",
+      "pfad": "/organizations/:id/locations",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "delete",
+      "pfad": "/organizations/:id/locations/:locId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "put",
+      "pfad": "/organizations/:id/locations/:locId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "post",
+      "pfad": "/organizations/:id/members",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
       "datei": "orgControlCenter.js",
       "methode": "post",
       "pfad": "/org/api-keys",
@@ -1542,69 +1605,6 @@
       "methode": "patch",
       "pfad": "/org/security",
       "wachart": "berechtigung"
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "post",
-      "pfad": "/organizations",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `parentOrgBoundary` (Konzerngrenze) steht vor diesem Weg."
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "patch",
-      "pfad": "/organizations/:id",
-      "wachart": "berechtigung",
-      "orgGeprueft": true
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "post",
-      "pfad": "/organizations/:id/departments",
-      "wachart": "berechtigung",
-      "orgGeprueft": true
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "delete",
-      "pfad": "/organizations/:id/departments/:deptId",
-      "wachart": "berechtigung",
-      "orgGeprueft": true
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "put",
-      "pfad": "/organizations/:id/departments/:deptId",
-      "wachart": "berechtigung",
-      "orgGeprueft": true
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "post",
-      "pfad": "/organizations/:id/locations",
-      "wachart": "berechtigung",
-      "orgGeprueft": true
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "delete",
-      "pfad": "/organizations/:id/locations/:locId",
-      "wachart": "berechtigung",
-      "orgGeprueft": true
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "put",
-      "pfad": "/organizations/:id/locations/:locId",
-      "wachart": "berechtigung",
-      "orgGeprueft": true
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "post",
-      "pfad": "/organizations/:id/members",
-      "wachart": "berechtigung",
-      "orgGeprueft": true
     },
     {
       "datei": "ownerControlCenter.js",
@@ -2195,9 +2195,359 @@
     {
       "datei": "staffControlCenter.js",
       "methode": "post",
+      "pfad": "/audit-decisions",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "patch",
+      "pfad": "/audit-decisions/:id/revert",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
       "pfad": "/auth/login",
       "wachart": "oeffentlich",
       "begruendung": "Die Staff-Anmeldung selbst liegt naturgemaess vor dem Staff-Tor."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/auth/logout",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/auth/step-up",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/automation/run",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up HOCH (TTL 10 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/bounty-catalog/update",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up HOCH (TTL 10 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/customer-requests/:id/assign",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/customer-requests/:id/messages",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/customer-requests/:id/release",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/customer-requests/:id/transition",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/customers/:orgId/reactivate",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/customers/:orgId/suspend",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up HOCH (TTL 10 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/hetzner/action",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up HOCH (TTL 10 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "patch",
+      "pfad": "/inbox/:id/assign",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/inbox/bulk",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/incidents",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/incidents/:id/acknowledge",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/incidents/:id/resolve",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/marketplace-visibility/:orgId/approve",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/marketplace-visibility/:orgId/reject",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/marketplace-visibility/:orgId/suspend",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up HOCH (TTL 10 min). Getippte Bestaetigung plus Pflichtbegruendung. Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/marketplace-visibility/abuse-reports/:id/dismiss",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/marketplace-visibility/abuse-reports/:id/resolve",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/marketplace-visibility/bounties/:id/activate",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up HOCH (TTL 10 min). Getippte Bestaetigung plus Pflichtbegruendung. Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/marketplace-visibility/bounties/:id/approve",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/marketplace-visibility/bounties/:id/reject",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/marketplace-visibility/ratings/:id/approve",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/marketplace-visibility/ratings/:id/reject",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/pilots/:orgId/end",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/pilots/:orgId/exception",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up HOCH (TTL 10 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/pilots/:orgId/extend",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/platform/feature-flags",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up KRITISCH (TTL 5 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/preregistrations/:id/status",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/search-moderation/flagged/:id/resolve",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "patch",
+      "pfad": "/staff-access/:userId/deactivate",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "patch",
+      "pfad": "/staff-access/:userId/role",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` am Eintritt, dazu requireStepUpHigh und requireConfirmAndReason. Seit dem Rollentor (2026-08-24) kommt nur `staff_admin` ueberhaupt an `/staff-access` — NUR_ADMIN in config/staffRollen.js. Drei eigene Riegel im Handler: unbekannte Rolle (die Spalte hat keinen CHECK), eigene Rolle unveraenderbar, und der letzte aktive staff_admin darf nicht degradiert werden (in einer Transaktion mit FOR UPDATE, sonst sperren zwei gleichzeitige Degradierungen die Verwaltung herrenlos aus)."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/strategic-requests/:id/convert-to-subscription",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/subscription-requests/:id/activate",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up HOCH (TTL 10 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/subscription-requests/:id/approve",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up HOCH (TTL 10 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/subscription-requests/:id/assign",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/subscription-requests/:id/documents",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/subscription-requests/:id/offer",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/subscription-requests/:id/reject",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/subscription-requests/:id/transition",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/support-vendors",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/support-vendors/:id/ip-allowlist",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up HOCH (TTL 10 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/support-vendors/:id/status",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/support-vendors/:id/verify",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up HOCH (TTL 10 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/support-vendors/agents",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up HOCH (TTL 10 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/support-vendors/agents/:agentId/suspend",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
     },
     {
       "datei": "strategicCollaboration.js",
@@ -2346,41 +2696,6 @@
       "begruendung": "Ein Kunde eroeffnet seinen EIGENEN Support-Fall. Der Melder wird aus der Sitzung genommen (`req.session.userId`), nie aus dem Koerper der Anfrage � es gibt keinen Weg, einen Fall im Namen eines anderen zu eroeffnen. Bewusst NICHT unter dem Praefix `/support`: dort steht das Staff-Tor `supportAuth`, und eine Kundenroute darunter waere ein Loch, das ab da fuer alle Routen darunter gilt."
     },
     {
-      "datei": "timesheetTemplates.js",
-      "methode": "post",
-      "pfad": "/timesheet-templates",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
-    },
-    {
-      "datei": "timesheetTemplates.js",
-      "methode": "delete",
-      "pfad": "/timesheet-templates/:id",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
-    },
-    {
-      "datei": "timesheetTemplates.js",
-      "methode": "patch",
-      "pfad": "/timesheet-templates/:id",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
-    },
-    {
-      "datei": "timesheetTemplates.js",
-      "methode": "post",
-      "pfad": "/timesheet-templates/:id/assign",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
-    },
-    {
-      "datei": "timesheetTemplates.js",
-      "methode": "delete",
-      "pfad": "/timesheet-templates/assignment/:assignmentId",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
-    },
-    {
       "datei": "timesheets.js",
       "methode": "post",
       "pfad": "/timesheets",
@@ -2473,6 +2788,41 @@
       "methode": "post",
       "pfad": "/timesheets/prefill",
       "wachart": "berechtigung"
+    },
+    {
+      "datei": "timesheetTemplates.js",
+      "methode": "post",
+      "pfad": "/timesheet-templates",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
+    },
+    {
+      "datei": "timesheetTemplates.js",
+      "methode": "delete",
+      "pfad": "/timesheet-templates/:id",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
+    },
+    {
+      "datei": "timesheetTemplates.js",
+      "methode": "patch",
+      "pfad": "/timesheet-templates/:id",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
+    },
+    {
+      "datei": "timesheetTemplates.js",
+      "methode": "post",
+      "pfad": "/timesheet-templates/:id/assign",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
+    },
+    {
+      "datei": "timesheetTemplates.js",
+      "methode": "delete",
+      "pfad": "/timesheet-templates/assignment/:assignmentId",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
     },
     {
       "datei": "vendorPool.js",
@@ -2952,8 +3302,8 @@
     }
   ],
   "grundlinie": {
-    "wege": 418,
+    "wege": 468,
     "berechtigung": 161,
-    "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-22 von 415 auf 416 erhoeht: Abschnitt 10 hat mit `POST /support-requests` den Weg eines Kunden INS Support Center angelegt — vorher hatte `support_cases` im gesamten Repo kein einziges INSERT, das Support Center war ein Lesesaal ueber einer Tabelle, die niemand fuellen konnte. Die Wachart bleibt `eigene-daten`: der Melder kommt aus der Sitzung, nicht aus dem Anfragekoerper. Am 2026-08-22 weiter auf 417: `POST /offers/:id/report` (Abschnitt 10, Inhalte melden). `berechtigung` unveraendert bei 161. Am 2026-08-23 von 418 auf 417 GESENKT: `POST /reports` wurde nach Owner-Entscheid ENTFERNT (0 Aufrufer, 0 Zeilen; Migration 191). Eine Route, die es nicht mehr gibt, kann nicht bewacht werden — stattdessen haelt eine Probe fest, dass sie nicht zurueckkehrt."
+    "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-22 von 415 auf 416 erhoeht: Abschnitt 10 hat mit `POST /support-requests` den Weg eines Kunden INS Support Center angelegt — vorher hatte `support_cases` im gesamten Repo kein einziges INSERT, das Support Center war ein Lesesaal ueber einer Tabelle, die niemand fuellen konnte. Die Wachart bleibt `eigene-daten`: der Melder kommt aus der Sitzung, nicht aus dem Anfragekoerper. Am 2026-08-22 weiter auf 417: `POST /offers/:id/report` (Abschnitt 10, Inhalte melden). `berechtigung` unveraendert bei 161. Am 2026-08-23 von 418 auf 417 GESENKT: `POST /reports` wurde nach Owner-Entscheid ENTFERNT (0 Aufrufer, 0 Zeilen; Migration 191). Eine Route, die es nicht mehr gibt, kann nicht bewacht werden — stattdessen haelt eine Probe fest, dass sie nicht zurueckkehrt. Am 2026-08-24 weiter auf 419: `PATCH /staff-access/:userId/role` (Rollen vergeben, Owner-Entscheid). `berechtigung` unveraendert bei 161. Am 2026-08-24 sprunghaft auf 456: der Waechter montierte pro Datei nur die ERSTE `create*Router`-Fabrik. `staffControlCenter.js` exportiert zwei — die Auth-Fabrik (1 Weg) steht vor der Center-Fabrik (50 Wege). Die gesamte schreibende Flaeche des Staff Control Center war damit fuer das Bestandsbuch blind. Der Waechter montiert jetzt alle Fabriken."
   }
 }

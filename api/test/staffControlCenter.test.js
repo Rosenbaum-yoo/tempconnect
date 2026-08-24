@@ -11,7 +11,9 @@ import * as runbookService from "../services/staffRunbookService.js";
 import * as customerRequests from "../services/staffCustomerRequestsService.js";
 
 function makeReq(overrides = {}) {
-  return { session: { staffUserId: null, ...overrides.session }, body: {}, headers: {}, ip: "127.0.0.1", ...overrides };
+  /* `path`/`method`: das Rollentor entscheidet anhand des Pfades. Ohne sie
+     antwortet es BEREICH_NICHT_REGISTRIERT — richtig, aber hier nicht gemeint. */
+  return { session: { staffUserId: null, ...overrides.session }, body: {}, headers: {}, ip: "127.0.0.1", path: "/bootstrap", method: "GET", ...overrides };
 }
 function makeRes() {
   return {
@@ -45,7 +47,10 @@ describe("staffControlAccess — harte Staff-Allowlist", () => {
   });
 
   it("allows user listed in tempconnect_staff", async () => {
-    const row = { user_id: "u1", email: "staff-a@tempconnect.invalid", display_name: "Staff A", is_active: true, requires_step_up: true, expires_at: null };
+    /* `role` seit dem Rollentor (2026-08-24): der Waechter liest die Spalte und
+       faellt bei unbekannter Rolle fail-closed. Reine Fixture-Pflege — die
+       Zusicherungen unten sind unveraendert. */
+    const row = { user_id: "u1", email: "staff-a@tempconnect.invalid", display_name: "Staff A", is_active: true, requires_step_up: true, expires_at: null, role: "staff_member" };
     const pool = {
       query: async (sql) => {
         /* Der Vergleich war `/tempconnect_staff WHERE user_id/i` — er haftete am
