@@ -1246,7 +1246,7 @@ Am Code und an der laufenden Datenbank nachgeprüft, nicht am Plan abgelesen.
 | Punkt | Art | Stand, gemessen |
 |---|---|---|
 | ~~**V-1** RLS-Backstop scharf schalten~~ | **erledigt 2026-08-24** | Migration 196: **8 → 26** Tabellen mit RLS, **3 → 21** mit FORCE. Einzelnachweis geführt (siehe unten). |
-| **„Bester Treffer"** — Vorbewertung in die SQL | **Owner-entschieden, nicht gebaut** | `assignmentStaffingService.js:1942` schneidet den Kandidatenpool weiterhin **alphabetisch** (`ORDER BY wp.last_name ASC … LIMIT`) — **vor** der Bewertung. Heute harmlos (größte Agentur: **12** aktive Kräfte), ab ~60 wird „bester Treffer" zur Behauptung. Sechs Aufrufer der Basisabfrage betroffen → eigene Welle. |
+| ~~**„Bester Treffer"** — Vorbewertung in die SQL~~ | **erledigt 2026-08-24** | Der Schnitt sortiert jetzt nach den harten Signalen statt nach dem Alphabet. An echten Daten belegt: mit `LIMIT 3` kommen Mustermann (82), nadi (78), Kraft (74) — nicht „Bauer", die alphabetisch erste. |
 | **`SUPPORT_PHONE`** setzen | **Owner-Handlung** | nicht baubar; beide Zustände des Trichters sind verifiziert |
 | **Erreicht die Erinnerung den Arbeiter?** | **Owner-Frage** | Die 2-h-Erinnerung ist eine `notifications`-Zeile; das Einsatzportal hat kein Polling und keinen Live-Strom. Wer nicht hineinsieht, erfährt es erst hinterher — die 4-h-Frist läuft trotzdem. SMS ist technisch vorhanden. |
 | **Frist für reguläre Zuweisungen** | **eigenes Ticket** | Der Entscheid galt Ersatz-Anfragen. Derselbe Schaden existiert regulär (ein Einsatz blockiert seit dem 10.04.) — `docs/features/I2_FRIST_REGULAERE_ZUWEISUNG.md`. |
@@ -1315,3 +1315,45 @@ Die Migration nennt jede Tabelle **einzeln** und prüft jede Spalte einzeln:
 Migration 116 ist daran gescheitert, dass sie eine Spalte voraussetzte, die es
 nicht gab — und riss dabei alles mit, wurde aber trotzdem als „applied" verbucht.
 Fehlt hier eine Spalte, wird die Tabelle übersprungen und **laut** gemeldet.
+
+---
+
+## Die Vorbewertung liegt in der SQL (2026-08-24)
+
+Owner-Entscheid vom 21.08. umgesetzt: *„Vorbewertung in die Datenbank ziehen."*
+
+**Der Befund:** `queryWorkerSuggestionBase` schnitt den Kandidatenpool mit
+`ORDER BY wp.last_name ASC … LIMIT n` **alphabetisch** ab — und zwar *bevor*
+`scoreWorkersForAssignment` überhaupt bewertete. Wer hinten im Alphabet steht,
+kam nie in die Bewertung. Das Tückische daran: es *sieht aus* wie eine
+Rangfolge. Gemessen beißt der Schnitt heute nicht (größte Agentur: 12 aktive
+Kräfte, Limit 50–250) — ab ~60 schon, und lautlos.
+
+**Was ausdrücklich *nicht* passiert ist:** Die Bewertung wurde **nicht** nach SQL
+kopiert. Zwei Fassungen derselben Rangfolge wären die nächste Drift, und die
+teure Hälfte (Rollenfit, Schichtfit, Zuverlässigkeit, Kundenfit) braucht die
+Textanalyse aus `computeNeedleCoverage`. Die Abfrage sortiert nach genau den
+**harten** Signalen, die sie ohnehin ausrechnet — dieselben vier Zähler, aus
+denen der Bewerter seine `hard_failures` baut, nur eine Ebene früher benutzt:
+
+1. wer überhaupt kann (keine Doppelbelegung, keine Reservierung, keine
+   Terminkollision, nicht abwesend)
+2. wie viele der **geforderten** Skills die Person mitbringt
+3. Nähe — aber nur, wenn *beide* Seiten Koordinaten haben (`NULLS LAST`: eine
+   fehlende Angabe darf kein Vorteil sein)
+4. Nachname als stabiler Rest, damit zwei Läufe dieselbe Liste liefern
+
+**An echten Daten belegt:** mit `LIMIT 3` liefert die Abfrage
+`Mustermann (82), nadi (78), Kraft (74)` — die drei bestbewerteten. Die
+alphabetisch erste Kraft der Organisation heißt „Bauer"; vorher hätte der
+Schnitt genau die genommen.
+
+### Die Falle beim ersten Anlauf
+
+Ich habe die drei neuen Parameter zuerst **vor** das Limit gehängt. Die
+Parameterliste ist bis Position 5 fest und trägt an **Position 6 optional die
+Arbeiterliste** — dort lag nun ein Array. Eine Probe in
+`assignmentMultiStaffingCore` hielt die Skill-Liste prompt für eine
+Kennungsliste und lud niemanden mehr ein (`invited_workers` 2 → 1). Der Test war
+nicht falsch, meine Reihenfolge war es. Die Parameter hängen jetzt **hinter**
+dem Limit, und eine eigene Probe hält das fest.

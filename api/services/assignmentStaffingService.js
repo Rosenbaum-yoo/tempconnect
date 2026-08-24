@@ -1792,8 +1792,50 @@ async function queryWorkerSuggestionBase(client, assignment, limit = 50, workerI
     workerFilterSql = ` AND wp.user_id = ANY($${params.length}::uuid[])`;
   }
 
+  /*
+   * DIE VORBEWERTUNG (Owner-Entscheid 2026-08-21: "Vorbewertung in die
+   * Datenbank ziehen").
+   *
+   * BEFUND: Diese Abfrage schnitt den Kandidatenpool mit
+   * `ORDER BY wp.last_name ASC ... LIMIT n` ALPHABETISCH ab — und zwar BEVOR
+   * `scoreWorkersForAssignment` in JS ueberhaupt bewertet. Wer hinten im
+   * Alphabet steht, kam nie in die Bewertung; "bester Treffer" waere ab einer
+   * gewissen Groesse eine Behauptung gewesen. Gemessen am 2026-08-24: die
+   * groesste Agentur hat 12 aktive Kraefte, der Schnitt liegt bei 50-250 — heute
+   * beisst er also nicht. Ab ~60 Kraeften schon, und dann lautlos.
+   *
+   * WAS HIER *NICHT* PASSIERT: die Bewertung wird NICHT nach SQL kopiert. Zwei
+   * Fassungen derselben Rangfolge waeren die naechste Drift, und die teure
+   * Haelfte (Rollenfit, Schichtfit, Zuverlaessigkeit, Kundenfit) braucht die
+   * Textanalyse aus `computeNeedleCoverage`. Stattdessen sortiert die Abfrage
+   * nach genau den HARTEN Signalen, die sie ohnehin schon ausrechnet — damit
+   * der Schnitt die Richtigen behaelt und die Feinbewertung darauf aufsetzt.
+   */
+  const anforderungen = deriveAssignmentRequirements(assignment);
+
+  /*
+   * DAS LIMIT BLEIBT AN SEINEM PLATZ, die Vorbewertung haengt sich DAHINTER.
+   *
+   * Warum die Reihenfolge zaehlt: die Parameterliste ist bis hierher fest
+   * (org, id, start, ende, kundenOrg) und traegt an Position 6 OPTIONAL die
+   * Arbeiterliste. Wer die drei neuen Parameter davor einschiebt, schiebt genau
+   * an dieser Position ein ARRAY hinein — und jeder Aufrufer, der "das sechste
+   * Argument ist die Arbeiterliste, wenn es ein Array ist" annimmt, greift
+   * daneben. Genau das ist beim ersten Anlauf passiert: eine Probe hielt die
+   * Skill-Liste fuer eine Kennungsliste und lud niemanden mehr.
+   *
+   * Hinter dem Limit stoert die Erweiterung niemanden — SQL nummeriert, die
+   * Reihenfolge im Array ist frei.
+   */
   params.push(clamp(limit, 1, 250));
   const limitParam = params.length;
+
+  params.push(anforderungen.required_skills || []);
+  const skillParam = params.length;
+  params.push(anforderungen.location_lat ?? null);
+  const latParam = params.length;
+  params.push(anforderungen.location_lng ?? null);
+  const lngParam = params.length;
 
   const { rows } = await client.query(
     `SELECT wp.user_id, wp.first_name, wp.last_name, wp.personnel_number, wp.city,
@@ -1939,7 +1981,31 @@ async function queryWorkerSuggestionBase(client, assignment, limit = 50, workerI
      ) submission_stats ON TRUE
      WHERE wp.supplier_org_id = $1
        AND wp.is_active = TRUE${workerFilterSql}
-     ORDER BY wp.last_name ASC, wp.first_name ASC
+     ORDER BY
+       /* 1. Wer ueberhaupt kann. Das sind exakt die vier Zaehler, aus denen
+             scoreWorkersForAssignment seine hard_failures baut (bereits
+             zugeordnet, reserviert, Terminkollision, abwesend) — hier werden
+             sie nur EINE Ebene frueher benutzt, statt sie erst nach dem Schnitt
+             zu lesen. Keine zweite Wahrheit, dieselbe. */
+       (COALESCE(link_stats.current_assignment_count, 0) = 0
+        AND COALESCE(conflicts.conflict_count, 0) = 0
+        AND COALESCE(reservations.reservation_conflict_count, 0) = 0
+        AND COALESCE(absences.absence_conflict_count, 0) = 0) DESC,
+       /* 2. Wie viele der GEFORDERTEN Skills die Person mitbringt. Leere
+             Anforderung => alle gleich, die Ebene faellt still weg. */
+       (SELECT count(*) FROM unnest(COALESCE(wp.skill_tags, ARRAY[]::TEXT[])) AS t(s)
+         WHERE lower(s) = ANY (SELECT lower(x) FROM unnest($${skillParam}::TEXT[]) AS y(x))) DESC,
+       /* 3. Naehe, aber nur wenn BEIDE Seiten Koordinaten haben. Sonst NULL,
+             und NULLS LAST schiebt die Unbekannten nicht faelschlich nach vorn.
+             Quadrierte Differenz genuegt fuer eine Rangfolge — eine
+             Haversine-Formel waere hier Genauigkeit ohne Wirkung. */
+       (CASE WHEN $${latParam}::DOUBLE PRECISION IS NOT NULL
+                  AND u.latitude IS NOT NULL AND u.longitude IS NOT NULL
+             THEN (u.latitude - $${latParam}::DOUBLE PRECISION) ^ 2
+                + (u.longitude - $${lngParam}::DOUBLE PRECISION) ^ 2
+        END) ASC NULLS LAST,
+       /* 4. Stabiler Rest, damit zwei Laeufe dieselbe Reihenfolge liefern. */
+       wp.last_name ASC, wp.first_name ASC
      LIMIT $${limitParam}`,
     params
   );
