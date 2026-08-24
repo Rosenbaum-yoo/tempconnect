@@ -1048,3 +1048,58 @@ Draht daran, der beim Fertigstellen reißt.
   Beide Seiten sind gewollt: zusammenführen, nicht überschreiben.
 - Volle Suite 9408/0 (13 übersprungen — Integrationstests, die ohne Datenbank
   überspringen; im Container laufen sie).
+
+---
+
+## Die Ersatz-Frist — gebaut am 2026-08-24 (Migration 193)
+
+Owner-Entscheid umgesetzt: **4 Stunden, dann verfällt die Anfrage; Erinnerung
+nach 2 h; danach ist der Einsatz wieder offen und der Knopf erscheint erneut.**
+
+### Zuerst musste das Fundament repariert werden
+
+Die Erhebung vor dem Bau (15 Agenten, gegnerische Widerlegung: 4 von 10
+Befunden bestätigt, **6 gefallen**) fand einen Defekt in der eigenen
+8.2-Arbeit: die `ersatz`-LATERAL der Live-Belegschaft war **toter Code**. Sie
+verlangte `wal.is_active = FALSE` **und** Lebenszyklus `IN ('active','ends_today')`
+— aber der Lebenszyklus-Baustein liefert bei gesetztem `linkAlias` für inaktive
+Links immer `'archived'`. Die WHERE-Klausel widersprach sich selbst; gemessen:
+1 Kandidat, 0 Treffer. Der Knopf kam nach einer Absage **nie** zurück, während
+die Proben grün waren — sie prüften nur, dass Zeichenketten *vorkommen*.
+Und ein zweites Tor: der Knopf hing in der Abwesenheits-Schachtel
+(`live_status === "abwesend" && absence_id`), die nur der **Disponent** füllt —
+die Selbstmeldung aus dem Portal erreichte ihn nie. Beides repariert
+(`da5eedd`), mit ausführenden Proben statt Regex.
+
+### Was gebaut wurde
+
+| Baustein | Wo |
+|---|---|
+| Vier Uhr-Spalten (`frist_bis`, `erinnerung_faellig_am`, `erinnert_am`, `verfallen_am`) + Statuswert **`expired`** + 3 Benachrichtigungstypen + 2 Teilindizes | Migration 193, additiv nach 184er-Muster |
+| Frist wird mit der Anfrage **geboren** — in *beiden* Zweigen des INSERT (der ON-CONFLICT-Zweig recycelt die Zeile und stellt die Uhr **neu**) | `replaceAssignmentWorker` |
+| **Sweep** `verfalleneErsatzAnfragen`: Verfall *vor* Erinnerung, selbstentwertende Mengen-UPDATEs (zwei gleichzeitige Läufe unschädlich), Erinnerungsmarke + Meldung in *einer* Transaktion, Verfallsmeldungen *nach* dem Commit | `workerService.js` |
+| **Taktunabhängiger Riegel**: `frist_bis > NOW()` im WHERE von Zusage *und* Absage → `ANFRAGE_VERFALLEN` (409). Gilt auch, wenn nie ein Takt läuft | `confirmAssignment` / `declineAssignment` |
+| Zwei Aufrufer, eine Funktion: dritter Aufruf im getakteten `staffing-maintenance`-Handler **plus** BullMQ `ersatz-frist-10min` | `internal.js`, `workers/index.js`, `capacityWorker.js` |
+| Marktplatz-Rückgabe: `syncWorkerReservation` — die Anfrage hatte die `capacity_posts` des Ersatzes pausiert, der Mensch war aus dem Marktplatz verschwunden, obwohl er nur *gefragt* wurde | im Sweep, je verfallener Zeile |
+| Sichtbarkeit: Frist im Erst-Text der Benachrichtigung, in beiden Portal-Abfragen (`response_deadline_*`, Namensgleichheit mit den Staffing-Einladungen) und auf zwei Portal-Flächen (Einsätze-Karte, Dashboard-Banner) | `workerNotificationService`, `workerService`, `einsatzportal-*.html` |
+| Wächter-Ausbau: `benachrichtigungsSpiegel` hält jetzt auch `SEVERITY_MAP` gegen den CHECK — vorher fiel genau diese Quelle durchs Netz (stille `general`-Degradierung = Meldung ohne Knöpfe). Der Wächter biss beim ersten Lauf prompt auf seine eigene Parser-Lücke (die `'{a,b,c}'::text[]`-Literal-Form) | `benachrichtigungsSpiegel.test.js` |
+
+**Entscheidungen ohne Owner-Bedarf** (aus dem Bestand ableitbar, im Code begründet):
+eigener Status `expired` statt `worker_declined` (Verfall ist keine Absage —
+Zuverlässigkeitsauswertung), deutsche Spaltennamen wie `ersetzt_link_id`,
+englische API-Feldnamen wie das Portal sie schon rendert, Frist ab dem
+**Anlegen** (Zustellen ist derselbe DB-INSERT), Erinnerungszeit **absolut**
+gespeichert, Kunde erfährt vom Verfall **nichts** (für ihn hat sich seit der
+Ausfallmeldung nichts geändert — dieselbe Linie wie bei der Absage).
+
+### Offen — Owner-Entscheidungen
+
+| Frage | Sachlage |
+|---|---|
+| **CSRF-Ausnahme für `/internal/`?** | Der dokumentierte Cron-Weg liefert am laufenden Container **403 CSRF_INVALID** — die Ausnahmeliste kennt `/internal/` nicht, und es gibt weder Crontab noch Scheduler-Container. Betrifft alle 28 internen Endpunkte, nicht nur diesen (Sicherheitsentscheidung, nie autonom). Bis dahin trägt der BullMQ-Takt das Wieder-Öffnen und der Riegel die Frist. Details in `PILOT_GO_LIVE_TODOS.md`. |
+| **Erreicht die Erinnerung den Arbeiter überhaupt?** | Die Erinnerung ist eine `notifications`-Zeile; das Einsatzportal hat **kein** Polling und keinen Live-Strom — wer die Seite nicht offen hat, sieht sie erst beim nächsten Besuch, und die 4-h-Frist läuft trotzdem. Optionen: SMS (technisch vorhanden, `smsService.js`, Kosten + Einwilligung), E-Mail über `dispatch()`, Frist nur zu Geschäftszeiten, oder so lassen. Das ist eine Fairness-Frage, keine technische. |
+| **Frist auch für reguläre Zuweisungen?** | Der Entscheid galt Ersatz-Anfragen. Die Datenlage zeigt aber denselben Schaden im Regulären: ein Einsatz steht seit dem **10.04.** auf `open_quantity=0`, `staffing_status='sourcing'`, blockiert über `ASSIGNMENT_FILLED` jede neue Kampagne — gehalten von einer unbeantworteten regulären Anfrage. Eigenes Ticket, als Hintergrund-Chip angelegt. |
+
+Verify: Sweep-Proben 15/15 (inkl. DB-Smoke: fällige Zeile getroffen, Altbestand
+ohne Frist unberührt, CHECK kennt `expired`). Migration zweimal eingespielt
+(idempotent).

@@ -1720,8 +1720,17 @@ export function createWorkersRouter(deps) {
        * Link `pending_confirmation`, und er wird gefragt. Dieselbe
        * Benachrichtigung wie beim regulaeren `quick-assign`: ein Weg, eine
        * Erwartung. */
+      /* Die Frist steht im Erst-Text (Owner-Entscheid: 4 h). Formatiert in
+       * Europe/Berlin — nie roher UTC-Slice. */
+      const fristLabel = result.replacement_link.frist_bis
+        ? new Intl.DateTimeFormat("de-DE", {
+            timeZone: "Europe/Berlin",
+            day: "2-digit", month: "2-digit", year: "numeric",
+            hour: "2-digit", minute: "2-digit"
+          }).format(new Date(result.replacement_link.frist_bis)) + " Uhr"
+        : null;
       workerNotifications.notifyAssignmentPendingConfirmation(
-        pool, parsed.data.replacement_worker_user_id, result.replacement_link.id, clientName
+        pool, parsed.data.replacement_worker_user_id, result.replacement_link.id, clientName, fristLabel
       );
       workerNotifications.notifyAssignmentRemoved(pool, result.ailing_worker_user_id, req.params.id, {
         effectiveFrom: parsed.data.effective_date, reason: parsed.data.reason

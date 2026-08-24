@@ -532,6 +532,14 @@ export function createInternalRouter(deps) {
       const offerReservation = await workerOfferReservationService.sweepReservations(pool);
       result.offers_reserved = offerReservation.reserved;
       result.offers_released = offerReservation.released;
+      /* Ersatz-Frist (Plan I, 8.2 / Migration 193): 4-h-Verfall + 2-h-Erinnerung
+       * fuer Ersatz-Anfragen. Dritter Aufruf im selben Handler statt eines
+       * neuen Endpunkts — derselbe Takt, kein neuer Weg im Wachen-Register.
+       * Die Frist gilt auch OHNE diesen Takt (Riegel direkt in confirm/decline);
+       * hier entsteht nur das "der Einsatz ist wieder offen". */
+      const ersatzFrist = await workerService.verfalleneErsatzAnfragen(pool);
+      result.ersatz_verfallen = ersatzFrist.verfallen;
+      result.ersatz_erinnert = ersatzFrist.erinnert;
       if (
         result.expired_invites > 0
         || result.expired_reservations > 0

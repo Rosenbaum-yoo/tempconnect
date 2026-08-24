@@ -1794,22 +1794,30 @@ function renderLiveList(workers) {
         aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" onclick="openTimeline(\'' + esc(w.id) + '\')">' +
                   esc(TCi18n.t("mit.live.verlauf.btn")) + '</button>';
       }
-      if (w.live_status === "abwesend" && w.absence_id) {
-        /* KLICK 1 von dreien (Welle G6). Nur wenn wirklich ein Einsatz
-           betroffen ist — ohne Verknuepfung gaebe es nichts zu ersetzen, und
-           ein Knopf, der das erst nach dem Klick sagt, ist eine Sackgasse.
+      /* KLICK 1 von dreien (Welle G6). Nur wenn wirklich ein Einsatz
+         betroffen ist — ohne Verknuepfung gaebe es nichts zu ersetzen, und
+         ein Knopf, der das erst nach dem Klick sagt, ist eine Sackgasse.
 
-           ersatz_link_id kam mit 8.2 dazu: Sobald jemand ausfaellt, steht seine
-           Verknuepfung auf is_active = FALSE und link_id ist leer. Solange der
-           erste Ersatz gleich gebunden wurde, fiel das nicht auf. Seit er
-           absagen darf, war die Zeile nach der Absage nicht mehr erreichbar —
-           der Einsatz war wieder offen, aber niemand kam an ihn heran.
-           Das Feld traegt genau diesen liegengebliebenen Bedarf und ist leer,
-           solange eine Anfrage laeuft. */
-        if (w.link_id || w.ersatz_link_id) {
-          aktion += '<button class="btn primary" style="padding:5px 10px;font-size:12px" onclick="openErsatzModal(\'' + esc(w.id) + '\')">' +
-                    esc(TCi18n.t("mit.ersatz.btn")) + '</button>';
-        }
+         ersatz_link_id kam mit 8.2 dazu: Sobald jemand ausfaellt, steht seine
+         Verknuepfung auf is_active = FALSE und link_id ist leer. Das Feld
+         traegt genau diesen liegengebliebenen Bedarf und ist leer, solange
+         eine Anfrage laeuft.
+
+         DER KNOPF STEHT SEIT 2026-08-24 AUSSERHALB DER ABWESENHEITS-SCHACHTEL.
+         Vorher hing er in if (live_status === "abwesend" && absence_id) — und
+         absence_id kommt aus worker_absences, die NUR der Disponent fuellt.
+         Wer sich selbst ueber das Portal krankmeldet (reportUnavailable),
+         schreibt ausschliesslich worker_assignment_links: live_status wurde
+         nie "abwesend", der Knopf blieb trotz liegengebliebenem Bedarf weg.
+         An der Datenbank gemessen: worker_absences war leer, der einzige
+         Kandidat kam aus der Selbstmeldung. ersatz_link_id ist bereits die
+         praezisere Bedingung — der Server setzt es nur, wenn es wirklich
+         etwas zu ersetzen gibt (inkl. REPLACEMENT_PENDING-Pruefung). */
+      if (w.ersatz_link_id || (w.live_status === "abwesend" && w.absence_id && w.link_id)) {
+        aktion += '<button class="btn primary" style="padding:5px 10px;font-size:12px" onclick="openErsatzModal(\'' + esc(w.id) + '\')">' +
+                  esc(TCi18n.t("mit.ersatz.btn")) + '</button>';
+      }
+      if (w.live_status === "abwesend" && w.absence_id) {
         aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" onclick="revokeAbsence(\'' + esc(w.absence_id) + '\')">' +
                  esc(TCi18n.t("mit.live.absence.revokeBtn")) + '</button>';
       } else if (w.live_status !== "inaktiv" && w.id) {

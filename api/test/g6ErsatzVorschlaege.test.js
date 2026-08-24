@@ -408,22 +408,27 @@ const LOGIK = path.join(PUB, "js", "pages", "mitarbeiter.js");
 const liesF = (p) => fs.readFileSync(p, "utf8");
 
 describe("G6 — der Weg misst genau drei Klicks", () => {
-  it("Klick 1 steht in der Zeile der abwesenden Person", () => {
-    const js = liesF(LOGIK);
-    const block = js.slice(js.indexOf('w.live_status === "abwesend" && w.absence_id'),
-                           js.indexOf("} else if (w.live_status !== "));
-    assert.match(block, /openErsatzModal/, "aus der Tafel fuehrt kein Weg zum Ersatz");
+  it("Klick 1 steht in der Zeile der betroffenen Person", () => {
     /*
-     * Der Knopf bleibt an eine Verknuepfung gebunden — sonst fuehrt er in eine
-     * Sackgasse, die erst NACH dem Klick sichtbar wird.
-     *
-     * Seit 8.2 gibt es dafuer ZWEI Quellen: `link_id` (laufender Einsatz) und
-     * `ersatz_link_id` (der liegengebliebene Bedarf, nachdem ein Ersatz
-     * abgesagt hat). Ohne die zweite war die Zeile nach einer Absage nicht mehr
-     * erreichbar: der Einsatz war wieder offen, aber niemand kam an ihn heran.
+     * TESTKORREKTUR 2026-08-24, mit Grund: Die alte Fassung verlangte den Knopf
+     * INNERHALB von if (live_status === "abwesend" && absence_id) — sie hat
+     * damit ein Implementierungsdetail festgeschrieben, das selbst der Fehler
+     * war. absence_id kommt aus worker_absences, die NUR der Disponent fuellt;
+     * wer sich selbst ueber das Portal krankmeldet (reportUnavailable),
+     * schreibt ausschliesslich worker_assignment_links. Der Knopf blieb also
+     * genau in dem Fall weg, fuer den 8.2 ihn gebaut hat. Die SCHUTZABSICHT
+     * bleibt: der Knopf haengt an einer Verknuepfung, nie an blossem Status.
      */
-    assert.match(block, /if \(w\.link_id \|\| w\.ersatz_link_id\)/,
-      "der Knopf haengt nicht mehr an einer Verknuepfung — oder der zweite Anlauf fehlt");
+    const js = liesF(LOGIK);
+    assert.match(js, /if \(w\.ersatz_link_id \|\| \(w\.live_status === "abwesend" && w\.absence_id && w\.link_id\)\)/,
+      "der Knopf muss am liegengebliebenen Bedarf haengen (ersatz_link_id) ODER am " +
+      "laufenden Einsatz einer gemeldeten Abwesenheit — nie an blossem Status");
+    const knopfBlock = js.slice(js.indexOf('if (w.ersatz_link_id || (w.live_status === "abwesend"'),
+                                js.indexOf('if (w.live_status === "abwesend" && w.absence_id) {'));
+    assert.match(knopfBlock, /openErsatzModal/, "aus der Tafel fuehrt kein Weg zum Ersatz");
+    assert.ok(!/w\.live_status === "abwesend" && w\.absence_id\) \{[\s\S]{0,600}openErsatzModal/.test(js),
+      "der Knopf darf NICHT (mehr) in der Abwesenheits-Schachtel haengen — dort " +
+      "erreichte ihn die Selbstmeldung aus dem Portal nie (worker_absences bleibt leer)");
   });
 
   it("nach einer Absage fuehrt die Tafel zurueck zur Zeile (8.2)", () => {

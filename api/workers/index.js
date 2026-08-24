@@ -35,6 +35,15 @@ function scheduleCapacitySweeps() {
    *   SELECT worker_status_events_aufraeumen(); */
   q.upsertJobScheduler("worker-status-events-retention-daily", { pattern: "0 4 * * *" }, { name: "worker-status-events-retention" })
     .catch((e) => logger.warn({ err: e.message }, "Could not schedule status-events retention sweep"));
+  /* Ersatz-Frist (Plan I, 8.2): 4-h-Verfall + 2-h-Erinnerung. Alle 10 Minuten,
+   * nicht taeglich — eine 4-h-Frist mit Tagestakt waere eine Attrappe. Das
+   * Mengen-UPDATE im Sweep ist idempotent; kollidiert dieser Takt mit dem
+   * internen Endpunkt, aendert der zweite Lauf nichts. Ohne Redis laeuft
+   * dieser Takt nicht — dann traegt der Riegel in confirm/decline die Frist
+   * allein (keine Zusage nach Verfall), nur das Wieder-Oeffnen wartet auf den
+   * internen Endpunkt. */
+  q.upsertJobScheduler("ersatz-frist-10min", { pattern: "*/10 * * * *" }, { name: "ersatz-frist" })
+    .catch((e) => logger.warn({ err: e.message }, "Could not schedule ersatz-frist sweep"));
 }
 
 export function startWorkers() {

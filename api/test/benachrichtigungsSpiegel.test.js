@@ -147,6 +147,38 @@ describe("Benachrichtigungen · Die Datenbank kennt jeden Typ der Matrix",
       assert.deepEqual(fehlend, [],
         "Diese Typen werden dispatched, stehen aber nicht im CHECK — die INSERTs "
         + "scheitern still:\n" + fehlend.join("\n"));
+
+      /*
+       * ZWEITE QUELLE, GLEICHE PFLICHT (Nachtrag 2026-08-24): Dieser Waechter
+       * pruefte bislang nur die Matrix; die Typen aus workerNotificationService
+       * (SEVERITY_MAP) fielen durchs Netz. Dort ist der Fehlermodus noch
+       * heimtueckischer: notifyWorker degradiert einen unbekannten Typ STILL zu
+       * 'general' und die Meldung verliert im Portal ihre Zusage-/Absage-
+       * Knoepfe (isPending prueft den exakten Typ). Genau diese Luecke haette
+       * die Ersatz-Frist (Migration 193) unbemerkt entwertet, wenn Migration
+       * und Code getrennt ausgeliefert wuerden.
+       */
+      const quelle = fs.readFileSync(
+        new URL("../services/workerNotificationService.js", import.meta.url), "utf8");
+      const mapStart = quelle.indexOf("const SEVERITY_MAP = {");
+      const mapBlock = quelle.slice(mapStart, quelle.indexOf("};", mapStart));
+      const mapTypen = [...mapBlock.matchAll(/^\s*([a-z_]+):\s*"/gm)].map((m) => m[1]);
+      assert.ok(mapTypen.length >= 20,
+        "nur " + mapTypen.length + " Typen aus SEVERITY_MAP gelesen, greift das Muster noch?");
+      /* Der CHECK hat ZWEI Darstellungen (Lehre aus Migration 171/184): die
+       * ARRAY['a'::text,...]-Form zitiert jeden Wert, die '{a,b,c}'::text[]-
+       * Literal-Form (nach einem format(%L)) laesst die Anfuehrungszeichen weg.
+       * Wer nur die zitierte Form prueft, meldet nach dem ersten CHECK-Tausch
+       * ALLE Typen als fehlend — exakt so beim ersten Lauf dieser Erweiterung. */
+      const literal = def.match(/'(\{[^}]*\})'::text\[\]/);
+      const bekannt = literal
+        ? new Set(literal[1].slice(1, -1).split(",").map((w) => w.replace(/^"|"$/g, "").trim()))
+        : new Set([...def.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]));
+      const mapFehlt = mapTypen.filter((typ) => !bekannt.has(typ));
+      assert.deepEqual(mapFehlt, [],
+        "Diese Typen stehen in SEVERITY_MAP, aber nicht im CHECK. notifyWorker "
+        + "degradiert sie STILL zu 'general' und die Meldung verliert ihre Knoepfe:\n"
+        + mapFehlt.join("\n"));
     } finally {
       await pool.end();
     }

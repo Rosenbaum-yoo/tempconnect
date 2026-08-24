@@ -131,6 +131,7 @@ TCi18n.register('de', {
   'ep.einsaetze.emailLabel': 'E-Mail',
   'ep.einsaetze.confirmTitle': 'Bestätigung erforderlich',
   'ep.einsaetze.confirmText': 'Ihr Disponent hat Ihnen diesen Einsatz zugewiesen. Bitte bestätigen oder lehnen Sie ab.',
+      'ep.einsaetze.confirmDeadline': 'Antwort bis {deadline} Uhr — danach verfaellt die Anfrage und der Platz wird neu vergeben.',
   'ep.einsaetze.confirmBtn': 'Einsatz bestätigen',
   'ep.einsaetze.declineBtn': 'Ablehnen',
   'ep.einsaetze.declineReasonPh': 'Begründung (optional)…',
@@ -201,6 +202,7 @@ TCi18n.register('en', {
   'ep.einsaetze.emailLabel': 'Email',
   'ep.einsaetze.confirmTitle': 'Confirmation required',
   'ep.einsaetze.confirmText': 'Your dispatcher has assigned this assignment to you. Please confirm or decline.',
+      'ep.einsaetze.confirmDeadline': 'Reply by {deadline} — after that the request expires and the slot is reassigned.',
   'ep.einsaetze.confirmBtn': 'Confirm assignment',
   'ep.einsaetze.declineBtn': 'Decline',
   'ep.einsaetze.declineReasonPh': 'Reason (optional)…',
@@ -390,6 +392,12 @@ function renderDetail(a) {
         <div style="margin-top:16px;padding:14px;background:rgba(74,158,255,.07);border:1px solid rgba(74,158,255,.2);border-radius:10px">
           <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">${TCi18n.t('ep.einsaetze.confirmTitle')}</div>
           <div style="font-size:.82rem;color:var(--ep-text-sub,var(--ep-text-muted));margin-bottom:10px">${TCi18n.t('ep.einsaetze.confirmText')}</div>
+          ${a.response_deadline_label ? `
+          <!-- Ersatz-Frist (193): eine Frist, die man dem Betroffenen nicht
+               mitteilt, ist eine Falle. Das Feld ist nur bei Ersatz-Anfragen
+               gefuellt — regulaere Zuweisungen tragen (noch) keine Frist,
+               und eine behauptete Frist waere gelogen. -->
+          <div style="font-size:.82rem;font-weight:700;color:#f59e0b;margin-bottom:10px">${TCi18n.t('ep.einsaetze.confirmDeadline', { deadline: a.response_deadline_label })}</div>` : ''}
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="ep-btn ep-btn-primary ep-btn-sm" onclick="confirmAsg('${a.id}')">${TCi18n.t('ep.einsaetze.confirmBtn')}</button>
             <button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="toggleDeclineDetail()" style="color:var(--ep-danger,#ef4444)">${TCi18n.t('ep.einsaetze.declineBtn')}</button>

@@ -63,6 +63,10 @@ const EVENT_CATEGORY_MAP = {
    * erfahren. Der Rueckfall ist bequem und genau deshalb gefaehrlich. */
   'worker.absence_reported': 'workforce_updates',
   'worker.delay_reported':   'workforce_updates',
+  /* Der Verfall einer Ersatz-Anfrage gehoert in dieselbe Kategorie wie die
+   * Krankmeldung, die ihn ausgeloest hat — beides ist Belegschafts-Betrieb,
+   * beides trifft dieselben Empfaenger (worker.manage). */
+  'worker.replacement_expired': 'workforce_updates',
   /* Kundenseite bekommt eine EIGENE Kategorie (Welle G4b) — nicht
    * 'workforce_updates'. Der Grund liegt darin, WO die Einstellung haengt:
    * an der Person, nicht an der Organisation (getUserPreferences filtert auf

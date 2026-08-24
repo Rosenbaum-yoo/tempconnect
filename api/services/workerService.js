@@ -8,6 +8,13 @@ import * as assignmentStaffingService from "./assignmentStaffingService.js";
 import { isWorkerBlockedForCompany } from "./companyBlocklistService.js";
 import * as submissionSvc from "./workerSubmissionService.js";
 import { withTransaction } from "../utils/transaction.js";
+/* Fuer den Frist-Sweep (Plan I, 8.2 / Migration 193). Kein Zyklus: keiner der
+ * drei importiert workerService zurueck (gemessen 2026-08-24). */
+import * as workerNotifications from "./workerNotificationService.js";
+import * as workerOfferReservations from "./workerOfferReservationService.js";
+import * as abwesenheit from "./workerAbsenceService.js";
+import { dispatch, findOrgMembersWithPermission } from "./notificationMatrix.js";
+import { logger } from "../config/index.js";
 import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
 import {
   buildAssignmentActivePredicateSql,
@@ -1017,6 +1024,7 @@ export async function listInvites(pool, optsOrSupplierOrgId, legacyStatus = null
 async function getWorkerAssignmentActionContext(pool, linkId, workerUserId) {
   const { rows } = await pool.query(
     `SELECT wal.id, wal.assignment_id, wal.worker_confirmation_status, wal.is_active,
+            wal.frist_bis,
             ${workerAssignmentLifecycleSelectSql}
      FROM worker_assignment_links wal
      JOIN assignments a ON a.id = wal.assignment_id
@@ -1655,6 +1663,12 @@ export async function getWorkerAssignments(pool, workerUserId, { includeInactive
        wal.dispatcher_name, wal.dispatcher_phone, wal.dispatcher_email,
        wal.worker_confirmation_status, wal.worker_confirmed_at, wal.worker_declined_at,
        wal.worker_declined_reason, wal.capacity_post_id,
+       -- Ersatz-Frist (193): dieselben Feldnamen, die das Portal fuer
+       -- Staffing-Einladungen schon rendert — Anzeige wird Einbau, nicht Neubau.
+       wal.frist_bis AS response_deadline_at,
+       to_char(wal.frist_bis AT TIME ZONE 'Europe/Berlin', 'DD.MM.YYYY HH24:MI') AS response_deadline_label,
+       (wal.frist_bis IS NOT NULL AND wal.frist_bis <= NOW()
+        AND wal.worker_confirmation_status IN ('pending_confirmation','expired')) AS is_expired,
        -- Assignment-Stammdaten
        a.status AS assignment_status, a.worker_description, a.notes AS assignment_notes,
        a.start_date AS asg_start, a.planned_end_date AS asg_end,
@@ -1690,6 +1704,12 @@ export async function getWorkerAssignmentDetail(pool, linkId, workerUserId) {
        wal.dispatcher_name, wal.dispatcher_phone, wal.dispatcher_email,
        wal.worker_confirmation_status, wal.worker_confirmed_at, wal.worker_declined_at,
        wal.worker_declined_reason, wal.capacity_post_id,
+       -- Ersatz-Frist (193): dieselben Feldnamen, die das Portal fuer
+       -- Staffing-Einladungen schon rendert — Anzeige wird Einbau, nicht Neubau.
+       wal.frist_bis AS response_deadline_at,
+       to_char(wal.frist_bis AT TIME ZONE 'Europe/Berlin', 'DD.MM.YYYY HH24:MI') AS response_deadline_label,
+       (wal.frist_bis IS NOT NULL AND wal.frist_bis <= NOW()
+        AND wal.worker_confirmation_status IN ('pending_confirmation','expired')) AS is_expired,
        a.status AS assignment_status, a.worker_description, a.notes AS assignment_notes,
        a.start_date AS asg_start, a.planned_end_date AS asg_end,
        a.actual_end_date AS asg_actual_end,
@@ -1808,10 +1828,23 @@ export async function confirmAssignment(pool, linkId, workerUserId) {
      WHERE id = $1
        AND worker_user_id = $2
        AND worker_confirmation_status = 'pending_confirmation'
+       AND (frist_bis IS NULL OR frist_bis > NOW())
      RETURNING *`,
     [linkId, workerUserId]
   );
-  if (!rows[0]) return { error: "INVALID_STATUS", current_status: context.worker_confirmation_status };
+  if (!rows[0]) {
+    /* DER TAKTUNABHAENGIGE RIEGEL (Plan I, 8.2-Frist). Die Frist steht als
+     * Bedingung IM UPDATE, nicht als Lesen-dann-Schreiben — eine ueberfaellige
+     * Anfrage kann damit auch dann nicht mehr zusagen, wenn der Sweep 14
+     * Minuten entfernt ist oder die Betriebsumgebung ihn nie ausfuehrt
+     * (der dokumentierte Cron hat in dieser Umgebung noch nie gefeuert).
+     * Zwei Menschen beim Kunden waeren die Folge einer Zusage nach Verfall:
+     * der Disponent hat laengst den naechsten angefragt. */
+    if (context.worker_confirmation_status === "pending_confirmation") {
+      return { error: "ANFRAGE_VERFALLEN", frist_bis: context.frist_bis || null };
+    }
+    return { error: "INVALID_STATUS", current_status: context.worker_confirmation_status };
+  }
   await assignmentStaffingService.recalcAssignmentStaffing(pool, rows[0].assignment_id, { writeEvent: false });
   return { link: rows[0] };
 }
@@ -1836,12 +1869,207 @@ export async function declineAssignment(pool, linkId, workerUserId, reason) {
      WHERE id = $1
        AND worker_user_id = $2
        AND worker_confirmation_status = 'pending_confirmation'
+       AND (frist_bis IS NULL OR frist_bis > NOW())
      RETURNING *`,
     [linkId, workerUserId, reason || null]
   );
-  if (!rows[0]) return { error: "INVALID_STATUS", current_status: context.worker_confirmation_status };
+  if (!rows[0]) {
+    /* Auch die ABSAGE endet mit der Frist — nicht aus Strenge, sondern damit
+     * die Historie stimmt: nach dem Verfall traegt die Zeile 'expired', und
+     * eine Absage danach wuerde den Verfall zur Ablehnung umdeklarieren.
+     * Fuer den Arbeiter aendert sich nichts Nutzbares — die Anfrage ist so
+     * oder so vorbei. */
+    if (context.worker_confirmation_status === "pending_confirmation") {
+      return { error: "ANFRAGE_VERFALLEN", frist_bis: context.frist_bis || null };
+    }
+    return { error: "INVALID_STATUS", current_status: context.worker_confirmation_status };
+  }
   await assignmentStaffingService.recalcAssignmentStaffing(pool, rows[0].assignment_id, { writeEvent: false });
   return { link: rows[0] };
+}
+
+/**
+ * Der Sweep der Ersatz-Frist (Plan I, 8.2 / Migration 193).
+ *
+ * OWNER-ENTSCHEID: Eine Ersatz-Anfrage verfaellt nach 4 Stunden, Erinnerung
+ * nach 2 — "danach wird der Einsatz wieder offen und der Knopf erscheint
+ * erneut". Die Frist steht seit dem Anlegen in `frist_bis` (beide Zweige des
+ * INSERT in `replaceAssignmentWorker`); hier wird sie durchgesetzt.
+ *
+ * WARUM VERFALL VOR ERINNERUNG: Nach einem Takt-Ausfall sind beide faellig.
+ * Liefe die Erinnerung zuerst, bekaeme ein bereits verfallener Link noch eine
+ * "bitte antworten"-Meldung — auf eine Anfrage, die es nicht mehr gibt.
+ *
+ * WARUM ZWEI MENGEN-UPDATES STATT LESEN-DANN-SCHREIBEN: Das WHERE entwertet
+ * sich selbst (Vorbild workerOfferReservationService). Ein zweiter
+ * gleichzeitiger Lauf — BullMQ-Takt und interner Endpunkt koennen kollidieren —
+ * trifft die Zeile nach der Zeilensperre mit bereits geaendertem Status an und
+ * aendert nichts. Kein Advisory Lock: das Repo benutzt keine, und das UPDATE
+ * braucht keins.
+ *
+ * WARUM DIE ERINNERUNG IN DER TRANSAKTION HAENGT UND DIE VERFALLSMELDUNG NICHT:
+ *   Erinnerung: Marke (`erinnert_am`) und Meldung stehen in EINER Transaktion,
+ *   `throwOnError: true`. Scheitert der INSERT, rollt die Marke mit zurueck und
+ *   der naechste Lauf versucht es erneut — eine gesetzte Marke ohne Meldung
+ *   waere eine Erinnerung, die nie jemand bekommt. Das ist bewusst STRENGER als
+ *   die Invite-Vorlage, die bei Fehlversand die Marke stehen laesst.
+ *   Verfall: die Meldungen laufen NACH dem Commit, fire-and-forget. Ein
+ *   Zustellweg, der die fachliche Wahrheit zuruecknehmen kann, waere schlimmer
+ *   als gar keiner (dieselbe Begruendung wie bei der Krankmeldung selbst,
+ *   workerAbsenceService) — der Verfall IST passiert, ob die Meldung ankommt
+ *   oder nicht.
+ *
+ * WAS DER VERFALL AUSLOEST, Zeile fuer Zeile:
+ *   `is_active = FALSE` ist die tragende Wirkung — sie oeffnet drei Riegel auf
+ *   einmal, ohne dass einer davon angefasst wird: `pending_quantity` zaehlt die
+ *   Zeile nicht mehr (recalc gibt `open_quantity` frei), REPLACEMENT_PENDING
+ *   laesst den zweiten Anlauf durch, und die ersatz-LATERAL der Live-Belegschaft
+ *   findet den liegengebliebenen Bedarf wieder — der Knopf erscheint erneut.
+ *   `worker_confirmation_status = 'expired'` (nicht 'worker_declined'): Verfall
+ *   ist keine Absage. Wer beides zusammenwirft, schreibt jedem, der eine
+ *   Anfrage schlicht nicht sah, eine Ablehnung in die Historie.
+ *   `syncWorkerReservation` gibt den Marktplatz zurueck: die Anfrage hatte die
+ *   `capacity_posts` des Ersatzes auf `paused` gestellt (BUSY_EXISTS_SQL prueft
+ *   nur `is_active`, nicht den Bestaetigungsstand) — der Mensch war aus dem
+ *   Marktplatz verschwunden, obwohl er nur GEFRAGT wurde.
+ *
+ * KEIN KUNDENPFAD: Der Kunde hat die angefragte Ersatzkraft nie gesehen
+ * (getCompanyLiveWorkforce blendet pending-Ersatz aus) und keine Meldung
+ * bekommen (sie haengt an der ZUSAGE). Beim Verfall gibt es nichts
+ * zurueckzunehmen — `benachrichtigeKunde` wird hier bewusst NICHT gerufen.
+ *
+ * ALTBESTAND: `frist_bis IS NULL` faellt aus beiden WHERE — die zehn
+ * pending-Zeilen aus der Zeit vor der Frist und alle regulaeren Zuweisungen
+ * bleiben unberuehrt (Linie aus Migration 188: die neue Regel gilt ab der
+ * naechsten Ersatz-Zuweisung). `ersetzt_link_id IS NOT NULL` begrenzt auf
+ * Ersatz-Anfragen — das ist der Owner-Entscheid; die Frage, ob auch regulaere
+ * Zuweisungen eine Frist bekommen, ist ein eigenes Ticket.
+ */
+export async function verfalleneErsatzAnfragen(pool) {
+  const client = await pool.connect();
+  let verfallen = [];
+  let erinnert = [];
+  try {
+    await client.query("BEGIN");
+
+    const verfallenErgebnis = await client.query(
+      `UPDATE worker_assignment_links
+          SET worker_confirmation_status = 'expired',
+              is_active    = FALSE,
+              verfallen_am = NOW(),
+              updated_at   = NOW()
+        WHERE worker_confirmation_status = 'pending_confirmation'
+          AND is_active = TRUE
+          AND ersetzt_link_id IS NOT NULL
+          AND frist_bis IS NOT NULL AND frist_bis <= NOW()
+        RETURNING id, assignment_id, worker_user_id, supplier_org_id, ersetzt_link_id`
+    );
+    verfallen = verfallenErgebnis.rows;
+
+    const erinnertErgebnis = await client.query(
+      `UPDATE worker_assignment_links
+          SET erinnert_am = NOW(),
+              updated_at  = NOW()
+        WHERE worker_confirmation_status = 'pending_confirmation'
+          AND is_active = TRUE
+          AND ersetzt_link_id IS NOT NULL
+          AND erinnerung_faellig_am IS NOT NULL AND erinnerung_faellig_am <= NOW()
+          AND erinnert_am IS NULL
+          AND frist_bis > NOW()
+        RETURNING id, assignment_id, worker_user_id, frist_bis`
+    );
+    erinnert = erinnertErgebnis.rows;
+
+    for (const zeile of erinnert) {
+      const label = zeile.frist_bis ? uhrzeitDE(zeile.frist_bis) : null;
+      await workerNotifications.notifyAssignmentReminder(
+        client, zeile.worker_user_id, zeile.id, label, { throwOnError: true }
+      );
+    }
+
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  /* Nach dem Commit, je verfallener Zeile. Reihenfolge: erst die Zahlen
+   * freigeben (davon haengt "der Einsatz ist wieder offen" ab), dann der
+   * Marktplatz, dann die Meldungen. Fehler einzelner Schritte werden geloggt
+   * und stoppen die uebrigen Zeilen nicht — halb aufgeraeumt ist besser als
+   * gar nicht, und der naechste recalc-Anlass zieht die Zahlen ohnehin nach. */
+  for (const zeile of verfallen) {
+    try {
+      await assignmentStaffingService.recalcAssignmentStaffing(pool, zeile.assignment_id, { writeEvent: false });
+    } catch (err) {
+      logger.error({ err: err.message, linkId: zeile.id }, "Ersatz-Verfall: recalc fehlgeschlagen");
+    }
+    let profil = null;
+    try {
+      profil = await abwesenheit.profilZuNutzer(pool, zeile.supplier_org_id, zeile.worker_user_id);
+      if (profil?.id) await workerOfferReservations.syncWorkerReservation(pool, profil.id);
+    } catch (err) {
+      logger.error({ err: err.message, linkId: zeile.id }, "Ersatz-Verfall: Marktplatz-Freigabe fehlgeschlagen");
+    }
+    try {
+      await workerNotifications.notifyAssignmentExpired(pool, zeile.worker_user_id, zeile.id);
+    } catch (err) {
+      logger.error({ err: err.message, linkId: zeile.id }, "Ersatz-Verfall: Arbeiter-Meldung fehlgeschlagen");
+    }
+    try {
+      /* An ALLE mit worker.manage, nicht nur an den, der die Anfrage stellte —
+       * der Verfall erzeugt Handlungsdruck, und der urspruengliche Disponent
+       * ist um 22 Uhr vielleicht nicht da. Der Link fuehrt zum AUSGEFALLENEN
+       * (dessen Zeile traegt jetzt wieder den Knopf), nicht auf eine
+       * Uebersicht. */
+      const ausgefallener = await profilZumAltLink(pool, zeile);
+      const empfaenger = await findOrgMembersWithPermission(pool, zeile.supplier_org_id, abwesenheit.BUERO_PERMISSION);
+      if (empfaenger.length) {
+        const name = profil ? [profil.first_name, profil.last_name].filter(Boolean).join(" ") : "Die angefragte Ersatzkraft";
+        await dispatch(pool, "worker.replacement_expired", {
+          recipientUserIds: empfaenger,
+          orgId: zeile.supplier_org_id,
+          entityType: "worker_assignment_link",
+          entityId: zeile.id,
+          message: `${name} hat eine Ersatz-Anfrage nicht rechtzeitig beantwortet — sie ist verfallen. Der Einsatz ist wieder offen, der Knopf "Ersatz suchen" steht wieder bereit.`,
+          linkPath: ausgefallener?.id ? abwesenheit.bueroDeepLink(ausgefallener.id, "abwesend") : "/public/mitarbeiter.html#live-abwesend",
+          emailQueue: true,
+          emailSubject: "Ersatz-Anfrage verfallen — Einsatz wieder offen"
+        });
+      }
+    } catch (err) {
+      logger.error({ err: err.message, linkId: zeile.id }, "Ersatz-Verfall: Disponenten-Meldung fehlgeschlagen");
+    }
+  }
+
+  return { verfallen: verfallen.length, erinnert: erinnert.length };
+}
+
+/** Das Profil des AUSGEFALLENEN — der Mensch, zu dessen Zeile der Link fuehrt. */
+async function profilZumAltLink(pool, zeile) {
+  const { rows } = await pool.query(
+    `SELECT wp.id
+       FROM worker_assignment_links alt
+       JOIN worker_profiles wp
+         ON wp.user_id = alt.worker_user_id AND wp.supplier_org_id = alt.supplier_org_id
+      WHERE alt.id = $1
+      LIMIT 1`,
+    [zeile.ersetzt_link_id]
+  );
+  return rows[0] || null;
+}
+
+/** "17:42" in Europe/Berlin — nie roher UTC-Slice (DACH-first-Direktive). */
+function uhrzeitDE(wert) {
+  try {
+    return new Intl.DateTimeFormat("de-DE", {
+      timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit"
+    }).format(new Date(wert)) + " Uhr";
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -2016,8 +2244,10 @@ export async function replaceAssignmentWorker(pool, {
          (worker_user_id, assignment_id, org_id, supplier_org_id, role,
           default_hours_per_day, default_shift_start, default_shift_end,
           default_break_minutes, start_date, end_date, notes, created_by,
-          worker_confirmation_status, ersetzt_link_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending_confirmation',$14)
+          worker_confirmation_status, ersetzt_link_id,
+          frist_bis, erinnerung_faellig_am, erinnert_am, verfallen_am)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending_confirmation',$14,
+               NOW() + INTERVAL '4 hours', NOW() + INTERVAL '2 hours', NULL, NULL)
        ON CONFLICT (worker_user_id, assignment_id) DO UPDATE
          SET is_active=TRUE, role=EXCLUDED.role,
              default_hours_per_day=EXCLUDED.default_hours_per_day,
@@ -2030,6 +2260,9 @@ export async function replaceAssignmentWorker(pool, {
              ersetzt_link_id=EXCLUDED.ersetzt_link_id,
              worker_confirmed_at=NULL, worker_declined_at=NULL, worker_declined_reason=NULL,
              unavailable_from=NULL, unavailable_reason=NULL, unavailable_reported_at=NULL,
+             frist_bis=NOW() + INTERVAL '4 hours',
+             erinnerung_faellig_am=NOW() + INTERVAL '2 hours',
+             erinnert_am=NULL, verfallen_am=NULL,
              updated_at=NOW()
        RETURNING *`,
       [replacementWorkerUserId, orig.assignment_id, orig.org_id, supplierOrgId, orig.role,

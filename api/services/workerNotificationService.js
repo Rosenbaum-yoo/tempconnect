@@ -31,7 +31,15 @@ const SEVERITY_MAP = {
   worker_document_rejected:                 "error",
   worker_document_expiring:                 "warning",
   worker_document_expired:                  "error",
-  worker_blocked_by_company:                "warning"
+  worker_blocked_by_company:                "warning",
+  // Ersatz-Anfrage mit Frist (Plan I, 8.2 / Migration 193). Jeder Typ hier
+  // MUSS im notifications_type_check stehen — sonst degradiert notifyWorker
+  // ihn still zu 'general' und die Meldung verliert im Portal ihre
+  // Zusage-/Absage-Knoepfe. Der Waechter benachrichtigungsSpiegel haelt
+  // SEVERITY_MAP und CHECK gegeneinander.
+  worker_assignment_reminder:               "warning",
+  worker_assignment_expired:                "warning",
+  worker_replacement_expired:               "warning"
 };
 
 /**
@@ -213,12 +221,55 @@ export async function notifySubmissionAccepted(pool, workerUserId, submissionId,
 }
 
 /** Neuer Einsatz: Worker muss bestätigen */
-export async function notifyAssignmentPendingConfirmation(pool, workerUserId, assignmentLinkId, clientName) {
+export async function notifyAssignmentPendingConfirmation(pool, workerUserId, assignmentLinkId, clientName, deadlineLabel = null) {
+  /* `deadlineLabel` kommt nur von der Ersatz-Zuweisung (Frist 4 h, Migration
+   * 193) — eine Frist, die man dem Betroffenen nicht mitteilt, ist eine Falle.
+   * Die fuenf regulaeren Aufrufer lassen den Parameter weg: ihre Anfragen
+   * tragen (noch) keine Frist, und ein Text, der eine behauptet, waere gelogen. */
   await notifyWorker(pool, {
     workerUserId,
     type:        "worker_assignment_pending_confirmation",
     title:       "Neuer Einsatz — Bestätigung erforderlich",
-    message:     `Sie wurden einem Einsatz${clientName ? ` bei ${clientName}` : ""} zugewiesen. Bitte bestätigen oder ablehnen.`,
+    message:     `Sie wurden einem Einsatz${clientName ? ` bei ${clientName}` : ""} zugewiesen. Bitte bestätigen oder ablehnen.${deadlineLabel ? ` Die Anfrage verfaellt am ${deadlineLabel}.` : ""}`,
+    entityType:  "worker_assignment_link",
+    entityId:    assignmentLinkId,
+    linkPath:    `/public/einsatzportal-benachrichtigungen.html`
+  });
+}
+
+/**
+ * Erinnerung an eine unbeantwortete ZUWEISUNG (nicht Staffing-Anfrage) — die
+ * 2-Stunden-Marke einer Ersatz-Anfrage (Owner-Entscheid: Frist 4 h).
+ *
+ * `throwOnError` wird vom Sweep IMMER gesetzt: Erinnerungsmarke und Meldung
+ * stehen dort in EINER Transaktion. Scheitert der INSERT, rollt die Marke mit
+ * zurueck und der naechste Lauf versucht es erneut — eine gesetzte Marke ohne
+ * Meldung waere eine Erinnerung, die nie jemand bekommt.
+ */
+export async function notifyAssignmentReminder(pool, workerUserId, assignmentLinkId, deadlineLabel, options = {}) {
+  await notifyWorker(pool, {
+    workerUserId,
+    type:        "worker_assignment_reminder",
+    title:       "Erinnerung: Einsatz-Anfrage wartet",
+    message:     `Ihre Antwort auf eine Einsatz-Zuweisung steht noch aus.${deadlineLabel ? ` Die Anfrage verfaellt um ${deadlineLabel}.` : ""} Danach wird der Platz neu vergeben.`,
+    entityType:  "worker_assignment_link",
+    entityId:    assignmentLinkId,
+    linkPath:    `/public/einsatzportal-benachrichtigungen.html`,
+    throwOnError: !!options.throwOnError
+  });
+}
+
+/**
+ * Die Anfrage ist verfallen — der Arbeiter erfaehrt es, sonst steht sie in
+ * seinem Portal ohne Erklaerung tot herum. Kein Vorwurf im Text: Verfall ist
+ * keine Absage, und die Zeile traegt bewusst 'expired' statt 'worker_declined'.
+ */
+export async function notifyAssignmentExpired(pool, workerUserId, assignmentLinkId, clientName) {
+  await notifyWorker(pool, {
+    workerUserId,
+    type:        "worker_assignment_expired",
+    title:       "Einsatz-Anfrage verfallen",
+    message:     `Die Anfrage${clientName ? ` fuer den Einsatz bei ${clientName}` : ""} wurde nicht rechtzeitig beantwortet und ist verfallen. Der Platz wird neu vergeben — es entsteht Ihnen kein Nachteil.`,
     entityType:  "worker_assignment_link",
     entityId:    assignmentLinkId,
     linkPath:    `/public/einsatzportal-benachrichtigungen.html`

@@ -425,6 +425,19 @@ const MATRIX = {
     recipientStrategy: 'org_worker_managers',
     linkPath: '/public/mitarbeiter.html#live-abwesend'
   },
+  /* Eine Ersatz-Anfrage ist nach 4 h unbeantwortet verfallen (Plan I, 8.2 /
+   * Migration 193). Geht an ALLE mit worker.manage, nicht nur an den, der die
+   * Anfrage stellte — der Verfall erzeugt Handlungsdruck, und der urspruengliche
+   * Disponent ist um 22 Uhr vielleicht nicht da. linkPath wird vom Aufrufer
+   * pro Meldung gesetzt (bueroDeepLink zum Ausgefallenen: der Link fuehrt zum
+   * Menschen, nicht auf eine Uebersicht); der Wert hier ist der Rueckfall. */
+  'worker.replacement_expired': {
+    type: 'worker_replacement_expired',
+    severity: 'warning',
+    title: 'Ersatz-Anfrage verfallen',
+    recipientStrategy: 'org_worker_managers',
+    linkPath: '/public/mitarbeiter.html#live-abwesend'
+  },
   'worker.delay_reported': {
     type: 'worker_delay_reported',
     severity: 'info',
