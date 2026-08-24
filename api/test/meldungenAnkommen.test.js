@@ -509,3 +509,141 @@ describe("Alle drei Zielarten sind welche, die die Tabelle erlaubt", () => {
     }
   });
 });
+
+
+describe("Person melden — melden darf nur, wer mit ihr zu tun hatte", () => {
+  /*
+   * OWNER-ENTSCHEID 2026-08-24, nach einer Revision: am 23.08. fiel die
+   * Entscheidung noch auf "ersatzlos entfernen" (Migration 191). Die zwei
+   * Blocker, die 191 dagegen anfuehrte, sind mit Migration 194 geloest statt
+   * umgangen — Organisation optional (par_org_pflicht_check haelt die
+   * Gegenrichtung), zwei echte Gruende statt Einschmelzen in `other`.
+   *
+   * WARUM EIN GEMEINSAMER DEAL: Ohne diese Bedingung waere die Route zweierlei
+   * auf einmal — ein Orakel fuer Nutzerkennungen und ein Weg, wahllos gegen
+   * Fremde zu melden. Jede Meldung kostet das Team dieselbe Bearbeitung wie
+   * eine echte.
+   */
+
+  const MELDER = "d0a00000-0000-0000-0000-000000000002";
+  const ZIEL = "98f83a6f-5d68-428c-86d1-75295aae4f34";
+  const KONTEXT_ORG = "ae376d4b-8608-4f80-aa7f-1c28614e461f";
+
+  async function rufePersonMelden(zeile, { koerper = { reason: "harassment" }, id = ZIEL } = {}) {
+    const { createProfileVisibilityRouter } = await import("../routes/profileVisibility.js");
+    const calls = [];
+    const pool = {
+      calls,
+      query: async (sql, params) => {
+        const text = String(sql);
+        calls.push({ sql: text, params: params || [] });
+        if (/FROM users u/.test(text)) {
+          return { rows: zeile ? [zeile] : [], rowCount: zeile ? 1 : 0 };
+        }
+        return { rows: [{ id: "report-1" }], rowCount: 1 };
+      },
+    };
+    const router = createProfileVisibilityRouter({
+      pool, requireAuth: (_q, _s, n) => n(), requireFeature: () => (_q, _s, n) => n(),
+      logger: { error() {}, warn() {}, info() {} },
+    });
+    const schicht = router.stack.find((s) => s.route?.path === "/users/:id/report");
+    assert.ok(schicht, "die Route /users/:id/report fehlt");
+    const handler = schicht.route.stack[schicht.route.stack.length - 1].handle;
+    let status = 200; let json = null;
+    const res = { status(c) { status = c; return this; }, json(j) { json = j; return this; } };
+    await handler({ params: { id }, body: koerper, session: { userId: MELDER }, headers: {} }, res);
+    return { status, json, calls };
+  }
+
+  const person = (extra = {}) => ({
+    id: ZIEL, gemeinsamer_deal: true, kontext_org_id: KONTEXT_ORG, ...extra,
+  });
+
+  it("wer mit der Person einen Deal hatte, darf sie melden", async () => {
+    const r = await rufePersonMelden(person());
+    assert.equal(r.status, 200);
+    const insert = r.calls.find((c) => /INSERT INTO profile_abuse_reports/.test(c.sql));
+    assert.ok(insert, "es muss eine Meldung entstehen");
+    assert.ok(insert.params.includes("nutzer") && insert.params.includes(ZIEL));
+    assert.ok(insert.params.includes("harassment"),
+      "`harassment` ist ein VERHALTEN — in `other` geschmolzen waere es unsichtbar");
+  });
+
+  it("ohne gemeinsamen Deal DIESELBE Antwort wie bei einer Kennung, die es nicht gibt", async () => {
+    const fremd = await rufePersonMelden(person({ gemeinsamer_deal: false }));
+    const weg = await rufePersonMelden(null);
+    assert.equal(fremd.status, 404);
+    assert.equal(weg.status, 404);
+    assert.deepEqual(fremd.json, weg.json,
+      "Unterschiedliche Antworten waeren ein Orakel: wer Kennungen durchprobiert, " +
+      "koennte daran ablesen, welche existieren.");
+    assert.ok(!fremd.calls.some((c) => /INSERT INTO profile_abuse_reports/.test(c.sql)));
+  });
+
+  it("sich selbst kann man nicht melden — vor jedem Datenbankzugriff", async () => {
+    const r = await rufePersonMelden(person(), { id: MELDER });
+    assert.equal(r.status, 400);
+    assert.equal(r.json?.error?.code, "SELF_REPORT_NOT_ALLOWED");
+    assert.equal(r.calls.length, 0, "der Riegel greift, bevor irgendetwas geladen wird");
+  });
+
+  it("die Deal-Bedingung gilt in BEIDE Richtungen", async () => {
+    const r = await rufePersonMelden(person());
+    const laden = r.calls.find((c) => /FROM users u/.test(c.sql));
+    assert.match(laden.sql, /o\.supplier_company_id = u\.id AND dr\.requester_company_id = \$2/,
+      "Melder als Besteller, Ziel als Anbieter");
+    assert.match(laden.sql, /o\.supplier_company_id = \$2 AND dr\.requester_company_id = u\.id/,
+      "und umgekehrt — sonst duerfte nur eine Seite melden");
+  });
+
+  it("ohne Organisation entsteht die Meldung trotzdem", async () => {
+    /* DER BLOCKER, an dem Migration 191 die Zusammenfuehrung scheitern liess:
+     * gemessen haben 144 von 395 Nutzern keine aktive Mitgliedschaft. Seit 194
+     * ist die Organisation bei ziel_art='nutzer' optionaler Kontext. */
+    const r = await rufePersonMelden(person({ kontext_org_id: null }));
+    assert.equal(r.status, 200);
+    const insert = r.calls.find((c) => /INSERT INTO profile_abuse_reports/.test(c.sql));
+    assert.ok(insert, "eine Person ohne Organisation muss meldbar sein");
+  });
+
+  it("ein erfundener Grund wird abgewiesen, bevor die Person geladen wird", async () => {
+    const r = await rufePersonMelden(person(), { koerper: { reason: "erfunden" } });
+    assert.equal(r.status, 400);
+    assert.equal(r.json?.error?.code, "VALIDATION");
+    assert.equal(r.calls.length, 0);
+  });
+});
+
+describe("Person melden — der Posteingang zeigt sie", () => {
+  const quelle = fs.readFileSync(new URL("../services/profileVisibilityService.js", import.meta.url), "utf8");
+
+  it("LEFT JOIN, nicht INNER — sonst waere genau diese Zielart unsichtbar", () => {
+    /*
+     * Bis Migration 194 war `reported_org_id` NOT NULL und dieser JOIN ein
+     * INNER. Fuer Org-Meldungen richtig, fuer Personen-Meldungen toedlich: die
+     * Meldung entstuende, der Melder bekaeme eine Bestaetigung, und im
+     * Posteingang waere sie nie aufgetaucht — schlimmer als gar keine
+     * Meldefunktion.
+     */
+    const block = quelle.slice(quelle.indexOf("export async function getPendingAbuseReports"),
+                               quelle.indexOf("LIMIT $1", quelle.indexOf("export async function getPendingAbuseReports")));
+    assert.match(block, /LEFT JOIN organizations o ON o\.id = par\.reported_org_id/);
+    assert.ok(!/\n\s+JOIN organizations o ON/.test(block),
+      "ein INNER JOIN auf die Organisation macht Personen-Meldungen unsichtbar");
+  });
+
+  it("und nennt die gemeldete Person, nicht nur eine Kennung", () => {
+    assert.match(quelle, /gemeldet\.email AS gemeldete_person_email/,
+      "ohne diese Felder saehe ein Bearbeiter nur eine UUID");
+    assert.match(quelle, /LEFT JOIN users gemeldet ON gemeldet\.id = par\.ziel_id AND par\.ziel_art = 'nutzer'/);
+  });
+
+  it("die Organisation ist nur noch fuer Org-Zielarten Pflicht", () => {
+    assert.match(quelle, /if \(zielArt !== "nutzer" && !reportedOrgId\) return \{ ok: false, reason: "MISSING_PARAMS" \};/,
+      "ein pauschaler !reportedOrgId-Riegel haette genau die Meldungen abgewiesen, " +
+      "fuer die diese Zielart gebaut wurde — und zwar aussehend wie ein Aufruferfehler");
+    assert.match(quelle, /if \(zielArt === "nutzer" && !zielId\)/,
+      "dafuer muss die Person selbst Pflicht sein — sonst zeigt die Meldung auf nichts");
+  });
+});

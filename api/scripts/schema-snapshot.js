@@ -89,17 +89,43 @@ SELECT json_build_object(
     FROM (
       SELECT tab, json_object_agg(spalte, werte) AS spalten
       FROM (
+        /*
+         * BEIDE DARSTELLUNGEN LESEN (Fund 2026-08-24).
+         *
+         * Hier stand LIKE '% = ANY %ARRAY[%' — also nur die Form
+         * = ANY (ARRAY['a'::text, ...]). Ein CHECK, der mit
+         * format('... CHECK (x = ANY (%L::text[]))', werte) geschrieben wird,
+         * sieht anders aus: = ANY ('{a,b,c}'::text[]).
+         *
+         * Und genau DAS ist das dokumentierte Hausmuster fuer additive
+         * CHECK-Erweiterungen (Vorlage 184_der_kunde_erfaehrt_dass_nicht_warum.sql,
+         * uebernommen von 189/190/193/194). Wer dem Muster folgte, liess die
+         * betroffene Spalte lautlos aus pruefwerte fallen — und jeder
+         * Waechter, der sich darauf stuetzt, hoerte auf zu pruefen, ohne rot zu
+         * werden. Gemessen waren drei sicherheitsrelevante Spalten betroffen:
+         * worker_assignment_links.worker_confirmation_status,
+         * notifications.type und profile_abuse_reports.reason.
+         *
+         * Die Literal-Form wird deshalb zuerst versucht und als Array geparst;
+         * nur wenn sie nicht greift, kommt die ARRAY[]-Form zum Zug.
+         */
         SELECT t.relname AS tab,
                (regexp_match(pg_get_constraintdef(c.oid), '\\(?([a-z_]+)\\)?(::text)? = ANY'))[1] AS spalte,
-               (SELECT json_agg(w ORDER BY w)
-                  FROM regexp_matches(pg_get_constraintdef(c.oid), '''([^'']+)''::', 'g') AS m(w2),
-                       LATERAL (SELECT m.w2[1]) AS x(w)) AS werte
+               COALESCE(
+                 (SELECT json_agg(w ORDER BY w)
+                    FROM unnest(
+                      ((regexp_match(pg_get_constraintdef(c.oid), '''(\\{.*\\})''::text\\[\\]'))[1])::text[]
+                    ) AS u(w)),
+                 (SELECT json_agg(w ORDER BY w)
+                    FROM regexp_matches(pg_get_constraintdef(c.oid), '''([^'']+)''::', 'g') AS m(w2),
+                         LATERAL (SELECT m.w2[1]) AS x(w))
+               ) AS werte
         FROM pg_constraint c
         JOIN pg_class t ON t.oid = c.conrelid
         JOIN pg_namespace n ON n.oid = t.relnamespace
         WHERE c.contype = 'c'
           AND n.nspname = 'public'
-          AND pg_get_constraintdef(c.oid) LIKE '% = ANY %ARRAY[%'
+          AND pg_get_constraintdef(c.oid) LIKE '% = ANY %'
       ) roh
       WHERE spalte IS NOT NULL
       GROUP BY tab

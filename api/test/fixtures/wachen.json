@@ -1430,69 +1430,6 @@
       "begruendung": "Fortschritt der eigenen Einrichtung."
     },
     {
-      "datei": "organizations.js",
-      "methode": "post",
-      "pfad": "/organizations",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `parentOrgBoundary` (Konzerngrenze) steht vor diesem Weg."
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "patch",
-      "pfad": "/organizations/:id",
-      "wachart": "berechtigung",
-      "orgGeprueft": true
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "post",
-      "pfad": "/organizations/:id/departments",
-      "wachart": "berechtigung",
-      "orgGeprueft": true
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "delete",
-      "pfad": "/organizations/:id/departments/:deptId",
-      "wachart": "berechtigung",
-      "orgGeprueft": true
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "put",
-      "pfad": "/organizations/:id/departments/:deptId",
-      "wachart": "berechtigung",
-      "orgGeprueft": true
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "post",
-      "pfad": "/organizations/:id/locations",
-      "wachart": "berechtigung",
-      "orgGeprueft": true
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "delete",
-      "pfad": "/organizations/:id/locations/:locId",
-      "wachart": "berechtigung",
-      "orgGeprueft": true
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "put",
-      "pfad": "/organizations/:id/locations/:locId",
-      "wachart": "berechtigung",
-      "orgGeprueft": true
-    },
-    {
-      "datei": "organizations.js",
-      "methode": "post",
-      "pfad": "/organizations/:id/members",
-      "wachart": "berechtigung",
-      "orgGeprueft": true
-    },
-    {
       "datei": "orgControlCenter.js",
       "methode": "post",
       "pfad": "/org/api-keys",
@@ -1605,6 +1542,69 @@
       "methode": "patch",
       "pfad": "/org/security",
       "wachart": "berechtigung"
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "post",
+      "pfad": "/organizations",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `parentOrgBoundary` (Konzerngrenze) steht vor diesem Weg."
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "patch",
+      "pfad": "/organizations/:id",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "post",
+      "pfad": "/organizations/:id/departments",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "delete",
+      "pfad": "/organizations/:id/departments/:deptId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "put",
+      "pfad": "/organizations/:id/departments/:deptId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "post",
+      "pfad": "/organizations/:id/locations",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "delete",
+      "pfad": "/organizations/:id/locations/:locId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "put",
+      "pfad": "/organizations/:id/locations/:locId",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
+    },
+    {
+      "datei": "organizations.js",
+      "methode": "post",
+      "pfad": "/organizations/:id/members",
+      "wachart": "berechtigung",
+      "orgGeprueft": true
     },
     {
       "datei": "ownerControlCenter.js",
@@ -1855,6 +1855,13 @@
       "pfad": "/profile-visibility/settings/submit",
       "wachart": "eigene-daten",
       "begruendung": "Die Sichtbarkeitseinstellungen des eigenen Profils."
+    },
+    {
+      "datei": "profileVisibility.js",
+      "methode": "post",
+      "pfad": "/users/:id/report",
+      "wachart": "eigene-daten",
+      "begruendung": "Eine FREMDE Person zu melden ist der Zweck — eine Org-Grenze waere hier das Gegenteil von richtig. Was die Route sperrt: (1) Selbst-Report, (2) fehlender gemeinsamer Deal. \"Zu tun gehabt\" heisst: in mindestens einem Deal auf der jeweils anderen Seite gestanden (offers.supplier_company_id gegen demand_requests.requester_company_id, beide Richtungen). Ohne diese Bedingung waere die Route ein Orakel fuer Nutzerkennungen UND ein Weg, wahllos gegen Fremde zu melden. \"Gibt es nicht\" und \"nie miteinander zu tun gehabt\" bekommen DIESELBE Antwort (404)."
     },
     {
       "datei": "proofs.js",
@@ -2696,6 +2703,41 @@
       "begruendung": "Ein Kunde eroeffnet seinen EIGENEN Support-Fall. Der Melder wird aus der Sitzung genommen (`req.session.userId`), nie aus dem Koerper der Anfrage � es gibt keinen Weg, einen Fall im Namen eines anderen zu eroeffnen. Bewusst NICHT unter dem Praefix `/support`: dort steht das Staff-Tor `supportAuth`, und eine Kundenroute darunter waere ein Loch, das ab da fuer alle Routen darunter gilt."
     },
     {
+      "datei": "timesheetTemplates.js",
+      "methode": "post",
+      "pfad": "/timesheet-templates",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
+    },
+    {
+      "datei": "timesheetTemplates.js",
+      "methode": "delete",
+      "pfad": "/timesheet-templates/:id",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
+    },
+    {
+      "datei": "timesheetTemplates.js",
+      "methode": "patch",
+      "pfad": "/timesheet-templates/:id",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
+    },
+    {
+      "datei": "timesheetTemplates.js",
+      "methode": "post",
+      "pfad": "/timesheet-templates/:id/assign",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
+    },
+    {
+      "datei": "timesheetTemplates.js",
+      "methode": "delete",
+      "pfad": "/timesheet-templates/assignment/:assignmentId",
+      "wachart": "flaechentor",
+      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
+    },
+    {
       "datei": "timesheets.js",
       "methode": "post",
       "pfad": "/timesheets",
@@ -2788,41 +2830,6 @@
       "methode": "post",
       "pfad": "/timesheets/prefill",
       "wachart": "berechtigung"
-    },
-    {
-      "datei": "timesheetTemplates.js",
-      "methode": "post",
-      "pfad": "/timesheet-templates",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
-    },
-    {
-      "datei": "timesheetTemplates.js",
-      "methode": "delete",
-      "pfad": "/timesheet-templates/:id",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
-    },
-    {
-      "datei": "timesheetTemplates.js",
-      "methode": "patch",
-      "pfad": "/timesheet-templates/:id",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
-    },
-    {
-      "datei": "timesheetTemplates.js",
-      "methode": "post",
-      "pfad": "/timesheet-templates/:id/assign",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
-    },
-    {
-      "datei": "timesheetTemplates.js",
-      "methode": "delete",
-      "pfad": "/timesheet-templates/assignment/:assignmentId",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
     },
     {
       "datei": "vendorPool.js",
@@ -3302,7 +3309,7 @@
     }
   ],
   "grundlinie": {
-    "wege": 468,
+    "wege": 469,
     "berechtigung": 161,
     "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-22 von 415 auf 416 erhoeht: Abschnitt 10 hat mit `POST /support-requests` den Weg eines Kunden INS Support Center angelegt — vorher hatte `support_cases` im gesamten Repo kein einziges INSERT, das Support Center war ein Lesesaal ueber einer Tabelle, die niemand fuellen konnte. Die Wachart bleibt `eigene-daten`: der Melder kommt aus der Sitzung, nicht aus dem Anfragekoerper. Am 2026-08-22 weiter auf 417: `POST /offers/:id/report` (Abschnitt 10, Inhalte melden). `berechtigung` unveraendert bei 161. Am 2026-08-23 von 418 auf 417 GESENKT: `POST /reports` wurde nach Owner-Entscheid ENTFERNT (0 Aufrufer, 0 Zeilen; Migration 191). Eine Route, die es nicht mehr gibt, kann nicht bewacht werden — stattdessen haelt eine Probe fest, dass sie nicht zurueckkehrt. Am 2026-08-24 weiter auf 419: `PATCH /staff-access/:userId/role` (Rollen vergeben, Owner-Entscheid). `berechtigung` unveraendert bei 161. Am 2026-08-24 sprunghaft auf 456: der Waechter montierte pro Datei nur die ERSTE `create*Router`-Fabrik. `staffControlCenter.js` exportiert zwei — die Auth-Fabrik (1 Weg) steht vor der Center-Fabrik (50 Wege). Die gesamte schreibende Flaeche des Staff Control Center war damit fuer das Bestandsbuch blind. Der Waechter montiert jetzt alle Fabriken."
   }

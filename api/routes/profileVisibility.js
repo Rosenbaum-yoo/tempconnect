@@ -413,6 +413,115 @@ export function createProfileVisibilityRouter(deps) {
    * "Freche oder betruegerische Inhalte" (Owner-Vorgabe) trifft vor allem die
    * zweite. Statt zu raten, welche gemeint war, tragen beide.
    */
+  /*
+   * EINE PERSON MELDEN (Plan I, 10 — Owner-Entscheid 2026-08-24).
+   *
+   * VORGESCHICHTE: Am 2026-08-23 fiel die Entscheidung anders; Migration 191
+   * hat die alte Tabelle `reports` samt Route entfernt. Der Owner hat sie am
+   * 2026-08-24 revidiert: Personen-Meldungen gehoeren ins Produkt. Der Weg ist
+   * jetzt sauberer als er damals gewesen waere — kein Datenumzug, kein
+   * Verschmelzen zweier fast disjunkter Grund-Vokabulare, sondern die vierte
+   * Zielart derselben Tabelle (Migration 194).
+   *
+   * WARUM DIE DEALAKTE DIE HEIMAT IST: `offers.supplier_company_id` und
+   * `demand_requests.requester_company_id` SIND Nutzerkennungen — im Deal steht
+   * sich Person gegen Person gegenueber. Das ist die einzige Flaeche des
+   * Produkts, auf der ein Nutzer einem anderen NUTZER begegnet (ueberall sonst
+   * sieht man Organisationen, Angebote oder blosse Namensfelder). Genau dort
+   * entsteht auch das Verhalten, das die neuen Gruende `fraud` und
+   * `harassment` benennen: Betrug ist kein Inhalt, Belaestigung auch nicht.
+   *
+   * MELDEN DARF NUR, WER MIT DER PERSON ZU TUN HATTE. Ohne diese Bedingung
+   * waere die Route zweierlei auf einmal: ein Orakel fuer Nutzerkennungen und
+   * ein Weg, wahllos Meldungen gegen Fremde abzusetzen — jede kostet das Team
+   * dieselbe Bearbeitung wie eine echte. "Zu tun gehabt" heisst hier: in
+   * mindestens einem Deal auf der jeweils anderen Seite gestanden.
+   */
+  const personMeldenSchema = z.object({
+    /* Zwei Gruende mehr als bei Inhalts-Meldungen. Sie NICHT in `other` zu
+     * schmelzen ist der ganze Punkt: `other` ist der Eimer, den ein Bearbeiter
+     * zuletzt oeffnet. */
+    reason:  z.enum(["spam", "fraud", "harassment", "misleading_info", "inappropriate_content", "other"]),
+    details: z.string().max(500).optional().nullable()
+  });
+
+  router.post("/users/:id/report", requireAuth, async (req, res) => {
+    const parsed = personMeldenSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return fail(res, 400, "VALIDATION", "reason erforderlich (spam | fraud | harassment | misleading_info | inappropriate_content | other).");
+    }
+    const zielId = String(req.params.id || "");
+    if (zielId === req.session.userId) {
+      return fail(res, 400, "SELF_REPORT_NOT_ALLOWED", "Sich selbst kann man nicht melden.");
+    }
+    try {
+      const { rows } = await pool.query(
+        `SELECT u.id,
+                /* Gemeinsamer Deal in BEIDE Richtungen: der Melder kann der
+                 * Besteller sein und die Zielperson der Anbieter — oder
+                 * umgekehrt. */
+                EXISTS (
+                  SELECT 1
+                    FROM offers o
+                    JOIN demand_requests dr ON dr.id = o.demand_request_id
+                   WHERE (o.supplier_company_id = u.id AND dr.requester_company_id = $2)
+                      OR (o.supplier_company_id = $2 AND dr.requester_company_id = u.id)
+                ) AS gemeinsamer_deal,
+                /* Die Organisation ist ab Migration 194 optionaler KONTEXT,
+                 * nicht Traeger: gemessen haben 144 von 395 Nutzern keine
+                 * aktive Mitgliedschaft. Fehlt sie, entsteht die Meldung
+                 * trotzdem — der Posteingang verbindet per LEFT JOIN. */
+                (SELECT m.org_id
+                   FROM org_memberships m
+                  WHERE m.user_id = u.id AND m.is_active = TRUE
+                  ORDER BY m.created_at ASC
+                  LIMIT 1) AS kontext_org_id
+           FROM users u
+          WHERE u.id = $1`,
+        [zielId, req.session.userId]
+      );
+      const person = rows[0];
+
+      /* "Gibt es nicht" und "hattet ihr nie miteinander zu tun" bekommen
+       * DIESELBE Antwort. Unterschiedliche waeren ein Orakel: wer Kennungen
+       * durchprobiert, koennte daran ablesen, welche existieren. */
+      if (!person || !person.gemeinsamer_deal) {
+        logger.warn({ reporterId: req.session.userId, grund: person ? "kein_gemeinsamer_deal" : "unbekannt" },
+          "POST /users/:id/report abgewiesen");
+        return fail(res, 404, "USER_NOT_FOUND", "Person nicht gefunden.");
+      }
+
+      const result = await visSvc.reportProfileAbuse(pool, {
+        reportedOrgId:  person.kontext_org_id || null,
+        reporterUserId: req.session.userId,
+        reason:         parsed.data.reason,
+        details:        parsed.data.details || null,
+        zielArt:        "nutzer",
+        zielId:         person.id
+      });
+
+      if (!result.ok) {
+        if (result.fehler) {
+          logger.error({ err: result.fehler, zielId }, "Personen-Meldung konnte nicht gespeichert werden");
+        }
+        return fail(res, 400, result.reason, "Meldung konnte nicht gespeichert werden.");
+      }
+
+      writeAudit(pool, {
+        action:      "user.abuse_reported",
+        entity_type: "profile_abuse_report",
+        entity_id:   result.id || person.id,
+        actor_id:    req.session.userId,
+        details:     { reason: parsed.data.reason, reported_user_id: person.id, kontext_org_id: person.kontext_org_id || null }
+      }).catch(swallow("profileVisibility"));
+
+      ok(res, { reported: true });
+    } catch (e) {
+      logger.error({ err: e }, "POST /users/:id/report");
+      fail(res, 500, "SERVER_ERROR", "Meldung fehlgeschlagen.");
+    }
+  });
+
   router.post("/capacity-posts/:id/report", requireAuth, async (req, res) => {
     const parsed = angebotMeldenSchema.safeParse(req.body);
     if (!parsed.success) {

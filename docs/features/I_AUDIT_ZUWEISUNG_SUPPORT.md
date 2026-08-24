@@ -1167,3 +1167,63 @@ hinsieht. Er montiert jetzt **alle** Fabriken; die Grundlinie springt von 419 au
 Nebenbei sichtbar geworden und noch zu bewerten: `POST
 /preregistrations/:id/status` mutiert mit **nur** `requireStaff` — ohne Step-up,
 ohne Begründung.
+
+---
+
+## Personen melden — gebaut am 2026-08-24 (Owner-Entscheid, revidiert)
+
+**Die Vorgeschichte gehört dazu:** Am 23.08. fiel die Entscheidung auf
+*„ersatzlos entfernen"* — `191_ein_meldeweg_weniger.sql` hat Tabelle, Route und
+Dienst beseitigt. Am 24.08. hat der Owner sie revidiert: Personen-Meldungen
+gehören ins Produkt. Meine Frage dazu war schlecht gestellt (sie beschrieb die
+Tabelle, als gäbe es sie noch) — die Antwort ist trotzdem eindeutig, und der Weg
+ist jetzt **sauberer**, als er am 23.08. gewesen wäre: kein Datenumzug, kein
+Verschmelzen zweier fast disjunkter Vokabulare, sondern die vierte Zielart
+derselben Tabelle.
+
+Migration 191 nannte zwei Blocker. Beide sind jetzt **gelöst statt umgangen**:
+
+| Blocker (191) | Lösung (194) |
+|---|---|
+| `reported_org_id` ist NOT NULL, der Posteingang verbindet mit **INNER JOIN** — 144 von 395 Nutzern haben keine Organisation, ihre Meldung wäre unsichtbar | Die Organisation wird **Kontext statt Träger**: nullable, Posteingang auf LEFT JOIN. Ein Bericht über eine Person hat als Gegenstand die Person; `ziel_art`/`ziel_id` tragen ihn seit 189/190 selbst. `par_org_pflicht_check` hält fest, dass die drei **Organisations**-Zielarten sie weiterhin brauchen — die Lockerung ist kein Loch. |
+| `betrug` und `belaestigung` haben keine Entsprechung; in `other` einzuschmelzen löscht die Unterscheidung | Zwei **echte** Werte: `fraud` und `harassment`. Betrug ist nicht `fake_profile` (eine Firma kann echt sein und trotzdem betrügen) und nicht `misleading_info` (das ist eine Angabe, kein Vorsatz); Belästigung ist ein **Verhalten**, `inappropriate_content` ein **Inhalt**. `other` ist der Eimer, den ein Bearbeiter zuletzt öffnet. |
+
+**Wo der Knopf sitzt:** in der Dealakte. `offers.supplier_company_id` und
+`demand_requests.requester_company_id` *sind* Nutzerkennungen — das ist die
+einzige Fläche des Produkts, auf der ein Nutzer einem anderen **Nutzer**
+begegnet. Zwei Knöpfe nebeneinander, weil es zwei verschiedene Dinge sind: der
+eine meldet den **Inhalt** des Angebots, der andere das **Verhalten** der
+Gegenperson.
+
+**Melden darf nur, wer mit der Person zu tun hatte** — mindestens ein
+gemeinsamer Deal, in beide Richtungen geprüft. Ohne diese Bedingung wäre die
+Route zweierlei auf einmal: ein Orakel für Nutzerkennungen und ein Weg, wahllos
+gegen Fremde zu melden. „Gibt es nicht" und „nie miteinander zu tun gehabt"
+antworten deshalb **gleich**.
+
+**An echten Daten belegt:** beide Deal-Richtungen 200 · Selbst-Report 400 ·
+Fremder 404 · nicht existierende Kennung 404 (*dieselbe* Antwort) · erfundener
+Grund 400 vor jedem Datenbankzugriff · Meldung über eine Person **ohne
+Organisation** gespeichert **und im Posteingang sichtbar** · Gegenprobe:
+Profilmeldung ohne Organisation scheitert an `par_org_pflicht_check`.
+
+### Der Nebenfund: das Hausmuster fiel aus der Prüfung
+
+Beim Nachziehen des Schema-Abzugs biss ein Wächter mit `TypeError` statt mit
+einer Aussage. Ursache im Abzug-Generator:
+
+```sql
+AND pg_get_constraintdef(c.oid) LIKE '% = ANY %ARRAY[%'
+```
+
+Ein CHECK, der mit `format('… %L::text[]', werte)` geschrieben wird, sieht anders
+aus: `= ANY ('{a,b,c}'::text[])`. Und **genau das ist das dokumentierte
+Hausmuster** für additive CHECK-Erweiterungen (Vorlage 184, übernommen von
+189/190/193/194). Wer dem Muster folgte, ließ die betroffene Spalte lautlos aus
+`pruefwerte` fallen — und jeder Wächter, der sich darauf stützt, hörte auf zu
+prüfen, ohne rot zu werden.
+
+Betroffen waren drei sicherheitsrelevante Spalten:
+`worker_assignment_links.worker_confirmation_status`, `notifications.type`,
+`profile_abuse_reports.reason`. Der Abzug liest jetzt **beide** Darstellungen;
+alle drei sind wieder in der Prüfung.

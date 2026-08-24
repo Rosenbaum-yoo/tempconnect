@@ -2752,6 +2752,13 @@
           "pfad": "/profile-visibility/public/:orgId",
           "urteil": "bewusste-ausnahme",
           "begruendung": "AUSDRUECKLICH OEFFENTLICH ('/public/' im Pfad): die Aussenansicht eines Profils."
+        },
+        {
+          "methode": "post",
+          "pfad": "/users/:id/report",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Der Gegenstand ist eine PERSON, keine Organisation — seit Migration 194 ist reported_org_id fuer ziel_art='nutzer' optionaler Kontext (gemessen: 144 von 395 Nutzern haben keine aktive Mitgliedschaft). Die Grenze zieht der gemeinsame Deal, nicht die Org.",
+          "art": "ressource"
         }
       ],
       "hinweis": "Profil-Sichtbarkeit ist eine Marktplatz-Flaeche: fremde Profile ansehen, mit 'gefaellt mir' versehen, merken oder melden ist der ZWECK. Der Handelnde wird ueber die Sitzung gebunden (liker_user_id / owner_user_id), nicht ueber die Ziel-Org."

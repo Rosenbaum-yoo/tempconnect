@@ -129,6 +129,15 @@
     'demd.od.melden.title': 'Inhalt melden',
     'demd.od.melden.hint': 'Wirkt dieses Angebot betruegerisch, unserioes oder unangemessen? Eine Meldung geht direkt an das TempConnect-Team und wird dort geprueft. Der Anbieter erfaehrt nicht, wer gemeldet hat.',
     'demd.od.melden.open': 'Angebot melden',
+    'demd.od.person.open': 'Person melden',
+    'demd.od.person.detailsPlaceholder': 'Was ist vorgefallen? (optional)',
+    'demd.od.person.ok': 'Danke — die Meldung ist beim TempConnect-Team eingegangen. Die gemeldete Person erfaehrt nicht, wer gemeldet hat.',
+    'demd.od.person.grund.fraud': 'Betrug oder Taeuschung',
+    'demd.od.person.grund.harassment': 'Belaestigung oder respektloses Verhalten',
+    'demd.od.person.grund.spam': 'Spam oder Werbung',
+    'demd.od.person.grund.misleading_info': 'Falsche Angaben',
+    'demd.od.person.grund.inappropriate_content': 'Unangemessene Inhalte',
+    'demd.od.person.grund.other': 'Sonstiges',
     'demd.od.melden.send': 'Meldung absenden',
     'demd.od.melden.sending': 'Wird gesendet \u2026',
     'demd.od.melden.ok': 'Danke \u2014 die Meldung ist beim TempConnect-Team eingegangen.',
@@ -388,6 +397,15 @@
     'demd.od.melden.title': 'Report content',
     'demd.od.melden.hint': 'Does this offer look fraudulent, dubious or inappropriate? A report goes straight to the TempConnect team for review. The supplier is not told who reported it.',
     'demd.od.melden.open': 'Report offer',
+    'demd.od.person.open': 'Report person',
+    'demd.od.person.detailsPlaceholder': 'What happened? (optional)',
+    'demd.od.person.ok': 'Thank you — the TempConnect team has received your report. The reported person is not told who reported them.',
+    'demd.od.person.grund.fraud': 'Fraud or deception',
+    'demd.od.person.grund.harassment': 'Harassment or disrespectful conduct',
+    'demd.od.person.grund.spam': 'Spam or advertising',
+    'demd.od.person.grund.misleading_info': 'False information',
+    'demd.od.person.grund.inappropriate_content': 'Inappropriate content',
+    'demd.od.person.grund.other': 'Other',
     'demd.od.melden.send': 'Send report',
     'demd.od.melden.sending': 'Sending \u2026',
     'demd.od.melden.ok': 'Thank you \u2014 the TempConnect team has received your report.',
@@ -1087,10 +1105,25 @@
       h += '</div>';
       h += '<div id="od-melden-msg" style="display:none;font-size:12px;line-height:1.6;margin-bottom:8px"></div>';
       h += '<button type="button" class="ds-btn" id="od-melden-oeffnen">' + esc(TCi18n.t('demd.od.melden.open')) + '</button>';
+      /* PERSON MELDEN (Migration 194). Zwei verschiedene Dinge, deshalb zwei
+         Knoepfe: der erste meldet den INHALT des Angebots, der zweite das
+         VERHALTEN der Gegenperson. Genau dafuer gibt es seit 194 die Gruende
+         `fraud` und `harassment` — Betrug ist kein Inhalt, Belaestigung auch
+         nicht. Die Dealakte ist die einzige Flaeche des Produkts, auf der ein
+         Nutzer einem anderen NUTZER begegnet: supplier_company_id und
+         requester_company_id sind Nutzerkennungen. */
+      h += ' <button type="button" class="ds-btn" id="od-person-oeffnen">' + esc(TCi18n.t('demd.od.person.open')) + '</button>';
+      h += '<div id="od-person-form" style="display:none;margin-top:10px">';
+      h += '<select id="od-person-grund" class="ds-input" style="width:100%;max-width:340px;margin-bottom:8px"></select>';
+      h += '<textarea id="od-person-text" class="ds-input" style="width:100%;min-height:80px;margin-bottom:8px" maxlength="500" placeholder="' + esc(TCi18n.t('demd.od.person.detailsPlaceholder')) + '"></textarea>';
+      h += '<div><button type="button" class="ds-btn ds-btn--primary" id="od-person-senden">' + esc(TCi18n.t('demd.od.melden.send')) + '</button></div>';
+      h += '<div id="od-person-msg" style="display:none;font-size:12px;line-height:1.6;margin-top:8px"></div>';
+      h += '</div>';
       h += '</div>';
 
       root.innerHTML = h;
       verdrahteMelden(o);
+      verdrahtePersonMelden(o);
       renderStaffingBlock(o).catch(function () { /* non-critical */ });
     }
 
@@ -1105,6 +1138,87 @@
       el.textContent = text;
       el.style.color = gut ? 'var(--ds-success-text,#1a7f37)' : 'var(--ds-danger-text,#b42318)';
       el.style.display = 'block';
+    }
+
+    /* Gruende der PERSONEN-Meldung. Zwei mehr als beim Inhalt, und die zwei
+       sind der ganze Punkt: `fraud` ist nicht `fake_profile` (eine Firma kann
+       echt sein und trotzdem betruegen), `harassment` ist ein Verhalten, kein
+       Inhalt. In `other` geschmolzen waeren sie unsichtbar. */
+    var PERSON_GRUENDE = ['fraud', 'harassment', 'spam', 'misleading_info', 'inappropriate_content', 'other'];
+
+    function verdrahtePersonMelden(o) {
+      var oeffnen = document.getElementById('od-person-oeffnen');
+      var senden  = document.getElementById('od-person-senden');
+      var form    = document.getElementById('od-person-form');
+      if (!oeffnen || !senden || !form) return;
+
+      /* Die Gegenperson: wer ICH bin, entscheidet, wen ich melde. Der Server
+         prueft es ohnehin (gemeinsamer Deal, kein Selbst-Report) — das hier
+         ist Anzeige, damit im Text der richtige Name steht. */
+      var gegenperson = null;
+      fetch('/api/me', { credentials: 'include' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (m) {
+          var ich = m && (m.user ? m.user.id : m.id);
+          if (!ich) return;
+          gegenperson = String(ich) === String(o.supplier_company_id)
+            ? o.requester_company_id
+            : o.supplier_company_id;
+          if (!gegenperson) return;
+          oeffnen.style.display = '';
+        })
+        .catch(function () { /* im Zweifel nicht anbieten */ });
+      oeffnen.style.display = 'none';
+
+      var grund = document.getElementById('od-person-grund');
+      PERSON_GRUENDE.forEach(function (g) {
+        var opt = document.createElement('option');
+        opt.value = g;
+        opt.textContent = TCi18n.t('demd.od.person.grund.' + g);
+        grund.appendChild(opt);
+      });
+
+      oeffnen.addEventListener('click', function () {
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+      });
+
+      senden.addEventListener('click', function () {
+        var msg = document.getElementById('od-person-msg');
+        function zeige(text, gut) {
+          msg.textContent = text;
+          msg.style.color = gut ? 'var(--ds-success-text,#1a7f37)' : 'var(--ds-danger-text,#b42318)';
+          msg.style.display = 'block';
+        }
+        if (!gegenperson) { zeige(TCi18n.t('demd.od.melden.err'), false); return; }
+        senden.disabled = true;
+        var vorher = senden.textContent;
+        senden.textContent = TCi18n.t('demd.od.melden.sending');
+        fetch('/api/csrf', { credentials: 'include' })
+          .then(function (r) { return r.ok ? r.json() : {}; })
+          .then(function (csrf) {
+            return fetch('/api/users/' + encodeURIComponent(gegenperson) + '/report', {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf.token || '' },
+              body: JSON.stringify({
+                reason: grund.value || 'other',
+                details: document.getElementById('od-person-text').value.trim() || null
+              })
+            });
+          })
+          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
+          .then(function (a) {
+            if (a.ok) {
+              zeige(TCi18n.t('demd.od.person.ok'), true);
+              form.style.display = 'none';
+              oeffnen.style.display = 'none';
+              return;
+            }
+            zeige((a.body && a.body.error && a.body.error.message) || TCi18n.t('demd.od.melden.err'), false);
+          })
+          .catch(function () { zeige(TCi18n.t('demd.od.melden.err'), false); })
+          .then(function () { senden.disabled = false; senden.textContent = vorher; });
+      });
     }
 
     function verdrahteMelden(o) {

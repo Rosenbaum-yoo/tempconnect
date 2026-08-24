@@ -357,6 +357,17 @@ const GRUND_ABBILDUNG = Object.freeze({
 });
 const ERLAUBTE_GRUENDE = Object.freeze([
   "spam", "fake_profile", "misleading_info", "inappropriate_content", "other",
+  /* Mit der Personen-Meldung (194) kommen zwei Gruende dazu, die es bisher
+   * nicht gab — und die man NICHT in `other` einschmelzen darf:
+   *   `fraud`      ist nicht `fake_profile` (eine Firma kann echt sein und
+   *                trotzdem betruegen) und nicht `misleading_info` (das ist
+   *                eine Angabe, kein Vorsatz).
+   *   `harassment` ist ein VERHALTEN zwischen Personen,
+   *                `inappropriate_content` ein INHALT.
+   * `other` ist der Eimer, den ein Bearbeiter zuletzt oeffnet. Wer die
+   * Unterscheidung dort begraebt, loescht genau den Grund, aus dem jemand
+   * gemeldet hat. */
+  "fraud", "harassment",
 ]);
 
 export async function reportProfileAbuse(pool, {
@@ -368,14 +379,25 @@ export async function reportProfileAbuse(pool, {
   }
   /* profil = die Organisation selbst, angebot = eine Zeile aus `offers`
    * (sehen nur die zwei Parteien), kapazitaet = eine Zeile aus
-   * `capacity_posts` (sieht jeder angemeldete Nutzer mit SLA-Zugang).
-   * Die Liste muss mit dem CHECK aus Migration 190 uebereinstimmen — eine
-   * Probe haelt beide gegeneinander. */
-  if (!["profil", "angebot", "kapazitaet"].includes(zielArt)) {
+   * `capacity_posts` (sieht jeder angemeldete Nutzer mit SLA-Zugang),
+   * nutzer = eine PERSON (Migration 194).
+   * Die Liste muss mit dem CHECK uebereinstimmen — eine Probe haelt beide
+   * gegeneinander. */
+  if (!["profil", "angebot", "kapazitaet", "nutzer"].includes(zielArt)) {
     return { ok: false, reason: "INVALID_TARGET" };
   }
-  // Kein Selbst-Report
-  if (!reportedOrgId || !reporterUserId) return { ok: false, reason: "MISSING_PARAMS" };
+  /*
+   * Die Organisation ist seit Migration 194 nur noch fuer die drei
+   * ORGANISATIONS-Zielarten Pflicht. Bei ziel_art='nutzer' ist Gegenstand der
+   * Meldung die PERSON; die Organisation ist optionaler Kontext, und gemessen
+   * haben 144 von 395 Nutzern gar keine. Ein `!reportedOrgId`-Riegel hier haette
+   * genau die Meldungen abgewiesen, fuer die diese Zielart gebaut wurde — und
+   * zwar mit MISSING_PARAMS, also aussehend wie ein Aufruferfehler.
+   * Der CHECK `par_org_pflicht_check` haelt die andere Richtung in der Datenbank.
+   */
+  if (!reporterUserId) return { ok: false, reason: "MISSING_PARAMS" };
+  if (zielArt !== "nutzer" && !reportedOrgId) return { ok: false, reason: "MISSING_PARAMS" };
+  if (zielArt === "nutzer" && !zielId) return { ok: false, reason: "MISSING_TARGET" };
   /* Bei einer Profilmeldung IST das Ziel die Organisation. Die Spalte bewusst
    * auch dann zu fuellen erspart einen COALESCE-Ausdrucksindex — und genau so
    * ein Index war Fehler 2. */
@@ -419,9 +441,24 @@ export async function getPendingAbuseReports(pool, { limit = 100 } = {}) {
       `SELECT par.id, par.reason, par.details, par.status,
               par.created_at, par.updated_at,
               par.ziel_art, par.ziel_id,
-              o.name AS reported_org_name, par.reported_org_id
+              o.name AS reported_org_name, par.reported_org_id,
+              /* Bei ziel_art='nutzer' ist die Person der Gegenstand — ohne
+               * diese Felder saehe ein Bearbeiter nur eine Kennung. */
+              gemeldet.email AS gemeldete_person_email,
+              TRIM(COALESCE(gemeldet.contact_person, '')) AS gemeldete_person_name
        FROM profile_abuse_reports par
-       JOIN organizations o ON o.id = par.reported_org_id
+       /*
+        * LEFT JOIN, nicht INNER (Migration 194).
+        *
+        * Bis dahin war reported_org_id NOT NULL und dieser JOIN ein INNER —
+        * fuer Org-Meldungen richtig, fuer Personen-Meldungen toedlich: gemessen
+        * am 2026-08-24 haben 144 von 395 Nutzern keine aktive Mitgliedschaft.
+        * Eine Meldung ueber einen von ihnen waere hier unsichtbar geblieben,
+        * waehrend der Melder eine Bestaetigung bekommt — schlimmer als gar
+        * keine Meldefunktion.
+        */
+       LEFT JOIN organizations o ON o.id = par.reported_org_id
+       LEFT JOIN users gemeldet ON gemeldet.id = par.ziel_id AND par.ziel_art = 'nutzer'
        WHERE par.status IN ('open', 'under_review')
        ORDER BY par.created_at ASC
        LIMIT $1`,
