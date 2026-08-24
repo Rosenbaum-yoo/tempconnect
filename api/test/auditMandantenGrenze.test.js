@@ -138,7 +138,85 @@ describe("Audit-Mandantengrenze — die Schreibseite", () => {
     assert.match(orgContext, /userId: req\.session\.userId/,
       "der Zwischenspeicher wird ohne Nutzer geschrieben und ist damit nicht pruefbar");
   });
+
+  /*
+   * DIE ZWEITE HAELFTE DER SCHREIBSEITE — die req-lose Form.
+   *
+   * `writeAudit(pool, {...})` kennt `req` nicht, fragt damit nie
+   * `bestimmeAuditOrg()`, und wo auch kein `org_id` mitgegeben wird, bleibt es
+   * NULL. Die Riegel oben halten den FALSCHEN Stempel auf; dieser hier haelt
+   * den FEHLENDEN auf. Das ist derselbe Befund von seiner anderen Seite: ein
+   * Teil lag in der falschen Organisation, der groessere in keiner.
+   *
+   * Gemessen am 2026-08-24: 34 req-lose Aufrufe in acht Route-Dateien, 30 davon
+   * ohne `org_id`. Sechs Zeilen sind daraus real entstanden
+   * (`user.abuse_reported`, `offer.abuse_reported`, `capacity_post.abuse_reported`,
+   * 22.-24.08.) — alle aus `profileVisibility.js`, alle mit einem Melder, der
+   * genau EINER Organisation angehoert. Diese Datei ist am 2026-08-24 auf
+   * `writeAuditEnhanced` umgestellt und steht deshalb NICHT in der Liste unten:
+   * ein Rueckfall dort faellt sofort auf.
+   *
+   * Die uebrigen sieben Dateien sind festgenagelt, nicht freigesprochen. Ob
+   * ihre Aufrufe org-los sein DUERFEN, ist eine Owner-Entscheidung je Aufruf —
+   * `internal.js` und `occ/decisionsRequests.js` laufen plausibel
+   * plattformweit, `requests.js` und `capacities.js` eher nicht. Bis die
+   * Entscheidung gefallen ist, haelt diese Liste den Stand fest: die Zahlen
+   * duerfen sinken, nicht steigen, und keine NEUE Datei darf dazukommen.
+   */
+  it("keine neue Schreibstelle verliert die Organisation stillschweigend", () => {
+    /* Stand 2026-08-24. Sinken ist Fortschritt, Steigen ist ein Rueckfall. */
+    const FESTGENAGELT = {
+      "routes/auth.js": 6,
+      "routes/capacities.js": 3,
+      "routes/internal.js": 10,
+      "routes/oauth.js": 1,
+      "routes/occ/decisionsRequests.js": 2,
+      "routes/payment.js": 2,
+      "routes/profileBounties.js": 1,
+      "routes/requests.js": 9,
+    };
+
+    /* Verzeichnis rekursiv einlesen — `routes/occ/` liegt eine Ebene tiefer. */
+    const sammle = (verzeichnis) => fs.readdirSync(verzeichnis, { withFileTypes: true })
+      .flatMap((e) => {
+        const voll = path.join(verzeichnis, e.name);
+        if (e.isDirectory()) return sammle(voll);
+        return e.name.endsWith(".js") ? [voll] : [];
+      });
+
+    const gemessen = {};
+    for (const datei of sammle(path.join(API, "routes"))) {
+      const treffer = (fs.readFileSync(datei, "utf8").match(/writeAudit\(pool/g) || []).length;
+      if (treffer > 0) {
+        gemessen[normalisiere(path.relative(API, datei))] = treffer;
+      }
+    }
+
+    const neue = Object.keys(gemessen).filter((d) => !(d in FESTGENAGELT));
+    assert.deepEqual(neue, [],
+      `neue Datei(en) mit der req-losen Form:\n  ${neue.join("\n  ")}\n\n` +
+      "writeAudit(pool, {...}) kennt `req` nicht und stempelt daher keine " +
+      "Organisation. In einer Route ist `req` immer da — writeAuditEnhanced(pool, req, {...}) " +
+      "benutzen. Nur wenn die Zeile bewusst plattformweit ist, gehoert sie hier " +
+      "hinein, mit einem Satz warum.");
+
+    for (const [datei, erwartet] of Object.entries(FESTGENAGELT)) {
+      const ist = gemessen[datei] || 0;
+      assert.ok(ist <= erwartet,
+        `${datei}: ${ist} req-lose writeAudit-Aufrufe, festgenagelt waren ${erwartet}. ` +
+        "Jeder neue verliert die Organisation — writeAuditEnhanced(pool, req, {...}) benutzen.");
+    }
+
+    /* Der reparierte Pfad, ausdruecklich: hier kam der gemessene Befund her. */
+    assert.equal(gemessen["routes/profileVisibility.js"], undefined,
+      "routes/profileVisibility.js benutzt wieder die req-lose Form. Genau daraus " +
+      "entstanden die sechs org-losen Meldungs-Zeilen vom 22.-24.08.");
+  });
 });
+
+/* Pfadtrenner vereinheitlichen — unter Windows liefert path.relative Backslashes,
+ * und die Schluessel oben sind mit Schraegstrich geschrieben. */
+function normalisiere(p) { return p.replace(/\\/g, "/"); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * Schicht 2 — die Abnahme gegen die echte Datenbank

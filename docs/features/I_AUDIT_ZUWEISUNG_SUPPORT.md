@@ -1518,3 +1518,119 @@ ENTERPRISE-Login-Backdoor"), der über `SEED_DEMO_WORLD` gegated wurde.
 Bis dahin bleibt für das Einsatzportal die Zwei-Schichten-Disziplin: Proben
 gegen den Quelltext **plus** ein DB-Smoke, der die Abfrage wirklich ausführt.
 Genau diese Kombination hat die tote LATERAL am Ende gefunden.
+
+---
+
+## Die Registry log — und legte die Migrationskette still (2026-08-24)
+
+`api/test/auditMandantenGrenze.test.js` meldete neun org-lose Audit-Zeilen,
+deren Akteur genau **einer** Organisation angehört. Zwei Ursachen standen zur
+Debatte: Migration 187 Schritt 2 sei nie gelaufen, oder die Schreibseite lässt
+die Org weiterhin weg. Gemessen wurde beides.
+
+### 187 ist gelaufen — die Registry wusste es nur nicht
+
+Der Beweis steht in der Datenbank: `al_same_org` lautet `(org_id =
+current_org_id())`, ohne NULL-Zweig — genau Schritt 3. Und Schritt 2 hat
+gewirkt: die 156 org-losen `auth.login`/`auth.register`-Zeilen stammen alle vom
+2026-05-25, ihre Akteure gehören **null** Organisationen an. Keine eindeutig
+zuordenbare Bestandszeile ist übrig geblieben.
+
+Trotzdem endete `_migrations` bei `180_notdienst_antwortpfad.sql`. Für **181–196
+fehlte jeder Eintrag**, obwohl die Strukturen physisch dalagen
+(`worker_absences.quelle`, `worker_delays`, `frist_bis`, `verfallen_am`, die
+187-Policy, `'nutzer'` im `par_ziel_art_check`, ≥18 Tabellen mit aktivem RLS).
+
+Das war kein Schönheitsfehler. `sql/migrate.sh` entscheidet allein am Ledger, ob
+eine Datei laufen muss — was dort fehlt, wird **erneut** angewandt. Jede der 16
+wurde einzeln in einer zurückgerollten Transaktion gegen die echte Datenbank
+geprüft. Zwei überleben das nicht:
+
+| Migration | Fehler bei erneuter Anwendung |
+|---|---|
+| `189_meldungen_die_ankommen.sql` | `check constraint "profile_abuse_reports_reason_check" is violated` |
+| `190_melden_nur_was_man_sieht.sql` | `check constraint "par_ziel_art_check" is violated` |
+
+Eine Zeitfalle, keine Schlamperei: Migration **194** hat beide CHECKs geweitet
+(`'nutzer'` als vierte Zielart, `fraud`/`harassment` als Gründe), und es liegen
+Zeilen in `profile_abuse_reports`, die nur die geweitete Fassung erlaubt. 189
+und 190 setzen die engere wieder. Auf einer frischen Datenbank läuft das
+anstandslos durch — 189 kommt vor 194, die Daten gibt es dort noch nicht. Kaputt
+ist es ausschließlich dort, wo bereits gearbeitet wurde.
+
+Die Folge traf nicht nur die sechzehn: `migrate.sh` bricht bei 189 mit
+`ON_ERROR_STOP=1` und `exit 1` ab. 190–196 werden nie erreicht — und **jede
+künftige Migration 197+ genauso wenig, bei jedem Lauf aufs Neue.** Eine
+unvollständige Registry legt die Kette dauerhaft still. Datenverlust drohte
+nie: 189 besteht aus vier eigenständigen `DO`-Blöcken ohne umschließende
+Transaktion, der erste scheitert atomar, die übrigen laufen gar nicht erst an.
+Der Schaden war Stillstand, nicht Korruption.
+
+**Behoben** durch Nachtrag der 16 Einträge (`INSERT ... ON CONFLICT DO
+NOTHING`). Nachgetragen wurde, was ohnehin wahr war — die Migrationen selbst
+umzuschreiben wäre der falsche Eingriff gewesen: für eine frische Datenbank sind
+sie korrekt. Danach: 213 Ledger-Zeilen, **null** Dateien ohne Eintrag.
+
+### Die Schreibseite ließ die Org tatsächlich weg
+
+Alle neun beanstandeten Zeilen datieren auf den 22.–24.08., also **nach** 187.
+Keine Bestandszeilen, sondern Neuzugänge, in zwei getrennten Varianten:
+
+**Sechs `*.abuse_reported` — eine schlichte Auslassung.** Die vier Meldewege in
+`routes/profileVisibility.js` riefen `writeAudit(pool, {...})`, die req-lose
+Zwei-Argument-Form. Sie kennt `req` nicht, fragt also nie `bestimmeAuditOrg()`,
+und ein `org_id` wurde nirgends übergeben. Dabei war die Org die ganze Zeit da:
+`orgContextMiddleware` läuft global vor der Route, die Meldewege sind
+`requireAuth`, und alle sechs Melder gehören genau einer Organisation an.
+**Umgestellt auf `writeAuditEnhanced(pool, req, {...})`** — an allen fünf
+Stellen des Routers, inklusive des gemeinsamen Helfers.
+
+> Die naheliegende Abkürzung wäre falsch gewesen: `reportedOrgId` bzw.
+> `anbieter_org_id` stehen in den Handlern bereit, gehören dort aber nicht hin.
+> Damit landete die Zeile im Audit der **gemeldeten** Partei, die daran ablesen
+> könnte, dass und von wem sie gemeldet wurde. Richtig ist die Org des Melders.
+
+**Drei `demo.login` — strukturell anders, und offen.** Der Weg läuft über
+`res.locals.audit` und fragt `bestimmeAuditOrg()` korrekt. Nur ist die Antwort
+zwangsläufig NULL: `req.orgId` wurde aufgelöst, *bevor* die Route lief — also
+vor der Anmeldung; zusätzlich greift die Sperre `orgIdGiltFuerNutzer !==
+actorId` aus derselben Welle. Beides ist richtig so. Was fehlt, ist der
+Nachschlag *nach* erfolgreicher Anmeldung.
+
+Hier widersprechen sich zwei Wahrheiten aus derselben Welle, und das ist eine
+**Owner-Entscheidung, kein Patch**: Migration 187 schreibt im Kopf, org-lose
+Login-Zeilen seien richtig („beim Anmelden gibt es noch keine Organisation"),
+während ihr Schritt 2 sie ungefiltert nachgezogen hat und der Test genau das nun
+als Invariante erzwingt. Entweder Login-Zeilen bleiben bewusst org-los — dann
+braucht der Test eine begründete Ausnahme für `*.login`. Oder sie sollen
+zuordenbar sein — dann setzt `demo.js`/`auth.js` nach erfolgreicher Anmeldung
+explizit `res.locals.audit.org_id`. Dieselbe Lücke hat `auth.js`; sie fällt nur
+nicht auf, weil die Bestands-Logins Akteure ohne Mitgliedschaft betreffen.
+
+### Was offen bleibt
+
+Die neun Zeilen sind **nicht** nachgezogen worden. Der Schreibseiten-Fix
+verhindert neue, repariert aber keine bestehenden — und drei davon hängen an der
+Entscheidung oben. Der Test bleibt bis dahin rot.
+
+Breiter gemessen: **34 req-lose `writeAudit`-Aufrufe in acht Route-Dateien, 30
+davon ohne `org_id`.** `profileVisibility.js` ist erledigt; die übrigen sieben
+sind festgenagelt, nicht freigesprochen — `internal.js` und
+`occ/decisionsRequests.js` laufen plausibel plattformweit, `requests.js` (9) und
+`capacities.js` (3) eher nicht. Das gehört je Aufruf entschieden.
+
+### Zwei neue Wächter
+
+- `api/test/migrationsRegistryWaechter.test.js` — beide Driftrichtungen. Schicht 1
+  (immer): `migrate.sh` behält `ON_ERROR_STOP=1` und verbucht nur im
+  Erfolgszweig. Schicht 2 (DB-gebunden): jede Datei ist verbucht, keine neuen
+  Ledger-Waisen, 181–196 bleiben eingetragen. Der Schema-Wächter deckte bisher
+  nur die umgekehrte Richtung ab (verbucht, aber Tabelle fehlt — 059).
+- `auditMandantenGrenze.test.js` — neu: „keine neue Schreibstelle verliert die
+  Organisation stillschweigend". Nagelt die 34 req-losen Aufrufe je Datei fest
+  (sinken erlaubt, steigen nicht) und verlangt für `profileVisibility.js`
+  ausdrücklich **null**.
+
+Beide Wächter wurden gegen einen echten Fehlschlag geprüft, nicht nur grün
+gesehen: eine untergeschobene, unverbuchte Migrationsdatei ließ die Abnahme
+rot werden und wurde beim Namen genannt.

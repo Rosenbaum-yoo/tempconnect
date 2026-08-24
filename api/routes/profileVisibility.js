@@ -22,7 +22,7 @@ import { z } from "zod";
 import { Router } from "express";
 import * as visSvc from "../services/profileVisibilityService.js";
 import * as analyticsSvc from "../services/profileAnalyticsService.js";
-import { writeAudit } from "../services/auditLog.js";
+import { writeAuditEnhanced } from "../services/auditLog.js";
 import { swallow } from "../utils/logger.js";
 /* Melden darf nur, wer sehen darf — und "sehen" heisst bei einem `offer`
  * dasselbe wie in `marketplace.js:1414`. Dieselbe Bedingung, dieselbe Funktion:
@@ -39,8 +39,27 @@ export function createProfileVisibilityRouter(deps) {
   const fail = (res, status, code, msg) =>
     res.status(status).json({ success: false, error: { code, message: msg } });
 
+  /*
+   * `writeAuditEnhanced` statt `writeAudit` — an ALLEN fuenf Stellen dieses
+   * Routers (gemessen 2026-08-24).
+   *
+   * Die req-lose Zwei-Argument-Form kennt `req` nicht, fragt damit nie
+   * `bestimmeAuditOrg()`, und da hier auch kein `org_id` uebergeben wurde,
+   * blieb es NULL. Sechs Meldungen vom 22.–24.08. liegen deshalb in KEINEM
+   * Org-Audit — auch nicht bei dem Admin, der sie braucht. Alle sechs Melder
+   * gehoeren genau EINER Organisation an, die Org war also die ganze Zeit
+   * verfuegbar: `orgContextMiddleware` laeuft global (app.js) vor der Route,
+   * die Meldewege sind `requireAuth`. Nachgewiesen von
+   * `api/test/auditMandantenGrenze.test.js`.
+   *
+   * WICHTIG — die naheliegende Abkuerzung waere falsch: `reportedOrgId` bzw.
+   * `anbieter_org_id` stehen in den Handlern bereit, gehoeren hier aber NICHT
+   * hin. Damit landete die Zeile im Audit der GEMELDETEN Partei, die dort
+   * ablesen koennte, dass und von wem sie gemeldet wurde. Richtig ist die Org
+   * des Melders — genau die, die `bestimmeAuditOrg` ohnehin liefert.
+   */
   const audit = (req, action, entityType, entityId, details) =>
-    writeAudit(pool, { action, entity_type: entityType, entity_id: entityId,
+    writeAuditEnhanced(pool, req, { action, entity_type: entityType, entity_id: entityId,
       actor_id: uid(req), details }).catch(swallow("profileVisibility"));
 
   const basic  = requireFeature("public_profile_basic");
@@ -264,7 +283,7 @@ export function createProfileVisibilityRouter(deps) {
       }
 
       // Audit — keine sensiblen Details loggen
-      writeAudit(pool, {
+      writeAuditEnhanced(pool, req, {
         action:       "profile.abuse_reported",
         entity_type:  "profile_abuse_report",
         entity_id:    result.id || reportedOrgId,
@@ -382,7 +401,7 @@ export function createProfileVisibilityRouter(deps) {
         return fail(res, 400, result.reason, "Meldung konnte nicht gespeichert werden.");
       }
 
-      writeAudit(pool, {
+      writeAuditEnhanced(pool, req, {
         action:      "offer.abuse_reported",
         entity_type: "profile_abuse_report",
         entity_id:   result.id || angebot.id,
@@ -507,7 +526,7 @@ export function createProfileVisibilityRouter(deps) {
         return fail(res, 400, result.reason, "Meldung konnte nicht gespeichert werden.");
       }
 
-      writeAudit(pool, {
+      writeAuditEnhanced(pool, req, {
         action:      "user.abuse_reported",
         entity_type: "profile_abuse_report",
         entity_id:   result.id || person.id,
@@ -577,7 +596,7 @@ export function createProfileVisibilityRouter(deps) {
         return fail(res, 400, result.reason, "Meldung konnte nicht gespeichert werden.");
       }
 
-      writeAudit(pool, {
+      writeAuditEnhanced(pool, req, {
         action:      "capacity_post.abuse_reported",
         entity_type: "profile_abuse_report",
         entity_id:   result.id || eintrag.id,
