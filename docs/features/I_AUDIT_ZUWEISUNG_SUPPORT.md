@@ -1409,3 +1409,61 @@ ist, montiert ist und den niemand benutzt.
 erfährt die Erinnerung weiterhin erst beim nächsten Besuch. SMS ist technisch
 vorhanden (`smsService.js`, heute nur für Einladungen) — das ist eine
 Owner-Entscheidung über Kosten und Einwilligung, keine technische.
+
+---
+
+## Die Fehlerklasse dieser Welle — systematisch gesucht (2026-08-24)
+
+Sechs der Befunde dieser Welle waren dieselbe Sache: **etwas ist gebaut,
+montiert — und niemand benutzt es.** `pushToUser` im Arbeiter-Pfad, die
+`ersatz`-LATERAL, `expires_at`, der Wach-Wächter, der Schema-Abzug, die
+Begründungstexte. Statt weiter auf Zufallsfunde zu warten, wurden zwei
+Durchläufe gefahren.
+
+### Durchlauf 1 — exportierte Funktionen ohne Aufrufer
+
+119 Kandidaten. **Sieben geprüft, zwei echt.**
+
+| Kandidat | Urteil |
+|---|---|
+| `emailHtmlTemplates` (6 von 8 Vorlagen ungenutzt) | **echt** → 24 von 40 Mails ohne Absender (`e82ad1e`) |
+| `settingsService.requiresApproval` | **echt** → „Freigabe erforderlich" war ein Etikett (`a6a2cf2`) |
+| `config.validateProductionSecrets` | *entlastet* — `runProductionValidation()` läuft aus `app.js:122` und ist strenger |
+| `usageMeteringService.requireUsageLimit` | *entlastet* — Grenzen laufen über `scanAndEnforceUsageLimits` + `checkUsageLimit` |
+| `profileVisibilityService.resumeVisibility` | *entlastet* — `paused → submitted` ist der gangbare Weg zurück |
+| `documentCenterService.findRetentionDue` | *entlastet* — `purgeRetentionDue` läuft per Cron (`internal.js:226`) |
+| `notificationStream.getActiveConnectionCount` | *entlastet* — Diagnose-Helfer, kein Regelträger |
+
+**Muster:** Die toten Exporte dieses Repos sind überwiegend **Zwillinge lebender
+Prüfungen**, keine Löcher. Wer die Liste erneut fährt, sollte zuerst nach einer
+zweiten Fassung derselben Regel suchen, bevor er einen Befund meldet.
+
+### Durchlauf 2 — Regel-Spalten, die nie gelesen werden
+
+46 von 634 untersuchten Spalten kommen im Quelltext höchstens zweimal vor.
+Dort lagen `expires_at` und `approval_required` — der schärfere Blickwinkel.
+
+| Kandidat | Urteil |
+|---|---|
+| `organizations.enforce_mfa` | **echte Lücke, owner-gebunden** — siehe unten |
+| `timesheet_templates.show_*` / `require_*` (10 Spalten) | *entlastet* — Alt-Schema, ersetzt durch die Kindtabelle `timesheet_template_fields` |
+| `org_settings.abwesenheit_selbstmeldung_freigabepflicht` | *entlastet* — wird gelesen (`workerAbsenceService.js:317`), mit Integrationstests |
+| übrige `*_at`-Spalten | *entlastet* — Zeitstempel ohne Regelcharakter |
+
+### Was daraus offen bleibt
+
+**`organizations.enforce_mfa`** existiert seit Migration 058 und kommt im
+gesamten Repo **nur dort** vor: nicht setzbar, nicht gelesen, keine Oberfläche.
+Anders als bei `approval_required` wird also niemand getäuscht — es ist keine
+lügende Einstellung, sondern eine **nie gebaute Funktion**: org-weite
+MFA-Pflicht. Für Enterprise-Kunden ist das ein üblicher Beschaffungspunkt.
+
+> **Owner-Entscheidung, nicht autonom baubar.** Eine MFA-Pflicht sperrt jeden
+> aus, der sie nicht eingerichtet hat — es braucht eine Übergangsfrist und einen
+> Break-Glass-Weg, sonst schließt sich eine Organisation selbst aus. Dieselbe
+> Klasse wie „SSO-Enforce ohne Recovery" in den Stop-Regeln der `CLAUDE.md`.
+
+**`org_settings.preferred_supplier_only`** bleibt ebenfalls offen: einstellbar,
+als `preferred_suppliers_only` zurückgemeldet, nirgends durchgesetzt — dieselbe
+Bauart wie `approval_required`. Was „nur bevorzugte Lieferanten" sperren soll
+(Sichtbarkeit? Angebotsabgabe? Zuschlag?), ist eine Produktfrage.
