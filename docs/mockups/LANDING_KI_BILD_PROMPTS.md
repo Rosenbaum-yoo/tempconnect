@@ -169,15 +169,52 @@ seamless loop. [+ NEGATIVE-Block]
 
 ## 5. Drop-in-Plan (was nach der Generierung passiert)
 
-1. Dateien unter den **exakten Zieldateinamen** in `frontend/public/img/landing/` legen.
-2. Auftrag „Bilder einbauen" — dann passiert mechanisch:
-   - jedes `figure.story__visual[data-motif]` bekommt sein `<img>` (lazy, width/height,
-     Alt-Text von oben); die SVG-Illustration bleibt als Inline-Fallback erhalten,
-   - Hero-Video mit Poster + `prefers-reduced-motion`-Fallback,
-   - Kosten-Guardrail: Gesamtgewicht Landing-Assets < 5 MB, alles lazy unterhalb des Folds,
-   - Verifikation in allen 3 Themes + Konsole + Lighthouse-Stichprobe.
-3. Editorial-Check: Bilder stehen auf Creme-Panels (`--lex-cream-warm`) — Ränder der
+### Stand heute (2026-08-22) — bitte zuerst lesen
+
+Ausgeliefert wird die **SVG-Illustration** in jedem `figure.story__visual`. Die Mechanik für
+den Bild-Tausch liegt fertig daneben:
+
+| Baustein | Datei | Zustand |
+|---|---|---|
+| Probe + Einblenden | `frontend/public/js/pages/landing.js` (Ende) | fertig |
+| SVG ausblenden, sobald ein Bild da ist | `frontend/public/css/pages/landing.css` (`.story__visual.has-img svg`) | fertig |
+| Motiv + Alt-Text am `figure` | `frontend/landing.html` (`data-motif`, `data-alt`) | fertig |
+| **Adresse des Bildes** (`data-img`) | `frontend/landing.html` | **bewusst nicht gesetzt** |
+
+`data-img` fehlt mit Absicht. Bis zum 2026-08-22 stand es dort — und zeigte auf vier Dateien,
+die es nie gab. Das kostete auf der meistbesuchten Seite vier echte Anfragen pro Aufruf, und
+der Server beantwortete sie nicht mit 404, sondern mit **HTTP 200 und der kompletten
+Startseite** (je 71 KB): der Catch-All in `nginx/nginx.conf` fing sie ab. Ein Fehler, den
+kein Monitoring sieht, weil der Status 200 ist. Beides ist behoben — der Catch-All greift für
+Assets unter `/public/` nicht mehr, und die vier Adressen sind aus dem Markup raus.
+
+### Was beim Ablegen der Bilder zu tun ist
+
+1. Dateien unter den **exakten Zieldateinamen** in `frontend/public/img/landing/` legen
+   (Verzeichnis anlegen).
+2. `cd api && node scripts/run-tests.js` — der Lauf wird **rot**, und zwar in
+   `assetWaechter.test.js`, Schicht C3. Die Meldung nennt zu jeder abgelegten Datei die
+   Sektion und die Zeile, die in `frontend/landing.html` zu ergänzen ist:
+
+   ```
+   data-img="/public/img/landing/story-multiskill.webp"
+   ```
+
+   Das ist der ganze Einbau: eine Zeile je `figure`, direkt neben das vorhandene
+   `data-motif`. `landing.js` blendet das Bild dann von selbst ein und versteckt die SVG.
+   Die Gegenrichtung ist genauso abgesichert — steht `data-img` da und die Datei fehlt,
+   wird derselbe Test rot. **Vergessen ist damit ausgeschlossen; ein stiller 404 kann nicht
+   zurückkommen.**
+3. Hero-Video mit Poster + `prefers-reduced-motion`-Fallback (eigener Schritt, s. §4).
+4. Kosten-Guardrail: Gesamtgewicht Landing-Assets < 5 MB, alles lazy unterhalb des Folds.
+5. Verifikation in allen 3 Themes + Konsole + Lighthouse-Stichprobe.
+6. Editorial-Check: Bilder stehen auf Creme-Panels (`--lex-cream-warm`) — Ränder der
    Bilder dürfen nicht hart weiß/schwarz sein (Abnahme-Kriterium oben).
+
+> **Die Zuordnung in §3 ist maschinenlesbar.** `assetWaechter.test.js` liest die Zeilen
+> `**Sektion:**` und `**Zieldatei:**` aus diesem Dokument und prüft sie gegen `landing.html`.
+> Wer hier ein Motiv umbenennt, umhängt oder ergänzt, ändert damit die Prüfung mit — und
+> bekommt sofort gesagt, wenn Register und Seite auseinanderlaufen.
 
 **Bewusst NICHT im Scope:** Kategorie-Bildwelt (Welle 8) und Einsatzort-Fotos (Welle 9)
 haben eigene Wellen; dieselbe Style-Anker-Technik wird dort wiederverwendet.

@@ -31,6 +31,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -311,18 +312,61 @@ describe("Secret-Scan — die ausgelieferten Dateien sind sauber", () => {
     "deploy/.env",
   ];
 
+  /*
+   * Eine Datei aus dieser Liste gehoert NICHT zum Repo.
+   *
+   * `deploy/.env` faellt unter `.gitignore:11` (`*.env`) und existiert nur auf
+   * Maschinen, die einmal deployt haben. In jedem frischen Clone, in jedem
+   * git-Worktree und in CI fehlt sie — dort machte das `assert.fail` unten
+   * diesen Test GARANTIERT rot (gemessen 2026-08-22 im Worktree). Er hat damit
+   * einen Maschinenzustand als Repo-Spezifikation kodiert; die eigentliche
+   * Aussage der Liste ("diese Dateien melden nichts mehr") war davon nie
+   * betroffen.
+   *
+   * Die Datei bleibt trotzdem drin, und zwar aus dem Grund, aus dem sie
+   * ueberhaupt aufgefallen ist: liegt sie da, ist sie genau die Datei, in der
+   * ein echtes Secret stehen WUERDE — dann wird sie gescannt wie jede andere.
+   * Fehlt sie, meldet der Lauf das sichtbar als uebersprungen, nicht als gruen.
+   *
+   * Damit die Ausnahme nicht selbst zur Karteileiche wird, prueft der Test
+   * darunter, dass git die Datei wirklich nicht verfolgt. Waere sie eines Tages
+   * eingecheckt, ist das der Vorfall, den dieser Waechter finden soll — dann
+   * faellt er darueber, statt ihn zu decken.
+   */
+  const NUR_LOKAL = new Set(["deploy/.env"]);
+
   for (const rel of GEMELDETE) {
-    it(`${rel} meldet nichts mehr`, () => {
-      const abs = path.join(REPO, rel);
-      if (!fs.existsSync(abs)) {
-        assert.fail(`${rel} fehlt — die Liste passt nicht mehr zum Repo`);
-      }
-      const funde = pruefeDatei(fs.readFileSync(abs, "utf8"));
-      assert.deepEqual(funde, [],
-        `${rel} meldet wieder: ` +
-        funde.map((f) => `Z${f.zeile} "${f.wert}" (${f.grund})`).join(", "));
-    });
+    const abs = path.join(REPO, rel);
+    const vorhanden = fs.existsSync(abs);
+    const ausnahme = NUR_LOKAL.has(rel) && !vorhanden;
+
+    it(`${rel} meldet nichts mehr`,
+      { skip: ausnahme && "nur lokal vorhanden — per .gitignore (*.env) nicht im Repo" }, () => {
+        if (!vorhanden) {
+          assert.fail(`${rel} fehlt — die Liste passt nicht mehr zum Repo`);
+        }
+        const funde = pruefeDatei(fs.readFileSync(abs, "utf8"));
+        assert.deepEqual(funde, [],
+          `${rel} meldet wieder: ` +
+          funde.map((f) => `Z${f.zeile} "${f.wert}" (${f.grund})`).join(", "));
+      });
   }
+
+  const imGitBaum = spawnSync("git", ["rev-parse", "--is-inside-work-tree"],
+    { cwd: REPO, encoding: "utf8" }).status === 0;
+
+  it("die Ausnahme fuer nur-lokale Dateien deckt nichts zu",
+    { skip: !imGitBaum && "kein git-Arbeitsbaum — die Zugehoerigkeit ist hier nicht entscheidbar" }, () => {
+      for (const rel of NUR_LOKAL) {
+        const verfolgt = spawnSync("git", ["ls-files", "--error-unmatch", "--", rel],
+          { cwd: REPO, encoding: "utf8" }).status === 0;
+        assert.equal(verfolgt, false,
+          `${rel} steht als "nur lokal" in der Ausnahme — git verfolgt die Datei aber.\n` +
+          "Entweder ist eine .env ins Repo geraten (das waere der Vorfall, gegen den es\n" +
+          "diesen Waechter gibt), oder die Ausnahme gehoert entfernt und der Pfad zurueck\n" +
+          "in die harte Pruefung.");
+      }
+    });
 
   it("diese Testdatei meldet sich nicht selbst", () => {
     /* Der peinlichste Befund des ersten Laufs: Die gepflanzten Werte dieser

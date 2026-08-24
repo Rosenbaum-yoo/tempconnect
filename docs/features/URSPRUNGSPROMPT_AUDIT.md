@@ -247,7 +247,7 @@ bleibt der plan-gated Sichtbarkeitshebel. Sauber gedacht.
 
 | # | Anforderung | Stand | Beleg |
 |---|---|---|---|
-| F26 | Landing: KI-Bilder + Video | ❌ | Drop-in gebaut, Bilddateien fehlen — **Owner-Aufgabe** (P7c) |
+| F26 | Landing: KI-Bilder + Video | ❌ | Drop-in gebaut, Bilddateien fehlen — **Owner-Aufgabe** (P7c). Korrektur 2026-08-22: die vier `data-img` in `landing.html` zeigten auf nie existierende Dateien und kosteten pro Seitenaufruf vier echte Anfragen, die der Server mit der Startseite beantwortete (HTTP 200, je 71 KB — kein 404). Sie sind entfernt; ausgeliefert wird die SVG-Illustration, `data-motif` + `data-alt` bleiben als Spezifikation stehen. `api/test/assetWaechter.test.js` (C3) wird rot, sobald eine Bilddatei abgelegt und nicht verdrahtet ist — und ebenso im umgekehrten Fall |
 | F27 | Upload-Bereiche frei von KI-Bildern | ✅ | Profilfoto (Einsatzportal), Firmenfoto, Angebotsfoto |
 | F28 | Landing-Layout links/rechts, Preview zuerst | ⛔ | blockiert durch F26 — ein Wechsel-Layout ohne die Bilder ist nicht bewertbar. Owner-Aufgabe zuerst. |
 
