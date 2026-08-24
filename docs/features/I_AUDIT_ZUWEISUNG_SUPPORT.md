@@ -1467,3 +1467,54 @@ MFA-Pflicht. Für Enterprise-Kunden ist das ein üblicher Beschaffungspunkt.
 als `preferred_suppliers_only` zurückgemeldet, nirgends durchgesetzt — dieselbe
 Bauart wie `approval_required`. Was „nur bevorzugte Lieferanten" sperren soll
 (Sichtbarkeit? Angebotsabgabe? Zuschlag?), ist eine Produktfrage.
+
+---
+
+## Das Einsatzportal ist für niemanden erreichbar (gefunden 2026-08-24)
+
+Beim Versuch, die Portal-Änderungen dieser Welle **im Browser** zu prüfen
+(Frist auf der Einsatz-Karte, Frist im Dashboard-Banner, Live-Strom), stellte
+sich heraus: es geht nicht. Nicht, weil etwas kaputt ist — sondern weil es
+keinen Weg hinein gibt.
+
+**Gemessen:**
+
+| | |
+|---|---|
+| Demo-Perspektiven auf `frontend/demo.html` | **drei**: buyer, agency, admin |
+| Vorkommen von „Arbeiter" / „Einsatzportal" dort | **0** |
+| `ROLE_ACCOUNTS` in `api/routes/demo.js` | kennt keinen `worker` |
+| Magic-Link / Invite-Login für Arbeiter | existiert nicht |
+| Demo-Arbeiter in der Datenbank | **3** (`*.worker-demo.de`, aus `db/migrations/030_demo_worker_seed.sql`) |
+| deren `is_demo`-Fahne | **false** — `loginDemoUser` verlangt `TRUE` |
+| deren Passwort-Hashes | **Attrappen**: 51 Zeichen statt 60, `bcrypt.compare` liefert für jede Eingabe `false` |
+
+Die Bausteine sind alle da und **keiner ist mit dem anderen verbunden** — dieselbe
+Klasse wie alles andere in dieser Welle, diesmal in vier Teilen.
+
+### Zwei Folgen
+
+1. **Die Demo-Geschichte ist unvollständig.** `demo.html` verkauft *„Story 2:
+   Besetzung → Zeiten … Stundenzettel digital erfassen und freigeben"* — die
+   Arbeiter-Hälfte dieser Geschichte kann niemand sehen.
+2. **Keine Änderung am Einsatzportal ist im Browser prüfbar.** Genau diese
+   Schwäche hat die tote `ersatz`-LATERAL drei Tage überleben lassen: sie war
+   nur gegen Quelltext geprüft, und ein Selbstwiderspruch in einer
+   WHERE-Klausel sieht im Quelltext richtig aus.
+
+### Warum hier nichts gebaut wurde
+
+Einen Demo-Zugang für Arbeiter zu schaffen hieße, `is_demo` zu setzen und
+`ROLE_ACCOUNTS` zu erweitern — also **einen Login-Weg für Konten zu öffnen, die
+heute konstruktionsbedingt gesperrt sind.** Genau dafür gibt es den
+Go-Live-Punkt **P0.6** („Demo-Seed-Welt wird auf jedem Fresh-Install angelegt —
+ENTERPRISE-Login-Backdoor"), der über `SEED_DEMO_WORLD` gegated wurde.
+
+> **Owner-Entscheidung.** Wenn ein Demo-Arbeiter kommen soll, dann unter
+> demselben Gate wie die übrige Demo-Welt — nicht daneben. Die unbrauchbaren
+> Hashes sind heute der einzige Grund, warum diese drei Konten keine Hintertür
+> sind; wer sie durch echte ersetzt, muss das Gate mitdenken.
+
+Bis dahin bleibt für das Einsatzportal die Zwei-Schichten-Disziplin: Proben
+gegen den Quelltext **plus** ein DB-Smoke, der die Abfrage wirklich ausführt.
+Genau diese Kombination hat die tote LATERAL am Ende gefunden.
