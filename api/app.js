@@ -13,6 +13,7 @@ import path from "path";
 import cors from "cors";
 import helmet from "helmet";
 import { createTransport } from "nodemailer";
+import { mitRahmen } from "./services/emailHtmlTemplates.js";
 import Stripe from "stripe";
 import { config, logger, runProductionValidation } from "./config/index.js";
 import { captureException, setupSentryErrorHandler, sentryContextMiddleware } from "./utils/monitoring.js";
@@ -135,7 +136,18 @@ export async function createApp() {
     }
     if (mailTransport) {
       try {
-        await mailTransport.sendMail({ from: SMTP_FROM, to, subject, html });
+        /*
+         * JEDE Mail bekommt den Absender-Fuss — auch die, die ihr HTML am
+         * Aufrufort zusammenbaut. Gemessen am 2026-08-24: von 40 Aufrufern
+         * gingen nur 16 durch eine Vorlage; die anderen 24 trugen weder
+         * Firmierung noch Kontakt. Fuer Geschaeftsbriefe sind das
+         * Pflichtangaben (§ 37a HGB), und sie muessen der UG-Gruendung folgen
+         * koennen — `COMPANY.name` ist bis dahin ein Platzhalter.
+         *
+         * `mitRahmen` packt NUR ein, was noch kein vollstaendiges Dokument ist;
+         * die Vorlagen bleiben unberuehrt.
+         */
+        await mailTransport.sendMail({ from: SMTP_FROM, to, subject, html: mitRahmen(html, subject) });
         return true;
       } catch (e) {
         logger.error({ err: e.message }, "E-Mail-Fehler");
