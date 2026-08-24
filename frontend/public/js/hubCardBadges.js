@@ -30,7 +30,8 @@
     // Stundenzettel — eine Abwesenheit trifft Einsaetze.
     assignments: ["timesheet_submitted", "timesheet_approved", "timesheet_rejected", "timesheet_signed",
                   "worker_absence_reported", "worker_delay_reported",
-                  "assignment_worker_unavailable", "assignment_worker_replaced"],
+                  "assignment_worker_unavailable", "assignment_worker_replaced",
+                  "assignment_worker_not_confirmed"],
     bounties: ["milestone", "bounty_near", "bounty_earned", "bounty_lost"]
   };
   var SURFACE_FOR_TYPE = {};

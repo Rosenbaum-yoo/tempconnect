@@ -29,6 +29,7 @@ import * as statusEventSvc from "../services/workerStatusEventService.js";
 import * as profileGovSvc from "../services/workerProfileGovernanceService.js";
 import * as blocklistSvc from "../services/companyBlocklistService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
+import { fristLabelDE } from "../utils/dateDE.js";
 import { swallow } from "../utils/logger.js";
 import { recordActivity } from "../services/eventTrackingService.js";
 
@@ -1721,16 +1722,12 @@ export function createWorkersRouter(deps) {
        * Benachrichtigung wie beim regulaeren `quick-assign`: ein Weg, eine
        * Erwartung. */
       /* Die Frist steht im Erst-Text (Owner-Entscheid: 4 h). Formatiert in
-       * Europe/Berlin — nie roher UTC-Slice. */
-      const fristLabel = result.replacement_link.frist_bis
-        ? new Intl.DateTimeFormat("de-DE", {
-            timeZone: "Europe/Berlin",
-            day: "2-digit", month: "2-digit", year: "numeric",
-            hour: "2-digit", minute: "2-digit"
-          }).format(new Date(result.replacement_link.frist_bis)) + " Uhr"
-        : null;
+       * Europe/Berlin — nie roher UTC-Slice. Seit Migration 195 teilen sich
+       * alle fuenf Anfragewege dieselbe Formatierung (`fristLabelDE`); die
+       * Inline-Kopie, die hier stand, waere die erste von fuenf gewesen. */
       workerNotifications.notifyAssignmentPendingConfirmation(
-        pool, parsed.data.replacement_worker_user_id, result.replacement_link.id, clientName, fristLabel
+        pool, parsed.data.replacement_worker_user_id, result.replacement_link.id, clientName,
+        fristLabelDE(result.replacement_link.frist_bis)
       );
       workerNotifications.notifyAssignmentRemoved(pool, result.ailing_worker_user_id, req.params.id, {
         effectiveFrom: parsed.data.effective_date, reason: parsed.data.reason
@@ -1955,8 +1952,12 @@ export function createWorkersRouter(deps) {
       }
 
       // Fire-and-forget: Worker über neue Zuweisung benachrichtigen
+      /* Die Frist steht im Erst-Text (Migration 195: 72 h, gedeckelt am
+       * Einsatzbeginn) — eine Frist, die man dem Betroffenen nicht mitteilt,
+       * ist eine Falle. */
       workerNotifications.notifyAssignmentPendingConfirmation(
-        pool, parsed.data.worker_user_id, result.link.id, parsed.data.client_name || null
+        pool, parsed.data.worker_user_id, result.link.id, parsed.data.client_name || null,
+        fristLabelDE(result.link.frist_bis)
       ).catch(err => logger.error("Notification error (assign-capacity):", err));
 
       res.locals.audit = {
@@ -2044,7 +2045,8 @@ export function createWorkersRouter(deps) {
           pool,
           assigned.worker_user_id,
           assigned.link_id,
-          parsed.data.client_name || null
+          parsed.data.client_name || null,
+          fristLabelDE(assigned.frist_bis)
         ).catch(err => logger.error("Notification error (staffing-quick-assign):", err));
       }
 
@@ -2284,7 +2286,8 @@ export function createWorkersRouter(deps) {
           pool,
           choiceSet.worker_user_id,
           result.link.id,
-          parsed.data.client_name || option.request_context?.client_org_name || null
+          parsed.data.client_name || option.request_context?.client_org_name || null,
+          fristLabelDE(result.link.frist_bis)
         ).catch(err => logger.error("Notification error (staffing-choice-set assign):", err));
       }
 
@@ -2385,7 +2388,8 @@ export function createWorkersRouter(deps) {
 
       // Fire-and-forget notification
       workerNotifications.notifyAssignmentPendingConfirmation(
-        pool, parsed.data.worker_user_id, result.link.id, parsed.data.client_name || null
+        pool, parsed.data.worker_user_id, result.link.id, parsed.data.client_name || null,
+        fristLabelDE(result.link.frist_bis)
       ).catch(err => logger.error("Notification error (assign-deal):", err));
 
       res.locals.audit = {

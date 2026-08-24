@@ -1,11 +1,87 @@
-# I2 — Frist auch für reguläre Zuweisungen? (Entscheidungsvorlage)
+# I2 — Frist auch für reguläre Zuweisungen? (entschieden und gebaut)
 
-> **Status: wartet auf Owner-Entscheidung. Es ist nichts gebaut.**
+> **Status: Owner-Entscheid 2026-08-24 — „Option C mit 72h und Kundenmeldung".
+> Gebaut am selben Tag (Migration 195).** Was gebaut wurde, steht in
+> [Abschnitt 0](#0-was-gebaut-wurde); die Erhebung darunter bleibt als
+> Begründung stehen. **Drei Punkte sind weiterhin offen** und ausdrücklich
+> nicht mitgebaut: der Altbestand (Entscheidung 3), der Rückzieh-Knopf
+> (Entscheidung 4) und der Kapazitäts-Rückweg nach einer *Absage*
+> (Entscheidung 5).
+>
 > Ausarbeitung der offenen Frage aus
 > [`I_AUDIT_ZUWEISUNG_SUPPORT.md`](I_AUDIT_ZUWEISUNG_SUPPORT.md)
 > („Frist auch für reguläre Zuweisungen?", Abschnitt *Die Ersatz-Frist*).
 > Erhebungsstand: 2026-08-24, Code auf `claude/brave-sanderson-9e9148`,
 > Zahlen aus der laufenden Entwicklungsdatenbank (`tempconnect_db`).
+
+---
+
+## 0. Was gebaut wurde
+
+**Die Frist.** `frist_bis = GREATEST(LEAST(NOW() + 72 h, Einsatzbeginn), NOW() + 4 h)`,
+Erinnerung bei der Hälfte der *tatsächlichen* Frist. Gesetzt in genau den zwei
+Stellen, die eine reguläre offene Anfrage erzeugen — `assignCapacityToWorker`
+und `assignDealToWorker`; alle sechs Routen laufen über sie.
+
+Die **Untergrenze von vier Stunden** war nicht Teil der Vorlage und ist beim
+Bau dazugekommen: 22 von 24 Zuweisungen im Bestand haben einen Vorlauf von
+≤ 0 Tagen — sie entstehen am Starttag oder danach. Ein harter Deckel hätte
+solche Anfragen bei der Geburt verfallen lassen, und der Arbeiter bekäme eine
+Meldung über etwas, das schon vorbei ist. Vier Stunden ist der Wert, den der
+Owner für den dringendsten Fall gesetzt hat (Ersatz, 193).
+
+**Der Sweep** heißt jetzt `verfalleneAnfragen` und behandelt beide Arten. Der
+Filter `AND ersetzt_link_id IS NOT NULL` ist aus beiden UPDATEs gefallen;
+`ersetzt_link_id` kommt stattdessen im RETURNING mit, weil die Nachbereitung
+Ersatz von regulär unterscheiden muss. Takt und Riegel bleiben unverändert:
+BullMQ alle 10 Minuten, der interne Wartungslauf, und die Fristbedingung direkt
+in Zusage und Absage.
+
+**Der Kunde** bekommt beim regulären Verfall eine Meldung
+(`assignment.worker_not_confirmed`, Titel „Platz auf Ihrem Einsatz wieder
+offen"). Jeder Baustein ist geliehen, keiner neu: dieselbe Empfangsprüfung
+(`kundeIstEmpfangsberechtigt` — kein Kunde, Kunde ist der Lieferant,
+Org-Divergenz), dieselbe Berechtigung (`assignment.edit`), derselbe Deep-Link
+ins Einsatzfenster wie bei Ausfall und Ersatz. Beim **Ersatz**-Verfall bleibt es
+beim stillen Aufräumen — dort hat der Kunde die Kraft nie gesehen.
+
+**Der Kapazitäts-Posten** kommt beim regulären Verfall zurück. Die Zählung
+spiegelt die Setz-Logik aus `assignCapacityToWorker`: geweckt wird nur, was die
+Zuweisung selbst geschlossen hat (`status = 'filled'`), und nur wenn die aktiven
+Links den Headcount wieder unterschreiten.
+
+**Die Frist steht im Erst-Text** jeder der sechs Anfrage-Benachrichtigungen —
+eine Frist, die man dem Betroffenen verschweigt, ist eine Falle. Die
+Formatierung liegt zentral in `fristLabelDE` (`api/utils/dateDE.js`); die
+Inline-Kopie in der Ersatz-Route ist dorthin gewandert, statt auf sechs Kopien
+anzuwachsen. Die Portal-Anzeige griff bereits generisch über
+`response_deadline_label` und brauchte keine Änderung.
+
+**Zwei Fehler im Bestand fielen beim Umbau auf und sind mitkorrigiert:**
+die Disponenten-Meldung las `first_name`/`last_name` von einem Objekt, das nur
+`{ id, name }` trägt — der Name blieb leer, und weil das Objekt truthy ist,
+griff auch der Rückfalltext nicht (die Meldung begann mit einem Leerzeichen);
+und `assigned_links` der Schnellbesetzung trug die Frist gar nicht nach oben.
+
+| Datei | Was |
+|---|---|
+| `sql/migrations/195_zuweisung_ohne_bestaetigung.sql` | zwei Meldungstypen, additiv nach Muster 184/193 |
+| `api/services/workerService.js` | Frist-Ausdrücke, beide INSERTs, Sweep, Kapazitäts-Rückgabe, Kundenmeldung |
+| `api/services/workerAbsenceService.js` | `EINSATZ_ERLEDIGT` exportiert (geliehen statt kopiert) |
+| `api/services/notificationMatrix.js`, `matchAlertService.js`, `notificationSurfaceMap.js` | die zwei Ereignisse registriert |
+| `frontend/public/js/hubCardBadges.js` | Kundenmeldung auf die Einsatz-Karte |
+| `api/utils/dateDE.js` | `fristLabelDE` — eine Formatierung für sechs Wege |
+| `api/routes/workers.js`, `marketplace.js` | Frist im Erst-Text, alle sechs Wege |
+| `api/services/dealStaffingFastTrackService.js` | `frist_bis` in `assigned_links` |
+| `api/workers/capacityWorker.js`, `api/routes/internal.js` | Sweep-Umbenennung |
+| `api/test/anfrageFrist.test.js` | 39 Proben (ersetzt `ersatzFrist.test.js`) |
+
+**Verifikation.** 39/39 Frist-Proben grün, davon zwei DB-Smokes an der echten
+Datenbank — einer davon rechnet die Formel in Postgres nach: Einsatz in 30 Tagen
+→ 72,0 h, Einsatz morgen → Deckel greift, Einsatz längst begonnen → 4,0 h.
+Migration zweimal eingespielt (idempotent). Volle Suite: 9878 Tests.
+Der Wächter `benachrichtigungsSpiegel` hält die neuen Typen gegen den
+Datenbank-CHECK, die Oberflächen-Kopie und die Kanal-Zuordnung.
 
 ---
 
@@ -30,15 +106,15 @@ hinausgehen:
 3. **Es gibt keinen Rückweg.** Ein Disponent kann eine gestellte Anfrage nicht
    zurückziehen — die Dienstfunktion existiert, aber ohne Route und ohne Knopf.
 
-Fünf Entscheidungen liegen an; ausführlich in Abschnitt 8, empfohlen:
+Fünf Entscheidungen lagen an; ausführlich in Abschnitt 8:
 
-| # | Frage | Empfehlung |
-|---|---|---|
-| 1 | Frist für reguläre Zuweisungen? | **Ja — Option C**: 72 Stunden, gedeckelt am Einsatzbeginn |
-| 2 | Was der Kunde beim Verfall erfährt | **Meldung an den Kunden** — er hat die Person auf der Tafel |
-| 3 | Altbestand (9 Zeilen) | **Nur die fünf unbeantwortbaren** auf `expired` setzen |
-| 4 | Rückzieh-Knopf für Disponenten | **Ja** — unabhängig von 1 sinnvoll, kleiner Aufwand |
-| 5 | `capacity_post` kehrt nach Absage nicht zurück | Eigenständiger Defekt, **eigenes Ticket** |
+| # | Frage | Empfehlung | Stand |
+|---|---|---|---|
+| 1 | Frist für reguläre Zuweisungen? | **Ja — Option C**: 72 Stunden, gedeckelt am Einsatzbeginn | ✅ entschieden + gebaut |
+| 2 | Was der Kunde beim Verfall erfährt | **Meldung an den Kunden** — er hat die Person auf der Tafel | ✅ entschieden + gebaut |
+| 3 | Altbestand (9 Zeilen) | **Nur die fünf unbeantwortbaren** auf `expired` setzen | ⏳ offen — die neun Zeilen liegen unverändert |
+| 4 | Rückzieh-Knopf für Disponenten | **Ja** — unabhängig von 1 sinnvoll, kleiner Aufwand | ⏳ offen |
+| 5 | `capacity_post` kehrt nach **Absage** nicht zurück | Eigenständiger Defekt, **eigenes Ticket** | ⏳ offen — der *Verfall* gibt ihn seit 195 zurück, die Absage weiterhin nicht |
 
 ---
 
@@ -158,7 +234,7 @@ angefasst. Acht der neun liegen bei derselben Zeitarbeitsfirma.
 | Sperrt **fünf** Disponenten-Aktionen über `ASSIGNMENT_FILLED`: Kampagne, Warteliste-Welle, Auswahl-Set, Quick-Assign, Marktplatz-Zuweisung | `assignmentStaffingService.js:2790`, `:2894`, `:4082`; `workerService.js:2627` |
 | Trifft **den Arbeiter selbst**: wer eine Staffing-Einladung annimmt, bekommt „Einsatz bereits besetzt" — weil eine tote Anfrage den Platz hält | [assignmentStaffingService.js:4909](../../api/services/assignmentStaffingService.js#L4909), Route `workerPortal.js:880` |
 | Nimmt den Menschen **sofort vom Marktplatz** — `BUSY_EXISTS_SQL` prüft nur `is_active` und das Enddatum, nicht den Bestätigungsstand | [workerOfferReservationService.js:22](../../api/services/workerOfferReservationService.js#L22) |
-| Gilt in der Verfügbarkeit als belegt; bei fehlendem Enddatum sogar als `unbefristet_gebunden` | `workerAvailabilityService.js:101`, `:138` |
+| Gilt in der Verfügbarkeit als belegt; bei fehlendem Enddatum sogar als `unbefristet_gebunden` (`WHERE worker_user_id = $1 AND is_active = TRUE` — ohne Statusfilter) | [workerAvailabilityService.js:97](../../api/services/workerAvailabilityService.js#L97), [:102](../../api/services/workerAvailabilityService.js#L102) |
 | Erscheint in der Abwesenheits-Folgenvorschau | `workerAbsenceService.js:281` |
 
 Keine Sorge dagegen bei Folgeartefakten: **kein Job erzeugt aus einem Link
@@ -223,8 +299,9 @@ kann, sobald der Einsatzzeitraum vorbei ist.
 | | Staffing-Einladung | Reservierung | Auswahl-Set | Ersatz-Link (193) |
 |---|---|---|---|---|
 | **Dauer** | **72 h** | **30 min** (konfigurierbar) | **72 h** | **4 h** (+2 h Erinnerung) |
+| Beleg | `72 * 60 * 60 * 1000`, [assignmentStaffingService.js:2586](../../api/services/assignmentStaffingService.js#L2586) | Fallback `30` + DB-Default, [Migration 087:123](../../sql/migrations/087_assignment_multi_staffing.sql) | `DEFAULT_STAFFING_CHOICE_SET_HOURS = 72`, [:17](../../api/services/assignmentStaffingService.js#L17) | `INTERVAL '4 hours'`, [workerService.js:2250](../../api/services/workerService.js#L2250) |
 | Spalte | `expires_at` | `expires_at` | `response_deadline_at` | `frist_bis` |
-| Abräumung | Sweep + Lazy | Sweep + Lazy | **kein Sweep** | Sweep + Riegel in Zusage/Absage |
+| Abräumung | Sweep + Lazy | Sweep + Lazy | **kein Sweep** — `response_deadline_at` wird nirgends gegen `NOW()` geprüft; `expired` entsteht nur beim Lesen | Sweep + Riegel in Zusage/Absage |
 
 **72 Stunden ist der etablierte Wert, wenn ein Mensch antworten soll.** Die
 30 Minuten der Reservierung gelten einem technischen Vorhalt, nicht einer
@@ -352,7 +429,7 @@ gelöst sein, weil der Verfall sonst denselben Weg nimmt.
 | Baustein | Umfang |
 |---|---|
 | `frist_bis` + `erinnerung_faellig_am` in zwei INSERTs setzen (`assignCapacityToWorker`, `assignDealToWorker`), gedeckelt per `LEAST(…, start_date)` | ~8 Zeilen, **keine Migration** — die Spalten existieren seit 193 |
-| Sweep: `AND ersetzt_link_id IS NOT NULL` aus beiden UPDATEs lösen, Meldungstexte für Ersatz und Regulär trennen, Funktion umbenennen | ~25 Zeilen in `verfalleneErsatzAnfragen` |
+| Sweep: `AND ersetzt_link_id IS NOT NULL` aus beiden UPDATEs lösen, Meldungstexte für Ersatz und Regulär trennen, Funktion umbenennen | ~25 Zeilen im Sweep (heißt jetzt `verfalleneAnfragen`) |
 | Kundenmeldung beim Verfall (Entscheidung 2a) | neu — es gibt heute keinen Meldeweg dafür |
 | Aufräumpfade, die der Ersatz-Fall nicht kennt: `capacity_post` zurücksetzen, leere Einsatzhülle aus #2 behandeln | der eigentliche Aufwand (siehe Entscheidung 5) |
 | Bündelung der Verfallsmeldungen bei #4/#5 (eine Meldung je Einsatz statt N) | neu, sonst Meldungslärm |

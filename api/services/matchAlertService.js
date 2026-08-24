@@ -67,6 +67,9 @@ const EVENT_CATEGORY_MAP = {
    * Krankmeldung, die ihn ausgeloest hat — beides ist Belegschafts-Betrieb,
    * beides trifft dieselben Empfaenger (worker.manage). */
   'worker.replacement_expired': 'workforce_updates',
+  /* Der Verfall einer regulaeren Zuweisung ebenso: derselbe Empfaengerkreis
+   * (worker.manage), dieselbe Arbeit — ein Platz muss neu besetzt werden. */
+  'worker.assignment_not_confirmed': 'workforce_updates',
   /* Kundenseite bekommt eine EIGENE Kategorie (Welle G4b) — nicht
    * 'workforce_updates'. Der Grund liegt darin, WO die Einstellung haengt:
    * an der Person, nicht an der Organisation (getUserPreferences filtert auf
@@ -76,8 +79,9 @@ const EVENT_CATEGORY_MAP = {
    * "die bei mir eingesetzte Fremdkraft faellt aus". Genau diese Kopplung hat
    * G4 beim Rueckfall auf 'match_alerts' abgelehnt; sie hier einzubauen waere
    * derselbe Fehler eine Ebene tiefer. */
-  'assignment.worker_unavailable': 'client_assignment_updates',
-  'assignment.worker_replaced':    'client_assignment_updates'
+  'assignment.worker_unavailable':   'client_assignment_updates',
+  'assignment.worker_replaced':      'client_assignment_updates',
+  'assignment.worker_not_confirmed': 'client_assignment_updates'
 };
 
 export { EVENT_CATEGORY_MAP };

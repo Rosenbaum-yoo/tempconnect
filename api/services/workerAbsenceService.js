@@ -799,7 +799,9 @@ export const KUNDE_PERMISSION = "assignment.edit";
 export const KUNDE_ANLAESSE = Object.freeze(["ausfall", "entwarnung", "ersatz"]);
 
 /** Einsaetze, die nicht mehr laufen, betreffen den Kunden nicht mehr. */
-const EINSATZ_ERLEDIGT = Object.freeze(["completed", "cancelled", "closed"]);
+/* Exportiert, seit der Frist-Sweep (workerService) denselben Ausschluss braucht:
+ * ein erledigter Einsatz bekommt keine Meldung mehr, egal aus welchem Anlass. */
+export const EINSATZ_ERLEDIGT = Object.freeze(["completed", "cancelled", "closed"]);
 
 /**
  * Der Text der Kundenmeldung.

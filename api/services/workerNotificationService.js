@@ -222,10 +222,12 @@ export async function notifySubmissionAccepted(pool, workerUserId, submissionId,
 
 /** Neuer Einsatz: Worker muss bestätigen */
 export async function notifyAssignmentPendingConfirmation(pool, workerUserId, assignmentLinkId, clientName, deadlineLabel = null) {
-  /* `deadlineLabel` kommt nur von der Ersatz-Zuweisung (Frist 4 h, Migration
-   * 193) — eine Frist, die man dem Betroffenen nicht mitteilt, ist eine Falle.
-   * Die fuenf regulaeren Aufrufer lassen den Parameter weg: ihre Anfragen
-   * tragen (noch) keine Frist, und ein Text, der eine behauptet, waere gelogen. */
+  /* `deadlineLabel` kommt von ALLEN sechs Anfragewegen (Migration 193 fuer den
+   * Ersatz mit 4 h, Migration 195 fuer regulaere Zuweisungen mit 72 h gedeckelt
+   * am Einsatzbeginn) — eine Frist, die man dem Betroffenen nicht mitteilt, ist
+   * eine Falle. Der Parameter bleibt trotzdem optional: `fristLabelDE` gibt
+   * `null` zurueck, wenn keine Frist gesetzt ist, und dann faellt der
+   * Frist-Satz weg statt eine zu behaupten, die es nicht gibt. */
   await notifyWorker(pool, {
     workerUserId,
     type:        "worker_assignment_pending_confirmation",
@@ -251,7 +253,9 @@ export async function notifyAssignmentReminder(pool, workerUserId, assignmentLin
     workerUserId,
     type:        "worker_assignment_reminder",
     title:       "Erinnerung: Einsatz-Anfrage wartet",
-    message:     `Ihre Antwort auf eine Einsatz-Zuweisung steht noch aus.${deadlineLabel ? ` Die Anfrage verfaellt um ${deadlineLabel}.` : ""} Danach wird der Platz neu vergeben.`,
+    /* "am", nicht "um": das Label traegt seit Migration 195 Datum UND Uhrzeit,
+     * weil eine regulaere Frist bis zu 72 Stunden entfernt liegen kann. */
+    message:     `Ihre Antwort auf eine Einsatz-Zuweisung steht noch aus.${deadlineLabel ? ` Die Anfrage verfaellt am ${deadlineLabel}.` : ""} Danach wird der Platz neu vergeben.`,
     entityType:  "worker_assignment_link",
     entityId:    assignmentLinkId,
     linkPath:    `/public/einsatzportal-benachrichtigungen.html`,

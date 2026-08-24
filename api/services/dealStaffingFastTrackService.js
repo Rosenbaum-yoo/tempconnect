@@ -264,7 +264,11 @@ export async function quickAssignSuggestedWorkers(pool, {
     latestAssignment = result.assignment || latestAssignment;
     assignedLinks.push({
       worker_user_id: workerUserId,
-      link_id: result.link?.id || null
+      link_id: result.link?.id || null,
+      /* Die Frist muss mit nach oben: der Aufrufer schreibt sie in den
+       * Erst-Text der Benachrichtigung (Migration 195). Ohne sie hier gaebe es
+       * fuer die Schnellbesetzung eine Frist, die niemand mitgeteilt bekommt. */
+      frist_bis: result.link?.frist_bis || null
     });
     results.push({
       worker_user_id: workerUserId,

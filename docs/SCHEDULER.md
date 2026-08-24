@@ -33,7 +33,7 @@ freigegeben**, und der DSGVO-Aufbewahrungs-Sweep lief nicht.
 | `POST /api/internal/notdienst-escalate` | alle 5 Min | Notdienst-Anfragen eskalieren nie — das Premium-Versprechen bricht |
 | `POST /api/internal/demand-notdienst-escalate` | alle 5 Min | dasselbe auf der Nachfrage-Seite |
 | `POST /api/internal/demand-sla-scan` | alle 5 Min | Pulse-Timer auf Nachfragen laufen nie in den Breach |
-| `POST /api/internal/staffing-maintenance` | alle 15 Min | **Angebote bleiben nach Einsatzende reserviert** und **Ersatz-Anfragen verfallen nie** — der Handler ruft drei Dienste: runStaffingMaintenance, sweepReservations und verfalleneErsatzAnfragen (4-h-Frist + 2-h-Erinnerung, Migration 193; laeuft zusaetzlich alle 10 Min ueber BullMQ `ersatz-frist-10min`, der Riegel in confirm/decline gilt auch ohne jeden Takt) |
+| `POST /api/internal/staffing-maintenance` | alle 15 Min | **Angebote bleiben nach Einsatzende reserviert** und **Anfragen verfallen nie** — der Handler ruft drei Dienste: runStaffingMaintenance, sweepReservations und verfalleneAnfragen (Ersatz: 4-h-Frist + 2-h-Erinnerung, Migration 193; regulaere Zuweisungen: 72 h gedeckelt am Einsatzbeginn, Mindestfrist 4 h, Erinnerung bei der Haelfte, Migration 195. Laeuft zusaetzlich alle 10 Min ueber BullMQ `ersatz-frist-10min`; der Riegel in confirm/decline gilt auch ohne jeden Takt) |
 | `POST /api/internal/sla-search-scan` | alle 15 Min | gespeicherte Suchen laufen nie |
 | `POST /api/internal/sla-search-run` | alle 15 Min | dito, Ausführungsteil |
 | `POST /api/internal/webhook-retry` | alle 10 Min | fehlgeschlagene Webhooks werden nie erneut zugestellt |

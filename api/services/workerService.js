@@ -15,7 +15,7 @@ import * as workerOfferReservations from "./workerOfferReservationService.js";
 import * as abwesenheit from "./workerAbsenceService.js";
 import { dispatch, findOrgMembersWithPermission } from "./notificationMatrix.js";
 import { logger } from "../config/index.js";
-import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
+import { todayDE, dateOnlyDE, fristLabelDE } from "../utils/dateDE.js";
 import {
   buildAssignmentActivePredicateSql,
   buildAssignmentHistoryPredicateSql,
@@ -52,6 +52,67 @@ const workerAssignmentLifecycleSelectSql = `
        ${workerAssignmentIsHistorySql} AS assignment_is_history,
        (${workerAssignmentLifecycleStateSql} = 'ends_today') AS assignment_ends_today,
        (${workerAssignmentLifecycleStateSql} = 'expired') AS assignment_is_expired`;
+
+/* ── Antwortfrist einer Zuweisungs-Anfrage (Owner-Entscheid 2026-08-24) ───────
+ *
+ * OPTION C: 72 Stunden, gedeckelt am Einsatzbeginn. Die 72 sind kein neuer
+ * Wert — Staffing-Einladung und Auswahl-Set verwenden ihn bereits
+ * (`DEFAULT_STAFFING_CHOICE_SET_HOURS = 72` und `72 * 60 * 60 * 1000` in
+ * assignmentStaffingService). Eine dritte Zahl einzufuehren, wo zwei
+ * Nachbarfaelle sich einig sind, waere eine Sonderregel ohne Anlass.
+ *
+ * DER DECKEL ist der eigentliche Zweck. Ohne ihn kann eine Anfrage den
+ * Einsatzbeginn ueberleben — und genau daraus sind die eingefrorenen Altfaelle
+ * entstanden: laeuft das effektive Ende ab, weisen `confirmAssignment` und
+ * `declineAssignment` JEDE Antwort mit ASSIGNMENT_NOT_CURRENT ab, waehrend
+ * `recalcAssignmentStaffing` die Zeile weiter als belegt zaehlt. Eine Anfrage,
+ * die niemand mehr beantworten kann, darf gar nicht erst entstehen.
+ *
+ * DIE UNTERGRENZE ist keine Bequemlichkeit, sondern Datenlage: 22 von 24
+ * Zuweisungen im Bestand haben einen Vorlauf von <= 0 Tagen (gemessen
+ * 2026-08-24) — sie entstehen am Starttag oder danach. Ein harter Deckel
+ * liesse solche Anfragen bei der Geburt verfallen, und der Arbeiter bekaeme
+ * eine Meldung ueber etwas, das schon vorbei ist. Die vier Stunden sind der
+ * Wert, den der Owner fuer den dringendsten Fall gesetzt hat (Ersatz, 193).
+ *
+ * NUR FUER NEUE ANFRAGEN: Der Altbestand traegt `frist_bis IS NULL` und bleibt
+ * unberuehrt (Linie aus 188/193). Was mit ihm geschieht, ist eine eigene
+ * Owner-Entscheidung (docs/features/I2_FRIST_REGULAERE_ZUWEISUNG.md).
+ */
+const ANFRAGE_FRIST_STUNDEN = 72;
+const ANFRAGE_MINDESTFRIST_STUNDEN = 4;
+
+/**
+ * Der Frist-Ausdruck fuer ein INSERT. `startAusdruck` ist der SQL-Ausdruck des
+ * Einsatzbeginns — ein Platzhalter (`$9`) oder eine Spalte (`a.start_date`).
+ *
+ * GREATEST aussen, LEAST innen: erst deckeln, dann die Untergrenze durchsetzen.
+ * Die umgekehrte Reihenfolge waere subtil falsch — sie liesse den Deckel
+ * gewinnen und damit jede Anfrage fuer einen laengst begonnenen Einsatz sofort
+ * verfallen.
+ *
+ * `::date::timestamptz` heisst Mitternacht des Starttags in der Zeitzone des
+ * Servers (`TZ=Europe/Berlin`, DACH-first-Direktive) — die Antwort muss vor
+ * Arbeitsbeginn da sein, nicht irgendwann am Starttag.
+ */
+function anfrageFristSql(startAusdruck) {
+  return "GREATEST("
+    + `LEAST(NOW() + INTERVAL '${ANFRAGE_FRIST_STUNDEN} hours', ${startAusdruck}::date::timestamptz), `
+    + `NOW() + INTERVAL '${ANFRAGE_MINDESTFRIST_STUNDEN} hours')`;
+}
+
+/**
+ * Die Haelfte der TATSAECHLICHEN Frist, nicht die halbe Regelfrist: bei einer
+ * auf fuenf Stunden gedeckelten Anfrage waeren 36 Stunden eine Erinnerung nach
+ * dem Verfall.
+ *
+ * Die doppelte Auswertung des Frist-Ausdrucks ist deterministisch — `NOW()` ist
+ * STABLE und liefert innerhalb einer Anweisung ueberall dieselbe
+ * Transaktionszeit.
+ */
+function anfrageErinnerungSql(startAusdruck) {
+  return `NOW() + ((${anfrageFristSql(startAusdruck)} - NOW()) / 2)`;
+}
 
 /* ── Hilfsfunktionen ────────────────────────────────────────────────────────── */
 
@@ -1889,12 +1950,24 @@ export async function declineAssignment(pool, linkId, workerUserId, reason) {
 }
 
 /**
- * Der Sweep der Ersatz-Frist (Plan I, 8.2 / Migration 193).
+ * Der Sweep der Antwortfrist (Plan I, 8.2 / Migration 193 + 195).
  *
- * OWNER-ENTSCHEID: Eine Ersatz-Anfrage verfaellt nach 4 Stunden, Erinnerung
- * nach 2 — "danach wird der Einsatz wieder offen und der Knopf erscheint
- * erneut". Die Frist steht seit dem Anlegen in `frist_bis` (beide Zweige des
- * INSERT in `replaceAssignmentWorker`); hier wird sie durchgesetzt.
+ * ZWEI ARTEN, EIN SWEEP. Beide Anfragearten verfallen nach derselben Mechanik;
+ * sie unterscheiden sich an `ersetzt_link_id` und danach nur noch darin, WER
+ * es erfaehrt:
+ *   Ersatz (193, Frist 4 h, Erinnerung nach 2): Meldung an Arbeiter und
+ *     Disponenten. KEIN Kundenpfad — siehe unten.
+ *   Regulaer (195, Frist 72 h gedeckelt am Einsatzbeginn, Erinnerung bei der
+ *     Haelfte): zusaetzlich eine Meldung an den KUNDEN und die Rueckgabe des
+ *     Kapazitaets-Postens.
+ *
+ * OWNER-ENTSCHEID (2026-08-21, Ersatz): "Frist 4 Stunden, dann verfaellt sie
+ * automatisch; Erinnerung nach 2 h — danach wird der Einsatz wieder offen und
+ * der Knopf erscheint erneut."
+ * OWNER-ENTSCHEID (2026-08-24, regulaer): "Option C mit 72h und Kundenmeldung."
+ * Die Frist steht in beiden Faellen seit dem Anlegen in `frist_bis`
+ * (`replaceAssignmentWorker`, `assignCapacityToWorker`, `assignDealToWorker`);
+ * hier wird sie durchgesetzt.
  *
  * WARUM VERFALL VOR ERINNERUNG: Nach einem Takt-Ausfall sind beide faellig.
  * Liefe die Erinnerung zuerst, bekaeme ein bereits verfallener Link noch eine
@@ -1933,25 +2006,37 @@ export async function declineAssignment(pool, linkId, workerUserId, reason) {
  *   nur `is_active`, nicht den Bestaetigungsstand) — der Mensch war aus dem
  *   Marktplatz verschwunden, obwohl er nur GEFRAGT wurde.
  *
- * KEIN KUNDENPFAD: Der Kunde hat die angefragte Ersatzkraft nie gesehen
- * (getCompanyLiveWorkforce blendet pending-Ersatz aus) und keine Meldung
- * bekommen (sie haengt an der ZUSAGE). Beim Verfall gibt es nichts
- * zurueckzunehmen — `benachrichtigeKunde` wird hier bewusst NICHT gerufen.
+ * DER KUNDENPFAD IST DER UNTERSCHIED ZWISCHEN DEN BEIDEN ARTEN — und er ist
+ * keine Geschmacksfrage, sondern folgt der Sichtbarkeit:
+ *   Ersatz: Der Kunde hat die angefragte Ersatzkraft NIE gesehen. Die
+ *     Live-Belegschaft blendet genau diesen Fall aus (`workforceService`:
+ *     `AND NOT (ersetzt_link_id IS NOT NULL AND ... = 'pending_confirmation')`),
+ *     und die Meldung "Ersatz gestellt" haengt an der ZUSAGE. Beim Verfall gibt
+ *     es dort nichts zurueckzunehmen.
+ *   Regulaer: Der Kunde sieht die Kraft vom ersten Tag an auf seiner Tafel —
+ *     derselbe Ausschluss laesst sie bewusst durch ("eine regulaere Zuweisung,
+ *     die noch auf Bestaetigung wartet, war hier immer schon sichtbar").
+ *     Gemessen am 2026-08-24: vier Menschen standen so bei Kunden, ohne je
+ *     zugesagt zu haben, der aelteste seit 136 Tagen. Verschwaende die Zeile
+ *     beim Verfall kommentarlos, plante der Kunde weiter mit jemandem, den es
+ *     auf seinem Einsatz nicht mehr gibt.
  *
- * ALTBESTAND: `frist_bis IS NULL` faellt aus beiden WHERE — die zehn
- * pending-Zeilen aus der Zeit vor der Frist und alle regulaeren Zuweisungen
- * bleiben unberuehrt (Linie aus Migration 188: die neue Regel gilt ab der
- * naechsten Ersatz-Zuweisung). `ersetzt_link_id IS NOT NULL` begrenzt auf
- * Ersatz-Anfragen — das ist der Owner-Entscheid; die Frage, ob auch regulaere
- * Zuweisungen eine Frist bekommen, ist ein eigenes Ticket.
+ * ALTBESTAND: `frist_bis IS NULL` faellt aus beiden WHERE — die pending-Zeilen
+ * aus der Zeit vor der Frist bleiben unberuehrt (Linie aus Migration 188/193:
+ * die neue Regel gilt ab der naechsten Anfrage). Was mit ihnen geschieht, ist
+ * eine eigene Owner-Entscheidung (I2, Entscheidung 3 — noch offen).
  */
-export async function verfalleneErsatzAnfragen(pool) {
+export async function verfalleneAnfragen(pool) {
   const client = await pool.connect();
   let verfallen = [];
   let erinnert = [];
   try {
     await client.query("BEGIN");
 
+    /* `ersetzt_link_id` und `capacity_post_id` kommen mit zurueck, weil die
+     * Nachbereitung sie braucht: das erste unterscheidet Ersatz von regulaer
+     * (Kundenpfad ja/nein), das zweite traegt den Kapazitaets-Posten, der beim
+     * regulaeren Verfall zurueckgegeben werden muss. */
     const verfallenErgebnis = await client.query(
       `UPDATE worker_assignment_links
           SET worker_confirmation_status = 'expired',
@@ -1960,9 +2045,9 @@ export async function verfalleneErsatzAnfragen(pool) {
               updated_at   = NOW()
         WHERE worker_confirmation_status = 'pending_confirmation'
           AND is_active = TRUE
-          AND ersetzt_link_id IS NOT NULL
           AND frist_bis IS NOT NULL AND frist_bis <= NOW()
-        RETURNING id, assignment_id, worker_user_id, supplier_org_id, ersetzt_link_id`
+        RETURNING id, assignment_id, worker_user_id, supplier_org_id,
+                  ersetzt_link_id, capacity_post_id, client_name`
     );
     verfallen = verfallenErgebnis.rows;
 
@@ -1972,7 +2057,6 @@ export async function verfalleneErsatzAnfragen(pool) {
               updated_at  = NOW()
         WHERE worker_confirmation_status = 'pending_confirmation'
           AND is_active = TRUE
-          AND ersetzt_link_id IS NOT NULL
           AND erinnerung_faellig_am IS NOT NULL AND erinnerung_faellig_am <= NOW()
           AND erinnert_am IS NULL
           AND frist_bis > NOW()
@@ -1981,9 +2065,13 @@ export async function verfalleneErsatzAnfragen(pool) {
     erinnert = erinnertErgebnis.rows;
 
     for (const zeile of erinnert) {
-      const label = zeile.frist_bis ? uhrzeitDE(zeile.frist_bis) : null;
+      /* Datum UND Uhrzeit, nicht nur die Uhrzeit: bei der Ersatz-Frist (4 h)
+       * lag der Verfall immer am selben Tag, bei einer regulaeren Zuweisung
+       * (bis 72 h) liegt er es nicht. "Verfaellt um 14:30 Uhr" waere dann eine
+       * Angabe, die drei Tage offen laesst. */
       await workerNotifications.notifyAssignmentReminder(
-        client, zeile.worker_user_id, zeile.id, label, { throwOnError: true }
+        client, zeile.worker_user_id, zeile.id, fristLabelDE(zeile.frist_bis),
+        { throwOnError: true }
       );
     }
 
@@ -2001,46 +2089,94 @@ export async function verfalleneErsatzAnfragen(pool) {
    * und stoppen die uebrigen Zeilen nicht — halb aufgeraeumt ist besser als
    * gar nicht, und der naechste recalc-Anlass zieht die Zahlen ohnehin nach. */
   for (const zeile of verfallen) {
+    const istErsatz = Boolean(zeile.ersetzt_link_id);
+    const art = istErsatz ? "Ersatz-Verfall" : "Zuweisungs-Verfall";
+
     try {
       await assignmentStaffingService.recalcAssignmentStaffing(pool, zeile.assignment_id, { writeEvent: false });
     } catch (err) {
-      logger.error({ err: err.message, linkId: zeile.id }, "Ersatz-Verfall: recalc fehlgeschlagen");
+      logger.error({ err: err.message, linkId: zeile.id }, `${art}: recalc fehlgeschlagen`);
     }
     let profil = null;
     try {
       profil = await abwesenheit.profilZuNutzer(pool, zeile.supplier_org_id, zeile.worker_user_id);
       if (profil?.id) await workerOfferReservations.syncWorkerReservation(pool, profil.id);
     } catch (err) {
-      logger.error({ err: err.message, linkId: zeile.id }, "Ersatz-Verfall: Marktplatz-Freigabe fehlgeschlagen");
+      logger.error({ err: err.message, linkId: zeile.id }, `${art}: Marktplatz-Freigabe fehlgeschlagen`);
     }
+
+    /* NUR REGULAER: Der Kapazitaets-Posten muss zurueck. `assignCapacityToWorker`
+     * schaltet ihn beim Zuweisen auf 'filled'/is_active=FALSE, sobald der
+     * Headcount ausgeschoepft ist — und `syncWorkerReservation` holt ihn NICHT
+     * zurueck, denn dessen Freigabe greift nur fuer 'paused' + worker_reserved.
+     * Ohne diesen Schritt bliebe das Angebot nach dem Verfall fuer immer
+     * verschwunden. (Der Ersatz-Pfad legt keinen Kapazitaets-Posten an.) */
+    if (!istErsatz && zeile.capacity_post_id) {
+      try {
+        await kapazitaetsPostenZurueckgeben(pool, zeile.capacity_post_id);
+      } catch (err) {
+        logger.error({ err: err.message, linkId: zeile.id }, `${art}: Kapazitaets-Rueckgabe fehlgeschlagen`);
+      }
+    }
+
     try {
-      await workerNotifications.notifyAssignmentExpired(pool, zeile.worker_user_id, zeile.id);
+      await workerNotifications.notifyAssignmentExpired(
+        pool, zeile.worker_user_id, zeile.id, zeile.client_name || null
+      );
     } catch (err) {
-      logger.error({ err: err.message, linkId: zeile.id }, "Ersatz-Verfall: Arbeiter-Meldung fehlgeschlagen");
+      logger.error({ err: err.message, linkId: zeile.id }, `${art}: Arbeiter-Meldung fehlgeschlagen`);
     }
+
     try {
       /* An ALLE mit worker.manage, nicht nur an den, der die Anfrage stellte —
        * der Verfall erzeugt Handlungsdruck, und der urspruengliche Disponent
-       * ist um 22 Uhr vielleicht nicht da. Der Link fuehrt zum AUSGEFALLENEN
-       * (dessen Zeile traegt jetzt wieder den Knopf), nicht auf eine
-       * Uebersicht. */
-      const ausgefallener = await profilZumAltLink(pool, zeile);
+       * ist um 22 Uhr vielleicht nicht da.
+       *
+       * DER LINK FUEHRT ZUM MENSCHEN, nicht auf eine Uebersicht — aber zu
+       * verschiedenen: beim Ersatz zum AUSGEFALLENEN (dessen Zeile traegt
+       * jetzt wieder den Knopf "Ersatz suchen"), beim regulaeren Verfall zum
+       * Angefragten selbst, der ab sofort wieder als verfuegbar gefuehrt wird.
+       *
+       * `profil.name` statt `profil.first_name`: `profilZuNutzer` liefert
+       * `{ id, name }`. Der vorherige Zugriff auf first_name/last_name ergab
+       * eine leere Zeichenkette — und weil `profil` truthy ist, griff auch der
+       * Rueckfalltext nicht: die Meldung begann mit einem Leerzeichen. */
       const empfaenger = await findOrgMembersWithPermission(pool, zeile.supplier_org_id, abwesenheit.BUERO_PERMISSION);
       if (empfaenger.length) {
-        const name = profil ? [profil.first_name, profil.last_name].filter(Boolean).join(" ") : "Die angefragte Ersatzkraft";
-        await dispatch(pool, "worker.replacement_expired", {
+        const name = profil?.name || (istErsatz ? "Die angefragte Ersatzkraft" : "Die angefragte Einsatzkraft");
+        const ausgefallener = istErsatz ? await profilZumAltLink(pool, zeile) : null;
+        const zielProfil = istErsatz ? ausgefallener?.id : profil?.id;
+
+        await dispatch(pool, istErsatz ? "worker.replacement_expired" : "worker.assignment_not_confirmed", {
           recipientUserIds: empfaenger,
           orgId: zeile.supplier_org_id,
           entityType: "worker_assignment_link",
           entityId: zeile.id,
-          message: `${name} hat eine Ersatz-Anfrage nicht rechtzeitig beantwortet — sie ist verfallen. Der Einsatz ist wieder offen, der Knopf "Ersatz suchen" steht wieder bereit.`,
-          linkPath: ausgefallener?.id ? abwesenheit.bueroDeepLink(ausgefallener.id, "abwesend") : "/public/mitarbeiter.html#live-abwesend",
+          message: istErsatz
+            ? `${name} hat eine Ersatz-Anfrage nicht rechtzeitig beantwortet — sie ist verfallen. Der Einsatz ist wieder offen, der Knopf "Ersatz suchen" steht wieder bereit.`
+            : `${name} hat die Zuweisung${zeile.client_name ? ` fuer ${zeile.client_name}` : ""} nicht innerhalb der Frist bestaetigt. Der Platz ist wieder offen und kann neu besetzt werden.`,
+          linkPath: zielProfil
+            ? abwesenheit.bueroDeepLink(zielProfil, istErsatz ? "abwesend" : "verfuegbar")
+            : (istErsatz ? "/public/mitarbeiter.html#live-abwesend" : "/public/mitarbeiter.html#live-verfuegbar"),
           emailQueue: true,
-          emailSubject: "Ersatz-Anfrage verfallen — Einsatz wieder offen"
+          emailSubject: istErsatz
+            ? "Ersatz-Anfrage verfallen — Einsatz wieder offen"
+            : "Zuweisung nicht bestaetigt — Platz wieder offen"
         });
       }
     } catch (err) {
-      logger.error({ err: err.message, linkId: zeile.id }, "Ersatz-Verfall: Disponenten-Meldung fehlgeschlagen");
+      logger.error({ err: err.message, linkId: zeile.id }, `${art}: Disponenten-Meldung fehlgeschlagen`);
+    }
+
+    /* NUR REGULAER: der Kunde. Warum hier und nicht beim Ersatz, steht im Kopf
+     * dieser Funktion — beim Ersatz gibt es beim Kunden nichts zurueckzunehmen,
+     * hier verschwindet jemand von seiner Tafel. */
+    if (!istErsatz) {
+      try {
+        await benachrichtigeKundeUeberVerfall(pool, zeile, profil?.name || null);
+      } catch (err) {
+        logger.error({ err: err.message, linkId: zeile.id }, `${art}: Kunden-Meldung fehlgeschlagen`);
+      }
     }
   }
 
@@ -2061,16 +2197,98 @@ async function profilZumAltLink(pool, zeile) {
   return rows[0] || null;
 }
 
-/** "17:42" in Europe/Berlin — nie roher UTC-Slice (DACH-first-Direktive). */
-function uhrzeitDE(wert) {
-  try {
-    return new Intl.DateTimeFormat("de-DE", {
-      timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit"
-    }).format(new Date(wert)) + " Uhr";
-  } catch {
-    return null;
-  }
+/**
+ * Den Kapazitaets-Posten wieder oeffnen, den die verfallene Zuweisung
+ * geschlossen hat.
+ *
+ * DIE ZAEHLUNG SPIEGELT DIE SETZ-LOGIK aus `assignCapacityToWorker`: dort wird
+ * `filled` gesetzt, sobald die aktiven Links den Headcount erreichen; hier wird
+ * genau dann zurueckgedreht, wenn sie ihn nach dem Verfall wieder unterschreiten.
+ * Ein Posten mit drei von drei Plaetzen, von denen nur einer verfaellt, bleibt
+ * damit korrekt geschlossen — er hat ja noch zwei Zusagen.
+ *
+ * `status = 'filled'` als Bedingung ist die Grenze: geweckt wird nur, was die
+ * Zuweisung selbst geschlossen hat. Ein vom Betrieb archivierter oder beendeter
+ * Posten bleibt, wo er ist — der Verfall einer Anfrage ist kein Grund, ein
+ * zurueckgezogenes Angebot wieder auf den Marktplatz zu stellen.
+ */
+async function kapazitaetsPostenZurueckgeben(pool, capacityPostId) {
+  const { rowCount } = await pool.query(
+    `UPDATE capacity_posts cp
+        SET status = 'active', is_active = TRUE, updated_at = NOW()
+      WHERE cp.id = $1
+        AND cp.status = 'filled'
+        AND (SELECT COUNT(*)
+               FROM worker_assignment_links wal
+              WHERE wal.capacity_post_id = cp.id
+                AND wal.is_active = TRUE
+                AND wal.worker_confirmation_status NOT IN ('worker_declined','worker_unavailable')
+            ) < GREATEST(1, COALESCE(cp.headcount, 1))`,
+    [capacityPostId]
+  );
+  return rowCount > 0;
 }
+
+/**
+ * Der Kunde erfaehrt, dass der Platz wieder offen ist (Owner-Entscheid
+ * 2026-08-24). NUR beim regulaeren Verfall — die Begruendung steht im Kopf von
+ * `verfalleneAnfragen`.
+ *
+ * JEDER BAUSTEIN IST GELIEHEN, KEINER NEU: dieselbe Empfangspruefung
+ * (`kundeIstEmpfangsberechtigt` — kein Kunde, Kunde ist der Lieferant,
+ * Org-Divergenz), dieselbe Berechtigung (`assignment.edit`), derselbe
+ * Deep-Link ins Einsatzfenster wie bei Ausfall und Ersatz. Was der Kunde von
+ * uns hoert, soll ueberall dieselbe Form haben.
+ *
+ * WAS IM TEXT STEHT — und was nicht: Der Name darf mit (der Kunde sieht seine
+ * Einsatzkraefte ohnehin namentlich, Linie aus G4b), der GRUND nicht als
+ * Vorwurf. "Nicht bestaetigt" ist eine Tatsache ueber die Zuweisung; "hat nicht
+ * geantwortet" waere eine ueber den Menschen, und der Verfall ist ausdruecklich
+ * keine Absage (Migration 193).
+ */
+async function benachrichtigeKundeUeberVerfall(pool, zeile, name) {
+  const einsatz = await abwesenheit.einsatzFuerKundenmeldung(
+    pool, zeile.supplier_org_id, zeile.assignment_id
+  );
+  if (!einsatz) return { benachrichtigt: 0, grund: "KEIN_EINSATZ" };
+
+  const status = String(einsatz.assignment_status || "").toLowerCase();
+  if (abwesenheit.EINSATZ_ERLEDIGT.includes(status)) {
+    return { benachrichtigt: 0, grund: "EINSATZ_ERLEDIGT" };
+  }
+
+  const pruefung = abwesenheit.kundeIstEmpfangsberechtigt(einsatz, zeile.supplier_org_id);
+  if (!pruefung.erlaubt) return { benachrichtigt: 0, grund: pruefung.grund };
+
+  const empfaenger = await findOrgMembersWithPermission(
+    pool, pruefung.kundeOrgId, abwesenheit.KUNDE_PERMISSION
+  );
+  if (!empfaenger.length) return { benachrichtigt: 0, grund: "KEIN_EMPFAENGER" };
+
+  const wer = name || "Eine vorgesehene Einsatzkraft";
+  const ergebnis = await dispatch(pool, "assignment.worker_not_confirmed", {
+    recipientUserIds: empfaenger,
+    /* Die EMPFAENGER-Org, nicht die des Absenders: das Feld steuert den
+     * Org-Filter der Benachrichtigungsliste. Stuende hier die Zeitarbeitsfirma,
+     * laege die Meldung in der Ablage einer fremden Organisation. */
+    orgId: pruefung.kundeOrgId,
+    /* Anker ist der EINSATZ: der Kunde kennt keine Link-ID und hat auf sie
+     * keinen Zugriff — genau wie bei Ausfall und Ersatz. */
+    entityType: "assignment",
+    entityId: einsatz.assignment_id,
+    message: `${wer} ist fuer Ihren Einsatz nicht bestaetigt worden. Der Platz ist wieder offen — Ihre Zeitarbeitsfirma besetzt ihn neu.`,
+    linkPath: abwesenheit.kundenDeepLink(einsatz.assignment_id),
+    emailQueue: true,
+    emailSubject: "Platz auf Ihrem Einsatz wieder offen"
+  });
+  return { benachrichtigt: ergebnis.sent || 0 };
+}
+
+/* `uhrzeitDE` stand hier und lieferte nur "17:42 Uhr". Das reichte, solange die
+ * einzige Frist vier Stunden lang war; seit Migration 195 kann sie 72 Stunden
+ * entfernt liegen, und dann fehlt der Tag. Ersetzt durch `fristLabelDE`
+ * (api/utils/dateDE.js) — dieselbe Formatierung, die auch die sechs
+ * Erst-Texte verwenden. */
 
 /**
  * Worker meldet sich krank / nicht verfügbar ab einem bestimmten Datum.
@@ -2342,15 +2560,17 @@ export async function assignCapacityToWorker(pool, {
     );
 
     // 5) Assignment-Link erstellen (pending_confirmation)
+    /* Die Frist wird MIT der Anfrage geboren — $9 ist das Startdatum
+     * (Owner-Entscheid 2026-08-24, siehe anfrageFristSql). */
     const { rows: [link] } = await client.query(
       `INSERT INTO worker_assignment_links
          (worker_user_id, assignment_id, org_id, supplier_org_id,
           default_hours_per_day, default_shift_start, default_shift_end,
           default_break_minutes, start_date, end_date, client_name,
           notes, created_by, capacity_post_id,
-          worker_confirmation_status)
+          worker_confirmation_status, frist_bis, erinnerung_faellig_am)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
-               'pending_confirmation')
+               'pending_confirmation', ${anfrageFristSql("$9")}, ${anfrageErinnerungSql("$9")})
        RETURNING *`,
       [workerUserId, assignment.id, orgId, supplierOrgId,
        defaultHoursPerDay || 8.0, defaultShiftStart || null, defaultShiftEnd || null,
@@ -2668,6 +2888,8 @@ export async function assignDealToWorker(pool, {
     }
 
     // 5) Assignment-Link erstellen
+    /* Die Frist wird MIT der Anfrage geboren — $11 ist der effektive
+     * Einsatzbeginn (Owner-Entscheid 2026-08-24, siehe anfrageFristSql). */
     const { rows: [link] } = await client.query(
       `INSERT INTO worker_assignment_links
          (worker_user_id, assignment_id, org_id, supplier_org_id,
@@ -2675,8 +2897,9 @@ export async function assignDealToWorker(pool, {
           default_hours_per_day, default_shift_start, default_shift_end,
           default_break_minutes, start_date, end_date,
           client_name, notes, created_by,
-          worker_confirmation_status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'pending_confirmation')
+          worker_confirmation_status, frist_bis, erinnerung_faellig_am)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'pending_confirmation',
+               ${anfrageFristSql("$11")}, ${anfrageErinnerungSql("$11")})
        RETURNING *`,
       [workerUserId, assignmentId, asg.org_id, supplierOrgId,
        asg.deal_request_id, asg.capacity_post_id || null,

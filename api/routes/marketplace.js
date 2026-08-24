@@ -25,6 +25,7 @@ import * as dealStaffingFastTrackService from "../services/dealStaffingFastTrack
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
 import * as dealCommitmentService from "../services/dealCommitmentService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
+import { fristLabelDE } from "../utils/dateDE.js";
 import { swallow } from "../utils/logger.js";
 import {
   buildDealHistoryBucketSql,
@@ -1984,7 +1985,8 @@ export function createMarketplaceRouter(deps) {
           pool,
           assigned.worker_user_id,
           assigned.link_id,
-          parsed.data.client_name || offer.requester_company_name || null
+          parsed.data.client_name || offer.requester_company_name || null,
+          fristLabelDE(assigned.frist_bis)
         ).catch(swallow("marketplace"));
       }
 

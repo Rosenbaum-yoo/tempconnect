@@ -445,6 +445,20 @@ const MATRIX = {
     recipientStrategy: 'org_worker_managers',
     linkPath: '/public/mitarbeiter.html#live-im_einsatz'
   },
+  /* Eine REGULAERE Zuweisung ist unbeantwortet verfallen (Migration 195,
+   * Owner-Entscheid 2026-08-24: 72 h, gedeckelt am Einsatzbeginn). Eigener Typ
+   * statt `worker_replacement_expired`: dessen Titel "Ersatz-Anfrage verfallen"
+   * erscheint in Vorschau, Push-Banner und Betreffzeile — bei einer regulaeren
+   * Zuweisung ist nichts ersetzt worden, und der Titel waere schlicht falsch.
+   * linkPath wird pro Meldung gesetzt (zum Angefragten, der ab jetzt wieder als
+   * verfuegbar gefuehrt wird); der Wert hier ist der Rueckfall. */
+  'worker.assignment_not_confirmed': {
+    type: 'worker_assignment_not_confirmed',
+    severity: 'warning',
+    title: 'Zuweisung nicht bestätigt',
+    recipientStrategy: 'org_worker_managers',
+    linkPath: '/public/mitarbeiter.html#live-verfuegbar'
+  },
 
   /* ── Der Kunde erfaehrt es (Welle G4b) ────────────────────────
    *
@@ -479,6 +493,25 @@ const MATRIX = {
     type: 'assignment_worker_replaced',
     severity: 'success',
     title: 'Ersatz für Ihren Einsatz',
+    recipientStrategy: 'client_org_assignment_managers',
+    linkPath: '/public/company-timesheets.html#live'
+  },
+  /* Die vorgesehene Kraft hat die Zuweisung nicht innerhalb der Frist bestätigt
+   * (Migration 195). Der Kunde MUSS das erfahren, anders als beim Ersatz: die
+   * Live-Belegschaft blendet eine wartende reguläre Zuweisung nicht aus, er hat
+   * die Person also vom ersten Tag an auf seiner Tafel und plant seine Schicht
+   * darauf.
+   *
+   * DER TITEL ZEIGT AUF DEN EINSATZ, nicht auf die Person — dieselbe Linie wie
+   * "Einsatzkraft fällt aus" gegenüber "Krankmeldung". Was den Kunden angeht,
+   * ist sein Platz, nicht das Verhalten eines fremden Mitarbeiters.
+   *
+   * `warning`, nicht `error`: Der Platz ist wieder offen und wird neu besetzt —
+   * das ist eine Änderung an seiner Planung, kein Schaden. */
+  'assignment.worker_not_confirmed': {
+    type: 'assignment_worker_not_confirmed',
+    severity: 'warning',
+    title: 'Platz auf Ihrem Einsatz wieder offen',
     recipientStrategy: 'client_org_assignment_managers',
     linkPath: '/public/company-timesheets.html#live'
   }

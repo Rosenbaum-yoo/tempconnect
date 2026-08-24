@@ -29,3 +29,28 @@ export function dateOnlyDE(value) {
   if (Number.isNaN(d.getTime())) return null;
   return _dateFmt.format(d);
 }
+
+const _fristFmt = new Intl.DateTimeFormat("de-DE", {
+  timeZone: TZ, day: "2-digit", month: "2-digit", year: "numeric",
+  hour: "2-digit", minute: "2-digit"
+});
+
+/**
+ * "26.08.2026, 14:30 Uhr" — der Frist-Zeitpunkt, wie ihn ein Mensch liest.
+ *
+ * Eine Frist braucht Datum UND Uhrzeit: die Antwortfrist einer Zuweisung kann
+ * 72 Stunden entfernt liegen (Migration 195), da genuegt eine blosse Uhrzeit
+ * nicht mehr. Hier zentral, weil derselbe Text an fuenf Stellen entsteht — im
+ * Erst-Text jeder Anfrage-Benachrichtigung — und fuenf Kopien irgendwann fuenf
+ * Formate waeren.
+ *
+ * Gibt `null` zurueck, wenn keine Frist gesetzt ist. Das ist bewusst: der
+ * Meldungstext haengt den Frist-Satz nur an, wenn es eine gibt — eine
+ * behauptete Frist waere gelogen, eine verschwiegene eine Falle.
+ */
+export function fristLabelDE(value) {
+  if (value == null || value === "") return null;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return _fristFmt.format(d) + " Uhr";
+}
