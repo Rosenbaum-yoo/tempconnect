@@ -810,7 +810,21 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
             AND wal.supplier_org_id = $1
             AND wal.is_active = FALSE
             AND wal.worker_confirmation_status = 'worker_unavailable'
-            AND ${lifecycleStateSql} IN ('active', 'ends_today')
+            /*
+             * Der Lebenszyklus des EINSATZES — ausdruecklich der Baustein OHNE
+             * Link-Alias (Zeile 23). Die erste Fassung nahm hier dieselbe
+             * lifecycleStateSql wie die cur-LATERAL, und die traegt bei
+             * gesetztem linkAlias WHEN wal.is_active = FALSE THEN 'archived'
+             * (assignmentLifecycleService.js:122). Zusammen mit dem
+             * wal.is_active = FALSE zwei Zeilen weiter oben schloss sich das
+             * aus: die LATERAL konnte KEINE Zeile liefern, der Knopf "Ersatz
+             * suchen" kam nach einer Absage nie zurueck. An der Datenbank
+             * gemessen (2026-08-24): 1 Kandidat, 0 Treffer.
+             *
+             * Gemeint war immer: lebt der EINSATZ noch? Der LINK ist
+             * absichtlich tot — das ist ja der Ausfall.
+             */
+            AND ${workforceAssignmentLifecycleStateSql} IN ('active', 'ends_today')
             AND NOT EXISTS (
               SELECT 1 FROM worker_assignment_links nachf
                WHERE nachf.ersetzt_link_id = wal.id
