@@ -71,7 +71,30 @@ export default function Preregistrations() {
 
   const setStatusFor = async (p: PreregRow, newStatus: string) => {
     try {
-      await sccApi.post(`/preregistrations/${encodeURIComponent(p.id)}/status`, { status: newStatus });
+      /*
+       * Eine Ablehnung beendet eine Bewerbung — dafuer verlangt der Server seit
+       * dem 2026-08-24 eine Begruendung (mind. 10 Zeichen). Ohne diese Abfrage
+       * bekaeme der Bearbeiter nur ein SCC_REASON_REQUIRED und wuesste nicht,
+       * was von ihm erwartet wird. Die uebrigen fuenf Status bewegen den
+       * Eintrag nur in der Pipeline und bleiben ein Klick.
+       */
+      let reason: string | undefined;
+      if (newStatus === "rejected") {
+        const eingabe = window.prompt(
+          `Warum wird die Vorregistrierung von ${p.org_name} abgelehnt?\n` +
+          "Die Begruendung steht im Protokoll und muss mindestens 10 Zeichen haben."
+        );
+        if (eingabe === null) return;            // abgebrochen — nichts tun
+        reason = eingabe.trim();
+        if (reason.length < 10) {
+          toast.warn("Bitte eine Begruendung mit mindestens 10 Zeichen angeben.");
+          return;
+        }
+      }
+      await sccApi.post(`/preregistrations/${encodeURIComponent(p.id)}/status`, {
+        status: newStatus,
+        ...(reason ? { reason, confirmed: true } : {}),
+      });
       toast.success(`${p.org_name}: ${STATUS_LABEL[newStatus] ?? newStatus}.`);
       await load();
     } catch (e: unknown) {

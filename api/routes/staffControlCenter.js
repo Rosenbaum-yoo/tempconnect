@@ -245,12 +245,39 @@ export function createStaffControlCenterRouter(deps) {
   router.post("/preregistrations/:id/status", requireStaff, async (req, res) => {
     try {
       const status = String(req.body?.status || "");
+      /*
+       * BEGRUENDUNGSPFLICHT NUR DA, WO SIE ETWAS WERT IST (Befund 2026-08-24).
+       *
+       * Diese Route schrieb `confirmed: true` ins Protokoll, obwohl NICHTS
+       * bestaetigt wurde — und `riskLevel: "low"` auch fuer die Ablehnung. Ein
+       * Feld, das immer `true` ist, sagt nichts; es entwertet dieselbe Angabe
+       * ueberall dort, wo sie ehrlich gefuehrt wird.
+       *
+       * `requireConfirmAndReason` fuer ALLE sechs Status waere die falsche
+       * Antwort gewesen: pending/confirmed/qualified/accepted/waitlist sind
+       * Bewegung in der Pipeline, und eine 10-Zeichen-Pflicht bei jedem Klick
+       * erzeugt Textbausteine, keine Begruendungen.
+       *
+       * `rejected` ist etwas anderes: es beendet eine Bewerbung. Wer das tut,
+       * schreibt auf, warum — sonst steht spaeter nur "abgelehnt" da, und
+       * niemand kann es einem Menschen erklaeren.
+       */
+      const grund = String(req.body?.reason || "").trim();
+      if (status === "rejected" && grund.length < 10) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "SCC_REASON_REQUIRED", message: "Begruendung (reason) mit mindestens 10 Zeichen erforderlich, um eine Vorregistrierung abzulehnen." }
+        });
+      }
       const result = await prereg.setPreregStatus(pool, { id: req.params.id, status });
       await writeStaffAudit(pool, {
         actorId: req.sccActorId, area: "preregistrations",
         action: `staff_control.prereg.status.${status}`,
         entityType: "pilot_preregistration", entityId: req.params.id, status: "ok",
-        reason: req.body?.reason || null, confirmed: true, riskLevel: "low",
+        /* Die Wahrheit, nicht die Behauptung. */
+        reason: grund || null,
+        confirmed: req.body?.confirmed === true,
+        riskLevel: status === "rejected" ? "medium" : "low",
       });
       res.json({ success: true, data: result });
     } catch (err) {

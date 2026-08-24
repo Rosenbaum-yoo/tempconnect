@@ -950,18 +950,14 @@ alle DB-Zahlen sind Stichtagswerte der Entwicklungsdatenbank; fünf Wächter-Dat
 wurden nicht gelesen (`auditCoverageCheck`, `notificationSurfaceMap`,
 `visibilityMatrix`, `openapi.spec`, `uiNoEmoji`); nginx wurde nicht gelesen.
 
-### Noch zu bauen
+### Noch zu bauen — Stand 2026-08-24, am Code nachgeprüft
 
-- **Die tote `reports`-Tabelle** an denselben Posteingang hängen (ein INSERT,
-  null Leser — Nutzer-Meldungen wegen Spam, Betrug und Belästigung landen in
-  einer Tabelle, die niemand liest).
-- **Das Support Center ausbauen** — es war für die Abgabe nach Indien gedacht
-  und ist verankert, aber nicht fertig. Mit dem Eingang hat es jetzt überhaupt
-  erst etwas zu bearbeiten.
-- **Audit darüber im Staff Center**, und verwaltbar, wer was bearbeiten darf —
-  hier ist die Vorarbeit schon da und ungenutzt (siehe `role`-Befund oben).
-- **Telefonnummer setzen** (`SUPPORT_PHONE`) — Owner-Angabe; bis dahin bietet der
-  Trichter Stufe 2 bewusst gar nicht erst an, statt eine tote Nummer zu zeigen.
+| | Punkt | Stand |
+|---|---|---|
+| ~~1~~ | Die tote `reports`-Tabelle an denselben Posteingang hängen | **erledigt** — erst entfernt (`ce1068f`, Owner-Entscheid 23.08.), dann als vierte Zielart neu gebaut (`dd3dbf4`, revidierter Entscheid 24.08.) |
+| ~~2~~ | Das Support Center ausbauen | **erledigt** — Zustandsautomat `46e42c8`, Erstreaktion `572bb50`, Antwort an den Kunden `6911e32`, Eskalations-Abschluss `9254cf5`, Attrappen-Knopf `bcd54cc` |
+| ~~3~~ | Audit darüber im Staff Center, und wer was bearbeiten darf | **erledigt** — sechs Rollen durchgesetzt (`8eb9971`); Audit gemessen: **51 von 51** mutierenden Staff-CC-Routen schreiben `writeStaffAudit` |
+| 4 | Telefonnummer setzen (`SUPPORT_PHONE`) | **Owner-Handlung**, nicht baubar. Der Trichter bietet Stufe 2 bis dahin bewusst nicht an; beide Zustände sind verifiziert |
 
 ### Die Zugangsregel — hart
 
@@ -1227,3 +1223,41 @@ Betroffen waren drei sicherheitsrelevante Spalten:
 `worker_assignment_links.worker_confirmation_status`, `notifications.type`,
 `profile_abuse_reports.reason`. Der Abzug liest jetzt **beide** Darstellungen;
 alle drei sind wieder in der Prüfung.
+
+---
+
+## Prüfbericht 2026-08-24 — was aus Welle I erledigt ist
+
+Am Code und an der laufenden Datenbank nachgeprüft, nicht am Plan abgelesen.
+
+### Erledigt
+
+| Abschnitt | Stand |
+|---|---|
+| **V-2** Doku-Wächter auf den git-Index | erledigt (Vorlauf) |
+| **8.1.1** Audit-Log hart trennen | erledigt — Migration 187, `fremde_org` 139 → 0 |
+| **8.1.2** Aktive Sitzungen im Einsatzportal | erledigt (`4b40675`) |
+| **8.2** Ersatz-Zuweisung | erledigt (`ae6830a`, `9faaf94`) **+ zwei Nachträge**: die 4-Stunden-Frist (`3e79ece`) und die Reparatur der toten `ersatz`-LATERAL (`da5eedd`), die drei Tage lang den Knopf nie zurückbrachte |
+| **10** Support-Weg Kunde → TempConnect | Eingang (`9c4965f`) plus alle vier Ausbaupunkte, siehe Tabelle oben |
+| **10b** Kunde ↔ Kunde | erledigt — keine Nachrichtenfunktion, Ansprechperson mit Telefon Pflicht (`ba0acf1`), Richtung korrigiert (`c87ddf7`) |
+
+### Offen — und warum
+
+| Punkt | Art | Stand, gemessen |
+|---|---|---|
+| **V-1** RLS-Backstop scharf schalten | **Vorlauf, nie abgeschlossen** | 18 Tabellen sind als `bereit` eingestuft, aber in der laufenden Datenbank haben nur **8 von 186** RLS aktiv und **3** FORCE. Das Register steht, die Aktivierung fehlt. Braucht den Einzelnachweis je Tabelle auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle. |
+| **„Bester Treffer"** — Vorbewertung in die SQL | **Owner-entschieden, nicht gebaut** | `assignmentStaffingService.js:1942` schneidet den Kandidatenpool weiterhin **alphabetisch** (`ORDER BY wp.last_name ASC … LIMIT`) — **vor** der Bewertung. Heute harmlos (größte Agentur: **12** aktive Kräfte), ab ~60 wird „bester Treffer" zur Behauptung. Sechs Aufrufer der Basisabfrage betroffen → eigene Welle. |
+| **`SUPPORT_PHONE`** setzen | **Owner-Handlung** | nicht baubar; beide Zustände des Trichters sind verifiziert |
+| **Erreicht die Erinnerung den Arbeiter?** | **Owner-Frage** | Die 2-h-Erinnerung ist eine `notifications`-Zeile; das Einsatzportal hat kein Polling und keinen Live-Strom. Wer nicht hineinsieht, erfährt es erst hinterher — die 4-h-Frist läuft trotzdem. SMS ist technisch vorhanden. |
+| **Frist für reguläre Zuweisungen** | **eigenes Ticket** | Der Entscheid galt Ersatz-Anfragen. Derselbe Schaden existiert regulär (ein Einsatz blockiert seit dem 10.04.) — `docs/features/I2_FRIST_REGULAERE_ZUWEISUNG.md`. |
+
+### Abschnitte 1–7, 9, 11, 12
+
+**Nie durchgegeben.** Die Übergabe hält fest: *„Der Owner hat angekündigt, dass es
+Abschnitte bis 12 gibt; der nächste ist noch nicht durchgegeben."* Im Repo
+existieren nur 8.1.1, 8.1.2, 8.2, 10 und 10b — die Nummern 9, 11 und 12 kommen
+in keiner Datei vor. Was in 1–7 stand, ist hier nicht bekannt und kann deshalb
+auch nicht als erledigt oder offen geführt werden.
+
+Was aus den **vorangegangenen Spuren** stammt, ist dagegen dokumentiert und
+abgeschlossen: G1–G6, H1 und H2 sind gebaut und belegt (siehe `UEBERGABE.md`).
