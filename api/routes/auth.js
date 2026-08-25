@@ -6,7 +6,7 @@ import * as geoService from "../services/geoService.js";
 import * as authService from "../services/authService.js";
 import * as workerService from "../services/workerService.js";
 import * as pilotPolicyService from "../services/pilotPolicyService.js";
-import { writeAudit } from "../services/auditLog.js";
+import { writeAudit, orgNachAnmeldung } from "../services/auditLog.js";
 import { trackProductEvent, deriveCustomerSegment } from "../services/productAnalyticsService.js";
 import { catchAsync } from "../utils/routeHandler.js";
 import { domainLogger, swallow } from "../utils/logger.js";
@@ -203,7 +203,15 @@ export function createAuthRouter(deps) {
       });
     } catch { /* analytics non-critical */ }
     domainLogger.userRegistered({ userId, email, role });
-    res.locals.audit = { action: "auth.register", entity_type: "user", entity_id: userId, action_type: "CREATE", details: { role, email } };
+    /* Dieselbe Luecke wie beim Login, nur noch direkter: `createOrgWithMembership`
+     * oben hat die Organisation gerade erst angelegt, `orgId` steht hier im Scope.
+     * Ohne diese Zeile ist die Registrierung in keinem Org-Audit sichtbar — und
+     * da seit dieser Stelle JEDE Registrierung genau eine Mitgliedschaft erzeugt,
+     * haette die naechste Anmeldung eines neuen Kontos die Zusicherung in
+     * `auditMandantenGrenze.test.js` sofort wieder gerissen.
+     * Bleibt die Org-Erstellung aus (der Fehler wird oben nur geloggt), ist
+     * `orgId` null — dann ist org-los die richtige Antwort, nicht die falsche. */
+    res.locals.audit = { action: "auth.register", entity_type: "user", entity_id: userId, action_type: "CREATE", details: { role, email }, org_id: orgId };
     res.json({ ...me, verification_sent: true });
   }));
 
@@ -308,7 +316,15 @@ export function createAuthRouter(deps) {
       });
     } catch { /* analytics non-critical */ }
     domainLogger.userLogin({ userId: creds.id, email, ip: req.ip });
-    res.locals.audit = { action: "auth.login", entity_type: "user", entity_id: creds.id, action_type: "LOGIN", details: { email } };
+    /* Die Org ausdruecklich mitgeben — `bestimmeAuditOrg()` kann sie hier nicht
+     * kennen (Begruendung bei `orgNachAnmeldung`). Ohne sie ist die Anmeldung in
+     * keinem Org-Audit sichtbar. NICHT `me.org_id`: das liest `users.org_id` roh
+     * und ist bei vorhandener Mitgliedschaft trotzdem oft NULL. */
+    res.locals.audit = {
+      action: "auth.login", entity_type: "user", entity_id: creds.id,
+      action_type: "LOGIN", details: { email },
+      org_id: await orgNachAnmeldung(pool, creds.id)
+    };
     res.json(me);
   }));
 

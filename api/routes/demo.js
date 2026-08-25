@@ -6,6 +6,7 @@
  */
 import { Router } from "express";
 import { vermerkeGeraet } from "../services/sessionSecurityService.js";
+import { orgNachAnmeldung } from "../services/auditLog.js";
 
 /* ── Rollen-basierte Demo-Accounts (primär) ───────────── */
 const ROLE_ACCOUNTS = {
@@ -84,11 +85,18 @@ export function createDemoRouter(deps) {
     vermerkeGeraet(req.session, req.headers?.["user-agent"]);  // 8.1.2
 
     const me = await getUserAndPlan(user.id);
+    /* Die Org ausdruecklich mitgeben — nach `session.regenerate()` ist der
+     * `_orgCache` des Vorgaengers weg (richtig so), und `req.orgId` wurde
+     * aufgeloest, bevor es diesen Nutzer gab. Ohne diese Zeile traegt der
+     * Demo-Login keine Organisation. Begruendung bei `orgNachAnmeldung`;
+     * die Demo-Konten haben `users.org_id = NULL` bei vorhandener
+     * Mitgliedschaft, `me.org_id` waere hier also wirkungslos. */
     res.locals.audit = {
       action: "demo.login",
       entity_type: "user",
       entity_id: user.id,
-      details: { ...meta, email }
+      details: { ...meta, email },
+      org_id: await orgNachAnmeldung(pool, user.id)
     };
     logger.info({ ...meta, userId: user.id }, "Demo-Login erfolgreich");
     return res.json({ ...me, is_demo: true });

@@ -170,16 +170,60 @@ describe("Migrations-Registry — der Abgleich", { skip: !hatDb }, () => {
       `nur ${verbucht.size} Ledger-Eintraege — ist das die richtige Datenbank?`);
   });
 
-  it("ABNAHME: jede Migrationsdatei ist verbucht — keine wird erneut angewandt", () => {
-    const fehlend = migrationsDateien().filter((f) => !verbucht.has(f));
-    assert.deepEqual(fehlend, [],
-      `${fehlend.length} Migrationsdatei(en) ohne Ledger-Eintrag:\n  ${fehlend.join("\n  ")}\n\n` +
-      "migrate.sh wird sie beim naechsten Lauf ERNEUT anwenden. Ist auch nur eine " +
-      "davon nicht wiederholbar, bricht die Kette dort ab (ON_ERROR_STOP=1 + exit 1) " +
-      "— und jede spaetere Migration wird nie mehr erreicht.\n" +
-      "Pruefen mit einer zurueckgerollten Transaktion (BEGIN, Datei einspielen, ROLLBACK): " +
-      "laeuft sie sauber durch, genuegt der Nachtrag ins Ledger. Scheitert sie, " +
-      "gehoert der Befund zuerst auf den Tisch."
+  /*
+   * WARUM HIER NICHT "jede Datei ist verbucht" STEHT — eine Korrektur am
+   * eigenen Waechter, aufgefallen am 2026-08-24 an einer echten Migration.
+   *
+   * Der erste Entwurf verlangte fuer JEDE Datei einen Ledger-Eintrag. Das ist
+   * die falsche Zusicherung: eine gerade geschriebene, noch nicht ausgerollte
+   * Migration hat selbstverstaendlich keinen — der Waechter waere bei jeder
+   * neuen Migration rot geworden, bis sie deployed ist. Ein Waechter, der im
+   * Normalbetrieb rot leuchtet, wird abgeschaltet, und dann bewacht er nichts.
+   *
+   * Gefaehrlich ist nicht "unverbucht", sondern "unverbucht UND gegen den
+   * heutigen Datenbestand nicht wiederholbar". Genau das lag hier vor: 189 und
+   * 190 setzen CHECK-Constraints, die Migration 194 laengst geweitet hat.
+   * Deshalb wird die Eigenschaft selbst geprueft, nicht ihr Stellvertreter —
+   * jede unverbuchte Datei laeuft in einer zurueckgerollten Transaktion gegen
+   * die echte Datenbank. Kommt sie durch, ist sie harmlos (entweder noch nicht
+   * angewandt oder idempotent). Scheitert sie, bricht `migrate.sh` beim
+   * naechsten Lauf genau dort ab — mit ON_ERROR_STOP=1 und exit 1, und reisst
+   * jede spaetere Migration mit.
+   *
+   * ROLLBACK, nicht COMMIT: der Test darf nichts veraendern. Und er laeuft nur
+   * ueber die unverbuchten Dateien, das sind im Normalfall null bis zwei.
+   */
+  it("ABNAHME: jede unverbuchte Migration ist gegen den heutigen Bestand wiederholbar", async () => {
+    const unverbucht = migrationsDateien().filter((f) => !verbucht.has(f));
+    console.log(`    ℹ ${unverbucht.length} unverbuchte Migration(en)${unverbucht.length ? ": " + unverbucht.join(", ") : ""}`);
+
+    const gescheitert = [];
+    for (const datei of unverbucht) {
+      const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, datei), "utf8");
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(sql);
+        gescheitert.push(null);           // Platzhalter, gleich wieder entfernt
+      } catch (err) {
+        gescheitert.push(`${datei}\n      ${err.message}`);
+      } finally {
+        /* IMMER zurueckdrehen — auch im Erfolgsfall. Der Waechter prueft, ob es
+         * ginge, er wendet nichts an. */
+        try { await client.query("ROLLBACK"); } catch { /* Verbindung schon hin */ }
+        client.release();
+      }
+    }
+
+    const echte = gescheitert.filter(Boolean);
+    assert.deepEqual(echte, [],
+      `${echte.length} unverbuchte Migration(en) scheitern an der heutigen Datenbank:\n  ${echte.join("\n  ")}\n\n` +
+      "migrate.sh wendet unverbuchte Dateien beim naechsten Lauf ERNEUT an und " +
+      "bricht dort ab (ON_ERROR_STOP=1 + exit 1) — jede spaetere Migration wird " +
+      "nie mehr erreicht, bei jedem Lauf aufs Neue.\n" +
+      "Der Fix ist fast nie, die Migration umzuschreiben (fuer eine frische " +
+      "Datenbank ist sie meist korrekt), sondern den Ledger-Eintrag nachzutragen — " +
+      "sie ist ja offensichtlich schon angewandt."
     );
   });
 

@@ -9,6 +9,10 @@
  */
 
 import { OrgBoundaryError } from "../utils/orgBoundary.js";
+/* Fuer orgNachAnmeldung(): dieselbe Aufloesung, die orgContext benutzt — keine
+ * zweite Fassung derselben Regel. rbacService importiert nur den Logger, es
+ * entsteht also kein Kreis. */
+import * as rbacService from "./rbacService.js";
 
 /** Sensitive Felder die niemals in Audit-Details landen duerfen (DSGVO) */
 const SENSITIVE_KEYS = /password|passwd|token|secret|hash|credit_card|iban|ssn|session/i;
@@ -158,6 +162,53 @@ export function bestimmeAuditOrg(req, actorId, explizit) {
    * `orgContext` vorbeigehen. */
   if (!req.orgIdGiltFuerNutzer) return null;
   return req.orgIdGiltFuerNutzer === actorId ? req.orgId : null;
+}
+
+/**
+ * Die Organisation des gerade Angemeldeten — fuer den EINEN Moment, in dem
+ * `bestimmeAuditOrg()` konstruktionsbedingt nichts liefern kann.
+ *
+ * Owner-Entscheid 2026-08-24: Login-Zeilen sollen zuordenbar sein.
+ *
+ * WARUM ES HIER EINE AUSNAHME BRAUCHT. `req.orgId` wird aufgeloest, BEVOR die
+ * Route laeuft — bei `/auth/login` also, bevor es den angemeldeten Nutzer
+ * ueberhaupt gibt. Danach greift zusaetzlich der Riegel
+ * `orgIdGiltFuerNutzer !== actorId`, der genau verhindern soll, dass die Org des
+ * VORGAENGERS gestempelt wird (das war der Befund 8.1.1). Beides ist richtig.
+ * Die Folge war nur, dass `demo.login` und `auth.login` seitdem gar keine Org
+ * mehr trugen — org-lose Zeilen sind in keinem Org-Audit sichtbar, auch nicht
+ * fuer den Admin, der sie braucht.
+ *
+ * WARUM DAS KEIN RATEN IST — der Unterschied zu Migration 187. Dort galt: bei
+ * mehreren Mitgliedschaften laesst sich im Nachhinein nicht sagen, in welcher
+ * gehandelt wurde, also ist NULL die ehrliche Antwort. Hier wird nicht
+ * nachtraeglich rekonstruiert, sondern im selben Augenblick gefragt, in dem die
+ * Sitzung entsteht: `getPrimaryOrg` ist dieselbe Funktion, mit der
+ * `middleware/orgContext.js` die Org dieser Sitzung bei der naechsten Anfrage
+ * aufloest. Was hier gestempelt wird, ist also exakt die Organisation, in der
+ * die Sitzung gleich arbeitet — keine Wahrscheinlichkeit, sondern dieselbe
+ * Quelle der Wahrheit, nur einen Wimpernschlag frueher.
+ *
+ * NICHT `getUserAndPlan(...).org_id` benutzen: das liest `users.org_id` roh, und
+ * die Demo-Konten haben dort NULL bei vorhandener Mitgliedschaft (gemessen
+ * 2026-08-24: `demo-buyer@`/`demo-agency@`). Genau die drei `demo.login`-Zeilen,
+ * um die es geht, blieben damit org-los — der Fix saehe erledigt aus und waere es
+ * nicht. `getPrimaryOrg` faellt korrekt auf die erste aktive Mitgliedschaft zurueck.
+ *
+ * Fehler werden geschluckt: ein Audit-Detail darf niemals eine Anmeldung brechen.
+ *
+ * @param {import('pg').Pool} pool
+ * @param {string} userId — der GERADE angemeldete Nutzer, nicht der vorherige
+ * @returns {Promise<string|null>}
+ */
+export async function orgNachAnmeldung(pool, userId) {
+  if (!pool || !userId) return null;
+  try {
+    const mitgliedschaft = await rbacService.getPrimaryOrg(pool, userId);
+    return mitgliedschaft?.org_id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export function withMachineActor(details, machine) {

@@ -140,6 +140,66 @@ describe("Audit-Mandantengrenze — die Schreibseite", () => {
   });
 
   /*
+   * DER EINE MOMENT, IN DEM `bestimmeAuditOrg()` NICHTS LIEFERN KANN.
+   *
+   * Owner-Entscheid 2026-08-24: Login-Zeilen sollen zuordenbar sein. Damit ist
+   * der Widerspruch aufgeloest, den Welle 8.1.1 hinterlassen hatte — Migration
+   * 187 nannte org-lose Login-Zeilen im Kopf richtig, ihr Schritt 2 zog sie
+   * trotzdem nach, und diese Zusicherung erzwang das Nachziehen.
+   *
+   * Beim Anmelden ist `req.orgId` konstruktionsbedingt unbrauchbar: aufgeloest,
+   * bevor die Route lief, und danach vom Riegel `orgIdGiltFuerNutzer !== actorId`
+   * verworfen (richtig so — das war der Befund). Die Routen geben die Org
+   * deshalb ausdruecklich mit, ueber `orgNachAnmeldung()`.
+   */
+  it("die Anmeldewege geben die Organisation ausdruecklich mit", () => {
+    const faelle = [
+      ["routes/demo.js",  /action:\s*"demo\.login"[\s\S]{0,240}?org_id:\s*await orgNachAnmeldung\(/],
+      ["routes/auth.js",  /action:\s*"auth\.login"[\s\S]{0,240}?org_id:\s*await orgNachAnmeldung\(/],
+      /* Die Registrierung legt die Org eine Zeile vorher selbst an — dort ist
+       * `orgId` die direktere und ehrlichere Quelle als ein zweiter Lookup. */
+      ["routes/auth.js",  /action:\s*"auth\.register"[\s\S]{0,240}?org_id:\s*orgId/],
+    ];
+    for (const [datei, muster] of faelle) {
+      const quelle = fs.readFileSync(path.join(API, datei), "utf8");
+      assert.match(quelle, muster,
+        `${datei}: ein Anmelde-/Registrierweg gibt die Organisation nicht mehr mit. ` +
+        "Ohne sie ist die Zeile in keinem Org-Audit sichtbar, und die Abnahme " +
+        "unten (org-lose Zeilen mit eindeutigem Akteur = 0) faellt beim naechsten " +
+        "Login um.");
+    }
+  });
+
+  it("orgNachAnmeldung nimmt die Mitgliedschaft, nicht users.org_id", async () => {
+    const { orgNachAnmeldung } = await import("../services/auditLog.js");
+
+    /* Der Grund, warum hier nicht `getUserAndPlan(...).org_id` steht: die
+     * Demo-Konten haben `users.org_id = NULL` bei vorhandener Mitgliedschaft
+     * (gemessen 2026-08-24). getPrimaryOrg faellt korrekt zurueck — genau die
+     * drei demo.login-Zeilen haetten sonst weiter org-los geschrieben. */
+    const poolOhneUsersOrg = {
+      query: async (sql) => (/FROM users WHERE id/.test(sql)
+        ? { rows: [{ org_id: null }] }                       // users.org_id ist NULL
+        : { rows: [{ org_id: "org-aus-mitgliedschaft" }] }), // aber es gibt eine Mitgliedschaft
+    };
+    assert.equal(await orgNachAnmeldung(poolOhneUsersOrg, "nutzer-1"), "org-aus-mitgliedschaft",
+      "faellt nicht auf die Mitgliedschaft zurueck — dann bleiben genau die Demo-Logins org-los");
+
+    // Kein Nutzer, kein Pool: keine Org. Nie raten.
+    assert.equal(await orgNachAnmeldung(poolOhneUsersOrg, null), null);
+    assert.equal(await orgNachAnmeldung(null, "nutzer-1"), null);
+
+    // Ohne jede Mitgliedschaft bleibt es org-los — und das ist richtig.
+    const poolOhneAlles = { query: async () => ({ rows: [] }) };
+    assert.equal(await orgNachAnmeldung(poolOhneAlles, "nutzer-1"), null);
+
+    /* Ein Audit-Detail darf NIEMALS eine Anmeldung brechen. */
+    const poolKaputt = { query: async () => { throw new Error("DB weg"); } };
+    assert.equal(await orgNachAnmeldung(poolKaputt, "nutzer-1"), null,
+      "ein Fehler beim Aufloesen der Org darf den Login nicht mitreissen");
+  });
+
+  /*
    * DIE ZWEITE HAELFTE DER SCHREIBSEITE — die req-lose Form.
    *
    * `writeAudit(pool, {...})` kennt `req` nicht, fragt damit nie
@@ -308,8 +368,11 @@ describe("Audit-Mandantengrenze — die Abnahme", { skip: !hatDb }, () => {
         AND (SELECT count(*) FROM org_memberships m WHERE m.user_id = al.actor_id) = 1`);
     assert.equal(rows[0].n, 0,
       `${rows[0].n} org-lose Zeile(n), deren Akteur genau EINER Organisation angehoert. ` +
-      "Sie waeren eindeutig zuordenbar und sind in keinem Org-Audit sichtbar — " +
-      "Migration 187 Schritt 2 nicht gelaufen, oder die Schreibseite laesst die Org wieder weg.");
+      "Sie waeren eindeutig zuordenbar und sind in keinem Org-Audit sichtbar.\n" +
+      "Bestand repariert von Migration 187 (Schritt 2) und 198; die Schreibseite " +
+      "haelt es seither offen. Faellt das hier wieder auf, laesst eine Schreibstelle " +
+      "die Org erneut weg — die haeufigste Ursache ist die req-lose Form " +
+      "`writeAudit(pool, {...})`, die `bestimmeAuditOrg()` nie fragt.");
   });
 });
 

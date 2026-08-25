@@ -1590,47 +1590,120 @@ Stellen des Routers, inklusive des gemeinsamen Helfers.
 > Damit landete die Zeile im Audit der **gemeldeten** Partei, die daran ablesen
 > könnte, dass und von wem sie gemeldet wurde. Richtig ist die Org des Melders.
 
-**Drei `demo.login` — strukturell anders, und offen.** Der Weg läuft über
+**Drei `demo.login` — strukturell anders.** Der Weg läuft über
 `res.locals.audit` und fragt `bestimmeAuditOrg()` korrekt. Nur ist die Antwort
 zwangsläufig NULL: `req.orgId` wurde aufgelöst, *bevor* die Route lief — also
 vor der Anmeldung; zusätzlich greift die Sperre `orgIdGiltFuerNutzer !==
 actorId` aus derselben Welle. Beides ist richtig so. Was fehlt, ist der
 Nachschlag *nach* erfolgreicher Anmeldung.
 
-Hier widersprechen sich zwei Wahrheiten aus derselben Welle, und das ist eine
-**Owner-Entscheidung, kein Patch**: Migration 187 schreibt im Kopf, org-lose
-Login-Zeilen seien richtig („beim Anmelden gibt es noch keine Organisation"),
-während ihr Schritt 2 sie ungefiltert nachgezogen hat und der Test genau das nun
-als Invariante erzwingt. Entweder Login-Zeilen bleiben bewusst org-los — dann
-braucht der Test eine begründete Ausnahme für `*.login`. Oder sie sollen
-zuordenbar sein — dann setzt `demo.js`/`auth.js` nach erfolgreicher Anmeldung
-explizit `res.locals.audit.org_id`. Dieselbe Lücke hat `auth.js`; sie fällt nur
-nicht auf, weil die Bestands-Logins Akteure ohne Mitgliedschaft betreffen.
+Hier widersprachen sich zwei Wahrheiten aus derselben Welle: Migration 187
+schreibt im Kopf, org-lose Login-Zeilen seien richtig („beim Anmelden gibt es
+noch keine Organisation"), während ihr Schritt 2 sie ungefiltert nachgezogen hat
+und der Test genau das als Invariante erzwingt.
+
+> **Owner-Entscheid 2026-08-24: Login-Zeilen sollen zuordenbar sein.**
+
+### Umgesetzt — der eine Moment, in dem der zentrale Auflöser nichts liefern kann
+
+`bestimmeAuditOrg()` bleibt unangetastet; beide Riegel darin sind richtig und
+haben ihren Befund. Neu ist `orgNachAnmeldung()` in `services/auditLog.js` —
+bewusst daneben, nicht darin, weil es die eine Ausnahme abbildet: den Augenblick,
+in dem die Sitzung gerade erst entsteht.
+
+**Warum das kein Raten ist — der Unterschied zu Migration 187.** Dort galt: bei
+mehreren Mitgliedschaften lässt sich im Nachhinein nicht sagen, in welcher
+gehandelt wurde, also ist NULL die ehrliche Antwort. Hier wird nichts
+rekonstruiert, sondern im selben Moment gefragt, in dem die Sitzung entsteht:
+`getPrimaryOrg` ist dieselbe Funktion, mit der `middleware/orgContext.js` die Org
+dieser Sitzung bei der **nächsten** Anfrage auflöst. Gestempelt wird also exakt
+die Organisation, in der die Sitzung gleich arbeitet — dieselbe Quelle der
+Wahrheit, nur einen Wimpernschlag früher.
+
+**Die Falle, in die der naheliegende Fix gelaufen wäre.** `auth.js` hatte `me`
+bereits im Scope und benutzt `me?.org_id` schon für die Analytics — `org_id:
+me.org_id` sah nach der offensichtlichen Zeile aus. `getUserAndPlan` liest
+`org_id` aber **roh aus `users`**, und genau die beiden Demo-Konten haben dort
+NULL bei vorhandener Mitgliedschaft (gemessen: `demo-buyer@`, `demo-agency@`).
+Die drei `demo.login`-Zeilen, um die es überhaupt ging, wären org-los geblieben —
+der Fix hätte erledigt ausgesehen und wäre es nicht. Gegen die laufende Datenbank
+nachgestellt:
+
+| Konto | `users.org_id` | `orgNachAnmeldung()` |
+|---|---|---|
+| `demo-buyer@` | NULL | `d0b00000-…-001` ✓ |
+| `demo-agency@` | NULL | `d0b00000-…-002` ✓ |
+| `e2e-company@` | gesetzt | `e19d43df-…` ✓ |
+| unbekannt | — | `null` ✓ |
+
+**Drei Schreibstellen, nicht zwei.** `auth.login` und `demo.login` über
+`orgNachAnmeldung()`. Dazu `auth.register`: dort legt `createOrgWithMembership`
+die Organisation eine Zeile vorher selbst an, `orgId` steht im Scope und ist die
+direktere Quelle als ein zweiter Lookup. Das war kein Extra — seit dieser Stelle
+erzeugt **jede** Registrierung genau eine Mitgliedschaft, die nächste Anmeldung
+eines neuen Kontos hätte die Zusicherung sofort wieder gerissen.
+
+**Bestand:** Migration `198_audit_login_zeilen_zuordenbar.sql` zieht nach, was
+187 Schritt 2 für die Zeilen davor tat — dieselbe Regel, dieselbe Formulierung.
+Neun Zeilen, danach null. Gegengeprüft wurde auch die andere Richtung: **null**
+Zeilen in einer fremden Org. Eine Reparatur, die den einen Defekt schließt und
+den anderen aufreißt, wäre keine.
+
+Der Quell-Fix kam zuerst. Ohne ihn wäre die Migration ein Putzlappen unter einem
+laufenden Wasserhahn.
 
 ### Was offen bleibt
 
-Die neun Zeilen sind **nicht** nachgezogen worden. Der Schreibseiten-Fix
-verhindert neue, repariert aber keine bestehenden — und drei davon hängen an der
-Entscheidung oben. Der Test bleibt bis dahin rot.
+**Die Abnahme hängt am Ausrollen, nicht am Code.** Während der Arbeit sprang die
+Zusicherung noch einmal auf rot: eine neue org-lose `auth.login`-Zeile,
+18:31 Uhr. Sie kam nicht aus dem Zweig, sondern aus dem laufenden Container —
+`tempconnect_api` mountet `…/12_tempconnect_docker(D)/api` (das Haupt-Repo), nicht
+diesen Worktree. Die laufende Anwendung schreibt also weiter nach altem Stand.
+Migration 198 ist idempotent und hat die Zeile eingesammelt; der Zustand ist
+wieder null. Aber **bis der Zweig ausgerollt ist, erzeugt jede Anmeldung über die
+laufende Instanz erneut solche Zeilen.** Wer die Abnahme vorher rot sieht, hat
+keinen Rückfall im Code gefunden, sondern genau diesen Umstand — 198 erneut
+laufen zu lassen genügt.
 
-Breiter gemessen: **34 req-lose `writeAudit`-Aufrufe in acht Route-Dateien, 30
-davon ohne `org_id`.** `profileVisibility.js` ist erledigt; die übrigen sieben
-sind festgenagelt, nicht freigesprochen — `internal.js` und
-`occ/decisionsRequests.js` laufen plausibel plattformweit, `requests.js` (9) und
-`capacities.js` (3) eher nicht. Das gehört je Aufruf entschieden.
+**30 req-lose `writeAudit`-Aufrufe ohne `org_id` in sieben Route-Dateien** (von
+34 insgesamt). `profileVisibility.js` ist erledigt; die übrigen sind
+festgenagelt, nicht freigesprochen — `internal.js` und `occ/decisionsRequests.js`
+laufen plausibel plattformweit, `requests.js` (9) und `capacities.js` (3) eher
+nicht. Das gehört je Aufruf entschieden, nicht pauschal umgestellt.
 
 ### Zwei neue Wächter
 
 - `api/test/migrationsRegistryWaechter.test.js` — beide Driftrichtungen. Schicht 1
   (immer): `migrate.sh` behält `ON_ERROR_STOP=1` und verbucht nur im
-  Erfolgszweig. Schicht 2 (DB-gebunden): jede Datei ist verbucht, keine neuen
-  Ledger-Waisen, 181–196 bleiben eingetragen. Der Schema-Wächter deckte bisher
-  nur die umgekehrte Richtung ab (verbucht, aber Tabelle fehlt — 059).
-- `auditMandantenGrenze.test.js` — neu: „keine neue Schreibstelle verliert die
-  Organisation stillschweigend". Nagelt die 34 req-losen Aufrufe je Datei fest
-  (sinken erlaubt, steigen nicht) und verlangt für `profileVisibility.js`
-  ausdrücklich **null**.
+  Erfolgszweig. Schicht 2 (DB-gebunden): jede **unverbuchte** Migration muss
+  gegen den heutigen Bestand wiederholbar sein, keine neuen Ledger-Waisen,
+  181–196 bleiben eingetragen. Der Schema-Wächter deckte bisher nur die
+  umgekehrte Richtung ab (verbucht, aber Tabelle fehlt — 059).
+- `auditMandantenGrenze.test.js` — drei neue Proben: „keine neue Schreibstelle
+  verliert die Organisation stillschweigend" (nagelt die 34 req-losen Aufrufe je
+  Datei fest, sinken erlaubt, steigen nicht, `profileVisibility.js` muss **null**
+  haben), „die Anmeldewege geben die Organisation ausdrücklich mit" (alle drei
+  Stellen), und ein Verhaltenstest für `orgNachAnmeldung()` — inklusive des
+  Falls `users.org_id IS NULL` bei vorhandener Mitgliedschaft, der die Falle oben
+  festhält.
+
+#### Die Korrektur am eigenen Wächter
+
+Der erste Entwurf verlangte für **jede** Datei einen Ledger-Eintrag. Das ist die
+falsche Zusicherung, und eine echte Migration hat es am selben Tag bewiesen: eine
+frisch geschriebene, noch nicht ausgerollte Datei hat selbstverständlich keinen —
+der Wächter wäre bei jeder neuen Migration rot geworden, bis sie deployed ist.
+Ein Wächter, der im Normalbetrieb rot leuchtet, wird abgeschaltet, und dann
+bewacht er nichts.
+
+Gefährlich ist nicht „unverbucht", sondern „unverbucht **und** gegen den heutigen
+Datenbestand nicht wiederholbar". Geprüft wird jetzt die Eigenschaft selbst statt
+ihres Stellvertreters: jede unverbuchte Datei läuft in einer zurückgerollten
+Transaktion gegen die echte Datenbank. Kommt sie durch, ist sie harmlos — noch
+nicht angewandt oder idempotent. Scheitert sie, bricht `migrate.sh` beim nächsten
+Lauf genau dort ab.
 
 Beide Wächter wurden gegen einen echten Fehlschlag geprüft, nicht nur grün
-gesehen: eine untergeschobene, unverbuchte Migrationsdatei ließ die Abnahme
-rot werden und wurde beim Namen genannt.
+gesehen: eine untergeschobene, unverbuchte Migration mit einem Constraint, den
+der Bestand verletzt, ließ die Abnahme rot werden — mitsamt Dateiname und
+Postgres-Fehlertext.
