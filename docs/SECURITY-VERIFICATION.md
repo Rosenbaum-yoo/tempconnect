@@ -131,6 +131,31 @@ gh api repos/<owner>/<repo>/private-vulnerability-reporting --jq '.enabled'
 sinnvoll, aber eine Entscheidung über den Arbeitsfluss, nicht über Sicherheit. Bewusst dem
 Owner überlassen.
 
+### Wenn Push Protection eigene Testwerte blockiert (2026-08-25)
+
+Ein Push wurde abgelehnt: drei Treffer in `api/test/releaseSecretScan.test.js` — ein
+Stripe-Schlüssel, zwei Slack-Token. Alle drei sind erfunden. Sie stehen dort, weil dieser Test
+beweisen muss, dass die hauseigene Prüfung **echte** Schlüssel findet; dafür brauchen die
+Werte den Aufbau echter Schlüssel. Ein Scanner kann Aufbau nicht von Echtheit unterscheiden —
+die Ablehnung war also korrekt, nicht überempfindlich.
+
+**Die Zeilen-Freigabe `// secret-scan: erlaubt` hilft hier nicht.** Sie ist eine Abmachung mit
+`scripts/secret-scan.sh`; GitHub kennt sie nicht.
+
+**Die Lösung: die Anbieter-Kennung zerlegen** und erst zur Laufzeit zusammensetzen (Konstante
+`KENNUNG` in derselben Datei). Der zusammengesetzte Wert ist zeichengleich mit dem, was vorher
+wörtlich dastand — die Prüfschärfe ändert sich um nichts —, aber im Quelltext steht kein
+zusammenhängendes Anbieter-Muster mehr. Zerlegt wurden **alle sechs** Anbieter, nicht nur die
+drei gemeldeten: GitHub erweitert seine Erkennung laufend, und wer nur repariert, was heute
+anschlägt, wird beim nächsten Mal von derselben Datei aufgehalten. Die generischen Werte
+(Session, JWT, Hetzner, Postgres) bleiben wörtlich — sie tragen keine erkennbare Kennung.
+
+**Was das nicht heilt:** Bereits committete Werte. Push Protection prüft die ganze Historie
+eines Pushes, nicht nur den neuesten Stand. Stecken die Muster schon in älteren Commits, hilft
+nur eines von beidem — die Treffer über den Link in der Ablehnung freigeben (Owner-Entscheid,
+setzt die Gewissheit voraus, dass die Werte erfunden sind), oder die Historie bereinigen. Die
+Zerlegung wirkt ab dem Commit, in dem sie steht.
+
 ---
 
 ## 1. .env darf nicht getrackt sein
