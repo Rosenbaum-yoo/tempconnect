@@ -143,6 +143,39 @@ if (selectedFiles.length === 0) {
   process.exit(1);
 }
 
+/*
+ * "13 skipped" ist eine Zahl, mit der niemand etwas anfangen kann.
+ *
+ * BEFUND (2026-08-25): Jeder Gate-Lauf dieser Welle meldete am Ende
+ * `skipped 13` — und keiner nannte, WELCHE Dateien das sind, WARUM sie
+ * schweigen oder WIE man sie faehrt. Es sind die DB-gebundenen Vorgangsketten:
+ * der einzige Ort, an dem die Mandantentrennung und die Flows wirklich gegen
+ * Postgres laufen. Ohne `DATABASE_URL` ueberspringen sie sich selbst — still
+ * und gruen.
+ *
+ * Eine Zahl ohne Namen liest man beim zwoelften Mal nicht mehr. Deshalb steht
+ * die Diagnose VOR dem Lauf und nennt den Befehl gleich mit: der Wahlschalter
+ * `db-gated` existiert seit Audit-Backlog C-6 — nur wusste es niemand mehr.
+ */
+const dbKonfiguriert = Boolean(
+  process.env.DATABASE_URL || (process.env.DB_HOST && process.env.POSTGRES_PASSWORD)
+);
+if (!dbKonfiguriert && suite !== "db-gated") {
+  const stumm = selectSuite(discoveredFiles, "db-gated");
+  if (stumm.length > 0) {
+    const beispiele = stumm.slice(0, 3).join(", ")
+      + (stumm.length > 3 ? ` (+${stumm.length - 3} weitere)` : "");
+    console.error(`[run-tests] HINWEIS: keine DATABASE_URL — ${stumm.length} Datei(en) sind DB-gebunden.`);
+    console.error("[run-tests]          Die Tests darin, die wirklich Postgres brauchen, ueberspringen sich STILL");
+    console.error("[run-tests]          und erscheinen am Ende nur als Zahl hinter 'skipped'. Es ist der einzige Ort,");
+    console.error("[run-tests]          an dem Mandantentrennung und Vorgangsketten gegen eine echte Datenbank laufen.");
+    console.error(`[run-tests]          Betroffen: ${beispiele}`);
+    console.error("[run-tests]          Im Container fahren (NICHT nach /app kopieren — das ist der Hauptbaum):");
+    console.error("[run-tests]            docker cp api/. tempconnect_api:/tmp/wtN/");
+    console.error("[run-tests]            docker exec tempconnect_api sh -c \"ln -sfn /app/node_modules /tmp/wtN/node_modules && cd /tmp/wtN && node scripts/run-tests.js db-gated\"");
+  }
+}
+
 // Diagnose-Sonde fuer unbehandelte Promise-Rejections (Audit-Backlog B-2).
 //
 // Der Flake in `me.route.coverage.test.js` zeigt sich nur im vollen Lauf, nie in
