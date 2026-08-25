@@ -111,7 +111,7 @@ export function createRequestsRouter(deps) {
       if (reservation) {
         await requestService.linkReservationToRequest(pool, requestRow.id, reservation.id);
         reservation.request_id = requestRow.id;
-        await auditLog.writeAudit(pool, { action: "reservation.active", entity_type: "capacity_reservation", entity_id: reservation.id, request_id: requestRow.id, capacity_id: data.capacity_id, reservation_id: reservation.id, actor_id: req.session.userId, details: { quantity: data.quantity ?? 1 } });
+        await auditLog.writeAuditEnhanced(pool, req, { action: "reservation.active", entity_type: "capacity_reservation", entity_id: reservation.id, request_id: requestRow.id, capacity_id: data.capacity_id, reservation_id: reservation.id, actor_id: req.session.userId, details: { quantity: data.quantity ?? 1 } });
       }
       return res.status(201).json({ ...requestRow, reservation: reservation || null });
     }
@@ -312,10 +312,10 @@ export function createRequestsRouter(deps) {
           const resv = await requestService.getReservationByStatus(pool, id, "converted");
           if (resv) {
             await stateMachine.logTransition(pool, { entityType: "RESERVATION", from: "active", to: "converted", entity_id: resv.id, reservation_id: resv.id, request_id: id, capacity_id: req_data.capacity_id, actor_id: req.session.userId });
-            await auditLog.writeAudit(pool, { action: "reservation.converted", entity_type: "capacity_reservation", entity_id: resv.id, request_id: id, capacity_id: req_data.capacity_id, reservation_id: resv.id, actor_id: req.session.userId });
+            await auditLog.writeAuditEnhanced(pool, req, { action: "reservation.converted", entity_type: "capacity_reservation", entity_id: resv.id, request_id: id, capacity_id: req_data.capacity_id, reservation_id: resv.id, actor_id: req.session.userId });
           }
           await stateMachine.logTransition(pool, { entityType: "REQUEST", from: req_data.status, to: "ACCEPTED", entity_id: id, request_id: id, capacity_id: req_data.capacity_id, actor_id: req.session.userId });
-          await auditLog.writeAudit(pool, { action: "request.accept", entity_type: "request", entity_id: id, request_id: id, capacity_id: req_data.capacity_id, actor_id: req.session.userId, details: { from: "SENT", to: "ACCEPTED" } });
+          await auditLog.writeAuditEnhanced(pool, req, { action: "request.accept", entity_type: "request", entity_id: id, request_id: id, capacity_id: req_data.capacity_id, actor_id: req.session.userId, details: { from: "SENT", to: "ACCEPTED" } });
           try { await slaService.markSlaResolved(pool, id); } catch { /* non-critical */ }
           const [requester, receiver] = await Promise.all([
             requestService.getUserContact(pool, req_data.requester_id),
@@ -375,10 +375,10 @@ export function createRequestsRouter(deps) {
           const resvDecl = await requestService.getReservationByStatus(pool, id, "expired");
           if (resvDecl) {
             await stateMachine.logTransition(pool, { entityType: "RESERVATION", from: "active", to: "expired", entity_id: resvDecl.id, reservation_id: resvDecl.id, request_id: id, capacity_id: req_data.capacity_id, actor_id: req.session.userId });
-            await auditLog.writeAudit(pool, { action: "reservation.expired", entity_type: "capacity_reservation", entity_id: resvDecl.id, request_id: id, capacity_id: req_data.capacity_id, actor_id: req.session.userId });
+            await auditLog.writeAuditEnhanced(pool, req, { action: "reservation.expired", entity_type: "capacity_reservation", entity_id: resvDecl.id, request_id: id, capacity_id: req_data.capacity_id, actor_id: req.session.userId });
           }
           await stateMachine.logTransition(pool, { entityType: "REQUEST", from: req_data.status, to: "DECLINED", entity_id: id, request_id: id, actor_id: req.session.userId });
-          await auditLog.writeAudit(pool, { action: "request.status_change", entity_type: "request", entity_id: id, request_id: id, actor_id: req.session.userId, details: { from: "SENT", to: "DECLINED" } });
+          await auditLog.writeAuditEnhanced(pool, req, { action: "request.status_change", entity_type: "request", entity_id: id, request_id: id, actor_id: req.session.userId, details: { from: "SENT", to: "DECLINED" } });
           const fullReq = await requestService.getFullRequest(pool, id);
           const [requester, receiver, capMeta] = await Promise.all([
             requestService.getUserContact(pool, req_data.requester_id),
@@ -401,7 +401,7 @@ export function createRequestsRouter(deps) {
             requestService.getUserContact(pool, req_data.receiver_id)
           ]);
           await stateMachine.logTransition(pool, { entityType: "REQUEST", from: "ACCEPTED", to: "FINALIZED", entity_id: id, request_id: id, capacity_id: req_data.capacity_id, actor_id: req.session.userId });
-          await auditLog.writeAudit(pool, { action: "request.finalize", entity_type: "request", entity_id: id, request_id: id, capacity_id: req_data.capacity_id, actor_id: req.session.userId, details: { from: "ACCEPTED", to: "FINALIZED" } });
+          await auditLog.writeAuditEnhanced(pool, req, { action: "request.finalize", entity_type: "request", entity_id: id, request_id: id, capacity_id: req_data.capacity_id, actor_id: req.session.userId, details: { from: "ACCEPTED", to: "FINALIZED" } });
           if (requester && receiver) {
             await sendMail(requester.email, "TempConnect: Deal abgeschlossen - Kontaktdaten",
               `<h2>Deal abgeschlossen!</h2><p>Dein Deal mit <b>${receiver.company_name || receiver.email}</b> wurde finalisiert.</p><h3>Kontaktdaten:</h3><p>E-Mail: <b>${updated.contact_email || receiver.email}</b></p><p>Telefon: <b>${updated.contact_phone || receiver.phone || "nicht angegeben"}</b></p>`);
@@ -423,10 +423,10 @@ export function createRequestsRouter(deps) {
           const resvCancel = await requestService.getReservationByStatus(pool, id, "expired");
           if (resvCancel) {
             await stateMachine.logTransition(pool, { entityType: "RESERVATION", from: "active", to: "expired", entity_id: resvCancel.id, reservation_id: resvCancel.id, request_id: id, capacity_id: req_data.capacity_id, actor_id: req.session.userId });
-            await auditLog.writeAudit(pool, { action: "reservation.expired", entity_type: "capacity_reservation", entity_id: resvCancel.id, request_id: id, capacity_id: req_data.capacity_id, actor_id: req.session.userId });
+            await auditLog.writeAuditEnhanced(pool, req, { action: "reservation.expired", entity_type: "capacity_reservation", entity_id: resvCancel.id, request_id: id, capacity_id: req_data.capacity_id, actor_id: req.session.userId });
           }
           await stateMachine.logTransition(pool, { entityType: "REQUEST", from: req_data.status, to: "CANCELED", entity_id: id, request_id: id, actor_id: req.session.userId });
-          await auditLog.writeAudit(pool, { action: "request.status_change", entity_type: "request", entity_id: id, request_id: id, actor_id: req.session.userId, details: { from: req_data.status, to: "CANCELED" } });
+          await auditLog.writeAuditEnhanced(pool, req, { action: "request.status_change", entity_type: "request", entity_id: id, request_id: id, actor_id: req.session.userId, details: { from: req_data.status, to: "CANCELED" } });
           const fullReq = await requestService.getFullRequest(pool, id);
           return res.json(fullReq);
         }
@@ -444,7 +444,7 @@ export function createRequestsRouter(deps) {
 
       const updated = await requestService.updateRequestStatus(pool, id, status, contact_email, contact_phone);
       await stateMachine.logTransition(pool, { entityType: "REQUEST", from: req_data.status, to: status, entity_id: id, request_id: id, actor_id: req.session.userId });
-      await auditLog.writeAudit(pool, { action: "request.status_change", entity_type: "request", entity_id: id, request_id: id, actor_id: req.session.userId, details: { from: req_data.status, to: status } });
+      await auditLog.writeAuditEnhanced(pool, req, { action: "request.status_change", entity_type: "request", entity_id: id, request_id: id, actor_id: req.session.userId, details: { from: req_data.status, to: status } });
       if (status === "ACCEPTED" || status === "DECLINED") {
         try { await slaService.markSlaResolved(pool, id); } catch { /* non-critical */ }
       }

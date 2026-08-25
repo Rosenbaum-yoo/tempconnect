@@ -145,6 +145,10 @@ export function createAuthRouter(deps) {
             entity_type: "organization",
             entity_id: orgId,
             actor_id: userId,
+            /* Die Org ist hier keine Ableitung: sie wurde eine Zeile vorher fuer genau
+             * diesen Nutzer angelegt. Ohne sie liegt der wichtigste Vorgang der
+             * Registrierung — Pilot bzw. Direktvertrag — in keinem Org-Audit. */
+            org_id: orgId,
             details: { plan: "INDIVIDUELL", employee_count: effectiveEmployeeCount, company_size_class, signup_mode: "pilot" }
           }).catch(swallow("auth"));
         } else {
@@ -162,6 +166,10 @@ export function createAuthRouter(deps) {
             entity_type: "organization",
             entity_id: orgId,
             actor_id: userId,
+            /* Die Org ist hier keine Ableitung: sie wurde eine Zeile vorher fuer genau
+             * diesen Nutzer angelegt. Ohne sie liegt der wichtigste Vorgang der
+             * Registrierung — Pilot bzw. Direktvertrag — in keinem Org-Audit. */
+            org_id: orgId,
             details: { plan: "INDIVIDUELL", employee_count: effectiveEmployeeCount, company_size_class, signup_mode: "direct" }
           }).catch(swallow("auth"));
         }

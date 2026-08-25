@@ -224,16 +224,61 @@ describe("Audit-Mandantengrenze — die Schreibseite", () => {
    * duerfen sinken, nicht steigen, und keine NEUE Datei darf dazukommen.
    */
   it("keine neue Schreibstelle verliert die Organisation stillschweigend", () => {
-    /* Stand 2026-08-24. Sinken ist Fortschritt, Steigen ist ein Rueckfall. */
+    /*
+     * JE AUFRUF ENTSCHIEDEN (Owner-Vorgabe, 2026-08-25).
+     *
+     * Am 2026-08-24 standen 30 req-lose Aufrufe ohne `org_id` in sieben Dateien.
+     * Sie sind einzeln durchgegangen worden, nicht pauschal umgestellt:
+     * 15 tragen die Org jetzt, 15 bleiben org-los — begruendet, nicht uebrig.
+     *
+     * ENTSCHEIDUNGSREGEL, aus `bestimmeAuditOrg` abgeleitet: `org_id` heisst
+     * "die Organisation, IN DER der Handelnde gehandelt hat". Daraus folgt
+     * beides. Wo ein angemeldeter Nutzer in seiner Org handelt, gehoert sie hin
+     * (→ MUSS_NULL_SEIN, umgestellt auf writeAuditEnhanced). Wo es gar keinen
+     * Handelnden gibt — Systemlauf, fehlgeschlagene Anmeldung — oder er als
+     * Plattform handelt, waere jeder Stempel eine Behauptung (→ ORG_LOS_BEGRUENDET).
+     */
+
+    /* Hier handelt ein angemeldeter Nutzer in seiner Organisation.
+     * Ein Rueckfall auf die req-lose Form ist ein Fehler, kein Stilfrage. */
+    const MUSS_NULL_SEIN = [
+      "routes/profileVisibility.js",  // die sechs Meldungs-Zeilen vom 22.-24.08.
+      "routes/requests.js",           // Anfrage annehmen/ablehnen/finalisieren
+      "routes/capacities.js",         // Kapazitaet anlegen/schalten/reservieren
+      "routes/profileBounties.js",    // die Routen verlangen req.orgId ohnehin
+    ];
+
+    /*
+     * Org-los ist hier die RICHTIGE Antwort. Die Zahl zaehlt ALLE req-losen
+     * Aufrufe der Datei, auch die mit `org_id` — so haengt die Probe nicht an
+     * einer Fenster-Heuristik, die beim naechsten Umformatieren kippt.
+     *
+     * internal.js (10): Cron-Summenzeilen ueber ALLE Organisationen (expired,
+     *   invoiced, processed). Kein Akteur, keine einzelne Org — ein Stempel
+     *   waere schlicht falsch. Die Ausnahme bestaetigt die Regel:
+     *   `pilot.auto_expiry_batch` laeuft je Org und traegt org_id.
+     *
+     * occ/decisionsRequests.js (2): Owner-Flaeche. Der Handelnde entscheidet
+     *   als Plattform UEBER einen Kunden, nicht INNERHALB von dessen Org. Ein
+     *   Stempel wuerde die interne Begruendung (reason, risk_level,
+     *   commercial_context) ueber die Policy `al_same_org` an genau den Kunden
+     *   ausliefern, ueber den entschieden wurde. Staff liest sie ueber
+     *   `al_staff_bypass` — die Sicht existiert also, nur nicht fuer den Kunden.
+     *
+     * auth.js (6): vier fehlgeschlagene Anmeldungen (login_failed,
+     *   login_blocked_sso). Dort ist `actor_id` null — niemand hat sich
+     *   angemeldet. Die Org wurde angegriffen, sie hat nicht gehandelt; org_id
+     *   wuerde das Gegenteil behaupten. Die beiden Signup-Aufrufe derselben
+     *   Datei tragen org_id (eigene Probe unten).
+     *
+     * oauth.js (1), payment.js (2): tragen org_id bereits.
+     */
     const FESTGENAGELT = {
       "routes/auth.js": 6,
-      "routes/capacities.js": 3,
       "routes/internal.js": 10,
       "routes/oauth.js": 1,
       "routes/occ/decisionsRequests.js": 2,
       "routes/payment.js": 2,
-      "routes/profileBounties.js": 1,
-      "routes/requests.js": 9,
     };
 
     /* Verzeichnis rekursiv einlesen — `routes/occ/` liegt eine Ebene tiefer. */
@@ -267,10 +312,31 @@ describe("Audit-Mandantengrenze — die Schreibseite", () => {
         "Jeder neue verliert die Organisation — writeAuditEnhanced(pool, req, {...}) benutzen.");
     }
 
-    /* Der reparierte Pfad, ausdruecklich: hier kam der gemessene Befund her. */
-    assert.equal(gemessen["routes/profileVisibility.js"], undefined,
-      "routes/profileVisibility.js benutzt wieder die req-lose Form. Genau daraus " +
-      "entstanden die sechs org-losen Meldungs-Zeilen vom 22.-24.08.");
+    /* Die umgestellten Pfade, ausdruecklich. `undefined` heisst: die Datei kommt
+     * in der Messung gar nicht mehr vor, weil sie keinen einzigen req-losen
+     * Aufruf mehr hat. */
+    for (const datei of MUSS_NULL_SEIN) {
+      assert.equal(gemessen[datei], undefined,
+        `${datei} benutzt wieder die req-lose Form writeAudit(pool, {...}). ` +
+        "Dort handelt ein angemeldeter Nutzer in seiner Organisation — " +
+        "writeAuditEnhanced(pool, req, {...}) benutzen. Aus genau diesem Muster " +
+        "entstanden die sechs org-losen Meldungs-Zeilen vom 22.-24.08.");
+    }
+  });
+
+  it("die Registrierung stempelt die gerade angelegte Organisation", () => {
+    /* Die beiden auth.js-Aufrufe, die KEINE fehlgeschlagene Anmeldung sind:
+     * `createOrgWithMembership` hat die Org eine Zeile vorher fuer genau diesen
+     * Nutzer angelegt. `orgId` steht im Scope — ein zweiter Lookup waere hier
+     * der Umweg, nicht die Sorgfalt. */
+    const quelle = fs.readFileSync(path.join(API, "routes/auth.js"), "utf8");
+    for (const aktion of ["pilot.activated_at_signup", "individual.direct_signup"]) {
+      const muster = new RegExp(`action: "${aktion.replace(/\./g, "\\.")}"[\\s\\S]{0,400}?org_id: orgId`);
+      assert.match(quelle, muster,
+        `${aktion} stempelt die Organisation nicht mehr — ohne sie liegt der ` +
+        "wichtigste Vorgang der Registrierung (Pilot bzw. Direktvertrag) in " +
+        "keinem Org-Audit.");
+    }
   });
 });
 

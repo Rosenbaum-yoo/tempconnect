@@ -1665,11 +1665,74 @@ laufende Instanz erneut solche Zeilen.** Wer die Abnahme vorher rot sieht, hat
 keinen Rückfall im Code gefunden, sondern genau diesen Umstand — 198 erneut
 laufen zu lassen genügt.
 
-**30 req-lose `writeAudit`-Aufrufe ohne `org_id` in sieben Route-Dateien** (von
-34 insgesamt). `profileVisibility.js` ist erledigt; die übrigen sind
-festgenagelt, nicht freigesprochen — `internal.js` und `occ/decisionsRequests.js`
-laufen plausibel plattformweit, `requests.js` (9) und `capacities.js` (3) eher
-nicht. Das gehört je Aufruf entschieden, nicht pauschal umgestellt.
+Nichts mehr aus dieser Welle — die verbliebenen 30 Aufrufe sind am 2026-08-25
+einzeln entschieden worden (siehe unten). Offen bleibt allein das Ausrollen.
+
+---
+
+## Die 30 req-losen Aufrufe — je Aufruf entschieden (2026-08-25)
+
+Owner-Vorgabe: nicht pauschal umstellen, sondern jeden einzeln entscheiden.
+Ergebnis: **15 tragen die Org jetzt, 15 bleiben org-los** — begründet, nicht
+übrig geblieben.
+
+### Die Regel, nach der entschieden wurde
+
+`org_id` heißt nicht „hat irgendwie mit dieser Org zu tun", sondern **„die
+Organisation, IN DER der Handelnde gehandelt hat"** — so ist `bestimmeAuditOrg`
+gebaut, und daraus folgen beide Richtungen. Handelt ein angemeldeter Nutzer in
+seiner Org, gehört sie hin. Gibt es gar keinen Handelnden, oder handelt er als
+Plattform, wäre jeder Stempel eine Behauptung.
+
+### Umgestellt — 15
+
+| Datei | Aufrufe | Warum |
+|---|---|---|
+| `requests.js` | 9 | Anfrage annehmen/ablehnen/finalisieren, Reservierung wandeln — ein angemeldeter Nutzer handelt in seiner Org |
+| `capacities.js` | 3 | Kapazität anlegen, schalten, reservieren — dito |
+| `profileBounties.js` | 1 | die Routen prüfen `req.orgId` selbst und antworten sonst mit `403 NO_ORG`; org-los zu schreiben war schlicht widersprüchlich |
+| `auth.js` (Signup) | 2 | `pilot.activated_at_signup`, `individual.direct_signup` — `createOrgWithMembership` hat die Org eine Zeile vorher angelegt, `orgId` steht im Scope |
+
+Die ersten 13 laufen jetzt über `writeAuditEnhanced(pool, req, …)`, die beiden
+Signup-Aufrufe über das lokale `orgId` — dort wäre ein zweiter Lookup der Umweg,
+nicht die Sorgfalt.
+
+### Org-los, und das ist richtig — 15
+
+**`internal.js` (9).** Cron-Summenzeilen über *alle* Organisationen:
+`{ expired, batchSize }`, `{ invoiced, skipped, processed, failed }`. Kein
+Akteur, keine einzelne Org. Ein Stempel wäre nicht ungenau, sondern falsch. Die
+Ausnahme in derselben Datei bestätigt die Regel: `pilot.auto_expiry_batch` läuft
+je Org und trägt `org_id` bereits.
+
+**`occ/decisionsRequests.js` (2).** Hier lag die eigentliche Entscheidung. Der
+Handelnde ist der Owner, und er entscheidet **über** einen Kunden, nicht
+**innerhalb** von dessen Organisation. Die Versuchung, die Kunden-Org zu
+stempeln, ist groß — sie steht im Datensatz. Aber die Zeile trägt `reason`,
+`risk_level` und `commercial_context`, also die interne Begründung des Owners,
+und die Policy `al_same_org` (`org_id = current_org_id()`) würde sie damit an
+genau den Kunden ausliefern, über den entschieden wurde. Staff sieht sie über
+`al_staff_bypass` — die Sicht existiert also, nur nicht für den Betroffenen.
+
+**`auth.js` (4).** Fehlgeschlagene Anmeldungen (`auth.login_failed`,
+`auth.login_blocked_sso`). Dort ist `actor_id` **null** — niemand hat sich
+angemeldet. Die Org wurde *angegriffen*, sie hat nicht *gehandelt*; `org_id`
+würde das Gegenteil behaupten. Beim Fall `USER_NOT_FOUND` gibt es nicht einmal
+einen Nutzer, ein Stempel wäre dort ein Orakel.
+
+> **Als Produktidee davon getrennt:** dass ein Org-Admin Angriffe auf die eigenen
+> Konten sehen kann, ist ein sinnvolles Sicherheits-Feature. Es ist nur nicht
+> dieselbe Sache — dafür wäre der richtige Weg eine eigene Sicht auf
+> `entity_id`, nicht ein `org_id`, das eine Handlung behauptet, die nie
+> stattfand. `getUserCredentials` liest die Org heute ohnehin nicht mit.
+
+### Der Wächter hält jetzt Entscheidungen fest, keine Hochwassermarke
+
+`auditMandantenGrenze.test.js` führt zwei Listen statt einer Zahlenreihe:
+`MUSS_NULL_SEIN` (die vier umgestellten Dateien — ein Rückfall ist ein Fehler)
+und `FESTGENAGELT` mit der Begründung je Datei im Kommentar. Neue Dateien mit der
+req-losen Form fallen auf, steigende Zahlen ebenso. Gegen eine Rückmutation
+geprüft: `requests.js` auf den alten Stand zurückgesetzt ⇒ rot, mit Dateinamen.
 
 ### Zwei neue Wächter
 

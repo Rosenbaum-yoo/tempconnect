@@ -85,7 +85,7 @@ export function createCapacitiesRouter(deps) {
       const parsed = capacitySchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
       const cap = await capacityService.createCapacity(pool, req.session.userId, parsed.data);
-      await auditLog.writeAudit(pool, { action: "capacity.create", entity_type: "capacity", entity_id: cap.id, capacity_id: cap.id, actor_id: req.session.userId, details: { role: cap.role, region: cap.region, available_workers: cap.available_workers } });
+      await auditLog.writeAuditEnhanced(pool, req, { action: "capacity.create", entity_type: "capacity", entity_id: cap.id, capacity_id: cap.id, actor_id: req.session.userId, details: { role: cap.role, region: cap.region, available_workers: cap.available_workers } });
       res.status(201).json(cap);
     } catch (e) {
       logger.error({ err: e }, "POST /api/capacities");
@@ -102,7 +102,7 @@ export function createCapacitiesRouter(deps) {
       const cap = await capacityService.updateCapacity(pool, req.params.id, req.session.userId, parsed.data);
       if (!cap) return res.status(404).json({ error: "NOT_FOUND" });
       const action = parsed.data.is_active === false ? "capacity.deactivate" : "capacity.update";
-      await auditLog.writeAudit(pool, { action, entity_type: "capacity", entity_id: cap.id, capacity_id: cap.id, actor_id: req.session.userId, details: { old: { is_active: before.is_active }, new: { is_active: cap.is_active } } });
+      await auditLog.writeAuditEnhanced(pool, req, { action, entity_type: "capacity", entity_id: cap.id, capacity_id: cap.id, actor_id: req.session.userId, details: { old: { is_active: before.is_active }, new: { is_active: cap.is_active } } });
       res.json(cap);
     } catch (e) {
       logger.error({ err: e }, "PATCH /api/capacities/:id");
@@ -127,7 +127,7 @@ export function createCapacitiesRouter(deps) {
       const { reservation, error } = await capacityService.reserve(pool, capacityId, quantity, requestId);
       if (error === "NOT_FOUND") return res.status(404).json({ error: "NOT_FOUND" });
       if (error === "INSUFFICIENT_CAPACITY") return res.status(409).json({ error: "INSUFFICIENT_CAPACITY" });
-      await auditLog.writeAudit(pool, { action: "reservation.active", entity_type: "capacity_reservation", entity_id: reservation.id, request_id: requestId, capacity_id: capacityId, reservation_id: reservation.id, actor_id: req.session.userId, details: { quantity } });
+      await auditLog.writeAuditEnhanced(pool, req, { action: "reservation.active", entity_type: "capacity_reservation", entity_id: reservation.id, request_id: requestId, capacity_id: capacityId, reservation_id: reservation.id, actor_id: req.session.userId, details: { quantity } });
       res.status(201).json(reservation);
     } catch (e) {
       logger.error({ err: e }, "POST /api/capacities/:capacityId/reserve");
