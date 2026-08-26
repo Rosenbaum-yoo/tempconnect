@@ -76,6 +76,7 @@ const MATERIALISIEREN_SQL = `
    WHERE wp.is_active = TRUE
      AND wp.marktpraesenz_deaktiviert = FALSE
      AND wp.city IS NOT NULL AND wp.city <> ''
+     AND NOT ${abwesendHeuteSql("wp.id")}
      AND (${AGENTUR_NUTZER_SQL}) IS NOT NULL
      AND NOT EXISTS (
        SELECT 1 FROM capacity_posts cp
@@ -91,18 +92,40 @@ const MATERIALISIEREN_SQL = `
       AND status IN ('draft', 'active', 'paused')
   DO NOTHING`;
 
-/* Ruecknahme: der Ausschalter greift, oder das Profil ist deaktiviert.
- * NUR eigene Zeilen (quelle), NUR offene Zustaende — 'reserved' und 'filled'
- * tragen laufende Geschaefte und bleiben unberuehrt. */
+/* Eine WIRKSAME Abwesenheit, die HEUTE gilt (Owner 2026-08-26: das Unternehmen
+ * muss erkennen, "ob er wirklich verfuegbar ist"). Dieselben Bedingungen wie
+ * die Kundentafel (H1): nur 'wirksam' — eine erst BEANTRAGTE Selbstmeldung ist
+ * eine Entscheidung, die beim Arbeitgeber noch aussteht, und nimmt niemanden
+ * vom Markt. Und es gilt DASS-nicht-WARUM: die Art der Abwesenheit erreicht
+ * den Markt nie — die Kraft verschwindet einfach bis zur Rueckkehr und kommt
+ * mit dem naechsten Takt von selbst wieder. */
+function abwesendHeuteSql(profilSpalte) {
+  return `EXISTS (
+       SELECT 1 FROM worker_absences ab
+        WHERE ab.worker_profile_id = ${profilSpalte}
+          AND ab.zustand = 'wirksam'
+          AND ab.aufgehoben_am IS NULL
+          AND ab.von <= CURRENT_DATE
+          AND (ab.bis IS NULL OR ab.bis >= CURRENT_DATE)
+     )`;
+}
+
+/* Ruecknahme: der Ausschalter greift, das Profil ist deaktiviert, ODER die
+ * Kraft ist heute wirksam abwesend. NUR eigene Zeilen (quelle), NUR offene
+ * Zustaende — 'reserved' und 'filled' tragen laufende Geschaefte und bleiben
+ * unberuehrt. */
 const ZURUECKNEHMEN_SQL = `
   UPDATE capacity_posts cp
      SET status = 'archived', is_active = FALSE, updated_at = NOW()
    WHERE cp.quelle = 'live_belegschaft'
      AND cp.status IN ('draft', 'active', 'paused')
-     AND EXISTS (
-       SELECT 1 FROM worker_profiles wp
-        WHERE wp.id = cp.worker_profile_id
-          AND (wp.marktpraesenz_deaktiviert = TRUE OR wp.is_active = FALSE)
+     AND (
+       EXISTS (
+         SELECT 1 FROM worker_profiles wp
+          WHERE wp.id = cp.worker_profile_id
+            AND (wp.marktpraesenz_deaktiviert = TRUE OR wp.is_active = FALSE)
+       )
+       OR ${abwesendHeuteSql("cp.worker_profile_id")}
      )`;
 
 /* Wiederkehr: der Ausschalter wurde zurueckgenommen. Nur eigene, von der
@@ -121,7 +144,8 @@ const WIEDERHERSTELLEN_SQL = `
         WHERE wp.id = cp.worker_profile_id
           AND wp.marktpraesenz_deaktiviert = FALSE
           AND wp.is_active = TRUE
-     )`;
+     )
+     AND NOT ${abwesendHeuteSql("cp.worker_profile_id")}`;
 
 /**
  * Vollstaendiger Sweep: (1) Ruecknahme abgeschalteter Kraefte,
@@ -195,10 +219,13 @@ export async function setzeMarktpraesenz(pool, supplierOrgId, workerProfileId, d
       WHERE cp.quelle = 'live_belegschaft'
         AND cp.worker_profile_id = $1
         AND cp.status IN ('draft', 'active', 'paused')
-        AND EXISTS (
-          SELECT 1 FROM worker_profiles wp
-           WHERE wp.id = $1 AND wp.supplier_org_id = $2
-             AND (wp.marktpraesenz_deaktiviert = TRUE OR wp.is_active = FALSE)
+        AND (
+          EXISTS (
+            SELECT 1 FROM worker_profiles wp
+             WHERE wp.id = $1 AND wp.supplier_org_id = $2
+               AND (wp.marktpraesenz_deaktiviert = TRUE OR wp.is_active = FALSE)
+          )
+          OR ${abwesendHeuteSql("cp.worker_profile_id")}
         )
       RETURNING cp.id`,
     kennung
@@ -215,6 +242,7 @@ export async function setzeMarktpraesenz(pool, supplierOrgId, workerProfileId, d
            WHERE wp.id = $1 AND wp.supplier_org_id = $2
              AND wp.marktpraesenz_deaktiviert = FALSE AND wp.is_active = TRUE
         )
+        AND NOT ${abwesendHeuteSql("cp.worker_profile_id")}
       RETURNING cp.id`,
     kennung
   );
@@ -238,6 +266,7 @@ export async function setzeMarktpraesenz(pool, supplierOrgId, workerProfileId, d
         AND wp.is_active = TRUE
         AND wp.marktpraesenz_deaktiviert = FALSE
         AND wp.city IS NOT NULL AND wp.city <> ''
+        AND NOT ${abwesendHeuteSql("wp.id")}
         AND (${AGENTUR_NUTZER_SQL}) IS NOT NULL
         AND NOT EXISTS (
           SELECT 1 FROM capacity_posts cp

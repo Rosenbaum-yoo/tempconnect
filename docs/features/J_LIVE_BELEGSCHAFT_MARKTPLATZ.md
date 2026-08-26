@@ -547,6 +547,37 @@ Haftungsausschluss.
 - **Equal Pay (9 Monate)** ist eine ANDERE Frist mit Tarif-Ausnahmen — bewusst NICHT
   in J8 (Zuschlagslogik wäre Ratenberatung). Nur die Überlassungsdauer.
 
+### Welle J9 — Status-Vermerk des Zeitarbeitschefs (Owner 2026-08-26)
+
+Owner: Der Chef soll je Kraft vermerken können, was ein Unternehmen bei der
+Skill-Suche wissen muss — „wirklich verfügbar", „zuverlässig, sehr fleißig,
+sauber", aber auch „seit einer Woche abwesend ohne Rückmeldung",
+„krankgeschrieben bis…", „längerfristig einsetzbar" — und das soll in die
+Angebote fahren, damit **alle drei Seiten planen** können (Monatsplanung der
+Agentur, Einsatzplanung des Unternehmens, Selbstauskunft der Kraft).
+
+**Die tragende Trennung (rechtlich zwingend):**
+
+| Klasse | Beispiel | Weg in den Markt |
+|---|---|---|
+| **Verfügbarkeits-Fakt** | krankgeschrieben bis 12.09., Urlaub | Kommt aus `worker_absences` (existiert seit G1) — die Kraft **verschwindet** aus dem Markt und kehrt am Folgetag des Bis-Datums automatisch zurück. **DASS-nicht-WARUM** (Hauslinie G4b/H1): die Art erreicht den Markt nie. |
+| **Positives Merkmal** | zuverlässig · sehr fleißig · arbeitet sauber · langfristig einsetzbar · kurzfristig startklar · flexibel bei Schichten | **Fester Katalog** (ankreuzbar, kein Freitext), gesetzt vom Chef, fährt in die Auto-Angebote, filterbar, zweisprachig. |
+| **Interne Einschätzung** | „seit einer Woche abwesend ohne Rückmeldung" | **NUR_INTERN** (Dispo-Notiz der Agentur, Feld-Wächter erzwingt das). Geht NIE an fremde Unternehmen — ein Beschäftigten-Urteil an Dritte wäre DSGVO-/AGG-Risiko (Auskunftsrecht Art. 15). Markt-Folge: die Kraft wird schlicht **nicht angeboten** (Markt-aus-Schalter, J2c). |
+| **Horizont** | „längerfristig einsetzbar" | Strukturiertes Feld `einsetzbar_bis` (NULL = unbefristet) → `availability_to` der Auto-Angebote. |
+
+**Teil 1 ✅ *(2026-08-26, sofort gebaut — Defekt gegen „wirklich verfügbar")*:**
+Die Automatik bot eine heute wirksam abwesende Kraft als verfügbar an. Jetzt
+kennen alle Sweep-Anweisungen (global + Schalter-Pfad) die wirksame
+Heute-Abwesenheit: Rücknahme nimmt Abwesende raus, Wiederkehr/Anlage lassen sie
+draußen; nur `zustand='wirksam'` zählt (H1-Linie: beantragt ist unentschieden),
+`ab.art` kommt im Markt-SQL nicht vor. Testverdrahtet inkl. echtem
+Abwesenheits-Zyklus an der DB.
+
+**Teil 2 (offen):** Migration (`markt_merkmale TEXT[]` gegen Katalog,
+`einsetzbar_bis DATE`, `dispo_notiz TEXT` als NUR_INTERN), Merkmale-Pflege auf
+der Agenturtafel, Anzeige in Angebot + Buchungsmodal + Filter, Selbstauskunft
+im Einsatzportal.
+
 ---
 
 ## 5. Kontext aus dieser Session — was J erbt

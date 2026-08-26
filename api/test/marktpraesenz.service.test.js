@@ -85,6 +85,27 @@ describe("Marktpraesenz · Teil A — Form", () => {
       "worker_reserved-Zeilen gehoeren dem Reservierungs-Sweep — zwei Schreiber auf derselben Zeile waeren zwei Wahrheiten");
   });
 
+  it("eine wirksam abwesende Kraft ist am Markt nicht 'verfuegbar' (Owner 2026-08-26)", async () => {
+    /* Der Befund hinter der Regel: die erste Fassung bot eine heute
+     * krankgeschriebene Kraft als verfuegbar an — genau das Gegenteil von
+     * "ob er wirklich verfuegbar ist". Alle drei Anweisungen kennen die
+     * Abwesenheit jetzt: Ruecknahme nimmt Abwesende raus, Wiederkehr und
+     * Anlage lassen sie draussen, bis die Abwesenheit endet. */
+    const pool = aufzeichnenderPool();
+    await sweepMarktpraesenz(pool);
+    for (const [name, i] of [["Ruecknahme", 0], ["Wiederkehr", 1], ["Anlage", 2]]) {
+      assert.match(pool.calls[i].sql, /worker_absences/, name + " kennt die Abwesenheit nicht");
+      assert.match(pool.calls[i].sql, /ab\.zustand = 'wirksam'/,
+        name + ": nur WIRKSAME Abwesenheit zaehlt — eine erst beantragte Selbstmeldung ist eine " +
+        "Entscheidung, die beim Arbeitgeber noch aussteht (H1-Linie)");
+      assert.match(pool.calls[i].sql, /ab\.aufgehoben_am IS NULL/, name + ": eine zurueckgenommene Meldung sperrt nicht");
+      assert.match(pool.calls[i].sql, /ab\.bis IS NULL OR ab\.bis >= CURRENT_DATE/,
+        name + ": am Tag nach dem Bis-Datum kehrt die Kraft von selbst zurueck");
+      assert.ok(!/ab\.art/.test(pool.calls[i].sql),
+        name + ": DASS-nicht-WARUM — die ART der Abwesenheit hat im Marktplatz-SQL nichts verloren");
+    }
+  });
+
   it("der Schalter ist org-gebunden und meldet eine fremde Kraft als null", async () => {
     const pool = aufzeichnenderPool({ "UPDATE worker_profiles": { rows: [], rowCount: 0 } });
     const ergebnis = await setzeMarktpraesenz(pool, "org-a", "wp-fremd", true);
@@ -137,6 +158,47 @@ describe("Marktpraesenz · Teil B — echte Datenbank", { skip: !hasDb }, () => 
       const nix = await setzeMarktpraesenz(pool, "00000000-0000-0000-0000-000000000001",
         "00000000-0000-0000-0000-000000000002", true);
       assert.equal(nix, null);
+
+      /* Der Abwesenheits-Zyklus an einer echten Kraft mit Auto-Angeboten:
+       * wirksame Abwesenheit heute -> die eigenen Angebote verschwinden;
+       * Meldung weg -> sie kommen zurueck. Aufgeraeumt wird in jedem Fall. */
+      const { rows: abwKandidaten } = await pool.query(
+        `SELECT DISTINCT cp.worker_profile_id, wp.supplier_org_id
+           FROM capacity_posts cp
+           JOIN worker_profiles wp ON wp.id = cp.worker_profile_id
+          WHERE cp.quelle = 'live_belegschaft'
+            AND cp.status IN ('draft','active','paused')
+            AND NOT EXISTS (
+              SELECT 1 FROM worker_absences ab
+               WHERE ab.worker_profile_id = cp.worker_profile_id
+                 AND ab.aufgehoben_am IS NULL AND ab.von <= CURRENT_DATE
+                 AND (ab.bis IS NULL OR ab.bis >= CURRENT_DATE)
+            )
+          LIMIT 1`);
+      if (abwKandidaten[0]) {
+        const { worker_profile_id: wpId, supplier_org_id: orgId } = abwKandidaten[0];
+        let absenceId = null;
+        try {
+          const { rows: abIns } = await pool.query(
+            `INSERT INTO worker_absences (worker_profile_id, supplier_org_id, art, von, bis, zustand)
+             VALUES ($1, $2, 'sonstiges', CURRENT_DATE, CURRENT_DATE, 'wirksam')
+             RETURNING id`, [wpId, orgId]);
+          absenceId = abIns[0].id;
+          const weg = await sweepMarktpraesenz(pool);
+          assert.ok(weg.zurueckgenommen >= 1,
+            "eine heute wirksam abwesende Kraft muss aus dem Markt verschwinden");
+          const { rows: offenAbw } = await pool.query(
+            `SELECT COUNT(*)::int AS n FROM capacity_posts
+              WHERE worker_profile_id = $1 AND quelle = 'live_belegschaft'
+                AND status IN ('draft','active','paused')`, [wpId]);
+          assert.equal(offenAbw[0].n, 0, "waehrend der Abwesenheit ist nichts offen");
+        } finally {
+          if (absenceId) await pool.query("DELETE FROM worker_absences WHERE id = $1", [absenceId]);
+          const rueckkehr = await sweepMarktpraesenz(pool);
+          assert.ok(rueckkehr.wiederhergestellt >= 1 || rueckkehr.materialisiert >= 1,
+            "nach dem Ende der Abwesenheit kehrt die Kraft von selbst zurueck");
+        }
+      }
 
       /* Der volle Zyklus an einer echten Kraft mit Auto-Angeboten — falls es
        * eine gibt. Zustand wird in jedem Fall wiederhergestellt. */
