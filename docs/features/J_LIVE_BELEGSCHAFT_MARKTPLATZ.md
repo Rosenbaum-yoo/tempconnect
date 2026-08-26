@@ -1,0 +1,456 @@
+# J — Live-Belegschaft als Plattformfläche, Marktplatz aus Unternehmenssicht
+
+> **Stand:** 2026-08-26 · Worktree `brave-sanderson-9e9148` · Branch `claude/brave-sanderson-9e9148`
+> **Zweck:** Diese Datei allein genügt, um J in einem neuen Chat ohne Rückfragen
+> fortzusetzen. Erst lesen, dann die nächste offene Welle abarbeiten.
+> **Status:** Plan — noch nichts gebaut. Owner-Freigabe je Welle abwarten.
+
+> **Owner-Prompt (Abschnitt 19, sinngemäß):** Die Live-Belegschaft-Seite (lief lokal auf
+> :8099) soll in die Plattform, unter „Einsätze & Zeiten" als neue Kachel, im
+> Plattform-Design, mit DE/EN-Umschalter, intuitiv bedienbar mit Hilfe an den Knöpfen,
+> Mouse-over-Erklärungen und kleinen Textboxen — „so bauen, dass wir für die Bedienung
+> keinen Support brauchen oder nur minimalistisch". Anbindung an das Staff Control Center
+> zum Überwachen und Klären (Beispiel Sperrliste: „Worker darf bei Unternehmen X nicht
+> mehr eingesetzt werden"). Alles hart miteinander verdrahtet: Live-Belegschaft, Buchung,
+> Marktplatz, Staff Center, Einsatzportal, Benachrichtigungen, Unternehmensseite,
+> Zeitarbeitsfirmenseite. **Nur noch nicht Integriertes einbauen.**
+
+> **Owner-Prompt (Abschnitt 20, sinngemäß):** Angebote im Marktplatz konsequent ausbauen.
+> Dem Dealabschluss fehlt das Gefühl, etwas gekauft zu haben. Unternehmenssicht: wo, wie
+> viele, ab wann → Auswahl noch nicht verbuchter Mitarbeiter erscheint. DSGVO-konformer
+> Einblick in die Live-Kapazität der Zeitarbeitsfirmen, **damit die Zeitarbeitsfirma gar
+> kein Angebot erstellen muss** — jede Kraft bekommt automatisch einen Buchungsknopf.
+> Einsatzbeginn in unter 2 Tagen → Notdienst-Deal. Einzelne Kräfte **und** Bündel, auch
+> über verschiedene Zeitarbeitsfirmen hinweg.
+
+> **Owner-Präzisierung:** „Es geht hier um Live-Belegschaft und Marktplatz-Angebote von
+> Zeitarbeitsfirmen aus Unternehmenssicht."
+
+---
+
+## 1. Die Leitfrage
+
+Der Marktplatz kennt heute genau eine Richtung: **Jemand stellt ein Angebot ein, jemand
+anders sucht danach.** Das setzt voraus, dass Angebote gepflegt werden.
+
+Sie werden nicht gepflegt. Gemessen am 2026-08-26:
+
+| | Zahl |
+|---|---|
+| Aktive Kräfte in der Datenbank | 33 |
+| Davon **heute frei** (kein laufender Einsatz) | **24** |
+| Aktive Einzelangebote im Marktplatz | **1** |
+| Angebote im Zustand `draft` (nie veröffentlicht) | 10 |
+
+Vierundzwanzig Menschen sind verfügbar. Ein einziges Angebot sagt es. Der Marktplatz ist
+nicht leer, weil es keine Kapazität gibt — er ist leer, weil ihn niemand füttert.
+
+**Die Owner-Vision dreht die Richtung um: Verfügbarkeit *ist* das Angebot.** Wer nicht
+verbucht ist, steht zur Verfügung — ohne dass jemand einen Datensatz pflegt. Der Marktplatz
+wird von einer Pinnwand zu einem Spiegel der Wirklichkeit.
+
+Das ist keine Bequemlichkeitsfunktion. Es ist der Unterschied zwischen einem Marktplatz mit
+einem Angebot und einem mit vierundzwanzig.
+
+---
+
+## 2. Ist-Stand — gemessen, nicht vermutet
+
+Alle Angaben an der laufenden Datenbank (`tempconnect_db`) bzw. am Quelltext belegt.
+
+### 2.1 Was bereits vollständig existiert
+
+| Was | Beleg | Bedeutung für J |
+|---|---|---|
+| **Unternehmens-Live-Tafel, Backend** | `getCompanyLiveWorkforce` — [workforceService.js:484](../../api/services/workforceService.js), Route `GET /company/live-workforce` — [companyTimesheets.js:77](../../api/routes/companyTimesheets.js) | Die Fläche „wer arbeitet gerade bei mir" ist fertig. |
+| **Unternehmens-Live-Tafel, Frontend** | Reiter `#tabLive` in [company-timesheets.html:87](../../frontend/public/company-timesheets.html), Logik [companyTimesheets.js:591,626](../../frontend/public/js/pages/companyTimesheets.js) | **Existiert bereits** — vier Kennzahlen (im Einsatz / endet in Kürze / fällt aus / Zeitarbeitsfirmen), Suche, echter Endpunkt. Siehe 2.2d. |
+| **Zeitarbeitsfirmen-Live-Tafel** | `getWorkerLiveBoard` — [workforceService.js:675](../../api/services/workforceService.js), Route [workers.js:829](../../api/routes/workers.js); Frontend als Reiter in [mitarbeiter.html:206](../../frontend/public/mitarbeiter.html), 30-Sekunden-Abruf | Berechnet je Kraft `live_status`: `inaktiv`, `abwesend`, `verfuegbar`, `montage`, `endet_bald`, `im_einsatz`. **`verfuegbar` ist die Quelle für „wer ist frei".** |
+| **Editorial-Design** | `theme.js:17` — `CONFIGURED_DEFAULT`; Tokens [design-system.css:1925-2290](../../frontend/public/css/design-system.css) | **Editorial ist bereits der Plattform-Standard**, nicht erst herzustellen. Warmes Papier `#f4efe4`, Forstgrün `#1f3a2e`, Wein `#7a2e2e`, Serifen nur für Überschriften. |
+| **DE/EN-Umschalter** | `TCi18n` — `i18n.js`; Knopf wird automatisch in die Topbar gehängt ([pageShell.js:416](../../frontend/public/js/pageShell.js)) | Der geforderte Umschalter entsteht von selbst, sobald die Seite dem Seitenmuster folgt. |
+| **Sperrliste** | `companyBlocklistService`, Routen `GET/POST /company/blocklist` — [companyTimesheets.js:91](../../api/routes/companyTimesheets.js) | Liegt bereits **direkt neben** der Live-Tafel. Der Owner-Fall „Worker darf bei X nicht mehr" ist gebaut. |
+| **Reservierungs-Kopplung** | `workerOfferReservationService` — `BUSY_EXISTS_SQL` / `RESERVE_SQL` / `RELEASE_SQL` | Bindet ein Einsatz eine Kraft, werden ihre Angebote automatisch `paused` + `worker_reserved=TRUE`; wird sie frei, kommen sie zurück. **Idempotent, set-basiert.** |
+| **Anonymitäts-Absicht** | `capacity_posts.is_anonymous` — **TRUE bei allen 33 Zeilen**; P8 §3.5 „Anonymität bleibt" | Die Absicht ist entschieden. Der Vollzug fehlt — siehe 2.2e. |
+| **Datenschutz-Whitelist** | `PUBLIC_PROFILE_FIELDS` — [workerService.js:127](../../api/services/workerService.js): `name`, `city`, `skill_tags`, `qualifications`, `profile_text`, `availability_note`; `buildWorkerPublicProfile` gibt ohne `profile_public` **null** zurück | Ein fertiges, enges Muster. Filtert auch `document_url` aus Qualifikationen. **J2 baut darauf auf, statt eine zweite Regel zu erfinden.** |
+| **Dreischritt-Assistent** | `window.openCommitWizard` — [offer_detail.html:1637-1683](../../frontend/public/offer_detail.html), gespeist aus `commitment-preview` | Schritt 1 **Was** (Leistung, Zeitraum, Menge, Ort, Preis) · Schritt 2 **Wer/Wie** · Schritt 3 **Verbindlichkeit**. Genau die Anatomie, die Abschnitt 20 verlangt — siehe 2.2a. |
+| **Konditionen-Einfrierung** | `offers.agreement_snapshot` (JSONB), `buildConditionsSnapshot` — [dealAgreementService.js:39](../../api/services/dealAgreementService.js); Referenz `EV-JJJJ-NNNNNN` | Preis, Zuschläge, Kündigungsregel, Ersatz-SLA werden beim Abschluss eingefroren und als zwei Dokumente abgelegt. |
+| **Sichtbarkeitsstufen** | `capacity_posts_visibility_status_check`: `public`, `plan_gated`, `vendor_pool_only`, `private` | `vendor_pool_only` ist genau die Stufe „nur meine Lieferanten sehen das". |
+| **Geschäftsbeziehung** | Tabelle `vendor_pool` (client_org_id, supplier_org_id, tier, status, valid_from/until) | Die Rechtsgrundlage für den Einblick. **Aktuell 0 Zeilen.** |
+| **Angebotsarten** | `offer_kind`: `legacy`, `single_skill`, `bundle`, `pool_single_skill`, `pool_multi_skill` — Achtung: `bundle` = **eine** Kraft mit mehreren Fähigkeiten ([capacityOfferGeneratorService.js:159,167](../../api/services/capacityOfferGeneratorService.js): `headcount: 1`, ein `worker_profile_id`); **mehrere** Kräfte laufen über `pool_*` + Tabelle `capacity_post_pool_members` | Was der Owner „Bündel" nennt (mehrere Kräfte für eine Position), heißt im Datenmodell `pool_*`. |
+| **Notdienst** | `emergencyStaffingService` — fünf Stufen mit SLA-Fenstern (NOTDIENST: 30/15 Min), Migration 180 (Antwortpfad) | Der Mechanismus existiert — aber siehe 2.2f. |
+| **Mehrstufige Bestätigung** | `dealCommitmentService`, `GET /marketplace/offers/:id/commitment-preview` + `/cancellation-impact`, Assistent in `offer_detail.html` (P8 Welle D, 2026-08-07) | Ein dreistufiger Assistent **existiert** — siehe 2.2. |
+| **72-Stunden-Frist mit Deckelung** | `anfrageFristSql` — [workerService.js](../../api/services/workerService.js), Migrationen 195/197/199 (diese Session) | `GREATEST(LEAST(NOW()+72h, Einsatzbeginn), NOW()+4h)`. Siehe 5.4 — koppelt bereits an den Notdienst-Fall. |
+
+### 2.2 Die drei scharfen Lücken
+
+**(a) Der Kaufmoment ist ein Browser-Systemdialog — obwohl der Dreischritt existiert.**
+
+Der Abschluss hat serverseitig drei saubere Zustandsübergänge
+(`pending_confirmation` → `confirmed` → `activated`, Migration 083), und für den
+*Bestätigungs*-Schritt der Zeitarbeitsfirma gibt es seit P8 Welle D den dreistufigen
+Assistenten `openCommitWizard` (Was → Wer/Wie → Verbindlichkeit).
+
+Aber der **erste Klick des Unternehmens** — der Moment, in dem der Deal entsteht — ist
+[capacityExchangeDetail.js:1431](../../frontend/public/js/pages/capacityExchangeDetail.js):
+
+```js
+if (!confirm(t("capm.im.confirmAccept"))) {
+  return;
+}
+```
+
+Ein graues `window.confirm()`, ohne Preis, ohne Konditionen, ohne den Namen dessen, was
+gekauft wird. Genau der Moment, dem laut Owner „das Gefühl fehlt, etwas gekauft zu haben".
+Der Baustein, der das Gefühl erzeugt, ist gebaut, getestet (24 Unit- + 13 E2E-Tests) —
+und wird an dieser Stelle nicht benutzt.
+
+**(b) Mehr-Kräfte-Angebote enden an der Firmengrenze.**
+
+Die Pool-Mitglieder-Validierung lässt nur Kräfte **einer** `supplier_org_id` zu
+([capacityOfferGeneratorService.js:303-310](../../api/services/capacityOfferGeneratorService.js):
+`wp.supplier_org_id = $3`), und `capacity_posts` trägt genau ein `supplier_company_id` und
+ein `org_id` — es gibt kein Feld für eine zweite liefernde Firma. Ein Verbund aus Kräften
+**zweier** Zeitarbeitsfirmen ist im heutigen Datenmodell nicht abbildbar. Genau das
+verlangt Abschnitt 20.
+
+**(c) Die Sperrliste greift im Marktplatz nicht.**
+
+`isWorkerBlockedForCompany` wird aufgerufen aus `companyTimesheets.js`, `workers.js`,
+`workerService.js` — **nicht** aus `marketplace.js`. Eine gesperrte Kraft ist heute im
+Marktplatz sichtbar und buchbar. Das ist ein Defekt, kein fehlendes Feature.
+
+**(d) Die Live-Belegschaft ist ein Reiter, keine Fläche.**
+
+Beide Sichten existieren im Frontend — aber je als dritter Reiter einer anderen Seite:
+
+| Sicht | Wo | Aufruf |
+|---|---|---|
+| Unternehmen | `company-timesheets.html:87`, Reiter `#tabLive` | `GET /company/live-workforce` |
+| Zeitarbeitsfirma | `mitarbeiter.html:206`, Reiter `data-tab="live"` | `GET /workers/live-board`, Abruf alle 30 s |
+
+Eine eigenständige Datei (`live-belegschaft.html`, `workforce.html`) existiert **nicht**.
+In der Kachelliste von „Einsätze & Zeiten"
+([worker-submissions-review.html:363-404](../../frontend/public/worker-submissions-review.html))
+stehen sechs Kacheln — **keine davon führt zur Live-Belegschaft.**
+
+Das ist der Kern von Abschnitt 19: Die Tafel existiert, aber sie ist versteckt. Und weil
+aus ihr heraus der Marktplatz entstehen soll (Abschnitt 20), reicht ein Reiter nicht — sie
+braucht eine eigene Adresse, auf die Kacheln, Benachrichtigungen und Deep-Links zeigen
+können.
+
+**(e) `is_anonymous` wird geschrieben, aber nie gelesen.**
+
+Der Marktplatz-Feed liefert `cp.*` aus — **alle 47 Spalten**, darunter `worker_profile_id`
+(die interne Kennung des Arbeiters), `notes`, `qualification_summary` und die
+Anbieter-E-Mail ([capacityExchangeService.js:34-48](../../api/services/capacityExchangeService.js)).
+`is_anonymous` steht überall auf TRUE, aber **keine einzige Abfrage filtert darauf.** Die
+Anonymität existiert als Absicht, nicht als Vollzug. Solange kein Klarname im Feed steht,
+ist das kein akuter Vorfall — aber J2 stellt Arbeiterdaten prominenter aus als je zuvor
+und muss diesen Filter **zuerst** scharf schalten.
+
+**(f) Der Notdienst ist reine Handarbeit.**
+
+`emergencyStaffingService` kennt fünf Dringlichkeitsstufen mit SLA-Fenstern — aber der
+Auslöser ist ausschließlich ein **manuell gesetztes Feld**. Eine Vorlaufprüfung
+(„Einsatzbeginn in unter X Stunden") existiert nirgends im Service; die einzige
+Vorlaufberechnung im Haus (`berechneVorlaufStunden`,
+[dealAgreementService.js:550](../../api/services/dealAgreementService.js)) bedient Stornos.
+Zusätzlich: `POST /emergency/request` wird von **keiner einzigen Frontend-Seite**
+aufgerufen — der Kern des Notdienst-Systems ist unverdrahtet. Die Owner-Regel „unter
+2 Tagen → Notdienst-Deal" ist damit vollständig neu zu verdrahten, aus vorhandenen Teilen.
+
+### 2.3 Der ungenutzte Vorrat
+
+`vendor_pool` hat null Zeilen. Das heißt: Die Sichtbarkeitsstufe `vendor_pool_only` lässt
+heute **niemanden** durch. Wer sie setzt, macht sein Angebot unsichtbar. Für J ist das
+zentral — die ganze DSGVO-Architektur des Hauses steht auf einer Tabelle, die nie befüllt
+wurde.
+
+---
+
+## 3. Verbindliche Leitentscheidungen
+
+Diese Entscheidungen habe ich getroffen, weil sie aus dem Bestand folgen. Der Owner kann
+jede kippen — dann ändert sich J. Bis dahin gelten sie.
+
+### 3.1 Kein Klarname vor der Buchung
+
+`is_anonymous` steht bei allen 33 Angeboten auf `TRUE`, und P8 §3.5 hält
+„Anonymität bleibt" bereits fest. **J ändert das nicht.**
+
+Ein Unternehmen sieht vor der Buchung: Rolle, Qualifikationen, Verfügbarkeitsfenster,
+Einsatzort/Radius, Preisrahmen, Zeitarbeitsfirma, Zuverlässigkeitsquote — **kein
+Klarname, kein Foto, keine Personalnummer.** Nach bestätigter Buchung erscheint die Person
+namentlich in der Live-Belegschaft, wie heute auch.
+
+*Begründung:* Der Kunde braucht zum Buchen die Fähigkeit, nicht die Identität. Der Name ist
+für die Auswahl entbehrlich und für den Betroffenen unumkehrbar.
+
+### 3.2 Sichtbar ist der Grundzustand, das Buchen ist eine Anfrage
+
+Zwei getrennte Fragen, zwei getrennte Antworten:
+
+**Sichtbarkeit:** Eine freie Kraft ist sichtbar, sobald ihre Zeitarbeitsfirma die
+automatische Marktpräsenz eingeschaltet hat — als **Ausschalter je Kraft**, nicht als
+Einschalter. Wäre es ein Einschalter, hätten wir wieder das Pflegeproblem aus §1 und der
+Marktplatz bliebe leer.
+
+**Buchung:** Ein Klick des Unternehmens erzeugt **keinen** fertigen Deal, sondern eine
+Anfrage, die die Zeitarbeitsfirma bestätigt. Der Mechanismus dafür ist in dieser Session
+gebaut worden: `pending_confirmation` mit 72-Stunden-Frist, gedeckelt auf den
+Einsatzbeginn, Mindestfrist 4 Stunden, automatischer Verfall mit Kundenmeldung, Rückzug
+durch die Zeitarbeitsfirma (Migrationen 195/197/199).
+
+*Begründung:* Die Zeitarbeitsfirma behält die Hoheit über ihre Leute — ohne dass sie
+Datensätze pflegen muss, um am Markt zu sein. Das ist der Kern der Owner-Vision.
+
+### 3.3 Bei Doppelbuchung entscheidet die Datenbank, nicht der Mensch
+
+Zwei Unternehmen greifen gleichzeitig nach derselben Kraft: Wer zuerst schreibt, bekommt
+sie. `RESERVE_SQL` ist set-basiert und atomar; die zweite Anfrage läuft ins Leere und
+bekommt die ehrliche Meldung „inzwischen vergeben" — mit Vorschlägen vergleichbarer Kräfte
+im selben Fenster.
+
+*Begründung:* Jede andere Regel (die Zeitarbeitsfirma wählt aus) verlangt eine menschliche
+Entscheidung in genau dem Moment, in dem Geschwindigkeit zählt — besonders im Notdienst.
+
+### 3.4 Firmenübergreifende Bündel sind eine Anfrage, kein Angebot
+
+Ein Bündel über mehrere Zeitarbeitsfirmen kann kein `capacity_post` sein (2.2b). Es ist ein
+**Bedarf des Unternehmens**, den mehrere Firmen gemeinsam decken: „Ich brauche vier
+Elektriker ab Montag" → das System stellt einen Vorschlag aus den freien Kräften mehrerer
+Firmen zusammen → jede Firma bestätigt nur ihren Teil.
+
+*Begründung:* Das nutzt `demand_requests` (existiert) statt eine neue Angebotsart zu
+erfinden, und es passt zu 3.2 — jede Firma entscheidet nur über ihre eigenen Leute.
+
+### 3.5 Der Notdienst ist eine Eigenschaft, kein eigener Marktplatz
+
+Einsatzbeginn in unter 48 Stunden macht einen Deal zum Notdienst-Deal — als **Kennzeichen
+am selben Vorgang**, nicht als getrennte Fläche. Die Frist zieht sich dabei automatisch
+zusammen, ohne eine einzige neue Zeile: `LEAST(NOW()+72h, Einsatzbeginn)` liefert bei einem
+Einsatz in unter 48 Stunden zwangsläufig eine Frist unter 48 Stunden (siehe 5.4).
+
+### 3.6 Wo die Flächen liegen
+
+Nach der Entscheidungsfrage aus `CLAUDE.md` / `docs/FLAECHEN.md`:
+
+| Fläche | Was hierher gehört |
+|---|---|
+| **Unternehmensseite** („Einsätze & Zeiten") | Live-Belegschaft (wer arbeitet bei mir), Marktplatzsicht auf freie Kräfte, Buchung, Sperrliste |
+| **Zeitarbeitsfirmenseite** | Live-Tafel (existiert), Marktpräsenz-Schalter je Kraft, eingehende Buchungsanfragen |
+| **Staff Control Center** | Überwachung: hängende Anfragen, Verfallsquote, Sperrlisten-Konflikte, Angebote ohne Deckung — die Arbeit des **Teams** an der Plattform |
+| **Support Center** | Streitfälle **zwischen** Unternehmen und Zeitarbeitsfirma |
+
+Die Sperrliste selbst ist ein Verhältnis zwischen zwei Kunden — sie wird auf der
+Unternehmensseite **gepflegt** und im Staff CC **überwacht**, nicht dorthin verschoben.
+
+---
+
+## 4. Wellen
+
+Jede Welle ist einzeln lieferbar, einzeln testbar und einzeln freizugeben. Reihenfolge ist
+Absicht: Jede Welle macht die nächste möglich.
+
+### Welle J1 — Die Live-Belegschaft wird eine eigene Fläche
+
+**Warum zuerst:** Backend und ein großer Teil der Oberfläche existieren (2.1, 2.2d). Diese
+Welle hebt einen versteckten Reiter zu einer Fläche mit eigener Adresse — und das ist die
+Voraussetzung dafür, dass J2 daran andocken kann.
+
+**Kein Neubau, ein Umzug.** Der Reiter aus `company-timesheets.html` zieht in eine eigene
+Seite `company-live-workforce.html`; der bisherige Reiter verweist dorthin. Keine
+Parallelstruktur — die Logik wird verschoben, nicht kopiert.
+
+Konkrete Eintragsstellen (aus der Erhebung, Stand 2026-08-26):
+
+| # | Stelle | Was |
+|---|---|---|
+| 1 | `frontend/public/company-live-workforce.html` | Neue Seite nach dem Hausmuster: `theme.js` + `i18n.js` im `<head>` **vor** `<meta charset>`, `#tc-shell`, `.ds-page-header` |
+| 2 | `frontend/public/js/pages/companyLiveWorkforce.js` | Logik aus `companyTimesheets.js:591-640` + `TCi18n.register('de'/'en', …)` |
+| 3 | `worker-submissions-review.html:363-404` | **Die neue Kachel** — siebte in der Liste |
+| 4 | `pageShell.js:32` | Pfad ins `match`-Array von `deals_einsaetze` |
+| 5 | `pageShell.js:1214-1256` | Suchintent „Belegschaft" (zeigt heute auf `mitarbeiter.html`) |
+| 6 | `breadcrumb.js:62-66` | Bereichszuordnung „Einsätze & Zeiten" |
+
+**Design:** Editorial ist bereits Standard — die Seite muss ihn nicht herstellen, nur die
+`--ds-*` Tokens benutzen und keine festen Farbwerte setzen. Der Theme- und der
+DE/EN-Umschalter erscheinen automatisch in der Topbar.
+
+**Hilfesystem (Owner: „kein Support oder nur minimalistisch"):** Es gibt kein generisches
+Tooltip-Bauteil im Design-System. Drei vorhandene Muster tragen die Anforderung:
+
+- `title=` + `data-i18n-title` an jedem Knopf und jedem Zustandszeichen — das Hausmuster
+  für Mouse-over-Hilfe (Beispiel `mitarbeiter.html:224`)
+- `contextHints.js` — der einklappbare Erklärkasten unten rechts. Für „Einsätze & Zeiten"
+  existiert **kein** Eintrag; J1 legt ihn an (Schlüssel = Pfad ohne `/public/` und `.html`)
+- Kurze Erklärzeile unter jeder Kennzahl statt eines nackten Zahlenwerts
+
+Jeder der sechs Zustände (`inaktiv`, `abwesend`, `verfuegbar`, `montage`, `endet_bald`,
+`im_einsatz`) bekommt eine Erklärung in beiden Sprachen. Das ist der Ort, an dem sonst
+Support entsteht.
+
+**Sperrliste:** direkt eingebunden (`GET/POST /company/blocklist`, existiert) — mit einem
+Satz, der sagt, was eine Sperre bewirkt und ab wann.
+
+**Fertig, wenn:** Die Fläche über eine Kachel erreichbar ist, jeden Zustand ohne Nachfrage
+erklärt, eine Sperre setzen kann, in beiden Sprachen vollständig ist, und alle Zustände
+(leer, ladend, Fehler) real auslösbar sind. Konsole ohne Fehler.
+
+### Welle J2 — Der Marktplatz bekommt eine Unternehmenssicht auf freie Kräfte
+
+**Der Kern der Owner-Vision.**
+
+- **Zuerst der Vollzug der Anonymität (behebt 2.2e):** Der Feed hört auf, `cp.*` blind
+  auszuliefern. Eine ausdrückliche Spaltenliste ersetzt den Stern; `worker_profile_id`,
+  interne Notizen und die Anbieter-E-Mail verlassen die Antwort. Das ist die
+  Vorbedingung — J2 stellt Arbeiterdaten prominenter aus als je zuvor.
+- Neue Ansicht: „Wer ist frei?" — gespeist aus `live_status IN ('verfuegbar','endet_bald')`
+- Filter nach Owner-Vorgabe: **wo, wie viele, ab wann** + Qualifikation
+- Darstellung nach 3.1, aufgesetzt auf die vorhandene Whitelist
+  (`PUBLIC_PROFILE_FIELDS` / `buildWorkerPublicProfile`) statt einer zweiten Regel
+- Sichtbarkeit über `vendor_pool` **und** `visibility_status` — mit einer bewussten
+  Entscheidung des Owners, ob bei leerem `vendor_pool` (2.3) alle Firmen füreinander
+  sichtbar sind oder nur die verknüpften
+- **Sperrlisten-Filter (behebt 2.2c)** — gesperrte Kräfte verschwinden aus der Sicht
+- Buchungsknopf je Kraft → erzeugt Anfrage nach 3.2
+- Rollenprüfung nach Hauskonvention des Marktplatzes: `users.role === 'company'` →
+  sonst `403 COMPANY_ONLY` (Muster [marketplace.js:518](../../api/routes/marketplace.js));
+  eine `org_type`-Spalte auf `users` gibt es nicht
+
+**Fertig, wenn:** Ein Unternehmen die freien Kräfte sieht (heute wären es 24), filtern
+kann, eine bucht, die Zeitarbeitsfirma die Anfrage im Einsatzportal bestätigen oder
+zurückziehen kann — und kein Feld die Feed-Antwort verlässt, das nicht auf der
+ausdrücklichen Liste steht (per Test erzwungen).
+
+### Welle J3 — Der Kaufmoment
+
+Der Dreischritt existiert (`openCommitWizard`, 2.2a) — er wird heute nur beim
+*Bestätigen* durch die Zeitarbeitsfirma benutzt, nicht beim *ersten Klick* des
+Unternehmens. J3 ist deshalb **Wiederverwendung, kein Neubau**:
+
+- `window.confirm()` an `deal_accept` ersetzen durch denselben Assistenten:
+  **Was** (Leistung, Anzahl, Zeitraum, Ort) → **Zu welchen Bedingungen** (Preis aus dem
+  `agreement_snapshot`-Vorrat, Zahlungsziel, Notdienst-Aufschlag) → **Verbindlich
+  zusagen** (mit Betrag im Knopf, nicht „OK")
+- Speist sich aus `dealCommitmentService` / `commitment-preview` — ggf. um eine
+  Vor-Abschluss-Vorschau erweitert (heute antwortet der Endpunkt erst, wenn das Angebot
+  existiert)
+- Danach: Bestätigungsmoment mit Vorgangsnummer (`EV-…`), Dokumenten, nächsten Schritten
+
+**Fertig, wenn:** Der Klickpfad durchgespielt ist, kein Schritt überspringbar ist, der
+Betrag aus der Antwort stammt (nicht aus festem Text) und der Serverriegel unverändert hält.
+
+### Welle J4 — Notdienst als Kennzeichen
+
+Gemessen (2.2f): kein automatischer Auslöser, und `POST /emergency/request` hat keinen
+einzigen Frontend-Aufrufer. J4 verdrahtet beides:
+
+- Schwelle: Einsatzbeginn < 48 Stunden → Vorgang wird als Notdienst-Deal gekennzeichnet,
+  serverseitig beim Anlegen/Annehmen berechnet (Europe/Berlin, nicht im Client)
+- Die vorhandene Stufen-Maschine (`URGENCY_CONFIG`, SLA-Fenster) wird angeschlossen statt
+  dupliziert; die Frist zieht sich automatisch zusammen (5.4)
+- Sichtbar auf beiden Seiten: Kennzeichen im Feed, im Detail, im Kaufmoment (J3 zeigt den
+  Aufschlag), in der Benachrichtigung
+
+### Welle J5 — Firmenübergreifende Verbünde
+
+Owner-Wort „Bündel" ≠ Datenmodell-`bundle` (das ist **eine** Kraft mit mehreren
+Fähigkeiten). Gemeint sind **mehrere Kräfte für eine Position, notfalls aus mehreren
+Firmen** — im Datenmodell heute `pool_*`, und das endet an der Firmengrenze (2.2b).
+
+- Nach 3.4 über `demand_requests`, nicht über eine neue Angebotsart
+- Vorschlag aus freien Kräften mehrerer Firmen, je Firma einzeln bestätigt
+- Teilbestätigung muss sauber sein: drei von vier bestätigt = drei Kräfte, ein offener Rest
+
+### Welle J6 — Staff-Control-Center-Aufsicht
+
+- Hängende Anfragen (Frist läuft), Verfallsquote je Firma
+- Sperrlisten-Konflikte (gesperrte Kraft wurde angefragt)
+- Kräfte ohne Marktpräsenz trotz Verfügbarkeit
+- **Nur Beobachtung und Klärung** — keine Doppelung der Kundenflächen (3.6)
+
+---
+
+## 5. Kontext aus dieser Session — was J erbt
+
+Damit ohne Kontextverlust weitergearbeitet werden kann. Diese Dinge wurden **unmittelbar
+vor** J gebaut und tragen J.
+
+### 5.1 Der Anfrage-Mechanismus ist neu und trägt die Buchung
+
+Migrationen 195 (Frist), 197 (Altbestand), 199 (Rückzug). Eine Zuweisung ohne Bestätigung
+verfällt nach 72 Stunden, gedeckelt auf den Einsatzbeginn, mit Mindestfrist 4 Stunden. Beim
+Verfall wird der Kunde benachrichtigt, der Kapazitätsposten zurückgegeben und die
+Reservierung gelöst. Die Zeitarbeitsfirma kann zusätzlich aktiv zurückziehen.
+
+**Für J heißt das:** Welle J2 muss den Buchungsweg *nicht* erfinden. Er existiert,
+einschließlich Verfall, Kundenmeldung und Rückzug.
+
+### 5.2 Zustandswerte sind bewacht
+
+`api/test/statuswertSpiegel.test.js` (neu) hält fünf Regeln: keine unbekannten Statuswerte
+in der Datenbank, jede Anzeigefläche kennt die Endzustände
+(`worker_declined`, `worker_unavailable`, `expired`, `withdrawn`), keine Statusliste ohne
+`is_active`, kein INSERT ohne `ON CONFLICT`.
+
+**Für J heißt das:** Jeder neue Statuswert muss dort eingetragen werden, sonst wird die
+Suite rot. Das ist Absicht.
+
+### 5.3 `is_active = TRUE` ist der tragende Filter
+
+Verfall und Rückzug setzen Status **und** `is_active` gemeinsam. Deshalb sind alle
+Abfragen, die auf `is_active` filtern, automatisch korrekt — auch `BUSY_EXISTS_SQL`, das
+den Bestätigungsstatus gar nicht prüft.
+
+**Für J heißt das:** Die Reservierungslogik ist bereits richtig gekoppelt. Nicht anfassen.
+
+### 5.4 Die Frist koppelt bereits an den Notdienst
+
+`GREATEST(LEAST(NOW() + INTERVAL '72 hours', start::date::timestamptz), NOW() + INTERVAL '4 hours')`
+
+Bei einem Einsatz in unter 48 Stunden greift zwangsläufig die Deckelung — die Frist ist dann
+kürzer als 48 Stunden, ohne Sonderfall. An der Datenbank über alle 24 Tagesstunden geprüft:
+Minimum 4,00 h, Maximum 24,00 h für einen Einsatz am Folgetag, kein Wert unter der
+Mindestfrist.
+
+**Für J heißt das:** Welle J4 braucht keine zweite Fristlogik, nur ein Kennzeichen.
+
+### 5.5 Fallen, die diese Session gekostet haben
+
+- **Backtick in Template-Literalen:** Ein `` ` `` in einem SQL- oder HTML-Kommentar
+  *innerhalb* eines Template-Literals beendet die Zeichenkette. Zweimal passiert.
+- **PowerShell zerstört Sonderzeichen:** `Get-Content`/`Set-Content` haben beim Umbenennen
+  einer Migration Umlaute und Gedankenstriche doppelt kodiert. Dateien mit Sonderzeichen
+  nur mit dem Write-Werkzeug anfassen.
+- **Migrationsnummern kollidieren:** Parallele Sitzungen greifen dieselbe Nummer. Vor jeder
+  neuen Migration den Ordner prüfen. **Nächste freie Nummer: 200.**
+- **Zeitabhängige Tests:** Eine Prüfung „> 4 Stunden" für einen Einsatz am Folgetag
+  scheitert abends, wenn die Mindestfrist greift. Fristprüfungen gegen einen Zeitraum
+  prüfen, nicht gegen einen Punkt.
+- **Der Datenbank glauben, nicht dem Code:** Drei echte Defekte dieser Session
+  (HTTP 500 bei Doppelzuweisung, fehlende Kapazitätsposten, falscher Name in der Meldung)
+  wurden erst sichtbar, als gegen die laufende Datenbank gemessen wurde.
+
+---
+
+## 6. Offene Owner-Entscheidungen
+
+Diese kann ich nicht aus dem Bestand ableiten:
+
+1. **Leerer `vendor_pool` (2.3):** Sehen bei fehlender Verknüpfung alle Unternehmen alle
+   freien Kräfte (offener Markt), oder muss die Beziehung erst entstehen (geschlossener
+   Markt)? *Empfehlung: offener Markt mit anonymisierter Darstellung — sonst startet J2 mit
+   null sichtbaren Kräften.*
+2. **Preisanzeige vor der Buchung:** Rahmen (`price_min`–`price_max`) oder fester Satz?
+   *Empfehlung: Rahmen, weil Verhandlung im Haus vorgesehen ist (`negotiate-deal`).*
+3. **Notdienst-Aufschlag:** Gibt es einen, und wer legt ihn fest?
+
+---
+
+## 7. Was J **nicht** tut
+
+- Kein Umbau der bestehenden Marktplatzseiten, solange die neue Sicht nicht steht
+- Keine neue Angebotsart für firmenübergreifende Bündel (3.4)
+- Keine zweite Fristlogik (5.4)
+- Keine Verschiebung der Sperrliste ins Staff CC (3.6)
+- Keine Aufweichung der Anonymität (3.1)

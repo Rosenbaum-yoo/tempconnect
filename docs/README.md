@@ -74,6 +74,7 @@ Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeita
 | [features/F1_SYSTEMZEIT_LANDKARTE.md](features/F1_SYSTEMZEIT_LANDKARTE.md) | 33 belegte Datumsfehler und ihre Ursache: pg liefert DATE als lokale Mitternacht, der UTC-Schnitt ergibt ganztaegig den Vortag. |
 | [features/P10_IMPORT_LIVE_ZEIT.md](features/P10_IMPORT_LIVE_ZEIT.md) | **Nächste Sitzung startet hier:** CSV-Import (Spur D), echte Live-Belegschaft (E), Systemzeit im Einsatzportal (F) — mit Wellen, Gates und Ist-Stand. |
 | [features/I_AUDIT_ZUWEISUNG_SUPPORT.md](features/I_AUDIT_ZUWEISUNG_SUPPORT.md) | **Nächste Sitzung startet hier:** Audit-Log hart trennen (8.1.1, aktiver Befund: 135 Zeilen in der falschen Organisation), aktive Sitzungen (8.1.2), Ersatz-Zuweisung aus der Live-Belegschaft (8.2), Support-Weg Kunde → TempConnect (10), Entscheidung zu Kunde ↔ Kunde (10b). |
+| [features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md](features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md) | **Plan, noch nicht gebaut:** Live-Belegschaft als eigene Fläche unter „Einsätze & Zeiten" und der Marktplatz aus Unternehmenssicht — freie Kräfte werden sichtbar, ohne dass eine Zeitarbeitsfirma ein Angebot pflegt. Gemessener Ist-Stand (24 freie Kräfte, 1 aktives Angebot), sechs Leitentscheidungen, Wellen J1–J6. |
 | [ENTERPRISE_ARCHITECTURE.md](ENTERPRISE_ARCHITECTURE.md) | Enterprise-Schicht: Mandanten, Standorte, Freigaben. |
 | [PRODUCT_ANALYTICS_ARCHITECTURE.md](PRODUCT_ANALYTICS_ARCHITECTURE.md) | Produktdaten: Ereignisse, Trichter, Auswertung. |
 
