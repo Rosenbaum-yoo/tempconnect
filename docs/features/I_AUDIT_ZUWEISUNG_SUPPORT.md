@@ -1248,8 +1248,8 @@ Am Code und an der laufenden Datenbank nachgeprüft, nicht am Plan abgelesen.
 | ~~**V-1** RLS-Backstop scharf schalten~~ | **erledigt 2026-08-24** | Migration 196: **8 → 26** Tabellen mit RLS, **3 → 21** mit FORCE. Einzelnachweis geführt (siehe unten). |
 | ~~**„Bester Treffer"** — Vorbewertung in die SQL~~ | **erledigt 2026-08-24** | Der Schnitt sortiert jetzt nach den harten Signalen statt nach dem Alphabet. An echten Daten belegt: mit `LIMIT 3` kommen Mustermann (82), nadi (78), Kraft (74) — nicht „Bauer", die alphabetisch erste. |
 | **`SUPPORT_PHONE`** setzen | **Owner-Handlung** | nicht baubar; beide Zustände des Trichters sind verifiziert |
-| **Erreicht die Erinnerung den Arbeiter?** | **halb erledigt 2026-08-24** | Die *entscheidungsfreie* Hälfte ist gebaut: die Meldung geht jetzt sofort über den Live-Strom, und das Portal hört zu (siehe unten). Offen bleibt nur die Frage mit Kosten und Einwilligung: **SMS für den, der das Portal gar nicht offen hat?** |
-| **Frist für reguläre Zuweisungen** | **eigenes Ticket** | Der Entscheid galt Ersatz-Anfragen. Derselbe Schaden existiert regulär (ein Einsatz blockiert seit dem 10.04.) — `docs/features/I2_FRIST_REGULAERE_ZUWEISUNG.md`. |
+| **Erreicht die Erinnerung den Arbeiter?** | **weiter aufgeräumt 2026-08-26** | Live-Strom seit dem 24.08.; am 26.08. kam dazu, dass die Meldung jetzt auch **irgendwohin führt** (Deep-Link, siehe unten) — sie zeigte bis dahin auf die Liste, aus der sie selbst stammt. Offen bleibt allein die SMS-Frage, jetzt aber **mit Zahlen** statt als Gefühl. |
+| ~~**Frist für reguläre Zuweisungen**~~ | **erledigt** | Diese Zeile war am 26.08. veraltet: `I2_FRIST_REGULAERE_ZUWEISUNG.md` trägt seit dem 24.08. den Status *„abgeschlossen, alle fünf Entscheidungen entschieden und gebaut“* (Migrationen 195/197/199). Kette geprüft: Sweep `verfalleneAnfragen` → `POST /internal/staffing-maintenance` → BullMQ `ersatz-frist-10min` (`*/10 * * * *`). |
 
 ### Abschnitte 1–7, 9, 11, 12
 
@@ -1610,6 +1610,70 @@ Welle — etwas ist gebaut, montiert, und tut nicht, was sein Name verspricht.
 Nur trifft es diesmal das Werkzeug, mit dem alles übrige geprüft wird. Jede
 grüne Zahl dieser Welle stand unter dieser Einschränkung; keine davon war
 falsch, aber verlassen konnte man sich darauf erst ab heute.
+
+---
+
+## Die Erinnerung kam an — und führte nirgendwohin (2026-08-26)
+
+Der Live-Strom vom 24.08. löste die halbe Frage: die Meldung **erreicht** den
+Arbeiter jetzt sofort. Beim Nachfassen fiel die andere Hälfte auf: sie
+**führte** ihn nirgendwohin.
+
+Vier Meldungen — neue Zuweisung, Erinnerung, Verfall, Rückzug — trugen
+`link_path` auf `einsatzportal-benachrichtigungen.html`. Also auf die Liste, aus
+der der Mensch gerade gekommen war. Er las
+
+> *„Ihre Antwort auf eine Einsatz-Zuweisung steht noch aus. Die Anfrage
+> verfällt am 26.08.2026 18:00.“*
+
+… klickte, und stand wieder in seinem Posteingang. Den Einsatz musste er sich
+selbst suchen, während die Frist lief. Zirkulär obendrein: die Meldung führte in
+die Liste, in der sie selbst steht.
+
+Die Hausregel sagt das Gegenteil (*„Deep-Links statt Sackgassen"*), und **zwei
+Funktionen weiter oben in derselben Datei** macht der Stundenzettel es längst
+richtig (`?id=<submission>`). Das Muster war da; die Zuweisungen hatten es nie
+bekommen. Die Mechanik zum Öffnen war ebenfalls vollständig vorhanden —
+`selAsg(id)` lädt genau einen Einsatz. Es fehlte der Anstoß aus der Adresse.
+
+Gebaut: `?einsatz=<link-id>`, das Portal schlägt den Einsatz auf, und der Reiter
+wandert mit (ein verfallener Einsatz liegt in „Vergangen"; sonst öffnete sich das
+Detail, während die Liste daneben ihn nicht enthält).
+
+> **Ein Nachtrag zur Prüfdisziplin.** Drei der vier neuen Proben blieben unter
+> Rückmutation zunächst **grün**: das Stub-Element behält seinen Inhalt über
+> Probengrenzen hinweg, und eine frühere Probe hatte denselben Firmennamen
+> gerendert. Ohne die Rückmutation wären sie als Beleg durchgegangen. Es ist
+> dieselbe Falle wie am Morgen — und sie ist mir ein zweites Mal gestellt worden,
+> obwohl ich sie kannte.
+
+### Die SMS-Frage — jetzt mit Zahlen
+
+Sie stand als *„Fairness-Frage, keine technische"* offen. Gemessen am laufenden
+Bestand ist sie vor allem eine **Rechtsfrage**, nicht eine Kostenfrage:
+
+| Messung | Wert |
+|---|---|
+| Arbeiter mit Konto | 33 von 33 |
+| davon mit hinterlegter Telefonnummer | **17** (52 %) |
+| Erinnerungen, die je gefeuert haben | **1** |
+| echte Verfälle mit Frist | **1** (weitere 5 stammen aus der Altbestands-Bereinigung, Migration 197) |
+| Einwilligungsfeld für SMS im Schema | **keines** |
+| SMS-Dienst | verdrahtet, läuft ohne Anbieter im `console`-Modus — kein Vertrag, keine Kosten; heute nur für Einladungen benutzt |
+
+**Was daraus folgt:** Die Kostenfrage ist bei diesem Volumen gegenstandslos —
+eine Erinnerung in der gesamten Historie. Der Blocker ist die Einwilligung: Es
+gibt kein Feld, in dem sie festgehalten würde. Und SMS wäre selbst dann nur ein
+halber Kanal, weil nur die Hälfte der Arbeiter überhaupt eine Nummer hinterlegt
+hat.
+
+> **Owner-Entscheidung, unverändert nötig — aber die Frage lautet jetzt anders:**
+> nicht „SMS ja/nein wegen der Kosten", sondern „auf welcher Rechtsgrundlage
+> erreichen wir jemanden außerhalb des Portals, und wollen wir dafür ein
+> Einwilligungsfeld anlegen?" Der naheliegende Zwischenschritt wäre **E-Mail**:
+> jeder Arbeiter hat ein Konto, die Plattform schreibt ihm ohnehin (Einladung),
+> und es bräuchte keine neue Einwilligung. Auch das bleibt eine Entscheidung —
+> der Arbeiter-Meldeweg kennt heute überhaupt keine E-Mail.
 
 ---
 
