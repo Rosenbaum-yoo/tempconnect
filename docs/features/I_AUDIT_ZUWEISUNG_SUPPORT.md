@@ -1532,13 +1532,30 @@ Sichtbarkeits-Matrix (`visibilityMatrix.js` kennt 17 Seiten, diese nicht) und au
 Einsatzportal im nächsten Abschnitt. Die API dahinter ist dagegen vollständig
 bewacht und in `wachen.json`/`orgGrenzen.json` verbucht.
 
-> **Owner-Entscheidung.** Zwei saubere Wege, kein dritter: (a) die Feldsteuerung
-> im Stundenzettel **anwenden** — dann wird die Seite verlinkt und das Versprechen
-> eingelöst; (b) Seite und Feldsteuerung **entfernen** und die vier
-> Vorgabewerte behalten, die wirklich wirken. Was nicht bleiben sollte, ist der
-> heutige Zustand: eine Konfiguration, die sich selbst bestätigt und nichts tut.
-> Nicht autonom entscheidbar — ob Zeitarbeitsfirmen freie Stundenzettel-Felder
-> brauchen, ist eine Produktfrage.
+> **~~Owner-Entscheidung~~ — entschieden am 26.08.: entfernen.** Die Vorschau vor
+> der Entscheidung hat die Frage selbst beantwortet, denn sie zeigte etwas
+> anderes als erwartet: **Ladefehler 500**. Der Dienst fragte
+> `timesheet_templates.is_default` ab — eine Spalte, die dort nicht existiert
+> (sie liegt auf `timesheet_template_assignments`, Migration 033, Z. 144).
+> Postgres sagt es wörtlich: *„Perhaps you meant to reference the column
+> tta.is_default“*. Acht Fundstellen.
+>
+> Damit war es nicht „eine Konfiguration ohne Wirkung", sondern ein
+> **Totalausfall**: Auflisten warf, **Anlegen warf ebenfalls** — die Tabelle hatte
+> deshalb dauerhaft **0 Zeilen**. Es konnte nie jemand eine Vorlage anlegen.
+>
+> **Und meine Angabe oben war falsch:** die vier Vorgabewerte kamen NICHT an.
+> `getTemplateForAssignment` warf im dritten Schritt, und ein blosses catch in
+> `timesheetService.js` (Vermerk: die Vorlage sei optional) verschluckte es. Ich
+> hatte den Codepfad gelesen und nicht geprüft, ob die Abfrage läuft — genau der
+> Fehler, den der Nachtrag zwei Absätze weiter oben beschreibt. Er ist mir beim
+> Schreiben dieses Nachtrags selbst unterlaufen.
+>
+> Entfernt: Seite, Route (8 Endpunkte), Dienst, zwei Mock-Testdateien, der
+> Vorlagen-Abschnitt im Cross-Tenant-Test. Die drei Tabellen bleiben. Register
+> und Sperrklinken nachgeführt (`wachen.json` 470→465, `orgGrenzen.json` 82→81),
+> jede Senkung mit Begründung. Mit der Seite verschwindet auch der im
+> Plattform-Register dokumentierte **Stored-XSS-Pfad**.
 
 **Die Lehre daraus schärft die Regel aus Durchlauf 1.** „Erst nach einer zweiten
 Fassung derselben Regel suchen" reicht nicht — genau daran bin ich hier
@@ -1546,6 +1563,53 @@ gescheitert. Der Satz braucht seine zweite Hälfte: *und dann prüfen, ob diese
 zweite Fassung einen Verbraucher hat.* Ein Ersatz, der nur existiert, entlastet
 nichts; er verschiebt den toten Punkt bloß eine Ebene tiefer, wo er schwerer zu
 sehen ist.
+
+---
+
+## Die Diagnose hatte die Diagnose abgeschaltet (2026-08-26)
+
+Beim Entfernen der Vorlagen blieb in `test/security/coreFlowCrossTenant.test.js`
+ein Import auf den gelöschten Dienst stehen. Die Datei liess sich nicht mehr
+laden. Der volle Lauf druckte einen lauten `UNCAUGHT EXCEPTION`-Kasten — und
+meldete trotzdem:
+
+> **9828 Tests, 0 Fehlschläge, Rückgabewert 0.**
+
+**55 echte Sicherheits-Zusicherungen waren aus dem Lauf verschwunden**, ohne dass
+eine Zahl es verraten hätte. Eine Datei, die sich nicht laden lässt, zählt als
+null Tests und null Fehlschläge — die Suite schrumpft still.
+
+**Ursache:** `api/scripts/unhandled-rejection-probe.mjs`, die Diagnose-Sonde aus
+Audit-Backlog B-2, die `run-tests.js` **standardmäßig** anhängt. Sie registriert
+
+```js
+process.on("uncaughtException", (err) => { /* druckt nur */ });
+```
+
+Einen solchen Handler zu registrieren **ersetzt** Nodes Standardverhalten:
+drucken *und* mit 1 beenden. Seit dem 26.07. konnte das Gate an keiner
+Ladefehler-Ausnahme mehr scheitern. Die Sonde, die Fehler sichtbar machen
+sollte, hat sie unsichtbar gemacht.
+
+**Gemessen, nicht vermutet:**
+
+| Fall | Rückgabewert |
+|---|---|
+| kaputte Datei, `node --test` direkt | **1** |
+| dieselbe Datei mit angehängter Sonde | **0** |
+| `--suite=security` mit kaputter Datei, nach dem Fix | **1** (`fail 1`) |
+
+Der Fix ist eine Zeile — `process.exitCode = 1` — und lässt die Diagnose
+unangetastet: der Kasten wird weiter gedruckt, nur schluckt er den Befund nicht
+mehr. `api/test/gateFaelltDurch.test.js` hält die Eigenschaft fest, gegen
+Rückmutation geprüft. Voller Lauf danach: **9882 Tests, 9869 bestanden, 0
+Fehlschläge** — die Sonde hat sonst nichts verschluckt.
+
+**Warum das hierher gehört:** Es ist dieselbe Klasse wie alles andere in dieser
+Welle — etwas ist gebaut, montiert, und tut nicht, was sein Name verspricht.
+Nur trifft es diesmal das Werkzeug, mit dem alles übrige geprüft wird. Jede
+grüne Zahl dieser Welle stand unter dieser Einschränkung; keine davon war
+falsch, aber verlassen konnte man sich darauf erst ab heute.
 
 ---
 
