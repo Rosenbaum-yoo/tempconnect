@@ -34,6 +34,19 @@ function route(pfad) {
   return quelle.slice(i, naechste > 0 ? naechste : quelle.length);
 }
 
+/* Die Einteilung der Wege — auf Modulebene, damit auch die Vollzaehligkeits-
+ * probe weiter unten sie sieht. Wer hier etwas ergaenzt, trifft eine
+ * Entscheidung: sperren oder nur fuellen. */
+const anbieterHandelt = [
+  "/marketplace/demand-requests/:id/offers",
+  "/marketplace/demand-requests/:id/accept-deal",
+  "/marketplace/demand-requests/:id/negotiate-deal",
+];
+const kaeuferHandelt = [
+  "/marketplace/capacity-posts/:id/accept-deal",
+  "/marketplace/capacity-posts/:id/negotiate-deal",
+];
+
 describe("Ansprechperson — die Pflicht trifft den, der handeln kann", () => {
   /*
    * Fuenf Wege legen ein Angebot an. Bei DREIEN handelt der Anbieter selbst
@@ -43,15 +56,6 @@ describe("Ansprechperson — die Pflicht trifft den, der handeln kann", () => {
    * Profil gefuellt.
    */
 
-  const anbieterHandelt = [
-    "/marketplace/demand-requests/:id/offers",
-    "/marketplace/demand-requests/:id/accept-deal",
-    "/marketplace/demand-requests/:id/negotiate-deal",
-  ];
-  const kaeuferHandelt = [
-    "/marketplace/capacity-posts/:id/accept-deal",
-    "/marketplace/capacity-posts/:id/negotiate-deal",
-  ];
 
   it("wo der ANBIETER handelt, wird ohne Ansprechperson abgewiesen", () => {
     for (const pfad of anbieterHandelt) {
@@ -86,6 +90,65 @@ describe("Ansprechperson — die Pflicht trifft den, der handeln kann", () => {
       if (!schreibtDirekt && !ueberDenDienst) ohne.push(pfad);
     }
     assert.deepEqual(ohne, []);
+  });
+});
+
+describe("Ansprechperson — kein Weg darf sich an der Einteilung vorbeischleichen", () => {
+  /*
+   * DER WURZELFIX ZUM BEFUND VOM 26.08.
+   *
+   * Die Proben oben ZAEHLEN Wege aus zwei festen Listen. Das genuegt genau so
+   * lange, wie niemand einen neuen Weg baut. Am 23.08. kam mit der
+   * Richtungskorrektur die Bedarfs-Anlage als SECHSTER Weg dazu — sie trat
+   * keiner Liste bei, also prüfte sie niemand, und drei Tage lang wies sie
+   * 18 von 19 aktiven Firmen ab, waehrend das Gate gruen blieb.
+   *
+   * Eine Aufzaehlung kann das nie fangen: sie weiss nur von dem, was jemand
+   * hineingeschrieben hat. Deshalb dreht diese Probe die Richtung um — sie
+   * ENTDECKT alle Aufrufstellen im Quelltext und verlangt, dass jede in genau
+   * einer Schublade liegt. Ein siebter Weg macht sie rot, bis jemand
+   * entscheidet: sperrt er, oder fuellt er nur?
+   *
+   * Dasselbe Muster wie die Ratschen-Register des Projekts (`wachen.json`,
+   * `orgGrenzen.json`): nicht "ist die Liste abgearbeitet", sondern "kennt die
+   * Liste alles, was es gibt".
+   */
+  it("jede Aufrufstelle von ansprechperson() ist eingeteilt", () => {
+    const bekannt = new Set([ ...anbieterHandelt, ...kaeuferHandelt, "/marketplace/demand-requests" ]);
+
+    /* Alle POST-Routen samt Rumpf einsammeln — dieselbe Zerlegung wie route(),
+     * nur ueber die ganze Datei statt fuer einen bekannten Pfad. */
+    const gefunden = [];
+    const muster = /router\.post\("([^"]+)"/g;
+    const treffer = [ ...quelle.matchAll(muster) ];
+    assert.ok(treffer.length > 5,
+      "keine POST-Routen gefunden — greift das Muster noch? Ohne Treffer prueft " +
+      "diese Probe nichts und waere trotzdem gruen.");
+
+    for (let i = 0; i < treffer.length; i++) {
+      const start = treffer[i].index;
+      const ende = i + 1 < treffer.length ? treffer[i + 1].index : quelle.length;
+      const rumpf = quelle.slice(start, ende);
+      if (/\bansprechperson\(/.test(rumpf)) gefunden.push(treffer[i][1]);
+    }
+
+    assert.ok(gefunden.length > 0, "kein einziger Aufruf gefunden — wurde der Helfer umbenannt?");
+
+    const unbekannt = gefunden.filter((pfad) => !bekannt.has(pfad));
+    assert.deepEqual(unbekannt, [],
+      "Ein neuer Weg fragt nach der Ansprechperson, ohne in einer der Listen zu stehen. " +
+      "Er muss eingeteilt werden: SPERRT er (der Anbieter handelt selbst und kann die " +
+      "Angabe nachtragen) oder FUELLT er nur (ein anderer handelt — ihn abzuweisen " +
+      "waere die falsche Adresse)? Genau diese Entscheidung wurde am 23.08. nicht " +
+      "getroffen, und die Bedarfs-Anlage sperrte drei Tage lang 18 von 19 aktiven Firmen.");
+  });
+
+  it("die Einteilung selbst ist ueberschneidungsfrei", () => {
+    /* Ein Pfad in beiden Listen wuerde beide Proben oben gleichzeitig erfuellen
+     * muessen — sperren UND nicht sperren. Das faellt sonst erst auf, wenn eine
+     * der beiden aus einem ganz anderen Grund rot wird. */
+    const doppelt = anbieterHandelt.filter((pfad) => kaeuferHandelt.includes(pfad));
+    assert.deepEqual(doppelt, []);
   });
 });
 
