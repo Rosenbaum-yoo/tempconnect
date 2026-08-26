@@ -587,6 +587,27 @@ export async function browseFeed(pool, opts = {}) {
   // kein Loeschen, reversibel; Angebote "laufen ab", sobald ihr Enddatum < heute ist.
   where.push("(cp.availability_to IS NULL OR cp.availability_to >= CURRENT_DATE)");
 
+  /* Sperrliste (Welle J2c, Befund 2.2c): eine Kraft, die DIESES Unternehmen
+   * gesperrt hat, erscheint fuer genau dieses Unternehmen nicht im Feed —
+   * ein Angebot, das man nicht buchen darf, ist keine Auskunft, sondern eine
+   * Falle. Greift nur bei worker-gebundenen Angeboten (single_skill/bundle);
+   * Sammelangebote (pool_*) haben kein cp.worker_profile_id — dort reduziert
+   * ein gesperrtes Mitglied die Auswahl erst bei der Besetzung (J5). Andere
+   * Unternehmen sehen die Kraft weiterhin: die Sperre ist eine Beziehung
+   * zwischen ZWEI Parteien, kein Plattform-Urteil. */
+  if (opts.viewer_company_org_id) {
+    params.push(opts.viewer_company_org_id);
+    where.push(`NOT EXISTS (
+      SELECT 1
+        FROM company_worker_blocklist bl
+        JOIN worker_profiles wpb ON wpb.user_id = bl.worker_user_id
+       WHERE wpb.id = cp.worker_profile_id
+         AND bl.company_org_id = $${idx}
+         AND (bl.blocked_until IS NULL OR bl.blocked_until >= CURRENT_DATE)
+    )`);
+    idx++;
+  }
+
   if (opts.worker_category) {
     params.push(opts.worker_category);
     where.push(`cp.worker_category = $${idx}`);
@@ -650,6 +671,16 @@ export async function browseFeed(pool, opts = {}) {
   const page = Math.max(1, opts.page || 1);
   const limit = Math.min(100, opts.limit || 25);
   const offset = (page - 1) * limit;
+
+  /* Die Zaehl-Parameter werden VOR dem Merk-Push eingefroren: die Zaehl-Query
+   * referenziert nur die WHERE-Parameter. Ein ueberzaehliger Parameter ist
+   * fuer Postgres ein Protokollfehler (08P01 "bind message supplies N") —
+   * seit P9/B1 (2026-08-10) brach daran der GESAMTE Feed fuer jeden
+   * angemeldeten Betrachter. Kein Mock-Test konnte es sehen: Mock-Pools
+   * ignorieren ueberzaehlige Parameter, Postgres nicht. Gefunden von
+   * marktplatzBuchung.test.js Teil C (Welle J2c) beim ersten Lauf der vollen
+   * Query gegen die echte Datenbank. */
+  const countParams = params.slice();
 
   // P9/B1: Der Merk-Zustand faehrt in DERSELBEN Abfrage mit — kein Rundlauf je
   // Karte und auch keine zusaetzliche Sammelabfrage. Ohne angemeldeten Betrachter
@@ -716,7 +747,7 @@ export async function browseFeed(pool, opts = {}) {
 
   // Count: supply + demand separately (avoids UNION column mismatch)
   const { rows: supplyCount } = await pool.query(
-    `SELECT COUNT(*)::int AS cnt ${ENTRY_JOINS} WHERE ${where.join(' AND ')}`, params);
+    `SELECT COUNT(*)::int AS cnt ${ENTRY_JOINS} WHERE ${where.join(' AND ')}`, countParams);
   const demandCountSql = (viewerRole === "agency" && !interAgencyEnabled)
     ? `SELECT COUNT(*)::int AS cnt
          FROM demand_requests dr

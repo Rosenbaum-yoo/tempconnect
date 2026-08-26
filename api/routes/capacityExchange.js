@@ -545,6 +545,10 @@ export function createCapacityExchangeRouter(deps) {
         sort: req.query.sort || undefined,
         viewer_role: me?.role || null,
         viewer_user_id: req.session.userId,
+        /* Sperrliste (Welle J2c): eine fuer dieses Unternehmen gesperrte Kraft
+         * erscheint gar nicht erst im Feed. Der Riegel gegen Umgehung steht
+         * zusaetzlich serverseitig in accept-deal. */
+        viewer_company_org_id: (me?.role === "company" && req.orgId) ? req.orgId : undefined,
         inter_agency_enabled: interAgencyEnabled,
         inter_agency_supply_visible: interAgencySupplyVisible,
         page: parseInt(req.query.page, 10) || 1,

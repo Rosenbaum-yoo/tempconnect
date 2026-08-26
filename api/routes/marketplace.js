@@ -25,7 +25,9 @@ import * as dealStaffingFastTrackService from "../services/dealStaffingFastTrack
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
 import * as dealCommitmentService from "../services/dealCommitmentService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
-import { fristLabelDE } from "../utils/dateDE.js";
+import { fristLabelDE, todayDE } from "../utils/dateDE.js";
+import * as companyBlocklistService from "../services/companyBlocklistService.js";
+import { pruefeBuchungsWuensche } from "../services/marktplatzBuchungService.js";
 import { swallow } from "../utils/logger.js";
 import {
   buildDealHistoryBucketSql,
@@ -522,6 +524,25 @@ export function createMarketplaceRouter(deps) {
         if (!cap) return { error: "NOT_FOUND" };
         if (cap.supplier_company_id === req.session.userId) return { error: "SELF_DEAL_FORBIDDEN" };
 
+        /* Sperrliste (Welle J2c, behebt Befund 2.2c): eine Kraft, die dieses
+         * Unternehmen gesperrt hat, ist fuer genau dieses Unternehmen nicht
+         * buchbar — der Feed blendet sie aus (browseFeed), aber der RIEGEL
+         * steht hier, serverseitig: ein direkter API-Aufruf oder eine
+         * veraltete Liste darf die Sperre nicht umgehen. */
+        if (cap.worker_profile_id && req.orgId) {
+          const { rows: wpRows } = await client.query(
+            "SELECT user_id FROM worker_profiles WHERE id = $1",
+            [cap.worker_profile_id]
+          );
+          const workerUserId = wpRows[0]?.user_id || null;
+          if (workerUserId) {
+            const sperre = await companyBlocklistService.isWorkerBlockedForCompany(client, req.orgId, workerUserId);
+            if (sperre) {
+              return { error: "WORKER_BLOCKED_FOR_COMPANY", blocked_until: sperre.blocked_until || null };
+            }
+          }
+        }
+
         const capacityState = await capacityExchangeService.getCapacityCommercialState(client, cap.id);
         const remainingHeadcount = Math.max(0, Number(capacityState.remaining_headcount) || 0);
         const requestedHeadcount = normalizeDealHeadcount(req.body?.headcount, remainingHeadcount || cap.headcount || 1);
@@ -535,13 +556,22 @@ export function createMarketplaceRouter(deps) {
           return capacityUnavailable(requestedHeadcount, remainingHeadcount);
         }
 
+        /* Die drei Fragen vor der Buchung (Welle J2c, Plan J §0.2): Zeitraum
+         * und Preis des Kaeufers werden GEGEN DAS ANGEBOT geprueft — ausserhalb
+         * ist keine Annahme, sondern Verhandlung. Ohne Wuensche gelten die
+         * Angebotswerte (der bestehende Aufrufer bleibt gueltig). */
+        const wuensche = pruefeBuchungsWuensche(cap, req.body || {}, todayDE());
+        if (wuensche.error) return wuensche;
+        const startDatum = wuensche.start_date || cap.availability_from;
+        const endDatum = wuensche.end_date || cap.availability_to || null;
+
         const demandData = {
           title: `Zustimmung: ${cap.title}`,
           role: cap.role,
           skill_tags: cap.skill_tags || [],
           headcount: requestedHeadcount,
-          start_date: cap.availability_from,
-          end_date: cap.availability_to || null,
+          start_date: startDatum,
+          end_date: endDatum,
           location_city: cap.location_city,
           location_postal: cap.location_postal || null,
           location_lat: cap.location_lat ?? null,
@@ -581,11 +611,15 @@ export function createMarketplaceRouter(deps) {
             cap.supplier_company_id,
             cap.id,
             cap.price_type || null,
-            cap.price_min ?? null,
-            cap.price_max ?? null,
+            /* Ein gewaehlter Preis (Frage 3) wird als min UND max eingefroren:
+             * die Vereinbarung dokumentiert dann eine ZAHL, keinen Rahmen —
+             * genau das, was der Snapshot spaeter abrechnet. Ohne Wahl gilt
+             * der angebotene Rahmen wie bisher. */
+            wuensche.price_value ?? cap.price_min ?? null,
+            wuensche.price_value ?? cap.price_max ?? null,
             requestedHeadcount,
-            cap.availability_from || null,
-            cap.availability_to || null,
+            startDatum || null,
+            endDatum,
             `Zustimmung zu Kapazitaetsangebot: ${cap.title}`,
             kontakt.name || null,
             kontakt.telefon || null
@@ -618,6 +652,14 @@ export function createMarketplaceRouter(deps) {
       if (result.error === "SELF_DEAL_FORBIDDEN") return res.status(403).json({ error: "SELF_DEAL_FORBIDDEN" });
       if (result.error === "NOT_ACTIVE") return res.status(409).json({ error: "NOT_ACTIVE" });
       if (result.error === "CAPACITY_UNAVAILABLE") return res.status(409).json(result);
+      /* Sperre = 409 (Konflikt mit einer bestehenden Entscheidung des
+       * Unternehmens), Wunsch-Fehler = 400 (der Aufrufer kann sie korrigieren;
+       * PRICE_OUTSIDE_OFFER traegt den Rahmen, damit die Oberflaeche zur
+       * Verhandlung leiten kann statt raten zu lassen). */
+      if (result.error === "WORKER_BLOCKED_FOR_COMPANY") return res.status(409).json(result);
+      if (["PERIOD_INVALID", "PERIOD_IN_PAST", "PERIOD_OUTSIDE_OFFER", "PRICE_INVALID", "PRICE_OUTSIDE_OFFER"].includes(result.error)) {
+        return res.status(400).json(result);
+      }
 
       // 5) Audit + Notification
       res.locals.audit = {
