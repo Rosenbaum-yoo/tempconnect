@@ -1446,7 +1446,7 @@ Dort lagen `expires_at` und `approval_required` — der schärfere Blickwinkel.
 | Kandidat | Urteil |
 |---|---|
 | `organizations.enforce_mfa` | **echte Lücke, owner-gebunden** — siehe unten |
-| `timesheet_templates.show_*` / `require_*` (10 Spalten) | *entlastet* — Alt-Schema, ersetzt durch die Kindtabelle `timesheet_template_fields` |
+| `timesheet_templates.show_*` / `require_*` (11 Spalten) | ~~*entlastet*~~ **Urteil am 26.08. zurückgenommen** — der Ersatz existiert, greift aber nicht. Siehe Nachtrag unten. |
 | `org_settings.abwesenheit_selbstmeldung_freigabepflicht` | *entlastet* — wird gelesen (`workerAbsenceService.js:317`), mit Integrationstests |
 | übrige `*_at`-Spalten | *entlastet* — Zeitstempel ohne Regelcharakter |
 
@@ -1467,6 +1467,58 @@ MFA-Pflicht. Für Enterprise-Kunden ist das ein üblicher Beschaffungspunkt.
 als `preferred_suppliers_only` zurückgemeldet, nirgends durchgesetzt — dieselbe
 Bauart wie `approval_required`. Was „nur bevorzugte Lieferanten" sperren soll
 (Sichtbarkeit? Angebotsabgabe? Zuschlag?), ist eine Produktfrage.
+
+---
+
+### Nachtrag 2026-08-26 — die Entlastung oben war zu früh
+
+Das Urteil *„ersetzt durch die Kindtabelle"* prüfte, ob ein Ersatz **existiert**.
+Es prüfte nicht, ob der Ersatz **greift**. Er greift nicht.
+
+**Was von einer Stundenzettel-Vorlage wirklich ankommt:** vier Werte —
+`default_hours_per_day`, `default_shift_start`, `default_shift_end`,
+`default_break_minutes` (`timesheetService.js:453-460`). Sonst nichts.
+
+**Die elf Schalter** (`show_overtime`, `show_night_surcharge`, `require_break` …)
+sind `NOT NULL DEFAULT` seit Migration 033 (Z. 90-101). `createTemplate` schreibt
+sie nicht (Z. 68: fünf Spalten), `updateTemplate` lässt sie nicht zu (Z. 126-131:
+vier Felder). Gelesen werden sie im ganzen Repo **null Mal** — ausgeliefert
+werden sie trotzdem, weil `getTemplate` mit `SELECT tt.*` arbeitet (Z. 13). Jede
+Antwort trägt also `show_overtime: true` und `require_break: true`: Werte, die
+niemand gesetzt hat und niemand ändern kann.
+
+**Die Kindtabelle ist derselbe Fall, eine Etage tiefer.** Sie wird geschrieben
+(Z. 79, 146), gelöscht (Z. 142), zurückgelesen (Z. 22) — und von genau **einer**
+Stelle im System verwendet: `timesheet-templates.html:280`, die die Felder in das
+Bearbeitungsformular zurücklädt. Ein geschlossener Kreis:
+
+> Felder anlegen → speichern → Formular erneut öffnen → **die Felder sind da**.
+
+Wer das sieht, schließt daraus, es wirke. Der Stundenzettel liest sie nie. Die
+Seite selbst sagt auf Z. 175 *„Keine Felder — Standard-Stunden/Pausen-Felder
+werden immer angezeigt"* und verspricht damit, dass hinzugefügte Felder
+erscheinen.
+
+**Warum heute niemand Schaden nimmt:** die Seite ist in **keiner**
+Sichtbarkeits-Matrix (`visibilityMatrix.js` kennt 17 Seiten, diese nicht) und aus
+**keiner** Navigation verlinkt — nur per URL erreichbar. Dieselbe Klasse wie das
+Einsatzportal im nächsten Abschnitt. Die API dahinter ist dagegen vollständig
+bewacht und in `wachen.json`/`orgGrenzen.json` verbucht.
+
+> **Owner-Entscheidung.** Zwei saubere Wege, kein dritter: (a) die Feldsteuerung
+> im Stundenzettel **anwenden** — dann wird die Seite verlinkt und das Versprechen
+> eingelöst; (b) Seite und Feldsteuerung **entfernen** und die vier
+> Vorgabewerte behalten, die wirklich wirken. Was nicht bleiben sollte, ist der
+> heutige Zustand: eine Konfiguration, die sich selbst bestätigt und nichts tut.
+> Nicht autonom entscheidbar — ob Zeitarbeitsfirmen freie Stundenzettel-Felder
+> brauchen, ist eine Produktfrage.
+
+**Die Lehre daraus schärft die Regel aus Durchlauf 1.** „Erst nach einer zweiten
+Fassung derselben Regel suchen" reicht nicht — genau daran bin ich hier
+gescheitert. Der Satz braucht seine zweite Hälfte: *und dann prüfen, ob diese
+zweite Fassung einen Verbraucher hat.* Ein Ersatz, der nur existiert, entlastet
+nichts; er verschiebt den toten Punkt bloß eine Ebene tiefer, wo er schwerer zu
+sehen ist.
 
 ---
 
