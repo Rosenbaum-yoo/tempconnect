@@ -740,10 +740,6 @@ const BESTAND = new Set([
   /* ── Stundenzettel-Vorlagen: is_default gibt es nicht (weder Lesen noch
    * Schreiben), timesheet_template_fields heisst field_label statt label und
    * kennt weder is_visible noch created_at. ───────────────────────────────── */
-  "services/timesheetTemplateService.js::timesheet_templates.is_default",
-  "services/timesheetTemplateService.js::timesheet_template_fields.label",
-  "services/timesheetTemplateService.js::timesheet_template_fields.is_visible",
-  "services/timesheetTemplateService.js::timesheet_template_fields.created_at",
 
   /* ── Einzelbefunde ──────────────────────────────────────────────────────── */
   "services/staffControlService.js::audit_log.user_id",        // richtig: actor_id — identisch zu Fund 2

@@ -91,7 +91,6 @@
 | GET/PATCH | `/api/timesheets/:id` | Timesheet Detail | PLUS+ |
 | POST | `/api/timesheets/:id/submit` | Einreichen | PLUS+ |
 | POST | `/api/timesheets/:id/approve` | Genehmigen | PLUS+ |
-| GET | `/api/timesheet-templates` | Vorlagen | PLUS+ |
 
 ### Vendor Pool & Suppliers
 | Methode | Pfad | Beschreibung | Plan |

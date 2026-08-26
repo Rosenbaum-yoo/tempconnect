@@ -167,8 +167,8 @@ denselben Vorgang, je nach Rolle: Zeitarbeitsfirma, Kunde, Einreichungsprüfung,
 *Nutzt:* beiden Seiten unmittelbar — ohne bestätigte Stunden gibt es keine Rechnung.
 Der Katalog nennt es „ArbZG-konforme Erfassung, Freigabe und Rechnungsbezug"
 (`api/config/planCatalog.js:321`), ab PLUS.
-*Beleg:* `api/routes/timesheets.js` (21), `api/routes/companyTimesheets.js` (10),
-`api/routes/timesheetTemplates.js` (8). Oberflächen: `timesheets.html`,
+*Beleg:* `api/routes/timesheets.js` (21), `api/routes/companyTimesheets.js` (10).
+Oberflächen: `timesheets.html`,
 `company-timesheets.html`, `worker-submissions-review.html`,
 `einsatzportal-stundenzettel.html`.
 *Hinweis:* Die Vierteilung ist gewollte Rollen-/Prozesstrennung, kein Versehen — ausdrücklich
@@ -398,7 +398,7 @@ weiß nur der Owner. Die Entscheidung steht unter *Aufräumen*, nicht hier.
 
 ## Nutzerflächen im Einzelnen
 
-89 Nutzerflächen: 77 Dateien in `frontend/public/*.html`, 6 unter `legal/`, 4 unter `trust/`,
+90 Nutzerflächen: 78 Dateien in `frontend/public/*.html`, 6 unter `legal/`, 4 unter `trust/`,
 dazu `frontend/landing.html` und `frontend/demo.html`
 (gezählt: `ls frontend/public/*.html | wc -l` → 77).
 
@@ -459,7 +459,6 @@ Weiterleitung oder für keinen Nutzer erreichbar.
 | `timesheets.html` | Zeitarbeitsfirma, Unternehmen | Arbeitszeiten eintragen, einreichen, freigeben lassen | aktiv |
 | `company-timesheets.html` | Unternehmen | Stundenzettel-Eingang prüfen, bestätigen oder zurückweisen | aktiv |
 | `approvals.html` | Unternehmen | alles, was auf eine Entscheidung wartet | aktiv |
-| `timesheet-templates.html` | Unternehmen | wiederverwendbare Vorlagen für die Zeiterfassung | **tot** |
 
 ### Einsatzportal (Einsatzkräfte)
 
@@ -635,14 +634,14 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | API-Endpunkte insgesamt | **938** | `grep -rE "^\s*(router\|app)\.(get\|post\|put\|patch\|delete)\(" api/routes/ --include=*.js \| wc -l` |
 | davon Owner Control Center | 31 | dieselbe Zählung, beschränkt auf `api/routes/occ/` (13 Modul-Router) |
 | davon Staff Control Center | 104 | `api/routes/staffControlCenter.js` — größte Einzeldatei |
-| Router-Dateien | 83 | `ls api/routes/ \| wc -l` (inkl. Verzeichnis `api/routes/occ/`) |
-| Service-Dateien | 175 | `ls api/services/ \| wc -l` |
+| Router-Dateien | 82 | `ls api/routes/ \| wc -l` (inkl. Verzeichnis `api/routes/occ/`) |
+| Service-Dateien | 174 | `ls api/services/ \| wc -l` |
 | Datenbanktabellen | **180** | eindeutige `CREATE TABLE`-Namen in `sql/init.sql` + `sql/migrations/*.sql`, bereinigt um einen Treffer aus einem deutschen Kommentar. Davon 4 aus dem Grundschema (`users`, `listings`, `requests`, `subscriptions`), 176 aus Migrationen |
 | Migrationsdateien | **203** | `ls sql/migrations/*.sql \| wc -l` — nummeriert `001_ratings.sql` bis `199_anfrage_zurueckziehen.sql`; neun Nummern sind doppelt belegt (`027`/`027b`, `045`/`045b`, `064`, `070`, `074`, `075`, `086`, `130`, `140`). `NUMBERING.md` ist keine Migration |
-| Nutzerflächen | **89** | 77 in `frontend/public/*.html` + 6 `legal/` + 4 `trust/` + `frontend/landing.html` + `frontend/demo.html` |
+| Nutzerflächen | **90** | 78 in `frontend/public/*.html` + 6 `legal/` + 4 `trust/` + `frontend/landing.html` + `frontend/demo.html`. Am 26.08. nachgezählt: die vorherige **89** hinkte der eigenen Liste nach (A1 des Wächters bestand, nur die Summe war alt) — die Korrektur ist größer als der Abzug für die gelöschte Vorlagenseite |
 | davon reine Weiterleitungen | 9 | je 14 nicht-leere Zeilen, reiner Meta-Refresh |
 | davon Attrappen | 3 | `sla_nachweise.html`, `impressum.html`, `datenschutz.html` (Wurzel) |
-| davon für keinen Nutzer erreichbar | 1 | `timesheet-templates.html` — null eingehende Verweise in `frontend/`, `api/`, `nginx/`, `e2e/` |
+| davon für keinen Nutzer erreichbar | **0** | war 1 (timesheet-templates.html); am 26.08. entfernt — siehe Liste A, A1 |
 | Backend-Testdateien | 340 | `ls api/test/*.test.js \| wc -l` |
 | E2E-Testdateien | 17 | `ls e2e/tests/ \| wc -l` |
 | Rollen im Rechtemodell | 12 | `ROLE_HIERARCHY` in `api/services/rbacService.js:9-22` |
@@ -675,16 +674,22 @@ steht jeweils dabei.
 
 ### Liste A — kann sofort weg (verifiziert unreferenziert)
 
-**A1 · `frontend/public/timesheet-templates.html` — löschen. Backend im selben Zug entscheiden.**
-Null eingehende Verweise im gesamten realen Baum (`frontend/`, `api/`, `nginx/`, `e2e/`;
-die Kopien unter `.claude/worktrees/` und das temporäre Stryker-Verzeichnis (nur während eines Laufs vorhanden) sind ausgenommen). Kein
-nginx-Eintrag, kein Test, keine Navigation. Die Seite funktioniert technisch, ist aber für
-keinen Nutzer erreichbar. Zusätzlich dokumentiert `docs/FRONTEND_REIFEGRAD_AUDIT.md:128` einen
-verifizierten Stored-XSS-Pfad genau dort (Ursache: `esc()` in
-`frontend/public/timesheet-templates.html:200` escapt keine Anführungszeichen).
-*Wichtig:* `api/routes/timesheetTemplates.js` (8 Endpunkte, PLUS-Gate) ist **nicht** mit tot.
-Wer nur die HTML löscht, lässt acht verwaiste Endpunkte stehen. Entweder verlinken und härten
-oder beides entfernen — der jetzige Zustand ist Risiko ohne Nutzen.
+**~~A1 · frontend/public/timesheet-templates.html~~ — ERLEDIGT am 2026-08-26 (Owner-Entscheid).**
+Beides entfernt, wie es diese Zeile verlangt hat: Seite, api/routes/timesheetTemplates.js
+(8 Endpunkte), api/services/timesheetTemplateService.js und die zwei Mock-Testdateien.
+Die drei Tabellen (`timesheet_templates`, `_fields`, `_assignments`) bleiben stehen.
+
+Bei der Vorschau vor dem Löschen kam heraus, dass die Sache schlimmer war als hier notiert:
+Die Seite *funktionierte* nicht „technisch“ — sie zeigte **Ladefehler 500**. Der Dienst fragte
+`timesheet_templates.is_default` ab, eine Spalte, die dort nicht existiert; sie liegt auf
+`timesheet_template_assignments` (Migration 033, Z. 144). Postgres sagt es wörtlich:
+*„Perhaps you meant to reference the column tta.is_default“*. Acht Fundstellen im Dienst.
+
+Folge: Auflisten warf, **Anlegen warf ebenfalls** — die Tabelle hatte deshalb dauerhaft
+**0 Zeilen**. Es konnte nie jemand eine Vorlage anlegen. In `timesheetService.js:462` verschluckte
+ein blosses catch (Vermerk: die Vorlage sei optional) den SQL-Fehler samt dieser Tatsache; die
+Mock-Tests waren grün, weil ein Mock keine Spaltennamen prüft. Der hier genannte
+Stored-XSS-Pfad (`esc()` escapte keine Anführungszeichen) ist mit der Seite verschwunden.
 
 **A2 · Acht Weiterleitungen — als Paket löschen, mit ihren Wächtern.**
 `capacity_exchange.html`, `marketplace_capacity_create.html`, `worker-timesheet.html`,
@@ -810,8 +815,10 @@ als produktiv („Company | PLUS+ | ✅") obwohl für niemanden erreichbar, und 
 als „Enterprise-Landingpage, Public" — tatsächlich ist das der eingeloggte Arbeitsbereich mit
 Plan-Sperre. Als Quelle für eine Bedienungsanleitung erst brauchbar, wenn korrigiert.
 
-**E4 · Aufwand für eine unerreichbare Seite.** `docs/design/EDITORIAL_THEME_ROLLOUT.md:197`
-und `:283` führen `timesheet-templates.html` als Reskin-Kandidaten mit Aufwandsschätzung.
+**~~E4 · Aufwand für eine unerreichbare Seite.~~ — gegenstandslos seit 26.08.**
+`docs/design/EDITORIAL_THEME_ROLLOUT.md:197` und `:283` führen timesheet-templates.html
+als Reskin-Kandidaten mit Aufwandsschätzung. Die Seite ist entfernt (Liste A, A1) — der
+veranschlagte Aufwand entfällt ersatzlos.
 
 **E5 · Grüner Test, offene Lücke — Übersetzung.** `organization.html`, `sso_config.html`,
 `system-health.html` und `timesheet-templates.html` binden `js/i18n.js` nicht ein und bleiben

@@ -123,6 +123,13 @@ POST /timesheets/batch-approve (:405) und /batch-reject (:417) haben keinen Aufr
 
 Ein Nutzer legt ein Stundenzettel-Template mit dem Feld-Label " autofocus onfocus=alert(1) x=" an; sobald ein Kollege derselben Organisation den Template-Editor oeffnet, bricht der Wert aus dem value-Attribut aus und fremder JavaScript-Code laeuft in dessen angemeldeter Sitzung.
 
+> **Hinweis 2026-08-26:** Alle Befunde dieses Berichts, die
+> timesheet-templates.html oder timesheetTemplates.js betreffen — der Stored-XSS,
+> der quote-unsichere esc(), die fehlende i18n-Einbindung, die Emojis, der Aufrufer
+> ohne Ziel — sind **gegenstandslos**: Seite, Route und Dienst wurden nach
+> Owner-Entscheid entfernt. Die Einträge bleiben als Historie stehen; es gibt nichts
+> mehr zu beheben. Begründung und Messung: `docs/PLATTFORM_REGISTER.md`, Liste A, A1.
+
 ### esc() in timesheet-templates.html escapt keine Anfuehrungszeichen (Ursache des XSS)
 
 **Beleg:** `frontend/public/timesheet-templates.html:200`  ·  **Aufwand:** klein

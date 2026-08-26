@@ -36,7 +36,11 @@ Worker/Disponent wählt Assignment + KW → System erstellt automatisch:
 ### 3-Tier Default-Hierarchie
 
 1. **Worker Assignment Link** (`worker_assignment_links`): individuelle Defaults pro Einsatz
-2. **Timesheet Template** (`timesheetTemplateService`): Organisations-/Assignment-Template
+2. ~~**Timesheet Template**~~ — **am 2026-08-26 entfernt** (Owner-Entscheid). Diese Stufe
+   hat nie einen Wert geliefert: der Dienst fragte `timesheet_templates.is_default` ab,
+   eine Spalte, die dort nicht existiert — Auflisten und Anlegen warfen, die Tabelle
+   blieb dauerhaft leer, und ein blosses catch in `timesheetService.js` verschluckte den
+   Fehler. Die Vorgabewerte kommen jetzt aus der Zuweisung, sonst aus der Hausvorgabe.
 3. **Fallback**: 8h Regelarbeitszeit, 30min Pause
 
 ```json

@@ -2703,41 +2703,6 @@
       "begruendung": "Ein Kunde eroeffnet seinen EIGENEN Support-Fall. Der Melder wird aus der Sitzung genommen (`req.session.userId`), nie aus dem Koerper der Anfrage � es gibt keinen Weg, einen Fall im Namen eines anderen zu eroeffnen. Bewusst NICHT unter dem Praefix `/support`: dort steht das Staff-Tor `supportAuth`, und eine Kundenroute darunter waere ein Loch, das ab da fuer alle Routen darunter gilt."
     },
     {
-      "datei": "timesheetTemplates.js",
-      "methode": "post",
-      "pfad": "/timesheet-templates",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
-    },
-    {
-      "datei": "timesheetTemplates.js",
-      "methode": "delete",
-      "pfad": "/timesheet-templates/:id",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
-    },
-    {
-      "datei": "timesheetTemplates.js",
-      "methode": "patch",
-      "pfad": "/timesheet-templates/:id",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
-    },
-    {
-      "datei": "timesheetTemplates.js",
-      "methode": "post",
-      "pfad": "/timesheet-templates/:id/assign",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
-    },
-    {
-      "datei": "timesheetTemplates.js",
-      "methode": "delete",
-      "pfad": "/timesheet-templates/assignment/:assignmentId",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAgencyRole` (Agenturseite) steht vor diesem Weg."
-    },
-    {
       "datei": "timesheets.js",
       "methode": "post",
       "pfad": "/timesheets",
@@ -3316,8 +3281,8 @@
     }
   ],
   "grundlinie": {
-    "wege": 470,
+    "wege": 465,
     "berechtigung": 162,
-    "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-22 von 415 auf 416 erhoeht: Abschnitt 10 hat mit `POST /support-requests` den Weg eines Kunden INS Support Center angelegt — vorher hatte `support_cases` im gesamten Repo kein einziges INSERT, das Support Center war ein Lesesaal ueber einer Tabelle, die niemand fuellen konnte. Die Wachart bleibt `eigene-daten`: der Melder kommt aus der Sitzung, nicht aus dem Anfragekoerper. Am 2026-08-22 weiter auf 417: `POST /offers/:id/report` (Abschnitt 10, Inhalte melden). `berechtigung` unveraendert bei 161. Am 2026-08-23 von 418 auf 417 GESENKT: `POST /reports` wurde nach Owner-Entscheid ENTFERNT (0 Aufrufer, 0 Zeilen; Migration 191). Eine Route, die es nicht mehr gibt, kann nicht bewacht werden — stattdessen haelt eine Probe fest, dass sie nicht zurueckkehrt. Am 2026-08-24 weiter auf 419: `PATCH /staff-access/:userId/role` (Rollen vergeben, Owner-Entscheid). `berechtigung` unveraendert bei 161. Am 2026-08-24 sprunghaft auf 456: der Waechter montierte pro Datei nur die ERSTE `create*Router`-Fabrik. `staffControlCenter.js` exportiert zwei — die Auth-Fabrik (1 Weg) steht vor der Center-Fabrik (50 Wege). Die gesamte schreibende Flaeche des Staff Control Center war damit fuer das Bestandsbuch blind. Der Waechter montiert jetzt alle Fabriken."
+    "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-22 von 415 auf 416 erhoeht: Abschnitt 10 hat mit `POST /support-requests` den Weg eines Kunden INS Support Center angelegt — vorher hatte `support_cases` im gesamten Repo kein einziges INSERT, das Support Center war ein Lesesaal ueber einer Tabelle, die niemand fuellen konnte. Die Wachart bleibt `eigene-daten`: der Melder kommt aus der Sitzung, nicht aus dem Anfragekoerper. Am 2026-08-22 weiter auf 417: `POST /offers/:id/report` (Abschnitt 10, Inhalte melden). `berechtigung` unveraendert bei 161. Am 2026-08-23 von 418 auf 417 GESENKT: `POST /reports` wurde nach Owner-Entscheid ENTFERNT (0 Aufrufer, 0 Zeilen; Migration 191). Eine Route, die es nicht mehr gibt, kann nicht bewacht werden — stattdessen haelt eine Probe fest, dass sie nicht zurueckkehrt. Am 2026-08-24 weiter auf 419: `PATCH /staff-access/:userId/role` (Rollen vergeben, Owner-Entscheid). `berechtigung` unveraendert bei 161. Am 2026-08-24 sprunghaft auf 456: der Waechter montierte pro Datei nur die ERSTE `create*Router`-Fabrik. `staffControlCenter.js` exportiert zwei — die Auth-Fabrik (1 Weg) steht vor der Center-Fabrik (50 Wege). Die gesamte schreibende Flaeche des Staff Control Center war damit fuer das Bestandsbuch blind. Der Waechter montiert jetzt alle Fabriken. Am 2026-08-26 von 470 auf 465 GESENKT: die fünf Wege von timesheetTemplates.js wurden nach Owner-Entscheid ENTFERNT, zusammen mit Route, Dienst und Oberfläche. Grund war kein Aufräumen, sondern ein Totalausfall: der Dienst fragte timesheet_templates.is_default ab — eine Spalte, die dort nicht existiert (sie liegt auf timesheet_template_assignments, Migration 033). Auflisten UND Anlegen warfen, die Tabelle hatte deshalb dauerhaft 0 Zeilen, und ein blosses catch in timesheetService.js verschluckte den SQL-Fehler. Die drei Tabellen bleiben stehen. `berechtigung` unverändert bei 162 — die fünf Wege waren `flaechentor`, kein einziger war per Berechtigung bewacht."
   }
 }

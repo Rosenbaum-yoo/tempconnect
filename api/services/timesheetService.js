@@ -7,7 +7,6 @@
  */
 
 import * as auditLog from './auditLog.js';
-import { getTemplateForAssignment } from './timesheetTemplateService.js';
 import { withTransaction } from '../utils/transaction.js';
 import { dateOnlyDE } from '../utils/dateDE.js';
 
@@ -447,25 +446,26 @@ export async function prefillFromAssignment(pool, { assignmentId, supplierOrgId,
   );
   const link = linkRows[0] || {};
 
-  // Template-Defaults (Fallback)
-  let tmplDefaults = {};
-  try {
-    const tmpl = await getTemplateForAssignment(pool, assignmentId, supplierOrgId);
-    if (tmpl) {
-      tmplDefaults = {
-        default_hours_per_day: tmpl.default_hours_per_day,
-        default_shift_start:   tmpl.default_shift_start,
-        default_shift_end:     tmpl.default_shift_end,
-        default_break_minutes: tmpl.default_break_minutes
-      };
-    }
-  } catch { /* Template optional */ }
-
-  // Effektive Defaults (Link > Template > Fallback)
-  const hoursPerDay  = link.default_hours_per_day  ?? tmplDefaults.default_hours_per_day  ?? 8;
-  const shiftStart   = link.default_shift_start    ?? tmplDefaults.default_shift_start    ?? null;
-  const shiftEnd     = link.default_shift_end      ?? tmplDefaults.default_shift_end      ?? null;
-  const breakMinutes = link.default_break_minutes  ?? tmplDefaults.default_break_minutes  ?? 30;
+  /*
+   * Vorgabewerte: Zuweisung, sonst Hausvorgabe.
+   *
+   * Hier stand bis zum 26.08. eine mittlere Stufe — die Stundenzettel-Vorlage.
+   * Sie hat nie einen Wert geliefert: `timesheetTemplateService` fragte
+   * `timesheet_templates.is_default` ab, eine Spalte, die es dort nicht gibt
+   * (sie liegt auf `timesheet_template_assignments`). Jeder Aufruf warf, und
+   * ein blosses catch an dieser Stelle (mit dem Vermerk, die Vorlage sei
+   * optional) hat den
+   * SQL-Fehler verschluckt — samt der Tatsache, dass auch das ANLEGEN einer
+   * Vorlage warf und die Tabelle deshalb dauerhaft leer blieb.
+   *
+   * Owner-Entscheid 2026-08-26: die Vorlagen werden entfernt, nicht repariert.
+   * Damit faellt die mittlere Stufe weg; die Kette ist wieder so kurz, wie sie
+   * in Wahrheit immer war.
+   */
+  const hoursPerDay  = link.default_hours_per_day  ?? 8;
+  const shiftStart   = link.default_shift_start    ?? null;
+  const shiftEnd     = link.default_shift_end      ?? null;
+  const breakMinutes = link.default_break_minutes  ?? 30;
 
   // Worker-Name ermitteln
   let workerName = asg.worker_description || 'Mitarbeiter';

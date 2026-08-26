@@ -3856,57 +3856,6 @@
       ]
     },
     {
-      "datei": "timesheetTemplates.js",
-      "routen": [
-        {
-          "methode": "get",
-          "pfad": "/timesheet-templates/:id",
-          "urteil": "bewusste-ausnahme",
-          "begruendung": "Vorlagen der Zeitarbeitsfirma: Eintrittsbedingung requireAgencyRole (sperrt Worker aus, 403), die Zeile bindet der Dienst ueber die Org. Wie in agencyPortal.js verlangt der Name mehr, als die Funktion tut — sie sperrt nur userRole==='worker'."
-        },
-        {
-          "methode": "get",
-          "pfad": "/timesheet-templates/for-assignment/:id",
-          "urteil": "bewusste-ausnahme",
-          "begruendung": "Vorlagen der Zeitarbeitsfirma: Eintrittsbedingung requireAgencyRole (sperrt Worker aus, 403), die Zeile bindet der Dienst ueber die Org. Wie in agencyPortal.js verlangt der Name mehr, als die Funktion tut — sie sperrt nur userRole==='worker'."
-        },
-        {
-          "methode": "patch",
-          "pfad": "/timesheet-templates/:id",
-          "urteil": "bewusste-ausnahme",
-          "begruendung": "Vorlagen der Zeitarbeitsfirma: Eintrittsbedingung requireAgencyRole (sperrt Worker aus, 403), die Zeile bindet der Dienst ueber die Org. Wie in agencyPortal.js verlangt der Name mehr, als die Funktion tut — sie sperrt nur userRole==='worker'."
-        },
-        {
-          "methode": "delete",
-          "pfad": "/timesheet-templates/:id",
-          "urteil": "bewusste-ausnahme",
-          "begruendung": "Vorlagen der Zeitarbeitsfirma: Eintrittsbedingung requireAgencyRole (sperrt Worker aus, 403), die Zeile bindet der Dienst ueber die Org. Wie in agencyPortal.js verlangt der Name mehr, als die Funktion tut — sie sperrt nur userRole==='worker'."
-        },
-        {
-          "methode": "post",
-          "pfad": "/timesheet-templates/:id/assign",
-          "urteil": "bewusste-ausnahme",
-          "begruendung": "Vorlagen der Zeitarbeitsfirma: Eintrittsbedingung requireAgencyRole (sperrt Worker aus, 403), die Zeile bindet der Dienst ueber die Org. Wie in agencyPortal.js verlangt der Name mehr, als die Funktion tut — sie sperrt nur userRole==='worker'."
-        },
-        {
-          "methode": "delete",
-          "pfad": "/timesheet-templates/assignment/:assignmentId",
-          "urteil": "bewusste-ausnahme",
-          "begruendung": "Vorlagen der Zeitarbeitsfirma: Eintrittsbedingung requireAgencyRole (sperrt Worker aus, 403), die Zeile bindet der Dienst ueber die Org. Wie in agencyPortal.js verlangt der Name mehr, als die Funktion tut — sie sperrt nur userRole==='worker'."
-        }
-      ],
-      "torwaechter": {
-        "middleware": "requireAgencyRole",
-        "erwarteterStatus": 403,
-        "ohneVoraussetzung": {
-          "session": {
-            "userId": "user-alpha-001",
-            "userRole": "worker"
-          }
-        }
-      }
-    },
-    {
       "datei": "timesheets.js",
       "fabrik": "createTimesheetsRouter",
       "routen": [
