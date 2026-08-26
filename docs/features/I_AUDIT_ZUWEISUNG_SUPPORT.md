@@ -1813,6 +1813,11 @@ gegen die echte Datenbank das finden — genau die Begründung, aus der die
 - Die drei Riegel auf der **Anbieterseite bleiben**: dort handelt der Anbieter
   selbst, und `sla_angebote.html` bietet ihm beide Felder an (Z. 121–126).
 
+**Nachlauf, derselbe Befehl:** 369 Tests, **369 bestanden, 0 Fehlschläge, 0
+übersprungen**. Die dreizehn Tests, die in jedem Gate-Lauf dieser Welle
+geschwiegen haben, sind damit einmal vollständig gegen Postgres gelaufen — und
+haben dabei genau einen echten Defekt herausgegeben.
+
 Der Plan-Sperren-Test kennt jetzt seine Umgebung und prüft **beide**
 Konfigurationen — mit Überbrückung den Durchlass, ohne sie die Sperre. Beide
 Zweige nachgewiesen (`FEATURE_GATE_BYPASS=false` → 403, rückmutiert belegt).
