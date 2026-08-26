@@ -804,9 +804,19 @@ describe("Anfrage-Frist — DB-Smoke: der Verfall oeffnet die Riegel wirklich",
   });
 
   it("die Frist-Formel rechnet in der Datenbank wie versprochen", async () => {
-    /* Der Mock kann die Formel nicht auswerten — Postgres schon. Drei Faelle:
-     * weit in der Zukunft (72 h greifen), knapp (Deckel greift), Vergangenheit
-     * (Mindestfrist greift). */
+    /* Der Mock kann die Formel nicht auswerten — Postgres schon. Vier Faelle:
+     * weit in der Zukunft (72 h greifen), gedeckelt (der Einsatzbeginn drueckt),
+     * unmittelbar bevorstehend und Vergangenheit (beide Male haelt die
+     * Untergrenze).
+     *
+     * WARUM "in ZWEI Tagen" und nicht "morgen" (korrigiert 2026-08-26):
+     * Der Fall "morgen" war zeitabhaengig und damit sproede. Er verlangte mehr
+     * als 4 Stunden — aber ab etwa 20 Uhr sind es bis Mitternacht weniger, dann
+     * greift die Untergrenze und die Formel liefert exakt 4,0. Der Test fiel
+     * abends um, obwohl die Formel genau das tat, was sie soll. Zwei Tage
+     * Abstand liegen zu JEDER Tageszeit zwischen 24 und 48 Stunden.
+     * Der Grenzfall ist damit nicht verloren, sondern eine Zeile tiefer
+     * ausdruecklich geprueft — dort, wo er hingehoert. */
     const { Pool } = await import("pg");
     const pool = new Pool(process.env.DATABASE_URL ? { connectionString: process.env.DATABASE_URL } : undefined);
     try {
@@ -815,14 +825,18 @@ describe("Anfrage-Frist — DB-Smoke: der Verfall oeffnet die Riegel wirklich",
       const { rows } = await pool.query(
         `SELECT
            EXTRACT(EPOCH FROM (${formel("(CURRENT_DATE + 30)")} - NOW()))/3600 AS weit,
-           EXTRACT(EPOCH FROM (${formel("(CURRENT_DATE + 1)")}  - NOW()))/3600 AS knapp,
+           EXTRACT(EPOCH FROM (${formel("(CURRENT_DATE + 2)")}  - NOW()))/3600 AS gedeckelt,
+           EXTRACT(EPOCH FROM (${formel("(CURRENT_DATE + 1)")}  - NOW()))/3600 AS morgen,
            EXTRACT(EPOCH FROM (${formel("(CURRENT_DATE - 10)")} - NOW()))/3600 AS vorbei`
       );
       const r = rows[0];
       assert.ok(Math.abs(Number(r.weit) - 72) < 0.1,
         `Einsatz in 30 Tagen: die vollen 72 h muessen greifen (war ${r.weit})`);
-      assert.ok(Number(r.knapp) > 4 && Number(r.knapp) < 48,
-        `Einsatz morgen: der Deckel muss unter 72 h druecken (war ${r.knapp})`);
+      assert.ok(Number(r.gedeckelt) >= 24 && Number(r.gedeckelt) <= 48,
+        `Einsatz in zwei Tagen: der Deckel muss unter 72 h druecken (war ${r.gedeckelt})`);
+      assert.ok(Number(r.morgen) >= 4 - 0.01,
+        "Einsatz morgen: die Untergrenze darf nie unterschritten werden, auch "
+        + `nicht kurz vor Mitternacht (war ${r.morgen})`);
       assert.ok(Math.abs(Number(r.vorbei) - 4) < 0.1,
         `Einsatz laengst begonnen: die Mindestfrist von 4 h muss greifen (war ${r.vorbei})`);
     } finally {
