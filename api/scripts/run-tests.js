@@ -20,18 +20,24 @@
  */
 
 import { spawn } from "node:child_process";
-import { readdirSync, existsSync } from "node:fs";
+import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { neuerScanner, formuliereBefund } from "./lib/nativerAbbruch.mjs";
+import { teileNachAbbild } from "./lib/abbildSuite.mjs";
 
 const PROJECT_DIR = join(import.meta.dirname, "..");
 const TEST_DIR = join(PROJECT_DIR, "test");
-const VALID_SUITES = new Set(["non-integration", "integration", "all", "ci", "security", "tenant", "pilot", "db-gated"]);
+const VALID_SUITES = new Set(["non-integration", "integration", "all", "ci", "security", "tenant", "pilot", "db-gated", "image"]);
 
 function usage() {
-  console.log("Usage: node scripts/run-tests.js [--suite=non-integration|integration|all|ci|security|tenant|pilot|db-gated] [--retry-on-abort]");
+  console.log("Usage: node scripts/run-tests.js [--suite=non-integration|integration|all|ci|security|tenant|pilot|db-gated|image] [--retry-on-abort]");
+  console.log("");
+  console.log("  --suite=image      Nur die Tests, die das AUSGELIEFERTE ABBILD beweisen.");
+  console.log("                     Laesst die aus, die den Repo-Checkout lesen (Oberflaeche,");
+  console.log("                     Doku, nginx, compose) — den enthaelt das Abbild nicht.");
+  console.log("                     Fuer den Pflichtschritt P1-C im Container.");
   console.log("");
   console.log("  --retry-on-abort   Wiederholt den Lauf GENAU EINMAL, wenn ein nativer Abbruch");
   console.log("                     eines Testkindprozesses erkannt wurde (siehe unten). Ohne");
@@ -133,6 +139,38 @@ function selectSuite(files, suite) {
       return files.filter((file) =>
         matchesPattern(file, ["pilot"])
       );
+    /*
+     * Nur, was das AUSGELIEFERTE ABBILD beweist.
+     *
+     * Der Container enthaelt `api/`, `sql/migrations` und `frontend/public/js`
+     * — sonst nichts. Tests, die den Repo-Checkout lesen (Oberflaechen-Markup,
+     * Doku, nginx.conf, compose-Dateien, `.env.prod.example`), koennen dort
+     * nur scheitern. Sie sind nicht kaputt, sie pruefen eine andere Sache und
+     * laufen im vollen Lauf auf dem Host und in CI.
+     *
+     * Die Auswahl folgt einer gemessenen Eigenschaft statt einer Namensliste —
+     * Begruendung und Idiome in `./lib/abbildSuite.mjs`.
+     */
+    case "image": {
+      const { imAbbild, brauchtCheckout } = teileNachAbbild(
+        files.filter((file) => !file.startsWith("test/integration/")),
+        (datei) => readFileSync(join(PROJECT_DIR, datei), "utf8"),
+      );
+      /* Kein stiller Schnitt: wer weniger prueft, sagt es. */
+      const nachGrund = new Map();
+      for (const b of brauchtCheckout) nachGrund.set(b.grund, (nachGrund.get(b.grund) ?? 0) + 1);
+      console.log(
+        `[run-tests] Suite 'image': ${imAbbild.length} Dateien. ` +
+        `${brauchtCheckout.length} ausgelassen, weil sie den Repo-Checkout lesen ` +
+        `(${[...nachGrund].map(([g, n]) => `${g}: ${n}`).join(", ")}).`,
+      );
+      console.log(
+        "[run-tests] Diese pruefen Oberflaeche/Doku/Infrastruktur — nicht das Abbild. " +
+        "Sie laufen im vollen Lauf: node scripts/run-tests.js",
+      );
+      return imAbbild;
+    }
+
     // Dateien mit DB-abhaengigen Tests, die sich ohne DATABASE_URL still ueberspringen.
     // Sie sind der einzige Ort, an dem die Mandantentrennung wirklich gegen Postgres
     // geprueft wird — im Normallauf zaehlen sie nur als "skipped" (Audit-Backlog C-6).

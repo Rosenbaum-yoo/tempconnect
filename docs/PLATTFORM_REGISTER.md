@@ -637,7 +637,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | davon reine Weiterleitungen | 9 | je 14 nicht-leere Zeilen, reiner Meta-Refresh |
 | davon Attrappen | 3 | `sla_nachweise.html`, `impressum.html`, `datenschutz.html` (Wurzel) |
 | davon für keinen Nutzer erreichbar | 1 | `timesheet-templates.html` — null eingehende Verweise in `frontend/`, `api/`, `nginx/`, `e2e/` |
-| Backend-Testdateien | <!--zahl:backend-testdateien-->363<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
+| Backend-Testdateien | <!--zahl:backend-testdateien-->364<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
 | E2E-Testdateien | <!--zahl:e2e-testdateien-->17<!--/zahl--> | `ls e2e/tests/ \| wc -l` |
 | Rollen im Rechtemodell | 12 | `ROLE_HIERARCHY` in `api/services/rbacService.js:9-22` |
 | Benannte Berechtigungen | 63 | `PERMISSIONS` in `api/services/rbacService.js:25 ff.` |
@@ -649,7 +649,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | Interne Module (Staff / Owner) | 27 / 11 | `frontend/src/staff/modules/` bzw. Registry in `docs/FLAECHEN.md` |
 
 *Die beiden Testdateizahlen schreibt `api/scripts/doku-generieren.js` fort; zuletzt
-geändert am <!--zahl:stand-->2026-08-23<!--/zahl-->. Die übrigen Zahlen sind handgepflegt und
+geändert am <!--zahl:stand-->2026-08-25<!--/zahl-->. Die übrigen Zahlen sind handgepflegt und
 werden von `api/test/dokuWaechter.test.js` (Z1) gegen den Bestand geprüft — mit Ausnahme der
 beiden, die eine Ermessensentscheidung enthalten (Datenbanktabellen, Nutzerflächen).*
 
@@ -661,7 +661,7 @@ beiden, die eine Ermessensentscheidung enthalten (Datenbanktabellen, Nutzerfläc
 > **Eine Zahl, die hier bewusst fehlt:** die Gesamtzahl grüner Tests. Sie steht in mehreren
 > Projektdokumenten (3979+), wurde für dieses Register aber **nicht** nachgerechnet, weil das
 > einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die
-> <!--zahl:backend-testdateien-->363<!--/zahl--> Testdateien und
+> <!--zahl:backend-testdateien-->364<!--/zahl--> Testdateien und
 > <!--zahl:e2e-testdateien-->17<!--/zahl--> E2E-Dateien. Wer die Testzahl in ein
 > Investorendokument schreibt, muss sie vorher unter `api/scripts/run-tests.js` real erzeugen.
 
@@ -866,7 +866,7 @@ Ehrlichkeit über die eigenen Grenzen gehört in ein Dokument, das später an In
    unter Welle W3: Endpunktliste, Seitenliste, Migrationen, Jobs.
 
 2. **Die Zahl grüner Tests ist nicht nachgerechnet — die Zahl der Testdateien schon.**
-   Belegt sind <!--zahl:backend-testdateien-->363<!--/zahl--> Backend-Testdateien und
+   Belegt sind <!--zahl:backend-testdateien-->364<!--/zahl--> Backend-Testdateien und
    <!--zahl:e2e-testdateien-->17<!--/zahl--> E2E-Dateien; diese beiden Werte schreibt
    `api/scripts/doku-generieren.js` fort und `api/test/dokuGenerator.test.js` lässt sie rot
    werden, sobald sie veralten. Der Anlass dafür steht hier, weil er die Grenze zeigt:

@@ -28,6 +28,35 @@ Stattdessen erkennt `api/scripts/run-tests.js` die reale Suite-Struktur automati
 - `--suite=tenant` → orgBoundary + org-boundary tests
 - `--suite=pilot` → pilot model/policy/conversion tests
 - `--suite=db-gated` → Dateien, die sich ohne `DATABASE_URL` selbst überspringen
+- `--suite=image` → nur die Tests, die das **ausgelieferte Abbild** beweisen (siehe unten)
+
+### Das Abbild-Gate (`--suite=image`, P1-C)
+
+Der Pflichtschritt vor jedem Release läuft im Container:
+
+```bash
+docker exec tempconnect_api sh -c "cd /app && npm run test:image"
+```
+
+Bis 2026-08-25 stand dort `test:unit` — und **konnte strukturell nie grün werden**: gemessen
+124 rote Tests von 9261. Das Abbild enthält nur `api/`, `sql/migrations` und
+`frontend/public/js`; jeder Test, der `frontend/public/*.html`, `docs/`, `nginx/` oder eine
+compose-Datei liest, scheitert dort zwangsläufig. Ein Gate, das nie grün wird, wird
+übersprungen.
+
+`--suite=image` lässt diese Tests aus — nicht weil sie lästig sind, sondern weil ihr
+**Gegenstand gar nicht ausgeliefert wird**. Die Auswahl folgt einer gemessenen Eigenschaft
+(„greift die Datei über `api/` hinaus?", vier Idiome in
+`api/scripts/lib/abbildSuite.mjs`), nicht einer Namensliste — eine Liste wäre in vier Wochen
+falsch. Der Lauf sagt selbst, wie viele Dateien er aus welchem Grund ausgelassen hat.
+
+`api/test/abbildSuite.test.js` hält die Regel fest: jedes Idiom wird an seinem eigenen
+Beispiel geprüft, ein Schritt nach `api/` hoch zählt ausdrücklich **nicht** (sonst bliebe von
+der Suite nichts übrig), Vertreter beider Seiten werden stichprobenartig einsortiert, und
+eine Untergrenze verhindert, dass das Gate unbemerkt zur Beruhigungspille wird.
+
+**Der volle Lauf bleibt Pflicht auf dem Host** — Oberflächen-, Doku- und
+Infrastruktur-Tests laufen nur dort, und dort sind sie nicht optional.
 
 ### Wenn ein Testkindprozess nativ abstürzt
 

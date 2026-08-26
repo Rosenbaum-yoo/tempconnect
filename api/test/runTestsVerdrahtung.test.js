@@ -54,8 +54,19 @@ const SIGNATUR =
   "Assertion failed: !(handle->flags & UV_HANDLE_CLOS" +
   "ING), file src\\win\\async.c, line 76";
 
-/** Die Dateien, die der Sandkasten braucht — relativ zu `api/`. */
-const KOPIEN = ["scripts/run-tests.js", "scripts/lib/nativerAbbruch.mjs"];
+/**
+ * Die Dateien, die der Sandkasten braucht — relativ zu `api/`.
+ *
+ * `abbildSuite.mjs` steht hier, weil V0 beim ersten Container-Lauf genau das
+ * gemeldet hat: `run-tests.js` bekam einen neuen relativen Import, der
+ * Sandkasten kopierte ihn nicht, und der verschachtelte Lauf starb am Import
+ * statt an der Sache. Der Driftschutz hat funktioniert — das ist der Beleg.
+ */
+const KOPIEN = [
+  "scripts/run-tests.js",
+  "scripts/lib/nativerAbbruch.mjs",
+  "scripts/lib/abbildSuite.mjs",
+];
 
 describe("Verdrahtung: run-tests.js liest seine eigene Ausgabe mit", () => {
   let sandkasten = null;

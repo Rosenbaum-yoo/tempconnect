@@ -18,6 +18,7 @@
     "test:security": "node scripts/run-tests.js --suite=security",
     "test:tenant": "node scripts/run-tests.js --suite=tenant",
     "test:pilot": "node scripts/run-tests.js --suite=pilot",
+    "test:image": "node scripts/run-tests.js --suite=image",
     "test:ci": "node scripts/run-tests.js --suite=ci",
     "test:coverage": "c8 node scripts/run-tests.js --suite=non-integration",
     "test:coverage:full": "c8 node scripts/run-tests.js --suite=all",

@@ -281,8 +281,20 @@ Jede Aenderung muss diesen Standard einhalten. Kein Feature ist "fertig" wenn ei
 - 3754 Tests, 0 Failures
 
 P1-C: Docker-Verifikation (Pflicht vor jedem Release)
-- `docker exec tempconnect_api sh -c "cd /app && npm run test:unit"`
-- hubVisibility-Tests pruefen (Volume-Mount erforderlich)
+- `docker exec tempconnect_api sh -c "cd /app && npm run test:image"`
+- **Korrigiert 2026-08-25.** Vorher stand hier `test:unit` — und das konnte
+  strukturell nie gruen werden: gemessen 124 rote Tests von 9261, weil das
+  Abbild nur `api/`, `sql/migrations` und `frontend/public/js` enthaelt. Alles,
+  was `frontend/public/*.html`, `docs/`, `nginx/` oder die compose-Dateien
+  liest, scheitert dort zwangslaeufig. Ein Gate, das nie gruen wird, wird
+  uebersprungen — die Zeile war damit wertlos.
+- `--suite=image` laeuft die Tests, die das AUSGELIEFERTE ABBILD beweisen, und
+  laesst die aus, deren Gegenstand gar nicht mitgeliefert wird. Was ausgelassen
+  wurde, sagt der Lauf selbst; die Regel steht in `api/scripts/lib/abbildSuite.mjs`
+  und haengt an `api/test/abbildSuite.test.js`.
+- Der VOLLE Lauf bleibt Pflicht auf dem Host: `cd api && node scripts/run-tests.js`.
+  Oberflaechen-, Doku- und Infrastruktur-Tests laufen nur dort — und dort sind
+  sie nicht optional.
 - Aufwand: 0.5 Stunden | Nutzen: Hoch — Produktions-Konfidenz
 
 **PRIO 2 — Enterprise-Qualitaet (diese Woche)**

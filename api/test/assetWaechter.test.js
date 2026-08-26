@@ -141,7 +141,16 @@ const leeren = (m) => m.replace(/[^\n]/g, " ");
 function ohneKommentare(text, art) {
   if (art === "html") return text.replace(/<!--[\s\S]*?-->/g, leeren);
   if (art === "css") return text.replace(/\/\*[\s\S]*?\*\//g, leeren);
-  return text.replace(/\/\*[\s\S]*?\*\//g, leeren).replace(/(^|[^:])\/\/[^\n]*/g, (m, p) => p + leeren(m.slice(p.length)));
+  /* Erst Zeilen-, dann Blockkommentare — die Reihenfolge ist nicht egal.
+     Ein Zeilenkommentar wie `// die Testdatei (api/test/*) …` enthaelt mit
+     `/*` einen Blockanfang. Andersherum liest man den als echt, sucht das
+     naechste Ende und leert dabei echten Code. Gemessen am 2026-08-25 an
+     `test/pricingPage.test.js`: 15 Zeilen verschwanden, die Datei wurde
+     dadurch falsch eingestuft. Der umgekehrte Fall (`//` in einem Block) ist
+     harmlos, der Block wird ohnehin geleert. */
+  return text
+    .replace(/(^|[^:])\/\/[^\n]*/g, (m, p) => p + leeren(m.slice(p.length)))
+    .replace(/\/\*[\s\S]*?\*\//g, leeren);
 }
 const artVon = (datei) =>
   datei.endsWith(".html") ? "html" : datei.endsWith(".css") ? "css" : "js";
