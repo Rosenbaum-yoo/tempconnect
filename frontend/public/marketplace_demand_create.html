@@ -96,7 +96,16 @@
           <label for="budget_max" data-i18n="dem.create.label.budgetMax">Budget max (EUR)</label>
           <input id="budget_max" name="budget_max" type="number" step="0.01" min="0"/>
         </div>
+        <div>
+          <label for="contact_name" data-i18n="dem.create.label.contact">Ansprechperson vor Ort</label>
+          <input id="contact_name" name="contact_name" maxlength="200" placeholder="Name" data-i18n-ph="dem.create.ph.contact"/>
+        </div>
+        <div>
+          <label for="contact_phone" data-i18n="dem.create.label.contactPhone">Telefon der Ansprechperson</label>
+          <input id="contact_phone" name="contact_phone" type="tel" maxlength="60" placeholder="+49…"/>
+        </div>
       </div>
+      <p class="urgency-hint" data-i18n="dem.create.contactHint">Wer ist erreichbar, wenn eine Schicht wackelt? Die Nummer sieht die Zeitarbeitsfirma an der Besetzung und die eingesetzte Person im Einsatzportal. Leer lassen heisst: es wird die Nummer aus Ihrem Profil genommen — fehlt auch die, bleibt die Stelle offen, bis ein Angebot angenommen wird.</p>
       <div style="margin-top:16px">
         <button type="submit" class="btn primary" id="submitBtn" data-i18n="dem.create.submit">Nachfrage absenden</button>
       </div>
@@ -158,6 +167,10 @@
         'dem.create.urgencyHint': 'Notdienst erfordert PRO-Plan. Pulse = Prozessnachweis, kein Erfolgsversprechen.',
         'dem.create.label.budgetMin': 'Budget min (EUR)',
         'dem.create.label.budgetMax': 'Budget max (EUR)',
+        'dem.create.label.contact': 'Ansprechperson vor Ort',
+        'dem.create.label.contactPhone': 'Telefon der Ansprechperson',
+        'dem.create.ph.contact': 'Name',
+        'dem.create.contactHint': 'Wer ist erreichbar, wenn eine Schicht wackelt? Die Nummer sieht die Zeitarbeitsfirma an der Besetzung und die eingesetzte Person im Einsatzportal. Leer lassen heisst: es wird die Nummer aus Ihrem Profil genommen — fehlt auch die, bleibt die Stelle offen, bis ein Angebot angenommen wird.',
         'dem.create.submit': 'Nachfrage absenden',
         'dem.create.submitting': 'Wird gesendet...',
         'dem.create.msgOk': 'Nachfrage erfolgreich erstellt!',
@@ -211,6 +224,10 @@
         'dem.create.urgencyHint': 'Emergency cover requires a PRO plan. Pulse = process record, not a success guarantee.',
         'dem.create.label.budgetMin': 'Budget min (EUR)',
         'dem.create.label.budgetMax': 'Budget max (EUR)',
+        'dem.create.label.contact': 'On-site contact',
+        'dem.create.label.contactPhone': 'Contact phone number',
+        'dem.create.ph.contact': 'Name',
+        'dem.create.contactHint': 'Who can be reached when a shift goes wrong? The staffing firm sees this number on the staffing view, and the deployed worker sees it in the assignment portal. Leave it empty to use the number from your profile — if that is missing too, the field stays open until an offer is accepted.',
         'dem.create.submit': 'Submit job posting',
         'dem.create.submitting': 'Sending...',
         'dem.create.msgOk': 'Job posting created successfully.',
@@ -369,7 +386,13 @@
         radius_km: parseInt(document.getElementById("radius_km").value, 10) || 25,
         urgency: document.getElementById("urgency").value,
         budget_min: parseFloat(document.getElementById("budget_min").value) || null,
-        budget_max: parseFloat(document.getElementById("budget_max").value) || null
+        budget_max: parseFloat(document.getElementById("budget_max").value) || null,
+        /* Leer = weglassen, damit der Rueckfall aufs Profil im Backend greift
+         * (ansprechperson() in routes/marketplace.js). Ein leerer String wuerde
+         * den Rueckfall ueberschreiben und die Stelle faelschlich als gefuellt
+         * gelten lassen. */
+        contact_name: document.getElementById("contact_name").value.trim() || null,
+        contact_phone: document.getElementById("contact_phone").value.trim() || null
       };
 
       postDemand(body).then(function(d) {

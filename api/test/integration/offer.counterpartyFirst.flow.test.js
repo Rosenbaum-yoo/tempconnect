@@ -87,7 +87,15 @@ describe("Offers — counterparty-first flow", { skip: !hasDb && "No database co
         offered_hourly_rate: 28.5,
         start_confirmed: "2026-03-30",
         end_date: "2026-04-03",
-        price_type: "hourly"
+        price_type: "hourly",
+        // Seit 10b muss ein Angebot eine erreichbare Ansprechperson tragen
+        // (routes/marketplace.js -> 409 CONTACT_REQUIRED). Die Pflicht trifft
+        // hier den Anbieter, der selbst handelt und sie selbst erfuellen kann;
+        // das Formular sla_angebote.html bietet beide Felder an. Reine
+        // Fixture-Pflege - die Zusicherungen dieses Tests (Reihenfolge nach
+        // Handlungsbedarf, Actor-Guards) bleiben unveraendert.
+        contact_name: "Disponentin Meier",
+        contact_phone: "+49 231 5550100"
       })
       .expect(201);
     offerId = oRes.body?.id;

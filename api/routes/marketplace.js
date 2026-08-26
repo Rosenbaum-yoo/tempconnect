@@ -912,10 +912,26 @@ export function createMarketplaceRouter(deps) {
       }
       /* Hier legt das EINSATZUNTERNEHMEN seinen Bedarf an — seine
        * Ansprechperson ist die Nummer, die die Agentur spaeter in Besetzung und
-       * Live-Belegschaft sieht. Dieselbe Mechanik wie beim Angebot, nur die
-       * andere Richtung. */
+       * Live-Belegschaft sieht.
+       *
+       * NUR FUELLEN, NICHT BLOCKIEREN (korrigiert 2026-08-26). Die erste Fassung
+       * wies den Bedarf mit 409 und der Nachtrage-Aufforderung ab, wenn Name oder Telefon
+       * fehlten — an der breitesten Stelle des Trichters. Am laufenden Bestand
+       * gemessen bedeutete das:
+       *
+       *   22 Firmen haben je einen Bedarf angelegt, 18 davon ohne Telefon;
+       *   von den 19 in 90 Tagen aktiven Firmen waren 18 gesperrt;
+       *   38 der 39 vorhandenen Bedarfe tragen ohnehin keine Ansprechperson.
+       *
+       * Sperren erzeugt die fehlende Nummer nicht — es haelt nur die
+       * Kernhandlung der Plattform an. Und das Formular bot bis dahin gar kein
+       * Feld, um sie nachzutragen: der Riegel war fuer den Kunden unaufloesbar.
+       *
+       * Die Pflicht bleibt dort, wo sie hingehoert und wo der Handelnde sie
+       * selbst erfuellen kann: beim ANBIETER, der ein Angebot abgibt oder einen
+       * Deal schliesst (Zeilen ~1082/1204/1273). Bevor jemand tatsaechlich vor
+       * Ort steht, ist damit eine erreichbare Nummer hinterlegt. */
       const kontakt = await ansprechperson(pool, req.session.userId, parsed.data);
-      if (kontakt.fehlt) return ansprechpersonFehltAntwort(res, kontakt);
 
       const demand = await marketplaceService.createDemandRequest(pool, req.session.userId, plan, {
         ...parsed.data,

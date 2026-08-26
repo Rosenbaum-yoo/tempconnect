@@ -89,6 +89,74 @@ describe("Ansprechperson — die Pflicht trifft den, der handeln kann", () => {
   });
 });
 
+describe("Ansprechperson — die Bedarfsseite fuellt, sie sperrt nicht", () => {
+  /*
+   * DER SECHSTE WEG, den die Liste oben nicht kannte.
+   *
+   * Die Richtungskorrektur vom 23.08. (`3ccf075`) stellte fest, dass
+   * `offers.contact_name` dem ANBIETER gehoert, die Live-Belegschaft aber die
+   * Flaeche des Anbieters ist — die Agentur sah ihre eigene Nummer. Migration
+   * 192 legte darum `contact_name`/`contact_phone` auf `demand_requests`, und
+   * die Bedarfs-Anlage bekam denselben Riegel wie ein Angebot.
+   *
+   * Das war falsch, und drei Tage lang sah es niemand: Die Liste oben zaehlt
+   * FUENF Angebots-Wege, dieser sechste stand in keiner. Das Gate blieb gruen.
+   *
+   * AM ECHTEN BESTAND GEMESSEN (2026-08-26, laufende Datenbank):
+   *   * 22 Firmen haben je einen Bedarf angelegt — 18 davon ohne Telefon.
+   *   * Von den 19 in 90 Tagen aktiven Firmen waren 18 gesperrt.
+   *   * 38 der 39 vorhandenen Bedarfe tragen ohnehin keine Ansprechperson.
+   *   * Das Formular bot bis zum 26.08. gar kein Feld dafuer an — der Riegel
+   *     war fuer den Kunden UNAUFLOESBAR.
+   *
+   * Gefunden hat es der Integrationslauf gegen die echte Datenbank
+   * (`offer.counterpartyFirst.flow.test.js`), nicht die Mock-Suite: ein Mock
+   * kennt keine 22 Firmen ohne Telefonnummer.
+   *
+   * Die Regel dahinter steht schon im Plan und gilt hier genauso: die Pflicht
+   * trifft nur den, der handeln kann. Beim Bedarf handelt der KAEUFER; sperrt
+   * man ihn, sperrt man die Kernhandlung der Plattform an ihrer breitesten
+   * Stelle. Die Pflicht bleibt beim ANBIETER (die drei Wege oben) — bevor
+   * jemand tatsaechlich vor Ort steht, ist eine Nummer hinterlegt.
+   */
+  const BEDARF = "/marketplace/demand-requests";
+
+  it("der Bedarf wird NICHT wegen fehlender Ansprechperson abgewiesen", () => {
+    const rumpf = route(BEDARF);
+    /* Laengenpruefung VOR der verneinenden Zusicherung: auf einem leeren String
+     * besteht jedes `!test()` — und dann prueft dieser Test nichts. */
+    assert.ok(rumpf.length > 500,
+      "der Routenrumpf wurde nicht gefunden; ohne ihn ist die Zusicherung darunter wertlos");
+    assert.ok(!/ansprechpersonFehltAntwort/.test(rumpf),
+      "Die Bedarfs-Anlage darf nicht am fehlenden Telefon scheitern: gemessen waeren " +
+      "18 von 19 aktiven Firmen gesperrt, und das Formular bot lange kein Feld zum " +
+      "Nachtragen. Sperren erzeugt die Nummer nicht — es haelt nur die Arbeit an.");
+  });
+
+  it("die Ansprechperson wird trotzdem uebernommen, wenn es sie gibt", () => {
+    /* Sonst waere die Korrektur ein Rueckschritt: Migration 192 haette Spalten
+     * angelegt, die nie etwas sehen — genau der Zustand, den 10b beheben sollte. */
+    const rumpf = route(BEDARF);
+    assert.match(rumpf, /const kontakt = await ansprechperson\(pool, req\.session\.userId, parsed\.data\)/,
+      "der Helfer muss weiter laufen, sonst bleibt die Spalte leer");
+    assert.match(rumpf, /contact_name: kontakt\.name/);
+    assert.match(rumpf, /contact_phone: kontakt\.telefon/);
+  });
+
+  it("das Formular bietet die Felder ueberhaupt an", () => {
+    /* Der eigentliche Defekt war nicht der Riegel allein, sondern der Riegel
+     * OHNE Feld. Eine Pflicht, die der Betroffene nicht erfuellen kann, ist
+     * eine Sackgasse — dieselbe Klasse wie ein toter Knopf. */
+    const formular = fs.readFileSync(
+      new URL("../../frontend/public/marketplace_demand_create.html", import.meta.url), "utf8");
+    assert.match(formular, /id="contact_name"/,
+      "ohne Eingabefeld kann die Kundenseite die Nummer nie liefern");
+    assert.match(formular, /id="contact_phone"/);
+    assert.match(formular, /contact_name: document\.getElementById\("contact_name"\)\.value\.trim\(\) \|\| null/,
+      "ein leerer String statt null wuerde den Rueckfall aufs Profil ueberschreiben");
+  });
+});
+
 describe("Ansprechperson — der Rueckfall aufs Profil", () => {
   it("ausdrueckliche Angabe geht vor dem Profil", () => {
     const helfer = quelle.match(/async function ansprechperson[\s\S]*?\n\}/);
