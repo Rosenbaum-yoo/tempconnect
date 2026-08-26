@@ -93,13 +93,21 @@ describe("Marktpraesenz · Teil A — Form", () => {
     assert.match(pool.calls[0].sql, /supplier_org_id = \$2/, "die Mandantengrenze steht im SQL");
   });
 
-  it("der Schalter zieht die Folgen sofort nach", async () => {
+  it("der Schalter zieht die Folgen sofort nach — kraft- UND org-gebunden", async () => {
     const pool = aufzeichnenderPool({
       "UPDATE worker_profiles": { rows: [{ id: "wp-1", marktpraesenz_deaktiviert: true }], rowCount: 1 }
     });
     const ergebnis = await setzeMarktpraesenz(pool, "org-a", "wp-1", true);
     assert.equal(ergebnis.marktpraesenz_deaktiviert, true);
-    assert.equal(pool.calls.length, 5, "Schalter + kompletter Sweep — wer abschaltet, wartet nicht auf den Cron");
+    assert.equal(pool.calls.length, 4, "Schalter + drei kraftgebundene Folgen — wer abschaltet, wartet nicht auf den Cron");
+    /* Der Org-Grenzen-Waechter hat die erste Fassung abgewiesen: sie liess
+     * nach dem UPDATE den GLOBALEN Sweep laufen. Seitdem gilt: JEDE
+     * Anweisung dieses Weges traegt Profil UND Org in den Parametern —
+     * eine Route, die fuer Org A handelt, schreibt nichts Unbeweisbares. */
+    for (const call of pool.calls) {
+      assert.ok(call.params.includes("wp-1"), "die Kraft-Kennung fehlt: " + call.sql.slice(0, 60));
+      assert.ok(call.params.includes("org-a"), "die Org-Kennung fehlt: " + call.sql.slice(0, 60));
+    }
   });
 });
 

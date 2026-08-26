@@ -125,6 +125,18 @@ TCi18n.register('de', {
 
   /* Zustands-Zeitstrahl (Welle E5) */
   'mit.live.verlauf.btn': 'Verlauf',
+
+  'mit.live.markt.aus': 'Marktplatz: aus',
+  'mit.live.markt.ausInfo': 'Diese Kraft erscheint nicht als automatisches Angebot im Marktplatz. Mit „Markt an" nehmen Sie sie wieder auf.',
+  'mit.live.markt.anBtn': 'Markt an',
+  'mit.live.markt.anTitle': 'Diese Kraft wieder automatisch im Marktplatz anbieten',
+  'mit.live.markt.ausBtn': 'Markt aus',
+  'mit.live.markt.ausTitle': 'Diese Kraft nicht mehr automatisch im Marktplatz anbieten – laufende Deals bleiben unberührt',
+  'mit.live.markt.unsichtbar': 'Im Marktplatz unsichtbar – Katalog-Skills fehlen',
+  'mit.live.markt.unsichtbarTitle': 'Der Marktplatz bietet nur an, was er kennt: Ohne Katalog-Skill kann für diese Kraft kein automatisches Angebot entstehen. Skills pflegen Sie über den Namen → Fähigkeiten.',
+  'mit.live.markt.toastAn': 'Marktpräsenz an – {n} Angebot(e) im Marktplatz.',
+  'mit.live.markt.toastAus': 'Marktpräsenz aus – {n} Angebot(e) zurückgenommen.',
+  'mit.live.markt.fehler': 'Marktpräsenz konnte nicht geändert werden.',
   'mit.live.verlauf.title': 'Verlauf',
   'mit.live.verlauf.intro': 'Jede Zustandsänderung der letzten 90 Tage – mitgeschrieben an der Quelle, nicht nachträglich abgeleitet.',
   'mit.live.verlauf.loading': 'Verlauf wird geladen …',
@@ -727,6 +739,18 @@ TCi18n.register('en', {
   'mit.live.detail.notFound': 'This worker is not in the profile hub selection.',
 
   'mit.live.verlauf.btn': 'History',
+
+  'mit.live.markt.aus': 'Marketplace: off',
+  'mit.live.markt.ausInfo': 'This worker does not appear as an automatic offer in the marketplace. Use "Market on" to include them again.',
+  'mit.live.markt.anBtn': 'Market on',
+  'mit.live.markt.anTitle': 'Offer this worker automatically in the marketplace again',
+  'mit.live.markt.ausBtn': 'Market off',
+  'mit.live.markt.ausTitle': 'Stop offering this worker automatically in the marketplace – running deals stay untouched',
+  'mit.live.markt.unsichtbar': 'Invisible in the marketplace – catalogue skills missing',
+  'mit.live.markt.unsichtbarTitle': 'The marketplace can only offer what it knows: without a catalogue skill no automatic offer can be created for this worker. Maintain skills via the name → skills.',
+  'mit.live.markt.toastAn': 'Market presence on – {n} offer(s) in the marketplace.',
+  'mit.live.markt.toastAus': 'Market presence off – {n} offer(s) withdrawn.',
+  'mit.live.markt.fehler': 'Market presence could not be changed.',
   'mit.live.verlauf.title': 'History',
   'mit.live.verlauf.intro': 'Every state change of the last 90 days – recorded at the source, not derived afterwards.',
   'mit.live.verlauf.loading': 'Loading history …',
@@ -1828,6 +1852,27 @@ function renderLiveList(workers) {
         aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" onclick="openAbsenceModal(\'' + esc(w.id) + '\')">' +
                  esc(TCi18n.t("mit.live.absence.reportBtn")) + '</button>';
       }
+      /* Marktpraesenz (Welle J2c): der AUSSCHALTER der Automatik
+         "Verfuegbarkeit ist das Angebot" (Mig 200). Praesenz ist der
+         Grundzustand — deshalb traegt nur die Abweichung ein Abzeichen.
+         Und: ohne Katalog-Skill ist die Kraft am Markt UNSICHTBAR (gemessen
+         traf das 30 von 33) — genau das muss die Tafel sagen, sonst wundert
+         sich die Agentur, warum niemand bucht. */
+      if (w.live_status !== "inaktiv" && w.id) {
+        if (w.marktpraesenz_deaktiviert) {
+          sub.push('<span style="color:var(--wk-text-muted,#64748b)" title="' + esc(TCi18n.t("mit.live.markt.ausInfo")) + '">' +
+                   esc(TCi18n.t("mit.live.markt.aus")) + '</span>');
+          aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" title="' + esc(TCi18n.t("mit.live.markt.anTitle")) + '"' +
+                    ' onclick="toggleMarktpraesenz(\'' + esc(w.id) + '\', false)">' + esc(TCi18n.t("mit.live.markt.anBtn")) + '</button>';
+        } else {
+          if (!w.hat_katalog_skill) {
+            sub.push('<span style="color:var(--ds-warning,#b45309);font-weight:600" title="' + esc(TCi18n.t("mit.live.markt.unsichtbarTitle")) + '">' +
+                     esc(TCi18n.t("mit.live.markt.unsichtbar")) + '</span>');
+          }
+          aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" title="' + esc(TCi18n.t("mit.live.markt.ausTitle")) + '"' +
+                    ' onclick="toggleMarktpraesenz(\'' + esc(w.id) + '\', true)">' + esc(TCi18n.t("mit.live.markt.ausBtn")) + '</button>';
+        }
+      }
       /* data-person traegt die Profil-ID an der Zeile. Sie ist der Anker, an dem
          eine Benachrichtigung landet (Welle G4): ohne sie muesste der Fokus die
          Zeile ueber ihren angezeigten Text suchen — und der aendert sich mit
@@ -2029,6 +2074,24 @@ function renderTimeline(items, scope) {
              '</div></div>';
   }).join("");
 }
+
+/* Marktpraesenz-Schalter (Welle J2c): setzt den Ausschalter und laesst den
+   Server die Folgen sofort nachziehen (eigene Auto-Angebote zurueck bzw.
+   wieder in den Markt). Kein confirm-Dialog: der Schritt ist jederzeit
+   umkehrbar, und der Erfolgs-Toast benennt, was passiert ist. */
+function toggleMarktpraesenz(profileId, deaktiviert) {
+  if (!profileId) return;
+  api("/workers/" + encodeURIComponent(profileId) + "/marktpraesenz", { method: "POST", body: { deaktiviert: deaktiviert === true } })
+    .then(function(r) {
+      toast(TCi18n.t(deaktiviert ? "mit.live.markt.toastAus" : "mit.live.markt.toastAn",
+        { n: deaktiviert ? (r && r.zurueckgenommen) || 0 : ((r && r.wiederhergestellt) || 0) + ((r && r.materialisiert) || 0) }), "ok");
+      loadLiveBoard();
+    })
+    .catch(function(e) {
+      toast((e && (e.message || e.error)) || TCi18n.t("mit.live.markt.fehler"), "err");
+    });
+}
+window.toggleMarktpraesenz = toggleMarktpraesenz;
 
 function revokeAbsence(absenceId) {
   if (!absenceId) return;

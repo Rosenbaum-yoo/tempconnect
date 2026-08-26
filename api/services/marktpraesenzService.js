@@ -168,6 +168,14 @@ export async function sweepMarktpraesenz(pool) {
  * (Welle J2c) aufruft. Setzt den Ausschalter und zieht die Folgen sofort
  * nach, statt auf den naechsten Cron-Takt zu warten: wer abschaltet, will
  * die Kraft JETZT nicht mehr im Marktplatz sehen.
+ *
+ * JEDE Anweisung hier ist kraft- UND org-gebunden ($1 = Profil, $2 = Org).
+ * Der Org-Grenzen-Waechter (Spion-Pool) hat die erste Fassung zu Recht
+ * abgewiesen: sie liess nach dem org-gebundenen UPDATE den GLOBALEN Sweep
+ * laufen — im Ergebnis richtig (idempotent), als Mandantengrenze aber
+ * unbeweisbar. Eine Route, die fuer Org A handelt, schreibt hier nichts,
+ * was nicht nachweislich an Org A haengt; den Rest erledigt der Cron.
+ *
  * @returns {null} wenn die Kraft nicht zu dieser Org gehoert.
  */
 export async function setzeMarktpraesenz(pool, supplierOrgId, workerProfileId, deaktiviert) {
@@ -179,6 +187,79 @@ export async function setzeMarktpraesenz(pool, supplierOrgId, workerProfileId, d
     [workerProfileId, supplierOrgId, deaktiviert === true]
   );
   if (!rows[0]) return null;
-  const folgen = await sweepMarktpraesenz(pool);
-  return { worker_profile_id: rows[0].id, marktpraesenz_deaktiviert: rows[0].marktpraesenz_deaktiviert, ...folgen };
+
+  const kennung = [workerProfileId, supplierOrgId];
+  const zurueck = await pool.query(
+    `UPDATE capacity_posts cp
+        SET status = 'archived', is_active = FALSE, updated_at = NOW()
+      WHERE cp.quelle = 'live_belegschaft'
+        AND cp.worker_profile_id = $1
+        AND cp.status IN ('draft', 'active', 'paused')
+        AND EXISTS (
+          SELECT 1 FROM worker_profiles wp
+           WHERE wp.id = $1 AND wp.supplier_org_id = $2
+             AND (wp.marktpraesenz_deaktiviert = TRUE OR wp.is_active = FALSE)
+        )
+      RETURNING cp.id`,
+    kennung
+  );
+  const wieder = await pool.query(
+    `UPDATE capacity_posts cp
+        SET status = 'active', is_active = TRUE, updated_at = NOW()
+      WHERE cp.quelle = 'live_belegschaft'
+        AND cp.worker_profile_id = $1
+        AND cp.status = 'archived'
+        AND cp.worker_reserved = FALSE
+        AND EXISTS (
+          SELECT 1 FROM worker_profiles wp
+           WHERE wp.id = $1 AND wp.supplier_org_id = $2
+             AND wp.marktpraesenz_deaktiviert = FALSE AND wp.is_active = TRUE
+        )
+      RETURNING cp.id`,
+    kennung
+  );
+  const neu = await pool.query(
+    `INSERT INTO capacity_posts (
+       supplier_company_id, title, role, skill_tags, headcount,
+       availability_from, location_city, location_postal, worker_category,
+       status, is_active, org_id, worker_profile_id, primary_skill_id,
+       offer_kind, priority_level, placement_boost_level, is_anonymous, quelle
+     )
+     SELECT
+       (${AGENTUR_NUTZER_SQL}),
+       ps.name, ps.name, ARRAY[ps.name], 1,
+       CURRENT_DATE, wp.city, wp.postal_code, ps.category,
+       'active', TRUE, wp.supplier_org_id, wp.id, ps.id,
+       'single_skill', 'normal', 0, TRUE, 'live_belegschaft'
+       FROM worker_profiles wp
+       JOIN worker_profile_skills wps ON wps.worker_profile_id = wp.id
+       JOIN platform_skills ps ON ps.id = wps.skill_id AND ps.is_active = TRUE
+      WHERE wp.id = $1 AND wp.supplier_org_id = $2
+        AND wp.is_active = TRUE
+        AND wp.marktpraesenz_deaktiviert = FALSE
+        AND wp.city IS NOT NULL AND wp.city <> ''
+        AND (${AGENTUR_NUTZER_SQL}) IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM capacity_posts cp
+           WHERE cp.worker_profile_id = wp.id
+             AND cp.primary_skill_id = ps.id
+             AND cp.offer_kind = 'single_skill'
+             AND cp.status IN ('draft', 'active', 'paused')
+        )
+     ON CONFLICT (worker_profile_id, primary_skill_id)
+       WHERE offer_kind = 'single_skill'
+         AND worker_profile_id IS NOT NULL
+         AND primary_skill_id IS NOT NULL
+         AND status IN ('draft', 'active', 'paused')
+     DO NOTHING
+     RETURNING id`,
+    kennung
+  );
+  return {
+    worker_profile_id: rows[0].id,
+    marktpraesenz_deaktiviert: rows[0].marktpraesenz_deaktiviert,
+    zurueckgenommen: zurueck.rowCount || 0,
+    wiederhergestellt: wieder.rowCount || 0,
+    materialisiert: neu.rowCount || 0
+  };
 }

@@ -30,6 +30,7 @@ import * as profileGovSvc from "../services/workerProfileGovernanceService.js";
 import * as blocklistSvc from "../services/companyBlocklistService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
 import { fristLabelDE } from "../utils/dateDE.js";
+import * as marktpraesenzService from "../services/marktpraesenzService.js";
 import { swallow } from "../utils/logger.js";
 import { recordActivity } from "../services/eventTrackingService.js";
 
@@ -831,6 +832,33 @@ export function createWorkersRouter(deps) {
         limit: parseInt(req.query.limit, 10) || 300
       });
       res.json(board);
+    } catch (err) { next(err); }
+  });
+
+  /* ── Marktpraesenz-Schalter (Welle J2c) ──────────────────────────────────────
+   * Der AUSSCHALTER der Automatik "Verfuegbarkeit ist das Angebot" (Mig 200,
+   * Plan J §3.2): TRUE = diese Kraft erscheint nicht mehr als automatisches
+   * Einzelangebot im Marktplatz. Der Dienst zieht die Folgen SOFORT nach
+   * (Ruecknahme bzw. Wiederkehr der eigenen Angebote) — wer abschaltet, wartet
+   * nicht auf den Cron-Takt. Org-gebunden im Schreibvorgang selbst
+   * (supplier_org_id in der WHERE-Klausel), fremdes Profil = 404. */
+  router.post("/workers/:profileId([0-9a-fA-F-]{36})/marktpraesenz", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
+    try {
+      const deaktiviert = req.body?.deaktiviert === true;
+      const ergebnis = await marktpraesenzService.setzeMarktpraesenz(pool, req.orgId, req.params.profileId, deaktiviert);
+      if (!ergebnis) return res.status(404).json({ error: "NOT_FOUND" });
+      res.locals.audit = {
+        action: deaktiviert ? "worker.marktpraesenz_deaktiviert" : "worker.marktpraesenz_aktiviert",
+        entity_type: "worker_profile",
+        entity_id: req.params.profileId,
+        details: {
+          responsible_actor_user_id: req.session?.userId || null,
+          zurueckgenommen: ergebnis.zurueckgenommen,
+          wiederhergestellt: ergebnis.wiederhergestellt,
+          materialisiert: ergebnis.materialisiert
+        }
+      };
+      res.json(ergebnis);
     } catch (err) { next(err); }
   });
 

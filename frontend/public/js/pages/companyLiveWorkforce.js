@@ -41,8 +41,62 @@
     'clw.help.block': 'Sperren: Eine gesperrte Kraft wird Ihrem Unternehmen nicht mehr zugewiesen – dauerhaft oder befristet, jederzeit widerrufbar.',
 
     'clw.tab.live': 'Live-Belegschaft',
+    'clw.tab.available': 'Verfügbare Kräfte',
     'clw.tab.complaints': 'Meine Meldungen',
     'clw.tab.blocklist': 'Sperrliste',
+
+    'clw.avail.banner.1': 'Freie Kräfte aller Zeitarbeitsfirmen der Plattform – automatisch aus deren Live-Belegschaft, ohne dass jemand Angebote pflegt.',
+    'clw.avail.banner.strong': 'Buchen Sie in drei Schritten:',
+    'clw.avail.banner.2': 'Wie viele? Von wann bis wann? Zu welchem Preis? Für Ihr Unternehmen gesperrte Kräfte erscheinen hier nicht.',
+    'clw.avail.rolePh': 'Rolle oder Qualifikation…',
+    'clw.avail.roleHelp': 'z. B. Staplerfahrer, Pflege, Elektro',
+    'clw.avail.cityPh': 'Ort…',
+    'clw.avail.cityHelp': 'Genauer Ortsname des Einsatzorts',
+    'clw.avail.fromHelp': 'Ab wann brauchen Sie die Kräfte? Angezeigt wird, was zu diesem Datum verfügbar ist.',
+    'clw.avail.countPh': 'Anzahl',
+    'clw.avail.countHelp': 'Wie viele Kräfte mindestens? Angebote mit weniger freien Plätzen werden ausgeblendet.',
+    'clw.avail.th.role': 'Rolle / Qualifikation',
+    'clw.avail.th.city': 'Ort',
+    'clw.avail.th.window': 'Verfügbar',
+    'clw.avail.th.headcount': 'Personen',
+    'clw.avail.th.price': 'Preisrahmen',
+    'clw.avail.badge.auto': 'aus Live-Belegschaft',
+    'clw.avail.badge.autoTitle': 'Dieses Angebot hat die Plattform automatisch aus der freien Kapazität der Zeitarbeitsfirma erzeugt – es ist so aktuell wie deren Live-Belegschaft.',
+    'clw.avail.action.book': 'Buchen',
+    'clw.avail.action.bookTitle': 'In drei Schritten buchen: Anzahl, Zeitraum, Preis',
+    'clw.avail.count.results': '{count} Angebote',
+    'clw.avail.until': 'bis {date}',
+    'clw.avail.openEnd': 'ab {date}, offen',
+    'clw.avail.empty': 'Keine passenden freien Kräfte. Ändern Sie Filter oder Zeitraum – oder legen Sie unter Arbeitsplatzangebote einen Bedarf an, dann melden sich die Zeitarbeitsfirmen bei Ihnen.',
+
+    'clw.price.hourly': '€/Std.',
+    'clw.price.daily': '€/Tag',
+    'clw.price.fixed': '€ pauschal',
+
+    'clw.book.title': 'Buchung in drei Schritten',
+    'clw.book.q1': '1. Wie viele Kräfte?',
+    'clw.book.q2': '2. Von wann bis wann?',
+    'clw.book.q3': '3. Zu welchem Preis?',
+    'clw.book.endHelp': 'Leer lassen = offenes Ende',
+    'clw.book.countHint': '{count} verfügbar',
+    'clw.book.windowHint': 'Angeboten: {window}',
+    'clw.book.priceHintRange': 'Vorschlag aus dem Angebot: {min}–{max} {unit} – innerhalb dieses Rahmens ist Ihre Wahl sofort verbindlich.',
+    'clw.book.priceHintNone': 'Das Angebot nennt keinen Preisrahmen – Ihr Vorschlag geht in die Vereinbarung ein.',
+    'clw.book.submit': 'Verbindlich buchen',
+    'clw.book.busy': 'Wird gebucht…',
+    'clw.book.doneTitle': 'Buchung ausgelöst.',
+    'clw.book.doneText': 'Die Einsatzvereinbarung wurde erstellt – die Zeitarbeitsfirma bestätigt sie jetzt. Den Stand sehen Sie jederzeit in der Dealakte.',
+    'clw.book.doneRef': 'Referenz: {ref}',
+    'clw.book.openDeal': 'Dealakte öffnen',
+    'clw.book.err.blocked': 'Diese Kraft ist für Ihr Unternehmen gesperrt (Sperrliste). Heben Sie die Sperre auf, wenn Sie sie wieder einsetzen möchten.',
+    'clw.book.err.unavailable': 'Inzwischen vergeben – es sind nur noch {remaining} Plätze frei. Passen Sie die Anzahl an oder wählen Sie ein anderes Angebot.',
+    'clw.book.err.notActive': 'Dieses Angebot ist nicht mehr aktiv. Aktualisieren Sie die Liste.',
+    'clw.book.err.periodInvalid': 'Bitte einen gültigen Zeitraum wählen (Beginn vor Ende).',
+    'clw.book.err.periodPast': 'Der Beginn darf nicht in der Vergangenheit liegen.',
+    'clw.book.err.periodOutside': 'Der gewünschte Zeitraum liegt außerhalb des Angebots ({window}). Passen Sie ihn an – oder legen Sie einen eigenen Bedarf an.',
+    'clw.book.err.priceInvalid': 'Bitte einen gültigen Preis eingeben.',
+    'clw.book.err.priceOutside': 'Ihr Preis liegt außerhalb des angebotenen Rahmens ({min}–{max} {unit}). Innerhalb des Rahmens buchen Sie sofort – außerhalb starten Sie eine Verhandlung über die Angebotsseite.',
+    'clw.book.err.generic': 'Buchung fehlgeschlagen: {detail}',
 
     'clw.live.banner.1': 'Echtzeit-Überblick: Diese Kräfte Ihrer Zeitarbeitsfirmen sind',
     'clw.live.banner.strong': 'aktuell bei Ihnen im Einsatz',
@@ -82,6 +136,7 @@
 
     'clw.action.refresh': 'Aktualisieren',
     'clw.action.cancel': 'Abbrechen',
+    'clw.action.close': 'Schließen',
     'clw.action.report': 'Melden',
     'clw.action.reportTitle': 'Problem mit dieser Kraft an die Zeitarbeitsfirma melden',
     'clw.action.block': 'Sperren',
@@ -162,8 +217,62 @@
     'clw.help.block': 'Block: a blocked staff member is no longer assigned to your company – permanently or for a fixed period, revocable at any time.',
 
     'clw.tab.live': 'Live workforce',
+    'clw.tab.available': 'Available staff',
     'clw.tab.complaints': 'My reports',
     'clw.tab.blocklist': 'Block list',
+
+    'clw.avail.banner.1': 'Available staff from every staffing firm on the platform – pulled automatically from their live workforce, with nobody maintaining offers.',
+    'clw.avail.banner.strong': 'Book in three steps:',
+    'clw.avail.banner.2': 'How many? From when to when? At what price? Staff blocked for your company do not appear here.',
+    'clw.avail.rolePh': 'Role or qualification…',
+    'clw.avail.roleHelp': 'e.g. forklift driver, care, electrical',
+    'clw.avail.cityPh': 'City…',
+    'clw.avail.cityHelp': 'Exact city name of the work site',
+    'clw.avail.fromHelp': 'From when do you need the staff? The list shows what is available on that date.',
+    'clw.avail.countPh': 'Count',
+    'clw.avail.countHelp': 'How many staff at least? Offers with fewer open slots are hidden.',
+    'clw.avail.th.role': 'Role / qualification',
+    'clw.avail.th.city': 'City',
+    'clw.avail.th.window': 'Available',
+    'clw.avail.th.headcount': 'People',
+    'clw.avail.th.price': 'Price range',
+    'clw.avail.badge.auto': 'from live workforce',
+    'clw.avail.badge.autoTitle': 'The platform generated this offer automatically from the staffing firm’s free capacity – it is as current as their live workforce.',
+    'clw.avail.action.book': 'Book',
+    'clw.avail.action.bookTitle': 'Book in three steps: count, period, price',
+    'clw.avail.count.results': '{count} offers',
+    'clw.avail.until': 'until {date}',
+    'clw.avail.openEnd': 'from {date}, open end',
+    'clw.avail.empty': 'No matching available staff. Adjust filters or the period – or create a demand under job postings and the staffing firms will come to you.',
+
+    'clw.price.hourly': '€/hr',
+    'clw.price.daily': '€/day',
+    'clw.price.fixed': '€ fixed',
+
+    'clw.book.title': 'Booking in three steps',
+    'clw.book.q1': '1. How many staff?',
+    'clw.book.q2': '2. From when to when?',
+    'clw.book.q3': '3. At what price?',
+    'clw.book.endHelp': 'Leave empty = open end',
+    'clw.book.countHint': '{count} available',
+    'clw.book.windowHint': 'Offered: {window}',
+    'clw.book.priceHintRange': 'Suggestion from the offer: {min}–{max} {unit} – within this range your choice is immediately binding.',
+    'clw.book.priceHintNone': 'The offer names no price range – your proposal goes into the agreement.',
+    'clw.book.submit': 'Book bindingly',
+    'clw.book.busy': 'Booking…',
+    'clw.book.doneTitle': 'Booking placed.',
+    'clw.book.doneText': 'The assignment agreement has been created – the staffing firm is confirming it now. You can follow the status in the deal file at any time.',
+    'clw.book.doneRef': 'Reference: {ref}',
+    'clw.book.openDeal': 'Open deal file',
+    'clw.book.err.blocked': 'This staff member is blocked for your company (block list). Lift the block if you want to use them again.',
+    'clw.book.err.unavailable': 'Taken in the meantime – only {remaining} slots are left. Adjust the count or choose another offer.',
+    'clw.book.err.notActive': 'This offer is no longer active. Refresh the list.',
+    'clw.book.err.periodInvalid': 'Please choose a valid period (start before end).',
+    'clw.book.err.periodPast': 'The start must not lie in the past.',
+    'clw.book.err.periodOutside': 'The requested period lies outside the offer ({window}). Adjust it – or create your own demand.',
+    'clw.book.err.priceInvalid': 'Please enter a valid price.',
+    'clw.book.err.priceOutside': 'Your price lies outside the offered range ({min}–{max} {unit}). Within the range you book immediately – outside it you start a negotiation via the offer page.',
+    'clw.book.err.generic': 'Booking failed: {detail}',
 
     'clw.live.banner.1': 'Real-time overview: these staff from your staffing firms are',
     'clw.live.banner.strong': 'currently on assignment with you',
@@ -203,6 +312,7 @@
 
     'clw.action.refresh': 'Refresh',
     'clw.action.cancel': 'Cancel',
+    'clw.action.close': 'Close',
     'clw.action.report': 'Report',
     'clw.action.reportTitle': 'Report an issue with this staff member to the staffing firm',
     'clw.action.block': 'Block',
@@ -319,6 +429,7 @@
     var hash = String((window.location && window.location.hash) || '');
     if (hash === '#meldungen') { clwView('complaints'); return; }
     if (hash === '#sperrliste') { clwView('blocklist'); return; }
+    if (hash === '#verfuegbar') { clwView('available'); return; }
     /* Live ist der Startzustand — auch fuer '#live' aus alten Deep-Links. */
     clwView('live');
   }
@@ -359,14 +470,15 @@
     }, 6000);
   }
 
-  var VIEWS = { live: 'viewLive', complaints: 'viewComplaints', blocklist: 'viewBlocklist' };
-  var TABS = { live: 'tabLive', complaints: 'tabComplaints', blocklist: 'tabBlocklist' };
+  var VIEWS = { live: 'viewLive', available: 'viewAvailable', complaints: 'viewComplaints', blocklist: 'viewBlocklist' };
+  var TABS = { live: 'tabLive', available: 'tabAvailable', complaints: 'tabComplaints', blocklist: 'tabBlocklist' };
   function clwView(mode) {
     Object.keys(VIEWS).forEach(function (k) {
       document.getElementById(VIEWS[k]).style.display = (k === mode) ? '' : 'none';
       document.getElementById(TABS[k]).classList.toggle('ct-tab--active', k === mode);
     });
     if (mode === 'live' && !_liveLoaded) clwLoadLive();
+    if (mode === 'available' && !_availLoaded) clwLoadAvailable();
     if (mode === 'blocklist' && !_blocklistLoaded) clwLoadBlocklist();
     if (mode === 'complaints' && !_complaintsLoaded) clwLoadComplaints();
     if (mode === 'live') startLivePolling(); else stopLivePolling();
@@ -497,6 +609,190 @@
        eine dauerhaft alarmierte Kachel liest sich nach kurzer Zeit wie Deko. */
     document.getElementById('lwOut').style.color = aus > 0 ? 'var(--ds-danger)' : '';
   }
+
+  /* ── Verfuegbare Kraefte (Welle J2c): der Marktplatz aus Unternehmenssicht ──
+     Gespeist aus dem Kapazitaets-Feed; die Automatik (J2b) haelt ihn aus der
+     Live-Belegschaft aller Zeitarbeitsfirmen aktuell, der Server blendet
+     gesperrte Kraefte aus und traegt den Buchungs-Riegel (accept-deal). */
+  var _availLoaded = false;
+  var _availRows = [];
+  var _availTimer = null;
+  var _bkEntry = null;
+
+  function clwAvailDebounce() { clearTimeout(_availTimer); _availTimer = setTimeout(clwLoadAvailable, 350); }
+  window.clwAvailDebounce = clwAvailDebounce;
+
+  async function clwLoadAvailable() {
+    var teile = ['limit=50'];
+    var rolle = (document.getElementById('avRole').value || '').trim();
+    var ort = (document.getElementById('avCity').value || '').trim();
+    var ab = (document.getElementById('avFrom').value || '').trim();
+    var anzahl = (document.getElementById('avCount').value || '').trim();
+    if (rolle) teile.push('role=' + encodeURIComponent(rolle));
+    if (ort) teile.push('city=' + encodeURIComponent(ort));
+    if (ab) teile.push('availability_from=' + encodeURIComponent(ab));
+    if (anzahl) teile.push('min_headcount=' + encodeURIComponent(anzahl));
+    try {
+      var data = await TC.api.get('/capacity-exchange/feed?' + teile.join('&'));
+      _availLoaded = true;
+      /* Nur die Angebotsseite: Bedarfe anderer Unternehmen gehoeren nicht in
+         die Auswahl freier Kraefte. */
+      _availRows = ((data && data.items) || []).filter(function (r) { return r.feed_type === 'supply'; });
+      renderAvailable(_availRows);
+    } catch (e) {
+      document.getElementById('avBody').innerHTML =
+        '<tr><td colspan="7" class="ct-empty">' + esc(t('clw.err.load', { detail: errDetail(e) })) + '</td></tr>';
+    }
+  }
+  window.clwLoadAvailable = clwLoadAvailable;
+
+  function preisEinheit(typ) {
+    if (typ === 'daily') return t('clw.price.daily');
+    if (typ === 'fixed') return t('clw.price.fixed');
+    return t('clw.price.hourly');
+  }
+  function fmtPreis(r) {
+    var min = r.price_min != null ? Number(r.price_min) : null;
+    var max = r.price_max != null ? Number(r.price_max) : null;
+    if (min == null && max == null) return '–';
+    var zahl = (min != null && max != null && min !== max) ? (min + '–' + max) : String(min != null ? min : max);
+    return zahl + ' ' + preisEinheit(r.price_type);
+  }
+  function freiePlaetze(r) {
+    var n = (r.remaining_headcount != null) ? Number(r.remaining_headcount) : Number(r.headcount || 1);
+    return Math.max(0, n);
+  }
+  function fensterText(r) {
+    return r.availability_to
+      ? (fmtDate(r.availability_from) + ' ' + t('clw.avail.until', { date: fmtDate(r.availability_to) }))
+      : t('clw.avail.openEnd', { date: fmtDate(r.availability_from) });
+  }
+
+  function renderAvailable(list) {
+    document.getElementById('avCountLabel').textContent = t('clw.avail.count.results', { count: list.length });
+    var tb = document.getElementById('avBody');
+    if (!list.length) {
+      tb.innerHTML = '<tr><td colspan="7" class="ct-empty">' + esc(t('clw.avail.empty')) + '</td></tr>';
+      return;
+    }
+    tb.innerHTML = list.map(function (r) {
+      var autoBadge = (r.quelle === 'live_belegschaft')
+        ? ' <span class="ct-badge ct-badge--done" title="' + esc(t('clw.avail.badge.autoTitle')) + '">' + esc(t('clw.avail.badge.auto')) + '</span>'
+        : '';
+      var firma = esc(r.org_name || r.supplier_company_name || '–') +
+        (r.reputation_grade ? ' <span class="ct-badge ct-badge--ok" title="Zuverlässigkeit">' + esc(String(r.reputation_grade)) + '</span>' : '');
+      return '<tr>' +
+        '<td><div style="font-weight:600">' + esc(r.title || r.role || '–') + '</div>' +
+          (r.role && r.title && r.role !== r.title ? '<div class="ct-sub">' + esc(r.role) + '</div>' : '') + autoBadge + '</td>' +
+        '<td>' + firma + '</td>' +
+        '<td>' + esc(r.location_city || '–') + (r.location_postal ? '<div class="ct-sub">' + esc(r.location_postal) + '</div>' : '') + '</td>' +
+        '<td>' + esc(fensterText(r)) + '</td>' +
+        '<td>' + freiePlaetze(r) + '</td>' +
+        '<td>' + esc(fmtPreis(r)) + '</td>' +
+        '<td style="text-align:right"><button class="ct-btn ct-btn--ok" onclick="clwBook(\'' + esc(r.id) + '\')" title="' + esc(t('clw.avail.action.bookTitle')) + '">' + esc(t('clw.avail.action.book')) + '</button></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  /* ── Das Buchungs-Modal: die drei Fragen (Plan J §0.2) ─────────────────── */
+
+  function clwBook(entryId) {
+    var r = _availRows.find(function (x) { return String(x.id) === String(entryId); });
+    if (!r) return;
+    _bkEntry = r;
+    document.getElementById('bkOfferLine').textContent =
+      (r.title || r.role || '') + ' · ' + (r.org_name || r.supplier_company_name || '') + ' · ' + (r.location_city || '');
+    var frei = Math.max(1, freiePlaetze(r));
+    var cnt = document.getElementById('bkCount');
+    cnt.value = '1'; cnt.max = String(frei);
+    document.getElementById('bkCountHint').textContent = t('clw.book.countHint', { count: frei });
+    /* Vorbelegung Zeitraum: fruehester buchbarer Start ist heute bzw. der
+       Angebotsbeginn — dieselbe Regel wie im Server (pruefeBuchungsWuensche). */
+    var heute = isoDate(new Date());
+    var von = String(r.availability_from || '').slice(0, 10);
+    document.getElementById('bkStart').value = (von && von > heute) ? von : heute;
+    document.getElementById('bkEnd').value = r.availability_to ? String(r.availability_to).slice(0, 10) : '';
+    document.getElementById('bkWindowHint').textContent = t('clw.book.windowHint', { window: fensterText(r) });
+    /* Vorbelegung Preis (Frage 3, "am besten mit Vorschlaegen"): die Mitte des
+       angebotenen Rahmens, auf 50 Cent gerundet. */
+    var min = r.price_min != null ? Number(r.price_min) : null;
+    var max = r.price_max != null ? Number(r.price_max) : null;
+    var vorschlag = (min != null && max != null) ? Math.round((min + max)) / 2 : (min != null ? min : (max != null ? max : ''));
+    document.getElementById('bkPrice').value = vorschlag === '' ? '' : String(Math.round(vorschlag * 2) / 2);
+    document.getElementById('bkPriceHint').textContent = (min != null || max != null)
+      ? t('clw.book.priceHintRange', { min: (min != null ? min : max), max: (max != null ? max : min), unit: preisEinheit(r.price_type) })
+      : t('clw.book.priceHintNone');
+    document.getElementById('bkErr').style.display = 'none';
+    document.getElementById('bkForm').style.display = '';
+    document.getElementById('bkDone').style.display = 'none';
+    var senden = document.getElementById('bkSubmit');
+    senden.style.display = ''; senden.disabled = false; senden.textContent = t('clw.book.submit');
+    document.getElementById('clwBookModal').classList.add('active');
+  }
+  window.clwBook = clwBook;
+
+  function clwBookClose() { document.getElementById('clwBookModal').classList.remove('active'); _bkEntry = null; }
+  window.clwBookClose = clwBookClose;
+
+  function bkFehler(text) {
+    var el = document.getElementById('bkErr');
+    el.textContent = text; el.style.display = '';
+  }
+
+  /* Serverfehler in eine Handlungsanweisung uebersetzen. Der Server ist der
+     Riegel — hier wird nur ERKLAERT, nie entschieden. */
+  function bkFehlerText(e) {
+    var code = String((e && (e.code || e.error)) || '');
+    if (code === 'WORKER_BLOCKED_FOR_COMPANY') return t('clw.book.err.blocked');
+    if (code === 'CAPACITY_UNAVAILABLE') return t('clw.book.err.unavailable', { remaining: (e && e.remaining_headcount != null) ? e.remaining_headcount : 0 });
+    if (code === 'NOT_ACTIVE') return t('clw.book.err.notActive');
+    if (code === 'PERIOD_INVALID') return t('clw.book.err.periodInvalid');
+    if (code === 'PERIOD_IN_PAST') return t('clw.book.err.periodPast');
+    if (code === 'PERIOD_OUTSIDE_OFFER') {
+      var fenster = (e && e.offered_from) ? (fmtDate(e.offered_from) + '–' + (e.offered_to ? fmtDate(e.offered_to) : t('clw.live.openEnd'))) : (_bkEntry ? fensterText(_bkEntry) : '');
+      return t('clw.book.err.periodOutside', { window: fenster });
+    }
+    if (code === 'PRICE_INVALID') return t('clw.book.err.priceInvalid');
+    if (code === 'PRICE_OUTSIDE_OFFER') {
+      return t('clw.book.err.priceOutside', {
+        min: (e && e.price_min != null) ? e.price_min : '–',
+        max: (e && e.price_max != null) ? e.price_max : '–',
+        unit: preisEinheit(e && e.price_type)
+      });
+    }
+    return t('clw.book.err.generic', { detail: errDetail(e) });
+  }
+
+  async function clwBookSubmit() {
+    if (!_bkEntry) return;
+    var body = { headcount: parseInt(document.getElementById('bkCount').value, 10) || 1 };
+    var start = (document.getElementById('bkStart').value || '').trim();
+    var ende = (document.getElementById('bkEnd').value || '').trim();
+    var preis = (document.getElementById('bkPrice').value || '').trim();
+    if (start) body.start_date = start;
+    if (ende) body.end_date = ende;
+    if (preis) body.price_value = parseFloat(preis);
+    var senden = document.getElementById('bkSubmit');
+    senden.disabled = true; senden.textContent = t('clw.book.busy');
+    try {
+      var ergebnis = await TC.api.post('/marketplace/capacity-posts/' + _bkEntry.id + '/accept-deal', body);
+      document.getElementById('bkForm').style.display = 'none';
+      document.getElementById('bkDone').style.display = '';
+      senden.style.display = 'none';
+      document.getElementById('bkDoneRef').textContent = ergebnis && ergebnis.agreement_ref
+        ? t('clw.book.doneRef', { ref: ergebnis.agreement_ref }) : '';
+      var akte = document.getElementById('bkDoneLink');
+      akte.href = (ergebnis && ergebnis.offer && ergebnis.offer.id)
+        ? ('/public/offer_detail.html?id=' + encodeURIComponent(ergebnis.offer.id)) : '/public/deal_management.html';
+      /* Die Liste stimmt jetzt nicht mehr (Plaetze reserviert) — neu laden. */
+      _availLoaded = false;
+      clwLoadAvailable();
+    } catch (e) {
+      bkFehler(bkFehlerText(e));
+      senden.disabled = false; senden.textContent = t('clw.book.submit');
+    }
+  }
+  window.clwBookSubmit = clwBookSubmit;
 
   /* ── Sperren-Modal + Sperrliste ──────────────────────────────────────── */
   var _blkSupplierOrgId = null;
@@ -698,6 +994,7 @@
      einzigen zusaetzlichen Netzabruf. */
   document.addEventListener('tc:langchange', function () {
     if (_liveLoaded) renderLive(_liveRows);
+    if (_availLoaded) renderAvailable(_availRows);
     if (_blocklistLoaded) renderBlocklist(_blockRows);
     if (_complaintsLoaded) renderComplaints(_complaintRows);
   });
@@ -705,6 +1002,7 @@
   // Modal-Klick ausserhalb schliesst
   document.getElementById('ctBlockModal').addEventListener('click', function (e) { if (e.target === this) clwBlkClose(); });
   document.getElementById('ctComplaintModal').addEventListener('click', function (e) { if (e.target === this) clwCompClose(); });
+  document.getElementById('clwBookModal').addEventListener('click', function (e) { if (e.target === this) clwBookClose(); });
 
   init();
 })();

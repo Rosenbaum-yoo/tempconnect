@@ -95,6 +95,7 @@
 
     <div class="ct-tabs">
       <button class="ct-tab ct-tab--active" id="tabLive" onclick="clwView('live')"><span class="ct-live-dot"></span><span data-i18n="clw.tab.live">Live-Belegschaft</span></button>
+      <button class="ct-tab" id="tabAvailable" onclick="clwView('available')" data-i18n="clw.tab.available">Verfügbare Kräfte</button>
       <button class="ct-tab" id="tabComplaints" onclick="clwView('complaints')" data-i18n="clw.tab.complaints">Meine Meldungen</button>
       <button class="ct-tab" id="tabBlocklist" onclick="clwView('blocklist')" data-i18n="clw.tab.blocklist">Sperrliste</button>
     </div>
@@ -123,6 +124,31 @@
         <tbody id="lwBody"><tr><td colspan="8" class="ct-empty">–</td></tr></tbody>
       </table>
     </div><!-- /viewLive -->
+
+    <!-- Verfuegbare Kraefte (Welle J2c): der Marktplatz aus Unternehmenssicht.
+         Gespeist aus dem Kapazitaets-Feed - die Automatik (J2b) haelt ihn aus
+         der Live-Belegschaft aller Zeitarbeitsfirmen aktuell. -->
+    <div id="viewAvailable" style="display:none">
+      <div class="ct-banner">
+        <span data-i18n="clw.avail.banner.1">Freie Kräfte aller Zeitarbeitsfirmen der Plattform – automatisch aus deren Live-Belegschaft, ohne dass jemand Angebote pflegt.</span>
+        <strong data-i18n="clw.avail.banner.strong">Buchen Sie in drei Schritten:</strong>
+        <span data-i18n="clw.avail.banner.2">Wie viele? Von wann bis wann? Zu welchem Preis? Für Ihr Unternehmen gesperrte Kräfte erscheinen hier nicht.</span>
+      </div>
+      <div class="ct-toolbar">
+        <input id="avRole" class="ct-btn" placeholder="Rolle oder Qualifikation…" data-i18n-ph="clw.avail.rolePh" oninput="clwAvailDebounce()" style="min-width:200px" title="z. B. Staplerfahrer, Pflege, Elektro" data-i18n-title="clw.avail.roleHelp"/>
+        <input id="avCity" class="ct-btn" placeholder="Ort…" data-i18n-ph="clw.avail.cityPh" oninput="clwAvailDebounce()" style="min-width:140px" title="Genauer Ortsname des Einsatzorts" data-i18n-title="clw.avail.cityHelp"/>
+        <input id="avFrom" class="ct-btn" type="date" onchange="clwLoadAvailable()" title="Ab wann brauchen Sie die Kräfte? Angezeigt wird, was zu diesem Datum verfügbar ist." data-i18n-title="clw.avail.fromHelp"/>
+        <input id="avCount" class="ct-btn" type="number" min="1" step="1" placeholder="Anzahl" data-i18n-ph="clw.avail.countPh" onchange="clwLoadAvailable()" style="width:90px" title="Wie viele Kräfte mindestens? Angebote mit weniger freien Plätzen werden ausgeblendet." data-i18n-title="clw.avail.countHelp"/>
+        <button class="ct-btn" onclick="clwLoadAvailable()" data-i18n="clw.action.refresh">Aktualisieren</button>
+        <span id="avCountLabel" class="ct-sub"></span>
+      </div>
+      <table class="ct-table">
+        <thead><tr>
+          <th data-i18n="clw.avail.th.role">Rolle / Qualifikation</th><th data-i18n="clw.th.agency">Zeitarbeitsfirma</th><th data-i18n="clw.avail.th.city">Ort</th><th data-i18n="clw.avail.th.window">Verfügbar</th><th data-i18n="clw.avail.th.headcount">Personen</th><th data-i18n="clw.avail.th.price">Preisrahmen</th><th></th>
+        </tr></thead>
+        <tbody id="avBody"><tr><td colspan="7" class="ct-empty">–</td></tr></tbody>
+      </table>
+    </div><!-- /viewAvailable -->
 
     <div id="viewComplaints" style="display:none">
       <div class="ct-banner" data-i18n="clw.cmp.banner">
@@ -163,6 +189,49 @@
         <tbody id="blBody"><tr><td colspan="5" class="ct-empty">–</td></tr></tbody>
       </table>
     </div><!-- /viewBlocklist -->
+  </div>
+
+  <!-- Buchungs-Modal (Welle J2c): die drei Fragen vor der Buchung.
+       Owner-Entscheid Plan J 0.2 - wie viele, von wann bis wann, zu welchem
+       Preis (mit Vorschlag). Der Riegel ist der Server: accept-deal prueft
+       Zeitraum und Preis gegen das Angebot und die Sperrliste. -->
+  <div id="clwBookModal" class="ct-modal">
+    <div class="ct-modal__box" style="max-width:520px">
+      <div style="padding:20px 22px 0">
+        <div style="font-size:1.1rem;font-weight:700" data-i18n="clw.book.title">Buchung in drei Schritten</div>
+        <div id="bkOfferLine" class="ct-sub" style="margin-top:3px"></div>
+      </div>
+      <div style="padding:16px 22px" id="bkForm">
+        <label class="ct-sub" style="display:block;margin-bottom:4px"><strong data-i18n="clw.book.q1">1. Wie viele Kräfte?</strong></label>
+        <input type="number" id="bkCount" class="ct-btn" min="1" step="1" value="1" style="width:100%;margin-bottom:4px"/>
+        <div id="bkCountHint" class="ct-sub" style="margin-bottom:12px"></div>
+
+        <label class="ct-sub" style="display:block;margin-bottom:4px"><strong data-i18n="clw.book.q2">2. Von wann bis wann?</strong></label>
+        <div style="display:flex;gap:8px;margin-bottom:4px">
+          <input type="date" id="bkStart" class="ct-btn" style="flex:1"/>
+          <input type="date" id="bkEnd" class="ct-btn" style="flex:1" title="Leer lassen = offenes Ende" data-i18n-title="clw.book.endHelp"/>
+        </div>
+        <div id="bkWindowHint" class="ct-sub" style="margin-bottom:12px"></div>
+
+        <label class="ct-sub" style="display:block;margin-bottom:4px"><strong data-i18n="clw.book.q3">3. Zu welchem Preis?</strong></label>
+        <input type="number" id="bkPrice" class="ct-btn" min="0" step="0.5" style="width:100%;margin-bottom:4px"/>
+        <div id="bkPriceHint" class="ct-sub" style="margin-bottom:12px"></div>
+
+        <div id="bkErr" style="display:none;margin-top:4px;padding:8px 10px;background:#fee2e2;color:#991b1b;border-radius:8px;font-size:.83rem"></div>
+      </div>
+      <div id="bkDone" style="display:none;padding:4px 22px 16px">
+        <div class="ct-banner" style="border-left-color:var(--ds-success)">
+          <strong data-i18n="clw.book.doneTitle">Buchung ausgelöst.</strong>
+          <span data-i18n="clw.book.doneText">Die Einsatzvereinbarung wurde erstellt – die Zeitarbeitsfirma bestätigt sie jetzt. Den Stand sehen Sie jederzeit in der Dealakte.</span>
+          <div id="bkDoneRef" style="margin-top:6px;font-weight:700"></div>
+        </div>
+        <a id="bkDoneLink" href="#" class="ct-btn ct-btn--ok" style="display:inline-block;text-decoration:none" data-i18n="clw.book.openDeal">Dealakte öffnen</a>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;padding:0 22px 20px">
+        <button class="ct-btn" onclick="clwBookClose()" data-i18n="clw.action.close">Schließen</button>
+        <button class="ct-btn ct-btn--ok" id="bkSubmit" onclick="clwBookSubmit()" data-i18n="clw.book.submit">Verbindlich buchen</button>
+      </div>
+    </div>
   </div>
 
   <!-- Sperren-Modal -->

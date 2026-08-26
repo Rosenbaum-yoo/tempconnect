@@ -705,6 +705,15 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
 
   const { rows } = await pool.query(
     `SELECT wp.id, wp.user_id, wp.first_name, wp.last_name, wp.personnel_number, wp.is_active,
+            /* Marktpraesenz (Welle J2c): der Ausschalter (Mig 200) und ob die
+             * Kraft ueberhaupt materialisierbar ist. Ohne Katalog-Skill ist
+             * sie am Markt UNSICHTBAR — gemessen traf das 30 von 33 Kraeften;
+             * die Tafel muss das zeigen, sonst merkt es niemand. */
+            wp.marktpraesenz_deaktiviert,
+            EXISTS (
+              SELECT 1 FROM worker_profile_skills wps_x
+               WHERE wps_x.worker_profile_id = wp.id
+            ) AS hat_katalog_skill,
             cur.assignment_id, cur.link_id, cur.assignment_status, cur.client_name, cur.start_date,
             cur.kunde_kontakt_name, cur.kunde_kontakt_telefon,
             cur.effective_end_date, cur.lifecycle_state,

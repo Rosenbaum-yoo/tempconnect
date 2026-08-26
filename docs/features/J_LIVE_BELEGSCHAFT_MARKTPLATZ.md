@@ -398,6 +398,34 @@ erklärt, eine Sperre setzen kann, in beiden Sprachen vollständig ist, und alle
   gepflegt — die Automatik misst diese Lücke jetzt mit
   (`unsichtbar_ohne_skill`/`_ohne_ort`) für Aufsicht (J6) und Agentur-Hinweis (J2c).
   Skill-Pflege ist damit der Hebel, der den Marktplatz füllt.
+- ✅ **J2c komplett** *(2026-08-26)* — drei Teile:
+  **(1) Server:** `marktplatzBuchungService.pruefeBuchungsWuensche` prüft die drei
+  Owner-Fragen gegen das Angebot (Europe/Berlin; außerhalb = Verhandlung, Antwort
+  trägt den Rahmen); `accept-deal` nimmt sie additiv an und friert einen gewählten
+  Preis als Zahl ein. Sperrliste greift: Feed-Ausblendung (`browseFeed`,
+  org-gebunden, befristungs-bewusst) + serverseitiger Riegel in `accept-deal`
+  (409, **vor** der Angebotserstellung). **Releasekritischer Beifang:** Seit P9/B1
+  (46dab6b, 10.08.) brach der GESAMTE Feed für jeden angemeldeten Betrachter —
+  der Merk-Parameter fuhr in der Zähl-Query mit (Postgres 08P01); Mock-Pools
+  schlucken überzählige Parameter, der neue DB-gated Teil C nicht. Gefixt
+  (`countParams` vor dem Merk-Push eingefroren); Feed liefert wieder.
+  **→ Muss auf die Release-Linie** (dort weiter kaputt, bis gemergt/gecherry-pickt).
+  **(2) Unternehmenssicht:** Reiter „Verfügbare Kräfte" auf der Live-Belegschaft-
+  Fläche (`#verfuegbar`): Filter wo/ab wann/wie viele/Rolle (vorhandene
+  Feed-Parameter), anonymisierte Liste mit „aus Live-Belegschaft"-Abzeichen,
+  Buchen-Knopf → **3-Fragen-Modal** (Vorbelegung: heute/Angebotsfenster,
+  Preisvorschlag = Rahmenmitte) → `accept-deal` → Erfolgsansicht mit Referenz +
+  Dealakte-Link; jeder Serverfehler wird zur Handlungsanweisung übersetzt.
+  **(3) Agenturtafel:** `POST /workers/:profileId/marktpraesenz` (org-gebunden,
+  auditiert), Markt-an/aus je Kraft auf der Live-Tafel, Warnabzeichen „Im
+  Marktplatz unsichtbar – Katalog-Skills fehlen" mit Erklär-Tooltip;
+  `getWorkerLiveBoard` liefert `marktpraesenz_deaktiviert` + `hat_katalog_skill`.
+  **Wächter-Lektion:** Der Org-Grenzen-Spion wies die erste Schalter-Fassung ab
+  (globaler Sweep nach org-gebundenem UPDATE = unbeweisbare Grenze) —
+  `setzeMarktpraesenz` läuft jetzt vollständig kraft- UND org-gebunden; Register
+  `wachen.json` (466/163) + `orgGrenzen.json` (`sql-grenze`) gepflegt, 622/622.
+  **Offen aus J2c:** E2E-Klickpfad (Playwright) erst nach Merge in die
+  Release-Linie sinnvoll (der Docker-Stack fährt das Haupt-Repo).
 - Neue Ansicht: „Wer ist frei?" — gespeist aus `live_status IN ('verfuegbar','endet_bald')`
 - Filter nach Owner-Vorgabe: **wo, wie viele, ab wann** + Qualifikation
 - Darstellung nach 3.1, aufgesetzt auf die vorhandene Whitelist
@@ -489,8 +517,35 @@ funktionieren, so dass es abrechenbar ist mit den Stundenzetteln." Der Kern exis
   `agreement_snapshot` unveränderlich an den Einsatz — heute ist
   `assignments.hourly_rate_cents` frei editierbar, die Rechnung würde einen später
   geänderten Satz abrechnen.
+- **Eigener Nummernkreis je Zeitarbeitsfirma (Owner-Entscheid 2026-08-26):** Heute
+  vergibt `invoice_number_seq` global `TC-<Jahr>-<Nr>`. Rechtlich stellt die
+  Zeitarbeitsfirma die Rechnung — sie braucht einen eigenen, **lückenlosen** Kreis je
+  `supplier_org_id` (§14 UStG: fortlaufend; Lücken erklären zu müssen ist ein
+  Prüfungsrisiko des Kunden, nicht unseres — deshalb Vergabe erst beim `issue`, nie
+  beim Entwurf).
 - Aus J2 gebuchte Einsätze tragen den Satz aus dem Buchungs-Modal (Frage 3) — damit ist
   jede Marktplatz-Buchung ohne weiteren Schritt abrechenbar.
+
+### Welle J8 — AÜG-Fristenwächter (Owner-Entscheid 2026-08-26: bauen)
+
+Owner: „gerne auch die AÜG-Fristen beachten und warnen, wenn mehr oder 18 Monate
+knapp sind." Gemessen (2.4): nirgends modelliert — nur Dokument-Compliance und
+Haftungsausschluss.
+
+- **Die Regel (§ 1 Abs. 1b AÜG):** Höchstüberlassungsdauer 18 Monate **je Kraft je
+  Einsatzunternehmen**, nicht je Einsatz. Unterbrechungen unter 3 Monaten zählen
+  nicht als Neubeginn — die Rechnung muss über `worker_assignment_links` hinweg
+  addieren (gleicher Mensch, gleiche Kunden-Org, Lücken < 3 Monate überbrücken).
+- **Warnen, nicht blockieren:** TempConnect ist nicht der Verleiher (Disclaimer
+  bleibt). Drei Stufen: Hinweis ab 15 Monaten kumulierter Dauer, Warnung ab 17,
+  Alarm ab 18 — sichtbar auf beiden Live-Tafeln und als Benachrichtigung an die
+  Zeitarbeitsfirma (sie trägt die Pflicht) mit Kopie-Hinweis an den Kunden ohne
+  Personenbezug über das Nötige hinaus.
+- **Mechanik:** set-basierte Prüfung im `staffing-maintenance`-Takt (dasselbe Muster
+  wie Marktpräsenz/Reservierung), Meldungstyp mit Dedupe je (Kraft, Kunde, Stufe) —
+  keine tägliche Wiederholung derselben Warnung.
+- **Equal Pay (9 Monate)** ist eine ANDERE Frist mit Tarif-Ausnahmen — bewusst NICHT
+  in J8 (Zuschlagslogik wäre Ratenberatung). Nur die Überlassungsdauer.
 
 ---
 
@@ -564,17 +619,13 @@ Vorschlägen, im Modal** (§0.2).
 ~~3. Notdienst-Aufschlag~~ ✅ entschieden: **keiner** — Notdienst ist das
 Verkaufsargument (§0.3).
 
-Noch offen:
+~~4. AÜG-Fristen~~ ✅ entschieden (Owner 2026-08-26): **Ja, beachten und warnen** —
+wenn die 18 Monate überschritten sind **oder knapp werden**. → **Welle J8** (unten).
+~~5. Rechnungs-Nummernkreis~~ ✅ entschieden (Owner 2026-08-26): **Ja, eigener
+lückenloser Nummernkreis je Zeitarbeitsfirma** (`supplier_org_id`), bevor die erste
+echte Rechnung das Haus verlässt. → fest in **Welle J7** verankert.
 
-4. **AÜG-Fristen (2.4):** Die Plattform modelliert Höchstüberlassungsdauer/Equal-Pay
-   nirgends — bewusst, denn TempConnect ist nicht der Verleiher. Soll sie trotzdem
-   **warnen** (z. B. „Einsatz überschreitet 18 Monate"), als Service-Merkmal? Das passt
-   zur Marktposition „Bindegewebe mit gesetzlichen Fristen als Kaufgrund", ist aber eine
-   Produktentscheidung mit Haftungs-Beigeschmack.
-5. **Rechnungs-Nummernkreis je Zeitarbeitsfirma (J7):** Heute vergibt die Plattform
-   `TC-<Jahr>-<Nr>` global. Rechtlich stellt die **Zeitarbeitsfirma** die Rechnung —
-   braucht sie ihren eigenen, lückenlosen Nummernkreis je Org? *Empfehlung: ja, je
-   `supplier_org_id`, bevor die erste echte Rechnung das Haus verlässt.*
+*Keine offenen Owner-Entscheidungen. Alle Wellen sind freigegeben.*
 
 ---
 
