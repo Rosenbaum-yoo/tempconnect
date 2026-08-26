@@ -487,14 +487,14 @@ const MATRIX = {
     severity: 'warning',
     title: 'Einsatzkraft fällt aus',
     recipientStrategy: 'client_org_assignment_managers',
-    linkPath: '/public/company-timesheets.html#live'
+    linkPath: '/public/company-live-workforce.html'
   },
   'assignment.worker_replaced': {
     type: 'assignment_worker_replaced',
     severity: 'success',
     title: 'Ersatz für Ihren Einsatz',
     recipientStrategy: 'client_org_assignment_managers',
-    linkPath: '/public/company-timesheets.html#live'
+    linkPath: '/public/company-live-workforce.html'
   },
   /* Die vorgesehene Kraft hat die Zuweisung nicht innerhalb der Frist bestätigt
    * (Migration 195). Der Kunde MUSS das erfahren, anders als beim Ersatz: die
@@ -513,7 +513,7 @@ const MATRIX = {
     severity: 'warning',
     title: 'Platz auf Ihrem Einsatz wieder offen',
     recipientStrategy: 'client_org_assignment_managers',
-    linkPath: '/public/company-timesheets.html#live'
+    linkPath: '/public/company-live-workforce.html'
   }
 };
 

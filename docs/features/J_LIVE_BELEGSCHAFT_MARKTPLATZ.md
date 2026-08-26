@@ -28,6 +28,40 @@
 
 ---
 
+## 0. Owner-Entscheidungen (2026-08-26, verbindlich)
+
+Die drei offenen Fragen aus §6 sind entschieden, dazu vier neue Vorgaben:
+
+1. **Offener Markt.** Bei leerem `vendor_pool` sehen alle Unternehmen alle freien
+   Kräfte (anonymisiert). Empfehlung angenommen.
+2. **Buchung in drei Fragen.** Das Unternehmen sucht, findet eine Kraft, klickt
+   Buchen — und beantwortet VOR der Buchung drei Fragen:
+   **(1) Wie viele** Kräfte mit diesen Fähigkeiten? **(2) Von wann bis wann?**
+   **(3) Wie teuer** — mit Preisvorschlägen aus dem Bestand.
+   Form: **Modal-Assistent** (Entscheidung Claude: hält den Suchkontext, folgt dem
+   Hausmuster des Commit-Assistenten, funktioniert auf kleinen Bildschirmen).
+3. **Kein Notdienst-Aufschlag.** Der Notdienst ist das **Hauptverkaufsargument** —
+   „unkompliziert eine Kraft in unter 48 Stunden als Ersatz" — und steht im
+   Vordergrund, statt bepreist zu werden.
+4. **Notdienst-Bereitschaft, zweistufig.** Die Kraft setzt im Einsatzportal bei
+   Registrierung/Skill-Pflege eine Checkbox „Ich möchte als Notdienst eingesetzt
+   werden" (Wunsch). Die **Zeitarbeitsfirma entscheidet** zusätzlich je Kraft, ob
+   sie im Umkreis als Notdienst einsetzbar ist (Freigabe mit Radius) — die Freigabe
+   ist maßgeblich („macht mehr Sinn, als es dem Mitarbeiter zu überlassen").
+5. **Nur Zeitarbeitskräfte.** Es geht ausschließlich um Kräfte, die in Unternehmen
+   eingesetzt werden — nie um interne Mitarbeiter der Zeitarbeitsfirma.
+6. **Plattformweites Abbild.** Unternehmen sehen die freien Kräfte der **gesamten
+   Plattform** aus der Live-Belegschaft — ohne komplizierte Deals abschließen zu
+   müssen. (Der Überlassungsvertrag verschwindet dabei nicht — er entsteht
+   automatisch: `agreement_snapshot` + Dokumente existieren, siehe 2.1.)
+7. **Abrechnung muss funktionieren.** Rechnung Zeitarbeitsfirma → Unternehmen,
+   abrechenbar über die Stundenzettel. → Welle J7 (der Kern existiert
+   serverseitig bereits, siehe 2.4).
+8. **Bauauftrag erteilt:** „baue das in Perfektion vom inkrementellen Start bis in
+   die tiefste Ebene."
+
+---
+
 ## 1. Die Leitfrage
 
 Der Marktplatz kennt heute genau eine Richtung: **Jemand stellt ein Angebot ein, jemand
@@ -165,6 +199,23 @@ heute **niemanden** durch. Wer sie setzt, macht sein Angebot unsichtbar. Für J 
 zentral — die ganze DSGVO-Architektur des Hauses steht auf einer Tabelle, die nie befüllt
 wurde.
 
+### 2.4 Die Abrechnungskette — gemessen am 2026-08-26
+
+Der Owner fragte „habe ich was vergessen?" — die Kette Stundenzettel → Rechnung
+existiert serverseitig **vollständig**, ihr fehlt die Oberfläche:
+
+| Was | Beleg | Zustand |
+|---|---|---|
+| Operative Rechnung ZAF → Unternehmen | `invoice_type='operational'`, Migration 086; `operationalInvoiceService.generateFromTimesheets` — [operationalInvoiceService.js:76](../../api/services/operationalInvoiceService.js) | **fertig**: nur `approved`-Timesheets, Duplikatschutz über `timesheets.invoice_id`, Überstunden +25 %, USt 19 %, Zahlungsziel 14 Tage, Nummernkreis `TC-<Jahr>-<Nr>` |
+| Beide Seiten sehen dieselbe Rechnung | `gehoertZurOrg()` — beidseitige Mandantengrenze | fertig |
+| Freigabekette | zwei Ketten hintereinander: `worker_time_submissions` (Kraft erfasst → Agentur prüft → Kunde bestätigt → `posted_to_timesheet` erzeugt `timesheets`) → `timesheets` (`submitted` → Kunde `approved`, `ONLY_BUYER_CAN_APPROVE`) | fertig |
+| **Oberfläche** | repo-weit: kein Frontend-Aufrufer von `/invoices/operational/*` | **fehlt** |
+| **PDF für operative Rechnungen** | nur CSV-Export; die PDF-Route bedient den Abo-Pfad | **fehlt** |
+| **Versand** | `issued` ist ein Statuswechsel, keine Zustellung; Mail nur für Mahnungen | fehlt |
+| **Satz-Einfrierung** | die Abrechnung liest das **mutable** `assignments.hourly_rate_cents`; der eingefrorene `agreement_snapshot` liegt ungenutzt auf `offers` | Lücke |
+| Rate Cards | existieren, werden bei der Abrechnung **nicht** gelesen (eigene 25-%-Konstante) | getrennte Welten |
+| **AÜG-Fristen** | Höchstüberlassungsdauer/Equal-Pay: **nirgends modelliert** (nur Dokument-Compliance `aueg_erlaubnis` + Haftungsausschluss „TempConnect ist nicht der Verleiher") | bewusst offen — Owner-Entscheidung, ob die Plattform warnen soll (§6) |
+
 ---
 
 ## 3. Verbindliche Leitentscheidungen
@@ -251,7 +302,30 @@ Unternehmensseite **gepflegt** und im Staff CC **überwacht**, nicht dorthin ver
 Jede Welle ist einzeln lieferbar, einzeln testbar und einzeln freizugeben. Reihenfolge ist
 Absicht: Jede Welle macht die nächste möglich.
 
-### Welle J1 — Die Live-Belegschaft wird eine eigene Fläche
+### Welle J1 — Die Live-Belegschaft wird eine eigene Fläche ✅ *(erledigt 2026-08-26)*
+
+**Umgesetzt:** `company-live-workforce.html` + `companyLiveWorkforce.js` (Umzug von
+Live-Tafel, Meldungen und Sperrliste aus `company-timesheets.html`, die nur den
+Stundenzettel-Eingang behält und alte `?einsatz=`/`#live`-Deep-Links mitsamt Kennung
+weiterleitet). Kacheln unter „Einsätze & Zeiten": Zeitarbeitsfirmen bekommen die
+Live-Kachel (`mitarbeiter.html#live-alle`), Unternehmen bekommen statt der bisherigen
+Sackgasse (Sperrtext ohne Weg) drei eigene Einstiege (`companyHubSection`:
+Live-Belegschaft, Stundenzettel-Eingang, Meine Deals). Navigation (`pageShell.js`:
+match + zwei rollen-getrennte Suchintents — der „Mitarbeiter"-Intent ist jetzt
+`org:"agency"`, sonst hätte „Belegschaft" Unternehmen auf die Agenturseite geführt),
+Breadcrumb (+ `company-timesheets`, das fehlte), Kontexthinweis (`contextHints.js`),
+eingebaute Kurzhilfe (`details`-Kasten), Mouse-over-Hilfe an allen Kennzahlen und
+Aktionen. Backend-Deep-Links umgestellt: `kundenDeepLink` + drei `linkPath` in
+`notificationMatrix.js`. Register + PAGE_OWNERSHIP nachgeführt.
+
+**Verifiziert:** `h1KundenansichtAusfall` auf die neue Fläche umgezogen und um vier
+Prüfungen erweitert (Alt-Hash bleibt gültig, `#meldungen`/`#sperrliste`,
+Weiterleitungs-Wächter) — 39/39 grün; `frontendVerdrahtung` + `dokuWaechter` +
+`frontendCanonicalPages` + `docsConsistency` 34/34; Benachrichtigungs-/Sichtbarkeits-
+Wächter 92/92; DB-gebundener G4b-Fluss 35/35. Browser-Smoke gegen den Worktree-Stand:
+alle Ressourcen 200, Paywall-Zustand real, Editorial-Theme aktiv, DE↔EN schaltet live.
+
+**Ursprünglicher Plan:**
 
 **Warum zuerst:** Backend und ein großer Teil der Oberfläche existieren (2.1, 2.2d). Diese
 Welle hebt einen versteckten Reiter zu einer Fläche mit eigener Adresse — und das ist die
@@ -312,7 +386,10 @@ erklärt, eine Sperre setzen kann, in beiden Sprachen vollständig ist, und alle
   Entscheidung des Owners, ob bei leerem `vendor_pool` (2.3) alle Firmen füreinander
   sichtbar sind oder nur die verknüpften
 - **Sperrlisten-Filter (behebt 2.2c)** — gesperrte Kräfte verschwinden aus der Sicht
-- Buchungsknopf je Kraft → erzeugt Anfrage nach 3.2
+- Buchungsknopf je Kraft → **Modal-Assistent mit den drei Owner-Fragen** (§0.2):
+  Wie viele? Von wann bis wann? Zu welchem Preis (mit Vorschlägen aus
+  `price_min`/`price_max` des Bestands bzw. `smartPricingService`)? → erzeugt die
+  Anfrage nach 3.2. Beginn < 48 h → Notdienst-Kennzeichen (J4) prominent im Modal.
 - Rollenprüfung nach Hauskonvention des Marktplatzes: `users.role === 'company'` →
   sonst `403 COMPANY_ONLY` (Muster [marketplace.js:518](../../api/routes/marketplace.js));
   eine `org_type`-Spalte auf `users` gibt es nicht
@@ -340,17 +417,24 @@ Unternehmens. J3 ist deshalb **Wiederverwendung, kein Neubau**:
 **Fertig, wenn:** Der Klickpfad durchgespielt ist, kein Schritt überspringbar ist, der
 Betrag aus der Antwort stammt (nicht aus festem Text) und der Serverriegel unverändert hält.
 
-### Welle J4 — Notdienst als Kennzeichen
+### Welle J4 — Notdienst als Hauptverkaufsargument
 
 Gemessen (2.2f): kein automatischer Auslöser, und `POST /emergency/request` hat keinen
-einzigen Frontend-Aufrufer. J4 verdrahtet beides:
+einzigen Frontend-Aufrufer. Owner-Vorgaben (§0.3/0.4): **kein Aufschlag** — der Notdienst
+ist das Verkaufsversprechen („Ersatz in unter 48 Stunden, unkompliziert"), und die
+Bereitschaft ist zweistufig.
 
 - Schwelle: Einsatzbeginn < 48 Stunden → Vorgang wird als Notdienst-Deal gekennzeichnet,
   serverseitig beim Anlegen/Annehmen berechnet (Europe/Berlin, nicht im Client)
+- **Bereitschafts-Modell (Migration nötig):** `worker_profiles.notdienst_wunsch`
+  (Checkbox der Kraft im Einsatzportal, Registrierung + Skill-Pflege) und
+  `notdienst_freigabe` + `notdienst_radius_km` (Entscheidung der Zeitarbeitsfirma je
+  Kraft). **Wirksam ist die Freigabe**; der Wunsch ist ihr Signal und Vorschlagswert.
 - Die vorhandene Stufen-Maschine (`URGENCY_CONFIG`, SLA-Fenster) wird angeschlossen statt
   dupliziert; die Frist zieht sich automatisch zusammen (5.4)
-- Sichtbar auf beiden Seiten: Kennzeichen im Feed, im Detail, im Kaufmoment (J3 zeigt den
-  Aufschlag), in der Benachrichtigung
+- Sichtbar auf beiden Seiten: Notdienst-Kennzeichen prominent im Feed, in der
+  Unternehmenssicht (J2), im Kaufmoment (J3), in der Benachrichtigung — als Versprechen,
+  nicht als Zuschlag
 
 ### Welle J5 — Firmenübergreifende Verbünde
 
@@ -368,6 +452,25 @@ Firmen** — im Datenmodell heute `pool_*`, und das endet an der Firmengrenze (2
 - Sperrlisten-Konflikte (gesperrte Kraft wurde angefragt)
 - Kräfte ohne Marktpräsenz trotz Verfügbarkeit
 - **Nur Beobachtung und Klärung** — keine Doppelung der Kundenflächen (3.6)
+
+### Welle J7 — Abrechnung wird bedienbar
+
+Owner (§0.7): „hier muss dann aber auch Rechnung vom Zeitarbeitschef und Unternehmen
+funktionieren, so dass es abrechenbar ist mit den Stundenzetteln." Der Kern existiert
+(2.4) — J7 liefert, was fehlt:
+
+- **Oberfläche beidseitig:** Zeitarbeitsfirma erzeugt aus freigegebenen Stundenzetteln
+  die Rechnung (`getBillableTimesheets` → `generateFromTimesheets` → `issue`);
+  Unternehmen sieht Eingang, Positionen je Kraft/Woche, Status. Kein neuer Service —
+  die Routen unter `/invoices/operational/*` sind fertig und ungenutzt.
+- **PDF für operative Rechnungen** (der Abo-Pfad hat es bereits; `invoicePdfService`
+  wiederverwenden) und Zustellung als Benachrichtigung + Dokument im Tresor beider Orgs.
+- **Satz-Einfrierung:** Beim Aktivieren der Vereinbarung wandert der Stundensatz aus dem
+  `agreement_snapshot` unveränderlich an den Einsatz — heute ist
+  `assignments.hourly_rate_cents` frei editierbar, die Rechnung würde einen später
+  geänderten Satz abrechnen.
+- Aus J2 gebuchte Einsätze tragen den Satz aus dem Buchungs-Modal (Frage 3) — damit ist
+  jede Marktplatz-Buchung ohne weiteren Schritt abrechenbar.
 
 ---
 
@@ -435,15 +538,23 @@ Mindestfrist.
 
 ## 6. Offene Owner-Entscheidungen
 
-Diese kann ich nicht aus dem Bestand ableiten:
+~~1. Leerer `vendor_pool`~~ ✅ entschieden: **offener Markt** (§0.1).
+~~2. Preisanzeige~~ ✅ entschieden: **drei Fragen vor der Buchung, Preis mit
+Vorschlägen, im Modal** (§0.2).
+~~3. Notdienst-Aufschlag~~ ✅ entschieden: **keiner** — Notdienst ist das
+Verkaufsargument (§0.3).
 
-1. **Leerer `vendor_pool` (2.3):** Sehen bei fehlender Verknüpfung alle Unternehmen alle
-   freien Kräfte (offener Markt), oder muss die Beziehung erst entstehen (geschlossener
-   Markt)? *Empfehlung: offener Markt mit anonymisierter Darstellung — sonst startet J2 mit
-   null sichtbaren Kräften.*
-2. **Preisanzeige vor der Buchung:** Rahmen (`price_min`–`price_max`) oder fester Satz?
-   *Empfehlung: Rahmen, weil Verhandlung im Haus vorgesehen ist (`negotiate-deal`).*
-3. **Notdienst-Aufschlag:** Gibt es einen, und wer legt ihn fest?
+Noch offen:
+
+4. **AÜG-Fristen (2.4):** Die Plattform modelliert Höchstüberlassungsdauer/Equal-Pay
+   nirgends — bewusst, denn TempConnect ist nicht der Verleiher. Soll sie trotzdem
+   **warnen** (z. B. „Einsatz überschreitet 18 Monate"), als Service-Merkmal? Das passt
+   zur Marktposition „Bindegewebe mit gesetzlichen Fristen als Kaufgrund", ist aber eine
+   Produktentscheidung mit Haftungs-Beigeschmack.
+5. **Rechnungs-Nummernkreis je Zeitarbeitsfirma (J7):** Heute vergibt die Plattform
+   `TC-<Jahr>-<Nr>` global. Rechtlich stellt die **Zeitarbeitsfirma** die Rechnung —
+   braucht sie ihren eigenen, lückenlosen Nummernkreis je Org? *Empfehlung: ja, je
+   `supplier_org_id`, bevor die erste echte Rechnung das Haus verlässt.*
 
 ---
 

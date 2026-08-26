@@ -60,6 +60,13 @@
         text: 'Hier wird verfügbares Personal, Angebote und Match-Chancen im offenen Feed gesteuert. Dieser Einstieg muss fuer die ersten Pilotkunden schnell, klar und reaktionsstark funktionieren.',
         tip: 'Tipp: Nutzen Sie Suche und Filter, um Arbeitsplatzangebote und verfügbares Personal direkt in belastbare Reaktionen zu ueberfuehren.'
       },
+      '/company-live-workforce': {
+        badge: 'Pilot-Standard',
+        badgeTone: 'pilot',
+        title: 'Live-Belegschaft',
+        text: 'Diese Tafel zeigt automatisch, wer von Ihren Zeitarbeitsfirmen gerade bei Ihnen arbeitet - ohne Pflegeaufwand, alle 30 Sekunden aktualisiert. Meldungen und Sperrliste liegen direkt daneben.',
+        tip: 'Tipp: Faehrt der Mauszeiger ueber eine Kennzahl oder einen Zustand, erklaert ein kurzer Text, was er bedeutet.'
+      },
       '/capacity_exchange': {
         badge: 'Pilot-Standard',
         badgeTone: 'pilot',

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <script src="/public/js/i18n.js"></script>
+  <title data-i18n="clw.docTitle">Live-Belegschaft – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .ct-wrap { max-width:1200px; margin:0 auto; padding:20px; }
+    .ct-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:18px 0; }
+    .ct-kpi { background:var(--ds-surface,#fff); border:1px solid var(--ds-border,#e2e8f0); border-radius:12px; padding:14px 16px; }
+    .ct-kpi__val { font-size:1.5rem; font-weight:700; }
+    .ct-kpi__label { font-size:.74rem; color:var(--ds-text-secondary,#64748b); text-transform:uppercase; letter-spacing:.04em; margin-top:2px; }
+    .ct-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+    .ct-table { width:100%; border-collapse:collapse; background:var(--ds-surface,#fff); border:1px solid var(--ds-border,#e2e8f0); border-radius:12px; overflow:hidden; }
+    .ct-table th { text-align:left; font-size:.72rem; text-transform:uppercase; letter-spacing:.04em; color:var(--ds-text-secondary,#64748b); padding:10px 14px; border-bottom:1px solid var(--ds-border,#e2e8f0); }
+    .ct-table td { padding:12px 14px; border-bottom:1px solid var(--ds-border-subtle,#f1f5f9); font-size:.86rem; vertical-align:top; }
+    .ct-table tr:last-child td { border-bottom:none; }
+    .ct-sub { font-size:.75rem; color:var(--ds-text-secondary,#64748b); }
+    .ct-badge { display:inline-block; padding:2px 9px; border-radius:999px; font-size:.72rem; font-weight:600; }
+    .ct-badge--review { background:var(--ds-warning-muted); color:var(--ds-warning); }
+    .ct-badge--ok { background:var(--ds-success-muted); color:var(--ds-success); }
+    .ct-badge--rej { background:var(--ds-danger-muted); color:var(--ds-danger); }
+    .ct-badge--done { background:var(--ds-accent-muted); color:var(--ds-accent); }
+    .ct-badge--live { background:var(--ds-success-muted); color:var(--ds-success); }
+    .ct-badge--soon { background:var(--ds-warning-muted); color:var(--ds-warning); }
+    /* Ausfall-Zustand (Welle H1): in der Warnfarbe des Design-Systems — der
+       Kunde muss ihn im Ueberfliegen von "Im Einsatz" unterscheiden koennen,
+       ohne zu lesen. */
+    .ct-badge--out { background:var(--ds-danger-muted); color:var(--ds-danger); }
+    .ct-btn { border:1px solid var(--ds-border,#e2e8f0); background:var(--ds-surface,#fff); border-radius:8px; padding:6px 12px; font-size:.8rem; cursor:pointer; }
+    .ct-btn--ok { background:var(--ds-success); color:var(--ds-bg); border-color:var(--ds-success); font-weight:600; }
+    .ct-btn--rej { background:transparent; color:var(--ds-danger); border-color:var(--ds-danger); }
+    .ct-empty { text-align:center; padding:40px 20px; color:var(--ds-text-secondary,#64748b); }
+    .ct-modal { position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; z-index:9998; padding:20px; }
+    .ct-modal.active { display:flex; }
+    .ct-modal__box { background:var(--ds-surface,#fff); border-radius:14px; max-width:640px; width:100%; max-height:90vh; overflow:auto; box-shadow:0 20px 60px rgba(0,0,0,.35); }
+    .ct-banner { background:var(--ds-surface,#fff); border:1px solid var(--ds-border,#e2e8f0); border-left:3px solid var(--ds-brand,#4a9eff); border-radius:10px; padding:12px 16px; margin-bottom:16px; font-size:.85rem; line-height:1.5; }
+    .ct-tabs { display:flex; gap:4px; margin-bottom:16px; border-bottom:1px solid var(--ds-border,#e2e8f0); }
+    .ct-tab { background:none; border:none; border-bottom:2px solid transparent; padding:9px 14px; font-size:.88rem; font-weight:600; color:var(--ds-text-secondary,#64748b); cursor:pointer; }
+    .ct-tab--active { color:var(--ds-brand,#4a9eff); border-bottom-color:var(--ds-brand,#4a9eff); }
+    .ct-live-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--ds-success); margin-right:5px; }
+    /* Eingebaute Kurzhilfe: nativ (details/summary), ohne JS, per Tastatur
+       bedienbar. Sie erklaert die drei Reiter in je einem Satz — genau die
+       Fragen, aus denen sonst Support-Anfragen werden. */
+    .clw-help { margin:0 0 16px; border:1px solid var(--ds-border,#e2e8f0); border-radius:10px; background:var(--ds-surface,#fff); font-size:.85rem; }
+    .clw-help summary { cursor:pointer; padding:10px 16px; font-weight:600; color:var(--ds-text-secondary,#64748b); list-style-position:inside; }
+    .clw-help[open] summary { border-bottom:1px solid var(--ds-border-subtle,#f1f5f9); color:var(--ds-text,#0f172a); }
+    .clw-help ul { margin:0; padding:10px 16px 12px 34px; line-height:1.6; }
+  </style>
+</head>
+<body>
+  <!-- Nicht angemeldet -->
+  <div id="paywall" class="ct-wrap" style="display:none">
+    <div style="max-width:440px;margin:60px auto;text-align:center">
+      <h2 data-i18n="clw.paywall.title">Anmeldung erforderlich</h2>
+      <p data-i18n="clw.paywall.text">Bitte melden Sie sich an, um Ihre Live-Belegschaft zu sehen.</p>
+      <a href="/" class="ct-btn ct-btn--ok" style="display:inline-block;margin-top:12px;text-decoration:none" data-i18n="clw.paywall.cta">Anmelden</a>
+    </div>
+  </div>
+
+  <!-- Nicht als Unternehmens-Org -->
+  <div id="notCompany" class="ct-wrap" style="display:none">
+    <div id="tc-shell-nc"></div>
+    <div style="max-width:520px;margin:50px auto;text-align:center">
+      <div style="font-size:2rem">&#127970;</div>
+      <h2 data-i18n="clw.gate.title">Nur für Unternehmen</h2>
+      <p data-i18n="clw.gate.text">Die Live-Belegschaft zeigt, wer bei Ihrem Unternehmen im Einsatz ist. Ihre aktive Organisation ist keine Unternehmens-Organisation.</p>
+      <p class="ct-sub" data-i18n="clw.gate.agencyHint">Als Zeitarbeitsfirma finden Sie Ihre eigene Live-Tafel unter Einsatzkräfte.</p>
+      <a href="/public/mitarbeiter.html#live-alle" class="ct-btn" style="display:inline-block;margin-top:8px;text-decoration:none" data-i18n="clw.gate.agencyCta">Zur Live-Tafel der Zeitarbeitsfirma</a>
+    </div>
+  </div>
+
+  <!-- Hauptinhalt -->
+  <div id="main" class="ct-wrap" style="display:none">
+    <div id="tc-shell"></div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title" data-i18n="clw.page.title">Live-Belegschaft</h1>
+        <p class="ds-page-subtitle" data-i18n="clw.page.subtitle">Wer von Ihren Zeitarbeitsfirmen gerade bei Ihnen arbeitet – live, mit Meldungen und Sperrliste an einem Ort.</p>
+      </div>
+    </div>
+
+    <details class="clw-help">
+      <summary data-i18n="clw.help.summary">Wie funktioniert diese Seite?</summary>
+      <ul>
+        <li data-i18n="clw.help.live">Live: Alle Kräfte, die aktuell bei Ihnen im Einsatz sind – automatisch aus den laufenden Einsätzen, alle 30 Sekunden aktualisiert.</li>
+        <li data-i18n="clw.help.report">Melden: Gibt es ein Problem mit einer Kraft, erreicht Ihre Meldung sofort den zuständigen Disponenten – er kann z. B. Ersatz stellen.</li>
+        <li data-i18n="clw.help.block">Sperren: Eine gesperrte Kraft wird Ihrem Unternehmen nicht mehr zugewiesen – dauerhaft oder befristet, jederzeit widerrufbar.</li>
+      </ul>
+    </details>
+
+    <div class="ct-tabs">
+      <button class="ct-tab ct-tab--active" id="tabLive" onclick="clwView('live')"><span class="ct-live-dot"></span><span data-i18n="clw.tab.live">Live-Belegschaft</span></button>
+      <button class="ct-tab" id="tabComplaints" onclick="clwView('complaints')" data-i18n="clw.tab.complaints">Meine Meldungen</button>
+      <button class="ct-tab" id="tabBlocklist" onclick="clwView('blocklist')" data-i18n="clw.tab.blocklist">Sperrliste</button>
+    </div>
+
+    <div id="viewLive">
+      <div class="ct-banner">
+        <span data-i18n="clw.live.banner.1">Echtzeit-Überblick: Diese Kräfte Ihrer Zeitarbeitsfirmen sind</span>
+        <strong data-i18n="clw.live.banner.strong">aktuell bei Ihnen im Einsatz</strong>
+        <span data-i18n="clw.live.banner.2">– automatisch aus den laufenden Einsätzen Ihrer Organisation.</span>
+      </div>
+      <div class="ct-kpis">
+        <div class="ct-kpi" data-i18n-title="clw.live.kpi.activeHelp" title="Kräfte mit laufendem Einsatz bei Ihnen – ohne die, die gerade ausfallen."><div class="ct-kpi__val" id="lwTotal" style="color:var(--ds-success)">–</div><div class="ct-kpi__label" data-i18n="clw.live.kpi.active">Aktuell im Einsatz</div></div>
+        <div class="ct-kpi" data-i18n-title="clw.live.kpi.endingHelp" title="Einsätze, die in den nächsten Tagen enden – hier lohnt es sich, rechtzeitig zu verlängern oder nachzubesetzen."><div class="ct-kpi__val" id="lwEnds" style="color:var(--ds-warning)">–</div><div class="ct-kpi__label" data-i18n="clw.live.kpi.ending">Endet in Kürze</div></div>
+        <div class="ct-kpi" data-i18n-title="clw.live.kpi.outHelp" title="Von der Zeitarbeitsfirma als ausgefallen gemeldet. Der Grund ist ein Beschäftigtendatum und wird bewusst nicht angezeigt."><div class="ct-kpi__val" id="lwOut">–</div><div class="ct-kpi__label" data-i18n="clw.live.kpi.out">Fällt aus</div></div>
+        <div class="ct-kpi" data-i18n-title="clw.live.kpi.agenciesHelp" title="So viele Zeitarbeitsfirmen haben aktuell Kräfte bei Ihnen im Einsatz."><div class="ct-kpi__val" id="lwAgencies">–</div><div class="ct-kpi__label" data-i18n="clw.live.kpi.agencies">Zeitarbeitsfirmen</div></div>
+      </div>
+      <div class="ct-toolbar">
+        <input id="lwSearch" class="ct-btn" placeholder="Mitarbeiter oder Firma…" data-i18n-ph="clw.live.searchPh" oninput="clwLiveDebounce()" style="min-width:220px"/>
+        <button class="ct-btn" onclick="clwLoadLive()" data-i18n="clw.action.refresh">Aktualisieren</button>
+        <span id="lwCount" class="ct-sub"></span>
+      </div>
+      <table class="ct-table">
+        <thead><tr>
+          <th data-i18n="clw.th.worker">Mitarbeiter</th><th data-i18n="clw.th.agency">Zeitarbeitsfirma</th><th data-i18n="clw.th.role">Rolle</th><th data-i18n="clw.th.shift">Schicht</th><th data-i18n="clw.th.since">Seit</th><th data-i18n="clw.th.until">Bis</th><th data-i18n="clw.th.status">Status</th><th></th>
+        </tr></thead>
+        <tbody id="lwBody"><tr><td colspan="8" class="ct-empty">–</td></tr></tbody>
+      </table>
+    </div><!-- /viewLive -->
+
+    <div id="viewComplaints" style="display:none">
+      <div class="ct-banner" data-i18n="clw.cmp.banner">
+        Ihre Meldungen an die Zeitarbeitsfirmen — mit aktuellem Bearbeitungsstand.
+        Der zuständige Disponent wird bei jeder Meldung sofort benachrichtigt und kann Ersatz stellen.
+      </div>
+      <div class="ct-toolbar">
+        <select id="cmpFilterStatus" class="ct-btn" onchange="clwLoadComplaints()">
+          <option value="" data-i18n="clw.cmp.filter.all">Alle Meldungen</option>
+          <option value="open" data-i18n="clw.cmp.status.open">Offen</option>
+          <option value="acknowledged" data-i18n="clw.cmp.status.acknowledged">Angenommen</option>
+          <option value="resolved" data-i18n="clw.cmp.status.resolved">Erledigt</option>
+        </select>
+        <button class="ct-btn" onclick="clwLoadComplaints()" data-i18n="clw.action.refresh">Aktualisieren</button>
+        <span id="cmpCount" class="ct-sub"></span>
+      </div>
+      <table class="ct-table">
+        <thead><tr>
+          <th data-i18n="clw.th.worker">Mitarbeiter</th><th data-i18n="clw.th.agency">Zeitarbeitsfirma</th><th data-i18n="clw.th.severity">Dringlichkeit</th><th data-i18n="clw.th.reason">Grund</th><th data-i18n="clw.th.status">Status</th><th data-i18n="clw.th.reported">Gemeldet</th>
+        </tr></thead>
+        <tbody id="cmpBody"><tr><td colspan="6" class="ct-empty">–</td></tr></tbody>
+      </table>
+    </div><!-- /viewComplaints -->
+
+    <div id="viewBlocklist" style="display:none">
+      <div class="ct-banner">
+        <span data-i18n="clw.bl.banner.1">Gesperrte Kräfte werden diesem Unternehmen von den Zeitarbeitsfirmen</span>
+        <strong data-i18n="clw.bl.banner.strong">nicht mehr zugewiesen</strong><span data-i18n="clw.bl.banner.2">. Sie entscheiden: dauerhaft, befristet (z. B. 3 Monate) oder wieder freigeben.</span>
+      </div>
+      <div class="ct-toolbar">
+        <button class="ct-btn" onclick="clwLoadBlocklist()" data-i18n="clw.action.refresh">Aktualisieren</button>
+        <span id="blCount" class="ct-sub"></span>
+      </div>
+      <table class="ct-table">
+        <thead><tr>
+          <th data-i18n="clw.th.worker">Mitarbeiter</th><th data-i18n="clw.th.agency">Zeitarbeitsfirma</th><th data-i18n="clw.th.reason">Grund</th><th data-i18n="clw.th.blockedUntil">Gesperrt bis</th><th></th>
+        </tr></thead>
+        <tbody id="blBody"><tr><td colspan="5" class="ct-empty">–</td></tr></tbody>
+      </table>
+    </div><!-- /viewBlocklist -->
+  </div>
+
+  <!-- Sperren-Modal -->
+  <div id="ctBlockModal" class="ct-modal">
+    <div class="ct-modal__box" style="max-width:460px">
+      <div style="padding:20px 22px 0"><div style="font-size:1.1rem;font-weight:700" data-i18n="clw.blk.title">Kraft sperren</div>
+        <div id="blkWorkerName" class="ct-sub" style="margin-top:3px"></div></div>
+      <div style="padding:16px 22px">
+        <label class="ct-sub" style="display:block;margin-bottom:4px" data-i18n="clw.blk.duration">Dauer</label>
+        <select id="blkDuration" class="ct-btn" style="width:100%;margin-bottom:12px" onchange="clwBlkDurChange()">
+          <option value="permanent" data-i18n="clw.blk.dur.permanent">Dauerhaft (nie wieder)</option>
+          <option value="3m" data-i18n="clw.blk.dur.3m">Befristet: 3 Monate</option>
+          <option value="custom" data-i18n="clw.blk.dur.custom">Befristet: bis Datum…</option>
+        </select>
+        <input type="date" id="blkUntil" class="ct-btn" style="width:100%;margin-bottom:12px;display:none"/>
+        <label class="ct-sub" style="display:block;margin-bottom:4px" data-i18n="clw.blk.reasonLabel">Grund (wird der Zeitarbeitsfirma angezeigt)</label>
+        <textarea id="blkReason" class="ct-btn" style="width:100%;min-height:64px;resize:vertical" placeholder="z. B. wiederholt unentschuldigt gefehlt" data-i18n-ph="clw.blk.reasonPh"></textarea>
+        <div id="blkErr" style="display:none;margin-top:8px;padding:8px 10px;background:#fee2e2;color:#991b1b;border-radius:8px;font-size:.83rem"></div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;padding:0 22px 20px">
+        <button class="ct-btn" onclick="clwBlkClose()" data-i18n="clw.action.cancel">Abbrechen</button>
+        <button class="ct-btn ct-btn--rej" id="blkSubmit" onclick="clwBlkSubmit()" data-i18n="clw.blk.submit">Sperren</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Beschwerde-Modal -->
+  <div id="ctComplaintModal" class="ct-modal">
+    <div class="ct-modal__box" style="max-width:460px">
+      <div style="padding:20px 22px 0"><div style="font-size:1.1rem;font-weight:700" data-i18n="clw.cmp.title">Problem melden</div>
+        <div id="cmpWorkerName" class="ct-sub" style="margin-top:3px"></div></div>
+      <div style="padding:16px 22px">
+        <div class="ct-banner" style="margin:0 0 12px" data-i18n="clw.cmp.modalBanner">
+          Ihre Meldung geht an die zuständige Zeitarbeitsfirma. Diese kann reagieren – z. B. einen Ersatz stellen.
+        </div>
+        <label class="ct-sub" style="display:block;margin-bottom:4px" data-i18n="clw.cmp.severityLabel">Dringlichkeit</label>
+        <select id="cmpSeverity" class="ct-btn" style="width:100%;margin-bottom:12px">
+          <option value="low" data-i18n="clw.cmp.sevOpt.low">Niedrig – Hinweis</option>
+          <option value="medium" selected data-i18n="clw.cmp.sevOpt.medium">Mittel – bitte prüfen</option>
+          <option value="high" data-i18n="clw.cmp.sevOpt.high">Hoch – dringend / Ersatz nötig</option>
+        </select>
+        <label class="ct-sub" style="display:block;margin-bottom:4px" data-i18n="clw.cmp.reasonLabel">Was ist das Problem?</label>
+        <textarea id="cmpReason" class="ct-btn" style="width:100%;min-height:72px;resize:vertical" placeholder="z. B. wiederholt zu spät, Qualität unzureichend, Verhalten vor Ort" data-i18n-ph="clw.cmp.reasonPh"></textarea>
+        <div id="cmpErr" style="display:none;margin-top:8px;padding:8px 10px;background:#fee2e2;color:#991b1b;border-radius:8px;font-size:.83rem"></div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;padding:0 22px 20px">
+        <button class="ct-btn" onclick="clwCompClose()" data-i18n="clw.action.cancel">Abbrechen</button>
+        <button class="ct-btn ct-btn--rej" id="cmpSubmit" onclick="clwCompSubmit()" data-i18n="clw.cmp.submit">Melden</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/pageShell.js"></script>
+  <script>
+    if (document.getElementById('tc-shell-nc') && window.TC && TC.shell) { try { TC.shell.init({ target: '#tc-shell-nc' }); } catch(e){} }
+  </script>
+  <script src="/public/js/pages/companyLiveWorkforce.js"></script>
+  <script src="/public/js/contextHints.js"></script>
+  <script src="/public/js/notifications.js"></script>
+</body>
+</html>

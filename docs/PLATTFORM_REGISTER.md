@@ -458,6 +458,7 @@ Weiterleitung oder für keinen Nutzer erreichbar.
 | `worker-submissions-review.html` | beide | zentrale Steuerung: Einsatzkräfte, Stundenzettel, Kundenfreigaben, Nachweise | aktiv |
 | `timesheets.html` | Zeitarbeitsfirma, Unternehmen | Arbeitszeiten eintragen, einreichen, freigeben lassen | aktiv |
 | `company-timesheets.html` | Unternehmen | Stundenzettel-Eingang prüfen, bestätigen oder zurückweisen | aktiv |
+| `company-live-workforce.html` | Unternehmen | Live-Belegschaft: wer gerade im Einsatz ist, Meldungen, Sperrliste (Welle J1, vorher Reiter in `company-timesheets.html`) | aktiv |
 | `approvals.html` | Unternehmen | alles, was auf eine Entscheidung wartet | aktiv |
 
 ### Einsatzportal (Einsatzkräfte)

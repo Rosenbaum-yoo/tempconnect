@@ -193,7 +193,7 @@ describe("Welle G4b — Kundenmeldung am realen Schema", { skip: !hasDb && "No d
         "Max Mustermann (Müller GmbH) faellt aus · ab 2026-08-19 · voraussichtlich bis 2026-08-25.",
         "00000000-0000-0000-0000-000000000001",
         m["assignment.worker_unavailable"].severity,
-        "/public/company-timesheets.html?einsatz=x#live",
+        "/public/company-live-workforce.html?einsatz=x",
       ]
     );
     assert.equal(rows[0].org_id, kundeOrg);

@@ -381,6 +381,12 @@
             <p class="ds-hub-card__desc" data-i18n="ts.rev.hub.workers.desc">Einsatzkraefte, Einladungen und operative Stammdaten pflegen.</p>
           </div>
         </a>
+        <a href="/public/mitarbeiter.html#live-alle" class="ds-hub-card ds-hub-card--accent">
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title" data-i18n="ts.rev.hub.live.title">Live-Belegschaft</div>
+            <p class="ds-hub-card__desc" data-i18n="ts.rev.hub.live.desc">Wer ist heute im Einsatz, verfuegbar, abwesend oder auf Montage – live, alle 30 Sekunden aktualisiert.</p>
+          </div>
+        </a>
         <a href="/public/approvals.html" class="ds-hub-card">
           <div class="ds-hub-card__icon">&#9989;</div>
           <div class="ds-hub-card__content">
@@ -398,6 +404,33 @@
           <div class="ds-hub-card__content">
             <div class="ds-hub-card__title" data-i18n="ts.rev.hub.docs.title">Nachweise &amp; Dokumente</div>
             <p class="ds-hub-card__desc" data-i18n="ts.rev.hub.docs.desc">Dokumente, Zertifikate und Nachweise einsatznah verwalten.</p>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Unternehmenssicht (Welle J1): Statt der Operator-Kacheln bekommen
+         Unternehmen ihre eigenen Einstiege. Vorher war die Flaeche fuer sie
+         eine Sackgasse - ein Sperrtext ohne einen einzigen Weg. Sichtbar
+         geschaltet von initializePage() in workerSubmissionsReview.js. -->
+    <div class="ds-section" id="companyHubSection" style="display:none;padding-top:0;margin-bottom:var(--ds-space-4)">
+      <div class="ds-hub-grid">
+        <a href="/public/company-live-workforce.html" class="ds-hub-card ds-hub-card--accent">
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title" data-i18n="ts.rev.companyHub.live.title">Live-Belegschaft</div>
+            <p class="ds-hub-card__desc" data-i18n="ts.rev.companyHub.live.desc">Wer von Ihren Zeitarbeitsfirmen gerade bei Ihnen arbeitet – live, mit Meldungen und Sperrliste.</p>
+          </div>
+        </a>
+        <a href="/public/company-timesheets.html" class="ds-hub-card">
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title" data-i18n="ts.rev.companyHub.timesheets.title">Stundenzettel-Eingang</div>
+            <p class="ds-hub-card__desc" data-i18n="ts.rev.companyHub.timesheets.desc">Gesendete Stundenzettel Ihrer eingesetzten Kräfte prüfen, bestätigen oder zurückweisen.</p>
+          </div>
+        </a>
+        <a href="/public/deal_management.html" class="ds-hub-card">
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title" data-i18n="ts.rev.companyHub.deals.title">Meine Deals</div>
+            <p class="ds-hub-card__desc" data-i18n="ts.rev.companyHub.deals.desc">Vereinbarungen, Besetzungen und Einsatzverfolgung aus Unternehmenssicht.</p>
           </div>
         </a>
       </div>

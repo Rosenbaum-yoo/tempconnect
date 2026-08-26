@@ -42,6 +42,14 @@ TCi18n.register('de', {
   'ts.rev.hub.subs.desc': 'Einreichungen prüfen, an Kunden senden und Freigaben sauber steuern.',
   'ts.rev.hub.workers.title': 'Einsatzkräfte',
   'ts.rev.hub.workers.desc': 'Einsatzkräfte, Einladungen und operative Stammdaten pflegen.',
+  'ts.rev.hub.live.title': 'Live-Belegschaft',
+  'ts.rev.hub.live.desc': 'Wer ist heute im Einsatz, verfügbar, abwesend oder auf Montage – live, alle 30 Sekunden aktualisiert.',
+  'ts.rev.companyHub.live.title': 'Live-Belegschaft',
+  'ts.rev.companyHub.live.desc': 'Wer von Ihren Zeitarbeitsfirmen gerade bei Ihnen arbeitet – live, mit Meldungen und Sperrliste.',
+  'ts.rev.companyHub.timesheets.title': 'Stundenzettel-Eingang',
+  'ts.rev.companyHub.timesheets.desc': 'Gesendete Stundenzettel Ihrer eingesetzten Kräfte prüfen, bestätigen oder zurückweisen.',
+  'ts.rev.companyHub.deals.title': 'Meine Deals',
+  'ts.rev.companyHub.deals.desc': 'Vereinbarungen, Besetzungen und Einsatzverfolgung aus Unternehmenssicht.',
   'ts.rev.hub.approvals.title': 'Freigabe-Queue',
   'ts.rev.hub.approvals.desc': 'Ausstehende Genehmigungen über Einsätze, Zeiten und Nachweise hinweg.',
   'ts.rev.hub.timesheets.title': 'Stundenzettel',
@@ -851,6 +859,14 @@ TCi18n.register('en', {
   'ts.rev.hub.subs.desc': 'Review submissions, send them to clients and steer approvals cleanly.',
   'ts.rev.hub.workers.title': 'Workers',
   'ts.rev.hub.workers.desc': 'Maintain workers, invitations and operational master data.',
+  'ts.rev.hub.live.title': 'Live workforce',
+  'ts.rev.hub.live.desc': 'Who is on assignment, available, absent or on site work today – live, refreshed every 30 seconds.',
+  'ts.rev.companyHub.live.title': 'Live workforce',
+  'ts.rev.companyHub.live.desc': 'Who from your staffing firms is working at your site right now – live, with reports and block list.',
+  'ts.rev.companyHub.timesheets.title': 'Incoming timesheets',
+  'ts.rev.companyHub.timesheets.desc': 'Review, confirm or reject the timesheets submitted for your assigned staff.',
+  'ts.rev.companyHub.deals.title': 'My deals',
+  'ts.rev.companyHub.deals.desc': 'Agreements, staffing and assignment tracking from the company perspective.',
   'ts.rev.hub.approvals.title': 'Approval queue',
   'ts.rev.hub.approvals.desc': 'Pending approvals across assignments, time and records.',
   'ts.rev.hub.timesheets.title': 'Timesheets',
@@ -2175,6 +2191,9 @@ async function initializePage(){
     // Verwaltungs-Hub-Grid "an Kunden senden / Freigabe-Queue / Einsatzkraefte").
     toggleElement('pilotPriorityBanner', false);
     toggleElement('verwaltungHubSection', false);
+    // Welle J1: Statt der reinen Sackgasse ("nur lesend") bekommen Unternehmen
+    // ihre eigenen Einstiege - Live-Belegschaft, Stundenzettel-Eingang, Deals.
+    toggleElement('companyHubSection', true);
     var _sub = document.getElementById('pageSubtitle');
     // Marker mitziehen: sonst wuerde das naechste TCi18n.apply() (Sprachwechsel)
     // wieder den Agentur-Untertitel einsetzen und die Unternehmenssicht ueberschreiben.
