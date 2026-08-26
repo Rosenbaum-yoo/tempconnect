@@ -1,6 +1,6 @@
 # I3 — Zustellung: erreicht die Meldung den Menschen?
 
-> **Status: erhoben und bewertet, nicht gebaut.**
+> **Status: Stufe 1 gebaut (2026-08-26), Stufen 2-4 offen.**
 > Owner-Entscheid 2026-08-26: *„Nicht jetzt — als eigene Welle festhalten."*
 > Die Finalisierung bleibt geschlossen; dieses Dokument ist der Rahmen, mit dem
 > die Welle später aufgemacht werden kann.
@@ -181,7 +181,7 @@ voraus, dass die nächste kommt.
 
 | Stufe | Inhalt | Nachweisbar? |
 |---|---|---|
-| **1 · E-Mail im Arbeiter-Weg** | `insertWithType` reicht ausgewählte Typen an `dispatch()`/`sendMail` weiter. Keine neue Einwilligung, kein neuer Kanal, sofort volle Reichweite. | ja — Mail-Fänger im Container |
+| ~~**1 · E-Mail im Arbeiter-Weg**~~ | **gebaut 2026-08-26** - siehe Abschnitt unten | - |
 | **2 · PWA-Fundament** | Web-App-Manifest + Service Worker, Portal installierbar („Zum Homescreen"). Für Leute auf der Baustelle für sich schon Wert. | ja — Lighthouse/Browser |
 | **3 · Push-Zustellung** | VAPID aus `node:crypto`, Abo-Tabelle, `channel_push` in `notification_preferences`, Einstellungsfläche mit Widerruf. Zuerst Büro-Seite. | ja — echter Browser mit Demo-Zugang |
 | **4 · Arbeiter-Seite scharf** | Sobald der Portal-Zugang existiert: derselbe Weg, keine neue Technik. | erst nach der Tür |
@@ -215,6 +215,78 @@ Entscheidung und erreicht als einzige heute schon alle 33 Arbeiter.
   *dass* etwas wartet, den Rest sieht man nach dem Entsperren.
 
 ---
+
+## Stufe 1 - gebaut am 2026-08-26
+
+**Was jetzt passiert:** Schreibt der Arbeiter-Meldeweg eine Zeile eines
+fristgebundenen Typs, geht zusaetzlich eine E-Mail hinaus - mit dem Text der
+Meldung, der Frist darin und einem Link, der den **Einsatz** aufschlaegt (nicht
+die Liste; der Deep-Link kam am selben Tag dazu).
+
+**Drei Typen, nicht alle.** Anfrage, Erinnerung, Verfall - die, bei denen
+Schweigen den Menschen etwas **kostet**. Rueckzug, Dokumenten-Hinweise und
+Absagen bleiben im Portal: dort kostet Nichtstun nichts, und jede Meldung zu
+mailen ist der sichere Weg, dass keine mehr gelesen wird.
+
+**Widerspruch:** eigene Kategorie `einsatz`, damit ein Nein nicht die
+Stundenzettel mit abschaltet. Es sperrt nur ein **ausdrueckliches** Nein - fehlt
+die Einstellungszeile, wird zugestellt. Anders waere Stufe 1 wirkungslos: keiner
+der 33 Arbeiter hat je eine Einstellung gesetzt.
+
+> **Offene Luecke, ausdruecklich benannt:** Das Einsatzportal verlinkt
+> `activity.html` nicht - die Einstellungsflaeche existiert, ist fuer Arbeiter
+> aber **nicht erreichbar**. Der Schalter wirkt serverseitig; der Weg dorthin
+> fehlt. Er gehoert zu Stufe 2 (die Portal-Flaeche), spaetestens zu Stufe 3, wo
+> Push ohnehin eine Zustimmungsflaeche braucht.
+
+**Weg der Zustellung:** ueber die BullMQ-Warteschlange, nicht direkt. Das kostet
+dem schreibenden Vorgang keine Zeit, wiederholt bei Ausfall (drei Versuche) und
+ist gedeckelt (20 Mails/Minute im `emailWorker`). Ohne Redis passiert nichts -
+und die Meldung im Portal steht trotzdem. Dieselbe Regel wie beim Live-Strom:
+**ein Zustellweg darf das Schreiben nie gefaehrden.**
+
+**Zur Transaktion, ehrlich:** Beim Erinnerungs-Sweep stehen Marke und Meldung in
+EINER Transaktion, und die Einreihung liegt darin. Rollt sie zurueck, ist die
+Mail trotzdem unterwegs. Der Inhalt bleibt dabei **wahr** - die Anfrage wartet ja
+wirklich; nur die Buchhaltungsmarke fehlt, und der naechste Lauf erinnert erneut.
+Schlimmster Fall: eine zweite Erinnerung, keine falsche Aussage.
+
+### Mitgefunden: es waren zwei Mailwege, nicht einer
+
+Der Absender-Fuss (Firmierung + Kontakt, Pflichtangaben nach Paragraf 37a HGB)
+wurde am 24.08. in den `sendMail`-Engpass von `app.js` gesetzt - mit der
+Begruendung, so bekomme **jede** Mail ihn. Es gibt aber einen zweiten Weg:
+`services/emailService.js`, benutzt vom BullMQ-Email-Worker, von
+`orgControlCenter.js` und von `workerSubmissionService.js`. Er reichte das HTML
+ungerahmt durch.
+
+Aufgefallen ist es erst, weil Stufe 1 ueber die Warteschlange geht - also durch
+genau diesen zweiten Weg. Behoben; und der Waechter
+`jedeMailHatEinenAbsender.test.js` **zaehlt nicht mehr auf, sondern sucht**: er
+findet jeden Versandaufruf im Quelltext und verlangt, dass er rahmt. Ein dritter
+Weg macht ihn rot, statt still danebenzustehen - dieselbe Umkehr wie bei der
+Ansprechperson.
+
+### Nachweis
+
+Vier Rueckmutationen, jede von genau der zustaendigen Probe gefangen:
+
+| Rueckmutation | gefangen von |
+|---|---|
+| Verdrahtung entfernt (niemand ruft den Mailweg) | *eine geschriebene Erinnerung schlaegt den Empfaenger nach* |
+| Widerspruch ignoriert | *ein ausdrueckliches Nein sperrt* |
+| Escaping entfernt | *fremder Text landet nicht roh im HTML* |
+| zweiter Mailweg wieder ungerahmt | *jeder Versandweg rahmt* |
+
+Die Verdrahtungs-Probe ist die wichtigste: die Fehlerklasse dieser Welle heisst
+*gebaut, montiert - und niemand benutzt es*. Ein Kanal, den `notifyWorker` nie
+anfasst, waere gruen getestet und trotzdem stumm.
+
+**Noch nicht nachgewiesen:** eine echte Mail im Mail-Faenger. Der API-Prozess im
+Container bedient einen Schnappschuss vom Prozessstart (siehe
+[`UEBERGABE.md`](../UEBERGABE.md)), ein HTTP-Nachweis wuerde also fremden Code
+messen. Der Beleg steht in den Proben - der Gang bis in den Posteingang bleibt
+offen, bis der Prozess den eigenen Stand traegt.
 
 ## Quellen der Zahlen
 
