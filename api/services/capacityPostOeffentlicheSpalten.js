@@ -32,7 +32,10 @@ export const OEFFENTLICH = Object.freeze([
   "org_id", "department_id", "location_id",
   "placement_boost_level", "featured_until",
   "primary_skill_id", "offer_kind", "is_anonymous",
-  "worker_reserved", "worker_reserved_at"
+  "worker_reserved", "worker_reserved_at",
+  // Herkunft (Mig 200): dass ein Angebot automatisch aus der Live-Belegschaft
+  // stammt, ist eine ehrliche Auskunft an den Betrachter, keine Personenkennung.
+  "quelle"
 ]);
 
 /** Was den Marktplatz NIE verlaesst — mit Begruendung je Zeile. */

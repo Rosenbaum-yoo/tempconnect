@@ -14,6 +14,7 @@ import * as workerNotifications from "../services/workerNotificationService.js";
 import * as invoiceService from "../services/invoiceService.js";
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
 import * as workerOfferReservationService from "../services/workerOfferReservationService.js";
+import * as marktpraesenzService from "../services/marktpraesenzService.js";
 import * as subscriptionLifecycle from "../services/subscriptionLifecycleService.js";
 import * as recurringBillingService from "../services/recurringBillingService.js";
 import * as infrastructureSnapshotService from "../services/infrastructureSnapshotService.js";
@@ -549,6 +550,18 @@ export function createInternalRouter(deps) {
       const limit = Math.min(100, Math.max(1, parseInt(req.body?.limit, 10) || 25));
       const cooldownMinutes = Math.min(1440, Math.max(1, parseInt(req.body?.cooldown_minutes, 10) || 15));
       const result = await assignmentStaffingService.runStaffingMaintenance(pool, { limit, cooldownMinutes });
+      /* Marktpraesenz-Automatik (Welle J2b): fehlende Einzelskill-Angebote
+       * aktiver, praesenter Kraefte materialisieren — Verfuegbarkeit IST das
+       * Angebot. BEWUSST VOR dem Reservierungs-Sweep: der pausiert direkt
+       * danach die Angebote gebundener Kraefte, bevor irgendjemand den Feed
+       * liest. Vierter Aufruf im selben Handler statt eines neuen Endpunkts —
+       * derselbe Takt, kein neuer Weg im Wachen-Register. */
+      const marktpraesenz = await marktpraesenzService.sweepMarktpraesenz(pool);
+      result.marktpraesenz_materialisiert = marktpraesenz.materialisiert;
+      result.marktpraesenz_zurueckgenommen = marktpraesenz.zurueckgenommen;
+      result.marktpraesenz_wiederhergestellt = marktpraesenz.wiederhergestellt;
+      result.marktpraesenz_unsichtbar_ohne_skill = marktpraesenz.unsichtbar_ohne_skill;
+      result.marktpraesenz_unsichtbar_ohne_ort = marktpraesenz.unsichtbar_ohne_ort;
       // Hard-Reserve (Welle 4b): worker-spezifische Angebote im-Einsatz-Arbeiter pausieren,
       // frei gewordene reaktivieren. Set-basiert + idempotent, greift nicht in den Deal-Flow ein.
       const offerReservation = await workerOfferReservationService.sweepReservations(pool);

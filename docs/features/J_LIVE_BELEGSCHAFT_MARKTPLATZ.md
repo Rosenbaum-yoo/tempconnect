@@ -384,6 +384,20 @@ erklärt, eine Sperre setzen kann, in beiden Sprachen vollständig ist, und alle
   `marktplatzFeldWaechter.test.js`: Listen disjunkt, DB-Abgleich (jede reale Spalte
   klassifiziert — eine neue Migration wird rot, bis sie eingeordnet ist), Quelltext
   ohne Alias-Stern/E-Mail. 8/8 mit DB; Marktplatz-Regressionen 154 + 374 grün.
+- ✅ **Die Automatik „Verfügbarkeit ist das Angebot"** *(J2b-Kern, 2026-08-26)*:
+  Migration 200 (`worker_profiles.marktpraesenz_deaktiviert` als **Ausschalter**,
+  `capacity_posts.quelle` `manuell`/`live_belegschaft`), `marktpraesenzService.js` —
+  set-basierter, idempotenter Sweep (Rücknahme → Wiederkehr → Anlage → Lückenmaß),
+  eingehängt in den `staffing-maintenance`-Cron **vor** dem Reservierungs-Sweep
+  (derselbe Takt, kein neuer Endpunkt). Regeln, testverdrahtet: Rücknahme fasst nur
+  `quelle='live_belegschaft'` und nur offene Zustände an (nie `reserved`/`filled`),
+  Wiederkehr respektiert `worker_reserved`, Anlage nur mit Katalog-Skill + Ort,
+  Dedup über den Index aus Mig 145. `setzeMarktpraesenz` (org-gebunden) ist der
+  Schalter für die Agenturtafel (J2c). 8/8 Tests inkl. echtem Schalter-Zyklus an
+  der DB. **Produkt-Befund dabei:** nur **3 von 33** Kräften haben Katalog-Skills
+  gepflegt — die Automatik misst diese Lücke jetzt mit
+  (`unsichtbar_ohne_skill`/`_ohne_ort`) für Aufsicht (J6) und Agentur-Hinweis (J2c).
+  Skill-Pflege ist damit der Hebel, der den Marktplatz füllt.
 - Neue Ansicht: „Wer ist frei?" — gespeist aus `live_status IN ('verfuegbar','endet_bald')`
 - Filter nach Owner-Vorgabe: **wo, wie viele, ab wann** + Qualifikation
 - Darstellung nach 3.1, aufgesetzt auf die vorhandene Whitelist

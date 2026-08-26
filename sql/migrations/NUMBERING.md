@@ -13,7 +13,10 @@
 > 185 severity zurueck auf die vier (Befund M0-B9: die laufende Datenbank
 > erlaubte ein fuenftes `urgent`, das keine Migration je gewaehrt hat),
 > 186 Guthaben nur gegen Zahlung (Befund P1-22, Owner-Entscheidung Stripe:
-> eindeutiger Index auf der Kauf-Referenz gegen doppelte Webhook-Zustellung)
+> eindeutiger Index auf der Kauf-Referenz gegen doppelte Webhook-Zustellung),
+> 200 Marktpraesenz-Automatik (Welle J2b: Ausschalter je Kraft auf
+> worker_profiles + Herkunftsspalte `quelle` auf capacity_posts — Vorstufe
+> "Verfuegbarkeit ist das Angebot", Plan J §0/§3.2)
 
 This document records known legacy numbering anomalies and establishes the rule
 for all future migrations.
@@ -28,7 +31,7 @@ for all future migrations.
 
 ## Rule: Next migration number
 
-**Next migration MUST start at: 200**
+**Next migration MUST start at: 201**
 
 Format: `<NNN>_<short_description>.sql` (three-digit zero-padded)
 
@@ -104,7 +107,7 @@ alphabetical order within the number (e.g. `064_capacity_…` before `064_strate
 
 ## Checklist for new migrations
 
-1. Use the next sequential number (currently **200**)
+1. Use the next sequential number (currently **201**)
 2. File name: `197_<short_snake_case>.sql`
 3. Wrap DDL in a transaction if the DB supports transactional DDL
 4. Include a `-- Migration NNN:` comment header with a brief description
