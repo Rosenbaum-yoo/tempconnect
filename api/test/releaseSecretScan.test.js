@@ -74,7 +74,7 @@ const FEHLALARME = [
   // --- Testkonstanten: zu kurz und/oder ohne gueltiges Anbieter-Format ---
   ['health.route.coverage.test.js', '  const SECRET = "top-secret-admin";'],
   ['health.route.coverage.test.js', '  const SECRET = "sentry-admin-secret";'],
-  ['payment.webhook.stack.flow.test.js', 'const WEBHOOK_SECRET = "wh_sec_stack_regression_test";'],
+  ['payment.webhook.stack.flow.test.js', 'const WEBHOOK_SECRET = "whsec_stack_regression_test";'],
   ['rbac.flow.test.js', 'const ADMIN_SECRET = process.env.ADMIN_SECRET || "dev-admin-secret";'],
   ['m2mAuth.test.js', 'const SECRET = "test-jwt-secret-0123456789";'],
   ['commercial-subscription-smoke.spec.js', 'const TEST_PASSWORD = "CommercialE2e2026!";'],
@@ -122,9 +122,9 @@ const AUS_DEM_LAUF = [
   ['deploy/.env — Admin-Platzhalter',
    'ADMIN_SECRET=HIER_SICHERES_ADMIN_SECRET_SETZEN'],
   ['deploy/.env — Stripe-Platzhalter',
-   'STRIPE_SECRET_KEY=sk__test_HIER_EIGENEN_TESTKEY_EINTRAGEN'],
+   'STRIPE_SECRET_KEY=sk_test_HIER_EIGENEN_TESTKEY_EINTRAGEN'],
   ['deploy/.env — Webhook-Platzhalter',
-   'STRIPE_WEBHOOK_SECRET=wh_sec_HIER_WEBHOOK_SECRET_EINTRAGEN'],
+   'STRIPE_WEBHOOK_SECRET=whsec_HIER_WEBHOOK_SECRET_EINTRAGEN'],
 
   // --- lokale .env: deutsche Woerter, 59 Zeichen
   ['.env — dev-Wert mit Klartext-Hinweis',
@@ -132,13 +132,13 @@ const AUS_DEM_LAUF = [
 
   // --- Testvorrichtungen mit echtem Praefix, aber falschem Format
   ['systemHealth.test.js — zu kurzer Stripe-Schluessel',
-   'STRIPE_SECRET_KEY: "sk__live_realkey1234567890"'],
+   'STRIPE_SECRET_KEY: "sk_live_realkey1234567890"'],
   ['systemHealth.test.js — zu kurzes Webhook-Secret',
-   'STRIPE_WEBHOOK_SECRET: "wh_sec_realsecret1234567890"'],
+   'STRIPE_WEBHOOK_SECRET: "whsec_realsecret1234567890"'],
   ['emailProviderService.test.js — SendGrid-Form verfehlt',
    'SENDGRID_API_KEY: "SG.abc123realkey"'],
   ['billingProviderService.test.js — Zwei-Wort-Vorrichtung',
-   'STRIPE_WEBHOOK_SECRET: "wh_sec_real"'],
+   'STRIPE_WEBHOOK_SECRET: "whsec_real"'],
 ];
 
 describe("Secret-Scan — was der echte Lauf gelehrt hat", () => {
@@ -214,7 +214,7 @@ const ECHTE_SECRETS = [
   ['AWS Access Key',
    /* NICHT der Schluessel aus der AWS-Doku: der traegt bauartbedingt das Wort
     * EXAMPLE und ist damit als Vorrichtung erkennbar — als Beleg fuer "echter
-    * Schluessel" taugt er nicht. Dies ist die Form eines realen: AK_IA + 16. */
+    * Schluessel" taugt er nicht. Dies ist die Form eines realen: AKIA + 16. */
    'AWS_ACCESS_KEY_ID=' + KENNUNG.awsKeyId + '4NZ7QP2XVBM6LKDT'], // secret-scan: erlaubt
   ['Hetzner Cloud Token',
    'HETZNER_CLOUD_TOKEN=LRK9mPq2vN8xW4tY6zB1cD3fG5hJ7kM0nQ2rS4uV6wX8yZ0aB2cD4eF6gH8i'], // secret-scan: erlaubt
@@ -235,7 +235,7 @@ describe("Secret-Scan — echte Zugangsdaten fliegen weiterhin auf", () => {
     });
   }
 
-  it("ein echter sk__test_-Schluessel zaehlt trotz 'test' im Wert", () => {
+  it("ein echter sk_test_-Schluessel zaehlt trotz 'test' im Wert", () => {
     /* Der Grenzfall, der eine Wortliste aushebeln wuerde: Ein echter
      * Stripe-Testschluessel traegt das Wort "test" im Praefix. Entschieden wird
      * hier nicht ueber Vokabular, sondern ueber das Format — und das erfuellt
@@ -286,11 +286,11 @@ describe("Secret-Scan — die Grenzen sind gemessen, nicht geraten", () => {
   });
 
   it("ein Praefix ohne gueltiges Format faellt durch, nicht auf die generische Regel zurueck", () => {
-    /* Wer `wh_sec_` schreibt, meint einen Stripe-Schluessel. Erfuellt der Wert
+    /* Wer `whsec_` schreibt, meint einen Stripe-Schluessel. Erfuellt der Wert
      * dessen Format nicht, ist er eine Vorrichtung — und darf nicht ersatzweise
      * ueber Laenge und Entropie doch noch als Fund gelten. */
-    assert.equal(beurteileWert("wh_sec_KURZ"), null);
-    assert.equal(beurteileWert("wh_sec_diese_form_gibt_es_bei_stripe_nicht"), null);
+    assert.equal(beurteileWert("whsec_KURZ"), null);
+    assert.equal(beurteileWert("whsec_diese_form_gibt_es_bei_stripe_nicht"), null);
   });
 
   it("Leerzeichen schliessen einen Wert immer aus", () => {
