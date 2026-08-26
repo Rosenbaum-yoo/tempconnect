@@ -112,6 +112,40 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 
 ---
 
+### Der Browser prüft nicht deinen Backend-Code (gefunden 2026-08-26)
+
+Der API-Container mountet das **Haupt-Repo** nach `/app`. Entscheidend ist aber
+etwas anderes: **Node lädt seine Module beim Prozessstart und liest sie nie neu.**
+Am 26.08. lief `node server.js` seit **2 Tagen 1 Stunde**. Was der Prozess
+bedient, ist ein Schnappschuss von dem, was beim Start in `/app` lag — nicht das,
+was heute dort liegt, und schon gar nicht dein Worktree.
+
+**Konkret schiefgegangen:** Ein Bedarf wurde im Browser angelegt, kam mit **201**
+zurück und trug eine Ansprechperson aus dem Profil. Das sah aus wie der Beleg
+dafür, dass eine Worktree-Änderung greift. Der Code auf der Platte kann diese
+Spalten aber gar nicht schreiben — sein `INSERT INTO demand_requests` kennt sie
+nicht, und ein Trigger existiert auch nicht. Es war ein fremder Schnappschuss.
+
+| Prüfweg | Was er wirklich prüft |
+|---|---|
+| Browser gegen `:8080` oder den Vorschau-Server `:4178` | den **Schnappschuss** im laufenden Prozess |
+| `docker exec … node scripts/run-tests.js` aus einer Kopie (`/tmp/wtN`) | **deinen** Code — frischer Prozess, frisch geladen |
+| Frontend über den Vorschau-Server | **dein** Frontend — der Server liefert den Worktree aus |
+
+Also: **Frontend-Änderungen sind im Browser echt prüfbar, Backend-Änderungen
+nicht.** Der Vorschau-Server leitet `/api` an denselben nginx weiter, der auch
+8080 bedient.
+
+**Bevor irgendwo „am laufenden System belegt" steht:**
+
+```bash
+docker exec tempconnect_api sh -c "ps -o etime,args | grep '[n]ode server.js'"
+```
+
+Ist die Laufzeit älter als die eigene Änderung, wird etwas anderes geprüft als
+gemeint. Ein Neustart hilft nur bedingt — er lädt den Stand des **Haupt-Repos**,
+nicht den des Worktrees.
+
 ## Wo die Arbeitspläne liegen
 
 | Plan | Inhalt |

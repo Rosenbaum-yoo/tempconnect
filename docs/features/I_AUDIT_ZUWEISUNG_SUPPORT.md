@@ -1945,6 +1945,22 @@ gegen die echte Datenbank das finden — genau die Begründung, aus der die
 - Das Formular bekommt **Ansprechperson + Telefon** (DE/EN) mit dem Hinweis,
   warum es zählt. Leer bleibt `null`, damit der Rückfall aufs Profil greift —
   ein leerer String würde ihn überschreiben.
+
+> **Nachtrag 2026-08-26 — eine eigene Überzeichnung.** Ich hatte diesen Umbau
+> zusätzlich „im Browser durchgespielt" genannt: Felder sichtbar, Absenden
+> **201**, Ansprechperson aus dem Profil gefüllt. Die erste Hälfte stimmt — das
+> Formular kommt aus dem Vorschau-Server und ist mein Stand. Die zweite nicht:
+> der API-Prozess lief zu dem Zeitpunkt seit **2 Tagen** und bediente einen
+> Schnappschuss, der meinen Riegel nie hatte. Der 201 belegt also **nicht**, dass
+> meine Änderung ihn entfernt hat.
+>
+> **Der Beleg dafür steht woanders und hält:** der Integrationslauf im Container
+> aus `/tmp/wt3` — eigener Code, frischer Prozess — gab
+> `DIAG 201 { … contact_name: null … }` zurück. Die Sache ist bewiesen, nur nicht
+> durch den Browser.
+>
+> Die Falle selbst ist jetzt in [`UEBERGABE.md`](../UEBERGABE.md) festgehalten,
+> weil sie jede Sitzung genauso trifft.
 - **Drei Proben** sichern den Zustand, gegen Rückmutation geprüft: Riegel
   zurück → rot, Feld umbenannt → rot.
 - Die drei Riegel auf der **Anbieterseite bleiben**: dort handelt der Anbieter
