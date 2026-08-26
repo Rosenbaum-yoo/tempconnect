@@ -1450,6 +1450,33 @@ Dort lagen `expires_at` und `approval_required` — der schärfere Blickwinkel.
 | `org_settings.abwesenheit_selbstmeldung_freigabepflicht` | *entlastet* — wird gelesen (`workerAbsenceService.js:317`), mit Integrationstests |
 | übrige `*_at`-Spalten | *entlastet* — Zeitstempel ohne Regelcharakter |
 
+**Zweite Hälfte, nachgezogen am 26.08.** — diesmal mit der Regel, die im
+Nachtrag unten steht: nicht „ein Ersatz existiert", sondern „der Ersatz hat
+einen Verbraucher, und der greift". Jede Entlastung hier nennt ihn.
+
+| Kandidat | Verbraucher | Urteil |
+|---|---|---|
+| `demand_requests.overfill_allowed` | `emergencyCommitmentService.js:105` — blockt Überbuchung | *entlastet*, **durchgesetzt** |
+| `users.is_verified` | `ratings.js:25` → `403 EMAIL_NOT_VERIFIED` | *entlastet* — greift für genau eine Handlung: Bewertungen. Die missbrauchsanfällige Fläche zu sperren und den Rest offen zu lassen, ist eine bewusste Wahl, kein Loch. |
+| `users.email_verified_at` | — | *entlastet* — tot, ersetzt durch `is_verified`; und der Ersatz greift (Zeile darüber) |
+| Tabelle `email_verification_tokens` | — | *entlastet* — **Waise**: kommt im gesamten Code nur in einem Kommentar vor. Die echte Bestätigung läuft über `users.verification_token`, und `verifyEmail` setzt ihn auf `NULL` (`authService.js:50`) — also wirklich einmalig. |
+| `demand_requests.partial_fulfillment_allowed` | **keiner** | *nie gebaut* — nicht setzbar, nicht gemeldet, nicht gelesen. Auffällig, weil sein Zwilling `overfill_allowed` in derselben Tabelle durchgesetzt wird: von zwei Erfüllungsregeln beißt eine. |
+| `staff_control_runbook_runs.rollback_triggered` | **keiner** | *nie gebaut* — `staffRunbookService.js` kennt überhaupt keinen Rollback-Pfad; geschrieben werden neun andere Spalten. |
+| `product_analytics_funnel_steps.is_completion` | **keiner** | *nie gebaut* — Auswertung, kein Regelträger |
+
+Damit ist der Durchlauf abgeschlossen. **Von 46 Kandidaten bleibt eine echte
+Lücke** (`enforce_mfa`, owner-gebunden), dazu zwei offene Produktfragen
+(`preferred_supplier_only`, `partial_fulfillment_allowed`) und ein Befund, der
+erst beim zweiten Hinsehen einer wurde (die Stundenzettel-Vorlagen, Nachtrag
+unten). Alles Übrige ist entlastet — jedes mit benanntem Verbraucher.
+
+**Die drei „nie gebaut"-Fälle sind ausdrücklich keine Lücken.** Sie täuschen
+niemanden: nicht setzbar, nicht gemeldet, keine Oberfläche. Das unterscheidet
+sie von `approval_required`, das sich als `approval_workflow: true` zurückmeldete
+und nichts sperrte. Wer diese Liste erneut fährt, sollte die beiden Klassen
+getrennt halten — eine lügende Einstellung ist ein Fehler, eine leere Spalte
+ist bloß Vorrat.
+
 ### Was daraus offen bleibt
 
 **`organizations.enforce_mfa`** existiert seit Migration 058 und kommt im
@@ -1719,6 +1746,78 @@ laufen zu lassen genügt.
 
 Nichts mehr aus dieser Welle — die verbliebenen 30 Aufrufe sind am 2026-08-25
 einzeln entschieden worden (siehe unten). Offen bleibt allein das Ausrollen.
+
+---
+
+## Der Datenbanklauf fand einen Riegel, den ich selbst eingebaut hatte (2026-08-26)
+
+Dreizehn Tests haben in **jedem** Gate-Lauf dieser Welle geschwiegen — die
+DB-gebundenen Vorgangsketten. Die Übergabe nennt dafür ein Rezept; hier ist,
+was dabei herauskam.
+
+**369 Tests, 365 bestanden, 4 Fehlschläge.** Aufgeteilt:
+
+| Fehlschlag | Urteil |
+|---|---|
+| `offer.counterpartyFirst` — Bedarf gibt 409 statt 201 | **echter Defekt**, aus dieser Welle. Siehe unten. |
+| `timesheet` — FREE-Nutzer nicht gesperrt | **Umgebung**: im Container ist `FEATURE_GATE_BYPASS=true` gesetzt und hebt die Plan-Sperre absichtlich auf |
+| `workerProfileHub` × 2 — `EACCES` beim Anlegen von `uploads/` | **Artefakt meiner Kopie**: `docker cp` schrieb Windows-Rechte in `/tmp`. Nach `chmod`: 7/7 grün. |
+
+### Der Defekt
+
+`POST /marketplace/demand-requests` wies mit 409 ab, wenn Name oder Telefon der
+Ansprechperson fehlten. Der Riegel stammt aus `3ccf075` (23.08.), der
+Richtungskorrektur zu 10b — also aus meiner eigenen Arbeit, drei Tage vorher.
+
+**Am laufenden Bestand gemessen:**
+
+| | |
+|---|---|
+| Firmen, die je einen Bedarf angelegt haben | 22, davon **18 ohne Telefon** |
+| davon in 90 Tagen aktiv | 19, davon **18 gesperrt** |
+| vorhandene Bedarfe | 39, davon **38 ohne Ansprechperson** |
+| Feld im Bedarfsformular, um sie nachzutragen | **keins** |
+
+Die letzte Zeile ist die schwerste. Die Pflicht war für den Kunden
+**unauflösbar**: Er sollte eine Nummer liefern und hatte nirgends ein Feld
+dafür. Das ist dieselbe Klasse wie ein toter Knopf — nur mit einem 409 davor.
+
+Und die Regel dagegen stand schon in diesem Dokument, im Abschnitt zu 10b:
+
+> *„Die Pflicht trifft nur den, der handeln kann … Den Käufer abzuweisen, weil
+> ein anderer sein Profil nicht gepflegt hat, wäre die falsche Adresse."*
+
+Beim Bedarf handelt der Käufer. Der Riegel gehörte dort nie hin — ich habe die
+eigene Regel beim Korrigieren des Richtungsfehlers übersehen.
+
+### Warum es drei Tage niemand sah
+
+`ansprechpersonPflicht.test.js` zählt **fünf** Angebots-Wege und prüft für jeden,
+ob er sperrt oder nur füllt. Die Bedarfs-Anlage kam mit der Richtungskorrektur
+als **sechster** dazu und stand in keiner der beiden Listen. Das Gate blieb
+grün: 9911 Proben, keine davon zuständig.
+
+Ein Mock kennt keine 22 Firmen ohne Telefonnummer. Deshalb konnte nur der Lauf
+gegen die echte Datenbank das finden — genau die Begründung, aus der die
+Übergabe darauf besteht.
+
+### Gebaut
+
+- Die Bedarfs-Anlage **füllt weiter, blockiert nicht mehr**. Am System belegt:
+  201 mit `contact_name: null`.
+- Das Formular bekommt **Ansprechperson + Telefon** (DE/EN) mit dem Hinweis,
+  warum es zählt. Leer bleibt `null`, damit der Rückfall aufs Profil greift —
+  ein leerer String würde ihn überschreiben.
+- **Drei Proben** sichern den Zustand, gegen Rückmutation geprüft: Riegel
+  zurück → rot, Feld umbenannt → rot.
+- Die drei Riegel auf der **Anbieterseite bleiben**: dort handelt der Anbieter
+  selbst, und `sla_angebote.html` bietet ihm beide Felder an (Z. 121–126).
+
+Der Plan-Sperren-Test kennt jetzt seine Umgebung und prüft **beide**
+Konfigurationen — mit Überbrückung den Durchlass, ohne sie die Sperre. Beide
+Zweige nachgewiesen (`FEATURE_GATE_BYPASS=false` → 403, rückmutiert belegt).
+Ein Test, der in der einzigen Umgebung mit echter Datenbank verlässlich rot
+ist, erzieht dazu, Rot zu ignorieren.
 
 ---
 
