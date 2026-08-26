@@ -152,7 +152,22 @@ describe("emailWorker.startEmailWorker", () => {
     const msg = _emailSent[0];
     assert.equal(msg.to, "a@b.de", "recipient forwarded");
     assert.equal(msg.subject, "Hi", "subject forwarded");
-    assert.equal(msg.html, "<b>x</b>", "html forwarded");
+    /*
+     * GEAENDERT 2026-08-26, mit Begruendung (Test-Integritaet, CLAUDE.md 0.9).
+     *
+     * Die Probe hielt hier BYTE-GLEICHHEIT fest. Ihre Absicht ist aber das
+     * WEITERREICHEN ("html forwarded") - und das gilt weiterhin: der Inhalt
+     * kommt an, seit dem 26.08. eingebettet in den Absender-Rahmen
+     * (Firmierung + Kontakt, Pflichtangaben nach 37a HGB). Der Rahmen sass
+     * seit dem 24.08. nur im sendMail-Engpass von app.js; dieser zweite
+     * Versandweg ging leer aus.
+     *
+     * Die Probe wird dadurch STRENGER, nicht schwaecher: sie verlangt jetzt
+     * beides - dass der Inhalt ankommt UND dass er gerahmt ist.
+     */
+    assert.match(msg.html, /<b>x<\/b>/, "html forwarded");
+    assert.match(msg.html, /<!DOCTYPE/i,
+      "der Absender-Fuss fehlt - eine Mail ohne Firmierung ist keine zulaessige Geschaeftspost");
     assert.equal(msg.text, "x", "text forwarded");
     assert.equal("templateName" in msg, false,
       "templateName is NOT forwarded to the transport (worker drops it)");

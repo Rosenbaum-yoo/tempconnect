@@ -176,3 +176,189 @@ describe("Arbeiter-Meldungen fuehren zum Einsatz, nicht auf eine Liste", () => {
     assert.ok(!new RegExp(`\\?einsatz=${LINK}$`).test(weg));
   });
 });
+
+/*
+ * STUFE 1 AUS I3 — DIE MELDUNG VERLAESST DAS PORTAL.
+ *
+ * Der Arbeiter-Meldeweg hatte bis zum 26.08. genau EINEN Kanal: die Zeile im
+ * Portal. Am Bestand gemessen blieben 12 von 19 Zuweisungsanfragen ohne jede
+ * Antwort, und abgelehnt hat nie jemand — es wird nicht Nein gesagt, es wird
+ * nicht gesehen. Die Antwortzeiten sind zweigipflig: fuenf unter einer Minute,
+ * eine nach 6 Tagen, eine nach 11.
+ *
+ * Geprueft wird `mailAuftragFuerMeldung` — die Entscheidung, WEM WAS und OB
+ * ueberhaupt. Sie ist bewusst vom Versand getrennt, damit sie ohne
+ * Modul-Attrappe pruefbar ist: Pool hinein, Auftrag oder null heraus.
+ */
+describe("Fristgebundene Meldungen gehen zusaetzlich per E-Mail", () => {
+  const NUTZER = "u-7";
+
+  /** Pool, der seine Abfragen mitschreibt und eine feste Antwort liefert. */
+  function pool(antwort) {
+    const calls = [];
+    return {
+      calls,
+      query: async (sql, params) => { calls.push({ sql, params }); return { rows: antwort ? [antwort] : [], rowCount: antwort ? 1 : 0 }; }
+    };
+  }
+
+  const meldung = (over = {}) => ({
+    type: "worker_assignment_reminder",
+    title: "Erinnerung: Einsatz-Anfrage wartet",
+    message: "Ihre Antwort steht noch aus. Die Anfrage verfaellt am 26.08.2026 18:00.",
+    link_path: "/public/einsatzportal-einsaetze.html?einsatz=wal-42",
+    ...over
+  });
+
+  it("eine Erinnerung erzeugt einen Mailauftrag mit Ziel und Betreff", async () => {
+    const p = pool({ email: "arbeiter@example.org", erlaubt: null });
+    const auftrag = await svc.mailAuftragFuerMeldung(p, NUTZER, meldung());
+
+    assert.ok(auftrag, "ohne Auftrag bleibt die Frist eine Falle fuer den, der nicht hinsieht");
+    assert.equal(auftrag.to, "arbeiter@example.org");
+    assert.match(auftrag.subject, /Erinnerung/);
+    assert.match(auftrag.html, /einsatz=wal-42/,
+      "die Mail muss zum EINSATZ fuehren, nicht auf eine Uebersicht");
+    assert.match(auftrag.text, /verfaellt am 26\.08\.2026 18:00/,
+      "die Frist gehoert in die Mail — eine Frist, die man verschweigt, ist eine Falle");
+  });
+
+  it("ohne Einstellungszeile wird zugestellt — sonst erreicht Stufe 1 niemanden", async () => {
+    /* Keiner der 33 Arbeiter hat je eine Benachrichtigungs-Einstellung gesetzt.
+     * Waere "keine Zeile" ein Nein, waere dieser ganze Kanal wirkungslos. */
+    const p = pool({ email: "arbeiter@example.org", erlaubt: null });
+    assert.ok(await svc.mailAuftragFuerMeldung(p, NUTZER, meldung()));
+  });
+
+  it("ein ausdrueckliches Nein sperrt", async () => {
+    const p = pool({ email: "arbeiter@example.org", erlaubt: false });
+    assert.equal(await svc.mailAuftragFuerMeldung(p, NUTZER, meldung()), null,
+      "wer widersprochen hat, bekommt keine Mail");
+  });
+
+  it("ein ausdrueckliches Ja ebenfalls zugestellt", async () => {
+    const p = pool({ email: "arbeiter@example.org", erlaubt: true });
+    assert.ok(await svc.mailAuftragFuerMeldung(p, NUTZER, meldung()));
+  });
+
+  it("ohne Mailadresse passiert nichts — und es kracht nicht", async () => {
+    const p = pool({ email: null, erlaubt: null });
+    assert.equal(await svc.mailAuftragFuerMeldung(p, NUTZER, meldung()), null);
+  });
+
+  it("nicht fristgebundene Typen loesen NICHT EINMAL eine Abfrage aus", async () => {
+    /* Jede Arbeiter-Meldung zu mailen waere der sichere Weg, dass keine mehr
+     * gelesen wird. Der Rueckzug einer Anfrage kostet den Menschen nichts,
+     * wenn er ihn erst spaeter sieht. */
+    for (const typ of ["worker_assignment_withdrawn", "worker_document_expiring", "worker_submission_accepted"]) {
+      const p = pool({ email: "arbeiter@example.org", erlaubt: null });
+      assert.equal(await svc.mailAuftragFuerMeldung(p, NUTZER, meldung({ type: typ })), null, typ);
+      assert.equal(p.calls.length, 0,
+        `${typ}: es darf nicht einmal nachgesehen werden, wer der Empfaenger waere`);
+    }
+  });
+
+  it("die Auswahl umfasst genau die drei Typen, bei denen eine Frist laeuft", async () => {
+    const fristgebunden = [
+      "worker_assignment_pending_confirmation",
+      "worker_assignment_reminder",
+      "worker_assignment_expired"
+    ];
+    for (const typ of fristgebunden) {
+      const p = pool({ email: "arbeiter@example.org", erlaubt: null });
+      assert.ok(await svc.mailAuftragFuerMeldung(p, NUTZER, meldung({ type: typ })),
+        `${typ} traegt eine Frist und muss zugestellt werden`);
+    }
+  });
+
+  it("fremder Text landet nicht roh im HTML", async () => {
+    /* `clientName` kommt aus Kundendaten und wandert in den Meldungstext. */
+    const p = pool({ email: "arbeiter@example.org", erlaubt: null });
+    const auftrag = await svc.mailAuftragFuerMeldung(
+      p, NUTZER, meldung({ message: 'Einsatz bei <script>alert("x")</script> GmbH' }));
+    assert.ok(!/<script>/.test(auftrag.html), "XSS im Postfach ist auch XSS");
+    assert.match(auftrag.html, /&lt;script&gt;/);
+  });
+
+  it("ohne Ziel-Link faellt die Mail auf die Startadresse zurueck, nicht auf 'undefined'", async () => {
+    const p = pool({ email: "arbeiter@example.org", erlaubt: null });
+    const auftrag = await svc.mailAuftragFuerMeldung(p, NUTZER, meldung({ link_path: null }));
+    assert.ok(!/undefined|null/.test(auftrag.text), auftrag.text);
+  });
+
+  it("S: die Proben wuerden einen Stummel bemerken", async () => {
+    /* Gaebe `mailAuftragFuerMeldung` immer einen Auftrag zurueck, blieben die
+     * verneinenden Proben oben gruen — diese hier nicht. */
+    const p = pool(null);   // kein Nutzer gefunden
+    assert.equal(await svc.mailAuftragFuerMeldung(p, NUTZER, meldung()), null);
+  });
+});
+
+/*
+ * ...UND JEMAND RUFT SIE AUCH AUF.
+ *
+ * Die Proben darueber pruefen die Entscheidung fuer sich. Das genuegt nicht:
+ * die Fehlerklasse dieser Welle heisst "gebaut, montiert — und niemand
+ * benutzt es". Ein Kanal, den `notifyWorker` nie anfasst, waere gruen
+ * getestet und trotzdem stumm.
+ */
+describe("Der Mailweg haengt wirklich am Schreibvorgang", () => {
+  function poolMitZeile(zeile, empfaenger) {
+    const calls = [];
+    return {
+      calls,
+      query: async (sql, params) => {
+        calls.push({ sql, params });
+        if (/INSERT INTO notifications/i.test(sql)) return { rows: [zeile], rowCount: 1 };
+        if (/FROM users u/i.test(sql)) return { rows: empfaenger ? [empfaenger] : [], rowCount: empfaenger ? 1 : 0 };
+        return { rows: [], rowCount: 0 };
+      }
+    };
+  }
+
+  it("eine geschriebene Erinnerung schlaegt den Empfaenger nach", async () => {
+    const zeile = {
+      type: "worker_assignment_reminder", title: "Erinnerung", message: "Antwort steht aus",
+      link_path: "/public/einsatzportal-einsaetze.html?einsatz=wal-1"
+    };
+    const p = poolMitZeile(zeile, { email: "a@example.org", erlaubt: null });
+    await svc.notifyAssignmentReminder(p, "u-1", "wal-1", "26.08.2026 18:00");
+
+    const nachschlag = p.calls.find((c) => /FROM users u/i.test(c.sql));
+    assert.ok(nachschlag,
+      "notifyWorker hat den Mailweg nicht angefasst — der Kanal waere stumm, " +
+      "und die Proben darueber wuerden es nicht merken");
+    assert.deepEqual(nachschlag.params, ["u-1", "einsatz"]);
+  });
+
+  it("eine NICHT fristgebundene Meldung schlaegt niemanden nach", async () => {
+    const zeile = { type: "worker_assignment_withdrawn", title: "Zurueckgezogen", message: "x", link_path: null };
+    const p = poolMitZeile(zeile, { email: "a@example.org", erlaubt: null });
+    await svc.notifyAssignmentWithdrawn(p, "u-1", "wal-1", "Nordbau");
+    assert.ok(!p.calls.some((c) => /FROM users u/i.test(c.sql)));
+  });
+
+  it("die Entdopplung greift: keine Zeile, keine Mail", async () => {
+    /* `insertWithType` liefert bei einer Doppelmeldung binnen einer Stunde
+     * rows: [] zurueck. Dann gibt es nichts zu schicken. */
+    const p = { calls: [], query: async (sql, params) => { p.calls.push({ sql, params }); return { rows: [], rowCount: 0 }; } };
+    await svc.notifyAssignmentReminder(p, "u-1", "wal-1", "26.08.2026 18:00");
+    assert.ok(!p.calls.some((c) => /FROM users u/i.test(c.sql)));
+  });
+
+  it("ein Fehler im Mailweg kippt den Schreibvorgang nicht", async () => {
+    /* Ein Zustellweg darf das Schreiben nie gefaehrden — dieselbe Regel wie
+     * beim Live-Strom. Der Aufrufer mit throwOnError sichert die geSCHRIEBENE
+     * Zeile ab, nicht die Abkuerzung. */
+    const p = {
+      query: async (sql) => {
+        if (/INSERT INTO notifications/i.test(sql)) {
+          return { rows: [{ type: "worker_assignment_reminder", title: "t", message: "m", link_path: null }], rowCount: 1 };
+        }
+        throw new Error("Nutzer-Nachschlag kaputt");
+      }
+    };
+    await assert.doesNotReject(
+      () => svc.notifyAssignmentReminder(p, "u-1", "wal-1", "18:00", { throwOnError: true }));
+  });
+});

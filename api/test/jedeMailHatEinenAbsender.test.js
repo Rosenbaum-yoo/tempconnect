@@ -88,6 +88,84 @@ describe("Der Engpass — sie geht durch EINE Stelle, nicht durch 24", () => {
   });
 });
 
+/*
+ * ES WAREN ZWEI ENGPAESSE, NICHT EINER (gefunden 2026-08-26).
+ *
+ * Der Abschnitt darueber prueft `app.js`. Genau daneben liegt der zweite
+ * Versandweg: `services/emailService.js`, benutzt vom BullMQ-Email-Worker,
+ * von `orgControlCenter.js` und von `workerSubmissionService.js`. Er reichte
+ * das HTML unveraendert durch — "jede Mail traegt einen Absender" galt also
+ * fuer die Mails aus dem einen Engpass, nicht fuer alle.
+ *
+ * Aufgefallen ist es beim Anschluss des Arbeiter-Meldewegs (I3, Stufe 1), der
+ * ueber die Warteschlange geht und damit durch den zweiten Weg.
+ *
+ * DESHALB ZAEHLT DIESE PROBE NICHT AUF, SONDERN SUCHT: sie findet jeden echten
+ * Versandaufruf im Quelltext und verlangt, dass er rahmt. Ein dritter Weg macht
+ * sie rot, statt still danebenzustehen — dieselbe Umkehr wie bei der
+ * Ansprechperson.
+ */
+describe("Jeder Versandweg rahmt — auch ein spaeter dazugekommener", () => {
+  const WURZEL = new URL("../", import.meta.url);
+
+  /** Alle .js unter api/, ohne Tests und Fremdcode. */
+  function quelldateien(verzeichnis) {
+    const gefunden = [];
+    for (const eintrag of fs.readdirSync(verzeichnis, { withFileTypes: true })) {
+      const name = eintrag.name;
+      if (name === "node_modules" || name === "test" || name === ".git") continue;
+      const pfad = new URL(name + (eintrag.isDirectory() ? "/" : ""), verzeichnis);
+      if (eintrag.isDirectory()) gefunden.push(...quelldateien(pfad));
+      else if (name.endsWith(".js")) gefunden.push(pfad);
+    }
+    return gefunden;
+  }
+
+  it("jeder Aufruf von <transport>.sendMail reicht das HTML durch mitRahmen", () => {
+    const dateien = quelldateien(WURZEL);
+    assert.ok(dateien.length > 50,
+      `nur ${dateien.length} Quelldateien gefunden — greift die Suche noch? ` +
+      "Ohne Treffer prueft diese Probe nichts und waere trotzdem gruen.");
+
+    const muster = /(?:transporter|mailTransport|transport)\.sendMail\(/g;
+    const ungerahmt = [];
+    let versandstellen = 0;
+
+    for (const datei of dateien) {
+      const quelle = fs.readFileSync(datei, "utf8");
+      for (const treffer of quelle.matchAll(muster)) {
+        versandstellen += 1;
+        /* Der Aufruf selbst plus sein Argument-Objekt — grosszuegig gefasst,
+         * damit ein mehrzeiliges Objekt vollstaendig darin liegt. */
+        const abschnitt = quelle.slice(treffer.index, treffer.index + 400);
+        if (!/mitRahmen\(/.test(abschnitt)) {
+          ungarbeit(ungerahmt, datei, quelle, treffer.index);
+        }
+      }
+    }
+
+    assert.ok(versandstellen >= 2,
+      `nur ${versandstellen} Versandstelle(n) gefunden — wurde umbenannt? ` +
+      "Am 2026-08-26 waren es zwei: app.js und services/emailService.js.");
+    assert.deepEqual(ungerahmt, [],
+      "Ein Versandweg reicht das HTML ungerahmt durch. Fuer Geschaeftsbriefe " +
+      "sind Firmierung und Kontakt Pflichtangaben (§ 37a HGB) — und der Weg, " +
+      "den man vergisst, ist immer der, den ein neuer Aufrufer nimmt.");
+  });
+
+  /** Dateiname:Zeile fuer die Fehlermeldung — ohne Escape-Sequenzen, die auf
+   *  dem Weg hierher schon einmal zu echten Umbruechen geworden sind. */
+  /* Dateiname:Zeile fuer die Fehlermeldung. BEWUSST OHNE BACKSLASH: der
+   * Ersatz-Text musste zweimal durch Werkzeuge, und beide Male wurde aus
+   * einem maskierten Zeilenumbruch ein echter. String.fromCharCode(10) geht
+   * durch jede Kette unbeschadet. */
+  function ungarbeit(sammler, datei, quelle, index) {
+    const umbruch = String.fromCharCode(10);
+    const zeile = quelle.slice(0, index).split(umbruch).length;
+    sammler.push(String(datei).split("/api/").pop() + ":" + zeile);
+  }
+});
+
 describe("Der Fussbereich liest die Config, statt sie abzuschreiben", () => {
   const vorlagen = fs.readFileSync(
     new URL("../services/emailHtmlTemplates.js", import.meta.url), "utf8");

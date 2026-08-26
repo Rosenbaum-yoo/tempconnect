@@ -4,7 +4,124 @@
  * Alle Notifications sind user-scoped (der jeweilige Arbeitnehmer) und enthalten Deep-Links.
  */
 
-import { logger } from "../config/index.js";
+import { logger, config } from "../config/index.js";
+
+/*
+ * ── STUFE 1 AUS I3: DIE MELDUNG VERLAESST DAS PORTAL ──────────────────────────
+ *
+ * Am Bestand gemessen (2026-08-26): 19 Zuweisungen warteten auf eine Antwort,
+ * ZWOELF blieben ohne jede — und abgelehnt hat nie jemand ein einziges Mal. Die
+ * Antwortzeiten sind zweigipflig: fuenf unter einer Minute, eine nach 6 Tagen,
+ * eine nach 11. Entweder jemand sitzt gerade davor, oder er sieht es tagelang
+ * nicht. In dieser Verteilung trifft eine 4-Stunden-Frist fast nie.
+ *
+ * Bis hierher hatte der Arbeiter-Meldeweg GENAU EINEN Kanal: die Zeile in der
+ * Tabelle, sichtbar im Portal (seit 2026-08-24 auch sofort ueber den
+ * Live-Strom). Wer das Portal nicht offen hat, erfaehrt nichts — die Frist
+ * laeuft trotzdem.
+ *
+ * WARUM E-MAIL UND NICHT SMS: SMS scheiterte an zwei Dingen, nicht am Geld —
+ * es gibt im ganzen Schema kein Einwilligungsfeld, und nur 17 von 33 Arbeitern
+ * haben ueberhaupt eine Nummer hinterlegt. Ein Konto samt Mailadresse haben
+ * dagegen ALLE 33, und die Plattform schreibt ihnen ohnehin (Einladung). Kein
+ * neuer Kanal, keine neue Einwilligung, volle Reichweite. Der Vergleich in
+ * `docs/features/I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md`.
+ *
+ * NUR FRISTGEBUNDENE TYPEN. Jede Arbeiter-Meldung zu mailen waere der sichere
+ * Weg, dass keine mehr gelesen wird. Hier stehen die drei, bei denen Schweigen
+ * den Menschen etwas KOSTET: die Anfrage selbst, die Erinnerung, der Verfall.
+ * Absage, Rueckzug, Dokumenten-Hinweise bleiben im Portal — dort kostet
+ * Nichtstun nichts.
+ */
+const MAIL_TYPEN = new Set([
+  "worker_assignment_pending_confirmation",
+  "worker_assignment_reminder",
+  "worker_assignment_expired"
+]);
+
+/* Eigene Kategorie, damit ein Widerspruch nicht die Stundenzettel mit abschaltet.
+ * EHRLICH DAZU: Das Einsatzportal hat heute KEINE Einstellungsflaeche — es
+ * verlinkt `activity.html` nicht. Der Schalter wirkt also, aber der Arbeiter
+ * erreicht ihn noch nicht. Als Luecke in I3 festgehalten, nicht verschwiegen. */
+const MAIL_KATEGORIE = "einsatz";
+
+function escapeHtml(wert) {
+  return String(wert == null ? "" : wert)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/**
+ * Reicht eine geschriebene Meldung als E-Mail nach — fuer die Typen, bei denen
+ * eine Frist laeuft.
+ *
+ * WIRFT NIE. Wie der Live-Strom eine Zeile darueber: die Zeile in der Datenbank
+ * ist die Wahrheit, der Zustellweg nur die Abkuerzung.
+ *
+ * ZUR TRANSAKTION: Beim Erinnerungs-Sweep stehen Marke und Meldung in EINER
+ * Transaktion, und dieser Aufruf liegt darin. Rollt sie zurueck, ist die Mail
+ * trotzdem eingereiht. Der Inhalt bleibt dabei WAHR — die Anfrage wartet ja
+ * wirklich; nur die Buchhaltungsmarke fehlt, und der naechste Lauf erinnert
+ * erneut. Der schlimmste Fall ist also eine zweite Erinnerung, keine falsche
+ * Aussage. Die Mail nach dem COMMIT zu schicken haette bedeutet, den
+ * Rueckgabeweg durch drei Aufrufer zu faedeln — fuer diesen Preis nicht.
+ */
+export async function mailAuftragFuerMeldung(pool, workerUserId, zeile) {
+  if (!zeile || !MAIL_TYPEN.has(zeile.type)) return null;
+
+  const { rows } = await pool.query(
+    `SELECT u.email,
+            (SELECT np.channel_email
+               FROM notification_preferences np
+              WHERE np.user_id = u.id AND np.event_category = $2) AS erlaubt
+       FROM users u
+      WHERE u.id = $1`,
+    [workerUserId, MAIL_KATEGORIE]
+  );
+
+  const empfaenger = rows[0];
+  if (!empfaenger?.email) return null;
+  /* Nur ein AUSDRUECKLICHES Nein sperrt. Fehlt die Zeile, wird zugestellt —
+   * sonst erreichte Stufe 1 keinen einzigen der 33 Arbeiter, denn keiner von
+   * ihnen hat je eine Einstellung gesetzt. */
+  if (empfaenger.erlaubt === false) return null;
+
+  const ziel = zeile.link_path
+    ? `${config.BASE_URL}${zeile.link_path}`
+    : config.BASE_URL;
+  const text = zeile.message || zeile.title || "";
+
+  return {
+    to: empfaenger.email,
+    subject: zeile.title || "TempConnect",
+    /* `mitRahmen` im emailService setzt Firmierung und Kontakt darunter. */
+    html: `<p>${escapeHtml(text)}</p>`
+      + `<p><a href="${escapeHtml(ziel)}">Im Einsatzportal ansehen</a></p>`,
+    text: `${text}\n\n${ziel}`
+  };
+}
+
+/**
+ * Der duenne Versender. Bewusst getrennt von der Entscheidung darueber:
+ *
+ * Die riskante Logik ist die Frage WEM WAS und OB UEBERHAUPT — Typenauswahl,
+ * Widerspruch, fehlende Adresse, Link, Escaping. Die liegt jetzt in
+ * `mailAuftragFuerMeldung` und ist ohne jede Attrappe pruefbar: Pool hinein,
+ * Auftrag oder `null` heraus. Was hier bleibt, ist eine Zeile, die man ansehen
+ * kann.
+ *
+ * Der Umweg ueber die Warteschlange statt eines direkten Versands ist Absicht:
+ * er kostet den schreibenden Vorgang keine Zeit, er wiederholt bei Ausfall
+ * (BullMQ: drei Versuche), und er ist gedeckelt (20 Mails/Minute im
+ * `emailWorker`). Ohne Redis meldet `enqueue` das und tut nichts — die Meldung
+ * im Portal steht trotzdem.
+ */
+async function perMailNachreichen(pool, workerUserId, zeile) {
+  const auftrag = await mailAuftragFuerMeldung(pool, workerUserId, zeile);
+  if (!auftrag) return;
+  const { enqueue, emailQueue } = await import("../queue/queues.js");
+  await enqueue(emailQueue, "worker-notification-email", auftrag);
+}
 
 const SEVERITY_MAP = {
   worker_assignment_new:                    "info",
@@ -107,6 +224,16 @@ export async function notifyWorker(pool, {
       } catch (e) {
         logger.warn({ err: e.message, workerUserId },
           "SSE-Push fehlgeschlagen — Meldung bleibt bestehen");
+      }
+
+      /* Zweiter Zustellweg, gleiche Regel: er darf das Schreiben nie
+       * gefaehrden. Wer das Portal nicht offen hat, erfaehrt sonst nichts —
+       * und die Frist laeuft trotzdem (I3, Stufe 1). */
+      try {
+        await perMailNachreichen(pool, workerUserId, rows[0]);
+      } catch (e) {
+        logger.warn({ err: e.message, workerUserId, type: rows[0].type },
+          "Meldungs-Mail nicht eingereiht — Meldung bleibt bestehen");
       }
     }
   };

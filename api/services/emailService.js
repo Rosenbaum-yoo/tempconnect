@@ -8,6 +8,7 @@ import nodemailer from "nodemailer";
 import { config } from "../config/index.js";
 import { createServiceLogger } from "../utils/logger.js";
 import { resolveEmailProvider, describeEmail, EMAIL_PROVIDERS } from "./emailProviderService.js";
+import { mitRahmen } from "./emailHtmlTemplates.js";
 
 const logger = createServiceLogger("emailService");
 
@@ -88,11 +89,26 @@ export async function sendMail({ to, subject, html, text, from } = {}) {
     return { messageId: `dev-${Date.now()}`, accepted: [to], rejected: [] };
   }
 
+  /*
+   * DER ABSENDER-FUSS GEHOERT AUF BEIDE MAILWEGE.
+   *
+   * Am 2026-08-24 wurde entschieden, dass JEDE Mail die Pflichtangaben traegt
+   * (Firmierung, Kontakt — § 37a HGB), und `mitRahmen` in den sendMail-Engpass
+   * von `app.js` gesetzt. Dieser Dienst hier ist der ZWEITE Weg: ihn nutzen der
+   * BullMQ-Email-Worker, `orgControlCenter.js` und `workerSubmissionService.js`.
+   * Er ging leer aus — "jede Mail" waren in Wahrheit nur die aus dem einen
+   * Engpass. Gefunden am 2026-08-26 beim Anschluss des Arbeiter-Meldewegs.
+   *
+   * `mitRahmen` ist gutmuetig: ein bereits vollstaendiges HTML-Dokument gibt es
+   * unveraendert zurueck, die bestehenden Vorlagen bleiben also unberuehrt. Und
+   * NUR wenn es HTML gibt — eine reine Textmail in einen HTML-Rahmen zu packen
+   * ergaebe ein leeres Dokument mit Fuss und ohne Inhalt.
+   */
   const info = await transporter.sendMail({
     from: fromAddr,
     to,
     subject,
-    html: html || undefined,
+    html: html ? mitRahmen(html, subject) : undefined,
     text: text || undefined,
   });
 
