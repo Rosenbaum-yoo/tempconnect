@@ -36,6 +36,26 @@ process.on("unhandledRejection", (err) => {
 
 process.on("uncaughtException", (err) => {
   process.stderr.write(`\n╔══ UNCAUGHT EXCEPTION in ${label}: ${err?.message}\n${err?.stack}\n`);
+  /*
+   * DAS HIER IST NICHT KOSMETIK (ergaenzt 2026-08-26).
+   *
+   * Einen `uncaughtException`-Handler zu registrieren ERSETZT Nodes
+   * Standardverhalten: drucken UND mit 1 beenden. Diese Sonde druckte nur und
+   * kehrte zurueck — der Prozess lief weiter und endete mit 0.
+   *
+   * Da `run-tests.js` die Sonde STANDARDMAESSIG anhaengt, konnte das Gate seit
+   * dem 26.07. an keiner Ladefehler-Ausnahme mehr scheitern. Belegt am
+   * 2026-08-26: eine Testdatei mit einem Import auf eine geloeschte Datei
+   * erzeugte den lauten UNCAUGHT-EXCEPTION-Kasten — und der Lauf endete mit
+   *   9828 Tests, 0 Fehlschlaege, Rueckgabewert 0.
+   * Ohne Sonde endet derselbe Fall mit 1. Die Diagnose hatte die Diagnose
+   * abgeschaltet.
+   *
+   * Eine Datei, die sich nicht laden laesst, zaehlt sonst als NULL Tests und
+   * NULL Fehlschlaege: die Suite schrumpft still, und niemand sieht es an einer
+   * Zahl, die ohnehin niemand auswendig kennt.
+   */
+  process.exitCode = 1;
 });
 
 /**
