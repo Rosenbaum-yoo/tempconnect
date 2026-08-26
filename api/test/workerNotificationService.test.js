@@ -107,3 +107,72 @@ describe("workerNotificationService", () => {
   });
 });
 
+
+/*
+ * DER WEG AUS DER MELDUNG HERAUS.
+ *
+ * BEFUND 2026-08-26: Vier Meldungen an den Arbeiter — neue Zuweisung,
+ * Erinnerung, Verfall, Rueckzug — trugen `link_path` auf
+ * `einsatzportal-benachrichtigungen.html`. Also auf die Liste, aus der der
+ * Mensch gerade gekommen war. Er las "Ihre Antwort steht noch aus, die Anfrage
+ * verfaellt am …" und musste den Einsatz danach selbst suchen, waehrend seine
+ * Frist lief.
+ *
+ * Die Hausregel dazu steht in der CLAUDE.md: Meldungen fuehren zum konkreten
+ * Ziel, nicht auf eine Uebersicht. Zwei Funktionen weiter oben in derselben
+ * Datei macht der Stundenzettel es laengst richtig (`?id=<submission>`) — das
+ * Muster war da, die Zuweisungen hatten es nur nie bekommen.
+ *
+ * Geprueft wird der WERT, der in die Datenbank geht (`params[7]` des INSERT),
+ * nicht der Quelltext: `if (false && ...)` enthaelt die gesuchte Zeichenkette
+ * weiterhin.
+ */
+describe("Arbeiter-Meldungen fuehren zum Einsatz, nicht auf eine Liste", () => {
+  const NUTZER = "u-1";
+  const LINK   = "wal-42";
+
+  function mitschreibenderPool() {
+    const calls = [];
+    return {
+      calls,
+      /* rows: [] — dann faellt der Live-Strom-Zweig weg und die Probe bleibt
+       * frei von Nebenwirkungen. */
+      query: async (sql, params) => { calls.push({ sql, params }); return { rowCount: 1, rows: [] }; }
+    };
+  }
+
+  const faelle = [
+    ["notifyAssignmentPendingConfirmation", (p) => svc.notifyAssignmentPendingConfirmation(p, NUTZER, LINK, "Nordbau", "26.08.2026 18:00")],
+    ["notifyAssignmentReminder",            (p) => svc.notifyAssignmentReminder(p, NUTZER, LINK, "26.08.2026 18:00")],
+    ["notifyAssignmentExpired",             (p) => svc.notifyAssignmentExpired(p, NUTZER, LINK, "Nordbau")],
+    ["notifyAssignmentWithdrawn",           (p) => svc.notifyAssignmentWithdrawn(p, NUTZER, LINK, "Nordbau")],
+  ];
+
+  for (const [name, aufruf] of faelle) {
+    it(`${name}: der Link fuehrt zum Einsatz selbst`, async () => {
+      const pool = mitschreibenderPool();
+      await aufruf(pool);
+
+      const insert = pool.calls.find((c) => /INSERT INTO notifications/i.test(c.sql));
+      assert.ok(insert, "kein INSERT beobachtet — greift das Muster noch?");
+
+      const weg = insert.params[7];
+      assert.ok(typeof weg === "string" && weg.length > 0,
+        "ohne link_path ist die Meldung eine Sackgasse");
+      assert.ok(!/einsatzportal-benachrichtigungen/.test(weg),
+        "Der Link zeigt auf die Benachrichtigungsliste — also dorthin, wo der " +
+        "Mensch gerade herkommt. Genau der Zustand, den dieser Abschnitt behebt.");
+      assert.match(weg, new RegExp(`\\?einsatz=${LINK}$`),
+        "der Link muss die Kennung DIESER Anfrage tragen, sonst oeffnet das " +
+        "Portal einen fremden oder gar keinen Einsatz");
+    });
+  }
+
+  it("S: die Probe wuerde einen fehlenden Parameter bemerken", async () => {
+    /* Rueckmutation in Testform: ein Link ohne Kennung erfuellt die
+     * Zusicherung oben nicht — sonst waere sie mit jedem beliebigen Pfad
+     * zufrieden, der nur nicht die Liste ist. */
+    const weg = "/public/einsatzportal-einsaetze.html";
+    assert.ok(!new RegExp(`\\?einsatz=${LINK}$`).test(weg));
+  });
+});

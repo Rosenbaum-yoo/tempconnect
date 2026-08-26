@@ -36,7 +36,17 @@ let ctx = null;
 function elem(id) {
   return {
     id, innerHTML: "", textContent: "", style: {}, dataset: {},
-    classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
+    /* Mitschreibend, nicht stumm: der Reiterwechsel des Deep-Links ist sonst
+     * nicht zu beobachten, und eine Probe darauf waere leer bestanden. */
+    classList: (() => {
+      const gesetzt = new Set();
+      return {
+        add: (c) => gesetzt.add(c),
+        remove: (c) => gesetzt.delete(c),
+        toggle: (c) => (gesetzt.has(c) ? gesetzt.delete(c) : gesetzt.add(c)),
+        contains: (c) => gesetzt.has(c),
+      };
+    })(),
     addEventListener() {}, appendChild() {}, remove() {},
     querySelector: () => null, querySelectorAll: () => [],
     setAttribute() {}, getAttribute: () => null,
@@ -99,6 +109,11 @@ describe("Einsatzportal — die Frist steht wirklich auf der Karte",
           .replace(/"/g, "&quot;"),
         setupAccessibility: () => {}, setupIcons: () => {}, iconSvg: () => "",
       },
+      /* OHNE DIESE ZEILE PRUEFEN DIE DEEP-LINK-PROBEN NICHTS: `oeffneAusAdresse`
+       * kapselt den Zugriff in try/catch, faellt ohne URLSearchParams auf
+       * `id = null` zurueck und kehrt still zurueck — jede Zusicherung
+       * darunter waere leer bestanden. */
+      URLSearchParams,
       setTimeout, clearTimeout, setInterval, clearInterval,
       Date, Math, JSON, encodeURIComponent, decodeURIComponent, Intl,
       alert: () => {}, confirm: () => true,
@@ -174,6 +189,99 @@ describe("Einsatzportal — die Frist steht wirklich auf der Karte",
       "ohne Eintrag faellt die Zeile auf '' zurueck und sieht aus wie eine normale Zuweisung");
     assert.ok(!/#ef4444|239,68,68/.test(abzeichen),
       "Rot ist die Farbe der Absage — der Verfall bekommt Grau");
+  });
+
+  /* ── Der Weg aus der Benachrichtigung ─────────────────────────────
+   *
+   * Vier Arbeiter-Meldungen endeten auf `einsatzportal-benachrichtigungen.html`
+   * — auf der Liste, aus der der Mensch gerade kam. Er las "Ihre Antwort steht
+   * noch aus, die Anfrage verfaellt am …" und musste den Einsatz danach selbst
+   * suchen. Die Mechanik zum Oeffnen war die ganze Zeit da (`selAsg`); es fehlte
+   * nur der Anstoss aus der Adresse.
+   *
+   * WARUM DIESE PROBEN DEN GANZEN WEG FAHREN statt `oeffneAusAdresse` einzeln
+   * aufzurufen: `assignments`, `curTab` und `selId` sind `let`-Bindungen. In
+   * einer vm-Sandbox werden sie NICHT zu Eigenschaften des Kontexts — von
+   * aussen weder setzbar noch lesbar. Ein erster Anlauf hat genau daran
+   * gescheitert. Also: `load()` mit gestelltem `PortalApi`, und beobachtet wird,
+   * was der Mensch sieht — der Inhalt der Detailspalte.
+   */
+
+  /** Laesst die Seite laden, als kaeme man aus einer Benachrichtigung. */
+  async function ausAdresseLaden(suche, liste) {
+    /* ZUERST LEEREN. Der erste Anlauf dieser Proben bestand aus dem falschen
+     * Grund: das Stub-Element behaelt seinen Inhalt ueber Probengrenzen hinweg,
+     * und eine fruehere Probe hatte denselben Firmennamen gerendert. Erst die
+     * Rueckmutation (Aufruf aus load() entfernt) hat es gezeigt — drei der vier
+     * Proben blieben gruen. */
+    ctx.document.getElementById("detContent").innerHTML = "";
+    ctx.window.location.search = suche;
+    ctx.location.search = suche;
+    ctx.PortalApi.get = async (pfad) => {
+      if (pfad === "/worker/assignments") return { items: liste };
+      const treffer = liste.find((a) => pfad === `/worker/assignments/${a.id}`);
+      return treffer || {};
+    };
+    await ctx.load();
+    /* `oeffneAusAdresse` wartet bewusst nicht auf `selAsg` — die Seite soll
+     * nicht blockieren. Hier muss die Probe die Microtasks nachlaufen lassen. */
+    await new Promise((fertig) => setTimeout(fertig, 0));
+  }
+
+  it("die Seite oeffnet den Einsatz aus `?einsatz=`", async () => {
+    assert.equal(typeof ctx.oeffneAusAdresse, "function",
+      "ohne die Funktion fuehrt die Meldung weiter auf eine Uebersicht");
+
+    await ausAdresseLaden("?einsatz=link-7", [
+      einsatz({ id: "link-7", assignment_is_current: true,
+                client_display_name: "Deeplink Ziel AG" }),
+    ]);
+
+    const html = ctx.document.getElementById("detContent").innerHTML;
+    assert.ok(html.length > 0,
+      "die Detailspalte blieb leer — der Deep-Link hat nichts aufgeschlagen");
+    assert.match(html, /Deeplink Ziel AG/,
+      "Es muss der ANGEFRAGTE Einsatz dastehen. Sonst landet der Mensch wieder " +
+      "auf einer Liste und sucht selbst — waehrend seine Frist laeuft.");
+  });
+
+  it("ein vergangener Einsatz wechselt den Reiter mit", async () => {
+    /* Ein VERFALLENER oder zurueckgezogener Einsatz liegt in "Vergangen".
+     * Oeffnete sich nur die Detailansicht, zeigte die Liste daneben ihn nicht —
+     * die Markierung ginge ins Leere und die Seite saehe verwirrt aus. */
+    await ausAdresseLaden("?einsatz=link-alt", [
+      einsatz({ id: "link-alt", assignment_is_current: false,
+                client_display_name: "Altbau Service GmbH" }),
+    ]);
+
+    assert.ok(ctx.document.getElementById("tab-past").classList.contains("active"),
+      "der Reiter muss zum Einsatz passen");
+    const html = ctx.document.getElementById("detContent").innerHTML;
+    assert.ok(html.length > 0 && /Altbau Service GmbH/.test(html),
+      "und der Einsatz selbst muss trotzdem aufgeschlagen sein");
+  });
+
+  it("eine unbekannte Kennung aendert nichts und wirft nicht", async () => {
+    /* Die Zuweisung kann geloescht sein oder zu einem anderen Konto gehoeren.
+     * Eine Fehlermeldung waere hier lauter als der Anlass. */
+    ctx.document.getElementById("detContent").innerHTML = "";
+    await ausAdresseLaden("?einsatz=gibt-es-nicht", [
+      einsatz({ id: "link-7", assignment_is_current: true }),
+    ]);
+    assert.equal(ctx.document.getElementById("detContent").innerHTML, "",
+      "nichts aufgeschlagen — aber auch kein Krach");
+  });
+
+  it("S: ohne Parameter schlaegt die Seite nichts auf", async () => {
+    /* Rueckmutation der Proben oben: waere `oeffneAusAdresse` ein Stummel, der
+     * IMMER den ersten Einsatz waehlt, wuerden sie trotzdem gruen. */
+    ctx.document.getElementById("detContent").innerHTML = "";
+    await ausAdresseLaden("", [
+      einsatz({ id: "link-7", assignment_is_current: true,
+                client_display_name: "Nordbau Industrie GmbH" }),
+    ]);
+    assert.equal(ctx.document.getElementById("detContent").innerHTML, "",
+      "ohne `?einsatz=` darf die Seite nichts aufschlagen");
   });
 
   it("S: der Aufbau wuerde einen kaputten Renderer bemerken", () => {

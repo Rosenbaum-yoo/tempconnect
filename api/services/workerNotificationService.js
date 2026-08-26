@@ -274,7 +274,7 @@ export async function notifyAssignmentPendingConfirmation(pool, workerUserId, as
     message:     `Sie wurden einem Einsatz${clientName ? ` bei ${clientName}` : ""} zugewiesen. Bitte bestätigen oder ablehnen.${deadlineLabel ? ` Die Anfrage verfaellt am ${deadlineLabel}.` : ""}`,
     entityType:  "worker_assignment_link",
     entityId:    assignmentLinkId,
-    linkPath:    `/public/einsatzportal-benachrichtigungen.html`
+    linkPath:    `/public/einsatzportal-einsaetze.html?einsatz=${assignmentLinkId}`
   });
 }
 
@@ -297,7 +297,7 @@ export async function notifyAssignmentReminder(pool, workerUserId, assignmentLin
     message:     `Ihre Antwort auf eine Einsatz-Zuweisung steht noch aus.${deadlineLabel ? ` Die Anfrage verfaellt am ${deadlineLabel}.` : ""} Danach wird der Platz neu vergeben.`,
     entityType:  "worker_assignment_link",
     entityId:    assignmentLinkId,
-    linkPath:    `/public/einsatzportal-benachrichtigungen.html`,
+    linkPath:    `/public/einsatzportal-einsaetze.html?einsatz=${assignmentLinkId}`,
     throwOnError: !!options.throwOnError
   });
 }
@@ -315,7 +315,7 @@ export async function notifyAssignmentExpired(pool, workerUserId, assignmentLink
     message:     `Die Anfrage${clientName ? ` fuer den Einsatz bei ${clientName}` : ""} wurde nicht rechtzeitig beantwortet und ist verfallen. Der Platz wird neu vergeben — es entsteht Ihnen kein Nachteil.`,
     entityType:  "worker_assignment_link",
     entityId:    assignmentLinkId,
-    linkPath:    `/public/einsatzportal-benachrichtigungen.html`
+    linkPath:    `/public/einsatzportal-einsaetze.html?einsatz=${assignmentLinkId}`
   });
 }
 
@@ -337,7 +337,7 @@ export async function notifyAssignmentWithdrawn(pool, workerUserId, assignmentLi
     message:     `Die Anfrage${clientName ? ` fuer den Einsatz bei ${clientName}` : ""} wurde von Ihrer Zeitarbeitsfirma zurueckgezogen. Sie muessen nichts weiter tun — es entsteht Ihnen kein Nachteil.`,
     entityType:  "worker_assignment_link",
     entityId:    assignmentLinkId,
-    linkPath:    `/public/einsatzportal-benachrichtigungen.html`
+    linkPath:    `/public/einsatzportal-einsaetze.html?einsatz=${assignmentLinkId}`
   });
 }
 

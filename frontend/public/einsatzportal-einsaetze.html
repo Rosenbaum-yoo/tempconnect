@@ -279,6 +279,47 @@ async function load() {
   document.getElementById('loading').style.display='none';
   document.getElementById('content').style.display='';
   renderList();
+  oeffneAusAdresse();
+}
+
+/*
+ * DEEP-LINK AUS EINER BENACHRICHTIGUNG: `?einsatz=<link-id>`.
+ *
+ * Bis hierher endeten VIER Arbeiter-Meldungen — neue Zuweisung, Erinnerung,
+ * Verfall, Rueckzug — auf `einsatzportal-benachrichtigungen.html`, also auf der
+ * Liste, aus welcher der Mensch gerade gekommen ist. Er las "Ihre Antwort steht
+ * noch aus, die Anfrage verfaellt am …" und musste den Einsatz danach selbst
+ * suchen. Die Hausregel sagt dazu: Meldungen fuehren zum konkreten Ziel, nicht
+ * auf eine Uebersicht. Zwei Funktionen weiter oben in derselben Datei macht der
+ * Stundenzettel es laengst richtig (`?id=<submission>`).
+ *
+ * Die Mechanik war vollstaendig da: `selAsg(id)` laedt genau einen Einsatz. Es
+ * fehlte nur der Anstoss aus der Adresse.
+ *
+ * DER REITER MUSS MITWANDERN: Ein verfallener oder zurueckgezogener Einsatz
+ * liegt in "Vergangen". Ohne Reiterwechsel oeffnete sich die Detailansicht,
+ * waehrend die Liste daneben ihn nicht enthaelt — die Markierung zeigte ins
+ * Leere und es saehe aus, als sei die Seite verwirrt.
+ */
+function oeffneAusAdresse() {
+  var id = null;
+  try {
+    id = new URLSearchParams(window.location.search).get('einsatz');
+  } catch (e) { id = null; }
+  if (!id) return;
+
+  /* Nicht gefunden ist kein Fehler: die Zuweisung kann geloescht worden sein
+   * oder zu einem anderen Konto gehoeren. Dann bleibt die Seite, wie sie ist —
+   * eine Fehlermeldung waere hier lauter als der Anlass. */
+  var treffer = null;
+  for (var i = 0; i < assignments.length; i++) {
+    if (assignments[i] && assignments[i].id === id) { treffer = assignments[i]; break; }
+  }
+  if (!treffer) return;
+
+  var reiter = isCurrentAssignment(treffer) ? 'active' : 'past';
+  if (reiter !== curTab) setTab(reiter);
+  selAsg(id);
 }
 
 function setTab(t) {
