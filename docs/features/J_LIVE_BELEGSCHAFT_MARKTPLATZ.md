@@ -374,10 +374,16 @@ erklärt, eine Sperre setzen kann, in beiden Sprachen vollständig ist, und alle
 
 **Der Kern der Owner-Vision.**
 
-- **Zuerst der Vollzug der Anonymität (behebt 2.2e):** Der Feed hört auf, `cp.*` blind
-  auszuliefern. Eine ausdrückliche Spaltenliste ersetzt den Stern; `worker_profile_id`,
-  interne Notizen und die Anbieter-E-Mail verlassen die Antwort. Das ist die
-  Vorbedingung — J2 stellt Arbeiterdaten prominenter aus als je zuvor.
+- ~~**Zuerst der Vollzug der Anonymität (behebt 2.2e)**~~ ✅ *(erledigt 2026-08-26)*:
+  `capacityPostOeffentlicheSpalten.js` ist die einzige Wahrheit — Positivliste
+  `OEFFENTLICH` (46 Spalten) + `NUR_INTERN` (`worker_profile_id`, `created_by`).
+  Der Alias-Stern ist aus **vier** Abfragen verschwunden (Feed/Detail/Eigenliste in
+  `capacityExchangeService`, Liste/Detail/Matching in `marketplaceService`), die
+  Anbieter-E-Mail aus **drei** (Feed-Angebot, Feed-Bedarf, `getDemandMatches` — sie
+  ging an die Gegenseite vor dem Deal, kein Frontend hat sie je gelesen). Wächter
+  `marktplatzFeldWaechter.test.js`: Listen disjunkt, DB-Abgleich (jede reale Spalte
+  klassifiziert — eine neue Migration wird rot, bis sie eingeordnet ist), Quelltext
+  ohne Alias-Stern/E-Mail. 8/8 mit DB; Marktplatz-Regressionen 154 + 374 grün.
 - Neue Ansicht: „Wer ist frei?" — gespeist aus `live_status IN ('verfuegbar','endet_bald')`
 - Filter nach Owner-Vorgabe: **wo, wie viele, ab wann** + Qualifikation
 - Darstellung nach 3.1, aufgesetzt auf die vorhandene Whitelist

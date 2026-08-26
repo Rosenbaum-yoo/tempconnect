@@ -11,6 +11,7 @@ import { loadSkillIndex, expandTags } from "./skillNormalizationService.js";
 import * as auditLog from "./auditLog.js";
 import { computePremiumBoost } from "./reputationService.js";
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
+import { cpSpaltenSql } from "./capacityPostOeffentlicheSpalten.js";
 
 /* ── Plan-based limits ────────────────────────────── */
 
@@ -31,11 +32,14 @@ function getActiveLimit(plan) {
 
 /* ── Helpers ──────────────────────────────────────── */
 
+/* Explizite Spaltenliste statt Alias-Stern (Welle J2, Befund 2.2e): was hier
+ * nicht steht, erreicht keinen Betrachter. Die Anbieter-E-Mail ist bewusst
+ * weg — kein Frontend hat sie je gelesen, und eine Kontaktadresse vor dem
+ * Deal unterlaeuft die Anonymitaet (P8 §3.5). */
 const ENTRY_SELECT = `
-  cp.*,
+  ${cpSpaltenSql("cp")},
   u.company_name AS supplier_company_name,
   u.role AS supplier_role,
-  u.email AS supplier_email,
   o.name AS org_name,
   COALESCE(o.logo_url, cfp.logo_url) AS supplier_logo_url
 `;
@@ -696,7 +700,6 @@ export async function browseFeed(pool, opts = {}) {
       dr.requester_company_id AS supplier_company_id,
       u.company_name AS supplier_company_name,
       u.role AS supplier_role,
-      u.email AS supplier_email,
       NULL::text AS org_name,
       'demand'::text AS feed_type,
       COALESCE(dr.updated_at, dr.created_at) AS sort_date,

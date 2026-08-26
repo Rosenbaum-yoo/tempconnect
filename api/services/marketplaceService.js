@@ -8,6 +8,7 @@ import { withTransaction } from "../utils/transaction.js";
 import { createServiceLogger } from "../utils/logger.js";
 import { assertTransition, TransitionError } from "./stateMachine.js";
 import * as capacityExchangeService from "./capacityExchangeService.js";
+import { cpSpaltenSql } from "./capacityPostOeffentlicheSpalten.js";
 /* Entscheidung D-M5 (Owner, 2026-08-20): die Grenze dieser Flaeche ist der
  * NUTZER (`supplier_company_id` / `requester_company_id` sind Fremdschluessel
  * auf `users`), und sie wurde bis hierher als blosse Namensgleichheit geprueft.
@@ -198,8 +199,10 @@ export async function createCapacityPost(pool, supplierId, payload) {
 }
 
 export async function listCapacityPosts(pool, opts = {}) {
+  /* Explizite Spaltenliste statt Alias-Stern (Welle J2): dieselbe Wahrheit wie
+   * im Kapazitaets-Feed — Personenkennungen verlassen den Marktplatz nicht. */
   let q = `
-    SELECT cp.*, ${CAPACITY_COMMERCIAL_SELECT},
+    SELECT ${cpSpaltenSql("cp")}, ${CAPACITY_COMMERCIAL_SELECT},
            u.company_name AS supplier_company_name,
            sr.grade AS reputation_grade,
            sr.reputation_score AS reputation_score,
@@ -224,7 +227,7 @@ export async function listCapacityPosts(pool, opts = {}) {
 }
 
 export async function getCapacityPostById(pool, id, supplierId = null) {
-  let q = `SELECT cp.*, ${CAPACITY_COMMERCIAL_SELECT},
+  let q = `SELECT ${cpSpaltenSql("cp")}, ${CAPACITY_COMMERCIAL_SELECT},
                   u.company_name AS supplier_company_name
            FROM capacity_posts cp
            ${CAPACITY_COMMERCIAL_JOIN}
@@ -528,7 +531,7 @@ export async function getDemandSlaEvents(pool, demandId) {
 
 export async function runInitialMatching(pool, demandRow, verifiedSupplierIds = new Set()) {
   const { rows: caps } = await pool.query(
-    `SELECT cp.*, ${CAPACITY_COMMERCIAL_SELECT}
+    `SELECT ${cpSpaltenSql("cp")}, ${CAPACITY_COMMERCIAL_SELECT}
      FROM capacity_posts cp
      ${CAPACITY_COMMERCIAL_JOIN}
      WHERE cp.status = 'active'
@@ -567,7 +570,7 @@ export async function runInitialMatching(pool, demandRow, verifiedSupplierIds = 
 export async function getDemandMatches(pool, demandId) {
   const { rows } = await pool.query(
     `SELECT m.*, cp.title AS capacity_title, cp.role AS capacity_role, cp.location_city AS capacity_city,
-            u.company_name AS supplier_company_name, u.email AS supplier_email
+            u.company_name AS supplier_company_name
      FROM matches m
      JOIN capacity_posts cp ON cp.id = m.capacity_post_id
      JOIN users u ON u.id = cp.supplier_company_id
