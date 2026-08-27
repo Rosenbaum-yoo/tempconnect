@@ -2082,3 +2082,53 @@ Beide Wächter wurden gegen einen echten Fehlschlag geprüft, nicht nur grün
 gesehen: eine untergeschobene, unverbuchte Migration mit einem Constraint, den
 der Bestand verletzt, ließ die Abnahme rot werden — mitsamt Dateiname und
 Postgres-Fehlertext.
+
+---
+
+## Die Naht zur Marktpräsenz — geprüft, und dann bewacht (2026-08-26)
+
+Welle J baute parallel die **Marktpräsenz** (J2c: verfügbare Kräfte, J9a: eine
+abwesende Kraft ist nicht wirklich verfügbar). Meine Abschnitte definieren, wann
+eine Zuweisung offen, bestätigt, abgelehnt, zurückgezogen oder verfallen ist.
+Ob beide Seiten dasselbe unter „verfügbar" verstehen, hatte niemand geprüft.
+
+**Sie tun es — aber die Kopplung war unbewacht.**
+
+Ob eine Kraft am Marktplatz erscheint, entscheidet
+`workerOfferReservationService` **allein** an `wal.is_active = TRUE`. Der
+Bestätigungsstatus interessiert dort nicht:
+
+```sql
+JOIN worker_assignment_links wal
+  ON wal.worker_user_id = wp2.user_id
+ AND wal.is_active = TRUE
+ AND (wal.end_date IS NULL OR wal.end_date >= CURRENT_DATE)
+```
+
+Vergisst also ein Weg aus einer Anfrage heraus das `is_active = FALSE`, gilt die
+Kraft **dauerhaft als beschäftigt**: ihr Kapazitäts-Posten bleibt pausiert, sie
+verschwindet vom Markt — und niemand merkt es, weil ihr Status ja korrekt
+„erledigt" lautet.
+
+**Nachgeprüft, nicht angenommen** — alle fünf Schreibstellen:
+
+| Zustand | Stelle | `is_active = FALSE` |
+|---|---|---|
+| `worker_declined` | `workerService.js` (Absage) | ✅ |
+| `withdrawn` | `workerService.js` (Rückzug) | ✅ |
+| `expired` | `verfalleneAnfragen` | ✅ |
+| `worker_unavailable` | `workerService.js`, zwei Stellen | ✅ ✅ |
+| `worker_confirmed` | bleibt **aktiv** | richtig so — die Person ist im Einsatz |
+
+**Bewacht war davon nichts.** Die bestehende Probe *„Sperren prüfen `is_active`"*
+schützt das **Lesen** und *setzt voraus*, dass beim Schreiben beides zusammen
+gesetzt wird. Die neue Probe schließt die andere Hälfte: sie **sucht** alle
+`UPDATE worker_assignment_links`, findet die mit einem erledigten Zustand und
+verlangt `is_active = FALSE` im selben Befehl. Ein sechster Weg macht sie rot.
+
+Dazu eine Gegenprobe: `worker_confirmed` und `pending_confirmation` dürfen
+**nicht** in `ERLEDIGT` stehen — sonst verschwände ein zugesagter Einsatz sofort
+wieder, und eine offene Anfrage gäbe den Platz frei, den sie gerade hält.
+
+Rückmutation: eine Stelle ohne `is_active = FALSE` lässt die Probe fallen, mit
+Datei und Zeile.
