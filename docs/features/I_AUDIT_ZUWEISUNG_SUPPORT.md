@@ -1248,7 +1248,7 @@ Am Code und an der laufenden Datenbank nachgeprüft, nicht am Plan abgelesen.
 | ~~**V-1** RLS-Backstop scharf schalten~~ | **erledigt 2026-08-24** | Migration 196: **8 → 26** Tabellen mit RLS, **3 → 21** mit FORCE. Einzelnachweis geführt (siehe unten). |
 | ~~**„Bester Treffer"** — Vorbewertung in die SQL~~ | **erledigt 2026-08-24** | Der Schnitt sortiert jetzt nach den harten Signalen statt nach dem Alphabet. An echten Daten belegt: mit `LIMIT 3` kommen Mustermann (82), nadi (78), Kraft (74) — nicht „Bauer", die alphabetisch erste. |
 | **`SUPPORT_PHONE`** setzen | **Owner-Handlung** | nicht baubar; beide Zustände des Trichters sind verifiziert |
-| **Erreicht die Erinnerung den Arbeiter?** | **abgegeben an [`I3`](I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md)** | Live-Strom seit dem 24.08.; am 26.08. kam dazu, dass die Meldung auch **irgendwohin führt** (Deep-Link, siehe unten). Der Rest ist erhoben und bewertet — und die Frage lautete nie „SMS ja/nein“: 12 von 19 Anfragen blieben ohne Antwort, **abgelehnt hat nie jemand**, und die Antwortzeiten sind zweigipflig (unter 1 Minute oder 6–11 Tage). **Owner-Entscheid 26.08.: nicht jetzt bauen, als eigene Welle festhalten.** |
+| **Erreicht die Erinnerung den Arbeiter?** | **abgegeben an [`I3`](I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md)** | Live-Strom seit dem 24.08.; am 26.08. kam dazu, dass die Meldung auch **irgendwohin führt** (Deep-Link, siehe unten). Der Rest ist erhoben und bewertet — und die Frage lautete nie „SMS ja/nein“: 12 von 19 Anfragen blieben ohne Antwort, **abgelehnt hat nie jemand**, und die Antwortzeiten sind zweigipflig (unter 1 Minute oder 6–11 Tage). **Owner-Entscheid 26.08.: als eigene Welle festhalten — und danach Stufe 1 freigegeben und gebaut** (E-Mail im Arbeiter-Meldeweg, `119cbb6`). Stufen 2–4 (PWA, Push, Arbeiter-Seite) bleiben offen. |
 | ~~**Frist für reguläre Zuweisungen**~~ | **erledigt** | Diese Zeile war am 26.08. veraltet: `I2_FRIST_REGULAERE_ZUWEISUNG.md` trägt seit dem 24.08. den Status *„abgeschlossen, alle fünf Entscheidungen entschieden und gebaut“* (Migrationen 195/197/199). Kette geprüft: Sweep `verfalleneAnfragen` → `POST /internal/staffing-maintenance` → BullMQ `ersatz-frist-10min` (`*/10 * * * *`). |
 
 ### Abschnitte 1–7, 9, 11, 12
@@ -1667,7 +1667,10 @@ gibt kein Feld, in dem sie festgehalten würde. Und SMS wäre selbst dann nur ei
 halber Kanal, weil nur die Hälfte der Arbeiter überhaupt eine Nummer hinterlegt
 hat.
 
-> **Owner-Entscheid 2026-08-26: nicht jetzt bauen — als eigene Welle festhalten.**
+> **Owner-Entscheid 2026-08-26: als eigene Welle festhalten — danach wurde
+> Stufe 1 freigegeben und gebaut.** Die fristgebundenen Meldungen gehen seit
+> `119cbb6` zusätzlich per E-Mail hinaus; Stufen 2–4 (PWA, Push,
+> Arbeiter-Seite) sind unberührt.
 > Vollständig ausgearbeitet in [`I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md`](I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md):
 > die Messung, der Vergleich SMS / E-Mail / Web Push, die Machbarkeit ohne neues
 > Paket (`node:crypto` reicht für VAPID) und ein Vorschlag in vier Stufen. Kurz:
