@@ -647,6 +647,16 @@ export async function browseFeed(pool, opts = {}) {
   const limit = Math.min(100, opts.limit || 25);
   const offset = (page - 1) * limit;
 
+  /* Die Zaehl-Parameter werden VOR dem Merk-Push eingefroren: die Zaehl-Query
+   * referenziert nur die WHERE-Parameter. Ein ueberzaehliger Parameter ist
+   * fuer Postgres ein Protokollfehler (08P01 "bind message supplies N") —
+   * seit P9/B1 (2026-08-10) brach daran der GESAMTE Feed fuer jeden
+   * angemeldeten Betrachter. Kein Mock-Test konnte es sehen: Mock-Pools
+   * ignorieren ueberzaehlige Parameter, Postgres nicht. Gefunden von
+   * marktplatzBuchung.test.js Teil C (Welle J2c) beim ersten Lauf der vollen
+   * Query gegen die echte Datenbank. */
+  const countParams = params.slice();
+
   // P9/B1: Der Merk-Zustand faehrt in DERSELBEN Abfrage mit — kein Rundlauf je
   // Karte und auch keine zusaetzliche Sammelabfrage. Ohne angemeldeten Betrachter
   // ist nichts gemerkt, dann steht dort schlicht FALSE.
@@ -713,7 +723,7 @@ export async function browseFeed(pool, opts = {}) {
 
   // Count: supply + demand separately (avoids UNION column mismatch)
   const { rows: supplyCount } = await pool.query(
-    `SELECT COUNT(*)::int AS cnt ${ENTRY_JOINS} WHERE ${where.join(' AND ')}`, params);
+    `SELECT COUNT(*)::int AS cnt ${ENTRY_JOINS} WHERE ${where.join(' AND ')}`, countParams);
   const demandCountSql = (viewerRole === "agency" && !interAgencyEnabled)
     ? `SELECT COUNT(*)::int AS cnt
          FROM demand_requests dr
