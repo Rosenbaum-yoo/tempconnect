@@ -28,6 +28,7 @@ import * as workerNotifications from "../services/workerNotificationService.js";
 import { fristLabelDE, todayDE } from "../utils/dateDE.js";
 import * as companyBlocklistService from "../services/companyBlocklistService.js";
 import { pruefeBuchungsWuensche } from "../services/marktplatzBuchungService.js";
+import * as auegFrist from "../services/auegFristService.js";
 import { swallow } from "../utils/logger.js";
 import {
   buildDealHistoryBucketSql,
@@ -565,6 +566,25 @@ export function createMarketplaceRouter(deps) {
         const startDatum = wuensche.start_date || cap.availability_from;
         const endDatum = wuensche.end_date || cap.availability_to || null;
 
+        /* AUEG-Konto (Welle J8): die Frist gilt je Kraft je Entleiher und
+         * rechnet die GEPLANTE Zeit mit — sonst warnte sie immer zu spaet.
+         * WARNEN, NICHT BLOCKIEREN (Owner-Entscheid): das Ergebnis faehrt in
+         * der Antwort mit, die Buchung laeuft weiter. TempConnect ist nicht
+         * der Verleiher; die Pflicht traegt die Zeitarbeitsfirma. */
+        let auegAuskunft = null;
+        if (cap.worker_profile_id && req.orgId) {
+          const { rows: wpRows } = await client.query(
+            "SELECT user_id FROM worker_profiles WHERE id = $1", [cap.worker_profile_id]
+          );
+          const workerUserId = wpRows[0]?.user_id || null;
+          if (workerUserId) {
+            const zeitraeume = await auegFrist.ladeZeitraeume(client, req.orgId, workerUserId);
+            auegAuskunft = auegFrist.pruefePlanung(
+              zeitraeume, { von: startDatum, bis: endDatum }, todayDE()
+            );
+          }
+        }
+
         const demandData = {
           title: `Zustimmung: ${cap.title}`,
           role: cap.role,
@@ -638,6 +658,7 @@ export function createMarketplaceRouter(deps) {
 
         const syncedCapacity = await capacityExchangeService.syncCapacityCommercialState(client, cap.id);
         return {
+          aueg: auegAuskunft,
           cap,
           demand: syncedDemand || demand,
           offer: agreementResult.offer || offer,
@@ -726,6 +747,9 @@ export function createMarketplaceRouter(deps) {
         requested_headcount: result.requested_headcount,
         remaining_headcount: result.remaining_headcount,
         status: result.capacity_status || "reserved",
+        /* Die AUEG-Auskunft faehrt mit der Buchungsantwort (Welle J8): die
+         * Oberflaeche kann sie sofort zeigen, ohne einen zweiten Aufruf. */
+        aueg: result.aueg || null,
         document_url: documentUrl,
         conditions_url: result.offer.id ? `/api/marketplace/offers/${result.offer.id}/document?type=conditions` : null
       });

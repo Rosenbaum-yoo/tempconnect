@@ -719,6 +719,10 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
              * eigene Flaeche. In den Marktplatz-Feed darf sie nie (Waechter). */
             wp.markt_merkmale, wp.einsetzbar_bis, wp.dispo_notiz,
             cur.assignment_id, cur.link_id, cur.assignment_status, cur.client_name, cur.start_date,
+            /* Der ENTLEIHER (Welle J8): die AUEG-Frist gilt je Kraft je
+             * Entleiher — ohne diese Kennung koennte die Tafel das Konto
+             * nicht der richtigen Gegenseite zuordnen. */
+            cur.kunde_org_id,
             cur.kunde_kontakt_name, cur.kunde_kontakt_telefon,
             cur.effective_end_date, cur.lifecycle_state,
             ersatz.ersatz_link_id,
@@ -762,6 +766,7 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
           * welche der Verknuepfungen gemeint ist. */
          SELECT a.id AS assignment_id, wal.id AS link_id,
                 a.status AS assignment_status, o.name AS client_name,
+                wal.org_id AS kunde_org_id,
                 wal.start_date, wal.is_montage,
                 /* DIE ANSPRECHPERSON BEIM KUNDEN (Plan I, 10b).
                  *

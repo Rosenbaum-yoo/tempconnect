@@ -832,6 +832,28 @@ export function createWorkersRouter(deps) {
         search: req.query.search || null,
         limit: parseInt(req.query.limit, 10) || 300
       });
+      /* AUEG-Konto (Welle J8) fuer die Monatsplanung: je Kraft das Konto beim
+       * Kunden, bei dem sie GERADE steht — die Frist gilt je Entleiher, eine
+       * Kraft kann bei drei Kunden drei verschiedene Konten haben. Kraefte
+       * ohne laufenden Einsatz haben hier keinen Entleiher und damit kein
+       * anzeigbares Konto; ihre Frist entsteht erst mit der naechsten
+       * Buchung (dort rechnet das Buchungsmodal mit).
+       * Eine Sammelabfrage JE KUNDE statt eine je Zeile (Anti-N+1). */
+      const jeKunde = new Map();
+      for (const w of board.workers || []) {
+        if (!w.kunde_org_id || !w.worker_user_id) continue;
+        if (!jeKunde.has(w.kunde_org_id)) jeKunde.set(w.kunde_org_id, []);
+        jeKunde.get(w.kunde_org_id).push(w.worker_user_id);
+      }
+      const heute = todayDE();
+      const kontenJeKunde = new Map();
+      for (const [kundeOrgId, ids] of jeKunde) {
+        kontenJeKunde.set(kundeOrgId, await auegFrist.ladeAuegKontenFuerOrg(pool, kundeOrgId, ids, heute));
+      }
+      board.workers = (board.workers || []).map((w) => ({
+        ...w,
+        aueg: (w.kunde_org_id && kontenJeKunde.get(w.kunde_org_id)?.get(w.worker_user_id)) || null
+      }));
       res.json(board);
     } catch (err) { next(err); }
   });

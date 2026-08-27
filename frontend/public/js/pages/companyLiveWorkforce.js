@@ -78,6 +78,12 @@
     'clw.merkmal.kurzfristig_startklar': 'Kurzfristig startklar',
     'clw.merkmal.schicht_flexibel': 'Flexibel bei Schichten',
 
+    'clw.aueg.rest': 'AÜG: {monate} von 18 Monaten – bis {date}',
+    'clw.aueg.alarm': 'AÜG-Frist überschritten (seit {date})',
+    'clw.aueg.help': 'Höchstüberlassungsdauer nach § 1 AÜG: 18 Monate je Kraft bei Ihrem Unternehmen. Verbraucht: {monate} Monate, Frist endet {date}. Unterbrechungen unter 3 Monaten zählen mit. Die Einhaltung verantwortet die Zeitarbeitsfirma – TempConnect rechnet mit und weist Sie darauf hin.',
+    'clw.aueg.bookOver': 'Hinweis zur AÜG-Frist: Der gewählte Zeitraum überschreitet die Höchstüberlassungsdauer von 18 Monaten. Fristgerecht wäre ein Ende bis {date} – bitte mit Ihrer Zeitarbeitsfirma abstimmen.',
+    'clw.aueg.bookNear': 'Hinweis zur AÜG-Frist: Mit dieser Buchung sind {monate} von 18 Monaten verbraucht. Die Höchstüberlassungsdauer endet am {date}.',
+
     'clw.price.hourly': '€/Std.',
     'clw.price.daily': '€/Tag',
     'clw.price.fixed': '€ pauschal',
@@ -262,6 +268,12 @@
     'clw.merkmal.langfristig_einsetzbar': 'Deployable long-term',
     'clw.merkmal.kurzfristig_startklar': 'Ready at short notice',
     'clw.merkmal.schicht_flexibel': 'Shift-flexible',
+
+    'clw.aueg.rest': 'AÜG: {monate} of 18 months – until {date}',
+    'clw.aueg.alarm': 'AÜG limit exceeded (since {date})',
+    'clw.aueg.help': 'Maximum assignment duration under § 1 AÜG: 18 months per worker at your company. Used: {monate} months, the limit ends {date}. Breaks shorter than 3 months still count. Compliance is the staffing firm’s responsibility – TempConnect does the maths and flags it for you.',
+    'clw.aueg.bookOver': 'AÜG note: the selected period exceeds the 18-month maximum assignment duration. A compliant end would be {date} – please coordinate with your staffing firm.',
+    'clw.aueg.bookNear': 'AÜG note: with this booking {monate} of 18 months are used. The maximum assignment duration ends on {date}.',
 
     'clw.price.hourly': '€/hr',
     'clw.price.daily': '€/day',
@@ -573,6 +585,21 @@
      EINSATZES. Das voraussichtliche Ende der Abwesenheit ist eine andere
      Groesse. Und: hier steht ausschliesslich DASS und BIS WANN — die Art der
      Abwesenheit kommt vom Server gar nicht erst mit (Art. 9 DSGVO). */
+  /* AUEG-Konto (Welle J8): 18 Monate je Kraft je Unternehmen. Angezeigt wird
+     nur, was Handlung braucht — ein Abzeichen an JEDER Zeile waere nach zwei
+     Tagen Tapete. 'ok' bleibt deshalb stumm; die Zahl steht im Tooltip. */
+  function auegZelle(r) {
+    var a = r.aueg;
+    if (!a || a.stufe === 'ok' || !a.frist_ende) return '';
+    var cls = a.stufe === 'alarm' ? 'ct-badge--rej' : (a.stufe === 'warnung' ? 'ct-badge--out' : 'ct-badge--soon');
+    var text = a.stufe === 'alarm'
+      ? t('clw.aueg.alarm', { date: fmtDate(a.frist_ende) })
+      : t('clw.aueg.rest', { monate: a.verbrauchte_monate, date: fmtDate(a.frist_ende) });
+    return '<div style="margin-top:4px"><span class="ct-badge ' + cls + '" title="' +
+      esc(t('clw.aueg.help', { monate: a.verbrauchte_monate, date: fmtDate(a.frist_ende) })) + '">' +
+      esc(text) + '</span></div>';
+  }
+
   function liveStatusCell(r) {
     var out = liveBadge(r.live_status);
     if (r.live_status !== 'faellt_aus') return out;
@@ -597,7 +624,8 @@
       /* data-einsatz traegt die Einsatz-Kennung an der Zeile — der Anker, an
          dem der Deep-Link aus der Ausfallmeldung (G4b) landet. */
       return '<tr data-einsatz="' + esc(r.assignment_id || '') + '">' +
-        '<td><div style="font-weight:600">' + esc(workerName(r)) + '</div>' + (r.personnel_number ? '<div class="ct-sub">' + esc(r.personnel_number) + '</div>' : '') + '</td>' +
+        '<td><div style="font-weight:600">' + esc(workerName(r)) + '</div>' + (r.personnel_number ? '<div class="ct-sub">' + esc(r.personnel_number) + '</div>' : '') +
+          auegZelle(r) + '</td>' +
         '<td>' + esc(r.agency_name || '–') + '</td>' +
         '<td>' + liveRoleCell(r) + '</td>' +
         '<td>' + shift + '</td>' +
@@ -837,6 +865,18 @@
       senden.style.display = 'none';
       document.getElementById('bkDoneRef').textContent = ergebnis && ergebnis.agreement_ref
         ? t('clw.book.doneRef', { ref: ergebnis.agreement_ref }) : '';
+      /* AUEG-Auskunft (Welle J8): die Buchung ist durch — die Frist wird
+         trotzdem benannt, wenn sie knapp wird oder der Zeitraum sie reisst.
+         Warnen, nicht blockieren: die Pflicht traegt die Zeitarbeitsfirma,
+         aber planen muss der Kunde. */
+      var a = ergebnis && ergebnis.aueg;
+      var hinweis = document.getElementById('bkAueg');
+      if (a && a.frist_ende && (!a.fristgerecht || a.stufe !== 'ok')) {
+        hinweis.innerHTML = esc(!a.fristgerecht
+          ? t('clw.aueg.bookOver', { date: fmtDate(a.spaetestes_fristgerechtes_ende) })
+          : t('clw.aueg.bookNear', { monate: a.verbrauchte_monate, date: fmtDate(a.frist_ende) }));
+        hinweis.style.display = '';
+      } else { hinweis.style.display = 'none'; }
       var akte = document.getElementById('bkDoneLink');
       akte.href = (ergebnis && ergebnis.offer && ergebnis.offer.id)
         ? ('/public/offer_detail.html?id=' + encodeURIComponent(ergebnis.offer.id)) : '/public/deal_management.html';

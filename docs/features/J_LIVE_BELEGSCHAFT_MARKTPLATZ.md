@@ -526,7 +526,45 @@ funktionieren, so dass es abrechenbar ist mit den Stundenzetteln." Der Kern exis
 - Aus J2 gebuchte Einsätze tragen den Satz aus dem Buchungs-Modal (Frage 3) — damit ist
   jede Marktplatz-Buchung ohne weiteren Schritt abrechenbar.
 
-### Welle J8 — AÜG-Fristenwächter (Owner-Entscheid 2026-08-26: bauen)
+### Welle J8 — AÜG-Fristen, beidseitig planbar ✅ *(erledigt 2026-08-27)*
+
+**Umgesetzt:** `auegFristService.js` — reiner Rechenkern (keine Uhr, keine DB;
+`heute` kommt vom Aufrufer) mit den beiden Regeln, die üblicherweise falsch
+gebaut werden: die Frist gilt **je Kraft je Entleiher** (nicht je Einsatz, und
+parallele Einsätze zählen nicht doppelt), und **erst mehr als drei Monate**
+Unterbrechung setzen die Uhr zurück. Das Fristende wird **kalendergenau**
+gerechnet (`plusMonate`, monatsende- und schaltjahrsicher), nicht über einen
+Tage-Mittelwert. Nicht angetretene Anfragen (`worker_declined`,
+`worker_unavailable`, `expired`, `withdrawn`) zählen nicht mit — dort hat nie
+jemand gearbeitet.
+
+**Sichtbar auf beiden Seiten:** Unternehmens-Live-Belegschaft (Konto je Kraft,
+eine Sammelabfrage für die ganze Tafel) und Agenturtafel (Konto beim **aktuell
+belegenden** Kunden, eine Sammelabfrage je Kunde). **Rechnend im
+Buchungsmodal:** `accept-deal` prüft die **geplante** Zeit mit — sonst käme die
+Warnung immer zu spät — und liefert bei Überschreitung das **späteste
+fristgerechte Enddatum** als Vorschlag. Warnstufen 15 / 17 / 18 Monate; „ok"
+bleibt bewusst stumm (ein Abzeichen an jeder Zeile wäre nach zwei Tagen Tapete).
+
+**Warnen, nie blockieren** (Owner-Entscheid): Die Buchung läuft weiter, die
+Auskunft fährt in der Antwort mit. TempConnect ist nicht der Verleiher; beide
+Texte benennen, wer die Pflicht trägt.
+
+**Am echten Bestand gemessen (2026-08-27):** vier Kräfte über der Grenze — bei
+einem Kunden **alle drei** seiner Kräfte, mit Fristende bereits im Juli 2026.
+Der Wächter hat also sofort echte Fälle gefunden.
+
+**Verifiziert:** 24/24 eigene Tests (jede Rechtsregel als eigener Fall inkl.
+Monatsende-, Schaltjahr- und Genau-drei-Monate-Grenzfall, Anti-N+1-Nachweis,
+DB-Parse), berührte Suiten 131/131, Browser-Smoke der drei Stufen.
+Der **H1-Datenschutzwächter hat korrekt angeschlagen**, als das neue Feld die
+Kundenansicht erreichte — `aueg` ist dort jetzt mit Begründung eingetragen
+(es ist die Rechtslage des eigenen Einsatzes, kein Beschäftigtendatum).
+
+**Offen:** Benachrichtigung an die Zeitarbeitsfirma bei Stufenwechsel (Dedupe je
+Kraft/Kunde/Stufe) — der Rechenkern dafür steht, es fehlt der Cron-Anschluss.
+
+**Ursprünglicher Plan:**
 
 Owner: „gerne auch die AÜG-Fristen beachten und warnen, wenn mehr oder 18 Monate
 knapp sind." Gemessen (2.4): nirgends modelliert — nur Dokument-Compliance und

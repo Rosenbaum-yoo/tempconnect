@@ -157,6 +157,10 @@ TCi18n.register('de', {
   'mit.merkmal.langfristig_einsetzbar': 'Langfristig einsetzbar',
   'mit.merkmal.kurzfristig_startklar': 'Kurzfristig startklar',
   'mit.merkmal.schicht_flexibel': 'Flexibel bei Schichten',
+
+  'mit.aueg.rest': 'AÜG: {monate}/18 Mon. – Frist bis {date}',
+  'mit.aueg.alarm': 'AÜG-Frist überschritten (seit {date})',
+  'mit.aueg.help': 'Höchstüberlassungsdauer nach § 1 AÜG: 18 Monate je Kraft beim selben Entleiher. Verbraucht: {monate} Monate, Frist endet {date}. Unterbrechungen unter 3 Monaten zählen mit — die Einhaltung liegt bei Ihnen als Verleiher; TempConnect rechnet mit und weist Sie rechtzeitig darauf hin.',
   'mit.live.verlauf.title': 'Verlauf',
   'mit.live.verlauf.intro': 'Jede Zustandsänderung der letzten 90 Tage – mitgeschrieben an der Quelle, nicht nachträglich abgeleitet.',
   'mit.live.verlauf.loading': 'Verlauf wird geladen …',
@@ -791,6 +795,10 @@ TCi18n.register('en', {
   'mit.merkmal.langfristig_einsetzbar': 'Deployable long-term',
   'mit.merkmal.kurzfristig_startklar': 'Ready at short notice',
   'mit.merkmal.schicht_flexibel': 'Shift-flexible',
+
+  'mit.aueg.rest': 'AÜG: {monate}/18 mo. – limit until {date}',
+  'mit.aueg.alarm': 'AÜG limit exceeded (since {date})',
+  'mit.aueg.help': 'Maximum assignment duration under § 1 AÜG: 18 months per worker at the same hirer. Used: {monate} months, the limit ends {date}. Breaks shorter than 3 months still count — compliance is yours as the lender; TempConnect does the maths and flags it in time.',
   'mit.live.verlauf.title': 'History',
   'mit.live.verlauf.intro': 'Every state change of the last 90 days – recorded at the source, not derived afterwards.',
   'mit.live.verlauf.loading': 'Loading history …',
@@ -1844,6 +1852,18 @@ function renderLiveList(workers) {
         sub.push(esc(TCi18n.t("mit.live.kontakt")) + " " + kontakt);
       }
       if (w.effective_end_date) sub.push(esc(TCi18n.t("mit.live.until", { date: formatDateLabel(w.effective_end_date) })));
+      /* AUEG-Konto beim AKTUELLEN Kunden (Welle J8) — die Zahl fuer die
+         Monatsplanung. Nur wenn sie Handlung braucht: ein Abzeichen an jeder
+         Zeile waere nach zwei Tagen Tapete. */
+      if (w.aueg && w.aueg.stufe && w.aueg.stufe !== "ok" && w.aueg.frist_ende) {
+        var auegFarbe = w.aueg.stufe === "alarm" ? "var(--ds-danger,#b91c1c)" : "var(--ds-warning,#b45309)";
+        var auegText = w.aueg.stufe === "alarm"
+          ? TCi18n.t("mit.aueg.alarm", { date: formatDateLabel(w.aueg.frist_ende) })
+          : TCi18n.t("mit.aueg.rest", { monate: w.aueg.verbrauchte_monate, date: formatDateLabel(w.aueg.frist_ende) });
+        sub.push('<span style="color:' + auegFarbe + ';font-weight:600" title="' +
+          esc(TCi18n.t("mit.aueg.help", { monate: w.aueg.verbrauchte_monate, date: formatDateLabel(w.aueg.frist_ende) })) +
+          '">' + esc(auegText) + "</span>");
+      }
       /* 'montage' ueberdeckt 'endet_bald' im Zustand — der Hinweis darf deshalb
          nicht verloren gehen, sonst uebersieht der Disponent genau die Rueckkehr,
          die er planen muss. */

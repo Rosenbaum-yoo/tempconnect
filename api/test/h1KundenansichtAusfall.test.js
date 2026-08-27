@@ -58,7 +58,14 @@ const ERLAUBT = new Set([
   "role", "start_date", "effective_end_date",
   "shift_start", "shift_end",
   "agency_name", "supplier_org_id", "worker_description",
-  "lifecycle_state", "endet_bald", "live_status", "ausfall_bis"
+  "lifecycle_state", "endet_bald", "live_status", "ausfall_bis",
+  /* AUEG-Konto (Welle J8, Owner-Entscheid 2026-08-26): bewusst erlaubt.
+   * Es ist eine Auskunft ueber die EIGENE Ueberlassung des Entleihers —
+   * verbrauchte Zeit, Fristende, Warnstufe. Kein Beschaeftigtendatum ueber
+   * den Menschen, sondern die Rechtslage seines eigenen Einsatzes, mit der
+   * er planen muss. Der Waechter hat richtig angeschlagen: neue Felder
+   * erreichen den Kunden nur nach bewusster Eintragung hier. */
+  "aueg"
 ]);
 
 /* ═══════════════════════════════════════════════════════════════════════════

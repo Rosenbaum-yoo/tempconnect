@@ -636,9 +636,9 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | davon Owner Control Center | 31 | dieselbe Zählung, beschränkt auf `api/routes/occ/` (13 Modul-Router) |
 | davon Staff Control Center | 104 | `api/routes/staffControlCenter.js` — größte Einzeldatei |
 | Router-Dateien | 82 | `ls api/routes/ \| wc -l` (inkl. Verzeichnis `api/routes/occ/`) |
-| Service-Dateien | 176 | `ls api/services/ \| wc -l` |
+| Service-Dateien | 179 | `ls api/services/ \| wc -l` |
 | Datenbanktabellen | **180** | eindeutige `CREATE TABLE`-Namen in `sql/init.sql` + `sql/migrations/*.sql`, bereinigt um einen Treffer aus einem deutschen Kommentar. Davon 4 aus dem Grundschema (`users`, `listings`, `requests`, `subscriptions`), 176 aus Migrationen |
-| Migrationsdateien | **204** | `ls sql/migrations/*.sql \| wc -l` — nummeriert `001_ratings.sql` bis `200_marktpraesenz_automatik.sql`; neun Nummern sind doppelt belegt (`027`/`027b`, `045`/`045b`, `064`, `070`, `074`, `075`, `086`, `130`, `140`). `NUMBERING.md` ist keine Migration |
+| Migrationsdateien | **205** | `ls sql/migrations/*.sql \| wc -l` — nummeriert `001_ratings.sql` bis `201_markt_profil_der_kraft.sql`; neun Nummern sind doppelt belegt (`027`/`027b`, `045`/`045b`, `064`, `070`, `074`, `075`, `086`, `130`, `140`). `NUMBERING.md` ist keine Migration |
 | Nutzerflächen | **90** | 78 in `frontend/public/*.html` + 6 `legal/` + 4 `trust/` + `frontend/landing.html` + `frontend/demo.html`. Am 26.08. nachgezählt: die vorherige **89** hinkte der eigenen Liste nach (A1 des Wächters bestand, nur die Summe war alt) — die Korrektur ist größer als der Abzug für die gelöschte Vorlagenseite |
 | davon reine Weiterleitungen | 9 | je 14 nicht-leere Zeilen, reiner Meta-Refresh |
 | davon Attrappen | 3 | `sla_nachweise.html`, `impressum.html`, `datenschutz.html` (Wurzel) |
@@ -887,7 +887,7 @@ Ehrlichkeit über die eigenen Grenzen gehört in ein Dokument, das später an In
    Bedienungsanleitung des Teams braucht es einen eigenen Durchgang in derselben Tiefe wie für
    die Kundenfläche.
 
-5. **Die Datenbank ist nur gezählt, nicht beschrieben.** 179 Tabellen und 204 Migrationsdateien
+5. **Die Datenbank ist nur gezählt, nicht beschrieben.** 179 Tabellen und 205 Migrationsdateien
    sind belegt; welche Tabellen tot sind, welche redundant, welche ohne Index auf einem heißen
    Lesepfad liegen — offen. Ein Schema-Register wäre der nächste sinnvolle Schritt
    (`api/scripts/schema-snapshot.js` existiert bereits als unversionierte Arbeitsdatei).

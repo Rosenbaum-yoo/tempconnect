@@ -17,6 +17,8 @@ import { requireScope } from "../middleware/apiKeyAuth.js";
 import { swallow } from "../utils/logger.js";
 import { recordActivity } from "../services/eventTrackingService.js";
 import { findOrgMembersWithPermission } from "../services/notificationMatrix.js";
+import * as auegFrist from "../services/auegFristService.js";
+import { todayDE } from "../utils/dateDE.js";
 
 export function createCompanyTimesheetsRouter(deps) {
   const { pool, logger, requireAuth, requireFeature } = deps;
@@ -80,6 +82,13 @@ export function createCompanyTimesheetsRouter(deps) {
         search: (req.query.search || "").toString().trim() || null,
         limit: parseInt(req.query.limit, 10) || 300
       });
+      /* AUEG-Konto (Welle J8): der Entleiher sieht je Kraft, wie viel der
+       * 18 Monate verbraucht ist und wann die Frist endet — die Zahl, mit der
+       * er plant. EINE Sammelabfrage fuer die ganze Tafel (Anti-N+1). */
+      const konten = await auegFrist.ladeAuegKontenFuerOrg(
+        pool, req.orgId, (board.workers || []).map((w) => w.worker_user_id), todayDE()
+      );
+      board.workers = (board.workers || []).map((w) => ({ ...w, aueg: konten.get(w.worker_user_id) || null }));
       res.json(board);
     } catch (err) { next(err); }
   });
