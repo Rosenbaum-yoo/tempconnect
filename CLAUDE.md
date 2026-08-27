@@ -149,6 +149,14 @@ betrifft, nicht wie schwer sie wiegt. Ist die Antwort nicht eindeutig, wird **ge
 abgeleitet: Produkt-Taxonomie steht nicht im Code. Vollständig inkl. Registry und
 Namenskollisionen: `docs/FLAECHEN.md`, erzwungen durch `api/test/flaechenZuordnung.test.js`.
 
+> **Owner-Entscheid 2026-08-27 — das Owner Control Center wird ins Staff Control Center
+> überführt.** Die Entscheidungsfrage oben bleibt richtig; was sich ändert, ist die
+> Oberfläche, in der die Owner-Antwort landet. Der Owner arbeitet dazu einen eigenen
+> Abschnitt aus — bis dahin **keine neuen OCC-Module anlegen und keine entfernen**, nur
+> umzugsfähig arbeiten. Offene Fragen (Zugangsstufe, Audit-Namensraum, sieben kollidierende
+> Modulnamen, React-Fläche vs. Staff-Bauart): `docs/FLAECHEN.md`, Abschnitt „Owner-Entscheid
+> 2026-08-27".
+
 ## Backend-Regeln
 - Routen nur fuer HTTP/Validation; Business-Logik in `api/services/*`.
 - Zod-Validation an Eingangsgrenzen.

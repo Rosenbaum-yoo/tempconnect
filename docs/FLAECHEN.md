@@ -120,3 +120,44 @@ Umziehen, nicht doppelt bauen. Ein Modul an zwei Flächen wäre eine Vermischung
 Session- und Berechtigungswelten — das verbietet `CLAUDE.md` ausdrücklich. Der Umzug ist
 billig, solange er früh passiert: Dienst und Datenbank sind platzierungsneutral, nur Route,
 Modul und Navigation hängen an der Fläche.
+
+---
+
+## Owner-Entscheid 2026-08-27: das Owner Control Center wird überführt
+
+> **Status: festgehalten, NICHT ausgearbeitet.** Der Owner schreibt dazu einen eigenen
+> Abschnitt. Diese Notiz hält nur die Richtung fest, damit bis dahin niemand in die
+> Gegenrichtung baut.
+
+**Der Entscheid im Wortlaut des Owners:** *„owner control center mit ins staff center
+integrieren oder überführen, weil die Sachen so getrennt zu handhaben macht meiner Meinung
+nach keinen Sinn. Eigentlich wollte ich das Owner Center abschalten, aber wenn dort wichtige
+Prozesse laufen, integrieren wir diese ins Staff Control Center."*
+
+**Was das für die Tabelle oben bedeutet.** Die Dreiteilung der Flächen bleibt als
+Denkmodell — die Entscheidungsfrage (*von außen? ein Kunde? die Plattform?*) ist weiter
+richtig. Was sich ändert, ist die **Oberfläche**, in der die Owner-Antwort landet: nicht
+mehr `/owner-control/`, sondern eine Owner-Ebene **innerhalb** des Staff Control Center.
+
+**Warum das nicht bloß ein Umzug von elf Modulen ist.** Die `CLAUDE.md` verbietet die
+Vermischung von Session- und Berechtigungswelten, und das OCC hat heute eine eigene:
+`requireOwnerControlAccess` mit eigener Allowlist, eigenem Audit-Namensraum
+(`owner_control.*`) und einem eigenen Zugangs-Nachweis
+(`owner_control_access_audit` — dort standen am 26.08. **23 abgewiesene Zugriffsversuche**).
+Eine Überführung muss diese Trennung **innerhalb** des Staff CC erhalten, sonst wird aus
+zwei sauberen Welten eine unsaubere. Konkret zu beantworten, wenn der Abschnitt kommt:
+
+- Bleibt `requireOwnerControlAccess` als zusätzliche Stufe **über** der Staff-Rolle, oder
+  wird daraus eine sechste Staff-Rolle? (Sechs Rollen sind seit `8eb9971` durchgesetzt.)
+- Was passiert mit dem Audit-Namensraum `owner_control.*` und dem Zugangs-Nachweis?
+- Elf OCC-Module treffen auf 26 Staff-Module — **sieben Namen kollidieren**
+  (`executive`, `platform`, `revenue`, `operations`, `risk`/`risk-trust`, `audit`,
+  `data-explorer`, `automation`). Verschmelzen oder nebeneinanderstellen? Das ist die
+  eigentliche Produktfrage, und sie ist nicht aus dem Code ableitbar.
+- Das OCC ist eine **React-Fläche** (Vite, `frontend/src/owner-control/`), das Staff CC
+  eine andere Bauart. Überführen heißt entweder portieren oder einbetten.
+
+**Bis der Abschnitt vorliegt gilt:** Keine neuen Module im OCC anlegen, keine bestehenden
+entfernen. Wer dort etwas anfasst, macht es umzugsfähig — Dienst und Datenbank bleiben
+platzierungsneutral (siehe Absatz darüber), nur Route, Modul und Navigation hängen an der
+Fläche.
