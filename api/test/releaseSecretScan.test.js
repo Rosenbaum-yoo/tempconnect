@@ -31,8 +31,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { getrackteDateien, ignoriertePfade } from "./helpers/repoBestand.js";
 
 import {
   pruefeZeile,
@@ -156,39 +156,6 @@ describe("Secret-Scan — was der echte Lauf gelehrt hat", () => {
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /**
- * Die Anbieter-Kennungen, aus Bruchstuecken zusammengesetzt.
- *
- * WARUM (2026-08-25): GitHubs Push Protection hat einen Push dieses Branches
- * abgelehnt — drei Treffer in dieser Datei. Zu Recht, gemessen an dem, was ein
- * Scanner sehen kann: Die Werte unten tragen bewusst den Aufbau echter
- * Schluessel, und Aufbau laesst sich von Echtheit nicht unterscheiden. Unsere
- * eigene Zeilen-Freigabe kennt nur das hauseigene Skript, nicht GitHub.
- *
- * Steht die Kennung nur in Bruchstuecken da, bildet der Quelltext kein
- * zusammenhaengendes Anbieter-Muster mehr; der uebrige Teil allein erfuellt
- * keine Erkennungsregel — er ist dann nur noch eine Buchstabenfolge. Die
- * zusammengesetzten Werte sind ZEICHENGLEICH mit dem, was vorher woertlich
- * hier stand: Die Pruefung unten bekommt exakt dieselbe Eingabe, ihre Schaerfe
- * aendert sich um nichts.
- *
- * ALLE sechs Anbieter sind so behandelt, nicht nur die drei gemeldeten. GitHub
- * erweitert seine Erkennung laufend; wer nur repariert, was heute anschlaegt,
- * wird beim naechsten Mal von derselben Datei aufgehalten.
- *
- * NICHT so behandelt sind die generischen Werte (Session, JWT, Hetzner,
- * Postgres) — sie tragen keine Anbieter-Kennung, die ein Scanner erkennen kann.
- */
-const KENNUNG = {
-  stripeLive: ["s", "k", "_l", "iv", "e_"].join(""),
-  stripeTest: ["s", "k", "_t", "es", "t_"].join(""),
-  stripeHook: ["wh", "s", "ec", "_"].join(""),
-  githubPat:  ["g", "h", "p", "_"].join(""),
-  awsKeyId:   ["A", "K", "I", "A"].join(""),
-  slackBot:   ["x", "o", "x", "b", "-"].join(""),
-  anthropic:  ["s", "k-", "an", "t-", "ap", "i0", "3-"].join(""),
-};
-
-/**
  * Erfundene, aber FORMECHTE Zugangsdaten.
  *
  * Keiner dieser Werte ist echt — sie tragen Laenge, Zeichenvorrat und Aufbau
@@ -197,33 +164,52 @@ const KENNUNG = {
  * Die Zeilen sind einzeln freigegeben, damit der Scan diese Datei nicht selbst
  * meldet. Die Freigabe steht an der ZEILE und nicht in einer Ausnahmeliste:
  * so bleibt sie sichtbar, und ein echter Fund anderswo in dieser Datei faellt
- * weiterhin auf. Sie bleibt auch nach der Zerlegung stehen — sie dokumentiert,
- * dass hier bewusst formechte Muster liegen.
+ * weiterhin auf.
  */
+/**
+ * Anbieter-Werte werden hier ZUSAMMENGESETZT, nicht ausgeschrieben.
+ *
+ * DER BEFUND, DER DAS ERZWUNGEN HAT: Der erste Push dieser Datei wurde von
+ * GitHub abgelehnt — die Push-Protection hielt zwei der Vorrichtungen fuer
+ * einen echten Stripe- und einen echten Slack-Schluessel.
+ *
+ * Das ist erst einmal ein gutes Zeichen: Die Werte sind formecht genug, dass
+ * ein fremder Scanner sie nicht von echten unterscheidet — genau das brauchen
+ * die Tests. Aber es ist auch ein Fehler: In ein OEFFENTLICHES Repo gehoert
+ * kein zusammenhaengender Text, der wie ein gueltiges Zugangsdatum aussieht.
+ *
+ * Den Freigabe-Link von GitHub zu benutzen waere der falsche Ausweg gewesen —
+ * er weicht den Schutz fuer echte Lecks auf, um eine Vorrichtung
+ * durchzulassen. Stattdessen steht der Wert nur zur LAUFZEIT vollstaendig da:
+ * Die Tests bekommen unveraendert die ganze Zeichenkette, im Quelltext steht
+ * nirgends ein vollstaendiger Schluessel.
+ */
+const stueck = (...teile) => teile.join("");
+
 const ECHTE_SECRETS = [
   ['Session-Secret in .env',
    'SESSION_SECRET=u7Qf2xLp9vRt4Nz8Ka3Wd6Yb1Mc5Hj0Gs7Er4Tv2Pn9Lq6Zx3Bw8Fd5Rk1Jm'], // secret-scan: erlaubt
   ['JWT-Secret in JavaScript',
    'const JWT_SECRET = "Zx3Bw8Fd5Rk1Jm7Qf2xLp9vRt4Nz8Ka3Wd6Yb1Mc5Hj0Gs7Er4Tv2Pn9Lq6U";'], // secret-scan: erlaubt
   ['Stripe-Live-Schluessel',
-   'STRIPE_API_KEY=' + KENNUNG.stripeLive + '51H8xKLMnOpQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz'], // secret-scan: erlaubt
+   'STRIPE_API_KEY=' + stueck('sk_', 'live_', '51H8xKLMnOpQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz')],
   ['Stripe-Webhook-Secret',
-   'const STRIPE_WEBHOOK_SECRET = "' + KENNUNG.stripeHook + '9KpQmR3nT7vX2wY5zA8bC1dE4fG6hJ0k";'], // secret-scan: erlaubt
+   'const STRIPE_WEBHOOK_SECRET = "' + stueck('whsec', '_9KpQmR3nT7vX2wY5zA8bC1dE4fG6hJ0k') + '";'],
   ['GitHub Personal Access Token',
-   'GITHUB_TOKEN=' + KENNUNG.githubPat + '16C7e42F292c6912E7710c838347Ae178B4a'], // secret-scan: erlaubt
+   'GITHUB_TOKEN=' + stueck('ghp', '_16C7e42F292c6912E7710c838347Ae178B4a')],
   ['AWS Access Key',
    /* NICHT der Schluessel aus der AWS-Doku: der traegt bauartbedingt das Wort
     * EXAMPLE und ist damit als Vorrichtung erkennbar — als Beleg fuer "echter
     * Schluessel" taugt er nicht. Dies ist die Form eines realen: AKIA + 16. */
-   'AWS_ACCESS_KEY_ID=' + KENNUNG.awsKeyId + '4NZ7QP2XVBM6LKDT'], // secret-scan: erlaubt
+   'AWS_ACCESS_KEY_ID=' + stueck('AKI', 'A4NZ7QP2XVBM6LKDT')],
   ['Hetzner Cloud Token',
    'HETZNER_CLOUD_TOKEN=LRK9mPq2vN8xW4tY6zB1cD3fG5hJ7kM0nQ2rS4uV6wX8yZ0aB2cD4eF6gH8i'], // secret-scan: erlaubt
   ['Datenbank-Passwort in YAML',
    '      POSTGRES_PASSWORD: kQ7mR2nP9vT4xW6zB1cD3fG5hJ8kL0mN'], // secret-scan: erlaubt
   ['Slack-Bot-Token',
-   'SLACK_TOKEN=' + KENNUNG.slackBot + '2401234567890-2401234567890-AbCdEfGhIjKlMnOpQrStUvWx'], // secret-scan: erlaubt
+   'SLACK_TOKEN=' + stueck('xox', 'b-2401234567890-2401234567890-AbCdEfGhIjKlMnOpQrStUvWx')],
   ['Anthropic-Schluessel',
-   'ANTHROPIC_API_KEY=' + KENNUNG.anthropic + 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789'], // secret-scan: erlaubt
+   'ANTHROPIC_API_KEY=' + stueck('sk-', 'ant-', 'api03-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789')],
 ];
 
 describe("Secret-Scan — echte Zugangsdaten fliegen weiterhin auf", () => {
@@ -241,8 +227,8 @@ describe("Secret-Scan — echte Zugangsdaten fliegen weiterhin auf", () => {
      * hier nicht ueber Vokabular, sondern ueber das Format — und das erfuellt
      * er. */
     const fund = beurteileWert(
-      KENNUNG.stripeTest + "51H8xKLMnOpQrStUvWxYzAbCdEfGhIjKlMnOpQrStUvWxYz"
-    ); // secret-scan: erlaubt
+      stueck("sk_", "test_", "51H8xKLMnOpQrStUvWxYzAbCdEfGhIjKlMnOpQrStUvWxYz")
+    );
     assert.notEqual(fund, null,
       "ein echter Testschluessel darf nicht am Wort 'test' vorbeirutschen");
   });
@@ -252,8 +238,8 @@ describe("Secret-Scan — echte Zugangsdaten fliegen weiterhin auf", () => {
      * Slack-Token traegt die Folge mitten in der Team-Kennung — die Liste
      * haette ihn verworfen. Dieser Test haelt die Korrektur fest. */
     const fund = beurteileWert(
-      KENNUNG.slackBot + "2401234567890-2401234567890-AbCdEfGhIjKlMnOpQrStUvWx"
-    ); // secret-scan: erlaubt
+      stueck("xox", "b-2401234567890-2401234567890-AbCdEfGhIjKlMnOpQrStUvWx")
+    );
     assert.notEqual(fund, null,
       "die Ziffernfolge macht die Pruefung wieder blind fuer echte Token");
   });
@@ -327,56 +313,60 @@ describe("Secret-Scan — die ausgelieferten Dateien sind sauber", () => {
   ];
 
   /*
-   * NICHT DA ist nicht dasselbe wie GELOESCHT (P2-W1, dritter Fall).
+   * Eine Datei aus dieser Liste gehoert NICHT zum Repo.
    *
-   * `deploy/.env` steht auf dieser Liste, weil die alte Pruefung seine
-   * Platzhalter gemeldet hat. Die Datei ist aber git-ignoriert (`*.env`): sie
-   * liegt im Haupt-Checkout und fehlt in jedem Worktree, jedem frischen Klon und
-   * in CI. Der Test war dort dauerhaft rot — ohne dass etwas kaputt war.
+   * `deploy/.env` faellt unter `.gitignore:11` (`*.env`) und existiert nur auf
+   * Maschinen, die einmal deployt haben. In jedem frischen Clone, in jedem
+   * git-Worktree und in CI fehlt sie — dort machte das `assert.fail` unten
+   * diesen Test GARANTIERT rot (gemessen 2026-08-22 im Worktree). Er hat damit
+   * einen Maschinenzustand als Repo-Spezifikation kodiert; die eigentliche
+   * Aussage der Liste ("diese Dateien melden nichts mehr") war davon nie
+   * betroffen.
    *
-   * Dieselbe Unterscheidung wie in `docsConsistency` und `dokuWaechter`: was das
-   * Repo bewusst nicht traegt, wird benannt statt bewertet. Fehlt dagegen eine
-   * GETRACKTE Datei, bleibt es ein Fehler — dann ist die Liste veraltet, und
-   * genau dafuer wurde die Zusicherung geschrieben.
+   * Die Datei bleibt trotzdem drin, und zwar aus dem Grund, aus dem sie
+   * ueberhaupt aufgefallen ist: liegt sie da, ist sie genau die Datei, in der
+   * ein echtes Secret stehen WUERDE — dann wird sie gescannt wie jede andere.
+   * Fehlt sie, meldet der Lauf das sichtbar als uebersprungen, nicht als gruen.
    *
-   * Die vier Platzhalter-Zeilen aus `deploy/.env` haengen nicht an der Datei:
-   * sie stehen oben woertlich in FEHLALARME und werden ueberall geprueft.
+   * Damit die Ausnahme nicht selbst zur Karteileiche wird, prueft der Test
+   * darunter, dass git die Datei wirklich nicht verfolgt. Waere sie eines Tages
+   * eingecheckt, ist das der Vorfall, den dieser Waechter finden soll — dann
+   * faellt er darueber, statt ihn zu decken.
    */
-  const NICHT_IM_REPO = ignoriertePfade(REPO, GEMELDETE.filter((rel) => !fs.existsSync(path.join(REPO, rel))));
-  const GETRACKT = new Set(getrackteDateien(REPO));
+  const NUR_LOKAL = new Set(["deploy/.env"]);
 
   for (const rel of GEMELDETE) {
-    it(`${rel} meldet nichts mehr`, (t) => {
-      const abs = path.join(REPO, rel);
-      if (!fs.existsSync(abs)) {
-        if (NICHT_IM_REPO.has(rel) && !GETRACKT.has(rel)) {
-          t.diagnostic(`${rel} nicht geprueft — dieses Repo traegt die Datei bewusst nicht (git-ignoriert)`);
-          return;
+    const abs = path.join(REPO, rel);
+    const vorhanden = fs.existsSync(abs);
+    const ausnahme = NUR_LOKAL.has(rel) && !vorhanden;
+
+    it(`${rel} meldet nichts mehr`,
+      { skip: ausnahme && "nur lokal vorhanden — per .gitignore (*.env) nicht im Repo" }, () => {
+        if (!vorhanden) {
+          assert.fail(`${rel} fehlt — die Liste passt nicht mehr zum Repo`);
         }
-        assert.fail(`${rel} fehlt — die Liste passt nicht mehr zum Repo`);
-      }
-      const funde = pruefeDatei(fs.readFileSync(abs, "utf8"));
-      assert.deepEqual(funde, [],
-        `${rel} meldet wieder: ` +
-        funde.map((f) => `Z${f.zeile} "${f.wert}" (${f.grund})`).join(", "));
-    });
+        const funde = pruefeDatei(fs.readFileSync(abs, "utf8"));
+        assert.deepEqual(funde, [],
+          `${rel} meldet wieder: ` +
+          funde.map((f) => `Z${f.zeile} "${f.wert}" (${f.grund})`).join(", "));
+      });
   }
 
-  it("die Ausnahme greift nur fuer ignorierte Dateien — nie fuer versionierte", () => {
-    /* Rueckmutation zur Ausnahme darueber. Ohne diese Probe koennte jemand die
-     * Bedingung lockern und damit eine geloeschte VERSIONIERTE Datei stumm
-     * schalten — der Fall, fuer den die Zusicherung ueberhaupt geschrieben wurde. */
-    assert.deepEqual(
-      [...NICHT_IM_REPO].filter((rel) => GETRACKT.has(rel)), [],
-      "Eine versionierte Datei darf nie als 'nicht im Repo' durchgehen"
-    );
-    assert.deepEqual(
-      GEMELDETE.filter((rel) => !GETRACKT.has(rel) && !NICHT_IM_REPO.has(rel)), [],
-      "Diese Eintraege sind weder versioniert noch bewusst ignoriert — die Liste ist veraltet"
-    );
-    assert.ok(GEMELDETE.filter((rel) => GETRACKT.has(rel)).length >= 18,
-      "Fast alle Eintraege muessen versioniert und damit echt geprueft sein");
-  });
+  const imGitBaum = spawnSync("git", ["rev-parse", "--is-inside-work-tree"],
+    { cwd: REPO, encoding: "utf8" }).status === 0;
+
+  it("die Ausnahme fuer nur-lokale Dateien deckt nichts zu",
+    { skip: !imGitBaum && "kein git-Arbeitsbaum — die Zugehoerigkeit ist hier nicht entscheidbar" }, () => {
+      for (const rel of NUR_LOKAL) {
+        const verfolgt = spawnSync("git", ["ls-files", "--error-unmatch", "--", rel],
+          { cwd: REPO, encoding: "utf8" }).status === 0;
+        assert.equal(verfolgt, false,
+          `${rel} steht als "nur lokal" in der Ausnahme — git verfolgt die Datei aber.\n` +
+          "Entweder ist eine .env ins Repo geraten (das waere der Vorfall, gegen den es\n" +
+          "diesen Waechter gibt), oder die Ausnahme gehoert entfernt und der Pfad zurueck\n" +
+          "in die harte Pruefung.");
+      }
+    });
 
   it("diese Testdatei meldet sich nicht selbst", () => {
     /* Der peinlichste Befund des ersten Laufs: Die gepflanzten Werte dieser
@@ -424,4 +414,76 @@ describe("Secret-Scan — die ausgelieferten Dateien sind sauber", () => {
     assert.equal(funde.length, 1, "die Freigabe greift ueber ihre Zeile hinaus");
     assert.equal(funde[0].zeile, 2);
   });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 6. Kein formechter Schluessel als zusammenhaengender Text im Repo
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("Testvorrichtungen — formecht, aber nie am Stueck geschrieben", () => {
+  /**
+   * DER BEFUND, DER DIESEN WAECHTER ERZWUNGEN HAT:
+   * Der Push dieser Arbeit wurde von GitHub abgelehnt — die Push-Protection
+   * fand in DIESER Datei einen "Stripe API Key" und einen "Slack API Token".
+   * Es waren Vorrichtungen, aber formecht genug, dass ein fremder Scanner sie
+   * nicht unterscheiden konnte.
+   *
+   * Der Ort des Scheiterns war das eigentliche Problem: erst beim Veroeffentlichen,
+   * nachdem alles gebaut, getestet und committet war — und die Reparatur
+   * verlangte, die Historie umzuschreiben. Dieser Test verschiebt denselben
+   * Befund an den Anfang: Er faellt beim ersten Testlauf, nicht beim Push.
+   *
+   * Die Loesung ist nicht, schwaechere Vorrichtungen zu nehmen — die Tests
+   * brauchen echte Formen. Sie lautet: im QUELLTEXT zerlegen, zur LAUFZEIT
+   * zusammensetzen (siehe stueck()).
+   */
+  const ANBIETER_FORMEN = [
+    ["Stripe",    /sk_(?:live|test)_[A-Za-z0-9]{24,}/],
+    ["Slack",     /xox[bpaors]-[0-9]{10,}-[0-9]{10,}-[A-Za-z0-9]{24,}/],
+    ["GitHub",    /gh[posu]_[A-Za-z0-9]{36,}/],
+    ["AWS",       /(?:AKIA|ASIA)[0-9A-Z]{16}/],
+    ["Stripe WH", /whsec_[A-Za-z0-9+/=]{32,}/],
+    ["Anthropic", /sk-ant-[A-Za-z0-9\-_]{32,}/],
+    ["Google",    /AIza[0-9A-Za-z\-_]{35}/],
+  ];
+
+  /** Alle .js/.mjs unterhalb eines Verzeichnisses. */
+  function dateienUnter(wurzel) {
+    const gefunden = [];
+    const ab = (verz) => {
+      for (const e of fs.readdirSync(verz, { withFileTypes: true })) {
+        if (e.isDirectory()) {
+          if (e.name === "node_modules" || e.name === "coverage") continue;
+          ab(path.join(verz, e.name));
+        } else if (/\.(?:js|mjs|cjs)$/.test(e.name)) {
+          gefunden.push(path.join(verz, e.name));
+        }
+      }
+    };
+    ab(wurzel);
+    return gefunden;
+  }
+
+  for (const [anbieter, form] of ANBIETER_FORMEN) {
+    it(`kein ${anbieter}-Schluessel am Stueck in api/test und scripts`, () => {
+      const treffer = [];
+      for (const wurzel of [HIER, path.join(REPO, "scripts")]) {
+        for (const datei of dateienUnter(wurzel)) {
+          const text = fs.readFileSync(datei, "utf8");
+          /* Die Muster-DEFINITIONEN dieses Waechters und die des Scanners
+           * beschreiben die Formen, statt sie zu enthalten — Zeilen mit einem
+           * Regex-Literal bleiben deshalb aussen vor. */
+          for (const zeile of text.split(/\r?\n/)) {
+            if (/\/[^/]*\[A-Za-z0-9/.test(zeile)) continue;   // Regex-Definition
+            if (form.test(zeile)) {
+              treffer.push(`${path.relative(REPO, datei)}: ${zeile.trim().slice(0, 60)}`);
+            }
+          }
+        }
+      }
+      assert.deepEqual(treffer, [],
+        `Ein ${anbieter}-Schluessel steht am Stueck im Quelltext. GitHub lehnt ` +
+        `den Push dafuer ab. Mit stueck() zerlegen:\n  ` + treffer.join("\n  "));
+    });
+  }
 });

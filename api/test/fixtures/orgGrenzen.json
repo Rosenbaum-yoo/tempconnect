@@ -1,6 +1,6 @@
 {
   "zweck": "Register der Mandantengrenze. Geprueft von test/orgGrenzenWaechter.test.js. Jede Route mit einem Pfad-Platzhalter in einer abgedeckten Datei braucht hier ein Urteil; jede Route-Datei ist entweder abgedeckt oder mit Grund ausgesetzt. Hintergrund: docs/ORG_GRENZE_BEFUND.md und docs/features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md.",
-  "stand": "2026-08-21",
+  "stand": "2026-08-27",
   "felder": {
     "urteil": "verhaltensgeprueft | bewusste-ausnahme (letzteres braucht 'begruendung')",
     "art": "ressource (:id adressiert eine Zeile) | entitaet (Liste zu einer Fremdkennung) | orgpfad (:id IST die Org-Kennung)",
@@ -1571,6 +1571,18 @@
           ],
           "orgImSql": false,
           "hinweis": "getOperationalInvoice laedt die Zeile ohne Org-Filter und vergleicht org_id/supplier_org_id in JS. Fuer eine Leseroute ausreichend; die Schreibwege derselben Rechnung tragen die Grenze zusaetzlich im SQL."
+        },
+        {
+          "methode": "get",
+          "pfad": "/invoices/operational/:id/e-rechnung",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "org_id",
+            "supplier_org_id"
+          ],
+          "orgImSql": false,
+          "hinweis": "E-Rechnung nach EN 16931. ladeERechnungsdaten() reicht getOperationalInvoice durch — die Zeile wird ohne Org-Filter geladen und org_id/supplier_org_id in JS verglichen, wie bei den uebrigen operativen Leserouten. Die Grenze ist bewusst ZWEISEITIG: der Entleiher braucht denselben Beleg fuer seine eigene Buchhaltung wie der Verleiher. Die zweite Abfrage (Firmenstammdaten) laeuft erst NACH dem Grenzurteil und holt ausschliesslich die beiden an der Rechnung beteiligten Organisationen. Verhaltensprobe: test/eRechnung.test.js — fremde Org bekommt 403, beide Beteiligten bekommen 200."
         }
       ]
     },

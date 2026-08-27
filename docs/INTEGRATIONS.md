@@ -145,6 +145,92 @@ Enterprise-grade CSV exports for business data with proper RFC 4180 compliance.
 - **Filters:** `org_id`, `actor_id`, `entity_type`, `action`, `action_type`, `status`, `from`, `to`
 - **Columns:** id, action, action_type, entity_type, entity_id, actor_email, actor_name, status, created_at, details_summary
 
+## DATEV-Uebergabe (gebaut)
+
+Zwei getrennte Strecken — sie werden regelmaessig verwechselt:
+
+| Strecke | Endpunkt | Was hinausgeht | Empfaenger |
+|---|---|---|---|
+| **Lohn** | `GET /api/timesheets/export/datev-lohn` | Bewegungsdaten: freigegebene Stunden je Mitarbeiter und Monat | Lohnbuero (LODAS / Lohn und Gehalt) |
+| **Buchhaltung** | `GET /api/invoices/export/datev` | Buchungsstapel im EXTF-Format (700, Kategorie 21) | Steuerberater / Fibu |
+
+Beide lesen Kontenrahmen, Berater-/Mandantennummer und Lohnarten pro Organisation aus
+`org_erp_mappings.sync_config` (`system_type = 'datev'`); fehlt etwas, greifen SKR03-Defaults.
+Ausgabe in ISO-8859-1, wie DATEV es erwartet.
+
+> **Vor dem produktiven Import** muessen die Konten mit dem Steuerberater bestaetigt werden.
+> Der Generator liefert ein struktur-valides Stapel, kein steuerlich finales Mapping.
+
+## E-Rechnung nach EN 16931 (gebaut)
+
+**Warum es sie gibt:** Seit dem 01.01.2025 muss jedes inlaendische Unternehmen strukturierte
+E-Rechnungen empfangen koennen. Ab dem **01.01.2027** muessen Unternehmen mit mehr als
+800.000 EUR Vorjahresumsatz sie auch versenden, ab dem **01.01.2028** alle (ausser
+Kleinunternehmer nach § 19 UStG, die dauerhaft nur empfangen muessen). Ein PDF per Mail ist
+ausdruecklich **keine** E-Rechnung. Ohne diesen Weg faellt TempConnect ab 2027 als
+Rechnungsquelle aus.
+
+### Endpunkte
+
+| Endpunkt | Zweck |
+|---|---|
+| `GET /api/invoices/operational/:id/e-rechnung?format=xrechnung` | XRechnung als UBL 2.1 (`Invoice`) |
+| `GET /api/invoices/operational/:id/e-rechnung?format=zugferd` | ZUGFeRD/Factur-X als CII (`CrossIndustryInvoice`), Profil EN 16931 |
+| `GET /api/invoices/e-rechnung/bereitschaft` | Prueft die Stammdaten der **eigenen** Organisation und nennt jedes fehlende Feld |
+
+Auth: `requireAuth` + `org.billing`. Die Mandantengrenze ist zweiseitig — Kaeufer **und**
+Verkaeufer duerfen dieselbe operative Rechnung abrufen, jede dritte Organisation bekommt 403.
+
+### Aufbau
+
+- `services/eRechnungService.js` — **reine Funktionen**, keine DB, kein IO. Beide Formate
+  entstehen aus derselben normalisierten Zwischenstruktur (`baueRechnungsdokument`), damit
+  sie nicht auseinanderlaufen koennen.
+- `services/operationalInvoiceService.js` — `ladeERechnungsdaten()` holt Rechnung, Positionen
+  und **beide** Firmen in einer Abfrage; `pruefeERechnungBereitschaft()` prueft die eigene.
+- `sql/migrations/187_die_rechnung_braucht_eine_anschrift.sql` — Rechnungsstammdaten auf
+  `organizations` (Anschrift, USt-IdNr., IBAN/BIC). Ohne sie ist keine konforme Rechnung
+  erzeugbar; die Adressdaten lagen zuvor nur auf `users` und `org_locations`, also nicht
+  auf der Rechtsperson, die tatsaechlich Rechnungssteller ist.
+- Oberflaeche: `frontend/public/integrations.html` — Bereitschaftspruefung mit Ampel und
+  Klartext-Liste der fehlenden Felder.
+
+### Fail-closed
+
+Fehlt ein Pflichtfeld, entsteht **kein** Dokument. Der Endpunkt antwortet mit `422` und der
+Liste der fehlenden Felder samt Geschaeftsbegriff-Nummer (BT-35, BT-31 …) und Fundort:
+
+```json
+{
+  "error": "PFLICHTFELDER_FEHLEN",
+  "message": "Die Rechnung ist noch nicht normkonform. Bitte die genannten Felder in den Firmenstammdaten ergaenzen.",
+  "fehlend": [
+    { "bt": "BT-35", "feld": "Rechnungssteller: Strasse", "hinweis": "Firmenstammdaten des Rechnungsstellers" }
+  ]
+}
+```
+
+Eine unvollstaendige E-Rechnung ist schlimmer als gar keine: sie sieht aus wie eine Rechnung,
+wird beim Empfaenger aber abgewiesen — und niemand erfaehrt, woran es lag.
+
+### Rechnerische Schluessigkeit
+
+Die Pruefung rechnet die Summen nach, bevor das Dokument entsteht: Positionssumme (BT-106)
+minus Nachlaesse (BT-107) muss den Nettobetrag (BT-109) ergeben, Netto plus Steuer den
+Bruttobetrag (BT-112). Das ist kein Luxus — bei Rechnungen mit Bounty-Rabatt (Migration 170)
+gehen Positionssumme und Netto auseinander, und ohne den getrennten Ausweis als Nachlass auf
+Dokumentebene schlaegt jede solche Rechnung die Pruefregel BR-13 des Empfaengers.
+
+### Grenze
+
+Der Weg deckt **operative Rechnungen** ab (Organisation an Organisation, aus freigegebenen
+Stundenzetteln). Die Abo-Rechnungen der Plattform an ihre eigenen Kunden laufen noch nicht
+darueber — dort ist TempConnect selbst Rechnungssteller und braucht Betreiber-Stammdaten aus
+der Konfiguration statt aus `organizations`. Dieselbe Frist gilt dort ebenfalls.
+
+Tests: `api/test/eRechnung.test.js` (Formate, Datumsgrenze in Europe/Berlin, Maskierung,
+Rabattdarstellung, Wohlgeformtheit des XML, Mandantengrenze, Bereitschaftspruefung).
+
 ## Database Schema
 
 ### webhook_deliveries
@@ -185,10 +271,16 @@ psql -d tempconnect -f sql/migrations/047_webhook_infrastructure.sql
 
 ## Zukünftige Integrationen (Roadmap)
 
-### ERP-Anbindung (SAP / DATEV)
-- **Zweck:** Automatischer Rechnungsexport und Mitarbeiter-Stammdaten-Sync
-- **Ansatz:** CSV/XML-Export-Adapter in `exportService.js` + SFTP-Upload oder API-Call
-- **Status:** Vorbereitet durch `exportService.js` (RFC 4180 CSV), Erweiterung auf DATEV-Format geplant
+### Weitere Zielsysteme (zvoove / Personio / SAP)
+- **Zweck:** Stammdaten- und Einsatzabgleich mit dem System, das der Kunde bereits betreibt
+- **Stand:** Die Konnektor-Registry (`org_erp_mappings`) kennt die Systemtypen bereits und
+  traegt fuer DATEV echten Datenfluss (Konten, Beraternummer, Lohnarten je Kunde). Fuer
+  `zvoove`, `personio` und `sap_*` ist der Eintrag bislang folgenlos — dort fehlt die Leitung,
+  nicht die Registrierung.
+- **Ansatz:** Dem Muster der DATEV-Strecke folgen — Konfiguration aus `sync_config`,
+  reiner Generator als eigener Service, Endpunkt im zustaendigen Router.
+- **zvoove** betreibt ein Partnerprogramm mit offener REST-Schnittstelle und Schluesselvergabe;
+  der Anbau ist dort ein Integrationsvorhaben, kein Verdraengungswettbewerb.
 
 ### E-Mail-Notifications (erweiterbar)
 - **Aktuelle Basis:** `emailService.js` + `emailHtmlTemplates.js` mit Template-Engine

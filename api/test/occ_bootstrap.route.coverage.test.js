@@ -16,8 +16,32 @@
  * Run: node --test --test-force-exit test/occ_bootstrap.route.coverage.test.js
  */
 
-import { describe, it } from "node:test";
+import { describe, it, after } from "node:test";
 import assert from "node:assert/strict";
+
+/* ── Redis: die Vorbedingung gehoert in den Test, nicht in die Maschine ─────
+ *
+ * `pruefeVerbindungen()` in routes/occ/bootstrap.js liest `process.env.REDIS_URL`
+ * zur Laufzeit und baut bei gesetztem Wert eine ECHTE Verbindung auf. Der
+ * Kommentar unten sagt "db up + redis null" — genau das war aber nie
+ * sichergestellt, sondern haing daran, dass auf der Entwicklermaschine kein
+ * REDIS_URL gesetzt ist.
+ *
+ * Gemessen am 2026-08-25: im API-Container (REDIS_URL=redis://redis:6379) wurde
+ * daraus `degraded` statt `healthy` — zwei rote Zusicherungen, auf dem Host
+ * dieselbe Datei 6/6 gruen. Mit geleertem REDIS_URL laeuft sie auch dort 6/6.
+ * Ein Unit-Test mit gemocktem Pool, dessen Ergebnis am Netz der Umgebung haengt,
+ * ist nicht deterministisch — er besteht aus Zufall.
+ *
+ * Keine Zusicherung wird dadurch schwaecher: der Test prueft weiterhin
+ * `system_status === "healthy"`, nur ist die Bedingung "redis null" jetzt
+ * hergestellt statt vorausgesetzt.
+ */
+const REDIS_URL_VORHER = process.env.REDIS_URL;
+delete process.env.REDIS_URL;
+after(() => {
+  if (REDIS_URL_VORHER !== undefined) process.env.REDIS_URL = REDIS_URL_VORHER;
+});
 
 /* ── fresh module per test (resets module-level last-login-column cache) ──── */
 let _v = 0;

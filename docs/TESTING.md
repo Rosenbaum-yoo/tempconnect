@@ -27,6 +27,74 @@ Stattdessen erkennt `api/scripts/run-tests.js` die reale Suite-Struktur automati
 - `--suite=security` → `test/security/` + security/rbac/auth-hardening files
 - `--suite=tenant` → orgBoundary + org-boundary tests
 - `--suite=pilot` → pilot model/policy/conversion tests
+- `--suite=db-gated` → Dateien, die sich ohne `DATABASE_URL` selbst überspringen
+- `--suite=image` → nur die Tests, die das **ausgelieferte Abbild** beweisen (siehe unten)
+
+### Das Abbild-Gate (`--suite=image`, P1-C)
+
+Der Pflichtschritt vor jedem Release läuft im Container:
+
+```bash
+docker exec tempconnect_api sh -c "cd /app && npm run test:image"
+```
+
+Bis 2026-08-25 stand dort `test:unit` — und **konnte strukturell nie grün werden**: gemessen
+124 rote Tests von 9261. Das Abbild enthält nur `api/`, `sql/migrations` und
+`frontend/public/js`; jeder Test, der `frontend/public/*.html`, `docs/`, `nginx/` oder eine
+compose-Datei liest, scheitert dort zwangsläufig. Ein Gate, das nie grün wird, wird
+übersprungen.
+
+`--suite=image` lässt diese Tests aus — nicht weil sie lästig sind, sondern weil ihr
+**Gegenstand gar nicht ausgeliefert wird**. Die Auswahl folgt einer gemessenen Eigenschaft
+(„greift die Datei über `api/` hinaus?", vier Idiome in
+`api/scripts/lib/abbildSuite.mjs`), nicht einer Namensliste — eine Liste wäre in vier Wochen
+falsch. Der Lauf sagt selbst, wie viele Dateien er aus welchem Grund ausgelassen hat.
+
+`api/test/abbildSuite.test.js` hält die Regel fest: jedes Idiom wird an seinem eigenen
+Beispiel geprüft, ein Schritt nach `api/` hoch zählt ausdrücklich **nicht** (sonst bliebe von
+der Suite nichts übrig), Vertreter beider Seiten werden stichprobenartig einsortiert, und
+eine Untergrenze verhindert, dass das Gate unbemerkt zur Beruhigungspille wird.
+
+**Der volle Lauf bleibt Pflicht auf dem Host** — Oberflächen-, Doku- und
+Infrastruktur-Tests laufen nur dort, und dort sind sie nicht optional.
+
+### Wenn ein Testkindprozess nativ abstürzt
+
+Unter Windows stirbt sporadisch ein Kindprozess beim Aufräumen — ein libuv-Wettlauf
+zwischen `--test-force-exit` und noch offenen Handles der Testdatei. Alle Untertests sind
+dann grün, die Datei wird trotzdem als Ganzes rot gemeldet. Das ist **kein**
+fehlgeschlagener Test.
+
+Der Runner erkennt das seit 2026-08-23 selbst und gibt am Ende einen eigenen Block **auf
+stdout** aus: welche Datei betroffen ist, dass der Lauf für sie **keinen Befund** erbracht
+hat (nicht: dass sie in Ordnung ist), und — falls daneben **echte** rote Dateien stehen —
+dass ein Wiederholen die nicht beseitigt. Der Exit-Code bleibt in jedem Fall der des
+Testlaufs; der Runner färbt nichts grün. Ist der Lauf trotz Signatur grün, kommt statt des
+Alarms nur ein kurzer Hinweis — dann hat vermutlich ein Test die Zeichenkette selbst
+gedruckt.
+
+*stdout ist Absicht:* der Bericht von node:test steht dort, und wer einen Volllauf
+durchsuchbar macht, schreibt `npm test > lauf.log`. Auf stderr wäre der Befund genau in
+der Datei nicht drin, in der man ihn sucht.
+
+*Der Reporter ist festgenagelt* (`--test-reporter=spec`), und das ist tragend: welchen
+Reporter node:test ohne Vorgabe wählt, hängt von der Node-Fassung ab — Node 24.11 (lokal)
+nimmt `spec`, Node 20.20 (`api/Dockerfile`, beide CI-Workflows) nimmt `tap`. Unter TAP
+erkennt der Detektor keines seiner Muster wieder, er wäre also ausgerechnet im Container
+und in CI stumm. Nichts wertet die Ausgabe maschinell aus, das Pinnen kostet daher nichts.
+
+- `--retry-on-abort` wiederholt den Lauf **genau einmal**, aber nur wenn ein Abbruch
+  erkannt wurde *und* der Lauf keine echten roten Dateien hat. Bewusst ausgeschaltet:
+  automatisches Wiederholen kann ein neu eingebautes Handle-Leck dauerhaft zudecken.
+  Auf Linux-Runnern (CI) greift der Schalter nie — die Signatur ist Windows-spezifisch;
+  deshalb steht er in keinem npm-Skript und in keinem Workflow.
+- Stirbt ein Prozess nativ aus **unbekannter** Ursache, meldet der Runner das ebenfalls —
+  dann aber ausdrücklich *ohne* die Empfehlung zu wiederholen: solange niemand weiß,
+  warum, belegt auch ein grüner zweiter Lauf nichts.
+
+Erkennung und Formulierung liegen in `api/scripts/lib/nativerAbbruch.mjs`, geprüft von
+`api/test/nativerAbbruch.test.js` (Detektor) und `api/test/runTestsVerdrahtung.test.js`
+(die Kette im Runner, gegen einen Sandkasten im Temp-Verzeichnis).
 
 ---
 

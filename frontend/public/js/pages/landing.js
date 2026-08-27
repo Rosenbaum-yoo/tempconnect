@@ -523,10 +523,24 @@ function showToast(msg, type) {
 }
 
 /* ── Story-Visuals: KI-Bild-Drop-in (P7c) ─────────────────────────
-   Jede figure.story__visual[data-img] behaelt ihre SVG-Illustration als
-   Fallback. Existiert die Bilddatei (Phase 7c legt sie unter
-   /public/img/landing/ ab), wird sie eingeblendet und die SVG versteckt —
-   ohne Deploy-Aenderung am Markup. Ladefehler bleiben stumm (kein JS-Error). */
+   Traegt ein figure.story__visual die Adresse eines Bildes, wird das Bild
+   eingeblendet und die SVG-Illustration versteckt. Ohne Adresse passiert
+   nichts und die SVG bleibt stehen — sie ist der ausgelieferte Zustand,
+   kein Platzhalter.
+
+   WICHTIG: Die Adresse gehoert erst dann ins Markup, wenn die Datei im Repo
+   liegt. Diese Schleife stellt fuer jede Adresse eine echte Anfrage. Bis zum
+   2026-08-22 standen hier vier Adressen auf Dateien, die es nie gab — vier
+   Anfragen pro Aufruf der meistbesuchten Seite, vom Server mit HTTP 200 und
+   der kompletten Startseite beantwortet (je 71 KB, kein 404). Ein Fehlerbild,
+   das niemandem auffaellt, weil der Status 200 ist.
+
+   Beide Richtungen haelt api/test/assetWaechter.test.js zusammen: Adresse ohne
+   Datei wird rot, Datei ohne Adresse ebenso. Der Einbau bleibt damit eine Zeile
+   je figure — siehe docs/mockups/LANDING_KI_BILD_PROMPTS.md §5.
+
+   Der Ladefehler bleibt bewusst ohne Handler: er ist der Normalfall des
+   Fallbacks und gehoert nicht in die Konsole. */
 (function () {
   var figures = document.querySelectorAll('.story__visual[data-img]');
   figures.forEach(function (fig) {

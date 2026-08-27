@@ -51,10 +51,20 @@
 5. **Seiten-JS, das in einer vm-Sandbox läuft, braucht die lokale i18n-Brücke**
    (Vorbild `js/pages/marketplaceFeed.js`) und einen Guard um `document.addEventListener`.
 
-> **Bekannter Flake:** Erscheint im Volllauf
-> `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING) … src\win\async.c:76`, ist der
-> Lauf zu **wiederholen** — das ist ein libuv-Abbruch beim Prozessende unter Windows,
-> kein fehlgeschlagener Test. Ein Lauf, der **ohne** diese Zeile rot ist, ist echt.
+> **Bekannter Flake — der Runner sagt es jetzt selbst.** Stirbt ein Testkindprozess unter
+> Windows beim Aufräumen (`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING) …
+> src\win\async.c:76`), ist das ein libuv-Abbruch beim Prozessende und kein
+> fehlgeschlagener Test. Seit 2026-08-23 liest `run-tests.js` seine eigene Ausgabe mit
+> und gibt am Ende einen unübersehbaren Block aus: welche Datei betroffen ist, dass der
+> Lauf für sie **keinen Befund** erbracht hat (nicht: dass sie in Ordnung ist), und ob
+> daneben **echte** rote Dateien stehen — die beseitigt ein Wiederholen nämlich nicht.
+> Der Exit-Code bleibt unverändert; `--retry-on-abort` wiederholt bei Bedarf genau einmal.
+> Ein Lauf, der **ohne** diesen Block rot ist, ist echt.
+>
+> *Warum das hier stand und trotzdem nicht half:* die Regel war zwei Wochen lang eine
+> Bitte an den Leser, 15 000 Zeilen nach einer Zeile abzusuchen, von der er nichts weiß.
+> Am 2026-08-22 galt der Lauf deshalb zweimal als rot. Eine Regel, die niemand zur
+> richtigen Zeit liest, ist keine Regel — sie gehört in den Code.
 
 ---
 

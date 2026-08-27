@@ -39,10 +39,10 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **9524 Tests, 0 Fehler** (2026-08-21, voller Lauf ohne Pipe nach V-2),
-davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
-Vorher 9513; die 11 neuen sind die Selbstprobe des Index-Helfers und die
-Rückmutationen zu seinen Ausnahmen.
+Stand: **10197 Tests, 0 Fehler** (2026-08-27, voller Lauf ohne Pipe nach dem
+Zusammenfuehren der Release-Linie in die Arbeitslinie), davon 1 uebersprungen.
+Vorher 9524 auf der Arbeitslinie bzw. 9520 auf der Release-Linie; der Zuwachs
+ist die Summe beider Linien (u. a. E-Rechnung EN 16931, Wellen J1-J10).
 
 > **Ein Worktree ist kein halbes Repo mehr (behoben 2026-08-21, P2-W1).**
 > `.agents/`, `frontend/support-ops/`, die ungetrackten Dateien unter

@@ -1,11 +1,11 @@
 {
   "_hinweis": "GENERIERT — nicht von Hand bearbeiten. Neu erzeugen mit: npm run schema:snapshot (liest die laufende Datenbank im Container tempconnect_db).",
-  "erzeugt_am": "2026-08-27T12:10:39.857Z",
+  "erzeugt_am": "2026-08-27T20:02:09.996Z",
   "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
   "migrations_fingerabdruck": {
     "init": "49a1c9ef343102f593f1267155c30cea987684bf1a93826cf237e61101238c7e",
-    "dateien": 205,
-    "hash": "e55b56ea23be4c30a2cb32a71cd06e132954d6443277de8a410aaba171037e61"
+    "dateien": 206,
+    "hash": "0e6a3b6f0f5282bc355992f3e4de29140e0fcb5f4947cce47442b1ac608a427b"
   },
   "pruefwerte": {
     "approval_requests": {
@@ -4526,9 +4526,15 @@
         "access_suspended_kind",
         "access_suspended_reason",
         "account_type",
+        "bic",
+        "billing_address_2",
+        "billing_city",
         "billing_contact",
+        "billing_country_code",
         "billing_email",
         "billing_mode",
+        "billing_postal_code",
+        "billing_street",
         "commercial_register",
         "company_size_class",
         "converted_at",
@@ -4544,6 +4550,7 @@
         "enforce_mfa",
         "feature_bundle",
         "has_used_pilot",
+        "iban",
         "id",
         "individual_contract_note",
         "individual_contract_price_cents",
@@ -4568,6 +4575,7 @@
         "tax_id",
         "type",
         "updated_at",
+        "vat_id",
         "website"
       ],
       "nicht_null": [
