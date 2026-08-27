@@ -192,6 +192,36 @@ export interface OccAuditFeed {
   has_more: boolean;
 }
 
+/*
+ * Der ZUGANGS-Nachweis des OCC — wer hereinkam und wer abgewiesen wurde.
+ *
+ * Bewusst getrennt vom Audit-Feed daneben: der liest `audit_log` und sagt, WAS
+ * die Eigentuemer getan haben. Diese Tabelle sagt, WER ueberhaupt hereinkam —
+ * und die abgewiesenen Versuche stehen nur hier, denn dabei entsteht gar keine
+ * Sitzung, die etwas tun koennte.
+ */
+export interface OccAccessAuditItem {
+  id: string;
+  created_at: string;
+  action: string;
+  note: string | null;
+  metadata: Record<string, unknown> | null;
+  user_id: string | null;
+  user_email: string | null;
+  performed_by: string | null;
+  performed_by_email: string | null;
+}
+
+export interface OccAccessAudit {
+  items: OccAccessAuditItem[];
+  total: number;
+  /** Zahl der Abweisungen insgesamt — der Grund, aus dem man die Liste oeffnet. */
+  abgewiesen: number;
+  page: number;
+  per_page: number;
+  has_more: boolean;
+}
+
 // ── Platform ───────────────────────────────────────────────────────────────────
 
 export interface OccPlatformSummary {
