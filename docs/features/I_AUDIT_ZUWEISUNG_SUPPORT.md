@@ -1477,6 +1477,66 @@ und nichts sperrte. Wer diese Liste erneut fährt, sollte die beiden Klassen
 getrennt halten — eine lügende Einstellung ist ein Fehler, eine leere Spalte
 ist bloß Vorrat.
 
+### Durchlauf 3 — geschrieben und nie gelesen (2026-08-26)
+
+Die ersten beiden suchten tote **Funktionen** und tote **Regel-Spalten**. Der
+dritte sucht die Form, über die ich bei den Stundenzettel-Vorlagen zufällig
+gestolpert bin: **Daten, die erhoben werden und die niemand ansieht.**
+
+Gemessen über alle **186 Tabellen**: für jede gezählt, wie oft der Quelltext sie
+beschreibt (`INSERT`/`UPDATE`/`DELETE`) und wie oft er aus ihr liest
+(`FROM`/`JOIN`, ohne `DELETE FROM`). Tests und Migrationen ausgenommen.
+
+| | |
+|---|---|
+| Tabellen gesamt | 186 |
+| **geschrieben, nie gelesen** | **9** |
+| im Code gar nicht erwähnt | 12 |
+
+Die zwölf gar nicht erwähnten sind überwiegend bekannt (`email_verification_tokens`
+als Waise, die drei `timesheet_template*` seit dem Löschen am selben Tag — was
+zugleich bestätigt, dass die Messung greift).
+
+**Von den neun sind acht harmlos** — und das war jedes Mal eine Messung, keine
+Annahme:
+
+| Tabelle | Warum harmlos |
+|---|---|
+| `worker_delays` | **0 Zeilen** — es hat nie jemand eine Verspätung gemeldet |
+| `sso_sessions` | **0 Zeilen** — SSO läuft im Stub-Modus |
+| `product_analytics_*` (3) | Auswertung, kein Regelträger |
+| `match_logs`, `assignment_staffing_events`, `emergency_provider_commitment_events` | Diagnose-Spuren |
+| `capacity_post_pool_members` | Mitgliedschaft, über den Pool selbst gelesen |
+
+### Die eine, die nicht harmlos war
+
+`owner_control_access_audit` trägt **25 Zeilen** — darunter **23 abgewiesene
+Zugriffsversuche** auf das Owner Control Center zwischen dem **20.05. und dem
+21.07.**, dazu eine Rechtevergabe und eine Listenabfrage.
+
+Geschrieben von der Zugangs-Middleware und vom Verwaltungs-Werkzeug. Gelesen von
+**nirgends** — der einzige `SELECT` im ganzen Repo stand in einem Test.
+
+Das ist genau das, was ein Eigentümer wissen will: jemand hat 23-mal versucht, in
+den Owner-Bereich zu kommen, und wurde abgewiesen. Ob verirrtes Konto oder etwas
+anderes — niemand konnte es sagen, weil die Tabelle keinen Leseweg hatte.
+
+**Warum es der Audit-Feed daneben nicht auffängt:** Der liest `audit_log` und
+beantwortet *„was haben die Eigentümer getan"*. Eine Abweisung erzeugt aber gar
+keine Sitzung, die etwas tun könnte — sie steht ausschließlich in dieser Tabelle.
+Die beiden sind komplementär, nicht redundant.
+
+**Gebaut:** `GET /audit/access` im bestehenden OCC-Audit-Router, mit der Zahl der
+Abweisungen getrennt in der Antwort (muss man sie erblättern, ist sie so gut wie
+nicht da), einem Filter, der nur bekannte Werte annimmt (eine freie Zeichenkette
+wäre eine Falle: ein Tippfehler ergäbe eine leere Liste, die aussieht wie „es gab
+keine Versuche"), und Zero-State statt 500. Dazu die Ansicht im OCC-Audit-Modul —
+**der Endpunkt wird also auch benutzt**, sonst wäre er selbst ein Fall für diesen
+Durchlauf.
+
+Sieben Proben am echten Handler, darunter ausdrücklich: *die Route ist am Router
+registriert* — gebaut **und** montiert.
+
 ### Was daraus offen bleibt
 
 **`organizations.enforce_mfa`** existiert seit Migration 058 und kommt im
