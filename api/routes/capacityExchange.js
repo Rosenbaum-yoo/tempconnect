@@ -23,6 +23,7 @@ import { requireOrgLimit } from "../middleware/entitlementGuard.js";
 import { requireScope } from "../middleware/apiKeyAuth.js";
 import { swallow } from "../utils/logger.js";
 import { canAccessAsOwner } from "../utils/ownerCheck.js";
+import * as merkmalKatalog from "../services/workerMerkmalKatalog.js";
 
 /* ── Zod Schemas ──────────────────────────────────── */
 
@@ -542,6 +543,7 @@ export function createCapacityExchangeRouter(deps) {
         longitude: req.query.longitude ? parseFloat(req.query.longitude) : undefined,
         radius_km: req.query.radius_km ? parseInt(req.query.radius_km, 10) : undefined,
         skill_tags: req.query.skill_tags ? String(req.query.skill_tags).split(",").map(t => t.trim()).filter(Boolean) : undefined,
+        merkmale: req.query.merkmale ? String(req.query.merkmale).split(",").map(t => t.trim()).filter(Boolean) : undefined,
         sort: req.query.sort || undefined,
         viewer_role: me?.role || null,
         viewer_user_id: req.session.userId,
@@ -554,6 +556,14 @@ export function createCapacityExchangeRouter(deps) {
         page: parseInt(req.query.page, 10) || 1,
         limit: Math.min(100, parseInt(req.query.limit, 10) || 25)
       };
+      /* Merkmal-Filter (Welle J9): unbekannte Schluessel sind ein 400, kein
+       * stilles Weglassen — ein Filter, der heimlich weniger filtert als
+       * behauptet, liefert falsche Gewissheit. */
+      if (opts.merkmale) {
+        const geprueft = merkmalKatalog.pruefeMerkmale(opts.merkmale);
+        if (geprueft.error) return res.status(400).json({ error: geprueft.error, unbekannt: geprueft.unbekannt });
+        opts.merkmale = geprueft.ok;
+      }
       const result = await capacityExchangeService.browseFeed(pool, opts);
       res.json(result);
     } catch (e) {

@@ -39,10 +39,13 @@ function aufzeichnenderPool(antworten = {}) {
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 describe("Marktpraesenz · Teil A — Form", () => {
-  it("der Sweep sind GENAU vier Abfragen — Ruecknahme, Wiederkehr, Anlage, Lueckenmass", async () => {
+  it("der Sweep sind GENAU fuenf Abfragen — Ruecknahme, Wiederkehr, Horizont, Anlage, Lueckenmass", async () => {
+    /* Fixture-Pflege 2026-08-27 (Welle J9): der Horizont-Spiegel kam als
+     * vierter Schritt dazu — die Zaehlung waechst mit, die Regel dahinter
+     * (set-basiert, keine Schleife) bleibt dieselbe. */
     const pool = aufzeichnenderPool();
     await sweepMarktpraesenz(pool);
-    assert.equal(pool.calls.length, 4,
+    assert.equal(pool.calls.length, 5,
       "mehr Abfragen hiesse: jemand hat eine Schleife eingebaut — der Sweep ist set-basiert");
   });
 
@@ -51,13 +54,14 @@ describe("Marktpraesenz · Teil A — Form", () => {
     await sweepMarktpraesenz(pool);
     assert.match(pool.calls[0].sql, /SET status = 'archived'/, "zuerst die Ruecknahme");
     assert.match(pool.calls[1].sql, /SET status = 'active'/, "dann die Wiederkehr");
-    assert.match(pool.calls[2].sql, /INSERT INTO capacity_posts/, "dann die Anlage");
+    assert.match(pool.calls[2].sql, /SET availability_to = wp\.einsetzbar_bis/, "dann der Horizont-Spiegel (J9)");
+    assert.match(pool.calls[3].sql, /INSERT INTO capacity_posts/, "dann die Anlage");
   });
 
   it("die Anlage traegt Herkunft, Anonymitaet und den Ausschalter", async () => {
     const pool = aufzeichnenderPool();
     await sweepMarktpraesenz(pool);
-    const sql = pool.calls[2].sql;
+    const sql = pool.calls[3].sql;
     assert.match(sql, /'live_belegschaft'/, "ohne Herkunft kann die Ruecknahme nicht unterscheiden");
     assert.match(sql, /marktpraesenz_deaktiviert = FALSE/, "der Ausschalter (Mig 200) muss greifen");
     assert.match(sql, /wp\.is_active = TRUE/, "inaktive Profile werden nie angeboten");
@@ -93,7 +97,9 @@ describe("Marktpraesenz · Teil A — Form", () => {
      * Anlage lassen sie draussen, bis die Abwesenheit endet. */
     const pool = aufzeichnenderPool();
     await sweepMarktpraesenz(pool);
-    for (const [name, i] of [["Ruecknahme", 0], ["Wiederkehr", 1], ["Anlage", 2]]) {
+    /* Index 2 ist der Horizont-Spiegel (J9) — er kennt bewusst keine
+     * Abwesenheit: ein Datum spiegeln ist keine Verfuegbarkeitsaussage. */
+    for (const [name, i] of [["Ruecknahme", 0], ["Wiederkehr", 1], ["Anlage", 3]]) {
       assert.match(pool.calls[i].sql, /worker_absences/, name + " kennt die Abwesenheit nicht");
       assert.match(pool.calls[i].sql, /ab\.zustand = 'wirksam'/,
         name + ": nur WIRKSAME Abwesenheit zaehlt — eine erst beantragte Selbstmeldung ist eine " +

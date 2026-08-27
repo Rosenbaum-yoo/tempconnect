@@ -41,14 +41,22 @@ const ENTRY_SELECT = `
   u.company_name AS supplier_company_name,
   u.role AS supplier_role,
   o.name AS org_name,
-  COALESCE(o.logo_url, cfp.logo_url) AS supplier_logo_url
+  COALESCE(o.logo_url, cfp.logo_url) AS supplier_logo_url,
+  wpm.markt_merkmale
 `;
 
+/* Der wpm-Join (Welle J9) holt vom Arbeiterprofil AUSSCHLIESSLICH die
+ * markt_merkmale — den festen Katalog positiver Merkmale (Mig 201), zur
+ * Lesezeit, damit eine Aenderung sofort in allen Angeboten wirkt. KEINE
+ * weitere Profilspalte darf hier je dazukommen (kein Name, keine interne
+ * Notiz): der Marktplatz-Feld-Waechter schneidet den Quelltext genau darauf
+ * — auch dieser Kommentar darf ihr Spaltenwort deshalb nicht ausschreiben. */
 const ENTRY_JOINS = `
   FROM capacity_posts cp
   JOIN users u ON u.id = cp.supplier_company_id
   LEFT JOIN organizations o ON o.id = cp.org_id
   LEFT JOIN company_profiles cfp ON cfp.user_id = cp.supplier_company_id
+  LEFT JOIN worker_profiles wpm ON wpm.id = cp.worker_profile_id
 `;
 
 const EMPTY_CAPACITY_COMMERCIAL_STATE = Object.freeze({
@@ -658,6 +666,17 @@ export async function browseFeed(pool, opts = {}) {
   // Katalog-Index einmal je Feed-Aufruf (Welle 11) — hier oben, weil er schon fuer den
   // FILTER gebraucht wird, nicht erst fuers Bewerten.
   const skillIndex = await loadSkillIndex(pool);
+
+  /* Merkmal-Filter (Welle J9): das Unternehmen filtert nach den positiven
+   * Katalog-Merkmalen der Kraft (@> = "traegt ALLE genannten"). Der LEFT JOIN
+   * macht Angebote ohne Profil dabei ehrlich unsichtbar: wer nach
+   * "zuverlaessig" filtert, will keine Angebote sehen, ueber deren Kraft der
+   * Chef nichts gesagt hat. */
+  if (Array.isArray(opts.merkmale) && opts.merkmale.length > 0) {
+    params.push(opts.merkmale);
+    where.push(`wpm.markt_merkmale @> $${idx}::text[]`);
+    idx++;
+  }
 
   if (Array.isArray(opts.skill_tags) && opts.skill_tags.length > 0) {
     // Um die Synonyme erweitern, BEVOR gefiltert wird: `&&` vergleicht exakte

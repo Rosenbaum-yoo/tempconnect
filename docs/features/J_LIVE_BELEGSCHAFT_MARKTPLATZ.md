@@ -573,10 +573,26 @@ draußen; nur `zustand='wirksam'` zählt (H1-Linie: beantragt ist unentschieden)
 `ab.art` kommt im Markt-SQL nicht vor. Testverdrahtet inkl. echtem
 Abwesenheits-Zyklus an der DB.
 
-**Teil 2 (offen):** Migration (`markt_merkmale TEXT[]` gegen Katalog,
-`einsetzbar_bis DATE`, `dispo_notiz TEXT` als NUR_INTERN), Merkmale-Pflege auf
-der Agenturtafel, Anzeige in Angebot + Buchungsmodal + Filter, Selbstauskunft
-im Einsatzportal.
+**Teil 2 ✅ *(2026-08-27, Owner-„Ja" zum Katalog)*:** Migration 201
+(`markt_merkmale TEXT[]` mit dem Katalog als **DB-CHECK**, `einsetzbar_bis DATE`,
+`dispo_notiz TEXT`), Katalog-Modul `workerMerkmalKatalog.js` (doppelte Ratsche:
+Modul ↔ CHECK, testerzwungen), Route `POST /workers/:profileId/markt-profil`
+(Zod, org-gebunden, auditiert — die Notiz selbst steht NICHT im Audit, nur dass
+sie geändert wurde), Horizont-Spiegel `einsetzbar_bis → availability_to` der
+Auto-Angebote (sofort beim Setzen + als vierter Sweep-Schritt; neue Angebote
+entstehen gleich mit Horizont). Feed liest die Merkmale zur **Lesezeit** über
+einen streng geschnittenen Join (Wächter: der Alias darf genau `id` +
+`markt_merkmale` tragen — nicht mal ein Kommentar darf das Notiz-Spaltenwort
+ausschreiben, der Wächter hat meinen eigenen erwischt) und filtert per
+`merkmale=`-Parameter (unbekannter Schlüssel = 400, kein stilles Weniger-Filtern).
+UI: „Markt-Profil"-Modal auf der Agenturtafel (Ankreuz-Katalog, Horizont,
+Notiz mit „sieht NIE ein Unternehmen"-Beschriftung), Merkmal-Abzeichen in
+„Verfügbare Kräfte" + Buchungsmodal, sechs Filter-Chips (sprachwechselfest).
+Wächter-Register gepflegt (wachen 467/164, orgGrenzen 36 workers-Routen,
+Schema-Snapshot). 44/44 J9-Suiten inkl. echtem Horizont-Zyklus an der DB,
+Batterie 811/811.
+**Offen (Platzierungsfrage an den Owner):** Selbstauskunft der Kraft im
+Einsatzportal — auf welcher Portalseite?
 
 ---
 

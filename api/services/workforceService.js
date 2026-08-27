@@ -714,6 +714,10 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
               SELECT 1 FROM worker_profile_skills wps_x
                WHERE wps_x.worker_profile_id = wp.id
             ) AS hat_katalog_skill,
+            /* Markt-Profil (Welle J9): Merkmale + Horizont + interne Notiz.
+             * Die Notiz ist hier RICHTIG — dies ist die Agenturtafel, ihre
+             * eigene Flaeche. In den Marktplatz-Feed darf sie nie (Waechter). */
+            wp.markt_merkmale, wp.einsetzbar_bis, wp.dispo_notiz,
             cur.assignment_id, cur.link_id, cur.assignment_status, cur.client_name, cur.start_date,
             cur.kunde_kontakt_name, cur.kunde_kontakt_telefon,
             cur.effective_end_date, cur.lifecycle_state,

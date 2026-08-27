@@ -142,6 +142,13 @@
         <button class="ct-btn" onclick="clwLoadAvailable()" data-i18n="clw.action.refresh">Aktualisieren</button>
         <span id="avCountLabel" class="ct-sub"></span>
       </div>
+      <!-- Merkmal-Filter (Welle J9): die sechs Katalog-Merkmale als
+           an-/abwaehlbare Chips. Gebaut von companyLiveWorkforce.js, damit
+           Beschriftung und Katalog aus EINER Stelle kommen. -->
+      <div class="ct-toolbar" style="margin-top:-6px">
+        <span class="ct-sub" data-i18n="clw.avail.merkmalLabel" title="Zeigt nur Kräfte, denen ihre Zeitarbeitsfirma dieses Merkmal gegeben hat" data-i18n-title="clw.avail.merkmalHelp">Merkmale:</span>
+        <span id="avMerkmale" style="display:flex;gap:6px;flex-wrap:wrap"></span>
+      </div>
       <table class="ct-table">
         <thead><tr>
           <th data-i18n="clw.avail.th.role">Rolle / Qualifikation</th><th data-i18n="clw.th.agency">Zeitarbeitsfirma</th><th data-i18n="clw.avail.th.city">Ort</th><th data-i18n="clw.avail.th.window">Verfügbar</th><th data-i18n="clw.avail.th.headcount">Personen</th><th data-i18n="clw.avail.th.price">Preisrahmen</th><th></th>

@@ -137,6 +137,26 @@ TCi18n.register('de', {
   'mit.live.markt.toastAn': 'Marktpräsenz an – {n} Angebot(e) im Marktplatz.',
   'mit.live.markt.toastAus': 'Marktpräsenz aus – {n} Angebot(e) zurückgenommen.',
   'mit.live.markt.fehler': 'Marktpräsenz konnte nicht geändert werden.',
+
+  'mit.mp.btn': 'Markt-Profil',
+  'mit.mp.btnTitle': 'Merkmale, Einsetzbarkeits-Horizont und interne Notiz zu dieser Kraft pflegen',
+  'mit.mp.title': 'Markt-Profil',
+  'mit.mp.intro': 'Was Unternehmen im Marktplatz über diese Kraft sehen — und was nur Sie sehen.',
+  'mit.mp.merkmaleLabel': 'Merkmale (erscheinen im Angebot, fester Katalog)',
+  'mit.mp.bisLabel': 'Einsetzbar bis (leer = unbefristet)',
+  'mit.mp.bisHelp': 'Wird als Verfügbarkeitsende in die automatischen Angebote gespiegelt — Unternehmen können nur bis zu diesem Datum buchen.',
+  'mit.mp.notizLabel': 'Interne Dispo-Notiz (sieht NIE ein Unternehmen)',
+  'mit.mp.notizPh': 'z. B. seit einer Woche abwesend ohne Rückmeldung – nur für Ihre Disposition',
+  'mit.mp.submit': 'Speichern',
+  'mit.mp.saved': 'Markt-Profil gespeichert – Horizont in {n} Angebot(e) übernommen.',
+  'mit.mp.fehler': 'Markt-Profil konnte nicht gespeichert werden.',
+
+  'mit.merkmal.zuverlaessig': 'Zuverlässig',
+  'mit.merkmal.sehr_fleissig': 'Sehr fleißig',
+  'mit.merkmal.arbeitet_sauber': 'Arbeitet sauber',
+  'mit.merkmal.langfristig_einsetzbar': 'Langfristig einsetzbar',
+  'mit.merkmal.kurzfristig_startklar': 'Kurzfristig startklar',
+  'mit.merkmal.schicht_flexibel': 'Flexibel bei Schichten',
   'mit.live.verlauf.title': 'Verlauf',
   'mit.live.verlauf.intro': 'Jede Zustandsänderung der letzten 90 Tage – mitgeschrieben an der Quelle, nicht nachträglich abgeleitet.',
   'mit.live.verlauf.loading': 'Verlauf wird geladen …',
@@ -751,6 +771,26 @@ TCi18n.register('en', {
   'mit.live.markt.toastAn': 'Market presence on – {n} offer(s) in the marketplace.',
   'mit.live.markt.toastAus': 'Market presence off – {n} offer(s) withdrawn.',
   'mit.live.markt.fehler': 'Market presence could not be changed.',
+
+  'mit.mp.btn': 'Market profile',
+  'mit.mp.btnTitle': 'Maintain traits, deployability horizon and the internal note for this worker',
+  'mit.mp.title': 'Market profile',
+  'mit.mp.intro': 'What companies see about this worker in the marketplace — and what only you see.',
+  'mit.mp.merkmaleLabel': 'Traits (appear in the offer, fixed catalogue)',
+  'mit.mp.bisLabel': 'Deployable until (empty = open-ended)',
+  'mit.mp.bisHelp': 'Mirrored as the availability end into the automatic offers — companies can only book up to this date.',
+  'mit.mp.notizLabel': 'Internal dispo note (NEVER visible to a company)',
+  'mit.mp.notizPh': 'e.g. absent for a week without response – for your scheduling only',
+  'mit.mp.submit': 'Save',
+  'mit.mp.saved': 'Market profile saved – horizon applied to {n} offer(s).',
+  'mit.mp.fehler': 'The market profile could not be saved.',
+
+  'mit.merkmal.zuverlaessig': 'Reliable',
+  'mit.merkmal.sehr_fleissig': 'Very hardworking',
+  'mit.merkmal.arbeitet_sauber': 'Works cleanly',
+  'mit.merkmal.langfristig_einsetzbar': 'Deployable long-term',
+  'mit.merkmal.kurzfristig_startklar': 'Ready at short notice',
+  'mit.merkmal.schicht_flexibel': 'Shift-flexible',
   'mit.live.verlauf.title': 'History',
   'mit.live.verlauf.intro': 'Every state change of the last 90 days – recorded at the source, not derived afterwards.',
   'mit.live.verlauf.loading': 'Loading history …',
@@ -1859,6 +1899,10 @@ function renderLiveList(workers) {
          traf das 30 von 33) — genau das muss die Tafel sagen, sonst wundert
          sich die Agentur, warum niemand bucht. */
       if (w.live_status !== "inaktiv" && w.id) {
+        /* Markt-Profil (J9): Merkmale, Horizont, interne Notiz — direkt an
+           der Zeile, denn hier faellt die Monatsplanungs-Entscheidung. */
+        aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" title="' + esc(TCi18n.t("mit.mp.btnTitle")) + '"' +
+                  ' onclick="openMarktProfil(\'' + esc(w.id) + '\')">' + esc(TCi18n.t("mit.mp.btn")) + '</button>';
         if (w.marktpraesenz_deaktiviert) {
           sub.push('<span style="color:var(--wk-text-muted,#64748b)" title="' + esc(TCi18n.t("mit.live.markt.ausInfo")) + '">' +
                    esc(TCi18n.t("mit.live.markt.aus")) + '</span>');
@@ -2074,6 +2118,64 @@ function renderTimeline(items, scope) {
              '</div></div>';
   }).join("");
 }
+
+/* ── Markt-Profil (Welle J9): Katalog-Merkmale, Horizont, interne Notiz ────
+   Der Katalog ist die Wahrheit des Servers (workerMerkmalKatalog + DB-CHECK
+   Mig 201) — hier stehen nur die Schluessel fuers Ankreuzen; ein unbekannter
+   Haken wuerde der Server mit MERKMAL_UNBEKANNT abweisen. */
+var MERKMAL_KATALOG = ["zuverlaessig", "sehr_fleissig", "arbeitet_sauber",
+  "langfristig_einsetzbar", "kurzfristig_startklar", "schicht_flexibel"];
+var _mpProfileId = null;
+
+function openMarktProfil(profileId) {
+  var w = _liveWorkers.find(function(x) { return String(x.id) === String(profileId); }) || {};
+  _mpProfileId = profileId;
+  document.getElementById("mpWorker").textContent =
+    ((w.first_name || "") + " " + (w.last_name || "")).trim() + (w.personnel_number ? " · #" + w.personnel_number : "");
+  var gesetzt = new Set(w.markt_merkmale || []);
+  document.getElementById("mpMerkmale").innerHTML = MERKMAL_KATALOG.map(function(key) {
+    return '<label class="og-chip" style="cursor:pointer"><input type="checkbox" class="mp-merkmal" value="' + esc(key) + '"' +
+      (gesetzt.has(key) ? " checked" : "") + "> " + esc(TCi18n.t("mit.merkmal." + key)) + "</label>";
+  }).join("");
+  document.getElementById("mpBis").value = w.einsetzbar_bis ? String(w.einsetzbar_bis).slice(0, 10) : "";
+  document.getElementById("mpNotiz").value = w.dispo_notiz || "";
+  var err = document.getElementById("mpError"); err.style.display = "none";
+  document.getElementById("mpSubmitBtn").disabled = false;
+  document.getElementById("marktProfilModal").classList.add("show");
+}
+window.openMarktProfil = openMarktProfil;
+
+function closeMarktProfil() {
+  document.getElementById("marktProfilModal").classList.remove("show");
+  _mpProfileId = null;
+}
+window.closeMarktProfil = closeMarktProfil;
+
+function saveMarktProfil() {
+  if (!_mpProfileId) return;
+  var merkmale = Array.prototype.slice.call(document.querySelectorAll(".mp-merkmal:checked"))
+    .map(function(cb) { return cb.value; });
+  var btn = document.getElementById("mpSubmitBtn");
+  btn.disabled = true;
+  api("/workers/" + encodeURIComponent(_mpProfileId) + "/markt-profil", {
+    method: "POST",
+    body: {
+      merkmale: merkmale,
+      einsetzbar_bis: (document.getElementById("mpBis").value || "").trim() || null,
+      dispo_notiz: (document.getElementById("mpNotiz").value || "").trim() || null
+    }
+  }).then(function(r) {
+    closeMarktProfil();
+    toast(TCi18n.t("mit.mp.saved", { n: (r && r.horizont_gespiegelt) || 0 }), "ok");
+    loadLiveBoard();
+  }).catch(function(e) {
+    var err = document.getElementById("mpError");
+    err.textContent = (e && (e.message || e.error)) || TCi18n.t("mit.mp.fehler");
+    err.style.display = "";
+    btn.disabled = false;
+  });
+}
+window.saveMarktProfil = saveMarktProfil;
 
 /* Marktpraesenz-Schalter (Welle J2c): setzt den Ausschalter und laesst den
    Server die Folgen sofort nachziehen (eigene Auto-Angebote zurueck bzw.

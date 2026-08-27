@@ -776,6 +776,37 @@ Anna;Beispiel;anna@example.com;0157987654;M&uuml;nchen;P002</pre>
     </div>
   </div>
 
+  <!-- Markt-Profil der Kraft (Welle J9): Katalog-Merkmale, Horizont, interne
+       Notiz. Die drei Klassen sind bewusst getrennt beschriftet - die Notiz
+       traegt ihren "nur intern"-Hinweis direkt am Feld. -->
+  <div class="modal-bg" id="marktProfilModal">
+    <div class="modal-panel" style="max-width:560px">
+      <h2 data-i18n="mit.mp.title">Markt-Profil</h2>
+      <p id="mpWorker" style="font-size:13px;font-weight:700;margin:0 0 4px"></p>
+      <p style="font-size:12.5px;color:var(--ds-text-muted,#64748b);margin:0 0 14px" data-i18n="mit.mp.intro">Was Unternehmen im Marktplatz über diese Kraft sehen — und was nur Sie sehen.</p>
+      <div>
+        <label style="display:block;margin-bottom:6px" data-i18n="mit.mp.merkmaleLabel">Merkmale (erscheinen im Angebot, fester Katalog)</label>
+        <div id="mpMerkmale" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+      </div>
+      <div class="form-grid">
+        <div>
+          <label data-i18n="mit.mp.bisLabel">Einsetzbar bis (leer = unbefristet)</label>
+          <input type="date" id="mpBis" title="Wird als Verfügbarkeitsende in die automatischen Angebote gespiegelt" data-i18n-title="mit.mp.bisHelp">
+        </div>
+        <div></div>
+        <div style="grid-column:1/-1">
+          <label data-i18n="mit.mp.notizLabel">Interne Dispo-Notiz (sieht NIE ein Unternehmen)</label>
+          <textarea id="mpNotiz" maxlength="2000" rows="3" style="width:100%;resize:vertical" data-i18n-ph="mit.mp.notizPh" placeholder="z. B. seit einer Woche abwesend ohne Rückmeldung – nur für Ihre Disposition"></textarea>
+        </div>
+      </div>
+      <div id="mpError" style="display:none;font-size:12.5px;color:var(--ds-danger,#b91c1c);margin-top:12px"></div>
+      <div class="form-actions" style="margin-top:16px">
+        <button class="btn" onclick="closeMarktProfil()" data-i18n="mit.action.cancel">Abbrechen</button>
+        <button class="btn primary" id="mpSubmitBtn" onclick="saveMarktProfil()" data-i18n="mit.mp.submit">Speichern</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Zustands-Zeitstrahl (Welle E5) — gelesen, nie geschrieben -->
   <div class="modal-bg" id="timelineModal">
     <div class="modal-panel" style="max-width:560px">

@@ -60,14 +60,14 @@ const AGENTUR_NUTZER_SQL = `
 const MATERIALISIEREN_SQL = `
   INSERT INTO capacity_posts (
     supplier_company_id, title, role, skill_tags, headcount,
-    availability_from, location_city, location_postal, worker_category,
+    availability_from, availability_to, location_city, location_postal, worker_category,
     status, is_active, org_id, worker_profile_id, primary_skill_id,
     offer_kind, priority_level, placement_boost_level, is_anonymous, quelle
   )
   SELECT
     (${AGENTUR_NUTZER_SQL}),
     ps.name, ps.name, ARRAY[ps.name], 1,
-    CURRENT_DATE, wp.city, wp.postal_code, ps.category,
+    CURRENT_DATE, wp.einsetzbar_bis, wp.city, wp.postal_code, ps.category,
     'active', TRUE, wp.supplier_org_id, wp.id, ps.id,
     'single_skill', 'normal', 0, TRUE, 'live_belegschaft'
     FROM worker_profiles wp
@@ -147,10 +147,27 @@ const WIEDERHERSTELLEN_SQL = `
      )
      AND NOT ${abwesendHeuteSql("cp.worker_profile_id")}`;
 
+/* Horizont-Spiegel (Welle J9): `einsetzbar_bis` des Profils ist die Wahrheit,
+ * `availability_to` der eigenen Auto-Angebote ihr Spiegel. So rechnet ALLES
+ * Vorhandene einfach mit — der Feed blendet abgelaufene Angebote aus, die
+ * Buchungspruefung (pruefeBuchungsWuensche) haelt den Zeitraum im Fenster,
+ * die Anzeige zeigt "verfuegbar bis". Nur eigene Zeilen, nur offene
+ * Zustaende, nur bei echter Abweichung (IS DISTINCT FROM haelt den Sweep
+ * leerlauf-frei). */
+const HORIZONT_SQL = `
+  UPDATE capacity_posts cp
+     SET availability_to = wp.einsetzbar_bis, updated_at = NOW()
+    FROM worker_profiles wp
+   WHERE wp.id = cp.worker_profile_id
+     AND cp.quelle = 'live_belegschaft'
+     AND cp.status IN ('draft', 'active', 'paused')
+     AND cp.availability_to IS DISTINCT FROM wp.einsetzbar_bis`;
+
 /**
  * Vollstaendiger Sweep: (1) Ruecknahme abgeschalteter Kraefte,
- * (2) Wiederkehr wieder eingeschalteter, (3) fehlende Angebote anlegen.
- * Reihenfolge ist Absicht: erst aufraeumen, dann anlegen — sonst legt (3)
+ * (2) Wiederkehr wieder eingeschalteter, (3) Horizont spiegeln,
+ * (4) fehlende Angebote anlegen.
+ * Reihenfolge ist Absicht: erst aufraeumen, dann anlegen — sonst legt (4)
  * an, was (1) im selben Lauf wieder wegnimmt.
  *
  * Der Aufrufer (Cron staffing-maintenance) laesst DANACH
@@ -160,6 +177,7 @@ const WIEDERHERSTELLEN_SQL = `
 export async function sweepMarktpraesenz(pool) {
   const zurueck = await pool.query(`${ZURUECKNEHMEN_SQL} RETURNING cp.id`);
   const wieder = await pool.query(`${WIEDERHERSTELLEN_SQL} RETURNING cp.id`);
+  const horizont = await pool.query(`${HORIZONT_SQL} RETURNING cp.id`);
   const neu = await pool.query(`${MATERIALISIEREN_SQL} RETURNING id`);
   /* Die Luecke wird MITGEMESSEN, nicht verschluckt (Plan J §0.12, "No silent
    * caps"): eine aktive, praesente Kraft ohne Katalog-Skill oder ohne Ort
@@ -181,9 +199,58 @@ export async function sweepMarktpraesenz(pool) {
   return {
     zurueckgenommen: zurueck.rowCount || 0,
     wiederhergestellt: wieder.rowCount || 0,
+    horizont_gespiegelt: horizont.rowCount || 0,
     materialisiert: neu.rowCount || 0,
     unsichtbar_ohne_skill: luecke.rows[0]?.ohne_skill || 0,
     unsichtbar_ohne_ort: luecke.rows[0]?.ohne_ort || 0
+  };
+}
+
+/**
+ * Das Markt-Profil einer Kraft setzen (Welle J9): Merkmale aus dem festen
+ * Katalog, Planungshorizont, interne Dispo-Notiz. Org-gebunden im
+ * Schreibvorgang selbst (dieselbe Grenze wie der Praesenz-Schalter); der
+ * Horizont wird SOFORT in die eigenen Auto-Angebote gespiegelt — kraft- und
+ * org-gebunden, damit die Route beweisbar in ihrer Mandantengrenze bleibt.
+ *
+ * Die MERKMALE brauchen keinen Spiegel: der Feed liest sie zur Lesezeit vom
+ * Profil (eine Wahrheit — eine Aenderung wirkt sofort in allen Angeboten).
+ * Die DISPO_NOTIZ verlaesst diesen Dienst nie Richtung Markt.
+ *
+ * @returns {null} wenn die Kraft nicht zu dieser Org gehoert.
+ */
+export async function setzeMarktProfil(pool, supplierOrgId, workerProfileId, { merkmale, einsetzbarBis, dispoNotiz }) {
+  const { rows } = await pool.query(
+    `UPDATE worker_profiles
+        SET markt_merkmale = $3,
+            einsetzbar_bis = $4,
+            dispo_notiz = $5,
+            updated_at = NOW()
+      WHERE id = $1 AND supplier_org_id = $2
+      RETURNING id, markt_merkmale, einsetzbar_bis, dispo_notiz`,
+    [workerProfileId, supplierOrgId, merkmale, einsetzbarBis, dispoNotiz]
+  );
+  if (!rows[0]) return null;
+  const horizont = await pool.query(
+    `UPDATE capacity_posts cp
+        SET availability_to = $3, updated_at = NOW()
+      WHERE cp.worker_profile_id = $1
+        AND cp.quelle = 'live_belegschaft'
+        AND cp.status IN ('draft', 'active', 'paused')
+        AND cp.availability_to IS DISTINCT FROM $3
+        AND EXISTS (
+          SELECT 1 FROM worker_profiles wp
+           WHERE wp.id = $1 AND wp.supplier_org_id = $2
+        )
+      RETURNING cp.id`,
+    [workerProfileId, supplierOrgId, einsetzbarBis]
+  );
+  return {
+    worker_profile_id: rows[0].id,
+    markt_merkmale: rows[0].markt_merkmale,
+    einsetzbar_bis: rows[0].einsetzbar_bis,
+    dispo_notiz: rows[0].dispo_notiz,
+    horizont_gespiegelt: horizont.rowCount || 0
   };
 }
 
@@ -249,14 +316,14 @@ export async function setzeMarktpraesenz(pool, supplierOrgId, workerProfileId, d
   const neu = await pool.query(
     `INSERT INTO capacity_posts (
        supplier_company_id, title, role, skill_tags, headcount,
-       availability_from, location_city, location_postal, worker_category,
+       availability_from, availability_to, location_city, location_postal, worker_category,
        status, is_active, org_id, worker_profile_id, primary_skill_id,
        offer_kind, priority_level, placement_boost_level, is_anonymous, quelle
      )
      SELECT
        (${AGENTUR_NUTZER_SQL}),
        ps.name, ps.name, ARRAY[ps.name], 1,
-       CURRENT_DATE, wp.city, wp.postal_code, ps.category,
+       CURRENT_DATE, wp.einsetzbar_bis, wp.city, wp.postal_code, ps.category,
        'active', TRUE, wp.supplier_org_id, wp.id, ps.id,
        'single_skill', 'normal', 0, TRUE, 'live_belegschaft'
        FROM worker_profiles wp

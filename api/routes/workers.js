@@ -31,6 +31,7 @@ import * as blocklistSvc from "../services/companyBlocklistService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
 import { fristLabelDE } from "../utils/dateDE.js";
 import * as marktpraesenzService from "../services/marktpraesenzService.js";
+import * as merkmalKatalog from "../services/workerMerkmalKatalog.js";
 import { swallow } from "../utils/logger.js";
 import { recordActivity } from "../services/eventTrackingService.js";
 
@@ -856,6 +857,46 @@ export function createWorkersRouter(deps) {
           zurueckgenommen: ergebnis.zurueckgenommen,
           wiederhergestellt: ergebnis.wiederhergestellt,
           materialisiert: ergebnis.materialisiert
+        }
+      };
+      res.json(ergebnis);
+    } catch (err) { next(err); }
+  });
+
+  /* ── Markt-Profil der Kraft (Welle J9) ───────────────────────────────────────
+   * Der Status-Vermerk des Chefs in drei sauber getrennten Klassen (Plan J §J9):
+   * Merkmale NUR aus dem festen Katalog (DB-CHECK Mig 201 + Katalog-Modul als
+   * doppelte Ratsche), Planungshorizont (wird sofort in die eigenen
+   * Auto-Angebote gespiegelt), interne Dispo-Notiz (verlaesst die
+   * Agenturflaeche nie — der Marktplatz-Feld-Waechter erzwingt das). */
+  const marktProfilSchema = z.object({
+    merkmale: z.array(z.string().min(1).max(60)).max(20).optional().default([]),
+    einsetzbar_bis: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    dispo_notiz: z.string().max(2000).nullable().optional()
+  });
+  router.post("/workers/:profileId([0-9a-fA-F-]{36})/markt-profil", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
+    try {
+      const parsed = marktProfilSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+      const geprueft = merkmalKatalog.pruefeMerkmale(parsed.data.merkmale);
+      if (geprueft.error) return res.status(400).json({ error: geprueft.error, unbekannt: geprueft.unbekannt });
+      const ergebnis = await marktpraesenzService.setzeMarktProfil(pool, req.orgId, req.params.profileId, {
+        merkmale: geprueft.ok,
+        einsetzbarBis: parsed.data.einsetzbar_bis || null,
+        dispoNotiz: (parsed.data.dispo_notiz || "").trim() || null
+      });
+      if (!ergebnis) return res.status(404).json({ error: "NOT_FOUND" });
+      res.locals.audit = {
+        action: "worker.markt_profil_gesetzt",
+        entity_type: "worker_profile",
+        entity_id: req.params.profileId,
+        details: {
+          responsible_actor_user_id: req.session?.userId || null,
+          merkmale: geprueft.ok,
+          einsetzbar_bis: parsed.data.einsetzbar_bis || null,
+          /* Die Notiz selbst gehoert NICHT ins Audit — sie ist eine interne
+           * Einschaetzung; das Audit haelt fest DASS sie geaendert wurde. */
+          dispo_notiz_gesetzt: !!((parsed.data.dispo_notiz || "").trim())
         }
       };
       res.json(ergebnis);

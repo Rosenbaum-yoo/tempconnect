@@ -116,5 +116,25 @@ describe("Marktplatz-Felder · gegen den Quelltext", () => {
         "supplier_email gefunden — kein Frontend hat sie je gelesen, und eine " +
         "Kontaktadresse vor dem Deal unterlaeuft die Anonymitaet (P8 §3.5)");
     });
+
+    it(`${name}: die interne Dispo-Notiz erreicht den Markt nie (Welle J9)`, () => {
+      /* Die Notiz ist eine Beschaeftigten-Einschaetzung fuer die Agentur
+       * selbst — an Dritte ausgespielt waere sie ein DSGVO-/AGG-Risiko.
+       * Ihre Markt-Wirkung ist der Markt-aus-Schalter, nie dieser Text. */
+      assert.ok(!quelle.includes("dispo_notiz"),
+        "dispo_notiz gefunden — die interne Einschaetzung verlaesst die Agenturflaeche nicht");
+    });
   }
+
+  it("der wpm-Join des Feeds liest AUSSCHLIESSLICH markt_merkmale", () => {
+    /* Welle J9 holt die Katalog-Merkmale zur Lesezeit vom Profil. Der Alias
+     * wpm ist die einzige Bruecke des Feeds zum Menschen hinter dem Angebot —
+     * jede weitere Spalte darueber waere ein neuer Auslauf. Erlaubt sind
+     * genau: die Join-Bedingung (wpm.id) und wpm.markt_merkmale. */
+    const feed = fs.readFileSync(path.join(HIER, "../services/capacityExchangeService.js"), "utf8");
+    const zugriffe = [...new Set(feed.match(/\bwpm\.[a-z_]+/g) || [])].sort();
+    assert.deepEqual(zugriffe, ["wpm.id", "wpm.markt_merkmale"],
+      "der wpm-Join traegt mehr Profilspalten als erlaubt — jede weitere ist ein neuer Auslauf " +
+      "und gehoert erst nach bewusster Entscheidung hierher");
+  });
 });

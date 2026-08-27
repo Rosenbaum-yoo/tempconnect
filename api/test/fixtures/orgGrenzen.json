@@ -4937,6 +4937,27 @@
           "hinweis": "Der Schreibvorgang traegt seine Grenze selbst: 'UPDATE worker_profiles SET marktpraesenz_deaktiviert = $3 ... WHERE id = $1 AND supplier_org_id = $2' (marktpraesenzService.setzeMarktpraesenz); fremdes Profil = kein Treffer = 404, und der Folge-Sweep laeuft dann gar nicht erst. Verhaltensgeprueft in test/marktpraesenz.service.test.js ('der Schalter ist org-gebunden und meldet eine fremde Kraft als null').",
           "erwartung": "sql-grenze",
           "orgImSql": true
+        },
+        {
+          "methode": "post",
+          "pfad": "/workers/:profileId([0-9a-fA-F-]{36})/markt-profil",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "schreibenGrenztSelbst": true,
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "anfrage": {
+            "body": {
+              "merkmale": [
+                "zuverlaessig"
+              ],
+              "einsetzbar_bis": "2027-01-31"
+            }
+          },
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst: 'UPDATE worker_profiles SET markt_merkmale ... WHERE id = $1 AND supplier_org_id = $2' (marktpraesenzService.setzeMarktProfil); der Horizont-Spiegel danach ist ebenfalls kraft- UND org-gebunden. Verhaltensgeprueft in test/marktProfil.test.js."
         }
       ],
       "hinweis": "Arbeiterstammdaten gehoeren der ZEITARBEITSFIRMA: die Grenze laeuft durchgehend ueber `supplier_org_id`, nicht ueber `org_id` — zentral in `getScopedWorker` (workers.js:568-573) und an 13 weiteren Stellen."

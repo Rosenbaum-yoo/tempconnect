@@ -68,6 +68,15 @@
     'clw.avail.until': 'bis {date}',
     'clw.avail.openEnd': 'ab {date}, offen',
     'clw.avail.empty': 'Keine passenden freien Kräfte. Ändern Sie Filter oder Zeitraum – oder legen Sie unter Arbeitsplatzangebote einen Bedarf an, dann melden sich die Zeitarbeitsfirmen bei Ihnen.',
+    'clw.avail.merkmalLabel': 'Merkmale:',
+    'clw.avail.merkmalHelp': 'Zeigt nur Kräfte, denen ihre Zeitarbeitsfirma dieses Merkmal gegeben hat.',
+
+    'clw.merkmal.zuverlaessig': 'Zuverlässig',
+    'clw.merkmal.sehr_fleissig': 'Sehr fleißig',
+    'clw.merkmal.arbeitet_sauber': 'Arbeitet sauber',
+    'clw.merkmal.langfristig_einsetzbar': 'Langfristig einsetzbar',
+    'clw.merkmal.kurzfristig_startklar': 'Kurzfristig startklar',
+    'clw.merkmal.schicht_flexibel': 'Flexibel bei Schichten',
 
     'clw.price.hourly': '€/Std.',
     'clw.price.daily': '€/Tag',
@@ -244,6 +253,15 @@
     'clw.avail.until': 'until {date}',
     'clw.avail.openEnd': 'from {date}, open end',
     'clw.avail.empty': 'No matching available staff. Adjust filters or the period – or create a demand under job postings and the staffing firms will come to you.',
+    'clw.avail.merkmalLabel': 'Traits:',
+    'clw.avail.merkmalHelp': 'Shows only staff whose staffing firm has given them this trait.',
+
+    'clw.merkmal.zuverlaessig': 'Reliable',
+    'clw.merkmal.sehr_fleissig': 'Very hardworking',
+    'clw.merkmal.arbeitet_sauber': 'Works cleanly',
+    'clw.merkmal.langfristig_einsetzbar': 'Deployable long-term',
+    'clw.merkmal.kurzfristig_startklar': 'Ready at short notice',
+    'clw.merkmal.schicht_flexibel': 'Shift-flexible',
 
     'clw.price.hourly': '€/hr',
     'clw.price.daily': '€/day',
@@ -622,8 +640,43 @@
   function clwAvailDebounce() { clearTimeout(_availTimer); _availTimer = setTimeout(clwLoadAvailable, 350); }
   window.clwAvailDebounce = clwAvailDebounce;
 
+  /* Merkmal-Filter (Welle J9): dieselben sechs Katalog-Schluessel wie der
+     Server (workerMerkmalKatalog + DB-CHECK Mig 201). Ein unbekannter
+     Schluessel wuerde dort mit MERKMAL_UNBEKANNT abgewiesen. */
+  var MERKMAL_KATALOG = ['zuverlaessig', 'sehr_fleissig', 'arbeitet_sauber',
+    'langfristig_einsetzbar', 'kurzfristig_startklar', 'schicht_flexibel'];
+  var _availMerkmale = {};
+
+  function merkmalBadges(liste, stil) {
+    return (liste || []).map(function (key) {
+      return '<span class="ct-badge ct-badge--ok" style="' + (stil || '') + '">' + esc(t('clw.merkmal.' + key) || key) + '</span>';
+    }).join(' ');
+  }
+
+  function renderMerkmalFilter() {
+    var el = document.getElementById('avMerkmale');
+    if (!el) return;
+    el.innerHTML = MERKMAL_KATALOG.map(function (key) {
+      var an = !!_availMerkmale[key];
+      return '<button type="button" class="ct-btn" style="padding:3px 10px;font-size:.75rem;border-radius:999px' +
+        (an ? ';background:var(--ds-success-muted);border-color:var(--ds-success);color:var(--ds-success);font-weight:600' : '') +
+        '" aria-pressed="' + an + '" onclick="clwToggleMerkmal(\'' + esc(key) + '\')">' +
+        esc(t('clw.merkmal.' + key)) + '</button>';
+    }).join('');
+  }
+
+  function clwToggleMerkmal(key) {
+    if (_availMerkmale[key]) delete _availMerkmale[key]; else _availMerkmale[key] = true;
+    renderMerkmalFilter();
+    clwLoadAvailable();
+  }
+  window.clwToggleMerkmal = clwToggleMerkmal;
+
   async function clwLoadAvailable() {
+    renderMerkmalFilter();
     var teile = ['limit=50'];
+    var gewaehlt = Object.keys(_availMerkmale);
+    if (gewaehlt.length) teile.push('merkmale=' + encodeURIComponent(gewaehlt.join(',')));
     var rolle = (document.getElementById('avRole').value || '').trim();
     var ort = (document.getElementById('avCity').value || '').trim();
     var ab = (document.getElementById('avFrom').value || '').trim();
@@ -681,9 +734,11 @@
         : '';
       var firma = esc(r.org_name || r.supplier_company_name || '–') +
         (r.reputation_grade ? ' <span class="ct-badge ct-badge--ok" title="Zuverlässigkeit">' + esc(String(r.reputation_grade)) + '</span>' : '');
+      var merkmale = merkmalBadges(r.markt_merkmale);
       return '<tr>' +
         '<td><div style="font-weight:600">' + esc(r.title || r.role || '–') + '</div>' +
-          (r.role && r.title && r.role !== r.title ? '<div class="ct-sub">' + esc(r.role) + '</div>' : '') + autoBadge + '</td>' +
+          (r.role && r.title && r.role !== r.title ? '<div class="ct-sub">' + esc(r.role) + '</div>' : '') + autoBadge +
+          (merkmale ? '<div style="margin-top:4px">' + merkmale + '</div>' : '') + '</td>' +
         '<td>' + firma + '</td>' +
         '<td>' + esc(r.location_city || '–') + (r.location_postal ? '<div class="ct-sub">' + esc(r.location_postal) + '</div>' : '') + '</td>' +
         '<td>' + esc(fensterText(r)) + '</td>' +
@@ -700,8 +755,9 @@
     var r = _availRows.find(function (x) { return String(x.id) === String(entryId); });
     if (!r) return;
     _bkEntry = r;
-    document.getElementById('bkOfferLine').textContent =
-      (r.title || r.role || '') + ' · ' + (r.org_name || r.supplier_company_name || '') + ' · ' + (r.location_city || '');
+    var zeile = esc((r.title || r.role || '') + ' · ' + (r.org_name || r.supplier_company_name || '') + ' · ' + (r.location_city || ''));
+    var badges = merkmalBadges(r.markt_merkmale, 'font-size:.68rem');
+    document.getElementById('bkOfferLine').innerHTML = zeile + (badges ? '<div style="margin-top:4px">' + badges + '</div>' : '');
     var frei = Math.max(1, freiePlaetze(r));
     var cnt = document.getElementById('bkCount');
     cnt.value = '1'; cnt.max = String(frei);
@@ -994,6 +1050,7 @@
      einzigen zusaetzlichen Netzabruf. */
   document.addEventListener('tc:langchange', function () {
     if (_liveLoaded) renderLive(_liveRows);
+    renderMerkmalFilter();
     if (_availLoaded) renderAvailable(_availRows);
     if (_blocklistLoaded) renderBlocklist(_blockRows);
     if (_complaintsLoaded) renderComplaints(_complaintRows);
