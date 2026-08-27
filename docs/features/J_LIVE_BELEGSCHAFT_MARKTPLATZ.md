@@ -585,6 +585,56 @@ Haftungsausschluss.
 - **Equal Pay (9 Monate)** ist eine ANDERE Frist mit Tarif-Ausnahmen — bewusst NICHT
   in J8 (Zuschlagslogik wäre Ratenberatung). Nur die Überlassungsdauer.
 
+### Welle J10 — Schnellstart: zwei Fragen statt eines Formulars ✅ *(erledigt 2026-08-27)*
+
+Owner-Auftrag: „vorgefertigte Anfragen wie ‚suchst du Personal' und mit Ja und
+Nein beantworten lassen … vielleicht mit Notdienst-Button oder schneller
+liefern als 48 Stunden." **Platzierung 1a** (Owner): überall beim Suchen.
+
+**Umgesetzt:** `frontend/public/js/schnellstart.js` — **eine Datei**, die sich
+auf drei Flächen selbst montiert (Muster `contextHints.js`): Marktplatz-Feed,
+Personalsuche, „Verfügbare Kräfte". Ablauf: *Suchen Sie Personal?* → *Brauchen
+Sie sie in unter 48 Stunden?* → drei Angaben (was, wo, ab wann, wie viele) →
+Suche läuft. „Ja, dringend" schaltet den **Notdienst-Weg** (Hinweisfeld +
+`availability_window=immediate` bzw. die „sofort"-Checkbox der Personalsuche).
+
+**Zwei Übergabewege, je nach Fläche:** Der Feed bekommt die Antworten über die
+**Adresse** — er liest sie beim Start ohnehin selbst aus (`readUrlFilters`), es
+brauchte also keinen Eingriff in seine Filterlogik. Die anderen beiden Flächen
+werden **direkt befüllt** und die Suche ausgelöst (kein Neuladen, kein
+Flackern). Dieselben drei Angaben, die später das Buchungsmodal stellt (§0.2) —
+wer sie hier tippt, tippt sie nirgends noch einmal.
+
+**Verhalten:** Nur für Unternehmen (Agenturen bieten Personal an, sie suchen
+keins) — wartet notfalls auf `tc:shell-context`. Einmal beantwortet oder
+abgewiesen: `localStorage`-Merker, danach still, aber über einen kleinen
+`↺ Schnellstart`-Knopf jederzeit wiederholbar. DE/EN im Modul selbst
+(sprachneutrale Textausgabe über `TCi18n.locale()`). Datum aus der **Ortszeit**,
+nie aus dem UTC-Schnitt (Befundklasse F1).
+
+**Robust gegen Umbenennung:** Die Fläche wird über den Pfad **und** ein
+eindeutiges Markup-Kennzeichen erkannt — hinter Proxy, Weiterleitung oder
+Verzeichnis-Index stimmt `location.pathname` nicht immer, und ein lautlos
+verschwindender Einstieg wäre nicht zu diagnostizieren. Beim Browser-Smoke ist
+genau dieser Fall eingetreten und hat den Zweitweg erzwungen.
+
+**Ein Zusammenhang, den eine Parallel-Erhebung zutage gefördert hat:** Die
+„sofort"-Checkbox der Personalsuche setzt das Datumsfeld auf heute **und
+deaktiviert es**. Die naheliegende Reihenfolge (erst Felder füllen, dann
+Kennzeichen setzen) hätte das gerade eingetippte „ab wann" verworfen — der
+Nutzer hätte geantwortet, und die Seite hätte es weggeworfen. Jetzt zuerst das
+Kennzeichen, dann die Felder, und deaktivierte Felder bleiben unangetastet;
+ein eigener Test hält die Reihenfolge fest.
+
+**Verifiziert:** `schnellstart.test.js` 19/19 — Teil A prüft die Verdrahtung
+gegen das **echte Markup** (Einbindung in allen drei Seiten, jeder Anker, jedes
+befüllte Feld, und dass die Zielseite die übergebenen Parameter kennt), Teil B
+fährt den Klickpfad in einer vm-Sandbox wirklich durch. **Mutationsprobe:**
+Einbindung entfernt → rot, wiederhergestellt → grün. Browser-Smoke auf
+„Verfügbare Kräfte" (zwei Fragen, Notdienst-Hinweis, Filter befüllt, Suche
+ausgelöst, Merker, Rückweg, DE↔EN, Agentur sieht nichts) und Sandbox-Nachweis
+des Feed-Wegs mit dessen echtem Markup. Wächter-Batterie 91/91.
+
 ### Welle J9 — Status-Vermerk des Zeitarbeitschefs (Owner 2026-08-26)
 
 Owner: Der Chef soll je Kraft vermerken können, was ein Unternehmen bei der
