@@ -179,12 +179,23 @@ describe("Statuswert-Spiegel · Sperren pruefen is_active", () => {
         }
       }
     }
+    const UMBRUCH = String.fromCharCode(10);
     assert.deepEqual(verstoesse, [],
-      "Diese Abfragen schliessen Statuswerte aus, pruefen aber kein is_active:\n"
-      + verstoesse.join("\n")
-      + "\n\nJeder neue erledigt-Zustand zaehlt dort als lebend. Beispiel aus der "
-      + "Vergangenheit: getUnassignedCapacityPosts hielt einen Kapazitaets-Posten "
-      + "nach dem Verfall dauerhaft aus dem Dispatcher-Drawer heraus.");
+      "Diese Befehle setzen einen erledigten Zustand, aber kein is_active = FALSE:"
+      + UMBRUCH + verstoesse.join(UMBRUCH) + UMBRUCH + UMBRUCH
+      + "Die Kraft bleibt damit fuer den Marktplatz beschaeftigt "
+      + "(workerOfferReservationService liest NUR is_active) - ihr "
+      + "Kapazitaets-Posten bleibt pausiert und sie verschwindet dauerhaft.");
+  });
+
+  it("und der bestaetigte Zustand bleibt aktiv - sonst waere die Regel sinnlos", () => {
+    /* Gegenprobe: waere die Regel "jeder Statuswechsel deaktiviert", wuerde sie
+     * auch die BESTAETIGUNG treffen - und ein zugesagter Einsatz verschwaende
+     * sofort wieder. `worker_confirmed` gehoert deshalb nicht in ERLEDIGT. */
+    assert.ok(!ERLEDIGT.includes("worker_confirmed"),
+      "eine bestaetigte Zuweisung ist der einzige Weg, der AKTIV bleibt");
+    assert.ok(!ERLEDIGT.includes("pending_confirmation"),
+      "eine offene Anfrage haelt den Platz - sie darf nicht deaktiviert werden");
   });
 });
 
@@ -233,5 +244,97 @@ describe("Statuswert-Spiegel · jeder INSERT vertraegt eine Wiederverwendung", (
     }
     assert.ok(gefunden >= 3,
       `nur ${gefunden} INSERTs gefunden — greift das Suchmuster noch?`);
+  });
+});
+
+describe("Statuswert-Spiegel · wer einen Zustand SCHREIBT, deaktiviert auch", () => {
+  /** Leerraum entfernen — bewusst ohne regulaeren Ausdruck und ohne Maskierung:
+   *  dieser Baustein musste durch mehrere Werkzeugschichten, und jede hat schon
+   *  einmal aus einem maskierten Umbruch einen echten gemacht. */
+  function ohneLeerraum(text) {
+    let raus = "";
+    for (const z of text) {
+      const c = z.charCodeAt(0);
+      if (c === 32 || c === 9 || c === 10 || c === 13) continue;
+      raus += z;
+    }
+    return raus;
+  }
+
+  it("jede Zuweisung auf einen erledigten Zustand setzt is_active im selben Befehl", () => {
+    /*
+     * DIE ANDERE HAELFTE DER KOPPLUNG.
+     *
+     * Die Probe darueber schuetzt das LESEN: keine Statusliste ohne is_active.
+     * Sie SETZT VORAUS, dass beim Schreiben beides zusammen gesetzt wird — und
+     * genau das war von nichts bewacht.
+     *
+     * WARUM DAS ZAEHLT (geprueft am 2026-08-26): Ob eine Kraft am Marktplatz
+     * erscheint, entscheidet `workerOfferReservationService` allein an
+     * `wal.is_active = TRUE`; der Bestaetigungsstatus interessiert dort NICHT.
+     * Vergisst ein kuenftiger Weg aus einer Anfrage heraus das
+     * `is_active = FALSE`, gilt die Kraft dauerhaft als beschaeftigt: ihr
+     * Kapazitaets-Posten bleibt pausiert, sie verschwindet vom Markt — und
+     * niemand merkt es, weil ihr Status ja korrekt "erledigt" lautet.
+     *
+     * Heute stimmen alle Stellen. Diese Probe haelt es fest.
+     */
+    const treffer = [];
+    const verstoesse = [];
+
+    for (const datei of jsDateien(path.join(API, "services")).concat(jsDateien(path.join(API, "routes")))) {
+      const text = fs.readFileSync(datei, "utf8");
+      const rel = path.relative(REPO, datei).split(String.fromCharCode(92)).join("/");
+
+      let von = 0;
+      for (;;) {
+        const i = text.indexOf("UPDATE worker_assignment_links", von);
+        if (i < 0) break;
+        von = i + 30;
+
+        /* Fenster bis zum Ende der SQL-Zeichenkette, hoechstens 900 Zeichen —
+         * gross genug fuer ein mehrzeiliges SET, eng genug, dass der naechste
+         * Befehl nicht mitzaehlt. */
+        const ende = text.indexOf(String.fromCharCode(96), i);
+        const fenster = text.slice(i, ende > i && ende - i < 900 ? ende : i + 900);
+        const flach = ohneLeerraum(fenster);
+
+        const erledigt = ERLEDIGT.find(
+          (w) => flach.includes("worker_confirmation_status=" + String.fromCharCode(39) + w + String.fromCharCode(39))
+        );
+        if (!erledigt) continue;
+
+        treffer.push(erledigt);
+        if (!flach.includes("is_active=FALSE")) {
+          const zeile = text.slice(0, i).split(String.fromCharCode(10)).length;
+          verstoesse.push(rel + ":" + zeile + " (" + erledigt + ")");
+        }
+      }
+    }
+
+    assert.ok(treffer.length >= 5,
+      "nur " + treffer.length + " schreibende Stelle(n) gefunden — greift das Muster noch? "
+      + "Am 2026-08-26 waren es fuenf: worker_declined, withdrawn, expired und "
+      + "zweimal worker_unavailable. Ohne Treffer prueft diese Probe nichts und "
+      + "waere trotzdem gruen.");
+
+    const UMBRUCH = String.fromCharCode(10);
+    assert.deepEqual(verstoesse, [],
+      "Diese Befehle setzen einen erledigten Zustand, aber kein is_active = FALSE:"
+      + UMBRUCH + verstoesse.join(UMBRUCH) + UMBRUCH + UMBRUCH
+      + "Die Kraft bleibt damit fuer den Marktplatz beschaeftigt "
+      + "(workerOfferReservationService liest NUR is_active) — ihr "
+      + "Kapazitaets-Posten bleibt pausiert und sie verschwindet dauerhaft.");
+  });
+
+  it("der bestaetigte Zustand bleibt aktiv — sonst waere die Regel sinnlos", () => {
+    /* Gegenprobe: hiesse die Regel "jeder Statuswechsel deaktiviert", traefe sie
+     * auch die BESTAETIGUNG — und ein zugesagter Einsatz verschwaende sofort
+     * wieder. `worker_confirmed` und `pending_confirmation` gehoeren deshalb
+     * nicht in ERLEDIGT. */
+    assert.ok(!ERLEDIGT.includes("worker_confirmed"),
+      "eine bestaetigte Zuweisung ist der einzige Weg, der AKTIV bleibt");
+    assert.ok(!ERLEDIGT.includes("pending_confirmation"),
+      "eine offene Anfrage haelt den Platz — sie darf nicht deaktiviert werden");
   });
 });
