@@ -18,7 +18,20 @@ const createOrgSchema = z.object({
   parent_org_id: z.string().uuid().optional().nullable(),
   legal_name: z.string().max(300).optional().nullable(),
   commercial_register: z.string().max(100).optional().nullable(),
-  billing_contact: z.string().max(300).optional().nullable()
+  billing_contact: z.string().max(300).optional().nullable(),
+  /* Rechnungsstammdaten (Mig 187, Welle J7) — ohne sie ist keine Rechnung
+   * gueltig (§ 14 UStG). Die Laengen folgen den Spalten; `billing_country_code`
+   * ist ISO 3166-1 alpha-2, wie es die Norm fuer BT-40/BT-55 verlangt, und
+   * wird gross geschrieben entgegengenommen, damit "de" nicht an einer
+   * Formalie scheitert. */
+  billing_street: z.string().max(300).optional().nullable(),
+  billing_address_2: z.string().max(300).optional().nullable(),
+  billing_postal_code: z.string().max(20).optional().nullable(),
+  billing_city: z.string().max(200).optional().nullable(),
+  billing_country_code: z.string().trim().length(2).transform((s) => s.toUpperCase()).optional().nullable(),
+  vat_id: z.string().max(50).optional().nullable(),
+  iban: z.string().max(40).optional().nullable(),
+  bic: z.string().max(20).optional().nullable()
 });
 
 const locationSchema = z.object({

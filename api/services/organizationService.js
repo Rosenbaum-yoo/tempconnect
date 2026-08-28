@@ -42,7 +42,16 @@ export async function getOrganization(pool, orgId) {
 export async function updateOrganization(pool, orgId, data) {
   const allowed = [
     'name', 'billing_email', 'tax_id', 'website', 'logo_url',
-    'legal_name', 'commercial_register', 'billing_contact', 'parent_org_id'
+    'legal_name', 'commercial_register', 'billing_contact', 'parent_org_id',
+    /* Rechnungsstammdaten (Mig 187, Welle J7): Migration und E-Rechnung haben
+     * die Felder geschaffen, aber kein Weg fuehrte hinein — gemessen am
+     * 2026-08-28 hatte KEINE von 2240 Organisationen eine Anschrift. Ohne sie
+     * ist keine Rechnung gueltig (§ 14 UStG) und `pruefeFirmenstammdaten`
+     * meldet dauerhaft Fehlanzeige. Sie gehoeren an die Rechtsperson, nicht an
+     * den Nutzer: `slaProfil.js` pflegt die Adresse auf `users`, und das ist
+     * genau NICHT der Rechnungssteller. */
+    'billing_street', 'billing_address_2', 'billing_postal_code',
+    'billing_city', 'billing_country_code', 'vat_id', 'iban', 'bic'
   ];
   const fields = [];
   const values = [orgId];

@@ -503,6 +503,31 @@ Firmen** — im Datenmodell heute `pool_*`, und das endet an der Firmengrenze (2
 
 ### Welle J7 — Abrechnung wird bedienbar
 
+> **Stand 2026-08-28 — Schritte 1 bis 4 erledigt** (`85f27d2` + folgender Commit):
+>
+> - ✅ **Der Defekt, der alles erklaerte:** `generateFromTimesheets` konnte gegen
+>   eine echte Datenbank NIE laufen — `invoices.plan` und `gross_amount_cents`
+>   sind NOT NULL (Erbe der mit den Abo-Rechnungen geteilten Tabelle), der INSERT
+>   setzte beide nicht. Deshalb existierte keine einzige operative Rechnung. Die
+>   vorhandenen Tests arbeiten mit Mock-Pools und konnten es nicht sehen.
+> - ✅ **Nummernkreis je Firma** (Mig 203): eigener Zaehler je (Firma, Jahr),
+>   Vergabe erst beim Stellen, Nummer und Statuswechsel in einer Transaktion.
+>   Der plattformweite UNIQUE auf `invoice_number` ist durch zwei partielle
+>   ersetzt — sonst kollidiert die erste Nummer jeder zweiten Firma.
+> - ✅ **Satz eingefroren:** `invoices.rate_cents_frozen`. Eine spaetere Aenderung
+>   an `assignments.hourly_rate_cents` bewegt eine erzeugte Rechnung nicht mehr.
+> - ✅ **Stammdaten pflegbar** (Befund 3): Update-Whitelist und Zod-Schema kennen
+>   die Felder aus Mig 187. Der Weg ist durchgaengig belegt — eine Org ohne
+>   Stammdaten ist nicht versandfaehig, nach dem Pflegen ist sie es.
+>
+> Verifikation: `rechnungsnummerJeFirma.test.js` 8/8 und
+> `rechnungsstammdatenPflege.test.js` 6/6 gegen die echte Datenbank,
+> Rechnungs-Suiten 165/165, Organisations-/E-Rechnungs-Suiten 555/555.
+>
+> **Offen:** die Oberflaechen (Reiter auf beiden Stundenzettel-Flaechen),
+> das PDF fuer operative Rechnungen und die Pflegemaske fuer die Stammdaten.
+
+
 > **Ist-Stand am 2026-08-28 gemessen** (nach dem Zusammenfuehren der Release-Linie,
 > die mit der E-Rechnung EN 16931 einen Teil der Vorarbeit mitbringt). Drei Befunde
 > bestimmen den Zuschnitt dieser Welle — der dritte war nicht geplant:
