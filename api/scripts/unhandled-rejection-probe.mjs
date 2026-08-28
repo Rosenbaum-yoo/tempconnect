@@ -73,21 +73,41 @@ process.on("uncaughtException", (err) => {
  */
 process.on("exit", (code) => {
   if (code === 0 && !process.exitCode) return;
-  let handles = [];
-  try {
-    // Nicht öffentlich, aber genau hier das Entscheidende: was hielt den Prozess offen?
-    handles = (process._getActiveHandles?.() || [])
-      .map((h) => h?.constructor?.name || typeof h)
-      .filter(Boolean);
-  } catch { /* Diagnose darf nie selbst scheitern */ }
-  const counts = handles.reduce((acc, n) => ({ ...acc, [n]: (acc[n] || 0) + 1 }), {});
+  /*
+   * HIER STAND EINE HANDLE-AUFLISTUNG — UND SIE HAT DEN PROZESS ZUM ABSTURZ
+   * GEBRACHT (entfernt 2026-08-27).
+   *
+   * Der Aufruf war `process._getActiveHandles()`: eine undokumentierte
+   * Node-Interna, aufgerufen WAEHREND des Abraeumens. Unter Windows greift sie
+   * dabei auf Handles zu, die bereits schliessen, und libuv bricht mit einer
+   * nativen Zusicherung ab:
+   *
+   *   Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), src\win\async.c:76
+   *
+   * GEMESSEN am 2026-08-27, voller Lauf, jeweils 10.000+ Tests:
+   *   mit Sonde   → 2 Fehlschlaege, darunter der Absturz in me.route.coverage
+   *   ohne Sonde  → 1 Fehlschlag, KEIN Absturz
+   *
+   * Das `try/catch` darum half nicht und konnte nicht helfen: ein libuv-Abbruch
+   * ist keine JavaScript-Ausnahme, er beendet den Prozess sofort. Eine Diagnose,
+   * die den Prozess umbringt, den sie beobachten soll, ist keine Diagnose.
+   *
+   * Aufgefallen ist es erst, als der Handler oefter lief — seit die
+   * uncaughtException-Behandlung `process.exitCode = 1` setzt, greift die frueh
+   * Rueckkehr eine Zeile darueber seltener. Der Fehler lag also schon vorher
+   * hier, nur schlief er.
+   *
+   * Der Exit-Code allein beantwortet die Frage, fuer die dieser Handler gebaut
+   * wurde ("faellt die Datei, obwohl alle Untertests bestehen?"). Die
+   * Handle-Liste war Zusatzinformation fuer eine Untersuchung, die abgeschlossen
+   * ist.
+   */
   process.stderr.write(
     [
       "",
       "╔══ PROZESS ENDET MIT FEHLER-CODE ═══════════════════════",
       `║ Prozess    : ${label}`,
       `║ Exit-Code  : ${code} (process.exitCode = ${process.exitCode ?? "nicht gesetzt"})`,
-      `║ Offene Handles: ${Object.keys(counts).length ? JSON.stringify(counts) : "keine"}`,
       "╚════════════════════════════════════════════════════════",
       ""
     ].join("\n")
