@@ -503,6 +503,45 @@ Firmen** — im Datenmodell heute `pool_*`, und das endet an der Firmengrenze (2
 
 ### Welle J7 — Abrechnung wird bedienbar
 
+> **Ist-Stand am 2026-08-28 gemessen** (nach dem Zusammenfuehren der Release-Linie,
+> die mit der E-Rechnung EN 16931 einen Teil der Vorarbeit mitbringt). Drei Befunde
+> bestimmen den Zuschnitt dieser Welle — der dritte war nicht geplant:
+>
+> **Befund 1 — der Nummernkreis ist geteilt UND wird zu frueh vergeben.**
+> `nextInvoiceNumber` zieht aus der globalen Sequenz `invoice_number_seq`
+> ([operationalInvoiceService.js:47](../../api/services/operationalInvoiceService.js)),
+> die sich die operative Rechnung mit der Abo-Rechnung der Plattform teilt
+> ([invoiceService.js:44](../../api/services/invoiceService.js)). Jede Abo-Rechnung
+> reisst damit eine Luecke in den Kreis der Zeitarbeitsfirma. Zweitens faellt die
+> Nummer schon beim ENTWURF (`generateFromTimesheets`, Zeile 187), nicht beim
+> Stellen — ein verworfener Entwurf hinterlaesst eine Luecke, die niemand erklaeren
+> kann. Gemessen: Sequenzstand **1024**, existierende Rechnungen **0** — es sind also
+> bereits 24 Nummern verbraucht, ohne dass eine Rechnung existiert.
+>
+> **Befund 2 — der Abrechnungssatz ist frei aenderbar.**
+> `assignments.hourly_rate_cents` steht in der Update-Whitelist
+> ([assignmentService.js:162](../../api/services/assignmentService.js)), und die
+> Abrechnung liest genau dieses Feld (`operationalInvoiceService.js:133`). Wer den
+> Satz nach geleisteter Arbeit aendert, aendert rueckwirkend die Rechnung. Der
+> eingefrorene `agreement_snapshot` existiert — aber auf `offers`, und die
+> Abrechnung liest ihn nicht.
+>
+> **Befund 3 (neu, ungeplant) — die Rechnungsstammdaten sind leer.**
+> Migration 187 der Release-Linie hat Anschrift und USt-IdNr. auf `organizations`
+> gelegt, weil die Norm sie fuer die Rechtsperson verlangt. Gepflegt werden sie
+> nirgends: **0 von 2240 Organisationen** haben eine Anschrift, keine hat USt-IdNr.
+> oder Steuernummer. Es gibt weder eine Oberflaeche noch einen Endpunkt dafuer —
+> `slaProfil.js` pflegt die Adresse auf `users`, also genau nicht auf der
+> Rechtsperson, die Rechnungssteller ist. **Ohne diese Daten ist keine Rechnung
+> gueltig (§ 14 UStG), und die ganze Kette endet im Entwurf.** Uebernehmbar waeren
+> nur 6 Orgs. Die abrechnungsrelevante Menge ist aber klein: **5 Zeitarbeitsfirmen
+> und 17 Unternehmen** haben ueberhaupt Einsaetze — die Pflege ist machbar, sie
+> muss nur moeglich sein.
+>
+> **Guenstiger Umstand:** Es existiert **keine einzige Rechnung** (operativ wie Abo).
+> Der Nummernkreis kann deshalb ohne Bestandsmigration eingefuehrt werden.
+
+
 Owner (§0.7): „hier muss dann aber auch Rechnung vom Zeitarbeitschef und Unternehmen
 funktionieren, so dass es abrechenbar ist mit den Stundenzetteln." Der Kern existiert
 (2.4) — J7 liefert, was fehlt:

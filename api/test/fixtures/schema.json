@@ -1,11 +1,11 @@
 {
   "_hinweis": "GENERIERT — nicht von Hand bearbeiten. Neu erzeugen mit: npm run schema:snapshot (liest die laufende Datenbank im Container tempconnect_db).",
-  "erzeugt_am": "2026-08-27T20:02:09.996Z",
+  "erzeugt_am": "2026-08-28T18:43:04.991Z",
   "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
   "migrations_fingerabdruck": {
     "init": "49a1c9ef343102f593f1267155c30cea987684bf1a93826cf237e61101238c7e",
-    "dateien": 206,
-    "hash": "0e6a3b6f0f5282bc355992f3e4de29140e0fcb5f4947cce47442b1ac608a427b"
+    "dateien": 207,
+    "hash": "4635b3e1949a2ad00afafc10bc98f75fa9111287e5b24c7d40448c17e3c1fc58"
   },
   "pruefwerte": {
     "approval_requests": {
@@ -3801,6 +3801,24 @@
         "unit_amount_cents"
       ]
     },
+    "invoice_number_sequences": {
+      "spalten": [
+        "created_at",
+        "jahr",
+        "letzte_nummer",
+        "praefix",
+        "supplier_org_id",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "created_at",
+        "jahr",
+        "letzte_nummer",
+        "praefix",
+        "supplier_org_id",
+        "updated_at"
+      ]
+    },
     "invoices": {
       "spalten": [
         "amount_cents",
@@ -3827,6 +3845,7 @@
         "paid_at",
         "payment_session_id",
         "plan",
+        "rate_cents_frozen",
         "reference_number",
         "status",
         "stripe_invoice_id",
@@ -3848,7 +3867,6 @@
         "dunning_level",
         "gross_amount_cents",
         "id",
-        "invoice_number",
         "invoice_type",
         "plan",
         "status",

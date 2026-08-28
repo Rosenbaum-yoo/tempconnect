@@ -45,6 +45,34 @@ Brauchen Owner-Bestätigung vor CLAUDE.md-Übernahme.
 - **Claude** ist der einzige KI-Agent im Stack und uebernimmt den gesamten Stack: Frontend, Backend, DB, Security, APIs, Tests, React, UX, API-Client, E2E — inkl. Prompt-/Task-Design, Scope-Definition, Akzeptanzkriterien und Testfall-Formulierung.
 - Architektur- und Sicherheitsentscheidungen mit grosser Tragweite: immer Owner-Freigabe einholen.
 
+### Das Team ist eine Person (Owner-Feststellung 2026-08-27, verbindlich)
+
+**Es gibt keine zweite Staff-Rolle. Der Owner IST das Staff — und Claude faktisch
+auch.** Was in der Oberflaeche „TempConnect-Team" heisst, ist heute ein Mensch plus
+dieser Agent.
+
+Das ist keine Randnotiz, sondern eine **Bauvorgabe**. Wer sie uebersieht, baut
+dreimal dasselbe falsch:
+
+- **Keine Genehmigungsschleifen zwischen Staff-Rollen.** Kein Vier-Augen-Prinzip,
+  keine „Freigabe durch Vorgesetzten", keine Bestaetigung durch eine zweite Person.
+  Es gibt niemanden, der bestaetigen koennte — ein solcher Weg waere dauerhaft
+  blockiert.
+- **Keine „an Kollegen zuweisen"-Muster.** Zuweisung, Uebergabe, Eskalation an eine
+  andere Staff-Person laufen ins Leere.
+- **Missbrauchsschutz durch STRUKTUR, nicht durch Kontrolle.** Wenn nur eine Person
+  handelt, schuetzt kein zweites Augenpaar. Was schuetzt: dass eine Handlung gar
+  nicht erst mehr vergeben kann, als die Regel hergibt (Beispiel: der Bounty-Eingriff
+  setzt keinen Betrag, er nennt einen Grund und laesst das System rechnen —
+  `docs/features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md`, Abschnitt 3a).
+- **Das eigentliche Risiko ist das Versehen, nicht der Vorsatz.** Deshalb:
+  Wirkungsvorschau vor der Handlung („diese Rechnung wird um 143,50 € niedriger"),
+  Verfall statt Dauerzustand, und Monatsuebersichten statt Einzelmeldungen an
+  sich selbst.
+- **Rollenmodell bleibt trotzdem stehen.** Die sechs Staff-Rollen (`8eb9971`) werden
+  nicht abgebaut — sie kosten nichts und greifen ab der zweiten Person automatisch.
+  Nur darf sich heute keine FUNKTION darauf verlassen, dass es sie besetzt gibt.
+
 ### Arbeitsweise mit dem Owner
 - Owner = Entscheidungsinstanz. Claude = Ausfuehrung mit Eigenverantwortung im definierten Rahmen.
 - **Sicherheitsentscheidungen**: Immer Owner fragen, nie autonom.

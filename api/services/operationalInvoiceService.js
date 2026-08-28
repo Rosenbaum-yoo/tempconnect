@@ -15,6 +15,9 @@ import { firmaZuPartei, pruefeFirmenstammdaten } from "./eRechnungService.js";
 
 import * as auditLog from "./auditLog.js";
 import { swallow } from "../utils/logger.js";
+/* Planwerte immer ueber den Katalog normalisieren (Projektregel) — der CHECK
+ * auf `invoices.plan` kennt nur die fuenf kanonischen Schluessel. */
+import { normalizePlanKey } from "../config/planCatalog.js";
 
 const DEFAULT_TAX_RATE = 19.0;
 const DEFAULT_OVERTIME_SURCHARGE_PCT = 25.0;
@@ -44,11 +47,52 @@ function gehoertZurOrg(rechnung, orgId) {
       || String(rechnung.supplier_org_id) === String(orgId);
 }
 
-async function nextInvoiceNumber(client) {
-  const { rows } = await client.query("SELECT nextval('invoice_number_seq') AS seq");
-  const seq = String(rows[0].seq).padStart(6, "0");
-  const year = new Date().getFullYear();
-  return `TC-${year}-${seq}`;
+/**
+ * Die naechste Rechnungsnummer der ZEITARBEITSFIRMA (Welle J7, Mig 203).
+ *
+ * ZWEI DINGE HABEN SICH GEAENDERT, beide aus demselben Grund — der Kreis
+ * gehoert der Firma, nicht der Plattform:
+ *
+ *   1. EIGENER ZAEHLER statt der globalen `invoice_number_seq`. Die teilte sich
+ *      die operative Rechnung mit der Abo-Rechnung der Plattform; jede
+ *      Abo-Rechnung riss damit eine Luecke in den Kreis der Firma. Erklaeren
+ *      muss sie der Rechnungssteller, nicht wir — also nehmen wir ihm die
+ *      Erklaerung ab.
+ *   2. VERGABE BEIM STELLEN, nicht beim Entwurf. Vorher fiel die Nummer in
+ *      `generateFromTimesheets`; ein verworfener Entwurf hinterliess eine
+ *      Luecke, die niemand mehr zuordnen kann.
+ *
+ * Warum eine TABELLENZEILE und keine Postgres-Sequenz je Org: Sequenzen lassen
+ * sich nicht transaktional zuruecknehmen (nextval haelt auch nach ROLLBACK),
+ * waeren nicht aufzaehlbar und brauchten DDL fuer jede neue Organisation.
+ * `FOR UPDATE` auf der Zeile serialisiert die Vergabe innerhalb DERSELBEN
+ * Transaktion wie die Rechnung — bricht sie ab, ist auch die Nummer wieder
+ * frei. Genau das macht den Kreis lueckenlos.
+ *
+ * @param {import('pg').PoolClient} client — MUSS in der Transaktion der
+ *   Rechnung laufen, sonst ist die Lueckenlosigkeit nicht garantiert.
+ */
+async function nextInvoiceNumber(client, supplierOrgId, jahr) {
+  if (!supplierOrgId) {
+    const fehler = new Error("NO_SUPPLIER_ORG");
+    fehler.code = "NO_SUPPLIER_ORG";
+    throw fehler;
+  }
+  /* Anlegen und Sperren in einem Schritt: ON CONFLICT DO UPDATE gibt die Zeile
+   * auch dann gesperrt zurueck, wenn sie schon existierte — ein getrenntes
+   * INSERT/SELECT haette zwischen beiden ein Fenster fuer einen zweiten
+   * Schreiber. Das no-op-UPDATE ist der guenstigste Weg zu RETURNING. */
+  const { rows } = await client.query(
+    `INSERT INTO invoice_number_sequences (supplier_org_id, jahr, letzte_nummer)
+          VALUES ($1, $2, 1)
+     ON CONFLICT (supplier_org_id, jahr) DO UPDATE
+            SET letzte_nummer = invoice_number_sequences.letzte_nummer + 1,
+                updated_at = NOW()
+      RETURNING letzte_nummer, praefix`,
+    [supplierOrgId, jahr]
+  );
+  const { letzte_nummer: nummer, praefix } = rows[0];
+  return `${praefix}-${jahr}-${String(nummer).padStart(6, "0")}`;
 }
 
 function clampLimit(v, max = MAX_LIMIT) {
@@ -184,7 +228,27 @@ export async function generateFromTimesheets(pool, opts) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const invoiceNumber = await nextInvoiceNumber(client);
+    /* KEINE Nummer im Entwurf (Welle J7, Mig 203): sie faellt erst beim
+     * Stellen. Ein verworfener Entwurf soll keine Luecke im Kreis der
+     * Zeitarbeitsfirma hinterlassen. `invoice_number` ist dafuer nullable —
+     * der UNIQUE-Index traegt beliebig viele NULLs. */
+    /* `plan` und `gross_amount_cents` sind NOT NULL — Erbe der geteilten
+     * Tabelle: beide Felder stammen aus der ABO-Rechnung (Mig 030 bzw. 170,
+     * Bounty-Rabatt) und sind fuer eine operative Rechnung ohne Bedeutung.
+     * Der INSERT setzte sie bis hierher nicht, weshalb `generateFromTimesheets`
+     * gegen eine echte Datenbank IMMER scheiterte — gefunden beim ersten
+     * DB-gebundenen Lauf (Welle J7, 2026-08-28). Genau deshalb existierte
+     * keine einzige operative Rechnung.
+     *
+     * `plan` traegt den Tarif des Rechnungsstellers (Rueckfall BASIS, damit
+     * der CHECK auf die fuenf kanonischen Plaene haelt), `gross_amount_cents`
+     * den Nettobetrag vor Rabatt — auf einer operativen Rechnung gibt es
+     * keinen, also entspricht er dem Nettobetrag. */
+    const { rows: planRows } = await client.query(
+      "SELECT plan FROM organizations WHERE id = $1",
+      [assignment.supplier_org_id]
+    );
+    const rechnungsPlan = normalizePlanKey(planRows[0]?.plan) || "BASIS";
 
     const { rows: invRows } = await client.query(
       `INSERT INTO invoices (
@@ -192,11 +256,11 @@ export async function generateFromTimesheets(pool, opts) {
          assignment_id, billing_period_start, billing_period_end,
          amount_cents, tax_rate_pct, tax_amount_cents, total_cents,
          currency, status, issued_at, due_at,
-         billing_contact_name, reference_number, overtime_surcharge_pct, notes
-       ) VALUES ($1,'operational',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'EUR','draft',NULL,$12,$13,$14,$15,$16)
+         billing_contact_name, reference_number, overtime_surcharge_pct, notes,
+         rate_cents_frozen, plan, gross_amount_cents
+       ) VALUES (NULL,'operational',$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'EUR','draft',NULL,$11,$12,$13,$14,$15,$16,$17,$18)
        RETURNING *`,
       [
-        invoiceNumber,
         assignment.org_id,         // buyer org = Rechnungsempfänger
         assignment.supplier_org_id, // supplier org = Leistungserbringer
         actorId,
@@ -207,7 +271,15 @@ export async function generateFromTimesheets(pool, opts) {
         billingContactName || null,
         referenceNumber || null,
         overtimeSurchargePct,
-        notes || null
+        notes || null,
+        /* Der Satz, mit dem gerechnet wurde — eingefroren an der Rechnung
+         * (Welle J7, Mig 203). `assignments.hourly_rate_cents` steht in der
+         * Update-Whitelist (assignmentService.js) und ist jederzeit aenderbar;
+         * ohne diese Kopie rechnete eine spaetere Aenderung rueckwirkend an
+         * einer bereits erzeugten Rechnung mit. */
+        rateCents,
+        rechnungsPlan,
+        netCents
       ]
     );
     const invoice = invRows[0];
@@ -478,7 +550,7 @@ export async function addCorrectionItem(pool, invoiceId, opts) {
 
 export async function transitionInvoice(pool, invoiceId, newStatus, actorId, orgId) {
   const { rows: inv } = await pool.query(
-    "SELECT id, status, org_id, supplier_org_id FROM invoices WHERE id = $1 AND invoice_type = 'operational' AND (org_id = $2 OR supplier_org_id = $2)",
+    "SELECT id, status, org_id, supplier_org_id, invoice_number FROM invoices WHERE id = $1 AND invoice_type = 'operational' AND (org_id = $2 OR supplier_org_id = $2)",
     [invoiceId, orgId]
   );
   if (!inv[0]) return { error: "NOT_FOUND" };
@@ -490,6 +562,57 @@ export async function transitionInvoice(pool, invoiceId, newStatus, actorId, org
   const allowed = VALID_TRANSITIONS[current] || [];
   if (!allowed.includes(newStatus)) {
     return { error: "INVALID_TRANSITION", from: current, to: newStatus, allowed };
+  }
+
+  /* NUR DAS STELLEN VERGIBT DIE NUMMER (Welle J7, Mig 203).
+   *
+   * Es laeuft in einer Transaktion, weil Nummernvergabe und Statuswechsel
+   * zusammengehoeren: bricht der Wechsel ab, muss die Nummer wieder frei sein —
+   * sonst entsteht genau die Luecke, die dieser Umbau beseitigt. Die uebrigen
+   * Uebergaenge (paid/void/overdue) brauchen keine Transaktion; sie bekommen
+   * den bisherigen, einfachen Weg.
+   *
+   * Eine bereits vergebene Nummer wird NICHT ueberschrieben: 'overdue' kann
+   * laut Zustandsautomat zurueck auf 'issued' gehen, und eine zweite Nummer
+   * fuer dieselbe Rechnung waere ein Beleg-Duplikat. */
+  const vergibtNummer = newStatus === "issued" && !inv[0].invoice_number;
+
+  if (vergibtNummer) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const jahr = new Date().getFullYear();
+      const nummer = await nextInvoiceNumber(client, inv[0].supplier_org_id, jahr);
+      const { rows } = await client.query(
+        `UPDATE invoices
+            SET status = $2, invoice_number = $3, issued_at = NOW(), updated_at = NOW()
+          WHERE id = $1 AND (org_id = $4 OR supplier_org_id = $4) AND status = $5
+          RETURNING *`,
+        [invoiceId, newStatus, nummer, orgId, current]
+      );
+      /* Kein Treffer: die Zeile gehoert nicht mehr zur Org ODER ein zweiter
+       * Schreiber war schneller (deshalb `status = $5`). Beides ist ein Grund
+       * zurueckzurollen — dann ist auch die Nummer wieder frei. */
+      if (!rows[0]) {
+        await client.query("ROLLBACK");
+        return { error: "NOT_FOUND" };
+      }
+      await client.query("COMMIT");
+      await auditLog.writeAudit(pool, {
+        action: `invoice.${newStatus}`,
+        entity_type: "invoice",
+        entity_id: invoiceId,
+        actor_id: actorId,
+        details: { from: current, to: newStatus, invoice_number: nummer }
+      });
+      return { invoice: rows[0] };
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      if (err?.code === "NO_SUPPLIER_ORG") return { error: "NO_SUPPLIER_ORG" };
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   const extra = [];

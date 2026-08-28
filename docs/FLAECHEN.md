@@ -114,6 +114,24 @@ Liegt in `frontend/src/support/` als eine Fläche ohne Modulverzeichnis
 
 ---
 
+## „Das Team" ist eine Person (Owner-Feststellung 2026-08-27)
+
+In der Tabelle oben steht beim Staff Control Center *„für das TempConnect-Team"*.
+Das ist heute **ein Mensch** — der Owner selbst — plus Claude. Es gibt **keine
+zweite Staff-Rolle**.
+
+Für die Flächenfrage ändert das nichts: Das Staff CC bleibt die Fläche für
+plattformweite Verwaltung, unabhängig davon, wie viele Menschen sie bedienen.
+
+Für die **Bauart** ändert es viel. Keine Funktion darf voraussetzen, dass eine
+zweite Staff-Person existiert: kein Vier-Augen-Prinzip, keine Freigabe durch eine
+andere Rolle, keine Zuweisung an Kolleginnen. Solche Wege wären dauerhaft
+blockiert. Missbrauchsschutz entsteht deshalb **strukturell** — eine Handlung darf
+gar nicht erst mehr vergeben können, als die Regel hergibt. Vollständig in
+`CLAUDE.md`, Abschnitt „Das Team ist eine Person".
+
+---
+
 ## Wenn eine Zuordnung sich als falsch herausstellt
 
 Umziehen, nicht doppelt bauen. Ein Modul an zwei Flächen wäre eine Vermischung der
