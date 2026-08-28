@@ -60,6 +60,58 @@ TCi18n.register('de', {
   'ts.rev.tab.subs': 'Stundenzettel-Freigaben',
   'ts.rev.tab.workers': 'Einsatzkräfte',
   'ts.rev.tab.asgn': 'Einsätze',
+  'ts.rev.tab.inv': 'Rechnungen',
+
+  /* Rechnungen (Welle J7) — aus freigegebenen Stundenzetteln wird die
+     Rechnung an das Unternehmen. */
+  'ts.rev.inv.kpiDraft': 'Entwürfe',
+  'ts.rev.inv.kpiIssued': 'Gestellt',
+  'ts.rev.inv.kpiOverdue': 'Überfällig',
+  'ts.rev.inv.kpiOutstanding': 'Offener Betrag',
+  'ts.rev.inv.billableTitle': 'Abrechenbare Stundenzettel',
+  'ts.rev.inv.billableHint': 'Freigegebene Zeiten, für die noch keine Rechnung besteht. Wählen Sie einen Einsatz, um daraus eine Rechnung zu erzeugen.',
+  'ts.rev.inv.billableEmpty': 'Nichts abzurechnen. Sobald ein Unternehmen Stundenzettel freigibt, erscheinen sie hier.',
+  'ts.rev.inv.listTitle': 'Meine Rechnungen',
+  'ts.rev.inv.listEmpty': 'Noch keine Rechnungen. Erzeugen Sie oben eine aus freigegebenen Stundenzetteln.',
+  'ts.rev.inv.filterAll': 'Alle',
+  'ts.rev.inv.refresh': 'Aktualisieren',
+  'ts.rev.inv.thAssignment': 'Einsatz',
+  'ts.rev.inv.thClient': 'Unternehmen',
+  'ts.rev.inv.thSheets': 'Zettel',
+  'ts.rev.inv.thHours': 'Stunden',
+  'ts.rev.inv.thRate': 'Satz',
+  'ts.rev.inv.thNumber': 'Nummer',
+  'ts.rev.inv.thPeriod': 'Zeitraum',
+  'ts.rev.inv.thTotal': 'Gesamt',
+  'ts.rev.inv.thStatus': 'Status',
+  'ts.rev.inv.statusDraft': 'Entwurf',
+  'ts.rev.inv.statusIssued': 'Gestellt',
+  'ts.rev.inv.statusOverdue': 'Überfällig',
+  'ts.rev.inv.statusPaid': 'Bezahlt',
+  'ts.rev.inv.statusVoid': 'Storniert',
+  'ts.rev.inv.noNumberYet': 'noch ohne Nummer',
+  'ts.rev.inv.noRate': 'kein Stundensatz',
+  'ts.rev.inv.assignmentFallback': 'Einsatz',
+  'ts.rev.inv.create': 'Rechnung erzeugen',
+  'ts.rev.inv.confirmCreate': 'Aus {n} freigegebenen Stundenzetteln eine Rechnung erzeugen? Sie entsteht als Entwurf und trägt noch keine Nummer.',
+  'ts.rev.inv.createOk': 'Rechnungsentwurf erstellt',
+  'ts.rev.inv.createFail': 'Rechnung konnte nicht erzeugt werden',
+  'ts.rev.inv.issue': 'Stellen',
+  'ts.rev.inv.confirmIssue': 'Rechnung verbindlich stellen? Jetzt fällt die Rechnungsnummer – sie lässt sich danach nicht mehr ändern.',
+  'ts.rev.inv.issueOk': 'Rechnung gestellt',
+  'ts.rev.inv.markPaid': 'Als bezahlt',
+  'ts.rev.inv.paidOk': 'Als bezahlt vermerkt',
+  'ts.rev.inv.void': 'Stornieren',
+  'ts.rev.inv.confirmVoid': 'Rechnung stornieren? Das lässt sich nicht rückgängig machen.',
+  'ts.rev.inv.voidOk': 'Rechnung storniert',
+  'ts.rev.inv.csv': 'CSV',
+  'ts.rev.inv.actionFail': 'Aktion fehlgeschlagen',
+  'ts.rev.inv.readinessTitle': 'Rechnungsstammdaten unvollständig',
+  'ts.rev.inv.readinessText': 'Ohne diese Angaben ist keine Rechnung gültig (§ 14 UStG). Sie gehören zur Organisation, nicht zum Benutzerprofil – ergänzen Sie sie unter Organisation & Team. Es fehlt:',
+  'ts.rev.inv.loadFailTitle': 'Rechnungen nicht geladen',
+  'ts.rev.inv.loadFailText': 'Bitte erneut versuchen.',
+  'ts.rev.inv.noAccessTitle': 'Keine Abrechnungsberechtigung',
+  'ts.rev.inv.noAccessText': 'Rechnungen sehen und stellen dürfen Inhaber, Administratoren und die Buchhaltung.',
 
   'ts.rev.cust.title': 'Kundenversand Stundenzettel',
   'ts.rev.cust.subtitle': 'Status aller Kundenversand-Vorgänge auf einen Blick',
@@ -877,6 +929,57 @@ TCi18n.register('en', {
   'ts.rev.tab.subs': 'Timesheet approvals',
   'ts.rev.tab.workers': 'Workers',
   'ts.rev.tab.asgn': 'Assignments',
+  'ts.rev.tab.inv': 'Invoices',
+
+  /* Invoices (wave J7) — approved timesheets become the invoice to the client. */
+  'ts.rev.inv.kpiDraft': 'Drafts',
+  'ts.rev.inv.kpiIssued': 'Issued',
+  'ts.rev.inv.kpiOverdue': 'Overdue',
+  'ts.rev.inv.kpiOutstanding': 'Outstanding',
+  'ts.rev.inv.billableTitle': 'Billable timesheets',
+  'ts.rev.inv.billableHint': 'Approved hours without an invoice yet. Pick an assignment to create one from them.',
+  'ts.rev.inv.billableEmpty': 'Nothing to bill. As soon as a client approves timesheets, they appear here.',
+  'ts.rev.inv.listTitle': 'My invoices',
+  'ts.rev.inv.listEmpty': 'No invoices yet. Create one above from approved timesheets.',
+  'ts.rev.inv.filterAll': 'All',
+  'ts.rev.inv.refresh': 'Refresh',
+  'ts.rev.inv.thAssignment': 'Assignment',
+  'ts.rev.inv.thClient': 'Client',
+  'ts.rev.inv.thSheets': 'Sheets',
+  'ts.rev.inv.thHours': 'Hours',
+  'ts.rev.inv.thRate': 'Rate',
+  'ts.rev.inv.thNumber': 'Number',
+  'ts.rev.inv.thPeriod': 'Period',
+  'ts.rev.inv.thTotal': 'Total',
+  'ts.rev.inv.thStatus': 'Status',
+  'ts.rev.inv.statusDraft': 'Draft',
+  'ts.rev.inv.statusIssued': 'Issued',
+  'ts.rev.inv.statusOverdue': 'Overdue',
+  'ts.rev.inv.statusPaid': 'Paid',
+  'ts.rev.inv.statusVoid': 'Voided',
+  'ts.rev.inv.noNumberYet': 'no number yet',
+  'ts.rev.inv.noRate': 'no hourly rate',
+  'ts.rev.inv.assignmentFallback': 'Assignment',
+  'ts.rev.inv.create': 'Create invoice',
+  'ts.rev.inv.confirmCreate': 'Create one invoice from {n} approved timesheets? It starts as a draft and carries no number yet.',
+  'ts.rev.inv.createOk': 'Invoice draft created',
+  'ts.rev.inv.createFail': 'Could not create the invoice',
+  'ts.rev.inv.issue': 'Issue',
+  'ts.rev.inv.confirmIssue': 'Issue this invoice for good? The invoice number is assigned now and cannot be changed afterwards.',
+  'ts.rev.inv.issueOk': 'Invoice issued',
+  'ts.rev.inv.markPaid': 'Mark paid',
+  'ts.rev.inv.paidOk': 'Marked as paid',
+  'ts.rev.inv.void': 'Void',
+  'ts.rev.inv.confirmVoid': 'Void this invoice? This cannot be undone.',
+  'ts.rev.inv.voidOk': 'Invoice voided',
+  'ts.rev.inv.csv': 'CSV',
+  'ts.rev.inv.actionFail': 'Action failed',
+  'ts.rev.inv.readinessTitle': 'Invoicing details incomplete',
+  'ts.rev.inv.readinessText': 'Without these an invoice is not valid (§ 14 UStG). They belong to the organisation, not to your user profile — add them under Organisation & team. Missing:',
+  'ts.rev.inv.loadFailTitle': 'Invoices not loaded',
+  'ts.rev.inv.loadFailText': 'Please try again.',
+  'ts.rev.inv.noAccessTitle': 'No billing permission',
+  'ts.rev.inv.noAccessText': 'Owners, administrators and finance may view and issue invoices.',
 
   'ts.rev.cust.title': 'Client dispatch of timesheets',
   'ts.rev.cust.subtitle': 'Status of every client dispatch at a glance',
@@ -1675,7 +1778,7 @@ const AGENCY_SUBS_URL = `${API}/agency/submissions`;
 const AGENCY_KPIS_URL = `${API}/agency/submissions/kpis`;
 const AGENCY_BUNDLE_PREVIEW_URL = `${API}/agency/submissions/bundles/preview`;
 const AGENCY_BUNDLES_URL = `${API}/agency/submissions/bundles`;
-const TAB_ORDER=['subs','wrks','asgn'];
+const TAB_ORDER=['subs','wrks','asgn','inv'];
 let pageAccess=createEmptyPageAccess();
 let staffingFastTrackContext=createEmptyStaffingFastTrackContext();
 let _csrfToken=null;
@@ -1697,7 +1800,8 @@ function createEmptyPageAccess(){
     tabs:{
       subs:false,
       wrks:false,
-      asgn:false
+      asgn:false,
+      inv:false
     }
   };
 }
@@ -1754,7 +1858,12 @@ function derivePageAccess(me){
     tabs:{
       subs:workerModule&&permissions.workerReview,
       wrks:workerModule&&permissions.workerView,
-      asgn:workerModule&&permissions.workerView
+      asgn:workerModule&&permissions.workerView,
+      /* Rechnungen (Welle J7): haengt NICHT am worker_module, sondern allein
+       * an der Abrechnungsberechtigung — dieselbe, die die Endpunkte
+       * verlangen (org.billing: owner, admin, finance). Eine Buchhaltung darf
+       * Rechnungen stellen, ohne Einsatzkraefte zu verwalten. */
+      inv:!!caps.org_billing
     }
   };
 }
@@ -2254,6 +2363,7 @@ async function switchTab(t,opts={}){
       }
       if(!closedDealAsgnLoaded||opts.force) await loadClosedDealAsgn();
     }
+    if(t==='inv'&&(!invLoaded||opts.force)) await loadInv();
   }catch(err){
     // Transient-Errors hier nicht eskalieren — die jeweilige load*-Funktion
     // setzt bereits eine passende Panel-Notice. Andere Fehler bubble'n aber
@@ -5758,3 +5868,257 @@ document.addEventListener('tc:langchange', function () {
     /* Netz-/Zugriffsfehler melden bereits die jeweiligen load*-Notices. */
   });
 });
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RECHNUNGEN (Welle J7) — der letzte Schritt derselben Kette
+
+   Aus freigegebenen Stundenzetteln wird die Rechnung an das Unternehmen. Der
+   Reiter liegt bewusst hier und nicht auf einer eigenen Flaeche: wer die
+   Zettel freigibt, stellt auch die Rechnung.
+
+   ZWEI DINGE, DIE DIE OBERFLAECHE ERNST NIMMT:
+
+   1. OHNE STAMMDATEN KEINE GUELTIGE RECHNUNG. Die Bereitschaftspruefung des
+      Servers nennt die fehlenden Felder im Klartext (nicht "BR-08"). Fehlt
+      etwas, steht es oben — nicht erst, wenn das Stellen scheitert.
+   2. DIE NUMMER FAELLT ERST BEIM STELLEN. Ein Entwurf traegt keine, und das
+      sagt die Oberflaeche auch so. Wer einen Entwurf verwirft, reisst keine
+      Luecke in den Kreis (Mig 203).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const INVOICE_URL = `${API}/invoices/operational`;
+let invLoaded = false;
+let invRows = [], invBillableRows = [];
+
+/** Cent in einen lesbaren Betrag. */
+function invBetrag(cents) {
+  const n = Number(cents || 0) / 100;
+  return n.toLocaleString(TCi18n.locale() === 'en' ? 'en-GB' : 'de-DE',
+    { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+}
+
+function invDatum(d) {
+  if (!d) return '–';
+  const p = String(d).split('T')[0].split('-');
+  if (p.length !== 3) return '–';
+  return TCi18n.locale() === 'en' ? `${p[2]}/${p[1]}/${p[0]}` : `${p[2]}.${p[1]}.${p[0]}`;
+}
+
+const INV_STATUS_TON = { draft: '', issued: 'o', overdue: 'r', paid: 'g', void: '' };
+
+function invStatusText(s) {
+  return tt('ts.rev.inv.status' + String(s).charAt(0).toUpperCase() + String(s).slice(1)) || s;
+}
+
+/**
+ * Laedt Bereitschaft, Kennzahlen, abrechenbare Zettel und Rechnungen.
+ * Vier Abrufe, bewusst nebenlaeufig: sie haengen nicht voneinander ab, und
+ * der Reiter soll nicht viermal nacheinander warten.
+ */
+async function loadInv() {
+  if (!pageAccess.tabs.inv) {
+    invLoaded = true;
+    setPanelNotice('invStateNotice', tt('ts.rev.inv.noAccessTitle'), tt('ts.rev.inv.noAccessText'), 'info');
+    return;
+  }
+  const feld = document.getElementById('invFilterStatus');
+  const status = feld ? feld.value : '';
+  try {
+    const [bereit, kpis, billable, liste] = await Promise.all([
+      fetchJson(`${API}/invoices/e-rechnung/bereitschaft`).catch(() => null),
+      fetchJson(`${INVOICE_URL}/kpis`).catch(() => null),
+      fetchJson(`${INVOICE_URL}/billable`).catch(() => ({ items: [] })),
+      fetchJson(`${INVOICE_URL}${status ? `?status=${encodeURIComponent(status)}` : ''}`).catch(() => ({ items: [] }))
+    ]);
+    invLoaded = true;
+    renderInvReadiness(bereit);
+    renderInvKpis(kpis);
+    renderInvBillable((billable && billable.items) || []);
+    renderInvList((liste && liste.items) || []);
+    setPanelNotice('invStateNotice', '', '', 'info');
+  } catch (err) {
+    if (isTransientError(err)) return;
+    setPanelNotice('invStateNotice', tt('ts.rev.inv.loadFailTitle'),
+      (err && (err.code || err.message)) || tt('ts.rev.inv.loadFailText'), 'danger');
+  }
+}
+
+/** Die Stammdaten-Warnung — nur wenn wirklich etwas fehlt. */
+function renderInvReadiness(bereit) {
+  const el = document.getElementById('invReadiness');
+  if (!el) return;
+  if (!bereit || bereit.bereit || !Array.isArray(bereit.fehlend) || !bereit.fehlend.length) {
+    el.style.display = 'none';
+    return;
+  }
+  /* Klartext statt Regelnummer: die Meldung des Servers nennt Feld und Ort.
+     Der Weg dorthin steht dabei — sonst weiss niemand, wo er pflegen soll. */
+  el.innerHTML = '<strong>' + esc(tt('ts.rev.inv.readinessTitle')) + '</strong><br>' +
+    esc(tt('ts.rev.inv.readinessText')) + '<ul style="margin:6px 0 0 18px">' +
+    bereit.fehlend.map(function (f) { return '<li>' + esc(f.feld) + '</li>'; }).join('') +
+    '</ul>';
+  el.style.display = '';
+}
+
+function renderInvKpis(k) {
+  const setz = function (id, wert) { const e = document.getElementById(id); if (e) e.textContent = wert; };
+  if (!k) { ['ki1', 'ki2', 'ki3', 'ki4'].forEach(function (id) { setz(id, '–'); }); return; }
+  setz('ki1', k.draft_count != null ? k.draft_count : 0);
+  setz('ki2', k.issued_count != null ? k.issued_count : 0);
+  setz('ki3', k.overdue_count != null ? k.overdue_count : 0);
+  setz('ki4', invBetrag(k.outstanding_cents));
+}
+
+/**
+ * Abrechenbare Stundenzettel, nach Einsatz gebuendelt — eine Rechnung entsteht
+ * je Einsatz, nicht je Zettel. Wer sie einzeln auflistete, liesse den Nutzer
+ * die Buendelung im Kopf machen.
+ */
+function renderInvBillable(items) {
+  invBillableRows = items || [];
+  const el = document.getElementById('invBillable');
+  if (!el) return;
+  if (!invBillableRows.length) {
+    el.innerHTML = '<div class="hub-empty"><p>' + esc(tt('ts.rev.inv.billableEmpty')) + '</p></div>';
+    return;
+  }
+  const jeEinsatz = new Map();
+  for (const z of invBillableRows) {
+    const key = z.assignment_id || 'ohne';
+    if (!jeEinsatz.has(key)) {
+      jeEinsatz.set(key, {
+        einsatz: key, zettel: [], stunden: 0,
+        satz: z.hourly_rate_cents, titel: z.assignment_description, kunde: z.org_name
+      });
+    }
+    const g = jeEinsatz.get(key);
+    g.zettel.push(z);
+    g.stunden += Number(z.total_hours || 0);
+  }
+  const kopf = '<table class="wk-table"><thead><tr>' +
+    '<th>' + esc(tt('ts.rev.inv.thAssignment')) + '</th>' +
+    '<th>' + esc(tt('ts.rev.inv.thClient')) + '</th>' +
+    '<th>' + esc(tt('ts.rev.inv.thSheets')) + '</th>' +
+    '<th>' + esc(tt('ts.rev.inv.thHours')) + '</th>' +
+    '<th>' + esc(tt('ts.rev.inv.thRate')) + '</th><th></th></tr></thead><tbody>';
+  const zeilen = Array.from(jeEinsatz.values()).map(function (g) {
+    const ohneSatz = !g.satz;
+    /* Kein Satz = keine Rechnung. Das sagt die Zeile, statt den Knopf still
+       scheitern zu lassen (der Server meldet NO_HOURLY_RATE). */
+    const satzZelle = ohneSatz
+      ? '<span class="wk-badge wk-badge-warn">' + esc(tt('ts.rev.inv.noRate')) + '</span>'
+      : invBetrag(g.satz) + '/h';
+    const knopf = ohneSatz ? ''
+      : '<button class="wk-btn wk-btn-primary" onclick="invErzeugen(\'' + esc(g.einsatz) + '\')">' +
+        esc(tt('ts.rev.inv.create')) + '</button>';
+    return '<tr><td>' + esc(g.titel || tt('ts.rev.inv.assignmentFallback')) + '</td>' +
+      '<td>' + esc(g.kunde || '–') + '</td>' +
+      '<td>' + g.zettel.length + '</td>' +
+      '<td>' + esc(String(g.stunden)) + '</td>' +
+      '<td>' + satzZelle + '</td>' +
+      '<td style="text-align:right">' + knopf + '</td></tr>';
+  }).join('');
+  el.innerHTML = kopf + zeilen + '</tbody></table>';
+}
+
+function renderInvList(items) {
+  invRows = items || [];
+  const el = document.getElementById('invRechnungen');
+  if (!el) return;
+  if (!invRows.length) {
+    el.innerHTML = '<div class="hub-empty"><p>' + esc(tt('ts.rev.inv.listEmpty')) + '</p></div>';
+    return;
+  }
+  const kopf = '<table class="wk-table"><thead><tr>' +
+    '<th>' + esc(tt('ts.rev.inv.thNumber')) + '</th>' +
+    '<th>' + esc(tt('ts.rev.inv.thClient')) + '</th>' +
+    '<th>' + esc(tt('ts.rev.inv.thPeriod')) + '</th>' +
+    '<th>' + esc(tt('ts.rev.inv.thTotal')) + '</th>' +
+    '<th>' + esc(tt('ts.rev.inv.thStatus')) + '</th><th></th></tr></thead><tbody>';
+  const zeilen = invRows.map(function (r) {
+    const ton = INV_STATUS_TON[r.status] || '';
+    const tonKlasse = ton === 'r' ? ' wk-badge-danger' : ton === 'o' ? ' wk-badge-warn' : ton === 'g' ? ' wk-badge-ok' : '';
+    /* Ein Entwurf hat KEINE Nummer — das ist kein Fehler, sondern die Zusage
+       aus Mig 203. Die Oberflaeche sagt es so, statt eine Luecke zu zeigen. */
+    const nummer = r.invoice_number
+      ? esc(r.invoice_number)
+      : '<span class="hub-sub">' + esc(tt('ts.rev.inv.noNumberYet')) + '</span>';
+    return '<tr><td>' + nummer + '</td>' +
+      '<td>' + esc(r.buyer_org_name || '–') + '</td>' +
+      '<td>' + invDatum(r.billing_period_start) + ' – ' + invDatum(r.billing_period_end) + '</td>' +
+      '<td><strong>' + invBetrag(r.total_cents) + '</strong></td>' +
+      '<td><span class="wk-badge' + tonKlasse + '">' + esc(invStatusText(r.status)) + '</span></td>' +
+      '<td style="text-align:right;white-space:nowrap">' + invAktionen(r) + '</td></tr>';
+  }).join('');
+  el.innerHTML = kopf + zeilen + '</tbody></table>';
+}
+
+/** Die Knoepfe einer Zeile — nur, was der Zustandsautomat wirklich zulaesst. */
+function invAktionen(r) {
+  const knopf = function (fn, label, klasse) {
+    return '<button class="wk-btn ' + klasse + '" style="margin-left:4px" onclick="' + fn +
+      '(\'' + esc(r.id) + '\')">' + esc(tt(label)) + '</button>';
+  };
+  let h = '<a class="wk-btn" style="text-decoration:none" href="' + API +
+    '/invoices/operational/' + esc(r.id) + '/export/csv">' + esc(tt('ts.rev.inv.csv')) + '</a>';
+  if (r.status === 'draft') {
+    h += knopf('invStellen', 'ts.rev.inv.issue', 'wk-btn-primary');
+    h += knopf('invStornieren', 'ts.rev.inv.void', '');
+  } else if (r.status === 'issued' || r.status === 'overdue') {
+    h += knopf('invBezahlt', 'ts.rev.inv.markPaid', 'wk-btn-primary');
+    h += knopf('invStornieren', 'ts.rev.inv.void', '');
+  }
+  return h;
+}
+
+/** Rechnung aus allen abrechenbaren Zetteln EINES Einsatzes erzeugen. */
+async function invErzeugen(assignmentId) {
+  const zettel = invBillableRows.filter(function (z) {
+    return String(z.assignment_id) === String(assignmentId);
+  });
+  if (!zettel.length) return;
+  if (!confirm(tt('ts.rev.inv.confirmCreate', { n: zettel.length }))) return;
+  try {
+    const csrf = await getCsrf();
+    const r = await fetch(`${INVOICE_URL}/generate`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify({ assignment_id: assignmentId, timesheet_ids: zettel.map(function (z) { return z.id; }) })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.message || d.error || tt('ts.rev.inv.createFail'));
+    toast(tt('ts.rev.inv.createOk'), 'ok');
+    await loadInv();
+  } catch (e) { toast(e.message || tt('ts.rev.inv.createFail'), 'error'); }
+}
+
+/** Ein Zustandswechsel. Der Server ist der Riegel; hier steht die Rueckmeldung. */
+async function invUebergang(id, ziel, frageKey, okKey) {
+  if (frageKey && !confirm(tt(frageKey))) return;
+  try {
+    const csrf = await getCsrf();
+    const r = await fetch(`${INVOICE_URL}/${encodeURIComponent(id)}/${ziel}`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: '{}'
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.message || d.error || tt('ts.rev.inv.actionFail'));
+    /* Beim Stellen faellt die Nummer — sie gehoert in die Rueckmeldung, sonst
+       muesste der Nutzer die Liste absuchen, um zu sehen, was er bekommen hat. */
+    const nummer = d.invoice && d.invoice.invoice_number;
+    toast(nummer ? tt(okKey) + ' · ' + nummer : tt(okKey), 'ok');
+    await loadInv();
+  } catch (e) { toast(e.message || tt('ts.rev.inv.actionFail'), 'error'); }
+}
+
+function invStellen(id) { return invUebergang(id, 'issue', 'ts.rev.inv.confirmIssue', 'ts.rev.inv.issueOk'); }
+function invBezahlt(id) { return invUebergang(id, 'paid', null, 'ts.rev.inv.paidOk'); }
+function invStornieren(id) { return invUebergang(id, 'void', 'ts.rev.inv.confirmVoid', 'ts.rev.inv.voidOk'); }
+
+window.loadInv = loadInv;
+window.invErzeugen = invErzeugen;
+window.invStellen = invStellen;
+window.invBezahlt = invBezahlt;
+window.invStornieren = invStornieren;

@@ -325,6 +325,19 @@
       "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
     },
     {
+      "tabelle": "invoice_number_sequences",
+      "orgSpalten": [
+        "supplier_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
       "tabelle": "invoices",
       "orgSpalten": [
         "org_id",

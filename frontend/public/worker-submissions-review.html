@@ -447,6 +447,12 @@
       <button class="hub-tab" onclick="switchTab('asgn')" id="tab-asgn">
         <span data-i18n="ts.rev.tab.asgn">Einsätze</span> <span class="tc" id="tc-asgn">–</span>
       </button>
+      <!-- Rechnungen (Welle J7): der letzte Schritt derselben Kette — aus
+           freigegebenen Stundenzetteln wird die Rechnung an das Unternehmen.
+           Sichtbar nur mit org.billing (derivePageAccess). -->
+      <button class="hub-tab" onclick="switchTab('inv')" id="tab-inv">
+        <span data-i18n="ts.rev.tab.inv">Rechnungen</span> <span class="tc" id="tc-inv">–</span>
+      </button>
     </div>
     <div id="pageAccessState" class="hub-empty" style="display:none"></div>
 
@@ -663,6 +669,54 @@
         <!-- P1.4: Vorausplanung — Timeline je Arbeiter (clientseitig aus allLinks) -->
         <div id="planungView" style="display:none"></div>
       </div>
+    </div>
+
+    <!-- ===== TAB: RECHNUNGEN (Welle J7) =====
+         Der letzte Schritt derselben Kette: aus freigegebenen Stundenzetteln
+         wird die Rechnung an das Unternehmen. Bewusst HIER und nicht auf einer
+         eigenen Flaeche — wer die Zettel freigibt, stellt auch die Rechnung,
+         und der Weg dazwischen soll kein Seitenwechsel sein. -->
+    <div class="hub-tab-panel" id="panel-inv">
+      <div id="invStateNotice" class="wk-alert wk-alert-info" style="display:none;margin-bottom:14px"></div>
+
+      <!-- Bereitschaft: ohne Rechnungsstammdaten ist keine Rechnung gueltig
+           (§ 14 UStG). Der Hinweis erscheint nur, wenn wirklich etwas fehlt —
+           und nennt die Felder im Klartext statt Regelnummern der Norm. -->
+      <div id="invReadiness" class="wk-alert wk-alert-warn" style="display:none;margin-bottom:14px"></div>
+
+      <div class="hub-kpis">
+        <div class="hub-kpi"><div class="hub-kpi-num o" id="ki1">–</div><div class="hub-kpi-label" data-i18n="ts.rev.inv.kpiDraft">Entwürfe</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num"  id="ki2">–</div><div class="hub-kpi-label" data-i18n="ts.rev.inv.kpiIssued">Gestellt</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num r" id="ki3">–</div><div class="hub-kpi-label" data-i18n="ts.rev.inv.kpiOverdue">Überfällig</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num g" id="ki4">–</div><div class="hub-kpi-label" data-i18n="ts.rev.inv.kpiOutstanding">Offener Betrag</div></div>
+      </div>
+
+      <!-- Abrechenbar: freigegebene Stundenzettel ohne Rechnung. Hier beginnt
+           der Vorgang — deshalb steht dieser Block ueber der Rechnungsliste. -->
+      <section style="margin-bottom:18px">
+        <h3 style="font-size:.95rem;margin:0 0 8px" data-i18n="ts.rev.inv.billableTitle">Abrechenbare Stundenzettel</h3>
+        <p class="hub-sub" style="margin:0 0 10px" data-i18n="ts.rev.inv.billableHint">Freigegebene Zeiten, für die noch keine Rechnung besteht. Wählen Sie einen Einsatz, um daraus eine Rechnung zu erzeugen.</p>
+        <div id="invBillable"></div>
+      </section>
+
+      <section>
+        <h3 style="font-size:.95rem;margin:0 0 8px" data-i18n="ts.rev.inv.listTitle">Meine Rechnungen</h3>
+        <div class="hub-toolbar" style="margin-bottom:10px">
+          <select id="invFilterStatus" class="wk-input" style="max-width:200px" onchange="loadInv()">
+            <option value="" data-i18n="ts.rev.inv.filterAll">Alle</option>
+            <option value="draft" data-i18n="ts.rev.inv.statusDraft">Entwurf</option>
+            <option value="issued" data-i18n="ts.rev.inv.statusIssued">Gestellt</option>
+            <option value="overdue" data-i18n="ts.rev.inv.statusOverdue">Überfällig</option>
+            <option value="paid" data-i18n="ts.rev.inv.statusPaid">Bezahlt</option>
+            <option value="void" data-i18n="ts.rev.inv.statusVoid">Storniert</option>
+          </select>
+          <button class="wk-btn" onclick="loadInv()" data-i18n="ts.rev.inv.refresh">Aktualisieren</button>
+        </div>
+        <!-- `invRechnungen`, nicht `invList`: letzteres gehoert seit laengerem
+             den Einladungen im Einreichungen-Panel. Zwei gleiche Kennungen auf
+             einer Seite treffen sich irgendwann in einem getElementById. -->
+        <div id="invRechnungen"></div>
+      </section>
     </div>
 
   </main>

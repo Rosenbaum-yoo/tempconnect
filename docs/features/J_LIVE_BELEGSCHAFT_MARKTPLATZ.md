@@ -524,8 +524,18 @@ Firmen** — im Datenmodell heute `pool_*`, und das endet an der Firmengrenze (2
 > `rechnungsstammdatenPflege.test.js` 6/6 gegen die echte Datenbank,
 > Rechnungs-Suiten 165/165, Organisations-/E-Rechnungs-Suiten 555/555.
 >
-> **Offen:** die Oberflaechen (Reiter auf beiden Stundenzettel-Flaechen),
-> das PDF fuer operative Rechnungen und die Pflegemaske fuer die Stammdaten.
+> - ✅ **Oberflaeche der Zeitarbeitsfirma** (Schritt 5): Reiter „Rechnungen" in
+>   `worker-submissions-review.html` — dort, wo die Stundenzettel freigegeben
+>   werden, statt auf einer eigenen Flaeche. Abrechenbare Zettel **je Einsatz
+>   gebuendelt** (eine Rechnung entsteht je Einsatz), Erzeugen-Knopf nur mit
+>   Stundensatz, Entwuerfe sichtbar ohne Nummer, Aktionen folgen dem
+>   Zustandsautomaten, Stammdaten-Warnung im Klartext. Haengt an `org.billing`
+>   (neu in den `/me`-Capabilities), nicht am Worker-Modul — eine Buchhaltung
+>   darf abrechnen, ohne Kraefte zu verwalten.
+>
+> **Offen:** die Empfangsseite des Unternehmens, das PDF fuer operative
+> Rechnungen und eine Pflegemaske fuer die Stammdaten (der Weg dahin
+> existiert, die Maske noch nicht).
 
 
 > **Ist-Stand am 2026-08-28 gemessen** (nach dem Zusammenfuehren der Release-Linie,

@@ -285,7 +285,14 @@ export async function getUserAndPlan(pool, userId, opts = {}) {
     worker_review: org_role ? hasPermission(org_role, "worker.review") : false,
     worker_create: org_role ? hasPermission(org_role, "worker.create") : false,
     worker_manage: org_role ? hasPermission(org_role, "worker.manage") : false,
-    worker_edit: org_role ? hasPermission(org_role, "worker.edit") : false
+    worker_edit: org_role ? hasPermission(org_role, "worker.edit") : false,
+    /* Rechnungen (Welle J7): dieselbe Berechtigung, die die Endpunkte unter
+     * /invoices/operational verlangen (`rperm("org.billing")` — owner, admin,
+     * finance). Die Oberflaeche zeigt den Reiter nur, wer ihn auch bedienen
+     * darf; der Riegel bleibt der Server. Ohne diese Zeile muesste das
+     * Frontend die Rollenliste ein zweites Mal kennen — genau die
+     * Schattenwahrheit, die sich irgendwann auseinanderlebt. */
+    org_billing: org_role ? hasPermission(org_role, "org.billing") : false
   };
   const surface_access = resolveEnterpriseSurfaceAccess({
     plan,

@@ -58,7 +58,7 @@ await withStaffContext(pool, async (client) => { /* ... */ }, {
 >
 > **Dieser Abschnitt wird generiert.** Von Hand geaendert haelt er nicht: der Waechter vergleicht ihn Zeichen fuer Zeichen mit der Registry. Neu rendern mit `node scripts/render-mandanten-modell.js --write`.
 
-**78 Tabellen** tragen einen Fremdschluessel auf `organizations`. 26 Backstop steht · 0 Backstop moeglich · 25 Backstop moeglich, aber nicht nachweisbar · 10 Backstop NICHT moeglich · 17 Kein Mandantentraeger.
+**79 Tabellen** tragen einen Fremdschluessel auf `organizations`. 26 Backstop steht · 0 Backstop moeglich · 26 Backstop moeglich, aber nicht nachweisbar · 10 Backstop NICHT moeglich · 17 Kein Mandantentraeger.
 
 ### 🔴 Backstop steht — RLS aktiv (26)
 
@@ -100,7 +100,7 @@ Mandanten-privat, und die Traegerspalte steht in **jeder** Zeile. RLS kann hier 
 | Tabelle | Traegerspalte(n) | Bestand | Anmerkung |
 |---|---|---|---|
 
-### ⚪ Backstop moeglich, aber nicht nachweisbar — Tabelle ist leer (25)
+### ⚪ Backstop moeglich, aber nicht nachweisbar — Tabelle ist leer (26)
 
 Traegerspalte vorhanden, noch keine Zeilen. Technisch aktivierbar; an echten Daten laesst sich die Trennung heute nicht zeigen.
 
@@ -114,6 +114,7 @@ Traegerspalte vorhanden, noch keine Zeilen. Technisch aktivierbar; an echten Dat
 | `billing_usage_metrics` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
 | `data_governance_requests` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
 | `flagged_search_queries` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `invoice_number_sequences` | `supplier_org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
 | `match_logs` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
 | `org_active_addons` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
 | `org_erp_mappings` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
