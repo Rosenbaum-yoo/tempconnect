@@ -320,21 +320,29 @@ const PARTEI_FELDER = {
  * das am Tag der ersten abgewiesenen Rechnung zu merken. `pruefePflichtfelder` benutzt
  * dieselbe Funktion, damit die Regeln nicht an zwei Stellen gepflegt werden muessen.
  *
+ * Jeder Eintrag traegt zusaetzlich einen `schluessel`: einen stabilen,
+ * maschinenlesbaren Bezeichner des fehlenden Feldes. Der Klartext in `feld` ist
+ * fuer Menschen und darf sich aendern; eine Oberflaeche, die das fehlende
+ * Eingabefeld markieren will, braucht etwas, das sich NICHT aendert. Bewusst
+ * kein DB-Spaltenname — diese Funktion soll nicht wissen muessen, woher die
+ * Daten kommen.
+ *
  * @param {object} partei Ergebnis von `firmaZuPartei`
  * @param {"verkaeufer"|"kaeufer"} rolle
- * @returns {Array<{bt: string, feld: string, hinweis: string}>}
+ * @returns {Array<{bt: string, feld: string, hinweis: string, schluessel: string}>}
  */
 export function pruefeFirmenstammdaten(partei, rolle = "verkaeufer") {
   const f = PARTEI_FELDER[rolle] || PARTEI_FELDER.verkaeufer;
   const wo = `Firmenstammdaten des ${f.rolle}s`;
   const fehlend = [];
-  const fehlt = (bt, feld) => fehlend.push({ bt, feld: `${f.rolle}: ${feld}`, hinweis: wo });
+  const fehlt = (bt, feld, schluessel) =>
+    fehlend.push({ bt, feld: `${f.rolle}: ${feld}`, hinweis: wo, schluessel });
 
-  if (!partei?.name) fehlt(f.name, "Name");
-  if (!partei?.strasse) fehlt(f.strasse, "Strasse");
-  if (!partei?.ort) fehlt(f.ort, "Ort");
-  if (!partei?.plz) fehlt(f.plz, "Postleitzahl");
-  if (!partei?.land) fehlt(f.land, "Land");
+  if (!partei?.name) fehlt(f.name, "Name", "name");
+  if (!partei?.strasse) fehlt(f.strasse, "Strasse", "strasse");
+  if (!partei?.ort) fehlt(f.ort, "Ort", "ort");
+  if (!partei?.plz) fehlt(f.plz, "Postleitzahl", "plz");
+  if (!partei?.land) fehlt(f.land, "Land", "land");
 
   // Nur der Rechnungssteller braucht zwingend eine steuerliche Kennung —
   // USt-IdNr. ODER Steuernummer, eines von beiden genuegt.
@@ -342,7 +350,11 @@ export function pruefeFirmenstammdaten(partei, rolle = "verkaeufer") {
     fehlend.push({
       bt: "BT-31",
       feld: `${f.rolle}: USt-IdNr. oder Steuernummer`,
-      hinweis: `Mindestens eine steuerliche Kennung ist Pflicht. ${wo}.`
+      hinweis: `Mindestens eine steuerliche Kennung ist Pflicht. ${wo}.`,
+      /* Ein Schluessel fuer zwei Felder: die Norm verlangt eines von beiden,
+         also markiert die Oberflaeche auch beide — und nicht willkuerlich das
+         eine, das ein Kleinunternehmer ohne USt-IdNr. nie ausfuellen wird. */
+      schluessel: "steuerkennung"
     });
   }
   return fehlend;

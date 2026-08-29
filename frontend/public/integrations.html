@@ -106,6 +106,11 @@
         <button class="ds-btn ds-btn--sm" id="btnERechnungPruefen" type="button" data-feature-key="integrations" data-i18n="sp.b.erech.check">Stammdaten pr&uuml;fen</button>
       </div>
       <div id="eRechnungStatus" style="margin-top:var(--ds-space-3)" aria-live="polite"></div>
+      <!-- Die Pflegemaske: sie steht bewusst IN dieser Karte und nicht auf einer
+           eigenen Seite. Wer hier erfaehrt, dass die USt-IdNr. fehlt, soll sie
+           hier eintragen koennen. Der bisherige Verweis auf "die Firmenstammdaten"
+           war eine Sackgasse: diese Maske gab es nirgends. -->
+      <div id="eRechnungPflege"></div>
     </div>
 
     <div style="display:flex;justify-content:flex-end;margin-bottom:var(--ds-space-2)">
@@ -216,6 +221,27 @@
         'sp.b.erech.hintTitle': 'Empfehlung (keine Pflichtangabe):',
         'sp.b.erech.where': 'Nachzutragen in den Firmenstammdaten Ihrer Organisation.',
         'sp.b.erech.deadline': 'Versandpflicht ab 1. Januar 2027 (über 800.000 € Umsatz), ab 1. Januar 2028 für alle.',
+        'sp.b.stamm.open': 'Stammdaten pflegen',
+        'sp.b.stamm.openReady': 'Stammdaten ansehen und ändern',
+        'sp.b.stamm.intro': 'Diese Angaben stehen auf jeder Rechnung Ihrer Organisation. Sie gehören zur Firma als Rechtsperson – nicht zu Ihrem persönlichen Profil.',
+        'sp.b.stamm.legalName': 'Rechtsname der Firma',
+        'sp.b.stamm.street': 'Straße und Hausnummer',
+        'sp.b.stamm.address2': 'Adresszusatz (optional)',
+        'sp.b.stamm.postal': 'Postleitzahl',
+        'sp.b.stamm.city': 'Ort',
+        'sp.b.stamm.country': 'Land (2 Buchstaben, z. B. DE)',
+        'sp.b.stamm.vatId': 'USt-IdNr.',
+        'sp.b.stamm.taxId': 'Steuernummer',
+        'sp.b.stamm.iban': 'IBAN (empfohlen)',
+        'sp.b.stamm.bic': 'BIC (empfohlen)',
+        'sp.b.stamm.missing': '– fehlt',
+        'sp.b.stamm.save': 'Speichern',
+        'sp.b.stamm.cancel': 'Abbrechen',
+        'sp.b.stamm.saving': 'Wird gespeichert…',
+        'sp.b.stamm.nochange': 'Es wurde nichts geändert.',
+        'sp.b.stamm.forbidden': 'Für diese Änderung fehlt Ihnen die Berechtigung.',
+        'sp.b.stamm.invalid': 'Eine Angabe wurde abgelehnt. Das Land muss aus genau zwei Buchstaben bestehen (DE, AT, CH).',
+        'sp.b.stamm.error': 'Speichern fehlgeschlagen. Bitte erneut versuchen.',
         'sp.b.erech.forbidden': 'Für die Prüfung wird die Berechtigung für Abrechnung benötigt.',
         'sp.b.erech.error': 'Die Prüfung ist fehlgeschlagen. Bitte später erneut versuchen.',
 
@@ -309,6 +335,27 @@
         'sp.b.erech.hintTitle': 'Recommended (not required):',
         'sp.b.erech.where': 'Add these in your organisation\u2019s company details.',
         'sp.b.erech.deadline': 'Mandatory from 1 January 2027 (over €800,000 revenue), and from 1 January 2028 for everyone.',
+        'sp.b.stamm.open': 'Edit company details',
+        'sp.b.stamm.openReady': 'View and edit company details',
+        'sp.b.stamm.intro': 'These details appear on every invoice your organisation issues. They belong to the company as a legal entity \u2013 not to your personal profile.',
+        'sp.b.stamm.legalName': 'Registered company name',
+        'sp.b.stamm.street': 'Street and number',
+        'sp.b.stamm.address2': 'Address line 2 (optional)',
+        'sp.b.stamm.postal': 'Postcode',
+        'sp.b.stamm.city': 'City',
+        'sp.b.stamm.country': 'Country (2 letters, e.g. DE)',
+        'sp.b.stamm.vatId': 'VAT ID',
+        'sp.b.stamm.taxId': 'Tax number',
+        'sp.b.stamm.iban': 'IBAN (recommended)',
+        'sp.b.stamm.bic': 'BIC (recommended)',
+        'sp.b.stamm.missing': '\u2013 missing',
+        'sp.b.stamm.save': 'Save',
+        'sp.b.stamm.cancel': 'Cancel',
+        'sp.b.stamm.saving': 'Saving\u2026',
+        'sp.b.stamm.nochange': 'Nothing was changed.',
+        'sp.b.stamm.forbidden': 'You do not have permission to make this change.',
+        'sp.b.stamm.invalid': 'One entry was rejected. The country must be exactly two letters (DE, AT, CH).',
+        'sp.b.stamm.error': 'Saving failed. Please try again.',
         'sp.b.erech.forbidden': 'Checking requires the billing permission.',
         'sp.b.erech.error': 'The check failed. Please try again later.',
 
@@ -694,9 +741,182 @@
         }
 
         teile.push('<p style="' + grau + ';margin:0">' + esc(t('sp.b.erech.deadline')) + '</p>');
+
+        /* Der Weg aus der Meldung heraus. Ohne diesen Knopf endet die Karte
+           mit "das fehlt" und laesst den Nutzer stehen. */
+        if (d.darf_pflegen) {
+          teile.push('<button type="button" class="ds-btn ds-btn--sm" id="btnStammPflegen" style="margin-top:6px">' +
+            esc(t(d.bereit ? 'sp.b.stamm.openReady' : 'sp.b.stamm.open')) + '</button>');
+        }
         box.innerHTML = teile.join('');
+        stammStand = d;
+        var btnPflegen = document.getElementById('btnStammPflegen');
+        if (btnPflegen) btnPflegen.addEventListener('click', function () {
+          stammOffen = !stammOffen;
+          renderStammFormular();
+        });
+        renderStammFormular();
       } catch {
         box.innerHTML = '<p style="color:var(--ds-danger);font-size:13px">' + esc(t('sp.b.erech.error')) + '</p>';
+      }
+    }
+
+
+    /* ═══════════════════════════════════════════════════════════════════════
+     *  RECHNUNGSSTAMMDATEN PFLEGEN (Welle J7)
+     * ═══════════════════════════════════════════════════════════════════════
+     *
+     * Die Bereitschaftspruefung darueber sagte bisher "Nachzutragen in den
+     * Firmenstammdaten Ihrer Organisation" — und das war eine Sackgasse. Es
+     * gibt keine solche Maske: `slaProfil.js` pflegt Strasse, PLZ und Ort auf
+     * `users`, also am Nutzer, waehrend die Norm sie auf der RECHTSPERSON
+     * verlangt. Gemessen am 2026-08-28 hatte keine einzige von 2240
+     * Organisationen eine Anschrift, obwohl Migration 187 die Spalten seit
+     * Wochen bereithielt.
+     *
+     * Das Formular steht deshalb genau hier, an der Stelle, an der die Luecke
+     * gemeldet wird. Wer erfaehrt, dass die USt-IdNr. fehlt, soll sie im selben
+     * Atemzug eintragen koennen — nicht erst eine Seite suchen, die es nicht
+     * gibt.
+     *
+     * Es erscheint nur, wenn `darf_pflegen` es erlaubt: `org.billing` sieht die
+     * Bereitschaft, `org.settings` aendert die Stammdaten. Ohne diese Trennung
+     * bekaeme ein Nutzer mit Rechnungseinsicht ein Formular, das beim Speichern
+     * mit 403 endet.
+     */
+
+    /* Die Felder der Maske. `schluessel` bindet sie an die Meldung der
+       Pruefung: fehlt "plz", wird genau dieses Feld markiert. Ein Schluessel
+       darf auf mehreren Feldern liegen — bei der steuerlichen Kennung genuegt
+       eines von beiden, also gehoeren beide markiert. */
+    var STAMM_FELDER = [
+      { key: 'legal_name',           label: 'sp.b.stamm.legalName',  schluessel: 'name',          breit: true },
+      { key: 'billing_street',       label: 'sp.b.stamm.street',     schluessel: 'strasse',       breit: true },
+      { key: 'billing_address_2',    label: 'sp.b.stamm.address2',   schluessel: null,            breit: true },
+      { key: 'billing_postal_code',  label: 'sp.b.stamm.postal',     schluessel: 'plz' },
+      { key: 'billing_city',         label: 'sp.b.stamm.city',       schluessel: 'ort' },
+      { key: 'billing_country_code', label: 'sp.b.stamm.country',    schluessel: 'land',    maxlen: 2 },
+      { key: 'vat_id',               label: 'sp.b.stamm.vatId',      schluessel: 'steuerkennung' },
+      { key: 'tax_id',               label: 'sp.b.stamm.taxId',      schluessel: 'steuerkennung' },
+      { key: 'iban',                 label: 'sp.b.stamm.iban' },
+      { key: 'bic',                  label: 'sp.b.stamm.bic' }
+    ];
+
+    var stammStand = null;   // letzte Antwort der Bereitschaftspruefung
+    var stammOffen = false;
+
+    function stammFehlendeSchluessel() {
+      if (!stammStand || !stammStand.fehlend) return {};
+      var m = {};
+      stammStand.fehlend.forEach(function (f) { if (f.schluessel) m[f.schluessel] = true; });
+      return m;
+    }
+
+    function renderStammFormular() {
+      var box = document.getElementById('eRechnungPflege');
+      if (!box) return;
+      if (!stammOffen || !stammStand || !stammStand.darf_pflegen) { box.innerHTML = ''; return; }
+
+      var werte = stammStand.werte || {};
+      var fehlt = stammFehlendeSchluessel();
+      var grau = 'color:var(--ds-text-secondary,var(--muted));font-size:12px';
+      var h = ['<div style="margin-top:var(--ds-space-3);padding-top:var(--ds-space-3);border-top:1px solid var(--ds-border)">'];
+      h.push('<p style="' + grau + ';margin:0 0 10px">' + esc(t('sp.b.stamm.intro')) + '</p>');
+      h.push('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">');
+
+      STAMM_FELDER.forEach(function (f) {
+        var v = werte[f.key] == null ? '' : String(werte[f.key]);
+        var offen = f.schluessel && fehlt[f.schluessel];
+        var rand = offen ? 'var(--ds-danger)' : 'var(--ds-border)';
+        h.push('<div style="' + (f.breit ? 'grid-column:1/-1' : '') + '">');
+        h.push('<label for="stamm-' + esc(f.key) + '" style="display:block;' + grau + ';margin-bottom:3px">' +
+          esc(t(f.label)) + (offen ? ' <span style="color:var(--ds-danger)">' + esc(t('sp.b.stamm.missing')) + '</span>' : '') +
+          '</label>');
+        h.push('<input id="stamm-' + esc(f.key) + '" type="text" value="' + esc(v) + '"' +
+          (f.maxlen ? ' maxlength="' + f.maxlen + '"' : '') +
+          ' style="width:100%;padding:7px 9px;border:1px solid ' + rand +
+          ';border-radius:var(--ds-radius-sm,6px);background:var(--ds-bg);color:var(--ds-text);font-size:13px"/>');
+        h.push('</div>');
+      });
+
+      h.push('</div>');
+      h.push('<div id="stammMeldung" aria-live="polite" style="margin-top:8px;font-size:13px"></div>');
+      h.push('<div style="display:flex;gap:8px;margin-top:10px">');
+      h.push('<button type="button" class="ds-btn ds-btn--sm" id="btnStammAbbrechen">' + esc(t('sp.b.stamm.cancel')) + '</button>');
+      h.push('<button type="button" class="ds-btn ds-btn--sm ds-btn--primary" id="btnStammSpeichern">' + esc(t('sp.b.stamm.save')) + '</button>');
+      h.push('</div></div>');
+      box.innerHTML = h.join('');
+
+      var ab = document.getElementById('btnStammAbbrechen');
+      if (ab) ab.addEventListener('click', function () { stammOffen = false; renderStammFormular(); });
+      var sp = document.getElementById('btnStammSpeichern');
+      if (sp) sp.addEventListener('click', stammSpeichern);
+    }
+
+    async function stammSpeichern() {
+      var meld = document.getElementById('stammMeldung');
+      var knopf = document.getElementById('btnStammSpeichern');
+      if (!stammStand || !stammStand.org_id) return;
+
+      /* Nur geaenderte Felder senden. Ein Vollschreiben aller zehn Werte
+         wuerde jedes Mal alle Spalten anfassen — im Audit stuende dann bei
+         jeder Korrektur einer PLZ, es seien zehn Felder geaendert worden, und
+         `changed_fields` waere als Spur wertlos. */
+      var werte = stammStand.werte || {};
+      var body = {};
+      STAMM_FELDER.forEach(function (f) {
+        var el = document.getElementById('stamm-' + f.key);
+        if (!el) return;
+        var neu = el.value.trim();
+        var alt = werte[f.key] == null ? '' : String(werte[f.key]);
+        /* Leeren heisst null, nicht Leerstring: eine leere Zeichenkette waere
+           fuer die Pruefung ein gesetzter Wert und der Fehler verschwaende
+           scheinbar, ohne dass etwas gepflegt wurde. */
+        if (neu !== alt) body[f.key] = neu === '' ? null : neu;
+      });
+
+      if (!Object.keys(body).length) {
+        if (meld) meld.innerHTML = '<span style="color:var(--ds-text-secondary,var(--muted))">' +
+          esc(t('sp.b.stamm.nochange')) + '</span>';
+        return;
+      }
+
+      if (knopf) { knopf.disabled = true; }
+      if (meld) meld.innerHTML = '<span style="color:var(--ds-text-secondary,var(--muted))">' +
+        esc(t('sp.b.stamm.saving')) + '</span>';
+      try {
+        var token = await getCSRF();
+        var r = await fetch(API + '/organizations/' + encodeURIComponent(stammStand.org_id), {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+          body: JSON.stringify(body)
+        });
+        if (r.status === 401 || r.status === 403) {
+          if (meld) meld.innerHTML = '<span style="color:var(--ds-danger)">' + esc(t('sp.b.stamm.forbidden')) + '</span>';
+          return;
+        }
+        if (r.status === 400) {
+          /* Die Norm verlangt fuer das Land zwei Buchstaben (BT-40). Wer "DEU"
+             eintraegt, bekommt hier eine Zeile, die das sagt — nicht ein
+             generisches "Fehler". */
+          if (meld) meld.innerHTML = '<span style="color:var(--ds-danger)">' + esc(t('sp.b.stamm.invalid')) + '</span>';
+          return;
+        }
+        if (!r.ok) {
+          if (meld) meld.innerHTML = '<span style="color:var(--ds-danger)">' + esc(t('sp.b.stamm.error')) + '</span>';
+          return;
+        }
+        /* Gespeichert: die Pruefung sofort neu fahren. Der Nutzer soll im
+           selben Moment sehen, ob die Luecke wirklich zu ist — eine Meldung
+           "gespeichert" allein beantwortet die Frage nicht, die ihn
+           hergefuehrt hat. */
+        stammOffen = false;
+        await ladeERechnungBereitschaft();
+      } catch {
+        if (meld) meld.innerHTML = '<span style="color:var(--ds-danger)">' + esc(t('sp.b.stamm.error')) + '</span>';
+      } finally {
+        if (knopf) knopf.disabled = false;
       }
     }
 

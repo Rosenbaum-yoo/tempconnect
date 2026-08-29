@@ -2,6 +2,47 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-08-29 — Die Sackgasse hinter der E-Rechnung: es gab keine Pflegemaske
+
+**Status:** erledigt · **Kategorie:** Produktausbau (Verdrahtung) · **Fund beim Weiterbau der Oberflächen.**
+
+**Der Befund.** Migration 187 schuf die Rechnungsstammdaten, die E-Rechnung braucht sie,
+und die Bereitschaftsprüfung auf `integrations.html` meldete brav, welche fehlen — mit
+dem Hinweis „Nachzutragen in den Firmenstammdaten Ihrer Organisation". **Diesen Ort gab
+es nicht.** `slaProfil.js` pflegt Straße, PLZ und Ort auf `users`, also am Nutzer,
+während die Norm sie auf der Rechtsperson verlangt. Gemessen am 2026-08-28: keine
+einzige von 2240 Organisationen hatte eine Anschrift. Die Prüfung hätte auf ewig
+Fehlanzeige gemeldet, ohne dass jemand etwas dagegen tun konnte.
+
+**Geliefert:**
+- Die Pflegemaske steht **in der Karte, die die Lücke meldet** — nicht auf einer eigenen
+  Seite. Wer erfährt, dass die USt-IdNr. fehlt, trägt sie im selben Atemzug ein. Nach dem
+  Speichern läuft die Prüfung sofort neu: der Nutzer sieht, ob die Lücke wirklich zu ist.
+- `pruefeFirmenstammdaten` gibt je fehlender Angabe einen stabilen `schluessel` zurück.
+  Damit markiert die Oberfläche genau das fehlende Feld, ohne deutschen Klartext
+  auszuwerten. USt-IdNr. und Steuernummer teilen sich einen Schlüssel — die Norm verlangt
+  eines von beiden, also werden beide markiert und nicht willkürlich das eine, das ein
+  Kleinunternehmer nie ausfüllen wird.
+- Die Bereitschaft liefert zusätzlich `werte` (die aktuellen Stammdaten) und `org_id`.
+  Ohne die Werte könnte das Formular nur leer sein — und ein leeres Formular über
+  vorhandenen Daten ist die Einladung, sie zu überschreiben.
+- **`darf_pflegen` entscheidet das Backend, nicht der Browser.** `org.billing` sieht die
+  Bereitschaft, `org.settings` ändert die Stammdaten. Ohne diese Trennung bekäme ein
+  Nutzer mit Rechnungseinsicht ein Formular, das beim Speichern mit 403 endet.
+- Gesendet werden **nur geänderte** Felder: sonst meldete das Audit bei jeder Korrektur
+  einer Postleitzahl zehn geänderte Felder und `changed_fields` wäre als Spur wertlos.
+  Ein geleertes Feld wird `null`, nicht Leerstring — sonst sähe die Prüfung einen
+  gesetzten Wert und der Fehler verschwände, ohne dass etwas gepflegt wurde.
+
+**Verifiziert im Browser** (Worktree-Server, gestubbte API): Endpunkt gerufen, Lücken
+gerendert, genau die fehlenden Felder rot, vorhandene vorbefüllt; Speichern schickt CSRF
+und exakt die drei geänderten Felder an `PATCH /organizations/:id`, danach Prüfung neu →
+„vollständig". Fünf Zustände einzeln geprüft: ohne Änderungsrecht kein Knopf, 403, 400,
+nichts geändert, Netzfehler — jeder mit eigener Meldung, Knopf danach wieder bedienbar.
+Auf 375 px eine Spalte, kein Überlauf. 20 Tests in `rechnungsstammdatenMaske.test.js`.
+
+**Offen aus J7:** ein PDF für operative Rechnungen (bisher CSV und E-Rechnung).
+
 ### 2026-08-29 — Wer eine Rechnung stellen darf: eine Rolle, die niemand geprueft hat
 
 **Status:** erledigt · **Kategorie:** Sicherheit (Rollen-Logik) · **Fund beim Bau der Empfangsseite.**

@@ -848,6 +848,30 @@ export async function pruefeERechnungBereitschaft(pool, orgId) {
     bereit: fehlend.length === 0,
     fehlend,
     hinweise,
+    /*
+     * Die aktuellen Werte mitgeben, nicht nur was fehlt.
+     *
+     * Ohne sie kann eine Pflegemaske nur ein leeres Formular zeigen — und ein
+     * leeres Formular ueber vorhandenen Daten ist die Einladung, sie
+     * versehentlich zu loeschen. Ein zweiter Endpunkt waere der Umweg: wer die
+     * Bereitschaft sehen darf (org.billing), darf genau diese Angaben sehen.
+     *
+     * Nur die Felder, die auch pflegbar sind: `name` steht bewusst nicht hier,
+     * er kommt aus der Organisation selbst und wird nicht ueber diese Maske
+     * geaendert.
+     */
+    werte: {
+      legal_name: org.legal_name || null,
+      billing_street: org.billing_street || null,
+      billing_address_2: org.billing_address_2 || null,
+      billing_postal_code: org.billing_postal_code || null,
+      billing_city: org.billing_city || null,
+      billing_country_code: org.billing_country_code || null,
+      vat_id: org.vat_id || null,
+      tax_id: org.tax_id || null,
+      iban: org.iban || null,
+      bic: org.bic || null
+    },
     fristen: {
       empfangspflicht_seit: "2025-01-01",
       versandpflicht_ab_800k_umsatz: "2027-01-01",

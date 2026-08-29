@@ -14,6 +14,7 @@ import * as invoiceService from "../services/invoiceService.js";
 import * as opInvoice from "../services/operationalInvoiceService.js";
 import { renderInvoiceHtml, renderInvoiceText, renderInvoicePdf } from "../services/invoicePdfService.js";
 import { requirePermission } from "../middleware/rbac.js";
+import { hasPermission } from "../services/rbacService.js";
 import { requireScope } from "../middleware/apiKeyAuth.js";
 import * as integrationService from "../services/integrationService.js";
 import * as erpMappingService from "../services/erpMappingService.js";
@@ -116,7 +117,27 @@ export function createInvoicesRouter(deps) {
       const ergebnis = await opInvoice.pruefeERechnungBereitschaft(pool, req.orgId);
       if (!ergebnis) return res.status(404).json({ error: "ORG_NOT_FOUND" });
       if (ergebnis.error) return res.status(400).json(ergebnis);
-      res.json(ergebnis);
+      /*
+       * Darf dieser Nutzer die Luecke auch SCHLIESSEN?
+       *
+       * Zwei verschiedene Rechte: `org.billing` sieht die Bereitschaft,
+       * `org.settings` aendert die Stammdaten (PATCH /organizations/:id). Wer
+       * nur das erste hat, bekaeme sonst eine Pflegemaske, die beim Speichern
+       * mit 403 endet — ein toter Knopf, den die Projektregeln ausdruecklich
+       * verbieten.
+       *
+       * Die Entscheidung faellt hier und nicht im Browser: das Frontend zeigt
+       * an, was das Backend erlaubt, und leitet nichts selbst ab.
+       */
+      res.json({
+        ...ergebnis,
+        darf_pflegen: req.orgRole ? hasPermission(req.orgRole, "org.settings") : false,
+        /* Die eigene Kennung mitgeben: die Pflegemaske schreibt nach
+           PATCH /organizations/:id und braeuchte sonst einen zweiten Aufruf nur,
+           um zu erfahren, wer sie selbst ist. Kein Geheimnis — sie steht in
+           jeder anderen Antwort dieser Sitzung. */
+        org_id: req.orgId
+      });
     } catch (err) { next(err); }
   });
 
