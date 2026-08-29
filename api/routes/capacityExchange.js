@@ -7,6 +7,7 @@
 import { z } from "zod";
 import { Router } from "express";
 import * as capacityExchangeService from "../services/capacityExchangeService.js";
+import * as feedKopie from "../services/feedKopieService.js";
 import * as capacityOfferGeneratorService from "../services/capacityOfferGeneratorService.js";
 import * as capacityOfferMatchService from "../services/capacityOfferMatchService.js";
 import * as marketplaceService from "../services/marketplaceService.js";
@@ -519,6 +520,12 @@ export function createCapacityExchangeRouter(deps) {
   /* ── Company: Browse capacity feed ────────────────── */
 
   router.get("/capacity-exchange/feed", requireAuth, requireScope("read:capacity"), async (req, res) => {
+    /* VOR dem try deklariert, damit der Rueckfall im catch weiss, WAS gefragt
+     * wurde. Mit `const` innerhalb des try war es dort nicht sichtbar — die
+     * Routenprobe hat es beim ersten Lauf gefunden (ReferenceError). Bleibt es
+     * null, ist der Fehler vor dem Zusammenbauen aufgetreten; dann wissen wir
+     * nicht, wonach gesucht wurde, und liefern ehrlich den Fehler. */
+    let opts = null;
     try {
       const me = await getUserAndPlan(req.session.userId);
       let interAgencyEnabled = false;
@@ -529,7 +536,7 @@ export function createCapacityExchangeRouter(deps) {
         interAgencyEnabled = planAllows && settings.inter_agency_matching_enabled === true;
         interAgencySupplyVisible = interAgencyEnabled && settings.inter_agency_supply_visible === true;
       }
-      const opts = {
+      opts = {
         worker_category: req.query.worker_category || undefined,
         role: req.query.role || undefined,
         location_city: req.query.city || undefined,
@@ -565,9 +572,48 @@ export function createCapacityExchangeRouter(deps) {
         opts.merkmale = geprueft.ok;
       }
       const result = await capacityExchangeService.browseFeed(pool, opts);
+
+      /* Die letzte gute Seite aufheben (Welle K4). Fire-and-forget: eine
+       * misslungene Kopie darf die Antwort nie aufhalten. Nur die
+       * ungefilterte erste Seite — siehe feedKopieService. */
+      if (feedKopie.istKopierwuerdig(opts)) {
+        feedKopie.kopieSchreiben(pool, result).catch(() => {});
+      }
+
       res.json(result);
     } catch (e) {
       logger.error({ err: e }, "GET /capacity-exchange/feed");
+
+      /*
+       * EIN FEHLER DARF NIE ZU EINER LEEREN LISTE WERDEN (Welle K4).
+       *
+       * Am 26.08. warf dieser Endpunkt fuer JEDEN angemeldeten Betrachter
+       * einen 500er. Was ankam, war eine leere Flaeche — ununterscheidbar von
+       * "es gibt gerade keine Angebote". Das ist die schlimmere Lesart: sie
+       * ist falsch UND sie alarmiert niemanden.
+       *
+       * Nur fuer den ungefilterten Normalfall: wer gefiltert hat, bekaeme
+       * sonst eine Liste, die seinen Filter ignoriert — und das waere eine
+       * neue Unwahrheit statt einer alten.
+       */
+      if (opts && feedKopie.istKopierwuerdig(opts)) {
+        const kopie = await feedKopie.kopieLesen(pool);
+        if (kopie) {
+          /* Das Festhalten des Rueckfalls (Zaehler + Fehler-Protokoll)
+           * passiert in `kopieLesen`. Hier stand zuerst ein dispatch() auf
+           * `system.feed_rueckfall` — der waere still versickert: die
+           * Meldungs-Matrix ueberspringt unbekannte Schluessel wortlos, und
+           * eine Empfaenger-Strategie fuer das Team gibt es dort nicht. */
+          return res.json({
+            ...kopie.inhalt,
+            /* Die Oberflaeche MUSS den Stand zeigen. Eine Kopie, die man fuer
+             * aktuell haelt, ist gefaehrlicher als gar keine. */
+            aus_kopie: true,
+            kopie_stand: kopie.erstellt_am
+          });
+        }
+      }
+
       res.status(500).json({ error: "SERVER_ERROR" });
     }
   });
