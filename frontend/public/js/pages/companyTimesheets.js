@@ -81,6 +81,7 @@
     'cts.inv.vat': 'MwSt. {pct} %',
     'cts.inv.total': 'Gesamtbetrag',
     'cts.inv.csv': 'CSV',
+    'cts.inv.pdf': 'Beleg (PDF)',
     'cts.inv.xml': 'E-Rechnung (XML)',
     'cts.tab.live': 'Live-Belegschaft',
     'cts.tab.complaints': 'Meine Meldungen',
@@ -189,6 +190,7 @@
     'cts.inv.vat': 'VAT {pct}%',
     'cts.inv.total': 'Total',
     'cts.inv.csv': 'CSV',
+    'cts.inv.pdf': 'Document (PDF)',
     'cts.inv.xml': 'E-invoice (XML)',
     'cts.tab.live': 'Live workforce',
     'cts.tab.complaints': 'My reports',
@@ -634,6 +636,7 @@
     document.getElementById('ciDetailActions').innerHTML =
       '<button class="ct-btn" onclick="ciClose()">' + esc(t('cts.action.close')) + '</button>' +
       '<a class="ct-btn" style="text-decoration:none" href="' + basis + '/export/csv">' + esc(t('cts.inv.csv')) + '</a>' +
+      '<a class="ct-btn" style="text-decoration:none" href="' + basis + '/pdf?anhang=1">' + esc(t('cts.inv.pdf')) + '</a>' +
       '<a class="ct-btn ct-btn--ok" style="text-decoration:none" href="' + basis + '/e-rechnung">' + esc(t('cts.inv.xml')) + '</a>';
   }
 

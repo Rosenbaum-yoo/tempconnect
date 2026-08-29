@@ -20,6 +20,7 @@ import * as integrationService from "../services/integrationService.js";
 import * as erpMappingService from "../services/erpMappingService.js";
 import { buildFibuBuchungsstapel } from "../services/datevExportService.js";
 import { erzeugeERechnung, RECHNUNGSFORMATE } from "../services/eRechnungService.js";
+import { erzeugeOperativesRechnungsPdf } from "../services/operationalInvoicePdfService.js";
 
 export function createInvoicesRouter(deps) {
   const { pool, requireAuth, logger, requestLimiter } = deps;
@@ -452,6 +453,72 @@ export function createInvoicesRouter(deps) {
         entityType: "e_rechnung",
         entityId: daten.invoice.id,
         message: `Rechnung ${daten.invoice.invoice_number} als ${ergebnis.format.toUpperCase()} exportiert`,
+        count: 1
+      }).catch(swallow("invoice.integration.dispatch"));
+    } catch (err) { next(err); }
+  });
+
+  /* GET /invoices/operational/:id/pdf — der menschenlesbare Beleg.
+
+     NICHT der Renderer aus `invoicePdfService`: der setzt COMPANY als Absender, also
+     die Plattformfirma. Hier stellt die ZEITARBEITSFIRMA dem Unternehmen die Stunden
+     in Rechnung; TempConnect ist Vermittler, nicht Leistungserbringer. Ein PDF mit
+     TempConnect im Absenderfeld waere kein Schoenheitsfehler, sondern ein falscher
+     Beleg — der Empfaenger zoege Vorsteuer bei der falschen Firma.
+
+     Zweiseitig lesbar wie die E-Rechnung: der Empfaenger braucht seine
+     Eingangsrechnung genauso wie der Aussteller seine Ausgangsrechnung. Die
+     Mandantengrenze prueft `ladeERechnungsdaten` fuer beide Seiten.
+
+     ?anhang=1 bettet die CII-Nutzlast als Datei ein. Das ist die GRUNDLAGE eines
+     Factur-X-Belegs, nicht das zertifizierte Format — dafuer fehlt PDF/A-3. Der
+     Kopf `X-Rechnung-Hybrid` sagt, was tatsaechlich drin ist, statt es zu
+     behaupten. */
+  router.get("/invoices/operational/:id/pdf", requireAuth, exportLimiter, rperm("org.billing"), async (req, res, next) => {
+    try {
+      const daten = await opInvoice.ladeERechnungsdaten(pool, req.params.id, req.orgId);
+      if (!daten) return res.status(404).json({ error: "NOT_FOUND" });
+      if (daten.error) return res.status(403).json(daten);
+
+      /* Der Anhang nur, wenn er auch normkonform waere: die E-Rechnung prueft
+         dieselben Pflichtfelder und liefert bei Luecken gar nichts. Ein PDF mit
+         unvollstaendigem XML im Bauch waere schlimmer als eines ohne — ein
+         Empfaengersystem laese die Daten und wiese sie ab. */
+      let xmlAnhang = null;
+      if (String(req.query.anhang || "") === "1") {
+        const e = erzeugeERechnung({
+          format: "zugferd",
+          invoice: daten.invoice, items: daten.items,
+          verkaeufer: daten.verkaeufer, kaeufer: daten.kaeufer
+        });
+        if (e.ok) xmlAnhang = e.xml;
+      }
+
+      const ergebnis = await erzeugeOperativesRechnungsPdf({
+        invoice: daten.invoice,
+        items: daten.items,
+        verkaeufer: daten.verkaeufer,
+        kaeufer: daten.kaeufer,
+        xmlAnhang
+      });
+
+      if (!ergebnis.ok) {
+        return res.status(422).json({
+          error: "PFLICHTFELDER_FEHLEN",
+          message: "Der Beleg waere nach § 14 UStG unvollstaendig. Bitte die genannten Felder in den Firmenstammdaten ergaenzen.",
+          fehlend: ergebnis.fehlend || []
+        });
+      }
+
+      res.setHeader("Content-Type", ergebnis.contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${ergebnis.dateiname}"`);
+      res.setHeader("X-Rechnung-Hybrid", ergebnis.hybrid ? "cii-eingebettet" : "nein");
+      res.send(Buffer.from(ergebnis.pdf));
+      integrationService.dispatchToIntegrations(pool, "invoice.exported", {
+        orgId: req.orgId,
+        entityType: "rechnung_pdf",
+        entityId: daten.invoice.id,
+        message: `Rechnung ${daten.invoice.invoice_number} als PDF exportiert`,
         count: 1
       }).catch(swallow("invoice.integration.dispatch"));
     } catch (err) { next(err); }

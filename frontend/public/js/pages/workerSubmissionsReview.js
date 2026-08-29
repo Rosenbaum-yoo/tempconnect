@@ -104,6 +104,7 @@ TCi18n.register('de', {
   'ts.rev.inv.void': 'Stornieren',
   'ts.rev.inv.confirmVoid': 'Rechnung stornieren? Das lässt sich nicht rückgängig machen.',
   'ts.rev.inv.voidOk': 'Rechnung storniert',
+  'ts.rev.inv.pdf': 'PDF',
   'ts.rev.inv.csv': 'CSV',
   'ts.rev.inv.actionFail': 'Aktion fehlgeschlagen',
   'ts.rev.inv.readinessTitle': 'Rechnungsstammdaten unvollständig',
@@ -972,6 +973,7 @@ TCi18n.register('en', {
   'ts.rev.inv.void': 'Void',
   'ts.rev.inv.confirmVoid': 'Void this invoice? This cannot be undone.',
   'ts.rev.inv.voidOk': 'Invoice voided',
+  'ts.rev.inv.pdf': 'PDF',
   'ts.rev.inv.csv': 'CSV',
   'ts.rev.inv.actionFail': 'Action failed',
   'ts.rev.inv.readinessTitle': 'Invoicing details incomplete',
@@ -6062,6 +6064,13 @@ function invAktionen(r) {
   };
   let h = '<a class="wk-btn" style="text-decoration:none" href="' + API +
     '/invoices/operational/' + esc(r.id) + '/export/csv">' + esc(tt('ts.rev.inv.csv')) + '</a>';
+  /* Das PDF nur fuer GESTELLTE Rechnungen: ein Entwurf hat weder Nummer noch
+     Datum, der Beleg entstuende gar nicht (422). Ein Knopf, der verlaesslich
+     einen Fehler liefert, ist ein toter Knopf. */
+  if (r.status !== 'draft') {
+    h += ' <a class="wk-btn" style="text-decoration:none" href="' + API +
+      '/invoices/operational/' + esc(r.id) + '/pdf?anhang=1">' + esc(tt('ts.rev.inv.pdf')) + '</a>';
+  }
   if (r.status === 'draft') {
     h += knopf('invStellen', 'ts.rev.inv.issue', 'wk-btn-primary');
     h += knopf('invStornieren', 'ts.rev.inv.void', '');

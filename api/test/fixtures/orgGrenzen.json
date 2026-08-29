@@ -1583,6 +1583,18 @@
           ],
           "orgImSql": false,
           "hinweis": "E-Rechnung nach EN 16931. ladeERechnungsdaten() reicht getOperationalInvoice durch — die Zeile wird ohne Org-Filter geladen und org_id/supplier_org_id in JS verglichen, wie bei den uebrigen operativen Leserouten. Die Grenze ist bewusst ZWEISEITIG: der Entleiher braucht denselben Beleg fuer seine eigene Buchhaltung wie der Verleiher. Die zweite Abfrage (Firmenstammdaten) laeuft erst NACH dem Grenzurteil und holt ausschliesslich die beiden an der Rechnung beteiligten Organisationen. Verhaltensprobe: test/eRechnung.test.js — fremde Org bekommt 403, beide Beteiligten bekommen 200."
+        },
+        {
+          "methode": "get",
+          "pfad": "/invoices/operational/:id/pdf",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "org_id",
+            "supplier_org_id"
+          ],
+          "orgImSql": false,
+          "hinweis": "Der menschenlesbare Beleg. Geht denselben Weg wie die E-Rechnung: ladeERechnungsdaten() reicht getOperationalInvoice durch, die Zeile wird ohne Org-Filter geladen und org_id/supplier_org_id in JS verglichen. Die Grenze ist bewusst ZWEISEITIG — der Empfaenger braucht seine Eingangsrechnung genauso wie der Aussteller seine Ausgangsrechnung. Rein lesend; die Ausstellerrolle (NOT_INVOICE_ISSUER) gilt nur fuer die Schreibwege. Verhaltensprobe: test/rechnungPdf.test.js und test/rechnungRollentrennung.test.js."
         }
       ]
     },

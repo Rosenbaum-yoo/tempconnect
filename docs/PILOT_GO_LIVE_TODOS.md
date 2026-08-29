@@ -2,6 +2,50 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-08-29 — Das PDF zur operativen Rechnung (J7 abgeschlossen)
+
+**Status:** erledigt · **Kategorie:** Produktausbau · **Fund beim Bauen.**
+
+**Warum nicht der vorhandene Renderer.** `invoicePdfService.js` setzt `COMPANY` als
+Absender — die Plattformfirma. Für die Abo-Rechnungen von TempConnect an seine Kunden
+ist das richtig. Für eine **operative** Rechnung ist es falsch, und nicht kosmetisch:
+dort stellt die Zeitarbeitsfirma dem Unternehmen die Einsatzstunden in Rechnung,
+TempConnect ist Vermittler. Ein Beleg mit TempConnect im Absenderfeld schriebe der
+falschen Firma die Leistung zu — und den Vorsteuerabzug beim Empfänger gleich mit.
+Deshalb ein eigener Renderer, der beide Parteien aus den echten Stammdaten nimmt.
+
+**Geliefert:**
+- `operationalInvoicePdfService.js` — Absender und Empfänger vollständig, Positionen mit
+  Kraft, Einsatzwoche, Stunden und Satz (§ 14 Abs. 4 Nr. 5 und 6 UStG), Summen,
+  Bankverbindung, Handelsregister. Seitenumbruch ab der 30. Position: ohne ihn schreibt
+  pdf-lib stillschweigend unterhalb der Seite, der Text ist dann im Dokument, aber
+  unsichtbar — die schlechteste Art, Positionen zu verlieren.
+- **Fail-closed wie die E-Rechnung.** Fehlt eine Pflichtangabe, entsteht kein PDF,
+  sondern dieselbe Feldliste, die die Bereitschaftsprüfung zeigt und die Pflegemaske
+  schließen kann. Ein Beleg ohne Steuernummer sieht aus wie eine Rechnung, berechtigt
+  aber nicht zum Vorsteuerabzug — der Fehler fiele sonst erst in der Buchhaltung auf.
+- Die Regeln bleiben an **einer** Stelle: derselbe `firmaZuPartei`, dieselbe
+  `pruefeFirmenstammdaten` wie die E-Rechnung. Sonst laufen PDF und XML auseinander
+  und niemand merkt es, bis ein Finanzamt fragt.
+- `GET /invoices/operational/:id/pdf` — zweiseitig lesbar (Aussteller **und**
+  Empfänger), im Org-Grenzen-Register eingetragen. Verlinkt in beiden Oberflächen; auf
+  der Ausstellerseite **nicht** bei Entwürfen: die haben weder Nummer noch Datum, der
+  Knopf lieferte verlässlich 422.
+
+**`?anhang=1` — ehrlich benannt.** Bettet die CII-Nutzlast als Datei ein. Das ist die
+*Grundlage* eines Factur-X-Belegs, **nicht** das zertifizierte Format: dafür fehlt
+PDF/A-3 (Farbprofil, XMP-Profilkennung, eingebettete Schriften). Der Antwortkopf
+`X-Rechnung-Hybrid` sagt, was drin ist, statt es zu behaupten. Wer es liest, bekommt
+die strukturierten Daten; wer nicht, sieht ein normales PDF.
+
+**Nebenbefund, offen:** der ZUGFeRD-Weg (`?format=zugferd`) liefert die CII-XML als
+`factur-x-<nr>.xml`. Der Name suggeriert Factur-X, geliefert wird die Nutzlast ohne
+PDF-Hülle. Für Empfänger, die CII direkt lesen, ist das brauchbar; wer ein
+ZUGFeRD-PDF erwartet, findet den Anhang nicht. **Vollwertiges ZUGFeRD wäre eine eigene
+Welle** (PDF/A-3-Konformität) — Owner-Entscheidung, kein stiller Umbau.
+
+18 Tests. Volle Suite mit Datenbank: 10323 Tests, 10321 grün, Exit 0.
+
 ### 2026-08-29 — Die Sackgasse hinter der E-Rechnung: es gab keine Pflegemaske
 
 **Status:** erledigt · **Kategorie:** Produktausbau (Verdrahtung) · **Fund beim Weiterbau der Oberflächen.**
