@@ -66,6 +66,10 @@ const KOPIEN = [
   "scripts/run-tests.js",
   "scripts/lib/nativerAbbruch.mjs",
   "scripts/lib/abbildSuite.mjs",
+  /* Seit 2026-08-29: der Klaerungslauf, den run-tests.js nach einem erkannten
+     Abbruch faehrt. Wieder hat V0 die Luecke gemeldet, bevor sie schaden
+     konnte — genau wie bei abbildSuite.mjs oben. */
+  "scripts/lib/klaerungslauf.mjs",
 ];
 
 describe("Verdrahtung: run-tests.js liest seine eigene Ausgabe mit", () => {

@@ -25,6 +25,7 @@ import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { neuerScanner, formuliereBefund } from "./lib/nativerAbbruch.mjs";
+import { klaerungslauf, formuliereKlaerung } from "./lib/klaerungslauf.mjs";
 import { teileNachAbbild } from "./lib/abbildSuite.mjs";
 
 const PROJECT_DIR = join(import.meta.dirname, "..");
@@ -401,12 +402,55 @@ if (lauf.fehler) {
    */
   const wiederholenErlaubt = process.argv.slice(2).includes("--retry-on-abort");
 
+  /*
+   * KLAERUNGSLAUF (ergaenzt 2026-08-29) — vor der Wiederholung, weil er die
+   * Frage beantwortet, die die Wiederholung nur wuerfelt.
+   *
+   * Ein Abbruch sagt nicht, ob die Datei in Ordnung ist. Die Wiederholung fuhr
+   * bisher die ganze Suite erneut und schloss aus "beim zweiten Mal gruen" auf
+   * "war der Wettlauf" — ein Umkehrschluss, der bei einer Datei versagt, die
+   * den Wettlauf REPRODUZIERBAR verliert. Genau das war am 2026-08-29 der Fall:
+   * `me.route.coverage.test.js` brach zweimal ab und galt damit faelschlich als
+   * Datei mit offenen Handles. Ohne das Flag lief sie 68/68 gruen durch und
+   * beendete sich in 1,1 Sekunden von selbst.
+   *
+   * Der Klaerungslauf faehrt deshalb genau diese Datei ohne `--test-force-exit`.
+   * Das kostet Sekunden statt Minuten und trennt Wettlauf, echtes Handle-Leck
+   * und echten Testfehler sauber voneinander. Details: ./lib/klaerungslauf.mjs
+   *
+   * Er laeuft ohne Schalter, anders als die Wiederholung: die kann ein neues
+   * Leck zudecken, weil der zweite Lauf den Wettlauf oft gewinnt. Der
+   * Klaerungslauf nimmt das Flag WEG und macht ein Leck damit sichtbar.
+   *
+   * Auch bei weiteren roten Dateien — sonst bliebe ausgerechnet die
+   * abgestuerzte Datei ungeprueft, und ein echter Fehler in ihr faende sich
+   * hinter dem Abbruch versteckt.
+   */
+  let klaerung = null;
+  const zuKlaeren = lauf.befund.abbruch ? lauf.befund.abgestuerzteDateien : [];
+  if (zuKlaeren.length) {
+    console.error(`[run-tests] Klaerungslauf fuer ${zuKlaeren.join(", ")} — ohne --test-force-exit.`);
+    klaerung = await klaerungslauf({
+      dateien: zuKlaeren,
+      projektVerzeichnis: PROJECT_DIR,
+      umgebung: testEnv,
+    });
+    process.stdout.write(formuliereKlaerung(klaerung, zuKlaeren));
+  }
+
   /* Nicht wiederholen, wenn der Lauf ausser dem Abbruch ECHTE rote Dateien hat.
      Sonst kostet der Schalter drei Minuten fuer ein Ergebnis, das sich nicht
      aendern kann — und schlimmer: der zweite Lauf endet wieder rot, und der
      Eindruck entsteht, "auch das Wiederholen hat nicht geholfen", obwohl der
      Abbruch mit den echten Fehlern nie etwas zu tun hatte. */
-  if (wiederholenErlaubt && lauf.befund.abbruch && lauf.befund.weitereRoteDateien.length) {
+  /* Hat der Klaerungslauf die Datei entlastet, ist die Frage beantwortet — eine
+     Voll-Wiederholung wuerde nur dieselbe Antwort teurer einholen. */
+  const geklaert = klaerung && klaerung.ergebnis === "sauber";
+
+  if (geklaert && wiederholenErlaubt) {
+    console.error("[run-tests] --retry-on-abort: keine Wiederholung noetig, der Klaerungslauf");
+    console.error("[run-tests] hat die abgebrochene Datei bereits entlastet.");
+  } else if (wiederholenErlaubt && lauf.befund.abbruch && lauf.befund.weitereRoteDateien.length) {
     console.error("[run-tests] --retry-on-abort: KEINE Wiederholung — der Lauf hat neben dem");
     console.error("[run-tests] Abbruch echte rote Dateien. Die verschwinden dadurch nicht.");
     /* `typeof`-Pruefung, weil `null !== 0` wahr ist: ein per Signal gestorbener
@@ -425,7 +469,24 @@ if (lauf.fehler) {
     lauf = zweiter;
   }
 
-  if (typeof lauf.status === "number") {
+  /*
+   * Das Gesamtergebnis nach einem geklaerten Abbruch.
+   *
+   * Gruen nur unter ZWEI Bedingungen zugleich: der Klaerungslauf hat die
+   * abgestuerzte Datei vollstaendig und gruen gefahren, UND der Hauptlauf hatte
+   * ausser dem Abbruch keine rote Datei. Dann ist jede Datei der Suite real
+   * gelaufen und real gruen — das ist kein Wegschauen, sondern ein staerkerer
+   * Beweis als der abgebrochene Lauf ihn hatte.
+   *
+   * Gibt es weitere rote Dateien, bleibt der Lauf rot. Die Klaerung sagt dann
+   * nur, dass der Abbruch nicht zu ihnen gehoert.
+   */
+  if (geklaert && !lauf.befund.weitereRoteDateien.length) {
+    console.error("[run-tests] Der Lauf gilt als GRUEN: die einzige rote Meldung war der");
+    console.error("[run-tests] Abbruch, und die betroffene Datei ist im Klaerungslauf real");
+    console.error("[run-tests] und vollstaendig gruen durchgelaufen.");
+    process.exitCode = 0;
+  } else if (typeof lauf.status === "number") {
     process.exitCode = lauf.status;
   } else {
     console.error(
