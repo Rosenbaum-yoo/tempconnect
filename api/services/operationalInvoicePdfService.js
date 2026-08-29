@@ -321,10 +321,30 @@ export async function erzeugeOperativesRechnungsPdf({
     T(betrag(cent) + " EUR", spalteBetrag, y, { size: dick ? 11 : 9, f: dick ? fett : font });
     y -= dick ? 18 : 14;
   };
+  /* DIE FELDNAMEN SIND EINE FALLE — hier stand ein echter Betragsfehler.
+   *
+   * `gross_amount_cents` klingt nach Bruttobetrag, IST aber die Positionssumme
+   * vor Rabatt (BT-106). Migration 170 setzt sie beim Anlegen auf
+   * `amount_cents`. Wer sie als Endbetrag druckt, schreibt bei jeder Rechnung
+   * ohne Rabatt denselben Wert in die Zeile "Netto" und in die Zeile
+   * "Gesamtbetrag" — die Umsatzsteuer verschwindet aus der Endsumme.
+   * Gemessen am 2026-08-29: 1920,00 EUR statt 2284,80 EUR.
+   *
+   * `net_amount_cents` gab es ausserdem nie: die Spalte kommt im gesamten
+   * sql/-Verzeichnis nicht vor, der Ausdruck fiel immer auf den Ersatzwert
+   * zurueck. Ein Ersatzwert fuer ein Feld, das es nicht gibt, verschleiert nur.
+   *
+   * Die richtigen Felder, mit ihren Normbegriffen:
+   *   amount_cents      BT-109  Netto nach Abzuegen
+   *   tax_amount_cents  BT-110  Umsatzsteuer
+   *   total_cents       BT-112  Gesamtbetrag, zugleich Zahlbetrag (BT-115)
+   *
+   * Der Strukturtest sah das nicht — er prueft die Huelle, nicht die Zahlen.
+   * `rechnungPdfBetraege.test.js` rechnet seither nach. */
   const satz = invoice.tax_rate_pct == null ? 19 : invoice.tax_rate_pct;
-  summe("Netto", invoice.net_amount_cents ?? invoice.amount_cents);
+  summe("Netto", invoice.amount_cents);
   summe(`Umsatzsteuer (${satz} %)`, invoice.tax_amount_cents);
-  summe("Gesamtbetrag", invoice.gross_amount_cents ?? invoice.total_cents, true);
+  summe("Gesamtbetrag", invoice.total_cents, true);
 
   y -= 8; HR(y); y -= 16;
 
