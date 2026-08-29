@@ -4,7 +4,9 @@
 > sobald in einem Arbeitsplan eine offene Owner-Entscheidung auftaucht, die hier fehlt.
 > Eine Übergabe, die man vergessen kann, ist keine.
 
-**Stand: 2026-08-19** · Branch `release/enterprise-premium-market-ready`
+**Stand: 2026-08-29** · Arbeitslinie `claude/brave-sanderson-9e9148`
+(die Release-Linie `release/enterprise-premium-market-ready` ist am 2026-08-27
+hierher zusammengeführt — `297554c`, 13 Commits, sechs Konflikte).
 
 ---
 
@@ -18,6 +20,43 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 **Arbeitsrhythmus:** Owner sagt „weiter mit X" → ich liefere eine Welle → Output-Block
 → Owner sagt „ja committen und weiter". **Commit sofort nach grüner Suite, ohne Nachfrage** (Owner 2026-08-13). Nur der **Push** wartet auf eine ausdrückliche Zusage.
 
+> **Das Team ist eine Person.** Es gibt keine zweite Staff-Rolle — der Owner *ist*
+> das Staff, und dieser Agent faktisch auch. Das ist keine Randnotiz, sondern eine
+> **Bauvorgabe**: kein Vier-Augen-Prinzip, keine Freigabe durch eine zweite Person,
+> kein „an Kollegen zuweisen" — solche Wege wären dauerhaft blockiert.
+> Missbrauchsschutz entsteht durch **Struktur**, nicht durch Kontrolle, und das
+> eigentliche Risiko ist das **Versehen**, nicht der Vorsatz.
+> Vollständig in [`CLAUDE.md`](../CLAUDE.md), Abschnitt *„Das Team ist eine Person"*.
+
+---
+
+## Wo wir gerade stehen *(2026-08-29)*
+
+| Spur | Gegenstand | Stand |
+|---|---|---|
+| **I** | Audit-Trennung, Fristen, Support-Weg | gebaut; **I3 Stufe 1** (E-Mail im Arbeiter-Weg) gebaut, Stufen 2–4 offen |
+| **J** | Live-Belegschaft ↔ Marktplatz, E-Rechnung | gebaut und zusammengeführt (J1–J10, ZUGFeRD/PDF-A-3u, Schematron-Gate) |
+| **K0** | Vorlauf: Merge, Gegenprüfung, Feed-Fehler | ✅ durch — Gate grün, Feed-Fehler (`e845c2d`) bestätigt behoben |
+| **K4** | Der Feed fällt nie auf leer zurück | ✅ **gebaut** `eb46707` (Mig 204, `feedKopieService`, 18 Proben, 4 Rückmutationen) |
+| **K1** | Rabatt sichtbar + Eingriffspunkt | ⏭ **als Nächstes** — behebt einen Geldfehler |
+| **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | offen; **Gate K2.2 zuerst** |
+| **K3** | Monatsplanung | offen; setzt Welle J vollständig voraus |
+| **L** | Tragfähigkeit / Hochverfügbarkeit | dokumentiert, **nicht gebaut** (eigener Abschnitt, Owner-Vorgabe) |
+
+**Der nächste Griff:** `K1.1` aus
+[features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md)
+— *„Der stille Ausfall wird laut: scheitert `getUserDiscount`, entsteht eine
+Meldung mit Kunde, Monat, Grund."* Reihenfolge laut Plan: **K0 → K4 → K1 → K2 → K3.**
+
+> **Einschränkung, die K1.1 sofort trifft** — dieselbe, die schon K4.3 erledigt hat:
+> **es gibt heute keinen Kanal, der das Team erreicht.** `notificationMatrix.dispatch()`
+> kennt nur org- und vorgangsbezogene Empfänger und **überspringt unbekannte
+> Ereignis-Schlüssel wortlos** (`sent: 0`); `writeStaffAudit()` verlangt zwingend
+> eine handelnde Person und wirft ohne sie — ein Systemereignis hat keine.
+> In K4 wurde deshalb **gezählt und auf `error` protokolliert** statt einen Kanal zu
+> erfinden. K1.1 braucht dieselbe ehrliche Behandlung: festhalten und in der
+> Staff-CC-Fläche aus K1.2 sichtbar machen.
+
 ---
 
 ## Eiserne Regeln (Verstoß = echter Schaden)
@@ -25,7 +64,8 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | Regel | Warum |
 |---|---|
 | **Nie `git add -A`** | Im Baum liegen ungetrackte Geschäftsunterlagen: `docs/launch/`, `docs/aktuellesitzung/`, die UG-Gründungs-PDF. Immer Pfade einzeln stagen. |
-| **Nur auf Zuruf committen** | Owner entscheidet, was fertig ist. Push wird getrennt angekündigt und nie ohne OK. |
+| **Immer `git commit --only <pfade>`** | **Zweimal passiert (2026-08-27/28):** eine zweite Sitzung arbeitet auf derselben Linie und committet, während meine Dateien im Index liegen — meine Arbeit landete unter *ihrer* Commit-Nachricht (`33374dd`, `e70dafc`). Inhaltlich unversehrt, die Historie erzählt es falsch. `--only` bindet den Commit an genau die genannten Pfade und ist immun dagegen. **Eine geteilte Linie wird nicht umgeschrieben** — der Fehler bleibt stehen und wird benannt. |
+| **Push nur auf Zuruf** | Die **Commit**-Freigabe steht dauerhaft (Owner 2026-08-13): fertige Wellen werden nach grüner Suite ohne Nachfrage committet. Der **Push** braucht jedes Mal eine ausdrückliche Zusage — `origin` ist öffentlich. |
 | **`Co-Authored-By: Claude <noreply@anthropic.com>`** | An jeden Commit. |
 | **Tests sind die Spezifikation** | Ein roter Test wird **nie** durch Abschwächen grün gemacht. Ausnahme nur, wenn der Test nachweisbar einen Bug als Soll kodiert — mit Begründung im Commit. |
 | **Kein stiller Skip** | Ein Test, der unter `api/scripts/run-tests.js` nicht real läuft, zählt nicht als grün. Pfade immer über `import.meta.url` auflösen, nie nur über `process.cwd()`. |
@@ -39,10 +79,21 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **10197 Tests, 0 Fehler** (2026-08-27, voller Lauf ohne Pipe nach dem
-Zusammenfuehren der Release-Linie in die Arbeitslinie), davon 1 uebersprungen.
-Vorher 9524 auf der Arbeitslinie bzw. 9520 auf der Release-Linie; der Zuwachs
-ist die Summe beider Linien (u. a. E-Rechnung EN 16931, Wellen J1-J10).
+Stand: **10327 Tests, 10312 bestanden, Rückgabewert 0** (2026-08-29, nach K4).
+Zwischenstände zur Einordnung: 10197 nach dem Zusammenführen der Release-Linie
+(2026-08-27), davor 9524 auf der Arbeitslinie bzw. 9520 auf der Release-Linie;
+der Zuwachs ist die Summe beider Linien (u. a. E-Rechnung EN 16931, Wellen J1–J10).
+Im Container zusätzlich **369/369** DB-gestützte Tests.
+
+> **Der Rückgabewert ist das Urteil, nicht die Fehlerzeile.** Auf Windows bricht
+> gelegentlich eine Testdatei mit einem **nativen libuv-Abbruch** ab
+> (`UV_HANDLE_CLOSING`) — das ist ein Abbruch der Laufzeit, kein roter Test.
+> Der Läufer erkennt das (`api/scripts/lib/nativerAbbruch.mjs`), fährt die
+> abgestürzte Datei **einzeln nach** und meldet nur dann grün, wenn *beides* gilt:
+> die Datei läuft allein vollständig grün **und** der Hauptlauf hatte sonst keine
+> rote Datei. Ein echter Fehlschlag daneben verhindert die Wiederholung
+> ausdrücklich. Der Lauf sagt außerdem selbst, was er **nicht** bewiesen hat
+> (`20fcf42`) — diese Zeilen sind zu lesen, nicht zu überblättern.
 
 > **Ein Worktree ist kein halbes Repo mehr (behoben 2026-08-21, P2-W1).**
 > `.agents/`, `frontend/support-ops/`, die ungetrackten Dateien unter
@@ -68,9 +119,12 @@ ist die Summe beider Linien (u. a. E-Rechnung EN 16931, Wellen J1-J10).
 > ab (207 Fehler, die wie Testbrüche aussehen). Einmalig verknüpfen:
 >
 > ```powershell
-> New-Item -ItemType Junction -Path <worktree>pi
-ode_modules -Target <hauptbaum>pi
-ode_modules
+> # Pfade OHNE Backslash-Escapes zusammensetzen - genau hier ist die Doku
+> # schon einmal zerbrochen (aus api\node_modules wurde ein Klingelzeichen
+> # plus Zeilenumbruch, der Befehl war unlesbar).
+> $wt   = Join-Path $worktree  'api/node_modules'
+> $haus = Join-Path $hauptbaum 'api/node_modules'
+> New-Item -ItemType Junction -Path $wt -Target $haus
 > ```
 
 Die DB-gestützten Tests laufen im Container, wo `DB_HOST` gesetzt ist — auf dem
@@ -146,10 +200,42 @@ Ist die Laufzeit älter als die eigene Änderung, wird etwas anderes geprüft al
 gemeint. Ein Neustart hilft nur bedingt — er lädt den Stand des **Haupt-Repos**,
 nicht den des Worktrees.
 
+---
+
+### Drei Fallen der Werkzeugkette, jede teuer bezahlt
+
+Diese drei haben in einer einzigen Sitzung zusammen mehrere Stunden gekostet.
+Sie haben **nichts** mit dem Produkt zu tun und treffen trotzdem jeden.
+
+**1 · Escape-Zeichen kollabieren auf dem Weg durch die Werkzeuge.**
+Fünfmal passiert. `\n`, `\r`, Backslashes und Backticks werden je nach Weg
+(Bash, Heredoc, `python -c`, Schreib-Werkzeug) einmal zu viel interpretiert.
+Ein Reparaturskript hat dabei einen ganzen Testblock gelöscht; der Befehl in
+dieser Datei war unlesbar, weil aus `api\node_modules` ein Klingelzeichen plus
+Zeilenumbruch wurde (heute repariert).
+
+> **Regel:** Inhalte **ohne jedes Escape** erzeugen — `chr(10)`, `chr(96)`,
+> `String.fromCharCode(...)`. Skripte in eine **Datei** schreiben statt `-c`.
+> Und **immer das Ergebnis ansehen**, nie der Erfolgsmeldung des Skripts glauben.
+
+**2 · Eine Pipe verschluckt den Rückgabewert.**
+`node scripts/run-tests.js | grep … | head` liefert den Status von `head` — also
+**0**. Eine rote Suite sah grün aus. **Regel:** Läufe in eine Datei umleiten und
+die Datei lesen; niemals einen Testlauf durch eine Pipe beurteilen.
+
+**3 · Der Browser beweist nichts über das Backend.** Siehe den Abschnitt darüber.
+Ein 201 aus einem zwei Tage alten Prozess ist kein Beleg — er ist eine Falle, die
+wie ein Beleg aussieht. **Ich bin einmal hineingelaufen und habe die Behauptung
+zurückziehen müssen.**
+
 ## Wo die Arbeitspläne liegen
 
 | Plan | Inhalt |
 |---|---|
+| [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md) | **Der aktive Plan.** Owner-Abschnitte 12 + 13: Bounty-Verwaltung ins Staff CC, Werbe-Cashback, Monatsplanung, Feed-Rückfall. Alle Owner-Entscheidungen getroffen (2026-08-27). **K0 + K4 gebaut, K1 als Nächstes.** |
+| [features/L_TRAGFAEHIGKEIT.md](features/L_TRAGFAEHIGKEIT.md) | Hochverfügbarkeit und Skalierung („wie tragen wir 10 000 Kunden?"). **Eigenständiger Abschnitt, dokumentiert und ausdrücklich nicht gebaut** — Owner-Vorgabe 2026-08-27. |
+| [features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md](features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md) | Welle J: Live-Belegschaft ↔ Marktplatz, Rechnungsstammdaten, E-Rechnung (ZUGFeRD, PDF/A-3u, Schematron). Gebaut. |
+| [features/I_AUDIT_ZUWEISUNG_SUPPORT.md](features/I_AUDIT_ZUWEISUNG_SUPPORT.md) · [features/I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md](features/I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md) | Welle I: Audit-Trennung, Fristen, Support-Weg. **I3 Stufe 1 gebaut** (E-Mail im Arbeiter-Weg), Stufen 2–4 offen (Web Push statt SMS — billiger und die Einwilligung ist sauberer). |
 | [features/P10_IMPORT_LIVE_ZEIT.md](features/P10_IMPORT_LIVE_ZEIT.md) | Owner-Abschnitte 5–7: CSV-Import (Spur D), Live-Belegschaft (E), Systemzeit (F) |
 | `_TEMPCONNECT_MUTATION_RBAC_PLAN.md` *(gitignored!)* | Mutation-Testing, Wellen 0–4 + Roadmap für sieben weitere Bereiche |
 | [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) | Warum die Mandantengrenze 80-mal einzeln in den Routen steht — versionierte Fassung des wichtigsten Architekturbefunds. **Welle 3b ist abgeschlossen** (2026-08-19). |
@@ -1083,6 +1169,29 @@ dagegen längst behoben — `timeout-minutes: 180`, sechs parallele Matrix-Jobs.
 
 ## Der Plan fuer die naechsten Sitzungen
 
+**Aktiv: [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md)**
+— Owner-Abschnitte 12 und 13, alle Entscheidungen getroffen. Reihenfolge
+**K0 → K4 → K1 → K2 → K3**; K0 und K4 sind durch, **K1 ist der nächste Griff**.
+
+Die tragenden Entscheidungen in Kurzform, damit niemand sie neu verhandelt:
+
+| Frage | Entscheid (2026-08-27) |
+|---|---|
+| Werbeprämie | **Kein** eigener „Pilot-Verlängerungs"-Mechanismus, sondern ein **100 %-Cashback-Bounty**: die **nächste Rechnung ist frei** (keine Rückerstattung) |
+| Bedingung | Der Geworbene muss **30 Tage** Bestand haben |
+| Deckel | höchstens **3 Monate** insgesamt |
+| Der Geworbene | bekommt **nichts extra** — nur die üblichen Bounties |
+| Bounty-Eingriff | nach oben erlaubt, aber **strukturell begrenzt** (Abschnitt 3a): kein freies Betragsfeld, sondern ein **Grund**, aus dem das System rechnet · Wirkungsvorschau in Euro **vor** der Handlung · **Verfall** nach einem Lauf statt Dauerzustand · nie in eigener Sache · Quelle steht auf der Rechnung |
+| Monatsplanung | **beide planen**, ohne Pflicht-Hin-und-Her; Konflikte werden **gezeigt**, nie zum Abstimmen gezwungen |
+| Feed | Kopie der letzten guten Liste, **in derselben Datenbank** — keine Mehr-Server-Hochverfügbarkeit (die ist Welle L) |
+
+> **K2.2 ist ein Gate, keine Phase.** *Verträgt der Abrechnungsweg eine 0-€-Rechnung?*
+> `berechneRabatt(netto, 100)` → netto 0, Steuer 0, gesamt 0 — durch `createInvoice`,
+> den Zahlungsweg und den PDF-Beleg. Das muss **vor** dem Bau feststehen: verträgt er
+> sie nicht, ändert das den ganzen Entwurf (99 % plus Restbetrag, oder ein
+> Gutschriftsweg).
+
+**Vorgänger, abgearbeitet:**
 `docs/features/I_AUDIT_ZUWEISUNG_SUPPORT.md` — Owner-Vorgabe vom 2026-08-21:
 Audit-Trennung (8.1.1), aktive Sitzungen (8.1.2), Ersatz-Zuweisung (8.2),
 Support-Weg Kunde → TempConnect (10) und die Entscheidung zu Kunde ↔ Kunde (10b).
@@ -1175,6 +1284,27 @@ Doku-Waechter P2-W1).
 
 ## Offene Befunde ohne Ticket
 
+- **K4-B1 (neu, 2026-08-28)** — **Kein Kanal erreicht das Team.** Ein
+  Systemereignis, das *niemanden* betrifft außer dem Betreiber, hat heute keinen
+  Zustellweg: `notificationMatrix.dispatch()` kennt nur org- und vorgangsbezogene
+  Empfänger und überspringt einen unbekannten Ereignis-Schlüssel **wortlos**
+  (`sent: 0`, kein Fehler); `writeStaffAudit()` verlangt zwingend eine handelnde
+  Person und wirft ohne sie. In K4 wurde deshalb **gezählt** (`marktplatz_feed_kopie.rueckfaelle`,
+  `letzter_rueckfall`) und auf `error` protokolliert, statt einen Kanal zu erfinden.
+  **Jede Welle, deren Plan „Meldung an das Team" enthält, läuft hier hinein** —
+  K1.1 als Nächstes. Der saubere Ort wäre eine Betriebs-Fläche im Staff CC
+  (K1.2 legt sie an). *Owner-Entscheidung, sobald es mehr als zwei Fälle sind.*
+- **OCC → Staff CC (Owner-Entscheid 2026-08-27)** — das Owner Control Center wird
+  ins Staff Control Center überführt. **Bis der Owner den Abschnitt ausgearbeitet
+  hat: keine neuen OCC-Module anlegen und keine entfernen**, nur umzugsfähig
+  arbeiten. Offene Fragen (Zugangsstufe, Audit-Namensraum, sieben kollidierende
+  Modulnamen, React-Fläche vs. Staff-Bauart) in [FLAECHEN.md](FLAECHEN.md).
+- **Owner-gated, ruhend:** `SUPPORT_PHONE` (nicht gesetzt), I3 Stufen 2–4
+  (Web Push), `enforce_mfa`, `preferred_supplier_only`,
+  `partial_fulfillment_allowed`, ein **Demo-Zugang für die Arbeiter-Perspektive**
+  (das Einsatzportal hat heute keine Tür: die geseeten Demo-Arbeiter tragen
+  Attrappen-Hashes mit 51 statt 60 Zeichen, `bcrypt.compare` liefert für jede
+  Eingabe `false`).
 - **M0-B1 (neu, 2026-08-15)** — **Der nächtliche Mutations-Job ist nie gelaufen.**
   `.github/workflows/mutation.yml` entstand am 2026-08-12, `origin` steht auf dem
   Stand vom 2026-08-06 und ist **57 Commits zurück**. Die Übergabe hat ihn bis
@@ -1225,3 +1355,34 @@ Zweite Fassung derselben Lektion: **doppelte Logik braucht doppelte Tests.** Der
 Guard steht zweimal in `middleware/rbac.js`; die erste Runde deckte nur eine Kopie ab.
 Coverage kann das prinzipiell nicht sehen — beide Kopien werden ausgeführt, also gelten
 beide als abgedeckt.
+
+---
+
+## Die zweite Lektion: gebaut, montiert — und niemand benutzt es
+
+Die häufigste Fehlerklasse dieses Repos ist nicht der falsche Code. Es ist der
+**korrekte Code ohne Aufrufer**. Drei systematische Durchgänge in einer Sitzung:
+
+| Durchgang | Ergebnis |
+|---|---|
+| exportierte Funktionen ohne Aufrufer | mehrere; die meisten harmlos |
+| Regel-Spalten, die nie gelesen werden | mehrere; eine davon war eine tote Funktion (ersatzlos entfernt) |
+| Tabellen, in die geschrieben, aus denen nie gelesen wird | **9 von 186** — 8 nach Messung harmlos, **1 echt**: das OCC-Zugriffsprotokoll mit **23 abgewiesenen Zugriffsversuchen**, die niemand je hätte sehen können |
+
+Und derselbe Fehler traf **meine eigene Arbeit**: die Verdrahtungs-Probe zu K4 fand
+beim ersten Lauf einen `ReferenceError` — `opts` war mit `const` *innerhalb* des `try`
+deklariert und im `catch` nicht sichtbar. Der Rückfall hätte in der Praxis **nie
+gegriffen**, und alle acht Dienst-Proben wären trotzdem grün gewesen.
+
+**Das strukturelle Gegenmittel, dreimal angewandt:** einen Wächter, der eine
+**Liste abhakt**, in einen verwandeln, der **selbst sucht**. Ein aufzählender
+Wächter kennt nur, was jemand eingetragen hat; ein entdeckender findet die Stelle,
+die nächste Woche dazukommt. Beispiele im Baum:
+`api/test/jedeMailHatEinenAbsender.test.js` (findet **jeden** `sendMail`-Aufruf im
+Quelltext und verlangt den Absenderrahmen — §37a HGB) und
+`api/test/statuswertSpiegel.test.js` (findet **jedes** `UPDATE`, das einen
+Endzustand schreibt, und verlangt das Deaktivieren in derselben Anweisung).
+
+**Merksatz:** *Eine Probe, die prüft, ob etwas existiert, ist keine Probe darauf,
+dass es benutzt wird.* Und: **jede neue Verdrahtung bekommt eine Probe, die den
+echten Handler durchläuft** — nicht nur den Dienst darunter.

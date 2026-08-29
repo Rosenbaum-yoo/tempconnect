@@ -1,6 +1,7 @@
 # Welle K — Bounty-Auszahlung, Werbe-Cashback, Monatsplanung
 
-> **Status: geplant, alle Owner-Entscheidungen getroffen (2026-08-27). Noch nicht gebaut.**
+> **Status (2026-08-29): K0 ✅ · K4 ✅ gebaut · K1 als Nächstes · K2, K3 offen.**
+> Alle Owner-Entscheidungen getroffen (2026-08-27).
 > Owner-Abschnitte **12** und **13**, dazu zwei Punkte aus dem Betrieb.
 >
 > Vorgänger: [`I_AUDIT_ZUWEISUNG_SUPPORT.md`](I_AUDIT_ZUWEISUNG_SUPPORT.md) (Welle I),
@@ -267,9 +268,9 @@ Sonst hätten wir eine zweite Wahrheit über den Marktplatz.
 
 | Phase | Inhalt | Fertig, wenn |
 |---|---|---|
-| K0.1 | Merge des Release-Standes | ✅ durch |
-| K0.2 | Gegenprüfung: Naht I↔J, Registerzahlen, volles Gate | Gate grün |
-| K0.3 | Feed-Fehler nachprüfen (`e845c2d`) | bestätigt behoben |
+| K0.1 | Merge des Release-Standes | ✅ durch (`297554c`, 13 Commits, sechs Konflikte) |
+| K0.2 | Gegenprüfung: Naht I↔J, Registerzahlen, volles Gate | ✅ Gate grün — Host **10176/10162/0 Fehlschläge**, Container **369/369** DB-gestützt. Drei Befunde, **keiner im Produktcode** |
+| K0.3 | Feed-Fehler nachprüfen (`e845c2d`) | ✅ bestätigt behoben — und mit K4 zusätzlich abgefangen |
 
 ---
 
@@ -320,25 +321,46 @@ Geworbene bekommt **nichts extra**.
 
 ---
 
-### K4 · Der Feed fällt nie auf leer *(unabhängig, klein)*
+### K4 · Der Feed fällt nie auf leer — ✅ **gebaut 2026-08-28** (`eb46707`)
 
-| Phase | Inhalt | Nachweis |
+| Phase | Inhalt | Stand |
 |---|---|---|
-| K4.1 | Kopie der letzten guten Liste dauerhaft ablegen | Tabelle gefüllt nach erstem Abruf |
-| K4.2 | Im Fehlerfall ausliefern, mit Datum des Standes | erzwungener Fehler → Liste erscheint, datiert |
-| K4.3 | Meldung an das Team beim Rückfall | Rückmutation: Fehler → Meldung |
-| K4.4 | 24-Stunden-Grenze | Kopie künstlich altern → ehrliche Fehlermeldung |
+| K4.1 | Kopie der letzten guten Liste dauerhaft ablegen | ✅ Migration 204, `marktplatz_feed_kopie` (genau eine Zeile, `CHECK (id = 1)`, UPSERT) |
+| K4.2 | Im Fehlerfall ausliefern, mit Datum des Standes | ✅ `aus_kopie: true` + `kopie_stand` in `GET /capacity-exchange/feed` |
+| K4.3 | Meldung an das Team beim Rückfall | ⚠️ **nicht baubar — siehe unten.** Ersatz: gezählt (`rueckfaelle`, `letzter_rueckfall`) und auf `error` protokolliert |
+| K4.4 | 24-Stunden-Grenze | ✅ darüber wird geschwiegen statt gealtert ausgeliefert |
+| **K4.5** | *(dazugekommen)* **Eine leere Liste wird nicht aufgehoben** | ✅ sonst könnte ein einzelner leerer Moment zur dauerhaften Rückfall-Antwort werden — der Rückfall zeigte dann genau das, was er verhindern soll |
+
+**Belege:** `api/services/feedKopieService.js`, `api/test/feedKopie.test.js`
+(18 Proben, davon **3 am echten Handler**), vier Rückmutationen — Filter ignoriert,
+leere Liste doch aufgehoben, 24-Stunden-Grenze entfernt, Rückfall aus dem `catch`
+entfernt — **jede von genau der zuständigen Probe gefangen**.
+
+> **Zwei Funde beim Bauen, festgehalten statt übertüncht.**
+>
+> **(a) K4.3 war nicht baubar.** `notificationMatrix.dispatch()` kennt nur org- und
+> vorgangsbezogene Empfänger und **überspringt einen unbekannten Ereignis-Schlüssel
+> wortlos** (`sent: 0`, kein Fehler); `writeStaffAudit()` verlangt zwingend eine
+> handelnde Person und wirft ohne sie — ein Systemereignis hat keine. Mein erster
+> Entwurf wäre still versickert, also genau die Fehlerklasse, gegen die diese Welle
+> antritt. Einen Kanal zu erfinden wäre hier der falsche Ort gewesen. **Die Lücke
+> trifft K1.1 erneut** und ist in der Übergabe als `K4-B1` geführt.
+>
+> **(b) Die Verdrahtungs-Probe hat sich sofort bezahlt gemacht.** Sie fand beim
+> ersten Lauf einen `ReferenceError`: `opts` war mit `const` **innerhalb** des `try`
+> deklariert und im `catch` nicht sichtbar. Der Rückfall hätte in der Praxis **nie
+> gegriffen** — und alle acht Dienst-Proben wären trotzdem grün gewesen.
 
 ---
 
 ## 5. Reihenfolge
 
 ```
-K0 (erledigt sich mit dem Merge)
- ├── K4 (Feed-Rückfall)      ← klein, schützt die sichtbarste Fläche
- ├── K1 (Rabatt + Eingriff)  ← behebt einen Geldfehler
- ├── K2 (Werbe-Cashback)     ← Gate K2.2 zuerst
- └── K3 (Monatsplanung)      ← braucht Welle J vollständig
+K0 (erledigt sich mit dem Merge)          ✅ durch
+ ├── K4 (Feed-Rückfall)      ← klein, schützt die sichtbarste Fläche   ✅ eb46707
+ ├── K1 (Rabatt + Eingriff)  ← behebt einen Geldfehler                 ⏭ als Nächstes
+ ├── K2 (Werbe-Cashback)     ← Gate K2.2 zuerst                        offen
+ └── K3 (Monatsplanung)      ← braucht Welle J vollständig             offen
 ```
 
 **Empfohlen: K0 → K4 → K1 → K2 → K3.**
