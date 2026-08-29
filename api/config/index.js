@@ -224,7 +224,29 @@ export const logger = pino({
   },
 
   /* ── Dev: human-readable output via pino-pretty ────────── */
-  ...(isDev && hasPinoPretty() && {
+  /*
+   * NICHT UNTER DEM TESTLAEUFER (ergaenzt 2026-08-29).
+   *
+   * `pino-pretty` laeuft als Transport in einem WORKER-THREAD. Der Testlaeufer
+   * beendet jeden Kindprozess mit `--test-force-exit`, also ueber
+   * `process.exit()` - und pinos Exit-Haken versucht dabei, den Thread-Stream
+   * SYNCHRON zu leeren. Der Worker kommt aber nicht mehr dran, weil der Prozess
+   * bereits aussteigt. Ergebnis: der Lauf bleibt stehen und rechnet nicht.
+   *
+   * GEMESSEN am 2026-08-29 im Container: idempotencyExtended.test.js stand
+   * 21 Minuten bei 5 Sekunden CPU-Zeit. Der Stapel zeigte
+   * flushSync -> ThreadStream.flushSync -> pino transport onExit ->
+   * process.exit -> TestsStream. Die Datenbank war voellig unbeteiligt:
+   * 6 Verbindungen, 0 blockiert, 0 idle in transaction.
+   *
+   * Auf dem Host faellt es nicht auf, im Container mit NODE_ENV=development
+   * schon - deshalb blieb es liegen, bis jemand die Vorgangsketten dort fuhr.
+   *
+   * Die lesbare Ausgabe ist im Testlauf ohnehin wertlos: der Laeufer sammelt
+   * die Ausgabe selbst ein. Ohne Transport schreibt pino direkt nach stdout,
+   * ohne Worker-Thread - und ohne etwas, das beim Beenden haengen kann.
+   */
+  ...(isDev && !process.env.NODE_TEST_CONTEXT && hasPinoPretty() && {
     transport: { target: "pino-pretty", options: { colorize: true, translateTime: "HH:MM:ss.l" } }
   })
 });
