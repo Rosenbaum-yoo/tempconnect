@@ -232,6 +232,8 @@
         'sp.b.stamm.country': 'Land (2 Buchstaben, z. B. DE)',
         'sp.b.stamm.vatId': 'USt-IdNr.',
         'sp.b.stamm.taxId': 'Steuernummer',
+        'sp.b.stamm.contact': 'Ansprechpartner für Rechnungen (Pflicht für XRechnung)',
+        'sp.b.stamm.phone': 'Telefon der Rechnungsstelle (Pflicht für XRechnung)',
         'sp.b.stamm.iban': 'IBAN (empfohlen)',
         'sp.b.stamm.bic': 'BIC (empfohlen)',
         'sp.b.stamm.missing': '– fehlt',
@@ -346,6 +348,8 @@
         'sp.b.stamm.country': 'Country (2 letters, e.g. DE)',
         'sp.b.stamm.vatId': 'VAT ID',
         'sp.b.stamm.taxId': 'Tax number',
+        'sp.b.stamm.contact': 'Invoice contact person (required for XRechnung)',
+        'sp.b.stamm.phone': 'Invoice contact phone (required for XRechnung)',
         'sp.b.stamm.iban': 'IBAN (recommended)',
         'sp.b.stamm.bic': 'BIC (recommended)',
         'sp.b.stamm.missing': '\u2013 missing',
@@ -798,6 +802,11 @@
       { key: 'billing_country_code', label: 'sp.b.stamm.country',    schluessel: 'land',    maxlen: 2 },
       { key: 'vat_id',               label: 'sp.b.stamm.vatId',      schluessel: 'steuerkennung' },
       { key: 'tax_id',               label: 'sp.b.stamm.taxId',      schluessel: 'steuerkennung' },
+      /* Fuer reines EN 16931 optional, fuer XRechnung Pflicht (BR-DE-5/6).
+         Gemessen am 2026-08-29: ohne sie weist der KoSIT-Validator eine sonst
+         einwandfreie Rechnung ab. */
+      { key: 'billing_contact',      label: 'sp.b.stamm.contact',  breit: true },
+      { key: 'billing_phone',        label: 'sp.b.stamm.phone' },
       { key: 'iban',                 label: 'sp.b.stamm.iban' },
       { key: 'bic',                  label: 'sp.b.stamm.bic' }
     ];

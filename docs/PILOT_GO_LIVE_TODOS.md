@@ -2,6 +2,76 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-08-29 — Das Schematron-Gate: der Inhalt ist jetzt auch geprüft
+
+**Status:** erledigt · **Kategorie:** Normkonformität (Prüfkette) · **Owner-Auftrag.**
+
+veraPDF prüft die **Hülle**. Ob der **Inhalt** eine gültige Rechnung ist, sagt nur ein
+Schematron-Lauf gegen das offizielle CEN-Regelwerk. Das war der ausdrücklich offen
+gebliebene Punkt der PDF/A-Welle — jetzt geschlossen.
+
+**Werkzeug:** KoSIT-Validator 1.6.3 (Apache-2.0) mit der XRechnung-Konfiguration
+(Release 2026-01-31), die die CEN-Schematron **1.3.15** bündelt. Als eigenes
+Docker-Abbild, one-shot aufgerufen wie veraPDF. Ins Repo wandern nur Dockerfile und
+`HERKUNFT.txt`; JAR (10 MB) und Konfiguration zieht der Bau aus den offiziellen
+Releases, über SHA256 festgenagelt. Ablage unter `api/scripts/` — die `.dockerignore`
+schließt das vom Produktionsabbild aus.
+
+    npm run test:schematron
+
+**Der erste Lauf fand sofort einen Produktionsdefekt**, den kein bestehender Test
+sehen konnte. Die XRechnung trug:
+
+| | Kennung |
+|---|---|
+| war | `…#compliant#urn:xoev-de:kosit:standard:xrechnung_3.0` |
+| gültig | `…#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0` |
+
+Der Namensraum wechselte mit XRechnung 3.0 von `xoev-de` auf `xeinkauf.de`; im Code
+stand der **alte** Namensraum mit der **neuen** Versionsnummer. Diese Kombination gibt
+es nicht. Der Validator meldete `noScenarioMatched`: es wurde **keine einzige**
+Geschäftsregel geprüft, und ein Empfänger — etwa eine Behörde — hätte das Dokument
+nicht als XRechnung erkannt. Beide Hälften der Kennung sehen für sich richtig aus;
+genau deshalb fällt so etwas beim Lesen nicht auf.
+
+Danach blieben exakt zwei Fehler: **BR-DE-5** (Kontaktstelle BT-41) und **BR-DE-6**
+(Telefonnummer BT-42). Die Kontaktspalte gab es längst und wurde korrekt ausgegeben —
+sie war nur nie gepflegt worden. Die Telefonspalte fehlte: **Migration 205**, dazu
+beide Felder in der Pflegemaske und im XML beider Formate (Reihenfolge in `cac:Contact`
+und `DefinedTradeContact` ist schemagebunden — Telefon **vor** E-Mail, sonst bricht die
+XSD-Prüfung).
+
+**Gemessen nach der Behebung:**
+
+| Format | Szenario | XSD | EN 16931 | XRechnung-CIUS | Fehler | Warnungen |
+|---|---|:-:|:-:|:-:|---:|---:|
+| ZUGFeRD (CII) | EN16931 (CII) | ✓ | ✓ | — | **0** | **0** |
+| XRechnung (UBL) | EN16931 XRechnung (UBL) | ✓ | ✓ | ✓ | **0** | **0** |
+
+**Die Gegenprobe.** Jeder Lauf fährt zusätzlich ein absichtlich falsches Dokument
+(Steuerbetrag passt nicht zur Bemessungsgrundlage) und besteht darauf, dass der
+Validator es ablehnt — gemessen wird BR-CO-17 gefunden. Ohne diese Probe wäre ein immer
+grünes Gate von einem kaputten Gate nicht zu unterscheiden.
+
+**Nicht auf den Exitcode gegatet:** die KoSIT-Berichtslogik setzt einen Prüfschritt
+schon bei einer *Warnung* auf `valid=false`, und das CII-Regelwerk führt mehr Warn- als
+Fatal-Regeln. Ein Exitcode-Gate wäre bei einwandfreien Rechnungen rot — und ein Gate,
+das immer rot ist, schaut nach zwei Wochen niemand mehr an. Maßgeblich ist
+`level="error"`.
+
+**Nebenbefund, mitbehoben:** die Fixtures führten `hours:` statt `quantity:` — ein Feld,
+das die Datenbank gar nicht kennt (Migration 030). Im XML stand deshalb
+`BilledQuantity 0.00`, während das PDF 40 Stunden druckte. In Produktion griff der
+Fallback, der Defekt war rein in den Testdaten — aber er schwächte deren Aussagekraft.
+
+**Damit ist die Prüfkette vollständig:** `test:pdfa` beweist die Hülle, `test:schematron`
+den Inhalt. Was jetzt noch offen bleibt: die drei bekannten XML-Defekte (Reverse Charge,
+fehlende Zahlungsbedingung ohne `due_at`, USt-IdNr. ohne Länderpräfix) — sie ändern
+ausgewiesene Steuerbeträge und gehören dem Owner. Und: nur **ein** Steuersatz je Rechnung
+ist im Datenmodell abbildbar; eine Rechnung mit 19 % Überlassung und 7 % Nebenleistung
+käme mit einheitlichem Satz heraus und **kein Validator sähe es**, weil alle Summen dann
+aufgehen. Das ist eine Datenmodellfrage, keine Reparatur im Generator.
+
 ### 2026-08-29 — ZUGFeRD richtig: PDF/A-3u, geprüft statt behauptet
 
 **Status:** erledigt · **Kategorie:** Produktausbau (Normkonformität) · **Owner-Auftrag.**

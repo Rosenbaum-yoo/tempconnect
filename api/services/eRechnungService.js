@@ -38,11 +38,23 @@
 export const RECHNUNGSFORMATE = ["xrechnung", "zugferd"];
 
 /**
- * XRechnung-Kennung (CustomizationID, BT-24). Version 3.0 ist der seit 2024 gueltige
- * Stand der KoSIT-Spezifikation.
+ * XRechnung-Kennung (CustomizationID, BT-24), Fassung 3.0.
+ *
+ * DER NAMENSRAUM IST `xeinkauf.de`, NICHT `xoev-de`.
+ *
+ * Hier stand bis zum 2026-08-29 `urn:xoev-de:kosit:standard:xrechnung_3.0` —
+ * der alte Namensraum aus der 2.x-Zeit, kombiniert mit der neuen
+ * Versionsnummer. Diese Kennung gibt es nicht. Gemessen mit dem
+ * KoSIT-Validator 1.6.3: der Bericht meldete `noScenarioMatched`, also wurde
+ * KEINE einzige Geschaeftsregel geprueft. Ein Empfaenger haette die Rechnung
+ * nicht als XRechnung erkannt.
+ *
+ * Der Fehler war unsichtbar, weil beide Bestandteile fuer sich richtig
+ * aussehen und kein Test die Kennung je gegen eine echte Szenarienliste
+ * gehalten hat. Genau das tut jetzt `npm run test:schematron`.
  */
 export const XRECHNUNG_CUSTOMIZATION =
-  "urn:cen.eu:en16931:2017#compliant#urn:xoev-de:kosit:standard:xrechnung_3.0";
+  "urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0";
 
 /** Peppol-Profil BILLING 01 — der uebliche ProfileID-Wert (BT-23) fuer Rechnungen. */
 export const XRECHNUNG_PROFILE = "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0";
@@ -310,6 +322,12 @@ export function firmaZuPartei(org = {}) {
     handelsregister: org.commercial_register || null,  // BT-30
     email: org.billing_email || null,                  // BT-43 / BT-58
     kontakt: org.billing_contact || null,              // BT-41 / BT-56
+    /* BT-42: Pflicht fuer XRechnung (BR-DE-6), optional fuer reines EN 16931.
+       Bewusst `organizations.billing_phone` und NICHT `users.phone`: die Norm
+       meint die Kontaktstelle der FIRMA, nicht die Nummer eines Menschen —
+       sonst stuende die private Nummer eines Disponenten auf jeder Rechnung,
+       die das Haus verlaesst. (Migration 205) */
+    telefon: org.billing_phone || null,                // BT-42 / BT-57
     iban: org.iban || null,                            // BT-84
     bic: org.bic || null                               // BT-86
   };
@@ -498,10 +516,13 @@ function ublPartei(p, waehrungslos = true) {
       el("cbc:CompanyID", p.handelsregister)                          // BT-30 / BT-47
     ), 1),
     "</cac:PartyLegalEntity>",
-    (p.kontakt || p.email) ? zeilen(
+    (p.kontakt || p.telefon || p.email) ? zeilen(
       "<cac:Contact>",
       tiefe(zeilen(
         el("cbc:Name", p.kontakt),                                    // BT-41 / BT-56
+        /* Reihenfolge in cac:Contact ist schemagebunden: Name, Telephone,
+           ElectronicMail. Vertauscht bricht die XSD-Pruefung. */
+        el("cbc:Telephone", p.telefon),                               // BT-42 / BT-57
         el("cbc:ElectronicMail", p.email)                             // BT-43 / BT-58
       ), 1),
       "</cac:Contact>"
@@ -701,10 +722,18 @@ function ciiPartei(p) {
       ), 1),
       "</ram:SpecifiedLegalOrganization>"
     ) : null,
-    (p.kontakt || p.email) ? zeilen(
+    (p.kontakt || p.telefon || p.email) ? zeilen(
       "<ram:DefinedTradeContact>",
       tiefe(zeilen(
         el("ram:PersonName", p.kontakt),                              // BT-41 / BT-56
+        /* Reihenfolge in DefinedTradeContact: PersonName, DepartmentName,
+           TypeCode, Telephone…, Fax…, EmailURI… Das Telefon steht VOR der
+           E-Mail; vertauscht bricht die XSD-Pruefung. */
+        p.telefon ? zeilen(
+          "<ram:TelephoneUniversalCommunication>",
+          tiefe(el("ram:CompleteNumber", p.telefon) || "", 1),         // BT-42 / BT-57
+          "</ram:TelephoneUniversalCommunication>"
+        ) : null,
         p.email ? zeilen(
           "<ram:EmailURIUniversalCommunication>",
           tiefe(el("ram:URIID", p.email) || "", 1),                    // BT-43 / BT-58

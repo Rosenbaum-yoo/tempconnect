@@ -65,7 +65,7 @@ const KAEUFER = {
 const POSITIONEN = Array.from({ length: 40 }, (_, i) => ({
   worker_name: i % 3 === 0 ? "Anna Świątek" : i % 3 === 1 ? "Jiří Novák – Nachtschicht" : "Björn Öztürk",
   week_start: "2026-08-03", week_end: "2026-08-09",
-  hours: 40, unit_amount_cents: 4800, total_cents: 192000,
+  quantity: 40, unit_amount_cents: 4800, total_cents: 192000,
 }));
 
 /* Die Summen AUS den Positionen rechnen, nicht danebenschreiben.

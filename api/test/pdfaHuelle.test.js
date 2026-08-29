@@ -43,9 +43,9 @@ const KAEUFER = {
 };
 const POSITIONEN = [
   { worker_name: "Anna Świątek", week_start: "2026-08-03", week_end: "2026-08-09",
-    hours: 40, unit_amount_cents: 4800, total_cents: 192000 },
+    quantity: 40, unit_amount_cents: 4800, total_cents: 192000 },
   { worker_name: "Jiří Novák – Nachtschicht 12,50 €", week_start: "2026-08-10", week_end: "2026-08-16",
-    hours: 40, unit_amount_cents: 4800, total_cents: 192000 },
+    quantity: 40, unit_amount_cents: 4800, total_cents: 192000 },
 ];
 const RECHNUNG = {
   invoice_number: "2026-0042", status: "issued",
@@ -230,7 +230,7 @@ describe("Die erzeugte Huelle", () => {
        Text steht im Dokument und ist unsichtbar. */
     const viele = Array.from({ length: 60 }, (_, i) => ({
       worker_name: `Kraft ${i + 1}`, week_start: "2026-01-05", week_end: "2026-01-11",
-      hours: 40, unit_amount_cents: 4800, total_cents: 192000,
+      quantity: 40, unit_amount_cents: 4800, total_cents: 192000,
     }));
     const e = await erzeugeOperativesRechnungsPdf({
       invoice: RECHNUNG, items: viele, verkaeufer: VERKAEUFER, kaeufer: KAEUFER, xmlAnhang: XML,

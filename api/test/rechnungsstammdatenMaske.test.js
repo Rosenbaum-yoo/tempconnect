@@ -114,6 +114,10 @@ describe("Teil B — die Bereitschaft liefert, was ein Formular braucht", () => 
       const erwartet = [
         "legal_name", "billing_street", "billing_address_2", "billing_postal_code",
         "billing_city", "billing_country_code", "vat_id", "tax_id", "iban", "bic",
+        /* Seit dem Schematron-Lauf vom 2026-08-29: BR-DE-5 und BR-DE-6 waren
+           die einzigen verbleibenden Fehler der XRechnung-Pruefung. Die
+           Kontaktspalte gab es laengst, die Telefonspalte kam mit Mig 205. */
+        "billing_contact", "billing_phone",
       ].sort();
       assert.deepEqual(Object.keys(r.werte).sort(), erwartet,
         "werte und die Whitelist in updateOrganization muessen dasselbe abdecken");

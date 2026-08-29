@@ -42,7 +42,8 @@
     "list-routes": "node scripts/list-routes.js",
     "occ:owner-access": "node scripts/owner-access-cli.js",
     "verify": "npm run lint && npm run test:unit && npm run build",
-    "test:pdfa": "node scripts/verapdf.mjs"
+    "test:pdfa": "node scripts/verapdf.mjs",
+    "test:schematron": "node scripts/schematron.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",

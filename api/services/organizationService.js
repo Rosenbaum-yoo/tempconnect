@@ -51,7 +51,11 @@ export async function updateOrganization(pool, orgId, data) {
      * den Nutzer: `slaProfil.js` pflegt die Adresse auf `users`, und das ist
      * genau NICHT der Rechnungssteller. */
     'billing_street', 'billing_address_2', 'billing_postal_code',
-    'billing_city', 'billing_country_code', 'vat_id', 'iban', 'bic'
+    'billing_city', 'billing_country_code', 'vat_id', 'iban', 'bic',
+    /* BT-42, seit Migration 205: Pflicht fuer XRechnung (BR-DE-6). Ohne sie
+       meldet der Schematron-Lauf einen Fehler, und eine Behoerde weist die
+       Rechnung ab. */
+    'billing_phone'
   ];
   const fields = [];
   const values = [orgId];

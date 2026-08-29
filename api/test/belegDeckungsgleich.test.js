@@ -58,7 +58,7 @@ const KAEUFER = {
 };
 const POSITIONEN = [
   { worker_name: "Anna Świątek", week_start: "2026-08-03", week_end: "2026-08-09",
-    hours: 40, unit_amount_cents: 4800, total_cents: 192000 },
+    quantity: 40, unit_amount_cents: 4800, total_cents: 192000 },
 ];
 /* Bewusst mit `period_*` statt `billing_period_*`: so fuehren die operativen
    Rechnungen den Zeitraum, und genau daran ist der Abgleich gescheitert. */

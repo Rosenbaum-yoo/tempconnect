@@ -822,7 +822,7 @@ export async function pruefeERechnungBereitschaft(pool, orgId) {
   const { rows } = await pool.query(
     `SELECT id, name, legal_name, commercial_register, billing_email, billing_contact,
             tax_id, vat_id, billing_street, billing_address_2, billing_postal_code,
-            billing_city, billing_country_code, iban, bic
+            billing_city, billing_country_code, iban, bic, billing_phone
        FROM organizations
       WHERE id = $1`,
     [orgId]
@@ -870,7 +870,13 @@ export async function pruefeERechnungBereitschaft(pool, orgId) {
       vat_id: org.vat_id || null,
       tax_id: org.tax_id || null,
       iban: org.iban || null,
-      bic: org.bic || null
+      bic: org.bic || null,
+      /* Kontaktstelle und Telefon: fuer reines EN 16931 optional, fuer
+         XRechnung Pflicht (BR-DE-5/BR-DE-6). Gemessen am 2026-08-29 waren sie
+         der einzige verbleibende Grund, warum der KoSIT-Validator eine sonst
+         einwandfreie XRechnung abwies. */
+      billing_contact: org.billing_contact || null,
+      billing_phone: org.billing_phone || null
     },
     fristen: {
       empfangspflicht_seit: "2025-01-01",

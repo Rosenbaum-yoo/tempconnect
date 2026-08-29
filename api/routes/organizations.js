@@ -31,7 +31,11 @@ const createOrgSchema = z.object({
   billing_country_code: z.string().trim().length(2).transform((s) => s.toUpperCase()).optional().nullable(),
   vat_id: z.string().max(50).optional().nullable(),
   iban: z.string().max(40).optional().nullable(),
-  bic: z.string().max(20).optional().nullable()
+  bic: z.string().max(20).optional().nullable(),
+  /* BT-42 (Migration 205), Pflicht fuer XRechnung. Keine Formatpruefung:
+     internationale Nummern sind zu vielgestaltig, und eine zu strenge Regel
+     haelt gueltige Nummern auf. Die Norm selbst schreibt kein Format vor. */
+  billing_phone: z.string().max(50).optional().nullable()
 });
 
 const locationSchema = z.object({
