@@ -118,6 +118,69 @@ const RECHNUNG = {
 };
 
 const FORMATE = { zugferd: "cii", xrechnung: "ubl" };
+
+/**
+ * Die Faelle, die dieser Lauf belegt.
+ *
+ * Der Gutfall allein beweist wenig — er zeigt, dass eine saubere Rechnung
+ * durchgeht. Der Wert des Gates liegt in den Faellen daneben: den drei
+ * Defekten, die am 2026-08-29 gemessen und behoben wurden, und den
+ * Ablehnungen, die der Generator seither ausspricht.
+ *
+ * Drei Erwartungshaltungen:
+ *   (Standard)                der Validator muss das Dokument akzeptieren
+ *   mussFehlerHaben           der Validator MUSS etwas finden — sonst ist der
+ *                             Pruefstand selbst kaputt
+ *   erwarteteAblehnung        es darf gar kein XML entstehen; der Generator
+ *                             weigert sich, und genau das ist richtig
+ */
+const REVERSE_CHARGE_RECHNUNG = {
+  ...RECHNUNG,
+  /* § 13b UStG: der Empfaenger schuldet die Steuer. Der Beleg fuehrt deshalb
+     0 % und 0 Cent, und Brutto = Netto. So MUSS die Zeile stromaufwaerts
+     entstehen — der Generator rechnet sie nicht um. */
+  tax_rate_pct: 0,
+  tax_amount_cents: 0,
+  total_cents: POSITIONSSUMME,
+};
+
+const FAELLE = [
+  {
+    name: "regelfall-cii", format: "zugferd",
+    zweck: "eine gewoehnliche Rechnung, ZUGFeRD/Factur-X",
+  },
+  {
+    name: "regelfall-ubl", format: "xrechnung",
+    zweck: "dieselbe Rechnung als XRechnung, inklusive der deutschen CIUS-Regeln",
+  },
+  {
+    name: "reverse-charge", format: "zugferd",
+    invoice: REVERSE_CHARGE_RECHNUNG, optionen: { reverseCharge: true },
+    zweck: "§ 13b UStG richtig gebaut: Kategorie AE mit Satz 0 und Steuer 0 (BR-AE-05/09)",
+  },
+  {
+    name: "ohne-faelligkeit", format: "zugferd",
+    invoice: { ...RECHNUNG, due_at: null },
+    zweck: "ohne Faelligkeitsdatum traegt der Beleg eine Zahlungsbedingung (BR-CO-25)",
+  },
+  {
+    name: "rc-unstimmig", format: "zugferd",
+    invoice: RECHNUNG, optionen: { reverseCharge: true },
+    erwarteteAblehnung: "REVERSE_CHARGE_UNSTIMMIG",
+    zweck: "Reverse Charge auf einer 19-%-Rechnung: der Generator rechnet NICHT um, er lehnt ab",
+  },
+  {
+    name: "ustid-ohne-praefix", format: "zugferd",
+    verkaeufer: { ...VERKAEUFER, vat_id: "123456789" },
+    erwarteteAblehnung: "PFLICHTFELDER_FEHLEN",
+    zweck: "USt-IdNr. ohne Laenderkennzeichen wird gemeldet, nicht stillschweigend ergaenzt (BR-CO-09)",
+  },
+  {
+    name: "gegenprobe", format: "zugferd", verfaelschen: true, mussFehlerHaben: true,
+    zweck: "sieht der Pruefstand ueberhaupt etwas?",
+  },
+];
+
 const gewuenscht = process.argv.slice(2).filter((a) => Object.keys(FORMATE).includes(a));
 const zuPruefen = gewuenscht.length ? gewuenscht : Object.keys(FORMATE);
 
@@ -173,42 +236,52 @@ try {
   }
 
   const dateien = [];
-  for (const format of zuPruefen) {
+  for (const fall of FAELLE.filter((f) => zuPruefen.includes(f.format))) {
     const e = erzeugeERechnung({
-      format, invoice: RECHNUNG, items: POSITIONEN,
-      verkaeufer: VERKAEUFER, kaeufer: KAEUFER,
+      format: fall.format,
+      invoice: fall.invoice || RECHNUNG,
+      items: fall.items || POSITIONEN,
+      verkaeufer: fall.verkaeufer || VERKAEUFER,
+      kaeufer: fall.kaeufer || KAEUFER,
+      optionen: fall.optionen,
     });
+
+    if (fall.erwarteteAblehnung) {
+      /* Hier ist die Ablehnung das gewuenschte Ergebnis. Entstuende ein XML,
+         waere der Schutz weg — und der Beleg ginge falsch hinaus. */
+      if (e.ok) {
+        console.error(`[schematron] ${fall.name}: der Generator hat ein XML erzeugt, obwohl er`);
+        console.error(`[schematron] ablehnen muesste (${fall.erwarteteAblehnung}). ${fall.zweck}`);
+        exitcode = 1;
+      } else if (e.fehler !== fall.erwarteteAblehnung) {
+        console.error(`[schematron] ${fall.name}: abgelehnt, aber mit "${e.fehler}" statt`);
+        console.error(`[schematron] "${fall.erwarteteAblehnung}". Der Grund muss stimmen, nicht nur das Ergebnis.`);
+        exitcode = 1;
+      } else {
+        console.log(`[schematron] ${fall.name}: richtig abgelehnt (${e.fehler}) — ${fall.zweck}`);
+      }
+      continue;
+    }
+
     if (!e.ok) {
-      console.error(`[schematron] ${format}: das Fixture erzeugt kein XML — ${JSON.stringify(e.fehlend || e)}`);
+      console.error(`[schematron] ${fall.name}: kein XML — ${e.fehler} ${JSON.stringify(e.fehlend || e.hinweis || "").slice(0, 300)}`);
       exitcode = 1;
       continue;
     }
-    const name = `${FORMATE[format]}.xml`;
-    fs.writeFileSync(path.join(arbeit, name), e.xml, "utf8");
-    dateien.push({ format, name });
-    console.log(`[schematron] ${format}: ${e.xml.length} Zeichen erzeugt`);
+
+    /* Die Gegenprobe verfaelscht den Steuerbetrag AM FERTIGEN XML. Ueber den
+       Generator ginge es nicht: dessen eigene Betragspruefung faenge es ab —
+       hier soll aber der VALIDATOR zeigen, dass er sieht. */
+    const inhalt = fall.verfaelschen
+      ? e.xml.replace(/(<ram:CalculatedAmount>)[\d.]+(<\/ram:CalculatedAmount>)/, "$199999.99$2")
+      : e.xml;
+
+    const name = `${fall.name}.xml`;
+    fs.writeFileSync(path.join(arbeit, name), inhalt, "utf8");
+    dateien.push({ format: fall.name, name, mussFehlerHaben: fall.mussFehlerHaben, zweck: fall.zweck });
+    console.log(`[schematron] ${fall.name}: ${inhalt.length} Zeichen — ${fall.zweck}`);
   }
   if (!dateien.length) process.exit(1);
-
-  /* Die Gegenprobe: dasselbe CII, aber mit einem Steuerbetrag, der nicht zur
-     Bemessungsgrundlage passt. Das verletzt BR-CO-14/BR-S-09 und MUSS gemeldet
-     werden. Nur mitgefahren, wenn CII ohnehin geprueft wird. */
-  const machtGegenprobe = zuPruefen.includes("zugferd");
-  if (machtGegenprobe) {
-    const e = erzeugeERechnung({
-      format: "zugferd", invoice: RECHNUNG, items: POSITIONEN,
-      verkaeufer: VERKAEUFER, kaeufer: KAEUFER,
-    });
-    /* Am fertigen XML manipuliert, nicht ueber den Generator: der wuerde die
-       Unstimmigkeit selbst bemerken und gar nichts liefern — seine
-       Betragspruefung ist ja da. Hier soll der VALIDATOR zeigen, dass er sieht. */
-    const kaputt = e.xml.replace(
-      /(<ram:CalculatedAmount>)[\d.]+(<\/ram:CalculatedAmount>)/,
-      "$199999.99$2",
-    );
-    fs.writeFileSync(path.join(arbeit, "gegenprobe.xml"), kaputt, "utf8");
-    dateien.push({ format: "gegenprobe", name: "gegenprobe.xml", mussFehlerHaben: true });
-  }
 
   const lauf = spawnSync(
     "docker",

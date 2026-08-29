@@ -124,6 +124,22 @@ export function mengeFormat(menge) {
  * Bewusst in Europe/Berlin gelesen: ein UTC-Schnitt macht aus dem Rechnungsdatum
  * 01.03. um 00:30 Ortszeit den 28.02. — ein Beleg im falschen Voranmeldungszeitraum.
  */
+/**
+ * ISO-Datum in deutscher Schreibweise — nur fuer Freitextfelder.
+ *
+ * Die maschinenlesbaren Datumsfelder der Norm (BT-2, BT-9) bleiben ISO bzw.
+ * CII-Format 102. Hier geht es allein um BT-20, die Zahlungsbedingung: die
+ * liest ein Mensch, und ein "2026-09-03" mitten im Satz gehoert dort nicht hin.
+ *
+ * Rein textlich, ohne Zeitzonenrechnung: der uebergebene Wert kommt bereits
+ * aus `zuIsoDatum` und ist damit auf Europe/Berlin normalisiert.
+ */
+export function deutschesDatum(iso) {
+  if (!iso) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso));
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : String(iso);
+}
+
 export function zuIsoDatum(wert) {
   if (!wert) return null;
   const d = wert instanceof Date ? wert : new Date(wert);
@@ -208,6 +224,58 @@ export function baueRechnungsdokument({ invoice, items = [], verkaeufer = {}, ka
   const verkaeuferPartei = firmaZuPartei(verkaeufer);
   const kaeuferPartei = firmaZuPartei(kaeufer);
 
+  /* ── Reverse Charge: ablehnen statt umrechnen ─────────────────────────
+   *
+   * Bei § 13b UStG schuldet der Empfaenger die Steuer. Die Norm verlangt
+   * deshalb Satz 0 (BR-AE-05) und Steuerbetrag 0 (BR-AE-09). Gemessen am
+   * 2026-08-29 setzte `steuerkategorie` nur die Kategorie auf "AE", waehrend
+   * Satz und Betrag unveraendert aus der Rechnungszeile kamen — beide Regeln
+   * verletzt.
+   *
+   * WARUM HIER NICHT STILL GENULLT WIRD, obwohl das die Regeln gruen faerbte:
+   *
+   *   Rechtlich: aus einer 19-%-Rechnung wuerde im maschinenlesbaren Teil eine
+   *   0-%-Rechnung, waehrend das PDF weiter 19 % zeigt. Bei /AFRelationship
+   *   /Alternative ist das genau der gebrochene Zusagefall — und an einem
+   *   Steuerbeleg eine Faelschung. Die Projektregel vom 2026-08-03 sagt es
+   *   allgemein: Fehlerpfade eskalieren, nie degradieren.
+   *
+   *   Technisch: es wuerde nicht einmal wirken. `total_cents` traegt die 19 %
+   *   weiter; mit genulltem Steuerbetrag braeche stattdessen BR-CO-15
+   *   (Brutto = Netto + Steuer). Ein in sich widerspruechlicher Beleg ist auf
+   *   der Serialisierungsebene nicht reparierbar — die Rechnungszeile muss
+   *   stromaufwaerts reverse-charge-richtig entstehen.
+   *
+   * Entlastend: `reverseCharge` hat im ganzen Repo keinen Aufrufer. Es geht
+   * heute keine Rechnung als AE hinaus; der Defekt ist latent, und dieser Fix
+   * kann keinen bereits gestellten Beleg nachtraeglich veraendern. */
+  if (optionen.reverseCharge) {
+    const steuerCents = Math.round(Number(invoice.tax_amount_cents) || 0);
+    if (satzPct !== 0 || steuerCents !== 0) {
+      const e = new Error(
+        "Reverse Charge (§ 13b UStG) verlangt Steuersatz 0 und Steuerbetrag 0. " +
+        `Die Rechnung fuehrt ${satzPct} % und ${steuerCents} Cent Steuer. Der Beleg ` +
+        "wird NICHT umgerechnet — die Rechnungszeile muss bereits reverse-charge-" +
+        "richtig entstehen (0 %, 0 Cent, Brutto = Netto).",
+      );
+      e.code = "REVERSE_CHARGE_UNSTIMMIG";
+      throw e;
+    }
+    /* BR-AE-01/BR-AE-02: bei AE braucht auch der EMPFAENGER eine Kennung —
+       USt-IdNr. (BT-48) oder Registernummer (BT-47). Bewusst hier und nicht in
+       `pruefeFirmenstammdaten`: die Pflicht ist BEDINGT. In der allgemeinen
+       Pruefung wuerde sie jede gewoehnliche Rechnung blockieren, bei der der
+       Empfaenger zu Recht keine Kennung fuehrt. */
+    if (!kaeuferPartei.ustId && !kaeuferPartei.handelsregister) {
+      const e = new Error(
+        "Reverse Charge verlangt die USt-IdNr. des Rechnungsempfaengers (BT-48) " +
+        "oder dessen Registernummer (BT-47). Beide fehlen.",
+      );
+      e.code = "REVERSE_CHARGE_KAEUFERKENNUNG_FEHLT";
+      throw e;
+    }
+  }
+
   const positionen = items.map((it, i) => ({
     nummer: String(i + 1),
     /* Der Name der Kraft, wenn es keinen eigenen Text gibt.
@@ -257,9 +325,25 @@ export function baueRechnungsdokument({ invoice, items = [], verkaeufer = {}, ka
       art: ZAHLUNGSART_SEPA,                                      // BT-81
       iban: verkaeuferPartei.iban,                                // BT-84
       bic: verkaeuferPartei.bic,                                  // BT-86
+      /* BR-CO-25: ist der Zahlbetrag positiv, muss ENTWEDER das
+       * Faelligkeitsdatum (BT-9) ODER eine Zahlungsbedingung (BT-20) im Beleg
+       * stehen. Beide kamen bisher aus derselben Quelle — fehlte `due_at`,
+       * verschwanden sie GEMEINSAM, und jede Rechnung ohne Faelligkeitsdatum
+       * wurde abgewiesen (gemessen am 2026-08-29).
+       *
+       * Kein Datum erfinden: eine Zahlungsfrist ist eine Vertragsaussage, und
+       * ein ausgedachtes "14 Tage" auf einem Steuerbeleg waere eine erfundene
+       * Tatsache. Ohne Frist gilt der gesetzliche Normalfall (§ 271 BGB:
+       * sofort faellig) — das ist keine Erfindung, sondern die Rechtslage,
+       * wenn nichts anderes vereinbart wurde.
+       *
+       * Das Datum in deutscher Schreibweise: BT-20 ist Freitext und wird von
+       * Menschen gelesen. Ein ISO-Datum im Fliesstext ist dort fehl am Platz. */
       bedingungen: invoice.due_at
-        ? `Zahlbar ohne Abzug bis ${zuIsoDatum(invoice.due_at)}.`
-        : null                                                    // BT-20
+        ? `Zahlbar ohne Abzug bis ${deutschesDatum(zuIsoDatum(invoice.due_at))}.`
+        : (Math.round(Number(invoice.total_cents) || 0) > 0
+            ? "Zahlbar sofort nach Erhalt ohne Abzug."
+            : null)                                               // BT-20
     },
 
     steuer: {
@@ -391,6 +475,37 @@ export function pruefeFirmenstammdaten(partei, rolle = "verkaeufer") {
       schluessel: "steuerkennung"
     });
   }
+
+  /* BR-CO-09: die USt-IdNr. beginnt mit dem Laenderkennzeichen.
+   *
+   * Gilt fuer BEIDE Seiten (BT-31 und BT-48), deshalb ausserhalb der
+   * Verkaeufer-Bedingung. Gemessen am 2026-08-29: eine Kennung ohne Praefix
+   * ging unbeanstandet durch und wurde vom Validator abgewiesen.
+   *
+   * WARUM NICHT AUTOMATISCH ERGAENZT, obwohl "DE" + neun Ziffern nahe laege:
+   * im Feld `vat_id` steht erfahrungsgemaess auch mal eine STEUERNUMMER. Aus
+   * "3155711 0815" ein "DE31557110815" zu machen, schriebe eine steuerliche
+   * Kennung auf den Beleg, die es nicht gibt — und niemand wuerde es merken,
+   * weil das Ergebnis richtig aussieht. Ein Fehler, den der Nutzer in zehn
+   * Sekunden korrigiert, ist besser als eine erfundene Nummer auf jeder
+   * Rechnung. (Projektregel vom 2026-08-03: eskalieren, nie degradieren.)
+   *
+   * Die Ausnahmen sind normativ und keine Nachlaessigkeit: Griechenland fuehrt
+   * seine Kennung mit EL statt GR, Nordirland mit XI. */
+  const ustId = String(partei?.ustId || "").trim();
+  if (ustId && !/^[A-Z]{2}/.test(ustId.toUpperCase())) {
+    fehlend.push({
+      bt: rolle === "verkaeufer" ? "BT-31" : "BT-48",
+      feld: `${f.rolle}: USt-IdNr. ohne Laenderkennzeichen`,
+      hinweis:
+        `Die USt-IdNr. "${ustId}" beginnt nicht mit einem Laenderkennzeichen. ` +
+        "Eine deutsche lautet DE gefolgt von neun Ziffern (Ausnahmen: EL fuer " +
+        "Griechenland, XI fuer Nordirland). Steht hier versehentlich die " +
+        `Steuernummer, gehoert sie ins dafuer vorgesehene Feld. ${wo}.`,
+      schluessel: "steuerkennung"
+    });
+  }
+
   return fehlend;
 }
 
@@ -470,9 +585,17 @@ function tiefe(text, stufen) {
   return text.split("\n").map((z) => (z ? pad + z : z)).join("\n");
 }
 
-/** UBL-Partei (cac:Party). Reihenfolge folgt dem UBL-2.1-Schema und ist bindend. */
-function ublPartei(p, waehrungslos = true) {
-  void waehrungslos;
+/**
+ * UBL-Partei (cac:Party). Reihenfolge folgt dem UBL-2.1-Schema und ist bindend.
+ *
+ * `rolle` entscheidet ueber die Steuernummer: BT-32 ist in EN 16931 ein reiner
+ * VERKAEUFER-Begriff. Die Kaeuferpartei kennt nur BT-48 (USt-IdNr.). Bis zum
+ * 2026-08-29 war der Zweig rollenblind und schrieb die Steuernummer eines
+ * Empfaengers ohne USt-IdNr. in dessen Block — ein Element, das die Norm dort
+ * nicht kennt. Der Parameter ersetzt zugleich das ungenutzte `waehrungslos`,
+ * statt einen zweiten danebenzustellen.
+ */
+function ublPartei(p, rolle = "verkaeufer") {
   return zeilen(
     el("cbc:EndpointID", p.email, ' schemeID="EM"'),                  // BT-34 / BT-49
     "<cac:PartyName>",
@@ -500,7 +623,9 @@ function ublPartei(p, waehrungslos = true) {
       "</cac:PartyTaxScheme>"
     ) : null,
     // Steuernummer als zweites TaxScheme (BT-32) — Kennung "FC" fuer "Fiscal Code".
-    p.steuernummer && !p.ustId ? zeilen(
+    /* BT-32 ist ein Verkaeufer-Begriff — beim Empfaenger kennt die Norm
+       nur BT-48. */
+    (p.steuernummer && !p.ustId && rolle === "verkaeufer") ? zeilen(
       "<cac:PartyTaxScheme>",
       tiefe(zeilen(
         el("cbc:CompanyID", p.steuernummer),                          // BT-32
@@ -597,10 +722,10 @@ export function baueXRechnung(doc) {
     ) : null,
 
     "<cac:AccountingSupplierParty>",
-    tiefe(zeilen("<cac:Party>", tiefe(ublPartei(doc.verkaeufer), 1), "</cac:Party>"), 1),
+    tiefe(zeilen("<cac:Party>", tiefe(ublPartei(doc.verkaeufer, "verkaeufer"), 1), "</cac:Party>"), 1),
     "</cac:AccountingSupplierParty>",
     "<cac:AccountingCustomerParty>",
-    tiefe(zeilen("<cac:Party>", tiefe(ublPartei(doc.kaeufer), 1), "</cac:Party>"), 1),
+    tiefe(zeilen("<cac:Party>", tiefe(ublPartei(doc.kaeufer, "kaeufer"), 1), "</cac:Party>"), 1),
     "</cac:AccountingCustomerParty>",
 
     doc.zahlung.iban ? zeilen(
@@ -694,7 +819,7 @@ ${tiefe(koerper, 1)}
    ═══════════════════════════════════════════════════════════ */
 
 /** CII-Partei. Auch hier ist die Reihenfolge der Kindelemente schemagebunden. */
-function ciiPartei(p) {
+function ciiPartei(p, rolle = "verkaeufer") {
   return zeilen(
     /* ram:Name ist BT-27 — der RECHTSNAME, nicht der Handelsname.
      *
@@ -756,7 +881,9 @@ function ciiPartei(p) {
       tiefe(el("ram:ID", p.ustId, ' schemeID="VA"') || "", 1),        // BT-31 / BT-48
       "</ram:SpecifiedTaxRegistration>"
     ) : null,
-    (p.steuernummer && !p.ustId) ? zeilen(
+    /* BT-32 ist ein Verkaeufer-Begriff — beim Empfaenger kennt die Norm
+       nur BT-48. */
+    (p.steuernummer && !p.ustId && rolle === "verkaeufer") ? zeilen(
       "<ram:SpecifiedTaxRegistration>",
       tiefe(el("ram:ID", p.steuernummer, ' schemeID="FC"') || "", 1), // BT-32
       "</ram:SpecifiedTaxRegistration>"
@@ -852,10 +979,10 @@ export function baueZugferdXml(doc) {
     tiefe(zeilen(
       el("ram:BuyerReference", doc.kaeuferreferenz),                  // BT-10
       "<ram:SellerTradeParty>",
-      tiefe(ciiPartei(doc.verkaeufer), 1),
+      tiefe(ciiPartei(doc.verkaeufer, "verkaeufer"), 1),
       "</ram:SellerTradeParty>",
       "<ram:BuyerTradeParty>",
-      tiefe(ciiPartei(doc.kaeufer), 1),
+      tiefe(ciiPartei(doc.kaeufer, "kaeufer"), 1),
       "</ram:BuyerTradeParty>"
     ), 1),
     "</ram:ApplicableHeaderTradeAgreement>",
@@ -984,7 +1111,19 @@ export function erzeugeERechnung({ format = "xrechnung", invoice, items, verkaeu
     return { ok: false, fehler: "FORMAT_UNBEKANNT", erlaubt: RECHNUNGSFORMATE };
   }
 
-  const doc = baueRechnungsdokument({ invoice, items, verkaeufer, kaeufer, optionen });
+  /* Die Reverse-Charge-Eskalation in die bestehende Fehlerform giessen.
+     `baueRechnungsdokument` wirft dort bewusst, statt einen widerspruechlichen
+     Beleg zu bauen — ein roher Wurf waere fuer die Aufrufer aber eine zweite,
+     abweichende Fehlersprache neben dem gewohnten {ok:false, fehler}. */
+  let doc;
+  try {
+    doc = baueRechnungsdokument({ invoice, items, verkaeufer, kaeufer, optionen });
+  } catch (e) {
+    if (e?.code === "REVERSE_CHARGE_UNSTIMMIG" || e?.code === "REVERSE_CHARGE_KAEUFERKENNUNG_FEHLT") {
+      return { ok: false, fehler: e.code, hinweis: e.message };
+    }
+    throw e;
+  }
   const pruefung = pruefePflichtfelder(doc);
   if (!pruefung.vollstaendig) {
     return { ok: false, fehler: "PFLICHTFELDER_FEHLEN", fehlend: pruefung.fehlend };

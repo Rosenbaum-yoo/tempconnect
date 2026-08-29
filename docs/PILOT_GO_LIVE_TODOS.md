@@ -2,6 +2,75 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-08-29 — Die drei XML-Defekte: abgelehnt statt geglättet
+
+**Status:** erledigt · **Kategorie:** Normkonformität (Steuerbeleg) · **Owner-Auftrag.**
+
+Die drei Defekte, die das Schematron-Gate belegt hatte. Alle drei sind behoben — und
+bei zweien war die **Ablehnung** der richtige Fix, nicht die Korrektur.
+
+| Regel | Defekt | Behandlung |
+|---|---|---|
+| BR-AE-05 / BR-AE-09 | Reverse Charge setzte nur die Kategorie auf AE; Satz (19 %) und Steuerbetrag liefen unverändert durch | **Ablehnen.** Der Generator rechnet nicht um |
+| BR-CO-25 | Ohne `due_at` fielen Fälligkeit (BT-9) **und** Zahlungsbedingung (BT-20) gemeinsam weg — beide kamen aus derselben Quelle | Zahlungsbedingung setzen, **ohne** eine Frist zu erfinden |
+| BR-CO-09 | USt-IdNr. ohne Länderkennzeichen ging unbeanstandet durch | **Ablehnen.** Kein automatisches Voranstellen |
+
+**Warum bei Reverse Charge nicht umgerechnet wird**, obwohl das die Regeln grün färbte:
+
+- *Rechtlich:* aus einer 19-%-Rechnung würde im maschinenlesbaren Teil eine
+  0-%-Rechnung, während das PDF weiter 19 % zeigt. Bei `/AFRelationship /Alternative`
+  ist das der gebrochene Zusagefall — und an einem Steuerbeleg eine stille Fälschung.
+- *Technisch:* es hätte gar nicht gewirkt. `total_cents` trägt die Steuer weiter; mit
+  genulltem Betrag bräche stattdessen BR-CO-15. Ein in sich widersprüchlicher Beleg ist
+  auf der Serialisierungsebene nicht reparierbar — die Rechnungszeile muss stromaufwärts
+  richtig entstehen.
+
+Entlastend: `reverseCharge` hat im ganzen Repo **keinen Aufrufer**. Es ging nie eine
+Rechnung als AE hinaus; der Defekt war latent, und der Fix kann keinen gestellten Beleg
+nachträglich verändern. Eine korrekt gebaute AE-Rechnung (0 %, 0 Cent, Brutto = Netto)
+geht jetzt durch und trägt den Pflichthinweis „Steuerschuldnerschaft des
+Leistungsempfängers" (BT-120). Zusätzlich greift BR-AE-01/02: bei AE braucht auch der
+**Empfänger** eine Kennung — bedingt geprüft, damit gewöhnliche Rechnungen ohne
+Käufer-USt-IdNr. weiter funktionieren.
+
+**Warum die USt-IdNr. nicht automatisch ergänzt wird:** im Feld `vat_id` steht
+erfahrungsgemäß auch mal eine **Steuernummer**. Aus „315/5711/0815" ein
+„DE31557110815" zu machen schriebe eine steuerliche Kennung auf den Beleg, die es nicht
+gibt — und niemand würde es merken, weil das Ergebnis richtig aussieht. Die Meldung nennt
+genau diesen häufigsten Grund und die normativen Ausnahmen (EL für Griechenland, XI für
+Nordirland).
+
+**Bei der Zahlungsbedingung wird keine Frist erfunden.** Ein ausgedachtes „14 Tage" wäre
+eine Vertragsaussage auf einem Steuerbeleg. Ohne Vereinbarung gilt der gesetzliche
+Normalfall (§ 271 BGB, sofort fällig) — das ist keine Erfindung, sondern die Rechtslage.
+Nebenbei: das Datum steht in BT-20 jetzt deutsch (`03.09.2026`), weil dieses Feld ein
+Mensch liest; das maschinenlesbare BT-9 bleibt im Normformat.
+
+**Vierter Fund, mitbehoben:** der Steuernummer-Zweig war rollenblind und schrieb BT-32
+auch in den **Empfänger**-Block. BT-32 ist in EN 16931 ein reiner Verkäufer-Begriff; die
+Käuferpartei kennt nur BT-48. Der Validator hätte es nie gemeldet — die Norm kennt das
+Element dort schlicht nicht.
+
+**Das Gate belegt jetzt sieben Fälle** statt eines:
+
+| Fall | Erwartung | Ergebnis |
+|---|---|---|
+| Regelfall CII / UBL | konform | 0 Fehler, 0 Warnungen |
+| Reverse Charge korrekt | konform | 0 Fehler, 0 Warnungen |
+| Ohne Fälligkeit | konform | 0 Fehler, 0 Warnungen |
+| RC unstimmig | **Ablehnung** | `REVERSE_CHARGE_UNSTIMMIG` |
+| USt-IdNr. ohne Präfix | **Ablehnung** | `PFLICHTFELDER_FEHLEN` |
+| Gegenprobe | Validator **muss** meckern | BR-CO-17 gefunden |
+
+Ein Fall, der nur behauptet behoben zu sein, ist nicht behoben — deshalb steht jeder
+einzeln im Gate. 17 zusätzliche Unit-Tests halten fest, **warum** abgelehnt wird; das
+sieht das Gate nur als Abwesenheit einer Datei.
+
+**Weiterhin offen — Datenmodell, nicht Generator:** nur **ein** Steuersatz je Rechnung
+ist abbildbar. Eine Rechnung mit 19 % Überlassung und 7 % Nebenleistung käme mit
+einheitlichem Satz heraus, und **kein Validator sähe es**, weil alle Summen dann
+aufgehen. Das wird teurer, je später es kommt.
+
 ### 2026-08-29 — Das Schematron-Gate: der Inhalt ist jetzt auch geprüft
 
 **Status:** erledigt · **Kategorie:** Normkonformität (Prüfkette) · **Owner-Auftrag.**
