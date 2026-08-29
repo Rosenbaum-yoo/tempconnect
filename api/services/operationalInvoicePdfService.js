@@ -74,7 +74,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PDFDocument, AFRelationship, rgb } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
-import { firmaZuPartei, pruefeFirmenstammdaten } from "./eRechnungService.js";
+import { firmaZuPartei, pruefeFirmenstammdaten, bildeSteuergruppen } from "./eRechnungService.js";
 import { haerteAlsPdfA3 } from "./pdfa/index.js";
 import { baueXmp, xmpZeitstempel, FX_PROFILE } from "./pdfa/xmp.js";
 
@@ -341,9 +341,35 @@ export async function erzeugeOperativesRechnungsPdf({
    *
    * Der Strukturtest sah das nicht — er prueft die Huelle, nicht die Zahlen.
    * `rechnungPdfBetraege.test.js` rechnet seither nach. */
-  const satz = invoice.tax_rate_pct == null ? 19 : invoice.tax_rate_pct;
   summe("Netto", invoice.amount_cents);
-  summe(`Umsatzsteuer (${satz} %)`, invoice.tax_amount_cents);
+
+  /* Die Steuer JE SATZ ausweisen.
+   *
+   * § 14 Abs. 4 Nr. 8 UStG verlangt den Steuerbetrag und den Satz — bei
+   * mehreren Saetzen also je Satz eine Zeile. Und die Einbettung mit
+   * /AFRelationship /Alternative ist die Zusage, dass PDF und XML dieselben
+   * Angaben tragen: das XML fuehrt seit der Mehrsatz-Welle eine
+   * Aufschluesselung je Satz (BG-23), der Beleg muss dasselbe zeigen.
+   *
+   * Die Gruppen kommen aus derselben Funktion wie im XML — zwei getrennte
+   * Rechenwege waeren genau die Art Abweichung, die erst beim Empfaenger
+   * auffaellt. */
+  const steuergruppen = bildeSteuergruppen({
+    positionen: items.map((it) => ({
+      zeilensummeCents: Math.round(Number(it.total_cents ?? it.amount_cents) || 0),
+      steuerkategorie: it.tax_category || (Number(invoice.tax_rate_pct) > 0 ? "S" : "E"),
+      steuersatzPct: it.tax_rate_pct == null ? Number(invoice.tax_rate_pct ?? 19) : Number(it.tax_rate_pct),
+    })),
+    kategorie: Number(invoice.tax_rate_pct) > 0 ? "S" : "E",
+    satzPct: Number(invoice.tax_rate_pct ?? 19),
+    nettoCents: Math.round(Number(invoice.amount_cents) || 0),
+    steuerCentsGesamt: Math.round(Number(invoice.tax_amount_cents) || 0),
+    optionen: {},
+  });
+  for (const g of steuergruppen) {
+    summe(`Umsatzsteuer (${satzText(g.satzPct)} %)`, g.betragCents);
+  }
+
   summe("Gesamtbetrag", invoice.total_cents, true);
 
   y -= 8; HR(y); y -= 16;
@@ -442,6 +468,12 @@ export async function erzeugeOperativesRechnungsPdf({
 }
 
 /* ── Helfer ────────────────────────────────────────────────────────────── */
+
+/** Der Steuersatz, wie er auf dem Beleg steht: 19 statt 19.00, 7,5 statt 7.50. */
+function satzText(satz) {
+  const n = Number(satz) || 0;
+  return (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, "")).replace(".", ",");
+}
 
 function betrag(cent) {
   return (Number(cent || 0) / 100).toFixed(2).replace(".", ",");

@@ -144,6 +144,27 @@ const REVERSE_CHARGE_RECHNUNG = {
   total_cents: POSITIONSSUMME,
 };
 
+/* Zwei Steuersaetze auf einer Rechnung: 19 % Ueberlassung, 7 % Nebenleistung.
+   Bis zum 2026-08-29 nicht abbildbar — die Rechnung waere mit EINEM Satz
+   herausgegangen, und kein Validator haette es gesehen, weil alle Summen dann
+   aufgehen. Die Summen hier aus den Positionen gerechnet, je Gruppe gerundet
+   (BR-CO-17 rundet auf Gruppenebene, nicht je Position). */
+const POSITIONEN_ZWEI_SAETZE = [
+  { worker_name: "Anna Świątek", week_start: "2026-08-03", week_end: "2026-08-09",
+    quantity: 40, unit_amount_cents: 4800, total_cents: 192000,
+    tax_rate_pct: 19, tax_category: "S" },
+  { description: "Arbeitsschutzschulung", quantity: 1, unit_amount_cents: 10000,
+    total_cents: 10000, tax_rate_pct: 7, tax_category: "S" },
+];
+const NETTO_ZWEI = POSITIONEN_ZWEI_SAETZE.reduce((s, p) => s + p.total_cents, 0);
+const STEUER_ZWEI = Math.round(192000 * 19 / 100) + Math.round(10000 * 7 / 100);
+const RECHNUNG_ZWEI_SAETZE = {
+  ...RECHNUNG,
+  gross_amount_cents: NETTO_ZWEI, amount_cents: NETTO_ZWEI,
+  tax_amount_cents: STEUER_ZWEI, total_cents: NETTO_ZWEI + STEUER_ZWEI,
+  tax_rate_pct: 19,
+};
+
 const FAELLE = [
   {
     name: "regelfall-cii", format: "zugferd",
@@ -174,6 +195,16 @@ const FAELLE = [
     verkaeufer: { ...VERKAEUFER, vat_id: "123456789" },
     erwarteteAblehnung: "PFLICHTFELDER_FEHLEN",
     zweck: "USt-IdNr. ohne Laenderkennzeichen wird gemeldet, nicht stillschweigend ergaenzt (BR-CO-09)",
+  },
+  {
+    name: "zwei-steuersaetze-cii", format: "zugferd",
+    invoice: RECHNUNG_ZWEI_SAETZE, items: POSITIONEN_ZWEI_SAETZE,
+    zweck: "19 % und 7 % auf einer Rechnung: zwei Aufschluesselungen (BG-23, BR-S-08)",
+  },
+  {
+    name: "zwei-steuersaetze-ubl", format: "xrechnung",
+    invoice: RECHNUNG_ZWEI_SAETZE, items: POSITIONEN_ZWEI_SAETZE,
+    zweck: "derselbe Fall als XRechnung, mit zwei TaxSubtotal",
   },
   {
     name: "gegenprobe", format: "zugferd", verfaelschen: true, mussFehlerHaben: true,

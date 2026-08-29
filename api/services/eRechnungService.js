@@ -168,6 +168,100 @@ function zuCiiDatum(wert) {
  * erfasst Bauleistungen, nicht die Ueberlassung als solche. Deshalb wird "AE" nur
  * gesetzt, wenn der Rechnungssteller es ausdruecklich angibt.
  */
+/**
+ * Die Steueraufschluesselung (BG-23) aus den Positionen bilden.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * GRUPPIERT WIRD NACH DEM PAAR (KATEGORIE, SATZ)
+ * ────────────────────────────────────────────────────────────────────────────
+ *
+ * Nicht nach dem Satz allein: 0 % kann "steuerfrei" (E) oder "Reverse Charge"
+ * (AE) heissen, und das sind zwei verschiedene Aufschluesselungen mit
+ * verschiedenen Pflichtangaben (BR-E-10 verlangt einen Befreiungsgrund,
+ * BR-S-10 verbietet ihn).
+ *
+ * Der Satz geht als Zeichenkette mit fester Nachkommastelle in den Schluessel,
+ * damit 19 und 19.0 nicht zwei Gruppen ergeben — sie sind derselbe Satz, und
+ * zwei Aufschluesselungen mit demselben Paar scheitern nach BR-S-08 beide.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * GERUNDET WIRD JE GRUPPE, NICHT JE POSITION
+ * ────────────────────────────────────────────────────────────────────────────
+ *
+ * BR-CO-17 rechnet auf Gruppenebene: Steuerbetrag = Bemessungsgrundlage x Satz,
+ * kaufmaennisch auf zwei Nachkommastellen. Wer stattdessen je Position rundet
+ * und aufsummiert, weicht um einzelne Cent ab — und BR-CO-14 (Gesamtsteuer =
+ * Summe der Gruppenbetraege) kennt keine Toleranz.
+ *
+ * Gerechnet wird durchweg in ganzen Cent; ein Zwischenschritt in Gleitkomma
+ * waere bei Geld die falsche Zahlenart.
+ *
+ * @param {object} arg
+ * @param {Array}  arg.positionen        die bereits normalisierten Positionen
+ * @param {string} arg.kategorie         Kategorie des Rechnungskopfs
+ * @param {number} arg.satzPct           Satz des Rechnungskopfs
+ * @param {number} arg.nettoCents        Netto nach Abzuegen (BT-109)
+ * @param {number} arg.steuerCentsGesamt ausgewiesene Gesamtsteuer (BT-110)
+ * @param {object} arg.optionen
+ * @returns {Array<{satzPct:number, kategorie:string, grundlageCents:number,
+ *                  betragCents:number, befreiungsgrund:string|null}>}
+ */
+export function bildeSteuergruppen({
+  positionen = [], kategorie, satzPct, nettoCents, steuerCentsGesamt, optionen = {},
+}) {
+  const schluessel = (kat, satz) => `${kat}|${Number(satz).toFixed(2)}`;
+
+  /* Ohne Positionen bleibt der Rechnungskopf die einzige Quelle — etwa bei
+     einer Rechnung, die nur aus Korrekturposten besteht. */
+  const gruppen = new Map();
+  for (const p of positionen) {
+    const kat = p.steuerkategorie || kategorie;
+    const satz = p.steuersatzPct == null ? satzPct : p.steuersatzPct;
+    const k = schluessel(kat, satz);
+    const vorhanden = gruppen.get(k);
+    if (vorhanden) vorhanden.grundlageCents += p.zeilensummeCents;
+    else gruppen.set(k, { kategorie: kat, satzPct: Number(satz), grundlageCents: p.zeilensummeCents });
+  }
+  if (!gruppen.size) {
+    gruppen.set(schluessel(kategorie, satzPct), {
+      kategorie, satzPct: Number(satzPct), grundlageCents: nettoCents,
+    });
+  }
+
+  const liste = [...gruppen.values()];
+
+  /* EIN Satz: die ausgewiesene Gesamtsteuer bleibt unangetastet. Das haelt die
+     Ausgabe fuer jede heutige Rechnung byte-identisch — und respektiert, dass
+     der Betrag aus der Datenbank kommt und nicht neu erfunden wird.
+     Ebenso bleibt die Bemessungsgrundlage das Netto NACH Abzuegen, nicht die
+     Summe der Zeilen: bei einem Rabatt gehen die auseinander. */
+  if (liste.length === 1) {
+    liste[0].grundlageCents = nettoCents;
+    liste[0].betragCents = steuerCentsGesamt;
+  } else {
+    /* Mehrere Saetze: je Gruppe rechnen. Ein Dokumentrabatt liesse sich hier
+       nicht eindeutig zuordnen — deshalb lehnt die Pflichtfeldpruefung diese
+       Kombination ab, statt zu raten. */
+    for (const g of liste) {
+      g.betragCents = Math.round((g.grundlageCents * g.satzPct) / 100);
+    }
+  }
+
+  for (const g of liste) {
+    g.befreiungsgrund = g.kategorie === "E"
+      ? (optionen.steuerbefreiungsgrund || "Steuerfreie Leistung")
+      : g.kategorie === "AE"
+        ? (optionen.steuerbefreiungsgrund || "Steuerschuldnerschaft des Leistungsempfaengers")
+        : null;                                                   // BT-120
+  }
+
+  /* Feste Reihenfolge: hoechster Satz zuerst, dann nach Kategorie. Ohne sie
+     haengt die Reihenfolge an der Positionsfolge, und zwei Erzeugungen
+     derselben Rechnung ergaeben verschiedene Dateien. */
+  liste.sort((a, b) => b.satzPct - a.satzPct || a.kategorie.localeCompare(b.kategorie));
+  return liste;
+}
+
 export function steuerkategorie(satzPct, { reverseCharge = false } = {}) {
   if (reverseCharge) return "AE";
   return Number(satzPct) > 0 ? "S" : "E";
@@ -292,7 +386,19 @@ export function baueRechnungsdokument({ invoice, items = [], verkaeufer = {}, ka
     einzelpreisCents: Math.round(Number(it.unit_amount_cents) || 0),
     zeilensummeCents: Math.round(Number(it.total_cents) || 0),
     zeitraumVon: zuIsoDatum(it.week_start),
-    zeitraumBis: zuIsoDatum(it.week_end)
+    zeitraumBis: zuIsoDatum(it.week_end),
+    /* Steuermerkmal JE POSITION (BT-151/BT-152).
+     *
+     * Die Norm verlangt es ohnehin an der Zeile (BR-CO-04), und es ist der
+     * einzige Weg, wie eine Rechnung zwei Saetze tragen kann: die Verknuepfung
+     * zwischen Position und Aufschluesselung laeuft ausschliesslich ueber das
+     * Wertepaar (Kategorie, Satz) — es gibt keinen Schluessel, keine ID, keinen
+     * Verweis.
+     *
+     * Faellt die Position ohne eigenen Wert an, gilt der Rechnungskopf. Das ist
+     * bis Migration 207 der Normalfall und haelt die Ausgabe unveraendert. */
+    steuerkategorie: it.tax_category || kategorie,               // BT-151
+    steuersatzPct: it.tax_rate_pct == null ? satzPct : Number(it.tax_rate_pct) // BT-152
   }));
 
   return {
@@ -346,17 +452,34 @@ export function baueRechnungsdokument({ invoice, items = [], verkaeufer = {}, ka
             : null)                                               // BT-20
     },
 
-    steuer: {
-      satzPct,                                                    // BT-119
-      kategorie,                                                  // BT-118
-      grundlageCents: nettoCents,                                 // BT-116
-      betragCents: Math.round(Number(invoice.tax_amount_cents) || 0), // BT-117/BT-110
-      befreiungsgrund: kategorie === "E"
-        ? (optionen.steuerbefreiungsgrund || "Steuerfreie Leistung")
-        : kategorie === "AE"
-          ? (optionen.steuerbefreiungsgrund || "Steuerschuldnerschaft des Leistungsempfaengers")
-          : null                                                  // BT-120
-    },
+    /* ── Die Steueraufschluesselung: eine LISTE, nicht ein Wert ─────────
+     *
+     * BG-23 hat in der Norm die Kardinalitaet 1..n — eine Aufschluesselung je
+     * Kombination aus Kategorie und Satz. Bis zum 2026-08-29 stand hier ein
+     * einzelnes Objekt, und damit war eine Rechnung mit 19 % Ueberlassung und
+     * 7 % Nebenleistung nicht abbildbar. Schlimmer: sie waere mit EINEM Satz
+     * herausgegangen, und kein Validator haette es gesehen — die Summen gehen
+     * dann ja auf.
+     *
+     * BEWUSST UMBENANNT von `doc.steuer` auf `doc.steuergruppen`. Ein
+     * Typwechsel unter gleichem Namen macht jeden uebersehenen Leser zu einer
+     * stillen Falschausgabe: `satzFormat(undefined)` schriebe eine "0" in
+     * einen Steuerbeleg. Nach der Umbenennung wirft ein uebersehener Leser
+     * sofort. Bei einem Steuerbeleg ist der laute Fehler den Namenswechsel
+     * wert.
+     *
+     * `bildeSteuergruppen` gruppiert nach dem PAAR (Kategorie, Satz) — nicht
+     * nach dem Satz allein: 0 % kann "steuerfrei" (E) oder "Reverse Charge"
+     * (AE) bedeuten, und das sind zwei verschiedene Aufschluesselungen mit
+     * verschiedenen Pflichtangaben. */
+    steuergruppen: bildeSteuergruppen({
+      positionen,
+      kategorie,
+      satzPct,
+      nettoCents,
+      steuerCentsGesamt: Math.round(Number(invoice.tax_amount_cents) || 0),
+      optionen
+    }),
 
     rabatt: rabattCents > 0
       ? {
@@ -371,6 +494,12 @@ export function baueRechnungsdokument({ invoice, items = [], verkaeufer = {}, ka
       positionssummeCents,                                        // BT-106
       nachlaesseCents: rabattCents,                               // BT-107
       nettoCents,                                                 // BT-109
+      /* BT-110: die AUSGEWIESENE Gesamtsteuer aus der Rechnungszeile, nicht
+         die Summe der Gruppen. Die beiden muessen uebereinstimmen — geprueft
+         wird das in pruefePflichtfelder (BR-CO-14), nicht hier stillschweigend
+         angeglichen. Ein Generator, der den Steuerbetrag umschreibt, macht aus
+         dem maschinenlesbaren Teil etwas anderes als aus dem gedruckten. */
+      steuerCents: Math.round(Number(invoice.tax_amount_cents) || 0), // BT-110
       bruttoCents: Math.round(Number(invoice.total_cents) || 0),  // BT-112
       zahlbetragCents: Math.round(Number(invoice.total_cents) || 0) // BT-115
     },
@@ -554,11 +683,58 @@ export function pruefePflichtfelder(doc) {
       `Positionssumme minus Nachlaesse (${centsZuBetrag(erwartetNetto)}) ergibt nicht den ` +
       `ausgewiesenen Nettobetrag (${centsZuBetrag(doc.summen.nettoCents)}).`);
   }
-  const erwartetBrutto = doc.summen.nettoCents + doc.steuer.betragCents;
+  const erwartetBrutto = doc.summen.nettoCents + doc.summen.steuerCents;
   if (erwartetBrutto !== doc.summen.bruttoCents) {
     fehlt("BR-CO-15", "Bruttobetrag",
       `Netto plus Steuer (${centsZuBetrag(erwartetBrutto)}) ergibt nicht den ausgewiesenen ` +
       `Bruttobetrag (${centsZuBetrag(doc.summen.bruttoCents)}).`);
+  }
+
+  /* ── BR-CO-17: je Gruppe muss die Steuer zur Grundlage passen ──────────
+   *
+   * Steuerbetrag = Bemessungsgrundlage x Satz, kaufmaennisch auf den Cent.
+   * EXAKT, ohne Toleranz: was ein fremder Validator durchgehen laesst, ist
+   * fuer unsere Zusage unerheblich — ein echter Cent-Fehler soll hier
+   * auffallen und nicht erst beim Empfaenger.
+   *
+   * GEPRUEFT, NICHT KORRIGIERT. Weicht der Wert ab, wird die Rechnung
+   * abgelehnt. Ein Generator, der den Steuerbetrag zurechtrueckt, macht aus
+   * dem maschinenlesbaren Teil etwas anderes als aus dem gedruckten — bei
+   * /AFRelationship /Alternative eine unwahre Zusage, und an einem
+   * Steuerbeleg schlicht eine Faelschung. */
+  for (const g of doc.steuergruppen) {
+    const erwartet = Math.round((g.grundlageCents * g.satzPct) / 100);
+    if (erwartet !== g.betragCents) {
+      fehlt("BR-CO-17", `Steuerbetrag ${g.kategorie} ${satzFormat(g.satzPct)} %`,
+        `${centsZuBetrag(g.grundlageCents)} x ${satzFormat(g.satzPct)} % ergibt ` +
+        `${centsZuBetrag(erwartet)}, ausgewiesen sind ${centsZuBetrag(g.betragCents)}.`);
+    }
+  }
+
+  /* BR-CO-14: die ausgewiesene Gesamtsteuer ist die Summe der Gruppenbetraege.
+     Bei einer Rechnung mit einem Satz faellt das zusammen; bei mehreren ist es
+     die Stelle, an der eine falsche Aufteilung auffliegt. */
+  const summeGruppen = doc.steuergruppen.reduce((s, g) => s + g.betragCents, 0);
+  if (summeGruppen !== doc.summen.steuerCents) {
+    fehlt("BR-CO-14", "Gesamtsteuer",
+      `Die Steuergruppen ergeben zusammen ${centsZuBetrag(summeGruppen)}, ausgewiesen ` +
+      `sind ${centsZuBetrag(doc.summen.steuerCents)}.`);
+  }
+
+  /* BR-AE-01: hoechstens EINE Reverse-Charge-Gruppe. */
+  if (doc.steuergruppen.filter((g) => g.kategorie === "AE").length > 1) {
+    fehlt("BR-AE-01", "Reverse Charge",
+      "Eine Rechnung darf hoechstens eine Reverse-Charge-Aufschluesselung tragen.");
+  }
+
+  /* Ein Dokumentrabatt laesst sich bei mehreren Saetzen nicht eindeutig
+     zuordnen (BT-95/96 verlangen genau eine Kategorie). Ablehnen statt raten:
+     welchem Satz der Nachlass zugerechnet wird, entscheidet ueber die
+     Steuerbetraege. */
+  if (doc.steuergruppen.length > 1 && doc.rabatt) {
+    fehlt("BR-CO-17", "Nachlass bei mehreren Steuersaetzen",
+      "Ein Nachlass auf Dokumentebene laesst sich nicht eindeutig einem Satz " +
+      "zuordnen. Der Nachlass gehoert dann an die Positionen.");
   }
 
   return { vollstaendig: fehlend.length === 0, fehlend };
@@ -663,10 +839,12 @@ function ublPartei(p, rolle = "verkaeufer") {
 export function baueXRechnung(doc) {
   const w = doc.waehrung;
   const cur = ` currencyID="${xmlText(w)}"`;
-  const s = doc.steuer;
-  const kat = zeilen(
-    el("cbc:ID", s.kategorie),                                        // BT-118
-    el("cbc:Percent", satzFormat(s.satzPct)),                         // BT-119
+  /* Das Steuermerkmal JE POSITION (BT-151/152) statt eines gemeinsamen fuer
+     alle. Nur so kann eine Rechnung zwei Saetze tragen — die Zuordnung zur
+     Aufschluesselung laeuft ausschliesslich ueber dieses Wertepaar. */
+  const katFuer = (p) => zeilen(
+    el("cbc:ID", p.steuerkategorie),                                  // BT-151
+    el("cbc:Percent", satzFormat(p.steuersatzPct)),                   // BT-152
     "<cac:TaxScheme>",
     tiefe(el("cbc:ID", "VAT") || "", 1),
     "</cac:TaxScheme>"
@@ -690,7 +868,7 @@ export function baueXRechnung(doc) {
       tiefe(zeilen(
         el("cbc:Name", p.bezeichnung),                                // BT-153
         "<cac:ClassifiedTaxCategory>",
-        tiefe(kat, 1),                                                // BT-151/152
+        tiefe(katFuer(p), 1),                                         // BT-151/152
         "</cac:ClassifiedTaxCategory>"
       ), 1),
       "</cac:Item>",
@@ -762,31 +940,42 @@ export function baueXRechnung(doc) {
         el("cbc:Amount", centsZuBetrag(doc.rabatt.betragCents), cur), // BT-92
         el("cbc:BaseAmount", centsZuBetrag(doc.rabatt.grundlageCents), cur), // BT-93
         "<cac:TaxCategory>",
-        tiefe(kat, 1),                                                // BT-95/96
+        /* BT-95/96: der Dokumentrabatt traegt die Kategorie der einzigen
+           Steuergruppe. Bei mehreren Saetzen liesse er sich nicht eindeutig
+           zuordnen — diese Kombination lehnt pruefePflichtfelder ab, statt
+           zu raten. */
+        tiefe(katFuer({
+          steuerkategorie: doc.steuergruppen[0].kategorie,
+          steuersatzPct: doc.steuergruppen[0].satzPct,
+        }), 1),
         "</cac:TaxCategory>"
       ), 1),
       "</cac:AllowanceCharge>"
     ) : null,
 
+    /* EIN cac:TaxTotal mit N Untersummen — nicht mehrere TaxTotal.
+       PEPPOL-EN16931-R053 laesst nur eines zu. */
     "<cac:TaxTotal>",
     tiefe(zeilen(
-      el("cbc:TaxAmount", centsZuBetrag(s.betragCents), cur),         // BT-110
-      "<cac:TaxSubtotal>",
-      tiefe(zeilen(
-        el("cbc:TaxableAmount", centsZuBetrag(s.grundlageCents), cur), // BT-116
-        el("cbc:TaxAmount", centsZuBetrag(s.betragCents), cur),        // BT-117
-        "<cac:TaxCategory>",
+      el("cbc:TaxAmount", centsZuBetrag(doc.summen.steuerCents), cur), // BT-110
+      ...doc.steuergruppen.map((g) => zeilen(
+        "<cac:TaxSubtotal>",
         tiefe(zeilen(
-          el("cbc:ID", s.kategorie),                                   // BT-118
-          el("cbc:Percent", satzFormat(s.satzPct)),                    // BT-119
-          el("cbc:TaxExemptionReason", s.befreiungsgrund),             // BT-120
-          "<cac:TaxScheme>",
-          tiefe(el("cbc:ID", "VAT") || "", 1),
-          "</cac:TaxScheme>"
+          el("cbc:TaxableAmount", centsZuBetrag(g.grundlageCents), cur), // BT-116
+          el("cbc:TaxAmount", centsZuBetrag(g.betragCents), cur),        // BT-117
+          "<cac:TaxCategory>",
+          tiefe(zeilen(
+            el("cbc:ID", g.kategorie),                                   // BT-118
+            el("cbc:Percent", satzFormat(g.satzPct)),                    // BT-119
+            el("cbc:TaxExemptionReason", g.befreiungsgrund),             // BT-120
+            "<cac:TaxScheme>",
+            tiefe(el("cbc:ID", "VAT") || "", 1),
+            "</cac:TaxScheme>"
+          ), 1),
+          "</cac:TaxCategory>"
         ), 1),
-        "</cac:TaxCategory>"
-      ), 1),
-      "</cac:TaxSubtotal>"
+        "</cac:TaxSubtotal>"
+      ))
     ), 1),
     "</cac:TaxTotal>",
 
@@ -902,7 +1091,10 @@ function ciiPartei(p, rolle = "verkaeufer") {
 export function baueZugferdXml(doc) {
   const w = doc.waehrung;
   const cur = ` currencyID="${xmlText(w)}"`;
-  const s = doc.steuer;
+  /* Die erste Steuergruppe — nur fuer den Dokumentrabatt (BT-95/96), der sich
+     bei mehreren Saetzen nicht eindeutig zuordnen liesse und dort von
+     pruefePflichtfelder abgelehnt wird. */
+  const s = doc.steuergruppen[0];
 
   const positionen = doc.positionen.map((p) => zeilen(
     "<ram:IncludedSupplyChainTradeLineItem>",
@@ -928,8 +1120,8 @@ export function baueZugferdXml(doc) {
         "<ram:ApplicableTradeTax>",
         tiefe(zeilen(
           el("ram:TypeCode", "VAT"),
-          el("ram:CategoryCode", s.kategorie),                        // BT-151
-          el("ram:RateApplicablePercent", satzFormat(s.satzPct))      // BT-152
+          el("ram:CategoryCode", p.steuerkategorie),                  // BT-151
+          el("ram:RateApplicablePercent", satzFormat(p.steuersatzPct)) // BT-152
         ), 1),
         "</ram:ApplicableTradeTax>",
         (p.zeitraumVon || p.zeitraumBis) ? zeilen(
@@ -1012,16 +1204,21 @@ export function baueZugferdXml(doc) {
         ), 1),
         "</ram:SpecifiedTradeSettlementPaymentMeans>"
       ) : null,
-      "<ram:ApplicableTradeTax>",
-      tiefe(zeilen(
-        el("ram:CalculatedAmount", centsZuBetrag(s.betragCents)),     // BT-117
-        el("ram:TypeCode", "VAT"),
-        el("ram:ExemptionReason", s.befreiungsgrund),                 // BT-120
-        el("ram:BasisAmount", centsZuBetrag(s.grundlageCents)),       // BT-116
-        el("ram:CategoryCode", s.kategorie),                          // BT-118
-        el("ram:RateApplicablePercent", satzFormat(s.satzPct))        // BT-119
-      ), 1),
-      "</ram:ApplicableTradeTax>",
+      /* Eine Aufschluesselung je Gruppe (BG-23, 1..n). Sie stehen
+         zusammenhaengend an genau dieser Stelle der xs:sequence — nach den
+         Zahlungsmitteln, VOR dem Abrechnungszeitraum. */
+      ...doc.steuergruppen.map((g) => zeilen(
+        "<ram:ApplicableTradeTax>",
+        tiefe(zeilen(
+          el("ram:CalculatedAmount", centsZuBetrag(g.betragCents)),   // BT-117
+          el("ram:TypeCode", "VAT"),
+          el("ram:ExemptionReason", g.befreiungsgrund),               // BT-120
+          el("ram:BasisAmount", centsZuBetrag(g.grundlageCents)),     // BT-116
+          el("ram:CategoryCode", g.kategorie),                        // BT-118
+          el("ram:RateApplicablePercent", satzFormat(g.satzPct))      // BT-119
+        ), 1),
+        "</ram:ApplicableTradeTax>"
+      )),
       (doc.leistungszeitraumVon || doc.leistungszeitraumBis) ? zeilen(
         "<ram:BillingSpecifiedPeriod>",
         tiefe(zeilen(
@@ -1067,7 +1264,7 @@ export function baueZugferdXml(doc) {
           ? el("ram:AllowanceTotalAmount", centsZuBetrag(doc.summen.nachlaesseCents)) // BT-107
           : null,
         el("ram:TaxBasisTotalAmount", centsZuBetrag(doc.summen.nettoCents)),     // BT-109
-        el("ram:TaxTotalAmount", centsZuBetrag(s.betragCents), cur),             // BT-110
+        el("ram:TaxTotalAmount", centsZuBetrag(doc.summen.steuerCents), cur),    // BT-110
         el("ram:GrandTotalAmount", centsZuBetrag(doc.summen.bruttoCents)),       // BT-112
         el("ram:DuePayableAmount", centsZuBetrag(doc.summen.zahlbetragCents))    // BT-115
       ), 1),
