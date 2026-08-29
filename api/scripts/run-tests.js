@@ -25,7 +25,13 @@ import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { neuerScanner, formuliereBefund } from "./lib/nativerAbbruch.mjs";
-import { klaerungslauf, formuliereKlaerung } from "./lib/klaerungslauf.mjs";
+import {
+  klaerungslauf,
+  formuliereKlaerung,
+  waehleZuKlaerende,
+  fasseUrteileZusammen,
+} from "./lib/klaerungslauf.mjs";
+import { neuerSkipZaehler, formuliereSkips } from "./lib/uebersprungen.mjs";
 import { teileNachAbbild } from "./lib/abbildSuite.mjs";
 
 const PROJECT_DIR = join(import.meta.dirname, "..");
@@ -44,6 +50,14 @@ function usage() {
   console.log("                     eines Testkindprozesses erkannt wurde (siehe unten). Ohne");
   console.log("                     den Schalter wird der Abbruch nur gemeldet — der Exitcode");
   console.log("                     bleibt in jedem Fall der des Testlaufs.");
+  console.log("");
+  console.log("  --verlange-datenbank  Macht uebersprungene DATENBANKTESTS zum Fehler. Ohne");
+  console.log("                     DATABASE_URL ueberspringen sich rund 18 Tests still — sie");
+  console.log("                     pruefen Zeilensperren, Transaktionen und echte");
+  console.log("                     Eindeutigkeit, also genau das, was kein Mock zeigen kann.");
+  console.log("                     Der Lauf sieht ohne sie gruen aus und beweist weniger.");
+  console.log("                     Fuer Release- und CI-Laeufe. Nur die DB-Dateien:");
+  console.log("                     DATABASE_URL=… node scripts/run-tests.js --suite=db-gated");
 }
 
 function normalizePath(filePath) {
@@ -94,7 +108,7 @@ function parseSuite(argv) {
     /* Hier nur ueberlesen — ausgewertet wird der Schalter unten, wo der Lauf
        stattfindet. parseSuite bricht bei unbekannten Argumenten ab, deshalb
        muss jeder neue Schalter auch hier bekannt sein. */
-    if (arg === "--retry-on-abort") {
+    if (arg === "--retry-on-abort" || arg === "--verlange-datenbank") {
       continue;
     }
 
@@ -336,12 +350,18 @@ for (const senke of [process.stdout, process.stderr]) {
 function starteLauf() {
   return new Promise((fertig) => {
     const scanner = neuerScanner();
+    /* Zweiter Mitleser, eigene Frage: der Scanner sucht den Tod des Laufs, der
+       Zaehler das, was der Lauf ausgelassen hat. Getrennt, weil die beiden
+       Fragen bei der naechsten Aenderung nicht aneinander haengen sollen —
+       siehe ./lib/uebersprungen.mjs */
+    const skips = neuerSkipZaehler();
     let erledigt = false;
     const beenden = (status, signal, fehler) => {
       if (erledigt) return;
       erledigt = true;
       scanner.abschliessen();
-      fertig({ status, signal, fehler, befund: scanner.beurteilen() });
+      skips.abschliessen();
+      fertig({ status, signal, fehler, befund: scanner.beurteilen(), skips: skips.beurteilen() });
     };
 
     const kind = spawn(
@@ -372,7 +392,7 @@ function starteLauf() {
     ]) {
       if (!strom) continue;
       strom.pipe(senke, { end: false });
-      strom.on("data", (chunk) => scanner.aufnehmen(chunk, kanal));
+      strom.on("data", (chunk) => { scanner.aufnehmen(chunk, kanal); skips.aufnehmen(chunk); });
       strom.on("error", (e) => { fehler = fehler || e; });
     }
 
@@ -427,15 +447,25 @@ if (lauf.fehler) {
    * hinter dem Abbruch versteckt.
    */
   let klaerung = null;
-  const zuKlaeren = lauf.befund.abbruch ? lauf.befund.abgestuerzteDateien : [];
+  /* Beide Listen des Detektors — Begruendung in waehleZuKlaerende(). */
+  const zuKlaeren = waehleZuKlaerende(lauf.befund);
   if (zuKlaeren.length) {
     console.error(`[run-tests] Klaerungslauf fuer ${zuKlaeren.join(", ")} — ohne --test-force-exit.`);
-    klaerung = await klaerungslauf({
-      dateien: zuKlaeren,
-      projektVerzeichnis: PROJECT_DIR,
-      umgebung: testEnv,
-    });
-    process.stdout.write(formuliereKlaerung(klaerung, zuKlaeren));
+    /* Nacheinander, nicht gemeinsam: ein gemeinsamer Lauf haette wieder EIN
+       Ergebnis fuer mehrere Dateien — dieselbe Mehrdeutigkeit, nur an anderer
+       Stelle. Sequenziell statt parallel, weil zwei Testlaeufe auf derselben
+       Datenbank einander die Zeilen unter den Fuessen wegziehen. */
+    const urteile = [];
+    for (const datei of zuKlaeren) {
+      const u = await klaerungslauf({
+        dateien: [datei],
+        projektVerzeichnis: PROJECT_DIR,
+        umgebung: testEnv,
+      });
+      process.stdout.write(formuliereKlaerung(u, [datei]));
+      urteile.push(u);
+    }
+    klaerung = fasseUrteileZusammen(urteile);
   }
 
   /* Nicht wiederholen, wenn der Lauf ausser dem Abbruch ECHTE rote Dateien hat.
@@ -470,6 +500,36 @@ if (lauf.fehler) {
   }
 
   /*
+   * WAS DER LAUF NICHT BEWIESEN HAT (ergaenzt 2026-08-29).
+   *
+   * Am 2026-08-29 meldete ein Volllauf "10204 Tests, 1 Fehler" und sah damit
+   * belastbar aus. Er war es nicht: 18 Tests hatten sich mangels DATABASE_URL
+   * uebersprungen, darunter die beiden, die den Rechnungs-Nummernkreis und die
+   * Ausstellerrolle gegen echte Zeilen pruefen. Mit Datenbank lief derselbe
+   * Stand als 10259 Tests — 55 Zusicherungen Unterschied, ohne dass eine
+   * einzige Zeile der Ausgabe darauf hingewiesen haette.
+   *
+   * CLAUDE.md §0.9 sagt es deutlich: ein Test, der unter dem offiziellen
+   * Laeufer nicht real ausfuehrt, zaehlt nicht als gruen. Die Regel stand da,
+   * aber nichts erzwang sie — ein uebersprungener Test sieht in der Ausgabe
+   * genauso unauffaellig aus wie ein bestandener.
+   */
+  const datenbankGesetzt = !!(process.env.DATABASE_URL || process.env.DB_HOST);
+  const verlangeDatenbank = process.argv.slice(2).includes("--verlange-datenbank");
+  const skipText = formuliereSkips(lauf.skips, { datenbankGesetzt, verlangt: verlangeDatenbank });
+  if (skipText) process.stdout.write(skipText);
+
+  /* Rot nur auf ausdruecklichen Wunsch: der Lauf ohne Datenbank ist ein
+     legitimes Werkzeug — schneller, und fuer die meiste Arbeit ausreichend. Er
+     darf nur nicht so aussehen wie der vollstaendige. Fuer Release und CI
+     macht der Schalter daraus einen Fehler. */
+  const datenbankLuecke = verlangeDatenbank && lauf.skips && lauf.skips.datenbankSkips > 0;
+  if (datenbankLuecke) {
+    console.error("[run-tests] --verlange-datenbank: der Lauf ist ROT, weil datenbankgebundene");
+    console.error("[run-tests] Tests uebersprungen wurden. Sie zaehlen nicht als gruen.");
+  }
+
+  /*
    * Das Gesamtergebnis nach einem geklaerten Abbruch.
    *
    * Gruen nur unter ZWEI Bedingungen zugleich: der Klaerungslauf hat die
@@ -481,7 +541,12 @@ if (lauf.fehler) {
    * Gibt es weitere rote Dateien, bleibt der Lauf rot. Die Klaerung sagt dann
    * nur, dass der Abbruch nicht zu ihnen gehoert.
    */
-  if (geklaert && !lauf.befund.weitereRoteDateien.length) {
+  if (datenbankLuecke) {
+    /* Vor allem anderen: eine Luecke im Nachweis darf nicht von einer geklaerten
+       Abbruchmeldung ueberstimmt werden. "Gruen bis auf die Tests, die gar nicht
+       liefen" ist keine gruene Aussage. */
+    process.exitCode = 1;
+  } else if (geklaert && !lauf.befund.weitereRoteDateien.length) {
     console.error("[run-tests] Der Lauf gilt als GRUEN: die einzige rote Meldung war der");
     console.error("[run-tests] Abbruch, und die betroffene Datei ist im Klaerungslauf real");
     console.error("[run-tests] und vollstaendig gruen durchgelaufen.");

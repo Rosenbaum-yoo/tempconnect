@@ -70,6 +70,8 @@ const KOPIEN = [
      Abbruch faehrt. Wieder hat V0 die Luecke gemeldet, bevor sie schaden
      konnte — genau wie bei abbildSuite.mjs oben. */
   "scripts/lib/klaerungslauf.mjs",
+  /* Und der Zaehler, der meldet, was ein Lauf ausgelassen hat. */
+  "scripts/lib/uebersprungen.mjs",
 ];
 
 describe("Verdrahtung: run-tests.js liest seine eigene Ausgabe mit", () => {

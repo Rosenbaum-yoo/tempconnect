@@ -17,6 +17,8 @@ import {
   beurteileKlaerung,
   formuliereKlaerung,
   klaerungslauf,
+  waehleZuKlaerende,
+  fasseUrteileZusammen,
 } from "../scripts/lib/klaerungslauf.mjs";
 
 const OHNE_BEFUND = { abbruch: false, weitereRoteDateien: [] };
@@ -84,6 +86,71 @@ describe("beurteileKlaerung — die Wahrheit hinter einem Abbruch", () => {
       assert.notEqual(beurteileKlaerung(f).ergebnis, "sauber",
         `dieser Fall darf nicht entlasten: ${JSON.stringify(f)}`);
     }
+  });
+});
+
+describe("waehleZuKlaerende — welche Dateien ueberhaupt geprueft werden", () => {
+  it("ohne Abbruch gibt es nichts zu klaeren", () => {
+    assert.deepEqual(waehleZuKlaerende({ abbruch: false, abgestuerzteDateien: ["a.js"] }), []);
+  });
+
+  it("die eindeutig zugeordnete Datei", () => {
+    assert.deepEqual(
+      waehleZuKlaerende({ abbruch: true, abgestuerzteDateien: ["a.test.js"], verdaechtigeDateien: [] }),
+      ["a.test.js"],
+    );
+  });
+
+  it("AUCH die mehrdeutigen — dort ist der Klaerungsbedarf am groessten", () => {
+    /* Der Detektor haelt sich bei mehreren Totalausfaellen bewusst zurueck,
+       weil er aus der Ausgabe nicht raten darf, welcher der Abbruch war. Der
+       Klaerungslauf faehrt jede einzeln und braucht nicht zu raten. Am
+       2026-08-29 waren es zwei Dateien — beide einzeln gruen. Ohne diese Zeile
+       waere gar nichts geklaert worden. */
+    assert.deepEqual(
+      waehleZuKlaerende({ abbruch: true, abgestuerzteDateien: [], verdaechtigeDateien: ["a.test.js", "b.test.js"] }),
+      ["a.test.js", "b.test.js"],
+    );
+  });
+
+  it("doppelt genannte Dateien werden nur einmal gefahren", () => {
+    assert.deepEqual(
+      waehleZuKlaerende({ abbruch: true, abgestuerzteDateien: ["a.js"], verdaechtigeDateien: ["a.js", "b.js"] }),
+      ["a.js", "b.js"],
+    );
+  });
+
+  it("fehlende Listen ergeben keine Ausnahme", () => {
+    assert.deepEqual(waehleZuKlaerende({ abbruch: true }), []);
+    assert.deepEqual(waehleZuKlaerende(null), []);
+  });
+});
+
+describe("fasseUrteileZusammen — entlastet ist nur, wer ganz entlastet ist", () => {
+  it("alle sauber ergibt sauber", () => {
+    assert.equal(fasseUrteileZusammen([{ ergebnis: "sauber" }, { ergebnis: "sauber" }]).ergebnis, "sauber");
+  });
+
+  it("ein einziges 'haengt' verdirbt den Freispruch", () => {
+    /* Ein "sauber" neben einem "haengt" ist kein halber Freispruch — der Lauf
+       muesste sonst gruen werden, obwohl eine Datei nachweislich Handles
+       offenhaelt. */
+    assert.equal(
+      fasseUrteileZusammen([{ ergebnis: "sauber" }, { ergebnis: "haengt" }]).ergebnis,
+      "gemischt",
+    );
+  });
+
+  it("eine LEERE Liste entlastet nichts", () => {
+    /* Der teuerste denkbare Fehler dieser Mechanik: "nichts geprueft" duerfte
+       nie wie "alles in Ordnung" aussehen. every() auf einem leeren Array ist
+       true — genau die Falle, die hier zugehalten wird. */
+    assert.notEqual(fasseUrteileZusammen([]).ergebnis, "sauber");
+    assert.notEqual(fasseUrteileZusammen(null).ergebnis, "sauber");
+  });
+
+  it("ein null-Urteil entlastet ebenfalls nicht", () => {
+    assert.notEqual(fasseUrteileZusammen([{ ergebnis: "sauber" }, null]).ergebnis, "sauber");
   });
 });
 

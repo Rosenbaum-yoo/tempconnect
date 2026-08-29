@@ -185,6 +185,46 @@ export function klaerungslauf({
   });
 }
 
+/**
+ * Welche Dateien geklaert werden muessen.
+ *
+ * Beide Listen des Detektors, nicht nur die eindeutige. Bei mehreren
+ * Totalausfaellen kann er aus der Ausgabe nicht sagen, WELCHER davon der
+ * Abbruch war — er fuehrt sie dann als `verdaechtigeDateien` und haelt sich
+ * bewusst zurueck, weil Raten dort das Gefaehrlichste waere.
+ *
+ * Der Klaerungslauf muss sich nicht zurueckhalten: er faehrt jede Datei
+ * einzeln, und einzeln ist jedes Ergebnis eindeutig. Er loest damit genau die
+ * Mehrdeutigkeit auf, an der die Ausgabe scheitert.
+ *
+ * Gemessen am 2026-08-29: ein Lauf hatte zwei Totalausfaelle. Beide waren
+ * einzeln gruen (68/68 und 7/7) und beendeten sich selbst — zwei Wettlaeufe,
+ * kein einziger Fehler. Ohne diese Zeile waere ueberhaupt nichts geklaert
+ * worden, ausgerechnet im Fall mit dem groessten Klaerungsbedarf.
+ */
+export function waehleZuKlaerende(befund) {
+  if (!befund || !befund.abbruch) return [];
+  return [...new Set([
+    ...(befund.abgestuerzteDateien || []),
+    ...(befund.verdaechtigeDateien || []),
+  ])];
+}
+
+/**
+ * Das Gesamturteil ueber mehrere einzeln gepruefte Dateien.
+ *
+ * Entlastet ist der Lauf nur, wenn JEDE Datei entlastet ist: ein "sauber"
+ * neben einem "haengt" ist kein halber Freispruch. Und eine leere Liste
+ * entlastet gar nichts — sonst wuerde "nichts geprueft" wie "alles in Ordnung"
+ * aussehen, was der teuerste Fehler dieser ganzen Mechanik waere.
+ */
+export function fasseUrteileZusammen(urteile) {
+  if (!Array.isArray(urteile) || !urteile.length) return { ergebnis: "unklar", urteile: [] };
+  return urteile.every((u) => u && u.ergebnis === "sauber")
+    ? { ergebnis: "sauber", urteile }
+    : { ergebnis: "gemischt", urteile };
+}
+
 /** Der Text, den der Runner ausgibt. Getrennt, damit er pruefbar ist. */
 export function formuliereKlaerung(urteil, dateien) {
   const strich = "─".repeat(78);
