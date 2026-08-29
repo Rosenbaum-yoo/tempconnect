@@ -38,24 +38,47 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **J** | Live-Belegschaft ↔ Marktplatz, E-Rechnung | gebaut und zusammengeführt (J1–J10, ZUGFeRD/PDF-A-3u, Schematron-Gate) |
 | **K0** | Vorlauf: Merge, Gegenprüfung, Feed-Fehler | ✅ durch — Gate grün, Feed-Fehler (`e845c2d`) bestätigt behoben |
 | **K4** | Der Feed fällt nie auf leer zurück | ✅ **gebaut** `eb46707` (Mig 204, `feedKopieService`, 18 Proben, 4 Rückmutationen) |
-| **K1** | Rabatt sichtbar + Eingriffspunkt | ⏭ **als Nächstes** — behebt einen Geldfehler |
-| **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | offen; **Gate K2.2 zuerst** |
+| **K1** | Rabatt sichtbar + Eingriffspunkt | ✅ **gebaut** — Mig 206, drei Dienste, Staff-CC-Modul `rabatt-faelle`, 75 Proben, **14 Rückmutationen** |
+| **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | ⏭ **als Nächstes**; **Gate K2.2 zuerst** |
 | **K3** | Monatsplanung | offen; setzt Welle J vollständig voraus |
 | **L** | Tragfähigkeit / Hochverfügbarkeit | dokumentiert, **nicht gebaut** (eigener Abschnitt, Owner-Vorgabe) |
 
-**Der nächste Griff:** `K1.1` aus
+**Der nächste Griff:** **Gate `K2.2`** aus
 [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md)
-— *„Der stille Ausfall wird laut: scheitert `getUserDiscount`, entsteht eine
-Meldung mit Kunde, Monat, Grund."* Reihenfolge laut Plan: **K0 → K4 → K1 → K2 → K3.**
+— *„Verträgt der Abrechnungsweg eine 0-€-Rechnung?"* Das ist ein **Gate, keine
+Phase**: verträgt er sie nicht, ändert das den ganzen Entwurf des Werbe-Cashbacks
+(dann z. B. 99 % plus Restbetrag oder ein Gutschriftsweg). Es wird **gemessen,
+bevor gebaut wird.** Reihenfolge laut Plan: **K0 → K4 → K1 → K2 → K3.**
 
-> **Einschränkung, die K1.1 sofort trifft** — dieselbe, die schon K4.3 erledigt hat:
-> **es gibt heute keinen Kanal, der das Team erreicht.** `notificationMatrix.dispatch()`
-> kennt nur org- und vorgangsbezogene Empfänger und **überspringt unbekannte
-> Ereignis-Schlüssel wortlos** (`sent: 0`); `writeStaffAudit()` verlangt zwingend
-> eine handelnde Person und wirft ohne sie — ein Systemereignis hat keine.
-> In K4 wurde deshalb **gezählt und auf `error` protokolliert** statt einen Kanal zu
-> erfinden. K1.1 braucht dieselbe ehrliche Behandlung: festhalten und in der
-> Staff-CC-Fläche aus K1.2 sichtbar machen.
+> **`K4-B1` gilt weiter, und K1 ist ihm genauso begegnet.** Es gibt **keinen Kanal,
+> der das Team erreicht**: `notificationMatrix.dispatch()` kennt nur org- und
+> vorgangsbezogene Empfänger und **überspringt unbekannte Ereignis-Schlüssel
+> wortlos** (`sent: 0`); `writeStaffAudit()` verlangt zwingend eine handelnde
+> Person und wirft ohne sie — ein Systemereignis hat keine. K4 hat **gezählt**,
+> K1 **hält fest**: der Ausfall wird zur Zeile in `rabatt_ausfaelle` (Kunde, Monat,
+> Grund, angesetzter Ersatzwert, Nettobetrag, die entstandene Rechnung) und ist in
+> der Staff-CC-Fläche `rabatt-faelle` sichtbar. **Kein erfundener Zustellweg** —
+> das wäre genau die stille Fehlerklasse, gegen die diese Spur antritt.
+
+> **Was K1 an der Erhebung gelernt hat und was das für K2 heißt.** Der Plan nannte
+> *einen* stillen Ausfallpfad; es sind **zwei**. Neben dem `catch` in
+> `recurringBillingService` (Summen-Abfrage wirft → Rechnung ohne Rabatt) fängt
+> **`getUserTier` seinen eigenen Datenbankfehler ab** und liefert `null` — der
+> Deckel fällt still auf 8 %, ununterscheidbar von „hat noch keine Stufe", ohne
+> Log. Weil `getUserTier` nie wirft, ist der Sicherheitsnetz-Wert
+> `FALLBACK_MAX_DISCOUNT_PCT = 25` in `bountyService` **unerreichbar**; ein
+> bestehender Test hält das seit jeher fest, ohne dass jemand die Folge gezogen
+> hätte. **Für K2 wichtig:** die Tier-Deckelung greift auf *jedem* Weg, auch auf
+> dem des Eingriffs — der 100-%-Cashback braucht die in 2.3 benannte Ausnahme
+> wirklich, sonst schrumpft er bei einem Bronze-Kunden auf 8 %.
+
+> **Gemessen für K1 (2026-08-29, laufende Datenbank).** 754 verdiente Bounties,
+> davon **57 aktiv** bei **55 Kunden — alle 55 mit aktivem Abo**. Ø 3,09 %,
+> höchstens 8 %, **niemand derzeit gedeckelt**; nur **7 von 55** haben überhaupt
+> eine materialisierte Stufe (die übrigen laufen auf der Voreinstellung 8 %).
+> **273 der 312 aktiven Abos sind bereits fällig**, Rechnungen gibt es bisher
+> **null**. Größenordnung des Rabatts, der an dieser Kette hängt: rund **670 €
+> je Monatslauf** (43 × PLUS à 499 €, 5 × BASIS à 150 €, 7 × INDIVIDUELL).
 
 ---
 
@@ -232,7 +255,7 @@ zurückziehen müssen.**
 
 | Plan | Inhalt |
 |---|---|
-| [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md) | **Der aktive Plan.** Owner-Abschnitte 12 + 13: Bounty-Verwaltung ins Staff CC, Werbe-Cashback, Monatsplanung, Feed-Rückfall. Alle Owner-Entscheidungen getroffen (2026-08-27). **K0 + K4 gebaut, K1 als Nächstes.** |
+| [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md) | **Der aktive Plan.** Owner-Abschnitte 12 + 13: Bounty-Verwaltung ins Staff CC, Werbe-Cashback, Monatsplanung, Feed-Rückfall. Alle Owner-Entscheidungen getroffen (2026-08-27). **K0 + K4 + K1 gebaut, Gate K2.2 als Nächstes.** |
 | [features/L_TRAGFAEHIGKEIT.md](features/L_TRAGFAEHIGKEIT.md) | Hochverfügbarkeit und Skalierung („wie tragen wir 10 000 Kunden?"). **Eigenständiger Abschnitt, dokumentiert und ausdrücklich nicht gebaut** — Owner-Vorgabe 2026-08-27. |
 | [features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md](features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md) | Welle J: Live-Belegschaft ↔ Marktplatz, Rechnungsstammdaten, E-Rechnung (ZUGFeRD, PDF/A-3u, Schematron). Gebaut. |
 | [features/I_AUDIT_ZUWEISUNG_SUPPORT.md](features/I_AUDIT_ZUWEISUNG_SUPPORT.md) · [features/I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md](features/I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md) | Welle I: Audit-Trennung, Fristen, Support-Weg. **I3 Stufe 1 gebaut** (E-Mail im Arbeiter-Weg), Stufen 2–4 offen (Web Push statt SMS — billiger und die Einwilligung ist sauberer). |

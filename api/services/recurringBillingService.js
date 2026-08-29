@@ -37,6 +37,13 @@ import * as invoiceService from "./invoiceService.js";
 // P9/A4: Der Treue-Rabatt wirkt auf JEDE Folgerechnung (Owner-Entscheidung A-E1,
 // 2026-08-08 — monatlich, nicht nur auf den Jahresvertrag).
 import { getUserDiscount } from "./bountyService.js";
+// Welle K1.1: ein Ausfall der Rabatt-Ermittlung wird ein Befund, keine Log-Zeile.
+import { ausfallFesthalten, rechnungNachtragen, grundText } from "./rabattAusfallService.js";
+// Welle K1.4: der Eingriffspunkt. Die Richtung ist Absicht — der Eingriff kennt
+// die Abrechnung NICHT, sonst gaebe es einen Modul-Kreis.
+import {
+  offenenEingriffLesen, eingriffVerbrauchen, eingriffBelegNachtragen, EINGRIFF_QUELLE
+} from "./rabattEingriffService.js";
 import * as auditLog from "./auditLog.js";
 import { getPlanPriceCentsByKey, normalizePlanKey } from "../config/planCatalog.js";
 import { dunningEmail } from "./emailHtmlTemplates.js";
@@ -145,23 +152,249 @@ async function resolveOwnerBilling(pool, sub) {
   };
 }
 
+/**
+ * Was diesem Kunden als Nächstes in Rechnung gestellt würde — Nettobetrag und
+ * Fälligkeit. Für die Einzelfall-Ansicht (K1.2) und die Wirkungsvorschau des
+ * Eingriffs (K1.4).
+ *
+ * Bewusst HIER und nicht im Eingriffs-Dienst: der Preis eines Abos ist Wissen
+ * der Abrechnung. Ein zweiter Ort, der ihn auflöst, wäre eine zweite Wahrheit
+ * über das, was der Kunde zahlt.
+ *
+ * `null`, wenn es kein abrechenbares Abo gibt — dann gibt es auch nichts zu
+ * rabattieren, und die Fläche sagt das statt eine Zahl zu erfinden.
+ */
+export async function naechsteAbrechnung(pool, userId) {
+  const { rows } = await pool.query(
+    `SELECT id, user_id, plan, status, trial_mode, current_period_start, current_period_end
+       FROM subscriptions
+      WHERE user_id = $1 AND status IN ('active', 'past_due') AND plan <> 'DEMO'
+      ORDER BY (status = 'active') DESC, current_period_end ASC
+      LIMIT 1`,
+    [userId]
+  );
+  const sub = rows[0];
+  if (!sub) return null;
+
+  const billing = await resolveOwnerBilling(pool, sub);
+  const netto = Number(billing.amountCents);
+  return {
+    subscription_id: sub.id,
+    plan: sub.plan,
+    status: sub.status,
+    trial_mode: sub.trial_mode,
+    periode_endet: sub.current_period_end,
+    faellig: sub.current_period_end != null && new Date(sub.current_period_end) <= new Date(),
+    org_id: billing.orgId,
+    org_name: billing.orgName,
+    email: billing.email,
+    netto_cents: Number.isFinite(netto) && netto > 0 ? netto : null
+  };
+}
+
 /* ── 1) Recurring Invoice Generation ────────────────────────── */
 
 /**
- * Erzeugt Folge-Rechnungen für fällige aktive Subscriptions und setzt sie auf
- * `past_due` (bezahlter Zwilling von applyTrialEnds). Flip + Rechnung laufen atomar in
- * einer Transaktion (Crash → Rollback, kein Zombie); der Flip ist Idempotenz-/Concurrency-Guard.
- * Subscriptions ohne auflösbaren Preis ODER ohne Owner-Org werden übersprungen + auditiert.
+ * Was diese Abrechnung von dieser Subscription hält — OHNE etwas zu tun.
  *
- * @param {import('pg').Pool} pool
- * @param {{ batchSize?: number, now?: Date|string|null, logger?: object, createInvoice?: Function }} [opts]
+ * WARUM ES DIESE FUNKTION GIBT (Welle K1.3)
+ * Die Vorschau auf den nächsten Lauf ist nur dann etwas wert, wenn sie DASSELBE
+ * rechnet wie der Lauf. Zwei Fassungen derselben Regel laufen früher oder später
+ * auseinander — und dann zeigt die Vorschau einen Betrag, den niemand je in
+ * Rechnung stellt. Deshalb entscheidet HIER genau eine Funktion, und sowohl
+ * `generateRecurringInvoices` als auch `vorschauRecurringInvoices` rufen sie auf.
+ * Der Unterschied ist ausschließlich, was danach passiert.
+ *
+ * Diese Funktion schreibt nichts — mit einer Ausnahme, die sie abschalten kann:
+ * fällt die Rabatt-Ermittlung aus, hält der echte Lauf den Befund fest (K1.1).
+ * Die Vorschau setzt `festhalten: false` und bleibt vollständig lesend.
+ *
+ * @param {{ festhalten?: boolean, logger?: object }} [opts]
  */
-export async function generateRecurringInvoices(pool, opts = {}) {
+export async function abrechnungsEntscheidung(pool, s, opts = {}) {
+  const festhalten = opts.festhalten !== false;
+  const logger = opts.logger || null;
+
+  const billing = await resolveOwnerBilling(pool, s);
+
+  // Ohne auflösbaren Netto-Preis kann nicht abgerechnet werden
+  // (z.B. INDIVIDUELL ohne hinterlegten Vertragspreis) → bewusst überspringen + auditieren.
+  if (!Number.isFinite(Number(billing.amountCents)) || Number(billing.amountCents) <= 0) {
+    return { status: "uebersprungen", grund: "NO_RESOLVABLE_PRICE", billing, subscription: s };
+  }
+
+  // Ohne auflösbaren Owner-Org-Kontext NICHT abrechnen — sonst entstünde eine verwaiste
+  // Rechnung mit org_id=NULL (Org-Boundary-Verletzung). Tritt z.B. auf, wenn der Owner-Lookup
+  // transient fehlschlägt (resolveOwnerBilling fängt DB-Fehler schema-tolerant ab → orgId=null).
+  // Sauber überspringen + auditieren; Status bleibt 'active' → nächster Lauf versucht erneut.
+  if (!billing.orgId) {
+    return { status: "uebersprungen", grund: "NO_OWNER_ORG", billing, subscription: s };
+  }
+
+  const nettoCents = Number(billing.amountCents);
+
+  // Rabattsatz VOR der Transaktion auflösen: es ist ein Lesevorgang über
+  // mehrere Tabellen und hätte in der Transaktion nur die Sperre verlängert.
+  // Fällt er aus, wird trotzdem abgerechnet — aber sichtbar, nicht stumm:
+  // eine Rechnung ohne Rabatt ist ein Fehler, den jemand sehen muss.
+  //
+  // K1.1: „sichtbar" hieß bis hierher eine `logger.warn`-Zeile, die niemand
+  // liest. Jetzt entsteht ein Befund mit Kunde, Monat und Grund, den die
+  // Staff-Fläche zeigt. Eine Meldung wird NICHT behauptet — es gibt heute keinen
+  // Kanal, der das Team erreicht (Übergabe: `K4-B1`).
+  let rabattSatz = 0;
+  let ausfallId = null;
+  let ausfall = null;
+  try {
+    rabattSatz = Number(await getUserDiscount(pool, s.user_id, { festhalten })) || 0;
+  } catch (e) {
+    ausfall = grundText(e);
+    logger?.warn?.({ err: e?.message, userId: s.user_id },
+      "Folgerechnung: Rabattsatz nicht ermittelbar, Rechnung ohne Rabatt");
+    if (festhalten) {
+      ausfallId = await ausfallFesthalten(pool, {
+        userId: s.user_id,
+        orgId: billing.orgId,
+        stelle: "rabattsatz",
+        fehler: e,
+        angesetztPct: 0,
+        nettoCents
+      });
+    }
+  }
+
+  // K1.4: der offene Eingriff wird hier nur GELESEN. Verbraucht wird er in der
+  // Transaktion — sonst könnte ein Absturz dazwischen einen Eingriff verzehren,
+  // dem keine Rechnung gegenübersteht.
+  let eingriff = null;
+  try {
+    eingriff = await offenenEingriffLesen(pool, s.user_id);
+  } catch (e) {
+    // Ein Fehler beim Lesen des Eingriffs darf die Abrechnung nicht anhalten;
+    // ohne ihn gilt schlicht die Automatik.
+    logger?.warn?.({ err: e?.message, userId: s.user_id },
+      "Folgerechnung: Eingriff nicht lesbar, es gilt die Automatik");
+  }
+
+  const satzMitEingriff = eingriff
+    ? Math.min(100, rabattSatz + (Number(eingriff.zusatz_pct) || 0))
+    : rabattSatz;
+
+  return {
+    status: "rechnung",
+    subscription: s,
+    billing,
+    nettoCents,
+    rabattSatz,
+    satzMitEingriff,
+    eingriff,
+    ausfallId,
+    ausfall
+  };
+}
+
+/** Die Notiz auf dem Beleg — eine Fassung für Vorschau und Lauf. */
+function rechnungsNotiz(s, satz, ausEingriff) {
+  // Klasse DB_WERT_NACH_UTC: current_period_end kam korrekt aus der DB und
+  // wurde per toISOString().slice(0,10) nach UTC zurueckgerechnet. Auf dem
+  // Beleg stand dadurch ein Periodenbeginn, der einen Tag vor dem
+  // tatsaechlichen liegt — derselbe Off-by-one, der in invoiceService.js
+  // fuer billing_period_start/end bereits behoben ist.
+  const kopf = `Automatische Folgerechnung (Abo-Verlängerung) — Periode ab ${dateOnlyDE(s.current_period_end)}`;
+  if (!(satz > 0)) return kopf;
+  // Die Quelle steht auf der Rechnung (Plan-Abschnitt 3a): Automatik oder Eingriff.
+  return kopf + (ausEingriff
+    ? ` · Rabatt ${satz} % beruecksichtigt (Automatik + Eingriff des TempConnect-Teams)`
+    : ` · Treue-Rabatt ${satz} % beruecksichtigt`);
+}
+
+/**
+ * Vorschau auf den nächsten Abrechnungslauf — Welle K1.3.
+ *
+ * Was würde angesetzt, bevor es läuft. Benutzt dieselbe Auswahl (`faelligeAbos`)
+ * und dieselbe Entscheidung (`abrechnungsEntscheidung`) wie der echte Lauf; ein
+ * Test hält beide Ergebnisse gegeneinander.
+ *
+ * SCHREIBT NICHTS — auch keinen Rabatt-Ausfall. Eine Vorschau, die Spuren
+ * hinterlässt, ist keine Vorschau.
+ */
+export async function vorschauRecurringInvoices(pool, opts = {}) {
   const batch = clampBatch(opts.batchSize);
   const nowTs = resolveNow(opts.now);
-  const logger = opts.logger || null;
-  const createInvoice = opts.createInvoice || invoiceService.createInvoice; // injizierbar für Tests
+  const rows = await faelligeAbos(pool, nowTs, batch);
 
+  const posten = [];
+  let summeNettoCents = 0;
+  let summeRabattCents = 0;
+  let uebersprungen = 0;
+  let mitEingriff = 0;
+
+  for (const s of rows) {
+    let e;
+    try {
+      e = await abrechnungsEntscheidung(pool, s, { festhalten: false, logger: opts.logger || null });
+    } catch (err) {
+      // Ein Fehler in der Vorschau darf die Vorschau nicht töten — er ist
+      // selbst die Aussage: dieser Kunde würde den Lauf sprengen.
+      posten.push({
+        subscription_id: s.id, user_id: s.user_id, plan: s.plan,
+        status: "fehler", grund: err?.message || "ERROR"
+      });
+      continue;
+    }
+
+    if (e.status === "uebersprungen") {
+      uebersprungen++;
+      posten.push({
+        subscription_id: s.id, user_id: s.user_id, plan: s.plan,
+        status: "uebersprungen", grund: e.grund,
+        org_id: e.billing.orgId, org_name: e.billing.orgName, email: e.billing.email
+      });
+      continue;
+    }
+
+    const satz = e.satzMitEingriff;
+    const rabatt = invoiceService.berechneRabatt(e.nettoCents, satz);
+    summeNettoCents += e.nettoCents;
+    summeRabattCents += rabatt.betragCents;
+    if (e.eingriff) mitEingriff++;
+
+    posten.push({
+      subscription_id: s.id, user_id: s.user_id, plan: s.plan,
+      status: "rechnung",
+      org_id: e.billing.orgId, org_name: e.billing.orgName, email: e.billing.email,
+      periode_ab: dateOnlyDE(s.current_period_end),
+      netto_cents: e.nettoCents,
+      rabatt_pct: satz,
+      rabatt_cents: rabatt.betragCents,
+      rabatt_quelle: satz > 0 ? (e.eingriff ? EINGRIFF_QUELLE : "bounty") : null,
+      automatik_pct: e.rabattSatz,
+      eingriff: e.eingriff
+        ? { id: e.eingriff.id, bounty_key: e.eingriff.bounty_key, zusatz_pct: Number(e.eingriff.zusatz_pct) }
+        : null,
+      // Der Ausfall wird in der Vorschau GEZEIGT, aber nicht festgehalten.
+      ausfall: e.ausfall
+    });
+  }
+
+  return {
+    stand: nowTs.toISOString(),
+    batch_size: batch,
+    faellig: rows.length,
+    rechnungen: rows.length - uebersprungen - posten.filter((p) => p.status === "fehler").length,
+    uebersprungen,
+    mit_eingriff: mitEingriff,
+    summe_netto_cents: summeNettoCents,
+    summe_rabatt_cents: summeRabattCents,
+    posten,
+    /* Die Grenze wird genannt: eine still abgeschnittene Vorschau liest sich wie
+     * „mehr ist nicht fällig". */
+    abgeschnitten: rows.length >= batch
+  };
+}
+
+/** Die fälligen Abos — eine Auswahl für Vorschau und Lauf. */
+async function faelligeAbos(pool, nowTs, batch) {
   const { rows } = await pool.query(
     `SELECT id, user_id, plan, current_period_start, current_period_end
        FROM subscriptions
@@ -174,65 +407,64 @@ export async function generateRecurringInvoices(pool, opts = {}) {
       LIMIT $2`,
     [nowTs.toISOString(), batch]
   );
+  return rows;
+}
+
+/**
+ * Erzeugt Folge-Rechnungen für fällige aktive Subscriptions und setzt sie auf
+ * `past_due` (bezahlter Zwilling von applyTrialEnds). Flip + Rechnung laufen atomar in
+ * einer Transaktion (Crash → Rollback, kein Zombie); der Flip ist Idempotenz-/Concurrency-Guard.
+ * Subscriptions ohne auflösbaren Preis ODER ohne Owner-Org werden übersprungen + auditiert.
+ *
+ * Die Entscheidung je Subscription trifft `abrechnungsEntscheidung` — dieselbe
+ * Funktion, die auch die Vorschau (K1.3) benutzt. Hier steht nur noch, was
+ * daraus FOLGT.
+ *
+ * @param {import('pg').Pool} pool
+ * @param {{ batchSize?: number, now?: Date|string|null, logger?: object, createInvoice?: Function }} [opts]
+ */
+export async function generateRecurringInvoices(pool, opts = {}) {
+  const batch = clampBatch(opts.batchSize);
+  const nowTs = resolveNow(opts.now);
+  const logger = opts.logger || null;
+  const createInvoice = opts.createInvoice || invoiceService.createInvoice; // injizierbar für Tests
+
+  const rows = await faelligeAbos(pool, nowTs, batch);
 
   let processed = 0;
   let invoiced = 0;
   let skipped = 0;
+  let eingriffeAngewandt = 0;
   const failed = [];
 
   for (const s of rows) {
     processed++;
     try {
-      const billing = await resolveOwnerBilling(pool, s);
+      // Dieselbe Entscheidung, die auch die Vorschau trifft (K1.3).
+      const entscheidung = await abrechnungsEntscheidung(pool, s, { festhalten: true, logger });
 
-      // Ohne auflösbaren Netto-Preis kann nicht abgerechnet werden
-      // (z.B. INDIVIDUELL ohne hinterlegten Vertragspreis) → bewusst überspringen + auditieren.
-      if (!Number.isFinite(Number(billing.amountCents)) || Number(billing.amountCents) <= 0) {
+      if (entscheidung.status === "uebersprungen") {
         skipped++;
         try {
           await auditLog.writeAudit(pool, {
             action: "subscription.recurring_invoice_skipped",
             entity_type: "subscription",
             entity_id: s.id,
-            details: { user_id: s.user_id, plan: s.plan, reason: "NO_RESOLVABLE_PRICE", org_id: billing.orgId, auto: true }
+            details: { user_id: s.user_id, plan: s.plan, reason: entscheidung.grund, org_id: entscheidung.billing.orgId, auto: true }
           });
         } catch { /* best-effort */ }
         continue;
       }
 
-      // Ohne auflösbaren Owner-Org-Kontext NICHT abrechnen — sonst entstünde eine verwaiste
-      // Rechnung mit org_id=NULL (Org-Boundary-Verletzung). Tritt z.B. auf, wenn der Owner-Lookup
-      // transient fehlschlägt (resolveOwnerBilling fängt DB-Fehler schema-tolerant ab → orgId=null).
-      // Sauber überspringen + auditieren; Status bleibt 'active' → nächster Lauf versucht erneut.
-      if (!billing.orgId) {
-        skipped++;
-        try {
-          await auditLog.writeAudit(pool, {
-            action: "subscription.recurring_invoice_skipped",
-            entity_type: "subscription",
-            entity_id: s.id,
-            details: { user_id: s.user_id, plan: s.plan, reason: "NO_OWNER_ORG", auto: true }
-          });
-        } catch { /* best-effort */ }
-        continue;
-      }
+      const billing = entscheidung.billing;
 
       // Status-Flip (active→past_due) UND Rechnung ATOMAR: Crash/DB-Abbruch dazwischen → Rollback,
       // kein „past_due ohne Rechnung"-Zombie. Der UPDATE … WHERE status='active' hält den Row-Lock
       // bis COMMIT und ist zugleich Idempotenz-/Concurrency-Guard (kein Doppel-Invoice).
       // createInvoice erhält den Transaktions-Client; withTransaction erkennt den geschachtelten
       // Client (.release vorhanden) und öffnet KEINE zweite Transaktion.
-      // Rabattsatz VOR der Transaktion aufloesen: es ist ein Lesevorgang ueber
-      // mehrere Tabellen und haette in der Transaktion nur die Sperre verlaengert.
-      // Faellt er aus, wird trotzdem abgerechnet — aber sichtbar, nicht stumm:
-      // eine Rechnung ohne Rabatt ist ein Fehler, den jemand sehen muss.
-      let rabattSatz = 0;
-      try {
-        rabattSatz = Number(await getUserDiscount(pool, s.user_id)) || 0;
-      } catch (e) {
-        logger?.warn?.({ err: e?.message, userId: s.user_id },
-          "Folgerechnung: Rabattsatz nicht ermittelbar, Rechnung ohne Rabatt");
-      }
+      let angewandterEingriff = null;
+      let angewandterSatz = entscheidung.rabattSatz;
 
       const invoice = await withTransaction(pool, async (client) => {
         const { rowCount } = await client.query(
@@ -243,28 +475,63 @@ export async function generateRecurringInvoices(pool, opts = {}) {
           [s.id]
         );
         if (!rowCount) return null; // Parallel-Lauf hat den Datensatz bereits verarbeitet.
-        return createInvoice(client, {
+
+        /* K1.4 — Verfall nach GENAU EINEM Lauf. Der Eingriff wird HIER verbraucht,
+         * nicht vorher: `WHERE verbraucht_am IS NULL` ist zugleich der Riegel gegen
+         * den Parallellauf. Gewinnt ein zweiter Lauf das Rennen, kommt `false`
+         * zurück und der Zuschlag wird NICHT angesetzt — derselbe Eingriff kann
+         * niemals auf zwei Rechnungen landen. */
+        let satz = entscheidung.rabattSatz;
+        let quelle = satz > 0 ? "bounty" : null;
+        let ausEingriff = false;
+
+        if (entscheidung.eingriff) {
+          const verbraucht = await eingriffVerbrauchen(client, entscheidung.eingriff.id);
+          if (verbraucht) {
+            satz = entscheidung.satzMitEingriff;
+            quelle = EINGRIFF_QUELLE; // die Quelle steht auf der Rechnung
+            ausEingriff = true;
+          }
+        }
+        angewandterSatz = satz;
+
+        const inv = await createInvoice(client, {
           orgId: billing.orgId,
           userId: s.user_id,
           plan: s.plan,
-          amountCents: Number(billing.amountCents),
+          amountCents: entscheidung.nettoCents,
           // Eingefroren: der Satz von heute steht in dieser Zeile. Verliert der
           // Kunde das Bounty naechsten Monat, bleibt diese Rechnung unveraendert.
-          discountPct: rabattSatz,
-          discountSource: rabattSatz > 0 ? "bounty" : null,
-          // Klasse DB_WERT_NACH_UTC: current_period_end kam korrekt aus der DB und
-          // wurde per toISOString().slice(0,10) nach UTC zurueckgerechnet. Auf dem
-          // Beleg stand dadurch ein Periodenbeginn, der einen Tag vor dem
-          // tatsaechlichen liegt — derselbe Off-by-one, der in invoiceService.js
-          // fuer billing_period_start/end bereits behoben ist.
-          notes: `Automatische Folgerechnung (Abo-Verlängerung) — Periode ab ${dateOnlyDE(s.current_period_end)}`
-            + (rabattSatz > 0 ? ` · Treue-Rabatt ${rabattSatz} % beruecksichtigt` : "")
+          discountPct: satz,
+          discountSource: quelle,
+          notes: rechnungsNotiz(s, satz, ausEingriff)
         });
+
+        if (ausEingriff) {
+          /* Was der Eingriff WIRKLICH gebracht hat — die Differenz zwischen dem
+           * Rabatt mit und ohne ihn, auf demselben Netto gerechnet wie die
+           * Rechnung. Der Vergleich mit `erwartete_ersparnis_cents` zeigt in der
+           * Monatsübersicht, ob der Lauf tat, was angekündigt war. */
+          const mit = invoiceService.berechneRabatt(entscheidung.nettoCents, satz).betragCents;
+          const ohne = invoiceService.berechneRabatt(entscheidung.nettoCents, entscheidung.rabattSatz).betragCents;
+          await eingriffBelegNachtragen(client, entscheidung.eingriff.id, inv?.id || null, Math.max(0, mit - ohne));
+          angewandterEingriff = entscheidung.eingriff;
+        }
+
+        return inv;
       });
 
       if (!invoice) {
         // Row war beim Flip nicht mehr 'active' (Parallel-Lauf) → nichts erstellt.
         continue;
+      }
+
+      if (angewandterEingriff) eingriffeAngewandt++;
+
+      /* K1.1 — der Befund bekommt seinen Beleg. Erst dadurch ist er prüfbar:
+       * „DIESE Rechnung ging ohne Rabatt raus". Wirft nie. */
+      if (entscheidung.ausfallId) {
+        await rechnungNachtragen(pool, entscheidung.ausfallId, invoice.id);
       }
 
       try {
@@ -276,11 +543,18 @@ export async function generateRecurringInvoices(pool, opts = {}) {
             user_id: s.user_id,
             org_id: billing.orgId,
             plan: s.plan,
-            amount_cents: Number(billing.amountCents),
+            amount_cents: entscheidung.nettoCents,
             invoice_id: invoice?.id || null,
             invoice_number: invoice?.invoice_number || null,
             period_end_before: s.current_period_end,
             transitioned_to: "past_due",
+            discount_pct: angewandterSatz,
+            // Automatik oder Eingriff — im Audit wie auf der Rechnung.
+            discount_source: angewandterSatz > 0
+              ? (angewandterEingriff ? EINGRIFF_QUELLE : "bounty")
+              : null,
+            rabatt_eingriff_id: angewandterEingriff?.id || null,
+            rabatt_ausfall: entscheidung.ausfall || null,
             auto: true
           }
         });
@@ -295,7 +569,7 @@ export async function generateRecurringInvoices(pool, opts = {}) {
     }
   }
 
-  return { processed, invoiced, skipped, failed, batch_size: batch };
+  return { processed, invoiced, skipped, failed, batch_size: batch, eingriffe_angewandt: eingriffeAngewandt };
 }
 
 /* ── 2) Dunning Sweep ───────────────────────────────────────── */

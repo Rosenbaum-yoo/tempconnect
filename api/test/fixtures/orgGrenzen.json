@@ -3500,6 +3500,18 @@
           "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
         },
         {
+          "methode": "get",
+          "pfad": "/rabatt-faelle/:userId",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "get",
+          "pfad": "/rabatt-faelle/:userId/eingriff-vorschau",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
           "methode": "post",
           "pfad": "/search-moderation/flagged/:id/resolve",
           "urteil": "bewusste-ausnahme",

@@ -1,6 +1,6 @@
 # Welle K — Bounty-Auszahlung, Werbe-Cashback, Monatsplanung
 
-> **Status (2026-08-29): K0 ✅ · K4 ✅ gebaut · K1 als Nächstes · K2, K3 offen.**
+> **Status (2026-08-29): K0 ✅ · K4 ✅ · K1 ✅ gebaut · K2, K3 offen.**
 > Alle Owner-Entscheidungen getroffen (2026-08-27).
 > Owner-Abschnitte **12** und **13**, dazu zwei Punkte aus dem Betrieb.
 >
@@ -274,15 +274,62 @@ Sonst hätten wir eine zweite Wahrheit über den Marktplatz.
 
 ---
 
-### K1 · Der Rabatt wird sichtbar *(unabhängig)*
+### K1 · Der Rabatt wird sichtbar — ✅ **gebaut 2026-08-29**
 
-| Phase | Inhalt | Nachweis |
+| Phase | Inhalt | Stand |
 |---|---|---|
-| K1.1 | **Der stille Ausfall wird laut.** Scheitert `getUserDiscount`, entsteht eine Meldung mit Kunde, Monat, Grund. | Rückmutation: Fehler erzwingen → Meldung entsteht |
-| K1.2 | **Einzelfall-Ansicht im Staff CC:** aktive Bounties, Satz, Tier-Grenze, letzte Rechnung. | Probe gegen einen der 754 echten Fälle |
-| K1.3 | **Vorschau auf den nächsten Lauf** — was würde angesetzt, bevor es läuft. | Vorschau = tatsächlicher Lauf |
-| K1.4 | **Eingriff nach 3a:** kein freies Feld, Wirkungsvorschau in Euro, Verfall, nie in eigener Sache, Quelle auf der Rechnung. | je Riegel eine Probe **und** eine Rückmutation |
-| K1.5 | **Monatsübersicht der Eingriffe** | Summe stimmt mit den Einzelfällen überein |
+| K1.1 | **Der stille Ausfall wird laut.** | ✅ Migration 206, `rabattAusfallService`, **zwei** Ausfallpfade statt einem (siehe unten) |
+| K1.2 | **Einzelfall-Ansicht im Staff CC** | ✅ Modul `rabatt-faelle`, `rabattFallService` — Bounties, Satz, Obergrenze, Rechnungen, Ausfälle, Eingriffe |
+| K1.3 | **Vorschau auf den nächsten Lauf** | ✅ `vorschauRecurringInvoices` — *dieselbe* Auswahl und *dieselbe* Entscheidung wie der Lauf, ohne Folgen |
+| K1.4 | **Eingriff nach 3a** | ✅ `rabattEingriffService` — alle sechs Riegel, jeder einzeln rückmutiert |
+| K1.5 | **Monatsübersicht der Eingriffe** | ✅ `eingriffeImMonat` — die Summe stammt aus genau den gelieferten Zeilen |
+
+**Belege:** `api/test/rabattWirdSichtbar.test.js` (75 Proben, davon **11 am echten
+Handler**), **14 Rückmutationen an der Produktionsquelle — jede von genau der
+zuständigen Probe gefangen.** Migration 206 (`rabatt_ausfaelle`,
+`rabatt_eingriffe`), Staff-CC-Modul `frontend/src/staff/modules/rabatt-faelle/`.
+
+> **Der Befund, der die Welle größer gemacht hat als geplant: es sind ZWEI stille
+> Ausfallpfade, nicht einer.**
+>
+> Der Plan nannte den `catch` in `recurringBillingService:231` — die Summen-Abfrage
+> wirft, die Rechnung geht ohne Rabatt raus, einziger Zeuge ist eine `logger.warn`-Zeile.
+> Beim Messen kam ein **zweiter** heraus, der schwerer wiegt: `getUserTier` fängt
+> seinen eigenen Datenbankfehler ab und liefert `null`; `getUserMaxDiscount` macht
+> daraus die Voreinstellung 8 %. Das ist **nicht von „hat noch keine Stufe“ zu
+> unterscheiden** — kein Log, kein Eintrag, nichts. Ein Diamant-Kunde (Deckel 25 %)
+> wird dabei auf 8 % gestutzt.
+>
+> Nebenbefund: weil `getUserTier` nie wirft, ist der Sicherheitsnetz-Wert
+> `FALLBACK_MAX_DISCOUNT_PCT = 25` in `bountyService` **unerreichbar**. Ein
+> bestehender Test (`bountyService.coverage.test.js`) hält genau das seit jeher
+> fest, ohne dass jemand die Folge gezogen hätte.
+>
+> **Die Rechenkette wurde nicht angefasst** (Leitentscheidung L1): jede Zahl bleibt,
+> was sie war. Neu ist nur, dass beide Ausfälle einen Befund hinterlassen.
+
+> **Wie K1.1 mit `K4-B1` umgeht.** Es gibt weiterhin keinen Kanal, der das Team
+> erreicht. Statt einen zu erfinden, wird der Ausfall **festgehalten** — mit Kunde,
+> Monat, Grund, angesetztem Ersatzwert, Nettobetrag und der Rechnung, die trotzdem
+> entstanden ist — und in der Fläche aus K1.2 gezeigt. Eine Zeile je Kunde, Monat
+> und Stelle (UPSERT mit Vorfall-Zähler): sonst wüchse das Protokoll mit dem Fehler
+> mit und wäre genau dann am größten, wenn die Datenbank ohnehin leidet.
+
+> **Was der Eingriff strukturell kann und was nicht.** Der Zuschlag ist
+> `min(Deckel, Satz + Bounty) − min(Deckel, Satz)` — exakt das, was
+> `getUserDiscount` geliefert hätte, wäre das Bounty automatisch vergeben worden.
+> Damit lässt sich per Hand nur vergeben, was der Katalog ohnehin hergibt; wer schon
+> auf der Obergrenze seiner Stufe sitzt, bekommt **null**, und ein wirkungsloser
+> Eingriff wird abgelehnt statt still angelegt. Bestätigt wird die **Zahl in Euro**;
+> weicht sie beim Anlegen von der neu berechneten ab, wird abgelehnt statt gerechnet.
+
+> **Ein Fund beim Bauen, festgehalten statt übertüncht.** Die erste Fassung der
+> Einzelfall-Ansicht addierte die Rohsumme aus der **Bounty-Liste** statt aus der
+> Abfrage, die auch die Rechnung benutzt. Das ergibt fast immer dieselbe Zahl —
+> FAST: die Liste enthält bewusst auch beendete Vergaben. Die Fläche hätte eine
+> Wahrheit behauptet, die auf keinem Beleg steht. Gefangen hat es die Probe
+> „benutzt DIESELBE Funktion wie die Rechnung“; die Lösung ist
+> `getUserDiscountDetail` — eine Abfrage, zwei Sichten darauf.
 
 ---
 
@@ -358,8 +405,8 @@ entfernt — **jede von genau der zuständigen Probe gefangen**.
 ```
 K0 (erledigt sich mit dem Merge)          ✅ durch
  ├── K4 (Feed-Rückfall)      ← klein, schützt die sichtbarste Fläche   ✅ eb46707
- ├── K1 (Rabatt + Eingriff)  ← behebt einen Geldfehler                 ⏭ als Nächstes
- ├── K2 (Werbe-Cashback)     ← Gate K2.2 zuerst                        offen
+ ├── K1 (Rabatt + Eingriff)  ← behebt einen Geldfehler                 ✅ gebaut
+ ├── K2 (Werbe-Cashback)     ← Gate K2.2 zuerst                        ⏭ als Nächstes
  └── K3 (Monatsplanung)      ← braucht Welle J vollständig             offen
 ```
 

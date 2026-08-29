@@ -97,6 +97,12 @@ import * as bountyKatalog from "../services/bountyService.js";
 // materialisiert in user_bounty_tiers und heilt sonst erst beim naechsten Besuch
 // der Bounty-Seite des Kunden.
 import { evaluateAndPromoteTier } from "../services/bountyTierService.js";
+// Welle K1 — der Einzelfall statt nur des Katalogs: wer bekommt welchen Rabatt,
+// wo ist die Ermittlung ausgefallen, was wuerde der naechste Lauf ansetzen.
+import * as rabattFall from "../services/rabattFallService.js";
+import * as rabattEingriff from "../services/rabattEingriffService.js";
+import * as rabattAusfall from "../services/rabattAusfallService.js";
+import { vorschauRecurringInvoices } from "../services/recurringBillingService.js";
 
 // SCC WAVE 02: Typed-Confirmation-Text für critical Feature-Flags
 function computeFeatureFlagConfirmation(flagKey, enabled) {
@@ -2500,6 +2506,210 @@ export function createStaffControlCenterRouter(deps) {
       }
     }
   );
+
+
+  /* ════════════════════════════════════════════════════════════════════════
+   * WELLE K1 — DER RABATT WIRD SICHTBAR
+   * ════════════════════════════════════════════════════════════════════════
+   *
+   * Der Katalog oben verwaltet die REGEL. Hier geht es um den EINZELFALL:
+   * welchen Rabatt bekommt Kunde X naechsten Monat, warum, wo ist die
+   * Ermittlung ausgefallen — und wie greift man ein.
+   *
+   * DER EINGRIFF IST DER HEIKLE TEIL (Plan-Abschnitt 3a). Es gibt keine zweite
+   * Staff-Rolle; ein Vier-Augen-Prinzip waere dauerhaft blockiert. Der Schutz
+   * ist deshalb strukturell und liegt vollstaendig im Dienst:
+   * kein freies Betragsfeld, Schwellenpruefung gegen die echten Daten,
+   * Wirkungsvorschau in Euro, Verfall nach einem Lauf, nie in eigener Sache,
+   * Quelle auf der Rechnung. Diese Route prueft HTTP und protokolliert — sie
+   * entscheidet nichts.
+   */
+
+  /** Die Kundenliste: wer haelt einen Rabatt, wo hakt es. */
+  router.get("/rabatt-faelle", requireStaff, async (req, res) => {
+    try {
+      const daten = await rabattFall.rabattFaelle(pool, {
+        limit: req.query.limit,
+        offset: req.query.offset,
+        suche: req.query.q,
+        nurAuffaellige: String(req.query.nur_auffaellige || "") === "true"
+      });
+      res.json({ success: true, data: daten });
+    } catch (err) {
+      logger?.error({ err }, "SCC rabatt-faelle");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  /** Der Einzelfall — K1.2. */
+  router.get("/rabatt-faelle/:userId", requireStaff, async (req, res) => {
+    try {
+      const fall = await rabattFall.rabattFall(pool, req.params.userId);
+      if (!fall) {
+        return res.status(404).json({
+          success: false,
+          error: { code: "KUNDE_NICHT_GEFUNDEN", message: "Kein Nutzer mit dieser Kennung." }
+        });
+      }
+      res.json({ success: true, data: fall });
+    } catch (err) {
+      logger?.error({ err, userId: req.params.userId }, "SCC rabatt-fall");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  /**
+   * Die Wirkungsvorschau eines Eingriffs — K1.4, Schritt 1.
+   *
+   * Bewusst GET: sie schreibt nichts und darf nichts schreiben. Der Nettobetrag
+   * kommt aus der Abrechnung, nicht aus dem Browser — ein Betrag von aussen
+   * waere genau das freie Feld, das Abschnitt 3a ausschliesst.
+   */
+  router.get("/rabatt-faelle/:userId/eingriff-vorschau", requireStaff, async (req, res) => {
+    const schluessel = String(req.query.bounty_key || "").trim();
+    if (!schluessel) {
+      return res.status(400).json({
+        success: false,
+        error: { code: "BOUNTY_KEY_REQUIRED", message: "bounty_key ist erforderlich." }
+      });
+    }
+    try {
+      const vorschau = await rabattFall.eingriffVorschauFuerNutzer(pool, req.params.userId, schluessel);
+      // Eine abgelehnte Vorschau ist KEIN Fehler, sondern das Ergebnis: sie sagt,
+      // warum der Eingriff nicht ginge. 200 mit `ok: false`.
+      res.json({ success: true, data: vorschau });
+    } catch (err) {
+      logger?.error({ err, userId: req.params.userId }, "SCC rabatt-eingriff vorschau");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  /**
+   * Der Eingriff — K1.4, Schritt 2. Step-up High + Confirm/Reason wie beim
+   * Katalog: es geht um Geld auf einer Rechnung.
+   */
+  router.post("/rabatt-eingriff",
+    requireStaff, mfaGuard, requireStepUpHigh, requireConfirmAndReason,
+    async (req, res) => {
+      const userId = String(req.body?.user_id || "").trim();
+      const schluessel = String(req.body?.bounty_key || "").trim();
+      if (!userId || !schluessel) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "EINGRIFF_UNVOLLSTAENDIG", message: "user_id und bounty_key sind erforderlich." }
+        });
+      }
+
+      try {
+        const abrechnung = await rabattFall.eingriffVorschauFuerNutzer(pool, userId, schluessel);
+        if (!abrechnung.ok) {
+          // Die Ablehnung sagt, WELCHE Bedingung fehlt — das ist der Schutz,
+          // nicht die Huerde.
+          return res.status(422).json({
+            success: false,
+            error: { code: abrechnung.code, message: abrechnung.grund }
+          });
+        }
+
+        const ergebnis = await rabattEingriff.eingriffAnlegen(pool, {
+          userId,
+          orgId: abrechnung.abrechnung?.org_id || null,
+          bountyKey: schluessel,
+          nettoCents: abrechnung.abrechnung?.netto_cents,
+          bestaetigteErsparnisCents: Number(req.body?.erwartete_ersparnis_cents),
+          grund: req.sccReason,
+          actorId: req.sccActorId
+        });
+
+        if (!ergebnis.ok) {
+          return res.status(422).json({
+            success: false,
+            error: { code: ergebnis.code, message: ergebnis.grund }
+          });
+        }
+
+        await writeStaffAudit(pool, {
+          actorId: req.sccActorId, area: "commercial",
+          action: "staff.rabatt_eingriff.angelegt",
+          entityType: "rabatt_eingriff", entityId: ergebnis.eingriff.id,
+          status: "ok", reason: req.sccReason, confirmed: true,
+          riskLevel: "high",
+          ...auditContextFromReq(req),
+          details: {
+            kunde_user_id: userId,
+            org_id: ergebnis.eingriff.org_id,
+            bounty_key: ergebnis.eingriff.bounty_key,
+            zusatz_pct: Number(ergebnis.eingriff.zusatz_pct),
+            satz_vorher_pct: ergebnis.vorschau.satz_heute,
+            satz_nachher_pct: ergebnis.vorschau.satz_nachher,
+            deckel_pct: ergebnis.vorschau.deckel,
+            netto_cents: ergebnis.vorschau.netto_cents,
+            // Die bestaetigte Zahl gehoert ins Audit: sie ist das, was ein
+            // Mensch gesehen und gutgeheissen hat.
+            erwartete_ersparnis_cents: ergebnis.eingriff.erwartete_ersparnis_cents
+          }
+        }).catch((e) => logger?.warn?.({ err: e }, "SCC rabatt-eingriff audit failed"));
+
+        res.json({ success: true, data: { eingriff: ergebnis.eingriff, vorschau: ergebnis.vorschau } });
+      } catch (err) {
+        logger?.error({ err, userId }, "SCC rabatt-eingriff");
+        res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+      }
+    }
+  );
+
+  /**
+   * Vorschau auf den naechsten Abrechnungslauf — K1.3.
+   *
+   * Dieselbe Auswahl und dieselbe Entscheidung wie der echte Lauf; nur ohne
+   * Folgen. Schreibt nichts, auch keinen Ausfall-Befund.
+   */
+  router.get("/rabatt-vorschau", requireStaff, async (req, res) => {
+    try {
+      const vorschau = await vorschauRecurringInvoices(pool, {
+        batchSize: req.query.limit, logger
+      });
+      res.json({ success: true, data: vorschau });
+    } catch (err) {
+      logger?.error({ err }, "SCC rabatt-vorschau");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  /**
+   * Monatsuebersicht der Eingriffe und Ausfaelle — K1.5.
+   *
+   * Statt einer Einzelmeldung an sich selbst (das waere Laerm): "August:
+   * 3 Eingriffe, zusammen 412 EUR" — zur Durchsicht und fuer die Buchhaltung.
+   * Die Ausfaelle desselben Monats stehen daneben, weil sie dieselbe Frage
+   * beantworten: was ist diesen Monat nicht automatisch gelaufen?
+   */
+  router.get("/rabatt-monat", requireStaff, async (req, res) => {
+    const roh = String(req.query.monat || "").trim();
+    // Europe/Berlin, nie ein roher UTC-Schnitt (DACH-first-Regel).
+    const monat = /^\d{4}-\d{2}$/.test(roh)
+      ? `${roh}-01`
+      : rabattAusfall.abrechnungsmonatDE();
+    try {
+      const [eingriffe, ausfaelle] = await Promise.all([
+        rabattEingriff.eingriffeImMonat(pool, monat),
+        rabattAusfall.ausfaelleImMonat(pool, monat)
+      ]);
+      res.json({
+        success: true,
+        data: {
+          monat,
+          ...eingriffe,
+          ausfaelle,
+          ausfaelle_anzahl: ausfaelle.length,
+          ausfaelle_vorfaelle: ausfaelle.reduce((s, a) => s + (Number(a.vorfaelle) || 0), 0)
+        }
+      });
+    } catch (err) {
+      logger?.error({ err, monat }, "SCC rabatt-monat");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
 
   return router;
 }

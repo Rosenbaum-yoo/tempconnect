@@ -66,6 +66,13 @@ export const BEREICH_JE_PFAD = Object.freeze({
   "subscription-requests-meta": "commercial",
   "subscription-documents": "commercial",
   "bounty-catalog": "commercial",
+  // Welle K1 — der Einzelfall zum Katalog. Derselbe Bereich wie der Katalog:
+  // es ist dieselbe Sache aus der Naehe betrachtet, und wer die Regel aendern
+  // darf, muss auch sehen, was sie beim einzelnen Kunden anrichtet.
+  "rabatt-faelle": "commercial",
+  "rabatt-eingriff": "commercial",
+  "rabatt-vorschau": "commercial",
+  "rabatt-monat": "commercial",
   customers: "commercial",
   "customers-meta": "commercial",
   pilots: "pilots",

@@ -25,6 +25,7 @@ export type AreaKey =
   | "staff-access"
   | "support-vendors"
   | "bounty-catalog"
+  | "rabatt-faelle"
   | "marketplace-visibility"
   | "search-moderation"
   | "data-governance"
@@ -52,6 +53,10 @@ export const AREAS: NavItem[] = [
   // Preishebel. Der Name grenzt ihn zugleich von "Marketplace Visibility →
   // Bounties" ab, wo es um bezahlte Sichtbarkeit je Kunde geht.
   { key: "bounty-catalog",        label: "Rabatt-Katalog",       group: "Strategie" },
+  // Der Einzelfall neben der Regel: was bekommt EIN Kunde, warum, und wo ist
+  // die Ermittlung ausgefallen. Steht direkt beim Katalog, weil man von der
+  // Regel fast immer zum Fall will.
+  { key: "rabatt-faelle",         label: "Rabatt-Faelle",        group: "Strategie" },
   { key: "support",               label: "Support",              group: "Operations" },
   { key: "mail",                  label: "Mail & Notifications", group: "Operations" },
   { key: "operations",            label: "Operations",           group: "Operations" },

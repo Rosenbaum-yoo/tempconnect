@@ -89,6 +89,7 @@ Verwaltung der Plattform durch das TempConnect-Team.
 | `revenue` | Umsatz |
 | `billing` | Abrechnung |
 | `bounty-catalog` | **Rabatt-Katalog** — plattformweite Treue-/Leistungsbounties (P9 A2) |
+| `rabatt-faelle` | **Rabatt-Fälle** — der Einzelfall zum Katalog: welchen Rabatt bekommt ein Kunde, warum, wo ist die Ermittlung ausgefallen, und der Eingriffspunkt (K1). Steht im Staff CC und nicht im OCC, weil die Rabatt-Automatik die Plattform als Ganzes betrifft — sie ist eine Regel für alle Kunden, kein kundenspezifischer Vertrag. Der Einzelfall ist ihre *Ansicht*, nicht ihr Gegenstand. |
 | `support` | Support-Arbeitsplatz |
 | `support-vendors` | Support-Dienstleister |
 | `mail` | Mail und Benachrichtigungen |

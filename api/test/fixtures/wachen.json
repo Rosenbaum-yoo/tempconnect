@@ -2251,6 +2251,13 @@
     {
       "datei": "staffControlCenter.js",
       "methode": "post",
+      "pfad": "/rabatt-eingriff",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up HOCH (TTL 10 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten. Dazu die STRUKTURELLEN Riegel der Welle K1 (Plan-Abschnitt 3a), weil es hier keine zweite Staff-Rolle gibt und ein Vier-Augen-Prinzip damit dauerhaft blockiert waere: kein freies Betragsfeld (es wird ein Katalogeintrag gewaehlt, der Satz kommt aus dem Katalog), Schwellenpruefung gegen die echten Daten mit derselben Funktion wie die automatische Vergabe, die Stufen-Deckelung gilt weiter (wer am Deckel sitzt, bekommt null und wird abgelehnt), Bestaetigung der WIRKUNG IN EURO statt einer abstrakten Handlung (weicht sie beim Anlegen ab, wird abgelehnt statt gerechnet), Verfall nach genau einem Abrechnungslauf (Teilindex: hoechstens ein offener Eingriff je Kunde), nie in eigener Sache (als CHECK in der Datenbank, nicht nur im Code) und die Quelle steht auf der Rechnung (discount_source = 'bounty_eingriff')."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
       "pfad": "/customer-requests/:id/assign",
       "wachart": "flaechentor",
       "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Session (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, dazu seit 2026-08-22 Ablauf und Widerruf im WHERE und seit 2026-08-24 das Rollentor (config/staffRollen.js). Step-up MITTEL (TTL 15 min). Getippte Bestaetigung plus Pflichtbegruendung. MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten."
