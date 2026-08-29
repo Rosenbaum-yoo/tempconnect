@@ -153,7 +153,10 @@ for (const [pfad, zustand] of [["issue", "draft"], ["paid", "issued"], ["void", 
     });
 
     it("Gegenprobe: eigene Org geht durch", async () => {
-      const pool = spionPool({ zeile: { id: "inv-eigen", status: zustand, org_id: ORG_A, supplier_org_id: ORG_B } });
+      /* ORG_A ist hier der AUSSTELLER (supplier_org_id): Statuswechsel gehoeren
+         seit dem Rollenbefund (2026-08-28) dem Rechnungssteller. Die Zusage der
+         Gegenprobe — die eigene Org kommt durch und schreibt — bleibt. */
+      const pool = spionPool({ zeile: { id: "inv-eigen", status: zustand, org_id: ORG_B, supplier_org_id: ORG_A } });
       const router = createInvoicesRouter(baseDeps(pool));
       const handler = findHandlerExact(router, "post", "/invoices/operational/:id/" + pfad);
 
@@ -185,7 +188,12 @@ describe("E-2 · POST /invoices/operational/:id/correction — fremde Org", () =
   });
 
   it("Gegenprobe: eigene Org bekommt die Position", async () => {
-    const pool = spionPool({ zeile: { id: "inv-eigen", status: "draft", org_id: ORG_A, supplier_org_id: null } });
+    /* Seit dem Rollenbefund (2026-08-28) genuegt Beteiligung nicht mehr:
+       Positionen ergaenzt nur der RECHNUNGSSTELLER, sonst korrigiert der
+       Empfaenger den fremden Beleg nach unten. ORG_A ist hier deshalb
+       supplier_org_id statt org_id — die Zusage der Gegenprobe (die eigene
+       Org kommt durch und schreibt) ist unveraendert. */
+    const pool = spionPool({ zeile: { id: "inv-eigen", status: "draft", org_id: "org-kunde", supplier_org_id: ORG_A } });
     const router = createInvoicesRouter(baseDeps(pool));
     const handler = findHandlerExact(router, "post", "/invoices/operational/:id/correction");
 

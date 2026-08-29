@@ -49,6 +49,39 @@
        Flaeche der Live-Belegschaft — die Beschriftungen bleiben hier, weil
        die Links auf DIESER Seite stehen. */
     'cts.tab.timesheets': 'Stundenzettel-Eingang',
+    'cts.tab.invoices': 'Rechnungs-Eingang',
+
+    /* Rechnungs-Eingang (Welle J7): was die Zeitarbeitsfirma stellt, kommt
+       hier an — lesend, mit Positionen, CSV und E-Rechnung. */
+    'cts.inv.banner.1': 'Rechnungen Ihrer Zeitarbeitsfirmen zu den bei Ihnen geleisteten und',
+    'cts.inv.banner.strong': 'von Ihnen freigegebenen Stunden',
+    'cts.inv.banner.2': '– mit allen Positionen zum Nachvollziehen, als CSV und als E-Rechnung für Ihre Buchhaltung.',
+    'cts.inv.kpi.open': 'Offen',
+    'cts.inv.kpi.openHelp': 'Rechnungen, die gestellt und noch nicht als bezahlt vermerkt sind.',
+    'cts.inv.kpi.overdue': 'Überfällig',
+    'cts.inv.kpi.overdueHelp': 'Das Zahlungsziel ist überschritten.',
+    'cts.inv.kpi.sum': 'Offener Betrag',
+    'cts.inv.kpi.sumHelp': 'Summe aller offenen und überfälligen Rechnungen.',
+    'cts.inv.kpi.paid': 'Diesen Monat bezahlt',
+    'cts.inv.kpi.paidHelp': 'In diesem Monat als bezahlt vermerkt.',
+    'cts.inv.filter.all': 'Alle',
+    'cts.inv.status.draft': 'Entwurf',
+    'cts.inv.status.issued': 'Offen',
+    'cts.inv.status.overdue': 'Überfällig',
+    'cts.inv.status.paid': 'Bezahlt',
+    'cts.inv.status.void': 'Storniert',
+    'cts.inv.th.number': 'Nummer',
+    'cts.inv.th.period': 'Zeitraum',
+    'cts.inv.th.due': 'Fällig',
+    'cts.inv.th.total': 'Gesamt',
+    'cts.inv.empty': 'Noch keine Rechnungen. Sobald Ihre Zeitarbeitsfirma eine stellt, erscheint sie hier.',
+    'cts.inv.notYetIssued': 'noch nicht gestellt',
+    'cts.inv.noItems': 'Keine Positionen aufgeführt.',
+    'cts.inv.net': 'Netto',
+    'cts.inv.vat': 'MwSt. {pct} %',
+    'cts.inv.total': 'Gesamtbetrag',
+    'cts.inv.csv': 'CSV',
+    'cts.inv.xml': 'E-Rechnung (XML)',
     'cts.tab.live': 'Live-Belegschaft',
     'cts.tab.complaints': 'Meine Meldungen',
     'cts.tab.blocklist': 'Sperrliste',
@@ -124,6 +157,39 @@
     'cts.banner.3': '— transparent and traceable, right inside the platform.',
 
     'cts.tab.timesheets': 'Incoming timesheets',
+    'cts.tab.invoices': 'Incoming invoices',
+
+    /* Incoming invoices (wave J7): what the staffing firm issues arrives here —
+       read-only, with line items, CSV and e-invoice. */
+    'cts.inv.banner.1': 'Invoices from your staffing firms for the hours worked at your site and',
+    'cts.inv.banner.strong': 'approved by you',
+    'cts.inv.banner.2': '— with every line item to check, as CSV and as an e-invoice for your accounting.',
+    'cts.inv.kpi.open': 'Open',
+    'cts.inv.kpi.openHelp': 'Invoices issued and not yet marked as paid.',
+    'cts.inv.kpi.overdue': 'Overdue',
+    'cts.inv.kpi.overdueHelp': 'The payment term has passed.',
+    'cts.inv.kpi.sum': 'Outstanding',
+    'cts.inv.kpi.sumHelp': 'Total of all open and overdue invoices.',
+    'cts.inv.kpi.paid': 'Paid this month',
+    'cts.inv.kpi.paidHelp': 'Marked as paid within this month.',
+    'cts.inv.filter.all': 'All',
+    'cts.inv.status.draft': 'Draft',
+    'cts.inv.status.issued': 'Open',
+    'cts.inv.status.overdue': 'Overdue',
+    'cts.inv.status.paid': 'Paid',
+    'cts.inv.status.void': 'Voided',
+    'cts.inv.th.number': 'Number',
+    'cts.inv.th.period': 'Period',
+    'cts.inv.th.due': 'Due',
+    'cts.inv.th.total': 'Total',
+    'cts.inv.empty': 'No invoices yet. As soon as your staffing firm issues one, it appears here.',
+    'cts.inv.notYetIssued': 'not issued yet',
+    'cts.inv.noItems': 'No line items listed.',
+    'cts.inv.net': 'Net',
+    'cts.inv.vat': 'VAT {pct}%',
+    'cts.inv.total': 'Total',
+    'cts.inv.csv': 'CSV',
+    'cts.inv.xml': 'E-invoice (XML)',
     'cts.tab.live': 'Live workforce',
     'cts.tab.complaints': 'My reports',
     'cts.tab.blocklist': 'Block list',
@@ -252,6 +318,12 @@
     try { await TC.api.get('/me'); }
     catch (e) { show('paywall'); return; }
     show('main');
+    /* Deep-Link aus einer Benachrichtigung: '#rechnungen' oeffnet den
+       Rechnungs-Eingang direkt. */
+    if (String((window.location && window.location.hash) || '') === '#rechnungen') {
+      ctView('invoices');
+      return;
+    }
     ctLoad();
   }
 
@@ -384,6 +456,190 @@
   }
   window.ctReject = ctReject;
 
+
+  /* ── Reiterwechsel (Welle J7) ────────────────────────────────────────────
+     Seit J1 hatte diese Seite nur noch eine Ansicht; mit dem Rechnungs-Eingang
+     sind es wieder zwei. Jeder Reiter laedt beim ersten Oeffnen — ein Fehler
+     setzt das Flag NICHT, damit ein zweiter Versuch moeglich bleibt. */
+  var VIEWS = { timesheets: 'viewTimesheets', invoices: 'viewInvoices' };
+  var TABS = { timesheets: 'tabTimesheets', invoices: 'tabInvoices' };
+  function ctView(mode) {
+    Object.keys(VIEWS).forEach(function (k) {
+      var v = document.getElementById(VIEWS[k]);
+      var b = document.getElementById(TABS[k]);
+      if (v) v.style.display = (k === mode) ? '' : 'none';
+      if (b && b.classList) b.classList.toggle('ct-tab--active', k === mode);
+    });
+    if (mode === 'timesheets' && !_tsLoaded) ctLoad();
+    if (mode === 'invoices' && !_invLoaded) ctLoadInvoices();
+  }
+  window.ctView = ctView;
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     RECHNUNGS-EINGANG (Welle J7)
+
+     Was die Zeitarbeitsfirma stellt, kommt hier an. Bewusst eine LESENDE
+     Flaeche: Stellen, Stornieren und "bezahlt" gehoeren dem Rechnungssteller
+     — das ist seit dem Befund vom 2026-08-28 auch serverseitig so
+     (NOT_INVOICE_ISSUER). Vorher konnte der Empfaenger den fremden Beleg
+     erzeugen, im Betrag aendern, stellen und als bezahlt markieren.
+
+     Was der Empfaenger braucht und bekommt: die Positionen zum Nachvollziehen
+     (Kraft, Woche, Stunden, Satz), CSV und die E-Rechnung fuer die eigene
+     Buchhaltung.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  var _invLoaded = false;
+  var _invRows = [];
+  var _invCurrent = null;
+
+  function invBetrag(cents) {
+    var n = Number(cents || 0) / 100;
+    return n.toLocaleString(TCi18n.locale() === 'en' ? 'en-GB' : 'de-DE',
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  }
+
+  /* Ein Zahlungsziel, das vorbei ist, faellt hier auf — der Server kennt den
+     Zustand 'overdue' erst nach seinem Lauf, die Zeile soll ihn schon zeigen.
+
+     `TCDate.todayDE()` und NICHT der rohe UTC-Schnitt auf dem Kalendertag:
+     der liefert in Europe/Berlin abends den VORTAG, und eine Rechnung
+     saehe dann einen halben Abend lang faellig aus, obwohl sie es erst morgen
+     ist (Befundklasse F1). Faellt TCDate aus, wird nichts eingefaerbt — der
+     Server-Zustand bleibt die Wahrheit. */
+  function invUeberfaellig(r) {
+    if (r.status !== 'issued' || !r.due_at) return false;
+    if (!window.TCDate || typeof TCDate.todayDE !== 'function') return false;
+    return String(r.due_at).slice(0, 10) < TCDate.todayDE();
+  }
+
+  var INV_BADGE = {
+    draft:   'ct-badge--review',
+    issued:  'ct-badge--review',
+    overdue: 'ct-badge--rej',
+    paid:    'ct-badge--ok',
+    void:    'ct-badge--done'
+  };
+
+  function invStatusBadge(r) {
+    var zustand = invUeberfaellig(r) ? 'overdue' : r.status;
+    var label = t('cts.inv.status.' + zustand) || zustand;
+    return '<span class="ct-badge ' + (INV_BADGE[zustand] || '') + '">' + esc(label) + '</span>';
+  }
+
+  async function ctLoadInvoices() {
+    var feld = document.getElementById('ciFilterStatus');
+    var status = feld ? feld.value : '';
+    try {
+      var ergebnis = await Promise.all([
+        TC.api.get('/invoices/operational' + (status ? '?status=' + encodeURIComponent(status) : '')),
+        TC.api.get('/invoices/operational/kpis').catch(function () { return null; })
+      ]);
+      _invLoaded = true;
+      renderInvoices((ergebnis[0] && ergebnis[0].items) || []);
+      renderInvoiceKpis(ergebnis[1]);
+    } catch (e) {
+      if (isCompanyGateError(e)) { show('notCompany'); return; }
+      document.getElementById('ciBody').innerHTML =
+        '<tr><td colspan="7" class="ct-empty">' + esc(t('cts.err.load', { detail: errDetail(e) })) + '</td></tr>';
+    }
+  }
+  window.ctLoadInvoices = ctLoadInvoices;
+
+  function renderInvoiceKpis(k) {
+    var setz = function (id, wert) { var e = document.getElementById(id); if (e) e.textContent = wert; };
+    if (!k) { ['ciOpen', 'ciOverdue', 'ciSum', 'ciPaid'].forEach(function (i) { setz(i, '–'); }); return; }
+    setz('ciOpen', k.issued_count != null ? k.issued_count : 0);
+    setz('ciOverdue', k.overdue_count != null ? k.overdue_count : 0);
+    setz('ciSum', invBetrag(k.outstanding_cents));
+    setz('ciPaid', invBetrag(k.paid_this_month_cents));
+    /* Die Ueberfaellig-Kachel wird nur rot, wenn es etwas zu sehen gibt — eine
+       dauerhaft alarmierte Kachel liest sich nach kurzer Zeit wie Deko
+       (dieselbe Regel wie bei der Ausfall-Kachel der Live-Belegschaft). */
+    var el = document.getElementById('ciOverdue');
+    if (el) el.style.color = (k.overdue_count || 0) > 0 ? 'var(--ds-danger)' : '';
+  }
+
+  function renderInvoices(list) {
+    _invRows = list || [];
+    document.getElementById('ciCount').textContent = t('cts.count.entries', { count: _invRows.length });
+    var tb = document.getElementById('ciBody');
+    if (!_invRows.length) {
+      tb.innerHTML = '<tr><td colspan="7" class="ct-empty">' + esc(t('cts.inv.empty')) + '</td></tr>';
+      return;
+    }
+    tb.innerHTML = _invRows.map(function (r) {
+      /* Ein Entwurf der Gegenseite ist noch keine Rechnung an uns — er traegt
+         keine Nummer und sollte hier auch nicht so aussehen. */
+      var nummer = r.invoice_number
+        ? esc(r.invoice_number)
+        : '<span class="ct-sub">' + esc(t('cts.inv.notYetIssued')) + '</span>';
+      return '<tr>' +
+        '<td><div style="font-weight:600">' + nummer + '</div>' +
+          (r.reference_number ? '<div class="ct-sub">' + esc(r.reference_number) + '</div>' : '') + '</td>' +
+        '<td>' + esc(r.supplier_org_name || '–') + '</td>' +
+        '<td>' + fmtDate(r.billing_period_start) + '<div class="ct-sub">' + esc(t('cts.week.until')) + ' ' + fmtDate(r.billing_period_end) + '</div></td>' +
+        '<td>' + fmtDate(r.due_at) + '</td>' +
+        '<td><strong>' + invBetrag(r.total_cents) + '</strong></td>' +
+        '<td>' + invStatusBadge(r) + '</td>' +
+        '<td style="text-align:right"><button class="ct-btn" onclick="ciOpen(\'' + esc(r.id) + '\')">' +
+          esc(t('cts.action.detail')) + '</button></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  async function ciOpen(id) {
+    try { _invCurrent = await TC.api.get('/invoices/operational/' + id); }
+    catch (e) { alert(t('cts.err.detail', { detail: errDetail(e) })); return; }
+    renderInvoiceDetail(_invCurrent);
+    document.getElementById('ciModal').classList.add('active');
+  }
+  window.ciOpen = ciOpen;
+
+  function renderInvoiceDetail(inv) {
+    document.getElementById('ciDetailTitle').textContent =
+      inv.invoice_number || t('cts.inv.notYetIssued');
+    document.getElementById('ciDetailMeta').innerHTML =
+      esc(inv.supplier_org_name || '–') + ' &nbsp;·&nbsp; ' +
+      fmtDate(inv.billing_period_start) + ' ' + esc(t('cts.week.until')) + ' ' + fmtDate(inv.billing_period_end) +
+      ' &nbsp;·&nbsp; ' + invStatusBadge(inv);
+
+    var posten = inv.items || [];
+    /* Die Positionen sind der Grund, warum eine Rechnung pruefbar ist: welche
+       Kraft, welche Woche, wie viele Stunden. Eine Endsumme allein koennte
+       niemand gegen die eigenen Freigaben halten. */
+    var zeilen = posten.length
+      ? posten.map(function (p) {
+          return '<div class="ct-entry"><div>' + esc(p.description || '–') +
+            (p.worker_name ? '<div class="ct-sub">' + esc(p.worker_name) +
+              (p.week_start ? ' · ' + fmtDate(p.week_start) : '') + '</div>' : '') +
+            '</div><div style="text-align:right"><strong>' + invBetrag(p.total_cents) + '</strong>' +
+            (p.quantity ? '<div class="ct-sub">' + esc(String(p.quantity)) + ' × ' + invBetrag(p.unit_amount_cents) + '</div>' : '') +
+            '</div></div>';
+        }).join('')
+      : '<div class="ct-sub">' + esc(t('cts.inv.noItems')) + '</div>';
+
+    var summen =
+      '<div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid var(--ds-border,#e2e8f0);font-size:.85rem">' +
+        '<span>' + esc(t('cts.inv.net')) + '</span><span>' + invBetrag(inv.amount_cents) + '</span></div>' +
+      '<div style="display:flex;justify-content:space-between;font-size:.85rem">' +
+        '<span>' + esc(t('cts.inv.vat', { pct: inv.tax_rate_pct })) + '</span><span>' + invBetrag(inv.tax_amount_cents) + '</span></div>' +
+      '<div style="display:flex;justify-content:space-between;margin-top:6px;padding-top:8px;border-top:2px solid var(--ds-border,#e2e8f0);font-weight:700">' +
+        '<span>' + esc(t('cts.inv.total')) + '</span><span>' + invBetrag(inv.total_cents) + '</span></div>';
+
+    document.getElementById('ciDetailBody').innerHTML = zeilen + summen;
+
+    /* NUR Wege nach draussen — kein Knopf, der den fremden Beleg veraendert. */
+    var basis = '/api/invoices/operational/' + encodeURIComponent(inv.id);
+    document.getElementById('ciDetailActions').innerHTML =
+      '<button class="ct-btn" onclick="ciClose()">' + esc(t('cts.action.close')) + '</button>' +
+      '<a class="ct-btn" style="text-decoration:none" href="' + basis + '/export/csv">' + esc(t('cts.inv.csv')) + '</a>' +
+      '<a class="ct-btn ct-btn--ok" style="text-decoration:none" href="' + basis + '/e-rechnung">' + esc(t('cts.inv.xml')) + '</a>';
+  }
+
+  function ciClose() { document.getElementById('ciModal').classList.remove('active'); _invCurrent = null; }
+  window.ciClose = ciClose;
+
   /* Sprachwechsel: alles, was JS gebaut hat, traegt bewusst KEINEN data-i18n-Marker
      (sonst wuerde das naechste apply() Zeilen mit Laufzeitwerten entkernen). Deshalb
      zeichnen wir die bereits geladenen Listen aus dem Cache neu — ohne einen
@@ -395,10 +651,13 @@
       document.getElementById('ctCount').textContent = t('cts.count.entries', { count: _rows.length });
     }
     if (_current) renderDetail(_current);
+    if (_invLoaded) renderInvoices(_invRows);
+    if (_invCurrent) renderInvoiceDetail(_invCurrent);
   });
 
   // Modal-Klick außerhalb schließt
   document.getElementById('ctModal').addEventListener('click', function (e) { if (e.target === this) ctClose(); });
+  document.getElementById('ciModal').addEventListener('click', function (e) { if (e.target === this) ciClose(); });
 
   init();
 })();

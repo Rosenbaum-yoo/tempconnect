@@ -64,7 +64,7 @@ function transactionPool(clientResponses) {
     query: async (sql, params) => {
       // Assignment lookup
       if (sql.includes("FROM assignments a") && sql.includes("WHERE a.id")) {
-        return { rows: [{ id: "asg-1", org_id: "org-1", supplier_org_id: "sup-1", hourly_rate_cents: 2500, worker_description: "CNC-Operator", status: "active", buyer_org_name: "Corp A" }] };
+        return { rows: [{ id: "asg-1", org_id: "kunde-1", supplier_org_id: "org-1", hourly_rate_cents: 2500, worker_description: "CNC-Operator", status: "active", buyer_org_name: "Corp A" }] };
       }
       // Timesheets lookup
       if (sql.includes("FROM timesheets") && sql.includes("ANY")) {
@@ -101,7 +101,7 @@ describe("operationalInvoiceService — generateFromTimesheets", () => {
 
   it("rejects when assignment has no hourly rate", async () => {
     const pool = mockPool(async (sql) => {
-      if (sql.includes("FROM assignments a")) return { rows: [{ id: "asg-1", org_id: "org-1", supplier_org_id: "sup-1", hourly_rate_cents: null }] };
+      if (sql.includes("FROM assignments a")) return { rows: [{ id: "asg-1", org_id: "kunde-1", supplier_org_id: "org-1", hourly_rate_cents: null }] };
       return { rows: [] };
     });
     const result = await generateFromTimesheets(pool, { orgId: "org-1", assignmentId: "asg-1", timesheetIds: ["ts-1"], actorId: "u-1" });
@@ -119,7 +119,7 @@ describe("operationalInvoiceService — generateFromTimesheets", () => {
 
   it("rejects timesheet not approved", async () => {
     const pool = mockPool(async (sql) => {
-      if (sql.includes("FROM assignments a")) return { rows: [{ id: "asg-1", org_id: "org-1", supplier_org_id: "sup-1", hourly_rate_cents: 2500 }] };
+      if (sql.includes("FROM assignments a")) return { rows: [{ id: "asg-1", org_id: "kunde-1", supplier_org_id: "org-1", hourly_rate_cents: 2500 }] };
       if (sql.includes("FROM timesheets") && sql.includes("ANY")) return { rows: [{ id: "ts-1", assignment_id: "asg-1", status: "submitted", invoice_id: null }] };
       return { rows: [] };
     });
@@ -129,7 +129,7 @@ describe("operationalInvoiceService — generateFromTimesheets", () => {
 
   it("rejects already-invoiced timesheet", async () => {
     const pool = mockPool(async (sql) => {
-      if (sql.includes("FROM assignments a")) return { rows: [{ id: "asg-1", org_id: "org-1", supplier_org_id: "sup-1", hourly_rate_cents: 2500 }] };
+      if (sql.includes("FROM assignments a")) return { rows: [{ id: "asg-1", org_id: "kunde-1", supplier_org_id: "org-1", hourly_rate_cents: 2500 }] };
       if (sql.includes("FROM timesheets") && sql.includes("ANY")) return { rows: [{ id: "ts-1", assignment_id: "asg-1", status: "approved", invoice_id: "inv-existing" }] };
       return { rows: [] };
     });
@@ -221,7 +221,7 @@ describe("operationalInvoiceService — getOperationalInvoice", () => {
     let callIdx = 0;
     const pool = mockPool(async () => {
       callIdx++;
-      if (callIdx === 1) return { rows: [{ id: "inv-1", org_id: "org-1", supplier_org_id: "sup-1", invoice_type: "operational", total_cents: 100000 }] };
+      if (callIdx === 1) return { rows: [{ id: "inv-1", org_id: "kunde-1", supplier_org_id: "org-1", invoice_type: "operational", total_cents: 100000 }] };
       return { rows: [{ id: "item-1", item_type: "timesheet_regular", total_cents: 80000 }, { id: "item-2", item_type: "timesheet_overtime", total_cents: 20000 }] };
     });
     const result = await getOperationalInvoice(pool, "inv-1", "org-1");
@@ -383,7 +383,7 @@ describe("operationalInvoiceService — transitionInvoice", () => {
     let callIdx = 0;
     const pool = mockPool(async (sql) => {
       callIdx++;
-      if (callIdx === 1) return { rows: [{ id: "inv-1", status: "issued", org_id: "org-1" }] };
+      if (callIdx === 1) return { rows: [{ id: "inv-1", status: "issued", org_id: "kunde-1", supplier_org_id: "org-1" }] };
       if (callIdx === 2) return { rows: [{ id: "inv-1", status: "paid" }] };
       return { rows: [] };
     });
@@ -392,7 +392,7 @@ describe("operationalInvoiceService — transitionInvoice", () => {
   });
 
   it("rejects invalid transition (paid → draft)", async () => {
-    const pool = mockPool(async () => ({ rows: [{ id: "inv-1", status: "paid", org_id: "org-1" }] }));
+    const pool = mockPool(async () => ({ rows: [{ id: "inv-1", status: "paid", org_id: "kunde-1", supplier_org_id: "org-1" }] }));
     const result = await transitionInvoice(pool, "inv-1", "draft", "u-1", "org-1");
     assert.strictEqual(result.error, "INVALID_TRANSITION");
     assert.strictEqual(result.from, "paid");
@@ -409,7 +409,7 @@ describe("operationalInvoiceService — transitionInvoice", () => {
       let callIdx = 0;
       const pool = mockPool(async () => {
         callIdx++;
-        if (callIdx === 1) return { rows: [{ id: "inv-1", status, org_id: "org-1" }] };
+        if (callIdx === 1) return { rows: [{ id: "inv-1", status, org_id: "kunde-1", supplier_org_id: "org-1" }] };
         if (callIdx === 2) return { rows: [{ id: "inv-1", status: "void" }] };
         return { rows: [] };
       });
@@ -428,7 +428,7 @@ describe("operationalInvoiceService — addCorrectionItem", () => {
     let callIdx = 0;
     const pool = mockPool(async () => {
       callIdx++;
-      if (callIdx === 1) return { rows: [{ id: "inv-1", status: "draft", org_id: "org-1" }] };
+      if (callIdx === 1) return { rows: [{ id: "inv-1", status: "draft", org_id: "kunde-1", supplier_org_id: "org-1" }] };
       if (callIdx === 2) return { rows: [{ id: "item-new", item_type: "adjustment", total_cents: -5000 }] };
       return { rows: [] };
     });
@@ -438,7 +438,7 @@ describe("operationalInvoiceService — addCorrectionItem", () => {
   });
 
   it("rejects correction on issued invoice", async () => {
-    const pool = mockPool(async () => ({ rows: [{ id: "inv-1", status: "issued", org_id: "org-1" }] }));
+    const pool = mockPool(async () => ({ rows: [{ id: "inv-1", status: "issued", org_id: "kunde-1", supplier_org_id: "org-1" }] }));
     const result = await addCorrectionItem(pool, "inv-1", { description: "Test", amountCents: 100, actorId: "u-1", orgId: "org-1" });
     assert.strictEqual(result.error, "NOT_EDITABLE");
   });

@@ -86,7 +86,11 @@
          eigene Flaeche umgezogen (company-live-workforce.html) - die Reiter
          bleiben als Wegweiser stehen, damit niemand sie hier sucht. -->
     <div class="ct-tabs">
-      <span class="ct-tab ct-tab--active" id="tabTimesheets" data-i18n="cts.tab.timesheets">Stundenzettel-Eingang</span>
+      <button class="ct-tab ct-tab--active" id="tabTimesheets" onclick="ctView('timesheets')" data-i18n="cts.tab.timesheets">Stundenzettel-Eingang</button>
+      <!-- Rechnungs-Eingang (Welle J7): dieselbe Kette, ein Schritt weiter —
+           aus den Zeiten, die hier freigegeben werden, entsteht die Rechnung.
+           Deshalb steht sie daneben und nicht auf einer eigenen Flaeche. -->
+      <button class="ct-tab" id="tabInvoices" onclick="ctView('invoices')" data-i18n="cts.tab.invoices">Rechnungs-Eingang</button>
       <a class="ct-tab" style="text-decoration:none" href="/public/company-live-workforce.html"><span class="ct-live-dot"></span><span data-i18n="cts.tab.live">Live-Belegschaft</span></a>
       <a class="ct-tab" style="text-decoration:none" href="/public/company-live-workforce.html#meldungen" data-i18n="cts.tab.complaints">Meine Meldungen</a>
       <a class="ct-tab" style="text-decoration:none" href="/public/company-live-workforce.html#sperrliste" data-i18n="cts.tab.blocklist">Sperrliste</a>
@@ -120,7 +124,41 @@
     </table>
     </div><!-- /viewTimesheets -->
 
-  
+    <!-- ===== RECHNUNGS-EINGANG (Welle J7) =====
+         Bewusst eine LESENDE Flaeche: Stellen, Stornieren und "bezahlt"
+         gehoeren dem Rechnungssteller. Der Empfaenger braucht den Beleg fuer
+         seine Buchhaltung — deshalb Ansicht, CSV und E-Rechnung, aber keine
+         Knoepfe, die den fremden Beleg veraendern. -->
+    <div id="viewInvoices" style="display:none">
+      <div class="ct-banner">
+        <span data-i18n="cts.inv.banner.1">Rechnungen Ihrer Zeitarbeitsfirmen zu den bei Ihnen geleisteten und</span>
+        <strong data-i18n="cts.inv.banner.strong">von Ihnen freigegebenen Stunden</strong>
+        <span data-i18n="cts.inv.banner.2">– mit allen Positionen zum Nachvollziehen, als CSV und als E-Rechnung für Ihre Buchhaltung.</span>
+      </div>
+      <div class="ct-kpis">
+        <div class="ct-kpi" data-i18n-title="cts.inv.kpi.openHelp" title="Rechnungen, die gestellt und noch nicht als bezahlt vermerkt sind."><div class="ct-kpi__val" id="ciOpen" style="color:var(--ds-warning)">–</div><div class="ct-kpi__label" data-i18n="cts.inv.kpi.open">Offen</div></div>
+        <div class="ct-kpi" data-i18n-title="cts.inv.kpi.overdueHelp" title="Das Zahlungsziel ist überschritten."><div class="ct-kpi__val" id="ciOverdue" style="color:var(--ds-danger)">–</div><div class="ct-kpi__label" data-i18n="cts.inv.kpi.overdue">Überfällig</div></div>
+        <div class="ct-kpi" data-i18n-title="cts.inv.kpi.sumHelp" title="Summe aller offenen und überfälligen Rechnungen."><div class="ct-kpi__val" id="ciSum">–</div><div class="ct-kpi__label" data-i18n="cts.inv.kpi.sum">Offener Betrag</div></div>
+        <div class="ct-kpi" data-i18n-title="cts.inv.kpi.paidHelp" title="In diesem Monat als bezahlt vermerkt."><div class="ct-kpi__val" id="ciPaid" style="color:var(--ds-success)">–</div><div class="ct-kpi__label" data-i18n="cts.inv.kpi.paid">Diesen Monat bezahlt</div></div>
+      </div>
+      <div class="ct-toolbar">
+        <select id="ciFilterStatus" class="ct-btn" onchange="ctLoadInvoices()">
+          <option value="" data-i18n="cts.inv.filter.all">Alle</option>
+          <option value="issued" data-i18n="cts.inv.status.issued">Offen</option>
+          <option value="overdue" data-i18n="cts.inv.status.overdue">Überfällig</option>
+          <option value="paid" data-i18n="cts.inv.status.paid">Bezahlt</option>
+        </select>
+        <button class="ct-btn" onclick="ctLoadInvoices()" data-i18n="cts.action.refresh">Aktualisieren</button>
+        <span id="ciCount" class="ct-sub"></span>
+      </div>
+      <table class="ct-table">
+        <thead><tr>
+          <th data-i18n="cts.inv.th.number">Nummer</th><th data-i18n="cts.th.agency">Zeitarbeitsfirma</th><th data-i18n="cts.inv.th.period">Zeitraum</th><th data-i18n="cts.inv.th.due">Fällig</th><th data-i18n="cts.inv.th.total">Gesamt</th><th data-i18n="cts.th.status">Status</th><th></th>
+        </tr></thead>
+        <tbody id="ciBody"><tr><td colspan="7" class="ct-empty">–</td></tr></tbody>
+      </table>
+    </div><!-- /viewInvoices -->
+
   </div>
 
   <!-- Detail-Modal -->
@@ -134,6 +172,23 @@
     </div>
   </div>
 
+  <!-- Rechnungsdetail (Welle J7): die Positionen sind der Grund, warum eine
+       Rechnung nachvollziehbar ist — Kraft, Woche, Stunden, Satz. Ohne sie
+       bliebe nur eine Endsumme, die niemand prüfen kann. -->
+  <div id="ciModal" class="ct-modal">
+    <div class="ct-modal__box">
+      <div style="padding:20px 22px 0">
+        <div id="ciDetailTitle" style="font-size:1.1rem;font-weight:700"></div>
+        <div id="ciDetailMeta" class="ct-sub" style="margin-top:3px"></div>
+      </div>
+      <div style="padding:16px 22px" id="ciDetailBody"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;padding:16px 22px 20px" id="ciDetailActions"></div>
+    </div>
+  </div>
+
+  <!-- dateDE.js liefert TCDate.todayDE(). Ein roher UTC-Schnitt auf dem
+       Kalendertag waere in Europe/Berlin abends der Vortag (Befundklasse F1). -->
+  <script src="/public/js/dateDE.js"></script>
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/pageShell.js"></script>
   <script>

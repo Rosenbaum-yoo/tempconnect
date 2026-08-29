@@ -298,6 +298,7 @@ export function createInvoicesRouter(deps) {
       const result = await opInvoice.getOperationalInvoice(pool, req.params.id, req.orgId);
       if (!result) return res.status(404).json({ error: "NOT_FOUND" });
       if (result.error === "ORG_BOUNDARY_VIOLATION") return res.status(403).json(result);
+      if (result.error === "NOT_INVOICE_ISSUER") return res.status(403).json(result);
       res.json(result);
     } catch (err) { next(err); }
   });
@@ -309,6 +310,7 @@ export function createInvoicesRouter(deps) {
       if (result.error === "NOT_FOUND") return res.status(404).json(result);
       // Befund E-2: fremde Org ist 403, kein Statuskonflikt.
       if (result.error === "ORG_BOUNDARY_VIOLATION") return res.status(403).json(result);
+      if (result.error === "NOT_INVOICE_ISSUER") return res.status(403).json(result);
       if (result.error) return res.status(409).json(result);
 
       res.locals.audit = { action: "invoice.issued", entity_type: "invoice", entity_id: req.params.id };
@@ -323,6 +325,7 @@ export function createInvoicesRouter(deps) {
       if (result.error === "NOT_FOUND") return res.status(404).json(result);
       // Befund E-2: fremde Org ist 403, kein Statuskonflikt.
       if (result.error === "ORG_BOUNDARY_VIOLATION") return res.status(403).json(result);
+      if (result.error === "NOT_INVOICE_ISSUER") return res.status(403).json(result);
       if (result.error) return res.status(409).json(result);
 
       res.locals.audit = { action: "invoice.mark_paid", entity_type: "invoice", entity_id: req.params.id };
@@ -337,6 +340,7 @@ export function createInvoicesRouter(deps) {
       if (result.error === "NOT_FOUND") return res.status(404).json(result);
       // Befund E-2: fremde Org ist 403, kein Statuskonflikt.
       if (result.error === "ORG_BOUNDARY_VIOLATION") return res.status(403).json(result);
+      if (result.error === "NOT_INVOICE_ISSUER") return res.status(403).json(result);
       if (result.error) return res.status(409).json(result);
 
       res.locals.audit = { action: "invoice.void", entity_type: "invoice", entity_id: req.params.id };
@@ -360,6 +364,7 @@ export function createInvoicesRouter(deps) {
       if (result.error === "NOT_FOUND") return res.status(404).json(result);
       // Befund E-2: fremde Org ist 403, kein Statuskonflikt.
       if (result.error === "ORG_BOUNDARY_VIOLATION") return res.status(403).json(result);
+      if (result.error === "NOT_INVOICE_ISSUER") return res.status(403).json(result);
       if (result.error) return res.status(409).json(result);
 
       res.locals.audit = { action: "invoice.correction_added", entity_type: "invoice", entity_id: req.params.id };

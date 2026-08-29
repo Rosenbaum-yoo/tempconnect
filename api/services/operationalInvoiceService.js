@@ -48,6 +48,30 @@ function gehoertZurOrg(rechnung, orgId) {
 }
 
 /**
+ * Ist diese Organisation der RECHNUNGSSTELLER — nicht nur beteiligt?
+ *
+ * DER BEFUND (2026-08-28, beim Bau der Empfangsseite an der echten Datenbank
+ * belegt): `gehoertZurOrg` fragt nur, OB eine Org an der Rechnung beteiligt
+ * ist. Damit stand dem EMPFAENGER der gesamte Beleg des Ausstellers offen. Ein
+ * Unternehmen konnte an einer Rechnung, die an es selbst gerichtet ist:
+ *
+ *   - sie ueberhaupt erst ERZEUGEN (im Namen der Zeitarbeitsfirma),
+ *   - den Entwurf KORRIGIEREN und damit den Betrag aendern,
+ *   - sie STELLEN — und dabei eine Nummer aus dem Kreis der Zeitarbeitsfirma
+ *     ziehen, also genau die Lueckenlosigkeit zerstoeren, die Mig 203 herstellt,
+ *   - sie als BEZAHLT markieren, ohne bezahlt zu haben.
+ *
+ * Die zweiseitige Grenze ist fuer das LESEN richtig — der Entleiher braucht
+ * denselben Beleg fuer seine Buchhaltung wie der Verleiher (so begruendet es
+ * auch der Eintrag der E-Rechnung im Org-Grenzen-Register). Fuers SCHREIBEN
+ * ist sie falsch: einen Beleg stellt aus, wer die Leistung erbracht hat.
+ */
+function istRechnungssteller(rechnung, orgId) {
+  if (!orgId || !rechnung) return false;
+  return String(rechnung.supplier_org_id) === String(orgId);
+}
+
+/**
  * Die naechste Rechnungsnummer der ZEITARBEITSFIRMA (Welle J7, Mig 203).
  *
  * ZWEI DINGE HABEN SICH GEAENDERT, beide aus demselben Grund — der Kreis
@@ -142,9 +166,24 @@ export async function generateFromTimesheets(pool, opts) {
   if (!assignment) return { error: "ASSIGNMENT_NOT_FOUND" };
   if (!assignment.hourly_rate_cents) return { error: "NO_HOURLY_RATE", message: "Assignment hat keinen Stundensatz." };
 
-  // Org-Boundary: Anfragender muss buyer oder supplier sein
+  /* ZWEI STUFEN, bewusst getrennt — die Antwort soll den Grund nennen:
+   *
+   *   1. GAR NICHT BETEILIGT -> ORG_BOUNDARY_VIOLATION. Die fremde Org hat mit
+   *      diesem Einsatz nichts zu tun.
+   *   2. BETEILIGT, ABER FALSCHE ROLLE -> NOT_INVOICE_ISSUER (Befund
+   *      2026-08-28). Vorher genuegte die Beteiligung — damit konnte das
+   *      EMPFANGENDE Unternehmen sich selbst eine Rechnung im Namen der
+   *      Zeitarbeitsfirma ausstellen. Einen Beleg stellt aus, wer die Leistung
+   *      erbracht hat.
+   */
   if (assignment.org_id !== orgId && assignment.supplier_org_id !== orgId) {
     return { error: "ORG_BOUNDARY_VIOLATION" };
+  }
+  if (String(assignment.supplier_org_id) !== String(orgId)) {
+    return {
+      error: "NOT_INVOICE_ISSUER",
+      message: "Nur die leistungserbringende Zeitarbeitsfirma stellt diese Rechnung aus."
+    };
   }
 
   // 2. Timesheets validieren (alle approved + noch nicht abgerechnet + richtiges Assignment)
@@ -511,6 +550,15 @@ export async function addCorrectionItem(pool, invoiceId, opts) {
   // aber nie verglichen — die Zeile darueber hat die Grenze jetzt im SQL, hier
   // steht sie zusaetzlich in JS, damit ein entfernter WHERE-Teil nicht reicht.
   if (!gehoertZurOrg(inv[0], orgId)) return { error: "ORG_BOUNDARY_VIOLATION" };
+  /* Und danach die ROLLE (Befund 2026-08-28): beteiligt zu sein genuegt nicht,
+   * um den Betrag zu aendern — sonst korrigiert der Empfaenger den Beleg des
+   * Ausstellers nach unten. */
+  if (!istRechnungssteller(inv[0], orgId)) {
+    return {
+      error: "NOT_INVOICE_ISSUER",
+      message: "Nur der Rechnungssteller kann Positionen ergaenzen."
+    };
+  }
   if (inv[0].status !== "draft") return { error: "NOT_EDITABLE", status: inv[0].status };
 
   // Item hinzufügen
@@ -557,6 +605,17 @@ export async function transitionInvoice(pool, invoiceId, newStatus, actorId, org
   // Befund E-2 (2026-08-19): siehe addCorrectionItem — die Grenze steht jetzt
   // doppelt, im SQL oben und hier.
   if (!gehoertZurOrg(inv[0], orgId)) return { error: "ORG_BOUNDARY_VIOLATION" };
+  /* Und die ROLLE (Befund 2026-08-28): Stellen, Stornieren und "bezahlt"
+   * gehoeren dem Rechnungssteller. Der Empfaenger konnte sonst eine Nummer aus
+   * dem fremden Kreis ziehen (und dessen Lueckenlosigkeit zerstoeren) oder
+   * "bezahlt" behaupten, ohne bezahlt zu haben. Den Zahlungseingang sieht
+   * ohnehin nur der Empfaenger des Geldes. */
+  if (!istRechnungssteller(inv[0], orgId)) {
+    return {
+      error: "NOT_INVOICE_ISSUER",
+      message: "Nur der Rechnungssteller kann den Status dieser Rechnung aendern."
+    };
+  }
 
   const current = inv[0].status;
   const allowed = VALID_TRANSITIONS[current] || [];

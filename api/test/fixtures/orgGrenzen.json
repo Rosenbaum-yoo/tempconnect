@@ -1,6 +1,6 @@
 {
   "zweck": "Register der Mandantengrenze. Geprueft von test/orgGrenzenWaechter.test.js. Jede Route mit einem Pfad-Platzhalter in einer abgedeckten Datei braucht hier ein Urteil; jede Route-Datei ist entweder abgedeckt oder mit Grund ausgesetzt. Hintergrund: docs/ORG_GRENZE_BEFUND.md und docs/features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md.",
-  "stand": "2026-08-27",
+  "stand": "2026-08-29",
   "felder": {
     "urteil": "verhaltensgeprueft | bewusste-ausnahme (letzteres braucht 'begruendung')",
     "art": "ressource (:id adressiert eine Zeile) | entitaet (Liste zu einer Fremdkennung) | orgpfad (:id IST die Org-Kennung)",
@@ -1500,14 +1500,14 @@
           "urteil": "verhaltensgeprueft",
           "art": "ressource",
           "traegerspalten": [
-            "org_id",
             "supplier_org_id"
           ],
           "zeile": {
             "status": "draft"
           },
           "schreibtBeiErfolg": true,
-          "orgImSql": true
+          "orgImSql": true,
+          "hinweis": "Schreibweg der operativen Rechnung: seit dem Rollenbefund (2026-08-28) traegt hier NUR supplier_org_id. Ein Beleg wird von dem gestellt, der die Leistung erbracht hat — der beteiligte EMPFAENGER konnte vorher die Rechnung erzeugen, im Betrag aendern, stellen (und dabei eine Nummer aus dem fremden Kreis ziehen) und als bezahlt markieren. Lesend bleibt die Grenze zweiseitig: der Entleiher braucht denselben Beleg fuer seine Buchhaltung. Verhaltensprobe: test/rechnungRollentrennung.test.js."
         },
         {
           "methode": "post",
@@ -1515,14 +1515,14 @@
           "urteil": "verhaltensgeprueft",
           "art": "ressource",
           "traegerspalten": [
-            "org_id",
             "supplier_org_id"
           ],
           "zeile": {
             "status": "issued"
           },
           "schreibtBeiErfolg": true,
-          "orgImSql": true
+          "orgImSql": true,
+          "hinweis": "Schreibweg der operativen Rechnung: seit dem Rollenbefund (2026-08-28) traegt hier NUR supplier_org_id. Ein Beleg wird von dem gestellt, der die Leistung erbracht hat — der beteiligte EMPFAENGER konnte vorher die Rechnung erzeugen, im Betrag aendern, stellen (und dabei eine Nummer aus dem fremden Kreis ziehen) und als bezahlt markieren. Lesend bleibt die Grenze zweiseitig: der Entleiher braucht denselben Beleg fuer seine Buchhaltung. Verhaltensprobe: test/rechnungRollentrennung.test.js."
         },
         {
           "methode": "post",
@@ -1530,14 +1530,14 @@
           "urteil": "verhaltensgeprueft",
           "art": "ressource",
           "traegerspalten": [
-            "org_id",
             "supplier_org_id"
           ],
           "zeile": {
             "status": "draft"
           },
           "schreibtBeiErfolg": true,
-          "orgImSql": true
+          "orgImSql": true,
+          "hinweis": "Schreibweg der operativen Rechnung: seit dem Rollenbefund (2026-08-28) traegt hier NUR supplier_org_id. Ein Beleg wird von dem gestellt, der die Leistung erbracht hat — der beteiligte EMPFAENGER konnte vorher die Rechnung erzeugen, im Betrag aendern, stellen (und dabei eine Nummer aus dem fremden Kreis ziehen) und als bezahlt markieren. Lesend bleibt die Grenze zweiseitig: der Entleiher braucht denselben Beleg fuer seine Buchhaltung. Verhaltensprobe: test/rechnungRollentrennung.test.js."
         },
         {
           "methode": "post",
@@ -1545,7 +1545,6 @@
           "urteil": "verhaltensgeprueft",
           "art": "ressource",
           "traegerspalten": [
-            "org_id",
             "supplier_org_id"
           ],
           "zeile": {
@@ -1558,7 +1557,8 @@
             }
           },
           "schreibtBeiErfolg": true,
-          "orgImSql": true
+          "orgImSql": true,
+          "hinweis": "Schreibweg der operativen Rechnung: seit dem Rollenbefund (2026-08-28) traegt hier NUR supplier_org_id. Ein Beleg wird von dem gestellt, der die Leistung erbracht hat — der beteiligte EMPFAENGER konnte vorher die Rechnung erzeugen, im Betrag aendern, stellen (und dabei eine Nummer aus dem fremden Kreis ziehen) und als bezahlt markieren. Lesend bleibt die Grenze zweiseitig: der Entleiher braucht denselben Beleg fuer seine Buchhaltung. Verhaltensprobe: test/rechnungRollentrennung.test.js."
         },
         {
           "methode": "get",
