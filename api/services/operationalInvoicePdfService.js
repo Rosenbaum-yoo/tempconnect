@@ -35,24 +35,62 @@
  * Der Fehler faellt dann Monaten spaeter in der Buchhaltung auf, nicht hier.
  *
  * ────────────────────────────────────────────────────────────────────────────
- * ZUM ANHANG (hybrider Beleg)
+ * FACTUR-X / ZUGFeRD ALS PDF/A-3u
  * ────────────────────────────────────────────────────────────────────────────
  *
- * `xmlAnhang` bettet die CII-Nutzlast als Datei ins PDF ein. Das ist die
- * Grundlage eines Factur-X/ZUGFeRD-Belegs — aber NICHT dasselbe: ein
- * zertifiziertes ZUGFeRD verlangt zusaetzlich PDF/A-3 (Farbprofil, XMP-
- * Metadaten mit Profilkennung, eingebettete Schriften). Das leistet dieser
- * Renderer nicht, und deshalb behauptet er es auch nirgends.
+ * Mit `xmlAnhang` ist der Beleg ein hybrider nach Factur-X 1.0 (= ZUGFeRD 2.3),
+ * Profil EN 16931: die CII-Nutzlast liegt als `factur-x.xml` im Dokument,
+ * verknuepft ueber /AF und /AFRelationship /Alternative, und die Huelle
+ * erfuellt PDF/A.
  *
- * Was der Anhang trotzdem bringt: ein Empfaenger, dessen System eingebettete
- * Rechnungs-XML liest, bekommt die strukturierten Daten mitgeliefert statt nur
- * ein Bild. Wer es nicht liest, sieht ein normales PDF. Beides besser als
- * nichts — und ehrlicher, als ein PDF "ZUGFeRD" zu nennen, das die Norm nicht
- * erfuellt.
+ * Was dafuer noetig war und hier zusammenkommt:
+ *   · eingebettete Schriften (services/../assets/pdfa) — die Standard-14 sind
+ *     in PDF/A verboten
+ *   · ein eingebettetes ICC-Zielprofil im OutputIntent
+ *   · ein XMP-Paket mit pdfaid-Kennung UND dem Factur-X-Extension-Schema
+ *   · eine Dokumentkennung im Trailer
+ * Die letzten drei erledigt `./pdfa/index.js`, das XMP baut `./pdfa/xmp.js`.
+ *
+ * GEMESSEN, nicht behauptet (2026-08-29, veraPDF 1.30.2):
+ *   PDF/A-3b  146 Regeln, 2315 Pruefungen, 0 Fehler
+ *   PDF/A-3u  148 Regeln, 2529 Pruefungen, 0 Fehler
+ * Stufe u statt b, weil sie zusaetzlich garantiert, dass jedes Zeichen eine
+ * Unicode-Zuordnung hat: der Empfaenger kann den Text auslesen, nicht nur
+ * ansehen. Der Nachweis laeuft als `npm run test:pdfa` und gehoert nach JEDER
+ * Aenderung an der Huelle wiederholt.
+ *
+ * WAS DAMIT NICHT GESAGT IST: veraPDF prueft die HUELLE, nicht das XML. Ob der
+ * Inhalt die Geschaeftsregeln der EN 16931 erfuellt (BR-*, BR-CO-*), sagt nur
+ * ein Schematron-Lauf — der ist hier nicht enthalten. Und "zertifiziert" waere
+ * in jedem Fall falsch: einzelne Belege werden nicht zertifiziert.
+ *
+ * /AFRelationship /Alternative ist ausserdem eine materielle Zusage: alles,
+ * was auf dem sichtbaren Beleg steht, muss auch im XML stehen. Das kann kein
+ * Test pruefen — es gehoert bei jeder Aenderung am Layout von Hand abgeglichen.
  */
 
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { PDFDocument, AFRelationship, rgb } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 import { firmaZuPartei, pruefeFirmenstammdaten } from "./eRechnungService.js";
+import { haerteAlsPdfA3 } from "./pdfa/index.js";
+import { baueXmp, xmpZeitstempel, FX_PROFILE } from "./pdfa/xmp.js";
+
+/**
+ * Die Bausteine, die PDF/A verlangt — einmal beim Modulladen von der Platte.
+ *
+ * Bei 300 Kunden waeren zwei Dateizugriffe je Rechnung reine Verschwendung;
+ * die Dateien aendern sich zur Laufzeit nie. Der Pfad geht ueber
+ * `import.meta.url`, nicht ueber `process.cwd()`: sonst haengt es vom
+ * Startverzeichnis ab, ob eine Rechnung entsteht.
+ */
+const HIER = path.dirname(fileURLToPath(import.meta.url));
+const ASSETS = path.join(HIER, "..", "assets", "pdfa");
+const SCHRIFT_NORMAL = fs.readFileSync(path.join(ASSETS, "LiberationSans-Regular.ttf"));
+const SCHRIFT_FETT = fs.readFileSync(path.join(ASSETS, "LiberationSans-Bold.ttf"));
+const ICC_PROFIL = fs.readFileSync(path.join(ASSETS, "sRGB-v2-micro.icc"));
 
 /* Seitenmasse in Punkt (A4). Als Konstanten, damit die Zeichenbefehle unten
    lesbar bleiben und nicht in Zahlenkolonnen ersticken. */
@@ -61,21 +99,33 @@ const RAND = 50;
 const UNTERKANTE = 90;   // darunter beginnt der Fussbereich
 
 /**
- * Zeichen, die die Standardschrift nicht setzen kann.
+ * Zeichen, die die eingebettete Schrift nicht setzen kann.
  *
- * pdf-lib WIRFT beim Zeichnen eines Zeichens ausserhalb von WinAnsi — das PDF
- * entstuende dann gar nicht, nur weil ein Kunde ein Zeichen im Namen fuehrt,
- * das Helvetica nicht kennt. Erlaubt bleiben ASCII (0x20-0x7E) und Latin-1
- * (0xA0-0xFF), also alle deutschen Umlaute und die gaengigen Akzente.
+ * Frueher hiess diese Konstante WINANSI_FREMD und schuetzte vor einem Wurf:
+ * die Standardschrift kannte das Zeichen nicht, pdf-lib brach ab. Mit
+ * eingebetteter Schrift bricht nichts mehr ab — pdf-lib bildet ein
+ * unbekanntes Zeichen still auf .notdef ab, und ein Verweis auf .notdef ist
+ * in PDF/A ein Verstoss (veraPDF-Regel 6.2.11.8-1). Aus einem lauten Fehler
+ * wuerde ohne Filter ein leiser Konformitaetsbruch. Deshalb bleibt er.
  *
- * Programmatisch gebaut statt getippt: die Grenzen dieses Bereichs sind zum
- * Teil unsichtbare Zeichen. Als Literal in der Quelldatei saehe der Ausdruck
- * richtig aus und koennte beim naechsten Speichern lautlos ein anderer sein —
- * genau das ist beim ersten Schreiben dieser Datei passiert.
+ * Zugelassen ist, was Liberation Sans sicher fuehrt und im DACH-Geschaeft
+ * vorkommt:
+ *   0x20-0x7E   ASCII
+ *   0xA0-0xFF   Latin-1, also alle deutschen Umlaute und gaengige Akzente
+ *   0x100-0x17F Latin Extended-A — polnische und tschechische Namen sind in
+ *               dieser Branche haeufig und gehoeren richtig auf den Beleg
+ *   U+20AC      das Euro-Zeichen; frueher zu "EUR" ersetzt, weil die
+ *               Standardschrift es nicht fuehrte
+ *
+ * Programmatisch gebaut statt getippt: die Grenzen sind zum Teil unsichtbare
+ * Zeichen. Als Literal saehe der Ausdruck richtig aus und koennte beim
+ * naechsten Speichern lautlos ein anderer sein — genau das ist beim ersten
+ * Schreiben dieser Datei passiert.
  */
-const WINANSI_FREMD = new RegExp(
+const SCHRIFT_FREMD = new RegExp(
   "[^" + String.fromCharCode(0x20) + "-" + String.fromCharCode(0x7e) +
-  String.fromCharCode(0xa0) + "-" + String.fromCharCode(0xff) + "]",
+  String.fromCharCode(0xa0) + "-" + String.fromCharCode(0x17f) +
+  String.fromCharCode(0x20ac) + "]",
   "g",
 );
 
@@ -128,8 +178,19 @@ export async function erzeugeOperativesRechnungsPdf({
   if (fehlend.length) return { ok: false, fehler: "PFLICHTFELDER_FEHLEN", fehlend };
 
   const doc = await PDFDocument.create();
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-  const fett = await doc.embedFont(StandardFonts.HelveticaBold);
+  /* Eingebettete Schriften statt der Standard-14.
+   *
+   * Nicht Geschmack, sondern Pflicht: PDF/A verlangt, dass jede zum Rendern
+   * benutzte Schrift vollstaendig im Dokument liegt — die Ausnahme fuer
+   * Helvetica & Co. gilt dort nicht. Ein Dokument, das Helvetica nur
+   * referenziert, verletzt die Einbettungspflicht (veraPDF 6.2.11.4.1-1).
+   *
+   * `subset: true` ist der Unterschied zwischen wenigen Kilobyte und 800 KB
+   * Schriftdaten in JEDER Rechnung. Liberation Sans ist metrisch zu Helvetica
+   * kompatibel, deshalb bleiben alle Zeichenbefehle unten unveraendert. */
+  doc.registerFontkit(fontkit);
+  const font = await doc.embedFont(SCHRIFT_NORMAL, { subset: true });
+  const fett = await doc.embedFont(SCHRIFT_FETT, { subset: true });
   const tinte = rgb(0.09, 0.11, 0.1);
   const grau = rgb(0.42, 0.45, 0.44);
   const linie = rgb(0.82, 0.84, 0.83);
@@ -137,18 +198,23 @@ export async function erzeugeOperativesRechnungsPdf({
   let seite = doc.addPage([SEITE.breite, SEITE.hoehe]);
   let y = SEITE.hoehe - RAND;
 
-  /* WinAnsi kennt kein Euro-Zeichen in Helvetica-Standardkodierung und keine
-     Gedankenstriche. Ohne diese Ersetzung wirft pdf-lib beim Zeichnen — das
-     PDF entstuende gar nicht, weil ein Kunde "Müller & Söhne – GmbH" heisst. */
+  /* Der Filter bleibt — aus einem ANDEREN Grund als vorher.
+   *
+   * Frueher schuetzte er vor einem Wurf: WinAnsi kannte das Zeichen nicht, und
+   * pdf-lib brach ab. Mit eingebetteter Schrift bricht nichts mehr ab —
+   * pdf-lib bildet ein unbekanntes Zeichen still auf .notdef ab. Und genau das
+   * ist in PDF/A ein Verstoss (veraPDF 6.2.11.8-1). Ohne Filter wuerde aus
+   * einem lauten Fehler ein leiser Konformitaetsbruch, den niemand bemerkt.
+   *
+   * Was sich aendert: das Euro-Zeichen bleibt jetzt stehen (Liberation Sans
+   * kennt U+20AC), und Latin Extended-A ist zugelassen — polnische und
+   * tschechische Namen kommen in dieser Branche vor und sollen nicht als
+   * Fragezeichen auf der Rechnung landen. */
   const rein = (s) => String(s == null ? "" : s)
     .replace(/[–—]/g, "-")
-    .replace(/€/g, "EUR")
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
-    /* Bereich als Escape, nicht als Literal: ein getipptes "A-y" mit Akzenten
-       sieht im Editor richtig aus und kann beim naechsten Speichern lautlos zu
-       etwas anderem werden. WinAnsi deckt U+00A0 bis U+00FF ab. */
-        .replace(WINANSI_FREMD, "?");
+    .replace(SCHRIFT_FREMD, "?");
 
   const T = (s, x, yy, o = {}) => seite.drawText(rein(s), {
     x, y: yy, size: o.size || 10, font: o.f || font, color: o.color || tinte
@@ -178,10 +244,14 @@ export async function erzeugeOperativesRechnungsPdf({
   if (vk.strasse2) { T(vk.strasse2, rechtsSpalte, y, { size: 9, color: grau }); y -= 12; }
   T(`${vk.plz} ${vk.ort}`, rechtsSpalte, y, { size: 9, color: grau }); y -= 12;
   T(vk.land, rechtsSpalte, y, { size: 9, color: grau }); y -= 12;
-  /* § 14 Abs. 4 Nr. 2 UStG: Steuernummer ODER USt-IdNr. Beide zu zeigen, wenn
-     beide da sind, ist zulaessig und hilft dem Empfaenger bei der Zuordnung. */
+  /* § 14 Abs. 4 Nr. 2 UStG verlangt eine steuerliche Kennung: Steuernummer
+     ODER USt-IdNr. Frueher standen hier BEIDE, wenn beide gepflegt waren.
+     Das war ein Deckungsgleichheits-Bruch: das XML fuehrt nur eine
+     (SpecifiedTaxRegistration, USt-IdNr. hat Vorrang), und mit
+     /AFRelationship /Alternative sagt der Beleg zu, dass PDF und XML dieselben
+     Angaben tragen. Also dieselbe Vorrangregel wie im XML. */
   if (vk.ustId) { T("USt-IdNr.: " + vk.ustId, rechtsSpalte, y, { size: 9, color: grau }); y -= 12; }
-  if (vk.steuernummer) { T("Steuernr.: " + vk.steuernummer, rechtsSpalte, y, { size: 9, color: grau }); y -= 12; }
+  else if (vk.steuernummer) { T("Steuernr.: " + vk.steuernummer, rechtsSpalte, y, { size: 9, color: grau }); y -= 12; }
 
   y -= 12; HR(y); y -= 20;
 
@@ -278,18 +348,75 @@ export async function erzeugeOperativesRechnungsPdf({
     const daten = typeof xmlAnhang === "string" ? Buffer.from(xmlAnhang, "utf8") : xmlAnhang;
     await doc.attach(daten, anhangName, {
       mimeType: "text/xml",
-      description: "Strukturierte Rechnungsdaten (CII, EN 16931)"
+      description: "Strukturierte Rechnungsdaten (CII, EN 16931)",
+      /* Ohne diese Option schreibt pdf-lib den Schluessel GAR NICHT — PDF/A-3
+         Klausel 6.8-3 verlangt ihn aber. `Alternative` ist fuer den Einsatz in
+         Deutschland mit dem Profil EN 16931 der einzig zulaessige Wert
+         (Factur-X 1.07.2, Kap. 6.2.2) und zugleich eine materielle Zusage:
+         alle Angaben des sichtbaren Belegs stehen auch im XML.
+         NIE AFRelationship.FormData verwenden — der Enum-Eintrag ist in
+         pdf-lib 1.17.1 fehlerhaft auf "EncryptedPayload" gemappt. */
+      afRelationship: AFRelationship.Alternative
     });
+  }
+
+  /* ── Dokumentangaben ───────────────────────────────────────────────── */
+  /* NACH PDFDocument.create() gesetzt: der Konstruktor schreibt Producer und
+     ModDate sonst selbst. Dieselben Werte gehen gleich ins XMP, damit
+     Info-Dict und Metadaten dieselbe Auskunft geben. */
+  const titel = `Rechnung ${invoice.invoice_number}`;
+  const autor = vk.name;
+  const betreff = "Einsatzabrechnung";
+  const producer = "TempConnect";
+  const erstellt = invoice.issued_at instanceof Date ? invoice.issued_at : new Date(invoice.issued_at);
+  doc.setTitle(titel, { showInWindowTitleBar: true });
+  doc.setAuthor(autor);
+  doc.setSubject(betreff);
+  doc.setProducer(producer);
+  doc.setCreator(producer);
+  doc.setCreationDate(erstellt);
+  doc.setModificationDate(erstellt);
+
+  /* ── PDF/A-3b ──────────────────────────────────────────────────────── */
+  const xmp = baueXmp({
+    titel, autor, betreff, producer, creatorTool: producer,
+    zeitstempel: xmpZeitstempel(erstellt),
+    /* Stufe U, nicht B: sie verlangt zusaetzlich, dass jedes Zeichen eine
+       Unicode-Zuordnung hat — der Empfaenger kann den Text also auslesen und
+       nicht nur ansehen. pdf-lib schreibt die noetige ToUnicode-CMap ohnehin;
+       gemessen am 2026-08-29 bestand der Beleg alle 2561 inhaltlichen
+       3u-Pruefungen und scheiterte allein an dieser Selbstauskunft. */
+    konformitaet: "U",
+    profil: FX_PROFILE.EN16931,
+    anhangName
+  });
+  /* Die Kennung deterministisch aus dem, was die Rechnung ausmacht: dieselbe
+     Rechnung zweimal erzeugt ergibt dieselbe Datei-Identitaet. Zwei Belege,
+     die sich nur in einer Zufallszahl unterscheiden, saehen bei jedem Abgleich
+     nach zwei verschiedenen Dokumenten aus. */
+  const haertung = haerteAlsPdfA3(doc, {
+    iccBytes: ICC_PROFIL,
+    xmp,
+    kennungSaat: `${invoice.invoice_number}|${erstellt.toISOString()}|${vk.name}`
+  });
+  if (!haertung.ok) {
+    /* Kein halber Beleg: lieber gar keine Datei als eine, die PDF/A behauptet
+       und es nicht ist. Trifft nur bei kaputtem Farbprofil zu — also wenn
+       jemand die Datei unter api/assets/pdfa ausgetauscht hat. */
+    return { ok: false, fehler: "PDFA_HAERTUNG_FEHLGESCHLAGEN", grund: haertung.fehler };
   }
 
   const nummer = String(invoice.invoice_number).replace(/[^A-Za-z0-9_.-]/g, "_");
   return {
     ok: true,
-    pdf: await doc.save(),
+    /* Ohne Objektstroeme: in PDF/A-3 waeren sie erlaubt, aber der klassische
+       Trailer macht die /ID im Klartext pruefbar und erspart bei jedem
+       veraPDF-Befund das Entpacken. */
+    pdf: await doc.save({ useObjectStreams: false }),
     dateiname: `rechnung-${nummer}.pdf`,
     contentType: "application/pdf",
-    /* Ehrlich benannt: mit Anhang ist es ein hybrider Beleg, kein
-       zertifiziertes ZUGFeRD — dafuer fehlt die PDF/A-3-Konformitaet. */
+    pdfa: "3u",
+    /* Bleibt fuer Aufrufer erhalten: sagt, ob strukturierte Daten drinstecken. */
     hybrid: !!xmlAnhang
   };
 }

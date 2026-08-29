@@ -6069,7 +6069,7 @@ function invAktionen(r) {
      einen Fehler liefert, ist ein toter Knopf. */
   if (r.status !== 'draft') {
     h += ' <a class="wk-btn" style="text-decoration:none" href="' + API +
-      '/invoices/operational/' + esc(r.id) + '/pdf?anhang=1">' + esc(tt('ts.rev.inv.pdf')) + '</a>';
+      '/invoices/operational/' + esc(r.id) + '/pdf">' + esc(tt('ts.rev.inv.pdf')) + '</a>';
   }
   if (r.status === 'draft') {
     h += knopf('invStellen', 'ts.rev.inv.issue', 'wk-btn-primary');

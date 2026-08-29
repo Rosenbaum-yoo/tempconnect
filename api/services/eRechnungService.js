@@ -198,7 +198,15 @@ export function baueRechnungsdokument({ invoice, items = [], verkaeufer = {}, ka
 
   const positionen = items.map((it, i) => ({
     nummer: String(i + 1),
-    bezeichnung: it.description || "Leistung",
+    /* Der Name der Kraft, wenn es keinen eigenen Text gibt.
+     *
+     * Nicht Kosmetik, sondern eine Bedingung des Formats: der Beleg wird mit
+     * /AFRelationship /Alternative eingebettet, und das ist die Zusage, dass
+     * XML und sichtbares PDF DIESELBEN Angaben tragen ("identisches
+     * Mehrstueck", Factur-X 1.07.2 Kap. 5.3). Das PDF nennt in jeder Zeile die
+     * Kraft; stuende im XML nur "Leistung", waere die Zusage unwahr — gemessen
+     * am 2026-08-29 war genau das der Fall. */
+    bezeichnung: it.description || it.worker_name || "Leistung",
     menge: Number(it.quantity) || 0,
     einheit: EINHEIT_STUNDE,
     einzelpreisCents: Math.round(Number(it.unit_amount_cents) || 0),
@@ -219,8 +227,16 @@ export function baueRechnungsdokument({ invoice, items = [], verkaeufer = {}, ka
     // damit das Dokument nicht an einem leeren Pflichtfeld scheitert.
     kaeuferreferenz: invoice.reference_number || invoice.invoice_number || null,
     hinweis: invoice.notes || null,                               // BT-22
-    leistungszeitraumVon: zuIsoDatum(invoice.billing_period_start), // BT-73
-    leistungszeitraumBis: zuIsoDatum(invoice.billing_period_end),   // BT-74
+    /* BEIDE Feldnamen lesen, so wie es der PDF-Renderer tut.
+     *
+     * Die operativen Rechnungen fuehren den Zeitraum als `period_start/end`,
+     * die Abo-Rechnungen als `billing_period_start/end`. Wurde hier nur der
+     * zweite Name gelesen, DRUCKTE das PDF den Abrechnungszeitraum und das XML
+     * liess ihn weg — bei /AFRelationship /Alternative ist das ein Bruch der
+     * Zusage, dass beide Teile dieselben Angaben tragen. Gemessen am
+     * 2026-08-29 an einer operativen Rechnung. */
+    leistungszeitraumVon: zuIsoDatum(invoice.billing_period_start ?? invoice.period_start), // BT-73
+    leistungszeitraumBis: zuIsoDatum(invoice.billing_period_end ?? invoice.period_end),     // BT-74
 
     verkaeufer: verkaeuferPartei,
     kaeufer: kaeuferPartei,
@@ -659,10 +675,30 @@ ${tiefe(koerper, 1)}
 /** CII-Partei. Auch hier ist die Reihenfolge der Kindelemente schemagebunden. */
 function ciiPartei(p) {
   return zeilen(
-    el("ram:Name", p.handelsname || p.name),                          // BT-28 / BT-45
-    p.handelsregister ? zeilen(
+    /* ram:Name ist BT-27 — der RECHTSNAME, nicht der Handelsname.
+     *
+     * Hier stand `p.handelsname || p.name` mit dem Kommentar "BT-28". Das war
+     * eine Verwechslung: BT-28 (Handelsname) liegt in CII unter
+     * SpecifiedLegalOrganization/TradingBusinessName, waehrend ram:Name die
+     * Rechtsperson benennt. Der UBL-Zweig macht es an seiner entsprechenden
+     * Stelle richtig (cbc:RegistrationName = p.name) — beide Formate kommen
+     * laut Dateikopf aus DERSELBEN Zwischenstruktur und sagten hier
+     * Verschiedenes.
+     *
+     * Aufgefallen ist es beim Abgleich PDF gegen XML: der Beleg zeigte
+     * "Mueller & Soehne Zeitarbeit GmbH", das XML "Mueller Zeitarbeit". Zwei
+     * Namen fuer denselben Rechnungssteller auf demselben Dokument. */
+    el("ram:Name", p.name || p.handelsname),                          // BT-27 / BT-44
+    (p.handelsregister || (p.handelsname && p.handelsname !== p.name)) ? zeilen(
       "<ram:SpecifiedLegalOrganization>",
-      tiefe(el("ram:ID", p.handelsregister) || "", 1),                 // BT-30 / BT-47
+      tiefe(zeilen(
+        el("ram:ID", p.handelsregister),                              // BT-30 / BT-47
+        /* Nur wenn er sich vom Rechtsnamen unterscheidet — sonst stuende
+           derselbe Text zweimal im Beleg. */
+        (p.handelsname && p.handelsname !== p.name)
+          ? el("ram:TradingBusinessName", p.handelsname)              // BT-28 / BT-45
+          : null
+      ), 1),
       "</ram:SpecifiedLegalOrganization>"
     ) : null,
     (p.kontakt || p.email) ? zeilen(

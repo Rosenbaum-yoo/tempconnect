@@ -636,7 +636,7 @@
     document.getElementById('ciDetailActions').innerHTML =
       '<button class="ct-btn" onclick="ciClose()">' + esc(t('cts.action.close')) + '</button>' +
       '<a class="ct-btn" style="text-decoration:none" href="' + basis + '/export/csv">' + esc(t('cts.inv.csv')) + '</a>' +
-      '<a class="ct-btn" style="text-decoration:none" href="' + basis + '/pdf?anhang=1">' + esc(t('cts.inv.pdf')) + '</a>' +
+      '<a class="ct-btn" style="text-decoration:none" href="' + basis + '/pdf">' + esc(t('cts.inv.pdf')) + '</a>' +
       '<a class="ct-btn ct-btn--ok" style="text-decoration:none" href="' + basis + '/e-rechnung">' + esc(t('cts.inv.xml')) + '</a>';
   }
 

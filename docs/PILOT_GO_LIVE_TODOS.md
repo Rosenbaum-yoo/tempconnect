@@ -2,6 +2,74 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-08-29 — ZUGFeRD richtig: PDF/A-3u, geprüft statt behauptet
+
+**Status:** erledigt · **Kategorie:** Produktausbau (Normkonformität) · **Owner-Auftrag.**
+
+**Vorher:** ein PDF mit eingebettetem XML, ehrlich als „hybrider Beleg" benannt. Was
+fehlte, war die PDF-Hülle nach PDF/A — ohne sie ist es kein ZUGFeRD, sondern ein PDF
+mit einer Datei im Bauch.
+
+**Der harte Punkt war die Schrift.** PDF/A verlangt, dass jede benutzte Schrift
+vollständig eingebettet ist — die Ausnahme für Helvetica & Co. gilt dort **nicht**.
+pdf-lib kann eine TTF nur mit `@pdf-lib/fontkit` einbetten. Damit war eine neue
+Abhängigkeit unvermeidbar; die Projektregel („keine neue Dependency, wenn ein
+bestehender Weg reicht") greift nicht, weil nachweislich keiner existiert.
+Owner-Freigabe eingeholt, Liberation Sans gewählt: metrisch Helvetica-kompatibel,
+das Layout verrutscht nicht.
+
+**Geliefert:**
+- `services/pdfa/xmp.js` — das XMP-Paket mit pdfaid-Kennung **und** dem
+  Factur-X-Extension-Schema. Letzteres ist die häufigste Fehlerquelle: PDF/A verbietet
+  unbekannte XMP-Felder, wer eigene einführt, muss sie im selben Paket deklarieren.
+  Die Fallen sind einzeln kommentiert (Namespace mit abschließendem `#`, `fx:Version`
+  ist 1.0 und nicht 2.3, `EN 16931` mit Leerzeichen, xpacket ohne `bytes=`).
+- `services/pdfa/index.js` — Dokumentkennung im Trailer (ein frisches pdf-lib-Dokument
+  hat keine), OutputIntent mit eingebettetem ICC, /Metadata, Sprache. Die ICC-Prüfung
+  läuft bei **jeder** Erzeugung: ein ausgetauschtes Profil fällt auf, bevor ein Beleg
+  das Haus verlässt.
+- `assets/pdfa/` — zwei Schriften (OFL), ein 456-Byte-sRGB-Profil (CC0), beide Lizenzen
+  und `HERKUNFT.txt` mit URL, Version und SHA256. Bewusst `.txt` statt `.md`: die
+  `.dockerignore` schließt `*.md` aus, die Herkunftsangabe wäre im Abbild verschwunden.
+- `scripts/verapdf.mjs` + `npm run test:pdfa` — der Nachweis.
+
+**Gemessen mit veraPDF 1.30.2** (Referenzwerkzeug der PDF Association):
+
+| Profil | Regeln | Prüfungen | Fehler |
+|---|---:|---:|---:|
+| PDF/A-3b | 146 | 7390 | **0** |
+| PDF/A-3u | 148 | 7608 | **0** |
+
+Stufe **u**, nicht b: sie garantiert zusätzlich, dass jedes Zeichen eine
+Unicode-Zuordnung hat — der Empfänger kann den Text auslesen, nicht nur ansehen.
+pdf-lib schreibt die nötige ToUnicode-CMap ohnehin; der erste 3u-Lauf scheiterte an
+**einer** Prüfung, nämlich der Selbstauskunft „B". Erst der Beleg, dann das Versprechen.
+
+**Vier Deckungsgleichheits-Brüche gefunden und behoben.** `/AFRelationship /Alternative`
+ist für EN 16931 in Deutschland der einzig zulässige Wert — und die Zusage, dass PDF und
+XML dieselben Angaben tragen („identisches Mehrstück"). Der Abgleich zeigte:
+
+| Bruch | Ursache |
+|---|---|
+| Kraft fehlte im XML (dort stand „Leistung") | XML las `it.description`, PDF `worker_name` |
+| Abrechnungszeitraum fehlte im XML | XML las nur `billing_period_*`, PDF auch `period_*` |
+| Falscher Firmenname im XML | CII setzte `ram:Name` = Handelsname; das **ist** aber BT-27, der Rechtsname. Der UBL-Zweig machte es an derselben Stelle richtig |
+| PDF zeigte zwei Steuerkennungen, XML eine | Renderer an die XML-Vorrangregel angeglichen |
+
+Alle vier waren unsichtbar: beide Teile sahen für sich genommen richtig aus.
+`test/belegDeckungsgleich.test.js` hält sie gegen Rückfall.
+
+**Was damit NICHT gesagt ist:** veraPDF prüft die Hülle, nicht das XML. Ob der Inhalt
+die Geschäftsregeln der EN 16931 erfüllt (BR-*, BR-CO-*), sagt nur ein Schematron-Lauf —
+**der bleibt offen.** Und „zertifiziert" wäre in jedem Fall falsch: einzelne Belege
+werden nicht zertifiziert. Korrekt ist: PDF/A-3u, geprüft mit veraPDF; Factur-X/ZUGFeRD
+Profil EN 16931.
+
+**Offen:** Schematron-Gate für die Geschäftsregeln (KoSIT/Mustang). Drei bekannte
+XML-Defekte (Reverse Charge, fehlende Zahlungsbedingung ohne `due_at`, USt-IdNr. ohne
+Länderpräfix) sind bewusst **nicht** angefasst — ihre Korrektur verändert ausgewiesene
+Steuerbeträge und gehört dem Owner.
+
 ### 2026-08-29 — Das PDF zur operativen Rechnung (J7 abgeschlossen)
 
 **Status:** erledigt · **Kategorie:** Produktausbau · **Fund beim Bauen.**

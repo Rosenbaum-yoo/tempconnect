@@ -470,29 +470,33 @@ export function createInvoicesRouter(deps) {
      Eingangsrechnung genauso wie der Aussteller seine Ausgangsrechnung. Die
      Mandantengrenze prueft `ladeERechnungsdaten` fuer beide Seiten.
 
-     ?anhang=1 bettet die CII-Nutzlast als Datei ein. Das ist die GRUNDLAGE eines
-     Factur-X-Belegs, nicht das zertifizierte Format — dafuer fehlt PDF/A-3. Der
-     Kopf `X-Rechnung-Hybrid` sagt, was tatsaechlich drin ist, statt es zu
-     behaupten. */
+     Der Beleg ist IMMER ein Factur-X/ZUGFeRD-Hybrid als PDF/A-3u — kein Schalter,
+     kein zweiter Modus. Ein optionaler Normpfad waere eine Parallelstruktur, die
+     niemand pflegt, und in zwei Jahren kaeme die Frage auf, welcher der beiden
+     denn nun der richtige ist. Das frueher noetige ?anhang=1 entfaellt; ein
+     mitgeschickter Wert wird ignoriert statt abgewiesen, damit alte Verweise
+     nicht brechen.
+
+     NUR wenn die Pflichtfelder fuer das XML fehlen, entsteht ein reines PDF ohne
+     Anhang: ein Beleg mit unvollstaendigem XML im Bauch waere schlechter als
+     einer ohne — ein Empfaengersystem laese die Daten und wiese sie ab. Der Kopf
+     `X-Rechnung-Format` sagt, was tatsaechlich geliefert wurde. */
   router.get("/invoices/operational/:id/pdf", requireAuth, exportLimiter, rperm("org.billing"), async (req, res, next) => {
     try {
       const daten = await opInvoice.ladeERechnungsdaten(pool, req.params.id, req.orgId);
       if (!daten) return res.status(404).json({ error: "NOT_FOUND" });
       if (daten.error) return res.status(403).json(daten);
 
-      /* Der Anhang nur, wenn er auch normkonform waere: die E-Rechnung prueft
-         dieselben Pflichtfelder und liefert bei Luecken gar nichts. Ein PDF mit
-         unvollstaendigem XML im Bauch waere schlimmer als eines ohne — ein
-         Empfaengersystem laese die Daten und wiese sie ab. */
-      let xmlAnhang = null;
-      if (String(req.query.anhang || "") === "1") {
-        const e = erzeugeERechnung({
-          format: "zugferd",
-          invoice: daten.invoice, items: daten.items,
-          verkaeufer: daten.verkaeufer, kaeufer: daten.kaeufer
-        });
-        if (e.ok) xmlAnhang = e.xml;
-      }
+      /* Immer versuchen, den strukturierten Teil beizulegen — er ist der Kern
+         des Formats, nicht eine Zugabe. Scheitert die Pflichtfeldpruefung der
+         E-Rechnung, bleibt es beim reinen PDF: lieber ein Beleg ohne XML als
+         einer mit unvollstaendigem, den der Empfaenger abweist. */
+      const eRech = erzeugeERechnung({
+        format: "zugferd",
+        invoice: daten.invoice, items: daten.items,
+        verkaeufer: daten.verkaeufer, kaeufer: daten.kaeufer
+      });
+      const xmlAnhang = eRech.ok ? eRech.xml : null;
 
       const ergebnis = await erzeugeOperativesRechnungsPdf({
         invoice: daten.invoice,
@@ -512,7 +516,11 @@ export function createInvoicesRouter(deps) {
 
       res.setHeader("Content-Type", ergebnis.contentType);
       res.setHeader("Content-Disposition", `attachment; filename="${ergebnis.dateiname}"`);
-      res.setHeader("X-Rechnung-Hybrid", ergebnis.hybrid ? "cii-eingebettet" : "nein");
+      /* Sagt, was drin ist, statt es zu behaupten: mit XML ein vollstaendiger
+         Factur-X-Beleg, ohne XML nur die PDF/A-Huelle. */
+      res.setHeader("X-Rechnung-Format", ergebnis.hybrid
+        ? `factur-x-en16931; pdfa=${ergebnis.pdfa}`
+        : `kein-xml; pdfa=${ergebnis.pdfa}`);
       res.send(Buffer.from(ergebnis.pdf));
       integrationService.dispatchToIntegrations(pool, "invoice.exported", {
         orgId: req.orgId,
