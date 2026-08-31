@@ -6,7 +6,7 @@
 import { Router } from "express";
 import * as workforceService from "../services/workforceService.js";
 // Welle K3: der Monat als Fenster. Zwei Spuren, keine Zustimmungspflicht.
-import { monatsplan, seiteFuerOrg } from "../services/monatsplanService.js";
+import { monatsplan, seiteFuerOrg, planungsVorschau } from "../services/monatsplanService.js";
 import { requirePermission } from "../middleware/rbac.js";
 
 export function createWorkforceRouter(deps) {
@@ -92,6 +92,55 @@ export function createWorkforceRouter(deps) {
         monat: typeof req.query.monat === "string" ? req.query.monat : null
       });
       res.json(plan);
+    } catch (err) { next(err); }
+  });
+
+  /**
+   * GET /workforce/monatsplan/vorschau — was bricht, WENN ich so plane? (K3.5)
+   *
+   * Der Kern von Abschnitt 3b: die Doppelbelegung soll beim PLANEN auffallen,
+   * nicht am Einsatztag. Beide Schreibwege gibt es laengst
+   * (`POST /marketplace/demand-requests`,
+   * `POST /workers/staffing-assignments/:id/quick-assign`) — nur sagen beide
+   * erst NACH dem Schreiben, ob etwas kollidiert.
+   *
+   * LESEND UND FOLGENLOS. Deshalb GET und `assignment.view`: die Vorschau darf
+   * jeder anschauen, der den Plan sehen darf. Wer schreiben will, geht ueber den
+   * bestehenden Schreibweg — mit dessen Rechten, dessen CSRF und dessen Audit.
+   * Eine zweite Schreibtuer neben `quick-assign` waere eine Schattenwahrheit.
+   *
+   * Die beiden Riegel (der Einsatz gehoert der Firma, die Kraft auch) stehen im
+   * Dienst, nicht hier: sie gehoeren an die Abfrage, nicht in eine Nachpruefung,
+   * die man vergessen kann.
+   */
+  router.get("/workforce/monatsplan/vorschau", requireAuth, rperm("assignment.view"), async (req, res, next) => {
+    try {
+      const orgId = req.orgId;
+      if (!orgId) return res.status(400).json({ error: "NO_ORG_CONTEXT" });
+
+      const seite = await seiteFuerOrg(pool, orgId);
+      const ergebnis = await planungsVorschau(pool, {
+        orgId,
+        seite,
+        workerUserId: typeof req.query.worker_user_id === "string" ? req.query.worker_user_id : null,
+        assignmentId: typeof req.query.assignment_id === "string" ? req.query.assignment_id : null
+      });
+
+      if (ergebnis?.fehler) {
+        /* Fremder Einsatz und fremde Kraft antworten BEIDE mit 403 und ohne
+         * Zusatzangabe: ein 404 fuer das eine und ein 403 fuer das andere waere
+         * ein Auskunftsdienst darueber, welche Kennungen es gibt. */
+        const kode = {
+          UNVOLLSTAENDIG: 400,
+          NUR_AGENTURSPUR: 400,
+          EINSATZ_NICHT_GEFUNDEN: 404,
+          FREMDER_EINSATZ: 403,
+          FREMDE_KRAFT: 403
+        }[ergebnis.fehler] || 400;
+        return res.status(kode).json({ error: ergebnis.fehler });
+      }
+
+      res.json(ergebnis);
     } catch (err) { next(err); }
   });
 

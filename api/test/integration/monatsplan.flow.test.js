@@ -26,7 +26,7 @@ import { hasDb, createPool } from "./helpers.js";
 
 import {
   monatsplan, monatsfenster, doppelbelegungen, abwesenheiten,
-  ablaufendeNachweise, eintraege, bedarfe
+  ablaufendeNachweise, eintraege, bedarfe, planungsVorschau
 } from "../../services/monatsplanService.js";
 import { auegBefunde, konfigurationen, ueberlassungen } from "../../services/auegService.js";
 
@@ -87,7 +87,7 @@ describe("K3 · die Monatsplanung gegen das echte Schema",
     return treffer;
   }
 
-  it("kein Datumsfeld verlaesst den Dienst als Zeitstempel — gegen echte Zeilen", async () => {
+  it("kein Datumsfeld verlaesst den Dienst als Zeitstempel — gegen echte Zeilen", async (t) => {
     /* GEMESSEN 2026-08-31: `date`-Spalten kamen als "2026-03-10T23:00:00.000Z"
      * heraus, obwohl der Kalendertag der 11.03. ist (Winter UTC+1, Sommer
      * UTC+2). Die Flaeche nahm die ersten zehn Zeichen und zeichnete den
@@ -96,7 +96,7 @@ describe("K3 · die Monatsplanung gegen das echte Schema",
       `SELECT supplier_org_id AS id FROM assignments
         WHERE supplier_org_id IS NOT NULL GROUP BY 1 ORDER BY count(*) DESC LIMIT 1`
     );
-    if (!rows[0]) return;                    // kein Bestand: nichts zu zeigen
+    if (!rows[0]) return t.skip("kein Einsatz mit Lieferant im Bestand");
 
     for (const monat of ["2026-04", "2027-09"]) {
       const plan = await monatsplan(pool, { orgId: rows[0].id, seite: "agentur", monat });
@@ -106,7 +106,7 @@ describe("K3 · die Monatsplanung gegen das echte Schema",
     }
   });
 
-  it("ein Kalendertag sieht auch wirklich wie einer aus", async () => {
+  it("ein Kalendertag sieht auch wirklich wie einer aus", async (t) => {
     /* DIESE PROBE HAT SICH SELBST ALS BLIND ERWIESEN und ist deshalb gezaehlt:
      * in ihrer ersten Fassung lief sie ueber `plan.eintraege` und bestand auch
      * dann, wenn der Monat leer war — eine gruene Zusage ueber null Werte. Sie
@@ -116,7 +116,7 @@ describe("K3 · die Monatsplanung gegen das echte Schema",
       `SELECT supplier_org_id AS id FROM assignments
         WHERE supplier_org_id IS NOT NULL GROUP BY 1 ORDER BY count(*) DESC LIMIT 1`
     );
-    if (!rows[0]) return;
+    if (!rows[0]) return t.skip("kein Einsatz mit Lieferant im Bestand");
 
     let geprueft = 0;
     for (const monat of ["2026-04", "2026-09", "2027-09"]) {
@@ -137,7 +137,7 @@ describe("K3 · die Monatsplanung gegen das echte Schema",
       "die Probe hat kein einziges Datumsfeld gesehen — sie beweist damit nichts");
   });
 
-  it("die Kundenspur FINDET Bedarfe — der alte Filter fand im ganzen Bestand keinen", async () => {
+  it("die Kundenspur FINDET Bedarfe — der alte Filter fand im ganzen Bestand keinen", async (t) => {
     /* GEMESSEN 2026-08-31: `demand_requests.requester_company_id` traegt eine
      * NUTZER-Kennung (40 von 40 verbinden sich mit `users`, null mit
      * `organizations`). Der Filter `requester_company_id = <org>` konnte damit
@@ -156,7 +156,7 @@ describe("K3 · die Monatsplanung gegen das echte Schema",
         WHERE u.org_id IS NOT NULL
         GROUP BY 1 ORDER BY count(*) DESC LIMIT 1`
     );
-    if (!kandidat.rows[0]) return;
+    if (!kandidat.rows[0]) return t.skip("kein Bedarf mit Besteller-Organisation im Bestand");
 
     const monat = String(kandidat.rows[0].frueheste instanceof Date
       ? kandidat.rows[0].frueheste.toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin" })
@@ -172,7 +172,7 @@ describe("K3 · die Monatsplanung gegen das echte Schema",
     }
   });
 
-  it("eine archivierte oder abgesagte Zuordnung bindet niemanden mehr", async () => {
+  it("eine archivierte oder abgesagte Zuordnung bindet niemanden mehr", async (t) => {
     /* GEMESSEN 2026-08-31: 9 von 24 Zuordnungen stehen auf `is_active = FALSE`,
      * eine auf `worker_unavailable`. Der Plan darf sie weder als Besetzung
      * fuehren noch daraus einen Konflikt bauen. */
@@ -184,7 +184,7 @@ describe("K3 · die Monatsplanung gegen das echte Schema",
           AND a.supplier_org_id IS NOT NULL
         LIMIT 1`
     );
-    if (!rows[0]) return;                    // kein solcher Fall im Bestand
+    if (!rows[0]) return t.skip("keine archivierte oder abgesagte Zuordnung im Bestand");
 
     const tot = rows[0];
     for (const monat of ["2026-04", "2026-09", "2027-09"]) {
@@ -204,6 +204,86 @@ describe("K3 · die Monatsplanung gegen das echte Schema",
         `eine nicht mehr geltende Zuordnung ist keine Besetzung (${monat})`);
     }
   });
+
+
+  /* ── K3.5 · die Vorschau gegen das echte Schema ────────────────────────
+   *
+   * Vier Abfragen, die es vorher nicht gab. Ein Mock-Pool beantwortet jede
+   * davon bereitwillig, auch wenn sie eine Spalte erfindet — nur Postgres
+   * merkt es. */
+
+  it("alle vier Vorschau-Abfragen sind gueltiges Postgres", async () => {
+    /* Gegen eine Organisation, die es nicht gibt: die Abfragen laufen
+     * vollstaendig durch den Planer, finden nichts und beweisen damit ihre
+     * Gueltigkeit — ohne vom Bestand abzuhaengen. */
+    const e = await planungsVorschau(pool, {
+      orgId: fremd, seite: "agentur",
+      workerUserId: randomUUID(), assignmentId: randomUUID()
+    });
+    assert.equal(e.fehler, "EINSATZ_NICHT_GEFUNDEN",
+      "ohne Einsatz gibt es nichts vorherzusagen");
+  });
+
+  it("gegen einen ECHTEN Einsatz laufen alle vier Abfragen durch", async (t) => {
+    const { rows } = await pool.query(
+      `SELECT l.assignment_id, l.worker_user_id, a.supplier_org_id
+         FROM worker_assignment_links l
+         JOIN assignments a ON a.id = l.assignment_id
+         JOIN worker_profiles wp ON wp.user_id = l.worker_user_id
+        WHERE a.supplier_org_id IS NOT NULL
+          AND wp.supplier_org_id = a.supplier_org_id
+        LIMIT 1`
+    );
+    if (!rows[0]) return t.skip("kein Einsatz mit eigener Kraft im Bestand");
+
+    const e = await planungsVorschau(pool, {
+      orgId: rows[0].supplier_org_id, seite: "agentur",
+      workerUserId: rows[0].worker_user_id, assignmentId: rows[0].assignment_id
+    });
+    assert.ok(!e.fehler, `unerwarteter Fehler: ${e.fehler}`);
+    assert.ok(Array.isArray(e.konflikte));
+    assert.equal(e.nur_plattformdaten, true);
+    assert.match(e.von, /^\d{4}-\d{2}-\d{2}$/);
+    if (e.bis) assert.match(e.bis, /^\d{4}-\d{2}-\d{2}$/);
+    for (const k of e.konflikte) {
+      assert.ok(["hart", "weich"].includes(k.grad));
+      if (k.von) assert.match(String(k.von), /^\d{4}-\d{2}-\d{2}$/);
+    }
+  });
+
+  it("ein ECHTER Einsatz einer fremden Firma wird abgewiesen", async (t) => {
+    const { rows } = await pool.query(
+      `SELECT id FROM assignments WHERE supplier_org_id IS NOT NULL LIMIT 1`
+    );
+    if (!rows[0]) return t.skip("kein Einsatz mit Lieferant im Bestand");
+    const e = await planungsVorschau(pool, {
+      orgId: fremd, seite: "agentur",
+      workerUserId: randomUUID(), assignmentId: rows[0].id
+    });
+    assert.equal(e.fehler, "FREMDER_EINSATZ",
+      "der Einsatz existiert, gehoert aber nicht der fragenden Firma");
+  });
+
+  it("eine ECHTE Kraft einer fremden Firma wird abgewiesen", async (t) => {
+    /* Der Einsatz gehoert der Firma, die Kraft nicht. Ohne diesen Riegel waere
+     * die Vorschau ein Auskunftsdienst ueber fremde Einsatzplaene. */
+    const { rows } = await pool.query(
+      `SELECT a.id, a.supplier_org_id,
+              (SELECT wp.user_id FROM worker_profiles wp
+                WHERE wp.supplier_org_id IS DISTINCT FROM a.supplier_org_id
+                  AND wp.user_id IS NOT NULL LIMIT 1) AS fremde_kraft
+         FROM assignments a
+        WHERE a.supplier_org_id IS NOT NULL
+        LIMIT 1`
+    );
+    if (!rows[0]?.fremde_kraft) return t.skip("keine firmenfremde Kraft im Bestand");
+    const e = await planungsVorschau(pool, {
+      orgId: rows[0].supplier_org_id, seite: "agentur",
+      workerUserId: rows[0].fremde_kraft, assignmentId: rows[0].id
+    });
+    assert.equal(e.fehler, "FREMDE_KRAFT");
+  });
+
 
   /* ── Der Fund: nie geschlossene Zuordnungen ────────────────── */
 

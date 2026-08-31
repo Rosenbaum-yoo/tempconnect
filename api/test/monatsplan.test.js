@@ -32,6 +32,7 @@ import {
   monatsfenster, nachbarmonate, konfliktFuerSeite, offeneBedarfe,
   seiteFuerOrg,
   monatsplan, doppelbelegungen, abwesenheiten, ablaufendeNachweise,
+  planungsVorschau,
   randvermerk, RANDVERMERK,
   SEITEN, KONFLIKTARTEN
 } from "../services/monatsplanService.js";
@@ -714,5 +715,307 @@ describe("K3.5 · Vorarbeit — drei stille Defekte, gemessen statt vermutet", (
         "ein Monat in der Zukunft darf nicht gegen heute gefiltert werden:\n" + c.sql.slice(0, 220)
       );
     }
+  });
+});
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   K3.5 · die Vorschau — was bricht, WENN ich so plane?
+
+   Abschnitt 3b verspricht: die Doppelbelegung faellt BEIM PLANEN auf, nicht am
+   Einsatztag. Beide Schreibwege gab es laengst; was fehlte, war die Antwort
+   VORHER. Diese Proben halten fest, dass sie richtig ist — und dass sie nicht
+   zum Auskunftsdienst ueber fremde Einsatzplaene wird.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("K3.5 · die Konfliktvorschau vor dem Schreiben", () => {
+  const EINSATZ = {
+    id: "a-1", org_id: "kunde-1", supplier_org_id: "org-1", status: "active",
+    von: "2026-04-01", bis: "2026-04-30",
+    kunde_name: "Nordbau GmbH",
+    kraft_org: "org-1", kraft_name: "Lukas Bauer"
+  };
+
+  /** Muster-Pool mit einem Zusammenhang, der beide Riegel passieren laesst. */
+  function poolMit(kontext, weitere) {
+    return musterPool((sql, params) => {
+      if (/FROM assignments a\s*\n\s*LEFT JOIN organizations o/.test(sql)) {
+        return { rows: kontext ? [kontext] : [] };
+      }
+      return weitere ? weitere(sql, params) : null;
+    });
+  }
+
+  it("ein Einsatz einer FREMDEN Firma wird nicht beantwortet", async () => {
+    const p = poolMit({ ...EINSATZ, supplier_org_id: "org-2" });
+    const e = await planungsVorschau(p, {
+      orgId: "org-1", seite: "agentur", workerUserId: "w-1", assignmentId: "a-1"
+    });
+    assert.equal(e.fehler, "FREMDER_EINSATZ");
+    assert.ok(!e.konflikte, "im Fehlerfall gibt es keine Konfliktliste");
+  });
+
+  it("eine FREMDE Kraft wird nicht beantwortet — sonst waere es ein Auskunftsdienst", async () => {
+    /* Ohne diesen Riegel koennte jemand eine beliebige Personenkennung
+     * einsetzen und erfahren, wann sie gebucht ist — bei welcher Firma, in
+     * welchem Zeitraum. */
+    const p = poolMit({ ...EINSATZ, kraft_org: "org-2" });
+    const e = await planungsVorschau(p, {
+      orgId: "org-1", seite: "agentur", workerUserId: "fremd", assignmentId: "a-1"
+    });
+    assert.equal(e.fehler, "FREMDE_KRAFT");
+  });
+
+  it("die Kundenspur bekommt eine ANTWORT, keine leere Liste", async () => {
+    /* Ein leeres Ergebnis waere von "keine Konflikte" nicht zu unterscheiden —
+     * genau die Fehlerklasse, die diese Welle behandelt. */
+    const e = await planungsVorschau(poolMit(EINSATZ), {
+      orgId: "org-1", seite: "kunde", workerUserId: "w-1", assignmentId: "a-1"
+    });
+    assert.equal(e.fehler, "NUR_AGENTURSPUR");
+  });
+
+  it("fehlt eine Angabe, wird das gesagt statt geraten", async () => {
+    const e = await planungsVorschau(poolMit(EINSATZ), {
+      orgId: "org-1", seite: "agentur", assignmentId: "a-1"
+    });
+    assert.equal(e.fehler, "UNVOLLSTAENDIG");
+  });
+
+  it("meldet die Doppelbelegung MIT der Gegenseite — die Agentur darf sie kennen", async () => {
+    const p = poolMit(EINSATZ, (sql) => {
+      if (/FROM worker_assignment_links l\s*\n\s*JOIN assignments e/.test(sql)) {
+        return { rows: [{
+          assignment_id: "a-2", org_id: "kunde-2",
+          gegenseite_org_name: "Suedbau AG",
+          gegen_von: "2026-04-10", gegen_bis: "2026-04-20",
+          ueberschneidung_von: "2026-04-10", ueberschneidung_bis: "2026-04-20"
+        }] };
+      }
+      return null;
+    });
+    const e = await planungsVorschau(p, {
+      orgId: "org-1", seite: "agentur", workerUserId: "w-1", assignmentId: "a-1"
+    });
+    const d = e.konflikte.filter((k) => k.art === "doppelbelegung");
+    assert.equal(d.length, 1);
+    assert.equal(d[0].grad, "hart");
+    assert.equal(d[0].gegenseite_org_name, "Suedbau AG",
+      "die eigene Belegung ist der eigene Bestand — die Agentur darf sie benennen");
+    assert.equal(d[0].kraft_name, "Lukas Bauer");
+    assert.equal(e.zusammenfassung.hart, 1);
+  });
+
+  it("prueft nur ZUORDNUNGEN, DIE GELTEN — eine Absage blockiert nicht", async () => {
+    const p = poolMit(EINSATZ);
+    await planungsVorschau(p, {
+      orgId: "org-1", seite: "agentur", workerUserId: "w-1", assignmentId: "a-1"
+    });
+    const [kollision] = p.find("FROM worker_assignment_links l");
+    assert.ok(kollision, "die Kollisionsabfrage muss laufen");
+    assert.match(kollision.sql, /is_active = TRUE/);
+    assert.match(kollision.sql,
+      /worker_confirmation_status NOT IN \('worker_declined','worker_unavailable'\)/);
+    assert.match(kollision.sql, /l\.assignment_id <> \$2/,
+      "der eigene Einsatz ist keine Kollision mit sich selbst");
+  });
+
+  it("die Abwesenheit wird auf die EIGENE Firma begrenzt", async () => {
+    const p = poolMit(EINSATZ);
+    await planungsVorschau(p, {
+      orgId: "org-1", seite: "agentur", workerUserId: "w-1", assignmentId: "a-1"
+    });
+    const [ab] = p.find("FROM worker_absences");
+    assert.ok(ab, "die Abwesenheitsabfrage muss laufen");
+    assert.match(ab.sql, /ab\.supplier_org_id = \$2/);
+    assert.match(ab.sql, /ab\.aufgehoben_am IS NULL/,
+      "eine zurueckgenommene Meldung ist kein Hindernis");
+    assert.match(ab.sql, /ab\.zustand = 'wirksam'/);
+  });
+
+  it("DIE VORSCHAU SCHREIBT NICHTS", async () => {
+    /* Eine Vorschau, die etwas anlegt, ist keine. Der Schreibweg bleibt der
+     * bestehende `quick-assign` — mit dessen Rechten, CSRF und Audit. */
+    const p = poolMit(EINSATZ);
+    await planungsVorschau(p, {
+      orgId: "org-1", seite: "agentur", workerUserId: "w-1", assignmentId: "a-1"
+    });
+    for (const c of p.calls) {
+      assert.ok(
+        !/\b(INSERT|UPDATE|DELETE|TRUNCATE)\b/i.test(c.sql),
+        "die Vorschau darf ausschliesslich lesen:\n" + c.sql.slice(0, 200)
+      );
+    }
+  });
+
+  it("die AUEG-Frist wird MIT dem geplanten Zeitraum neu gerechnet", async () => {
+    /* Die Kraft ist seit dem 01.01.2024 bei diesem Entleiher. Die 18 Monate
+     * rissen am 01.07.2025 — lange vor dem geplanten April 2026. Die Vorschau
+     * meldet das, unterscheidet aber: verursacht hat es diese Besetzung NICHT. */
+    const p = poolMit(EINSATZ, (sql) => {
+      if (/FROM worker_assignment_links l\s*\n\s*JOIN assignments a/.test(sql)) {
+        return { rows: [{
+          worker_user_id: "w-1", org_id: "kunde-1",
+          von: "2024-01-01", bis: "2026-09-30",
+          assignment_id: "a-alt", supplier_org_id: "org-1"
+        }] };
+      }
+      return null;
+    });
+    const e = await planungsVorschau(p, {
+      orgId: "org-1", seite: "agentur", workerUserId: "w-1", assignmentId: "a-1"
+    });
+    const a = e.konflikte.filter((k) => k.art === "aueg_hoechstdauer");
+    assert.equal(a.length, 1, "die Frist ist im geplanten Zeitraum laengst gerissen");
+    assert.equal(a[0].grad, "hart");
+    assert.equal(a[0].ueberschreitung_am, "2025-07-01");
+    assert.equal(a[0].durch_diese_besetzung, false,
+      "die Ueberschreitung lag schon vorher — sie ist NICHT die Folge dieser Besetzung");
+  });
+
+  it("eine Frist, die ERST NACH der Besetzung reisst, meldet die Vorschau NICHT", async () => {
+    /* EINE BEWUSSTE ABGRENZUNG, hier festgehalten, damit sie nicht versehentlich
+     * kippt: Geschichte ab 01.01.2025, die Frist reisst am 01.07.2026. Der
+     * geplante Einsatz laeuft vom 01.04. bis 30.04.2026 — er ist vorbei, bevor
+     * etwas reisst.
+     *
+     * Die Vorschau beantwortet "was bricht durch DIESE Handlung". Dass die
+     * laufende Kette spaeter reisst, ist wahr und wichtig — aber es ist eine
+     * Aussage ueber den Bestand, und die steht im Monatsplan. Beides hier zu
+     * melden hiesse, dieselbe Sache an zwei Stellen zu fuehren; wer sie einmal
+     * als "kenne ich schon" wegklickt, klickt sie ueberall weg. */
+    const p = poolMit(EINSATZ, (sql) => {
+      if (/FROM worker_assignment_links l\s*\n\s*JOIN assignments a/.test(sql)) {
+        return { rows: [{
+          worker_user_id: "w-1", org_id: "kunde-1",
+          von: "2025-01-01", bis: "2026-09-30",
+          assignment_id: "a-alt", supplier_org_id: "org-1"
+        }] };
+      }
+      return null;
+    });
+    const e = await planungsVorschau(p, {
+      orgId: "org-1", seite: "agentur", workerUserId: "w-1", assignmentId: "a-1"
+    });
+    assert.deepEqual(e.konflikte.filter((k) => k.art === "aueg_hoechstdauer"), [],
+      "der geplante Einsatz endet am 30.04.2026, die Frist reisst am 01.07.2026");
+  });
+
+  it("eine Frist, die es OHNE die Besetzung nicht gaebe, wird als deren Folge benannt", async () => {
+    /* Ohne den geplanten Einsatz endet die Geschichte am 31.03.2026 — 15 Monate,
+     * die Frist haelt. Der Einsatz bis zum 30.04.2026 haengt sich an und macht
+     * daraus 16 Monate; erst mit ihm reisst sie am 01.07.2026 nicht. Der Fall
+     * prueft die UNTERSCHEIDUNG, nicht die Zahl: verursacht diese Besetzung den
+     * Befund oder nicht? */
+    const p = poolMit({ ...EINSATZ, von: "2026-04-01", bis: "2026-08-31" }, (sql) => {
+      if (/FROM worker_assignment_links l\s*\n\s*JOIN assignments a/.test(sql)) {
+        return { rows: [{
+          worker_user_id: "w-1", org_id: "kunde-1",
+          von: "2025-01-01", bis: "2026-03-31",
+          assignment_id: "a-alt", supplier_org_id: "org-1"
+        }] };
+      }
+      return null;
+    });
+    const e = await planungsVorschau(p, {
+      orgId: "org-1", seite: "agentur", workerUserId: "w-1", assignmentId: "a-1"
+    });
+    const a = e.konflikte.filter((k) => k.art === "aueg_hoechstdauer");
+    assert.equal(a.length, 1);
+    assert.equal(a[0].durch_diese_besetzung, true,
+      "ohne diese Besetzung waere die Frist nicht gerissen — das ist der Unterschied, "
+        + "der die Meldung handlungsleitend macht");
+  });
+
+  it("die Grenze der Datenlage steht in der Antwort", async () => {
+    const e = await planungsVorschau(poolMit(EINSATZ), {
+      orgId: "org-1", seite: "agentur", workerUserId: "w-1", assignmentId: "a-1"
+    });
+    assert.equal(e.nur_plattformdaten, true,
+      "was ueber einen fremden Verleiher lief, steht hier nicht — auch wenn das "
+        + "Gesetz es anrechnen wuerde");
+  });
+});
+
+describe("K3.5 · GET /workforce/monatsplan/vorschau am echten Handler", () => {
+  function handler(router, pfad) {
+    for (const layer of router.stack) {
+      if (!layer.route || layer.route.path !== pfad) continue;
+      if (!layer.route.methods.get) continue;
+      return layer.route.stack[layer.route.stack.length - 1].handle;
+    }
+    throw new Error(`Route GET ${pfad} nicht gefunden`);
+  }
+  const antwort = () => {
+    const r = { _status: 200, _json: null };
+    r.status = (c) => { r._status = c; return r; };
+    r.json = (b) => { r._json = b; return r; };
+    return r;
+  };
+  const deps = (p) => ({
+    pool: p,
+    requireAuth: (_req, _res, next) => next(),
+    logger: { warn() {}, info() {}, error() {} }
+  });
+
+  const KONTEXT = {
+    id: "a-1", org_id: "kunde-1", supplier_org_id: "org-1", status: "active",
+    von: "2026-04-01", bis: "2026-04-30", kunde_name: "Nordbau GmbH",
+    kraft_org: "org-1", kraft_name: "Lukas Bauer"
+  };
+
+  function pool(typ, kontext) {
+    return musterPool((sql) => {
+      if (/FROM organizations WHERE id/.test(sql)) return { rows: [{ type: typ }] };
+      if (/FROM assignments a\s*\n\s*LEFT JOIN organizations o/.test(sql)) {
+        return { rows: kontext ? [kontext] : [] };
+      }
+      return { rows: [] };
+    });
+  }
+
+  it("antwortet der Agentur mit der Vorschau", async () => {
+    const r = antwort();
+    const h = handler(createWorkforceRouter(deps(pool("agency", KONTEXT))),
+      "/workforce/monatsplan/vorschau");
+    await h({ orgId: "org-1", query: { worker_user_id: "w-1", assignment_id: "a-1" } }, r, () => {});
+    assert.equal(r._status, 200);
+    assert.equal(r._json.kraft_name, "Lukas Bauer");
+    assert.ok(Array.isArray(r._json.konflikte));
+    assert.equal(r._json.nur_plattformdaten, true);
+  });
+
+  it("ein fremder Einsatz und eine fremde Kraft antworten BEIDE mit 403", async () => {
+    /* Verschiedene Kodes waeren ein Auskunftsdienst darueber, welche Kennungen
+     * es gibt: 404 hiesse "kenne ich nicht", 403 hiesse "kenne ich, gehoert dir
+     * nur nicht". */
+    for (const kontext of [
+      { ...KONTEXT, supplier_org_id: "org-2" },
+      { ...KONTEXT, kraft_org: "org-2" }
+    ]) {
+      const r = antwort();
+      const h = handler(createWorkforceRouter(deps(pool("agency", kontext))),
+        "/workforce/monatsplan/vorschau");
+      await h({ orgId: "org-1", query: { worker_user_id: "w-1", assignment_id: "a-1" } }, r, () => {});
+      assert.equal(r._status, 403);
+    }
+  });
+
+  it("das Einsatzunternehmen bekommt 400 — nicht 200 mit leerer Liste", async () => {
+    const r = antwort();
+    const h = handler(createWorkforceRouter(deps(pool("company", KONTEXT))),
+      "/workforce/monatsplan/vorschau");
+    await h({ orgId: "org-1", query: { worker_user_id: "w-1", assignment_id: "a-1" } }, r, () => {});
+    assert.equal(r._status, 400);
+    assert.equal(r._json.error, "NUR_AGENTURSPUR");
+  });
+
+  it("ohne Organisationskontext wird nichts beantwortet", async () => {
+    const r = antwort();
+    const h = handler(createWorkforceRouter(deps(pool("agency", KONTEXT))),
+      "/workforce/monatsplan/vorschau");
+    await h({ orgId: null, query: {} }, r, () => {});
+    assert.equal(r._status, 400);
+    assert.equal(r._json.error, "NO_ORG_CONTEXT");
   });
 });

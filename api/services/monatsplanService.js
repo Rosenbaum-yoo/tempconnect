@@ -75,7 +75,9 @@ import { todayDE } from "../utils/dateDE.js";
 // E-K3-1 (Owner 2026-08-31): die Ueberlassungshoechstdauer wird geprueft und
 // dargestellt. Der rechtliche Kern liegt bewusst in einem eigenen Dienst —
 // eine reine Funktion, einzeln pruefbar, mit Rueckmutationen.
-import { auegBefunde } from "./auegService.js";
+import {
+  auegBefunde, ueberlassungen, konfigurationen, ketten, bewerteKette, tag as auegTag
+} from "./auegService.js";
 
 /** Die beiden Spuren aus Plan-Abschnitt 3b. */
 export const SEITEN = Object.freeze(["kunde", "agentur"]);
@@ -504,6 +506,247 @@ export async function ablaufendeNachweise(pool, { orgId, seite, fenster }) {
     bis: r.valid_until,
     nachweis: seite === "agentur" ? (r.title || r.category) : null
   }));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   K3.5 — DIE KONFLIKTVORSCHAU VOR DEM SCHREIBEN
+
+   Der Kern von Abschnitt 3b: *„die Doppelbelegung fällt BEIM PLANEN auf, nicht
+   am Einsatztag."* Beide Schreibwege gibt es längst
+   (`POST /marketplace/demand-requests` für den Bedarf,
+   `POST /workers/staffing-assignments/:id/quick-assign` für die Besetzung) —
+   und beide sagen erst NACH dem Schreiben, ob etwas kollidiert. Genau das
+   fehlte: die Antwort VORHER.
+
+   NUR DIE AGENTURSPUR. Ein Bedarf ist eine Absicht des Kunden — er kollidiert
+   mit niemandem, weil er niemanden bindet. Eine Besetzung ist eine Zusage über
+   einen Menschen, und Menschen können nicht an zwei Orten sein. Eine Vorschau
+   für die Kundenspur wäre eine Antwort auf eine Frage, die sich dort nicht
+   stellt.
+
+   ZWEI RIEGEL, BEIDE NÖTIG:
+     * der Einsatz muss der abfragenden Zeitarbeitsfirma gehören
+       (`assignments.supplier_org_id`)
+     * die Kraft muss ihr gehören (`worker_profiles.supplier_org_id`)
+   Ohne den zweiten wäre die Vorschau ein Auskunftsdienst über fremde
+   Einsatzpläne: „nenne mir eine beliebige Personenkennung, ich sage dir, wann
+   sie gebucht ist."
+
+   SIE SCHREIBT NICHTS. Sie liest und rechnet — auch die AÜG-Prüfung, die den
+   geplanten Zeitraum nur GEDANKLICH an die Geschichte hängt und neu bewertet.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Der Zusammenhang: Einsatz, Kraft, Zeitspanne — und ob beides der Firma gehört. */
+async function vorschauKontext(pool, { orgId, workerUserId, assignmentId }) {
+  const { rows } = await pool.query(
+    `SELECT a.id, a.org_id, a.supplier_org_id, a.status,
+            a.start_date AS von,
+            NULLIF(LEAST(COALESCE(a.actual_end_date,  DATE '9999-12-31'),
+                         COALESCE(a.planned_end_date, DATE '9999-12-31')),
+                   DATE '9999-12-31') AS bis,
+            o.name AS kunde_name,
+            wp.supplier_org_id AS kraft_org,
+            TRIM(COALESCE(wp.first_name, '') || ' ' || COALESCE(wp.last_name, '')) AS kraft_name
+       FROM assignments a
+       LEFT JOIN organizations o ON o.id = a.org_id
+       LEFT JOIN worker_profiles wp ON wp.user_id = $2
+      WHERE a.id = $1`,
+    [assignmentId, workerUserId]
+  );
+  return rows[0] || null;
+}
+
+/**
+ * Wo wäre diese Kraft in diesem Zeitraum schon gebunden?
+ *
+ * Dieselbe Zustandsregel wie im Monatsplan (`ZUORDNUNG_GILT`) — eine archivierte
+ * oder abgesagte Zuordnung bindet niemanden, und ein Fehlalarm hier wöge doppelt:
+ * er hielte jemanden davon ab, eine Besetzung vorzunehmen, die zulässig ist.
+ */
+async function vorschauDoppelbelegung(pool, { workerUserId, assignmentId, von, bis }) {
+  const ende = wirksamesEnde("l", "e");
+  const beginn = wirksamerBeginn("l", "e");
+  const { rows } = await pool.query(
+    `SELECT DISTINCT ON (l.assignment_id)
+            l.assignment_id, l.org_id,
+            og.name AS gegenseite_org_name,
+            ${beginn} AS gegen_von,
+            ${ende}   AS gegen_bis,
+            GREATEST(${beginn}, $3::date) AS ueberschneidung_von,
+            LEAST(${ende}, COALESCE($4::date, DATE '9999-12-31')) AS ueberschneidung_bis
+       FROM worker_assignment_links l
+       JOIN assignments e ON e.id = l.assignment_id
+       LEFT JOIN organizations og ON og.id = l.org_id
+      WHERE l.worker_user_id = $1
+        AND l.assignment_id <> $2
+        AND ${ZUORDNUNG_GILT("l")}
+        AND ${beginn} <= COALESCE($4::date, DATE '9999-12-31')
+        AND ${ende}   >= $3::date
+      ORDER BY l.assignment_id, ${beginn}`,
+    [workerUserId, assignmentId, von, bis]
+  );
+  return rows.map((r) => ({
+    art: "doppelbelegung",
+    grad: "hart",
+    worker_user_id: workerUserId,
+    einsatz_id: assignmentId,
+    von: r.ueberschneidung_von,
+    bis: r.ueberschneidung_bis === "9999-12-31" ? null : r.ueberschneidung_bis,
+    gegenseite_assignment_id: r.assignment_id,
+    gegenseite_org_id: r.org_id,
+    gegenseite_org_name: r.gegenseite_org_name || null
+  }));
+}
+
+/** Gemeldete, nicht aufgehobene Abwesenheiten im geplanten Zeitraum. */
+async function vorschauAbwesenheit(pool, { orgId, workerUserId, von, bis }) {
+  const { rows } = await pool.query(
+    `SELECT ab.id, ab.art, ab.von, ab.bis
+       FROM worker_absences ab
+       JOIN worker_profiles wp ON wp.id = ab.worker_profile_id
+      WHERE wp.user_id = $1
+        AND ab.supplier_org_id = $2
+        AND ab.aufgehoben_am IS NULL
+        AND ab.zustand = 'wirksam'
+        AND ab.von <= COALESCE($4::date, DATE '9999-12-31')
+        AND COALESCE(ab.bis, DATE '9999-12-31') >= $3::date
+      ORDER BY ab.von`,
+    [workerUserId, orgId, von, bis]
+  );
+  return rows.map((r) => ({
+    art: "abwesenheit", grad: "hart",
+    worker_user_id: workerUserId,
+    von: r.von, bis: r.bis,
+    abwesenheitsart: r.art
+  }));
+}
+
+/** Nachweise, die WÄHREND des geplanten Zeitraums ablaufen. */
+async function vorschauNachweise(pool, { orgId, workerUserId, von, bis }) {
+  const { rows } = await pool.query(
+    `SELECT d.id, d.title, d.category, d.valid_until
+       FROM worker_profile_documents d
+      WHERE d.worker_user_id = $1
+        AND d.supplier_org_id = $2
+        AND d.valid_until IS NOT NULL
+        AND d.valid_until >= $3::date
+        AND d.valid_until <= COALESCE($4::date, DATE '9999-12-31')
+      ORDER BY d.valid_until`,
+    [workerUserId, orgId, von, bis]
+  );
+  return rows.map((r) => ({
+    art: "nachweis_laeuft_ab", grad: "weich",
+    worker_user_id: workerUserId,
+    von: r.valid_until, bis: r.valid_until,
+    nachweis: r.title || r.category
+  }));
+}
+
+/**
+ * Die AÜG-Frist, GEDANKLICH um den geplanten Zeitraum erweitert.
+ *
+ * Der geplante Zeitraum wird an die echte Geschichte gehängt und die Kette neu
+ * gebildet — genau das ist die gesetzliche Frage: rechnet § 1 Abs. 1b AÜG die
+ * frühere Überlassung an denselben Entleiher an? Es wird nichts geschrieben.
+ *
+ * Gemeldet wird nur, was DIESE Besetzung verursacht: war die Frist schon vorher
+ * gerissen, ist das kein Befund über die geplante Handlung, sondern über den
+ * Bestand — und der steht im Monatsplan.
+ */
+function vorschauAueg({ zeitraeume, regel, von, bis, heute }) {
+  const mitGeplant = [...zeitraeume, { von, bis: bis || null }];
+
+  const kettenMit  = ketten(mitGeplant, regel);
+  const kettenOhne = ketten(zeitraeume, regel);
+
+  const betroffen = kettenMit.find((k) => k.von <= von && (k.bis == null || k.bis >= von));
+  if (!betroffen) return [];
+
+  /* Ein offener Einsatz hat kein Ende, an dem man messen könnte. Gemessen wird
+   * dann am Tag der Überschreitung selbst: die Frage lautet nicht „ist sie am
+   * Stichtag gerissen", sondern „wird sie während dieser Besetzung reissen". */
+  const roh = bewerteKette(betroffen, { ...regel, heute });
+  const stichtag = bis || roh.ueberschreitung_am;
+  const mit = bewerteKette(betroffen, { ...regel, heute, stichtag });
+  if (!mit.ueberschritten) return [];
+
+  const vorher = kettenOhne.find((k) => k.von <= von && (k.bis == null || k.bis >= von));
+  const schonVorher = vorher
+    ? bewerteKette(vorher, { ...regel, heute, stichtag }).ueberschritten
+    : false;
+
+  return [{
+    art: "aueg_hoechstdauer",
+    grad: "hart",
+    von: mit.ueberschreitung_am,
+    bis: mit.ueberschreitung_am,
+    hoechstdauer_monate: mit.hoechstdauer_monate,
+    ueberschreitung_am: mit.ueberschreitung_am,
+    kette_von: mit.von,
+    kette_offen: mit.offen,
+    // Verursacht DIESE Besetzung die Überschreitung — oder lag sie schon vor?
+    durch_diese_besetzung: !schonVorher
+  }];
+}
+
+/**
+ * Was bricht, wenn diese Kraft auf diesen Einsatz gesetzt wird?
+ *
+ * @returns {Promise<{fehler?: string} | {konflikte: Array, zusammenfassung: object,
+ *   kraft_name: string|null, von: string, bis: string|null, nur_plattformdaten: true}>}
+ */
+export async function planungsVorschau(pool, {
+  orgId, seite = "agentur", workerUserId, assignmentId, heute = null
+} = {}) {
+  if (!orgId) throw new Error("MONATSPLAN_ORG_ERFORDERLICH");
+  if (!workerUserId || !assignmentId) return { fehler: "UNVOLLSTAENDIG" };
+
+  /* Die Kundenspur setzt niemanden ein — für sie gibt es hier nichts zu
+   * beantworten. Kein stilles leeres Ergebnis: das wäre von „keine Konflikte"
+   * nicht zu unterscheiden. */
+  if (seite !== "agentur") return { fehler: "NUR_AGENTURSPUR" };
+
+  const k = await vorschauKontext(pool, { orgId, workerUserId, assignmentId });
+  if (!k) return { fehler: "EINSATZ_NICHT_GEFUNDEN" };
+  if (String(k.supplier_org_id || "") !== String(orgId)) return { fehler: "FREMDER_EINSATZ" };
+  if (String(k.kraft_org || "") !== String(orgId)) return { fehler: "FREMDE_KRAFT" };
+
+  const von = auegTag(k.von);
+  const bis = k.bis ? auegTag(k.bis) : null;
+  const stichHeute = heute || todayDE();
+
+  const [doppel, abwesend, nachweise, geschichte, konfig] = await Promise.all([
+    vorschauDoppelbelegung(pool, { workerUserId, assignmentId, von, bis }),
+    vorschauAbwesenheit(pool, { orgId, workerUserId, von, bis }),
+    vorschauNachweise(pool, { orgId, workerUserId, von, bis }),
+    ueberlassungen(pool, [{ worker_user_id: workerUserId, org_id: k.org_id }]),
+    konfigurationen(pool, [k.org_id])
+  ]);
+
+  const aueg = vorschauAueg({
+    zeitraeume: geschichte.get(`${workerUserId}|${k.org_id}`) || [],
+    regel: konfig.get(String(k.org_id)) || {},
+    von, bis, heute: stichHeute
+  });
+
+  const konflikte = [...doppel, ...abwesend, ...aueg, ...nachweise]
+    .map((x) => konfliktFuerSeite({ ...x, kraft_name: k.kraft_name || null }, "agentur"));
+
+  return {
+    einsatz_id: assignmentId,
+    worker_user_id: workerUserId,
+    kraft_name: k.kraft_name || null,
+    von, bis,
+    konflikte,
+    zusammenfassung: {
+      hart:  konflikte.filter((x) => x.grad === "hart").length,
+      weich: konflikte.filter((x) => x.grad === "weich").length
+    },
+    /* Dieselbe Grenze wie im Monatsplan: was über einen Verleiher lief, der
+     * TempConnect nicht benutzt, steht hier nicht — obwohl das Gesetz es
+     * anrechnen würde. */
+    nur_plattformdaten: true
+  };
 }
 
 /**

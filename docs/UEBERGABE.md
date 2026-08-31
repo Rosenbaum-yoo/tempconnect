@@ -40,7 +40,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **K4** | Der Feed fällt nie auf leer zurück | ✅ **gebaut** `eb46707` (Mig 204, `feedKopieService`, 18 Proben, 4 Rückmutationen) |
 | **K1** | Rabatt sichtbar + Eingriffspunkt | ✅ **gebaut** — Mig 206, drei Dienste, Staff-CC-Modul `rabatt-faelle`, 75 Proben, **14 Rückmutationen** |
 | **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | ✅ **vollständig gebaut** — Mig 208 + 209, `werbepraemieService`, 26 Proben, **16 Rückmutationen** |
-| **K3** | Monatsplanung | **K3.1–K3.4 ✅ gebaut, Fläche steht**; **K3.5-Vorarbeit ✅** (drei Befunde, einer ein echter Ausfall) — **die Schreibwege selbst stehen aus**, dann K3.6 |
+| **K3** | Monatsplanung | **K3.1–K3.5 ✅ im Backend** — beide Schreibwege gab es bereits, neu ist die **Konfliktvorschau vor dem Schreiben**. **Offen: die Bedienelemente auf `monatsplan.html`**, dann K3.6 |
 | **L** | Tragfähigkeit / Hochverfügbarkeit | dokumentiert, **nicht gebaut** (eigener Abschnitt, Owner-Vorgabe) |
 
 **Der nächste Griff: die Antwort des Owners auf E-K3-1 bis E-K3-3.** Der Entwurf
@@ -84,14 +84,32 @@ herausgefallen (vollständig im Arbeitsplan, Abschnitt „K3.5 — die Vorarbeit
 > ein unbenutzter Import; wer sie entfernt, dreht jedes Datum auf den Vortag.
 > **Nichts hielt sie fest** — jetzt tut es `api/test/kalendertagDE.test.js`.
 
-**Wenn K3.5 gebaut wird, sind die Schreibpfade bereits gefunden:** Bedarf über
-`marketplaceService.createDemandRequest(pool, requesterId, plan, payload)` —
-`requesterId` ist eine **Nutzer**kennung, nicht die Org. Besetzung läuft NICHT
-direkt in `worker_assignment_links`: dort hängt die ganze Besetzungsmaschinerie
-(Einladung, Zusage, Reservierung, `recalcAssignmentStaffing`). Ein zweiter
-Schreibweg daneben wäre eine Schattenwahrheit.
+**K3.5 ist im Backend fertig — und war kleiner als gedacht, weil beide
+Schreibwege längst existierten:**
 
-Danach K3.6 (Härtung).
+| Spur | Weg |
+|---|---|
+| Kunde · Bedarf | `POST /marketplace/demand-requests` (`requesterId` ist eine **Nutzer**kennung, nicht die Org) |
+| Agentur · Besetzung | `POST /workers/staffing-assignments/:id/quick-assign` |
+
+**Nicht** direkt in `worker_assignment_links` schreiben: dort hängt die ganze
+Besetzungsmaschinerie (Einladung, Zusage, Reservierung, `recalcAssignmentStaffing`).
+Ein zweiter Schreibweg daneben wäre eine Schattenwahrheit.
+
+**Neu gebaut ist das eine Stück, das fehlte:** `GET /workforce/monatsplan/vorschau`
+— was bricht, **wenn** ich diese Kraft auf diesen Einsatz setze. Beide Endpunkte
+oben antworten erst *nach* dem Schreiben; 3b verspricht das Gegenteil. Die
+Vorschau **schreibt nichts** (per Test belegt), gilt **nur für die Agenturspur**,
+und hat zwei Riegel: der Einsatz muss der Firma gehören **und die Kraft auch** —
+sonst wäre sie ein Auskunftsdienst über fremde Einsatzpläne. Beide antworten 403
+ohne Zusatzangabe.
+
+**E-K3-2 brauchte keine Änderung:** gemessen kennt keines der beiden Schemata eine
+Vergangenheitssperre. Es wurde auch keine eingebaut, um sie danach zu entfernen.
+
+**DER NÄCHSTE GRIFF: die Bedienelemente auf `monatsplan.html`.** Der Endpunkt
+trägt, die Fläche ruft ihn noch nicht. Danach K3.6 (Härtung: Skalierung 10→300,
+`Europe/Berlin`, Mutation Testing auf der Konfliktlogik).
 
 > **Für den Browser-Nachweis wichtig:** der API-Container läuft einen
 > Prozess-Schnappschuss und kennt neue Routen nicht. Die Fläche wurde deshalb

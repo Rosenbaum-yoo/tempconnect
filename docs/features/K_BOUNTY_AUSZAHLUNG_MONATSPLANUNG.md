@@ -464,8 +464,84 @@ und `rechnung_id` (der Beleg).
 | K3.2 | **Datenlage messen** | ✅ **gemessen 2026-08-31** — siehe unten |
 | K3.3 | Lesende Fläche: der Monat als Raster | ✅ **vollständig** — `monatsplanService`, `GET /workforce/monatsplan`, `monatsplan.html`; im Browser belegt (Raster, Leerzustand, Fehlerzustand) |
 | K3.4 | **Konflikte nach 3b** — hart und weich getrennt | ✅ **alle fünf Arten**, inkl. AÜG |
-| K3.5 | Beide Spuren schreibend, ohne Zustimmungspflicht | ⏭ **Vorarbeit erledigt** — drei Befunde beim Andocken an die bestehenden Schreibpfade, einer davon ein echter Ausfall (siehe unten). Die Schreibwege selbst stehen noch aus |
+| K3.5 | Beide Spuren schreibend, ohne Zustimmungspflicht | ⏭ **Backend fertig** — beide Schreibwege existierten bereits; neu ist die **Konfliktvorschau vor dem Schreiben** (`GET /workforce/monatsplan/vorschau`). Offen: die Bedienelemente auf `monatsplan.html` |
 | K3.6 | Härtung: Skalierung (10 → 300), `Europe/Berlin`, Mutation Testing auf der Konfliktlogik | Lastprobe + Mutationsergebnis |
+
+---
+
+## K3.5 — beide Spuren schreibend
+
+**Der wichtigste Befund: beide Schreibwege gab es längst.**
+
+| Spur | Weg | Zustand |
+|---|---|---|
+| Einsatzunternehmen · Bedarf | `POST /marketplace/demand-requests` | vollständig — Zod-Prüfung, `createDemandRequest`, SLA |
+| Zeitarbeitsfirma · Besetzung | `POST /workers/staffing-assignments/:id/quick-assign` | vollständig — `quickAssignSuggestedWorkers`, Rechte, Benachrichtigung, Audit |
+
+K3.5 ist damit **Verdrahtung, kein Neubau** — und ein einziges fehlendes Stück.
+
+**E-K3-2 war bereits erfüllt.** Der Owner hat entschieden, dass in vergangene
+Monate geplant werden darf. Gemessen: **keines** der beiden Schemata kennt eine
+Vergangenheitssperre (`start_date` trägt nur eine Formatprüfung, `quick-assign`
+kennt gar kein Datum). Es war nichts zu lockern — und es wurde auch keine
+Beschränkung eingebaut, um sie danach wieder zu entfernen.
+
+### Was fehlte: die Antwort VORHER
+
+Beide Endpunkte sagen erst **nach** dem Schreiben, ob etwas kollidiert. Abschnitt
+3b verspricht aber genau das Gegenteil: *„die Doppelbelegung fällt beim Planen
+auf, nicht am Einsatztag."* Das ist der Unterschied zwischen einer Warnung, die
+noch etwas ändert, und einer, die nur noch erklärt.
+
+`GET /workforce/monatsplan/vorschau?worker_user_id=…&assignment_id=…` beantwortet
+für eine **geplante** Besetzung dieselben vier Konfliktarten wie der Monatsplan
+für den Bestand — Doppelbelegung, Abwesenheit, AÜG-Höchstdauer, ablaufender
+Nachweis.
+
+**Sie schreibt nichts**, und das ist kein Detail: geschrieben wird weiterhin über
+`quick-assign`, mit dessen Rechten, dessen CSRF und dessen Audit. Eine zweite
+Schreibtür daneben wäre eine Schattenwahrheit. Ein Test prüft, dass in keiner
+Abfrage der Vorschau ein `INSERT`, `UPDATE` oder `DELETE` steht.
+
+**Nur die Agenturspur.** Ein Bedarf ist eine Absicht — er bindet niemanden und
+kollidiert mit niemandem. Eine Besetzung ist eine Zusage über einen Menschen. Die
+Kundenspur bekommt deshalb `400 NUR_AGENTURSPUR`, **nicht** eine leere Liste:
+leer wäre von „keine Konflikte" nicht zu unterscheiden.
+
+### Zwei Riegel, beide nötig
+
+| Riegel | Prüfung | Ohne ihn |
+|---|---|---|
+| der Einsatz gehört der Firma | `assignments.supplier_org_id` | fremde Einsatzpläne einsehbar |
+| **die Kraft gehört der Firma** | `worker_profiles.supplier_org_id` | ein Auskunftsdienst: *„nenne mir eine beliebige Personenkennung, ich sage dir, wann sie gebucht ist"* |
+
+Beide antworten mit **403 und ohne Zusatzangabe**. Ein 404 für das eine und ein
+403 für das andere wäre selbst schon eine Auskunft darüber, welche Kennungen es
+gibt.
+
+### Die AÜG-Frist wird gedanklich neu gerechnet
+
+Der geplante Zeitraum wird an die echte Geschichte **gehängt** und die Kette neu
+gebildet — genau die gesetzliche Frage aus § 1 Abs. 1b AÜG. Gemeldet wird mit dem
+Feld `durch_diese_besetzung`, ob **diese Handlung** die Überschreitung verursacht
+oder ob sie schon vorlag. Ohne diese Unterscheidung wäre die Meldung nicht
+handlungsleitend: „ist ohnehin schon gerissen" verlangt etwas anderes als „wird
+durch Ihre Besetzung reißen".
+
+**Eine bewusste Abgrenzung, im Test festgehalten:** eine Frist, die **erst nach**
+dem geplanten Einsatz reißt, meldet die Vorschau **nicht**. Das ist eine Aussage
+über den Bestand, und die steht im Monatsplan. Dieselbe Sache an zwei Stellen zu
+führen heißt: wer sie einmal als „kenne ich schon" wegklickt, klickt sie überall
+weg.
+
+**Nachweis:** `api/test/monatsplan.test.js` — 62 Proben, davon 16 zur Vorschau
+(4 am echten Handler). **Zwölf Rückmutationen an der Produktionsquelle, alle
+zwölf gefangen.** `api/test/integration/monatsplan.flow.test.js` — **26/26 im
+Container gegen das echte Schema**, darunter ein echter fremder Einsatz und eine
+echte firmenfremde Kraft, beide abgewiesen.
+
+**Offen:** die Bedienelemente auf `monatsplan.html`. Der Endpunkt trägt, die
+Fläche ruft ihn noch nicht.
 
 ---
 
