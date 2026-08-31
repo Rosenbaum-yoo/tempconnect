@@ -1,11 +1,11 @@
 {
   "_hinweis": "GENERIERT — nicht von Hand bearbeiten. Neu erzeugen mit: npm run schema:snapshot (liest die laufende Datenbank im Container tempconnect_db).",
-  "erzeugt_am": "2026-08-31T06:59:12.717Z",
+  "erzeugt_am": "2026-08-31T10:45:11.655Z",
   "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
   "migrations_fingerabdruck": {
     "init": "49a1c9ef343102f593f1267155c30cea987684bf1a93826cf237e61101238c7e",
-    "dateien": 213,
-    "hash": "54cc2d838fb8a285ba5f3d316782b82944829e7605f1ddff1223161d9a14469c"
+    "dateien": 215,
+    "hash": "2187df3278618546203395c5d8e4272e225a8483fe1d289346ee58759820972f"
   },
   "pruefwerte": {
     "approval_requests": {
@@ -1719,16 +1719,16 @@
       ]
     },
     "timesheets": {
-      "source": [
-        "manual",
-        "worker_submission"
-      ],
       "status": [
         "approved",
         "cancelled",
         "draft",
         "rejected",
         "submitted"
+      ],
+      "source": [
+        "manual",
+        "worker_submission"
       ]
     },
     "users": {
@@ -1745,12 +1745,6 @@
       ]
     },
     "vendor_pool": {
-      "invitation_status": [
-        "accepted",
-        "expired",
-        "none",
-        "sent"
-      ],
       "status": [
         "active",
         "removed",
@@ -1762,9 +1756,22 @@
         "RESTRICTED",
         "SECONDARY",
         "TRIAL"
+      ],
+      "invitation_status": [
+        "accepted",
+        "expired",
+        "none",
+        "sent"
       ]
     },
     "warp_executions": {
+      "trigger_source": [
+        "automation",
+        "event_based",
+        "manual",
+        "owner_confirmed",
+        "scheduled"
+      ],
       "risk_level": [
         "critical",
         "high",
@@ -1777,13 +1784,6 @@
         "running",
         "started",
         "success"
-      ],
-      "trigger_source": [
-        "automation",
-        "event_based",
-        "manual",
-        "owner_confirmed",
-        "scheduled"
       ]
     },
     "warp_hosts": {
@@ -1828,10 +1828,9 @@
       ]
     },
     "worker_absences": {
-      "zustand": [
-        "abgelehnt",
-        "beantragt",
-        "wirksam"
+      "quelle": [
+        "disponent",
+        "mitarbeiter"
       ],
       "art": [
         "krank",
@@ -1839,9 +1838,10 @@
         "termin",
         "urlaub"
       ],
-      "quelle": [
-        "disponent",
-        "mitarbeiter"
+      "zustand": [
+        "abgelehnt",
+        "beantragt",
+        "wirksam"
       ]
     },
     "worker_assignment_links": {
@@ -1880,12 +1880,6 @@
       ]
     },
     "worker_profile_documents": {
-      "status": [
-        "archived",
-        "pending_review",
-        "rejected",
-        "verified"
-      ],
       "category": [
         "identity",
         "medical",
@@ -1893,6 +1887,12 @@
         "permit",
         "qualification",
         "training"
+      ],
+      "status": [
+        "archived",
+        "pending_review",
+        "rejected",
+        "verified"
       ]
     },
     "worker_profile_skills": {
@@ -1910,17 +1910,17 @@
       ]
     },
     "worker_status_events": {
-      "ausgeloest_durch": [
-        "abwesenheit",
-        "einsatz",
-        "profil"
-      ],
       "von_zustand": [
         "abwesend",
         "im_einsatz",
         "inaktiv",
         "montage",
         "verfuegbar"
+      ],
+      "ausgeloest_durch": [
+        "abwesenheit",
+        "einsatz",
+        "profil"
       ],
       "nach_zustand": [
         "abwesend",
@@ -1971,6 +1971,12 @@
         "submitted",
         "superseded",
         "under_review"
+      ]
+    },
+    "zuordnung_bereinigung_210": {
+      "art": [
+        "lieferant_nachgetragen",
+        "link_geschlossen"
       ]
     }
   },
@@ -2718,6 +2724,24 @@
         "entity_type",
         "id",
         "status"
+      ]
+    },
+    "aueg_konfiguration": {
+      "spalten": [
+        "aktualisiert_am",
+        "grundlage",
+        "hinterlegt_am",
+        "hinterlegt_von",
+        "hoechstdauer_monate",
+        "org_id",
+        "unterbrechung_monate"
+      ],
+      "nicht_null": [
+        "aktualisiert_am",
+        "hinterlegt_am",
+        "hoechstdauer_monate",
+        "org_id",
+        "unterbrechung_monate"
       ]
     },
     "automation_jobs": {
@@ -7611,6 +7635,25 @@
         "week_end",
         "week_start",
         "worker_user_id"
+      ]
+    },
+    "zuordnung_bereinigung_210": {
+      "spalten": [
+        "art",
+        "begruendung",
+        "end_date_nachher",
+        "end_date_vorher",
+        "erfasst_am",
+        "id",
+        "lieferant_nachher",
+        "zeile_id"
+      ],
+      "nicht_null": [
+        "art",
+        "begruendung",
+        "erfasst_am",
+        "id",
+        "zeile_id"
       ]
     }
   }

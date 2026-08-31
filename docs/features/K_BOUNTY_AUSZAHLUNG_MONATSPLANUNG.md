@@ -460,11 +460,11 @@ und `rechnung_id` (der Beleg).
 
 | Phase | Inhalt | Stand |
 |---|---|---|
-| K3.1 | **Entwurf nach 3b** — zwei Spuren, keine Zustimmungspflicht. Ein Bild, kein Code. | ⏸ **liegt vor, wartet auf Owner-Freigabe** — siehe unten |
+| K3.1 | **Entwurf nach 3b** | ✅ **freigegeben 2026-08-31** (E-K3-1 bis E-K3-4) |
 | K3.2 | **Datenlage messen** | ✅ **gemessen 2026-08-31** — siehe unten |
-| K3.3 | Lesende Fläche: der Monat als Raster aus Live-Belegschaft + Marktplatz | Browser-Nachweis, Zero-State, Org-Grenze |
-| K3.4 | **Konflikte nach 3b** — hart und weich getrennt | jede Konfliktart mit echter Zeile belegt |
-| K3.5 | Beide Spuren schreibend, ohne Zustimmungspflicht | keine Seite kann Einträge der anderen ändern |
+| K3.3 | Lesende Fläche: der Monat als Raster | ✅ `monatsplanService` — Dienst gebaut, Oberfläche offen |
+| K3.4 | **Konflikte nach 3b** — hart und weich getrennt | ✅ **alle fünf Arten**, inkl. AÜG |
+| K3.5 | Beide Spuren schreibend, ohne Zustimmungspflicht | ⏭ **als Nächstes** — E-K3-2 ist beantwortet |
 | K3.6 | Härtung: Skalierung (10 → 300), `Europe/Berlin`, Mutation Testing auf der Konfliktlogik | Lastprobe + Mutationsergebnis |
 
 ---
@@ -552,7 +552,7 @@ keine Bitte, sondern eine Zusage.
 |---|---|---|---|
 | **H1** | eine Person, zwei Orte gleichzeitig | hart | ✅ berechenbar — **0 echte Fälle**, gegen die wirksame Spanne gerechnet |
 | **H2** | Abwesenheit im Zeitraum | hart | ⚠️ Tabelle vorhanden, **0 Zeilen** — prüfbar, aber ungenutzt |
-| **H3** | AÜG-Überlassungshöchstdauer überschritten | hart | ❌ **kein Feld im Schema** — siehe Entscheidung E-K3-1 |
+| **H3** | AÜG-Überlassungshöchstdauer überschritten | hart | ✅ **gebaut** (Mig 211, `auegService`) — hart bei erreichter Frist, weich drei Monate vorher |
 | **W1** | Bedarf unbesetzt | weich | ✅ berechenbar (Bedarf ohne Besetzung im Zeitraum) |
 | **W2** | Nachweis läuft im Zeitraum ab | weich | ✅ berechenbar aus `compliance_documents` |
 
@@ -569,18 +569,89 @@ Seite** löst. Niemand wartet auf niemanden.
 - **Keine eigene Terminverwaltung.** Der Monat liest aus Live-Belegschaft und
   Marktplatz; er legt keine dritte Wahrheit über Einsätze an.
 
-### Die offenen Entscheidungen — **hier wird die Freigabe gebraucht**
+### Die Entscheidungen — **beantwortet am 2026-08-31**
 
-| | Frage | Warum sie nicht ableitbar ist |
-|---|---|---|
-| **E-K3-1** | **Soll die AÜG-Frist geprüft werden?** | Sie hat **kein Feld im Schema**. Prüfbar wäre sie nur mit einem neuen Datum (Überlassungsbeginn je Kraft und Kunde) und einer Regel (18 Monate, mit tariflichen Abweichungen). Das ist ein eigener Bau, kein Nebenprodukt der Planung — und eine falsch gerechnete gesetzliche Frist ist schlimmer als keine. |
-| **E-K3-2** | **Darf in einen vergangenen Monat geplant werden?** | 25 % der Einsätze werden rückwirkend angelegt. Entweder die Fläche kann das auch (dann ist sie zugleich Nachtragewerkzeug), oder sie kann es nicht (dann bleibt der Nachtrag, wo er heute ist). Beides ist vertretbar; die Wahl ist eine Produktentscheidung. |
-| **E-K3-3** | **Wie weit zeigt das Raster einen Einsatz ohne Enddatum?** | Bis zum Monatsrand, oder mit einem Zeichen „läuft weiter"? Die Datenlage sagt: offene Einsätze sind der Normalfall, nicht die Ausnahme. |
-| **E-K3-4** | *(neu)* **Sollen nicht geschlossene Zuordnungen aufgeräumt werden?** | Drei Links stehen offen, obwohl ihr Einsatz beendet ist. Die Monatsplanung kommt ohne die Bereinigung aus — sie rechnet gegen die wirksame Spanne. Aber jede andere Auswertung, die nur den Link liest, zählt weiterhin falsch. Aufräumen heißt: Bestandsdaten anfassen. |
+| | Frage | Entscheid | Stand |
+|---|---|---|---|
+| **E-K3-1** | AÜG-Höchstdauer prüfen? | **ja — prüfen und darstellen** | ✅ gebaut, Mig 211 + `auegService` |
+| **E-K3-2** | in vergangene Monate planen? | **ja** — *„alleine wegen fehlenden Stundenzetteln"* | ⏭ gilt für K3.5 |
+| **E-K3-3** | offene Einsätze am Rand? | **bis zum Monatsrand, mit Vermerk „läuft noch"** | ✅ `randvermerk` im Dienst |
+| **E-K3-4** | Zuordnungen aufräumen? | **ja, aber vorher mehrfach prüfen** | ✅ Mig 210, acht Wege geprüft |
 
-> **Ohne E-K3-1 kann K3.4 nicht vollständig gebaut werden** — der Plan nennt die
-> AÜG-Frist ausdrücklich als harten Konflikt, und sie ist die einzige der fünf,
-> die heute nicht berechenbar ist.
+### Was aus E-K3-1 geworden ist
+
+**§ 1 Abs. 1b AÜG**, gerechnet je Paar *(Kraft, Entleiher)* — nicht je Vertrag:
+18 aufeinander folgende Monate, wobei frühere Überlassungen an **denselben
+Entleiher** vollständig angerechnet werden, wenn dazwischen **nicht mehr als
+drei Monate** liegen. Auch die eines **anderen Verleihers**.
+
+Drei Vorsichtsmaßnahmen, weil die Rechtsfolge erheblich ist (§ 9 Abs. 1 Nr. 1b,
+§ 10 Abs. 1 — fingiertes Arbeitsverhältnis beim Entleiher, dazu Bußgeld):
+
+1. **Die Frist ist konfigurierbar** (`aueg_konfiguration`). 18 ist die
+   Voreinstellung, nicht das Gesetz in Stein: Tarifverträge der Einsatzbranche
+   dürfen abweichen, in der Metall- und Elektroindustrie sind 24, 36 oder 48
+   Monate üblich. Wer abweicht, **muss die Grundlage benennen** — das erzwingt
+   die Datenbank, nicht der Code.
+2. **Die Kettenbildung ist eine reine Funktion.** `ketten()` bekommt Zeiträume
+   und gibt Ketten zurück, ohne Datenbank — der rechtliche Kern ist damit
+   einzeln prüfbar, und er *ist* einzeln geprüft.
+3. **Die Grenze der Datenlage steht in jeder Antwort** (`nur_plattformdaten`).
+   Lief dieselbe Kraft zuvor über einen Verleiher, der TempConnect nicht
+   benutzt, fehlt die Zeit — obwohl das Gesetz sie anrechnen würde. Eine Frist,
+   die sich sicherer gibt, als sie ist, wäre die schlechtere Variante von gar
+   keiner.
+
+> **Zwei Falschalarme, beim Bauen gefangen — und beide hätten die Prüfung
+> wertlos gemacht.** Ein Alarm, den man einmal als falsch erlebt hat, wird beim
+> nächsten Mal nicht geglaubt.
+>
+> **(1)** Eine Kette vom 12.03. bis 12.04.2026 hat ihren rechnerischen
+> 18-Monats-Punkt am 12.09.2027. Wer den September 2027 aufschlug, bekam eine
+> Überschreitung gemeldet — für eine Überlassung, die anderthalb Jahre vorher
+> geendet hatte. Ursache: ein Rückfall auf „die letzte Kette".
+>
+> **(2)** `ueberschritten` rechnete gegen **heute**, der Härtegrad gegen das
+> **Fenster**. Dieselbe Zeile sagte „hart" und „nicht überschritten".
+>
+> **Und ein dritter Fund beim Prüfen der Prüfung:** die beiden Riegel gegen
+> diese Falschalarme **deckten sich gegenseitig** — einzeln entfernt blieb die
+> Suite grün. Zwei Riegel, die einander verdecken, sind beim nächsten Umbau
+> einer zu viel und einer zu wenig. Es gibt jetzt für jeden einen eigenen,
+> isolierten Testfall.
+
+### Was aus E-K3-4 geworden ist
+
+**Acht unabhängige Wege**, zwei Funde:
+
+| Weg | | Vorher | Nachher |
+|---|---|---|---|
+| A | Link offen, Einsatz beendet | 3 | 0 |
+| B | Link endet nach dem Einsatz | 0 | 0 |
+| C | Link offen, Einsatz abgeschlossen | 1 | 0 |
+| D | verwaist (Einsatz fehlt) | 0 | 0 |
+| E | Ende vor Beginn | 0 | 0 |
+| F | Link beginnt vor dem Einsatz | 0 | 0 |
+| G | doppelter Link | 0 | 0 |
+| H | Org weicht vom Einsatz ab | 2 | 0 |
+
+Weg **H** stellte sich als etwas anderes heraus als gedacht: kein Widerspruch,
+sondern eine **Lücke** — `assignments.supplier_org_id` war NULL, während die
+Zuordnung den Lieferanten kannte. Nachgemessen: **51 von 68 Einsätzen tragen
+überhaupt keinen Lieferanten**, und für **49** davon gibt es *keinerlei* Anker
+(kein Angebot, kein Vertrag, keine Ausschreibung, keine Zuordnung).
+
+**Migration 210 fasst nur an, was in allen Wegen übereinstimmt:** drei
+Zuordnungen geschlossen, zwei Lieferanten nachgetragen. Die 49 ankerlosen
+bleiben unberührt — sie zu raten wäre das Gegenteil von vorsichtig. Die
+Migration **zählt vorher nach und bricht ab**, wenn sie eine Größenordnung mehr
+findet als gemessen, und legt das **Vorher-Bild** in `zuordnung_bereinigung_210`
+ab: eine Bestandsänderung ohne Rückweg ist keine.
+
+> **Ein eigener Befund, der bleibt:** 49 Einsätze ohne jeden Lieferanten. Die
+> Agentur-Spur der Monatsplanung sieht sie deshalb nicht. Das ist keine Lücke
+> im Code, sondern in den Daten — und sie ist hier festgehalten, statt still
+> zu bleiben.
 
 ---
 

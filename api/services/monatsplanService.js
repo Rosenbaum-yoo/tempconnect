@@ -50,24 +50,55 @@
  * mit einer Ruecktmutation fest.
  *
  * ═══════════════════════════════════════════════════════════════════════════
- * WAS HIER (NOCH) NICHT GEPRUEFT WIRD
+ * DIE AUEG-HOECHSTDAUER — seit E-K3-1 geprueft
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * Die AUEG-Ueberlassungshoechstdauer. Der Plan nennt sie als fuenften Konflikt,
- * aber sie hat KEIN FELD IM SCHEMA: prueffaehig waere sie nur mit einem neuen
- * Datum (Ueberlassungsbeginn je Kraft und Kunde) und einer Regel (18 Monate,
- * mit tariflichen Abweichungen). Eine geratene gesetzliche Frist waere schlimmer
- * als gar keine — deshalb wird sie NICHT gerechnet und im Ergebnis ausdruecklich
- * als `nicht_geprueft` ausgewiesen. Owner-Entscheidung E-K3-1.
+ * Bis zum 31.08.2026 stand hier, dass die Ueberlassungshoechstdauer NICHT
+ * geprueft wird: sie hatte kein Feld im Schema, und eine geratene gesetzliche
+ * Frist waere schlimmer als gar keine. Der Owner hat entschieden (E-K3-1), sie
+ * zu pruefen und darzustellen.
  *
- * Ein Konflikt, der stillschweigend fehlt, waere genau die Fehlerklasse dieser
- * Spur: gebaut, montiert, und niemand merkt, dass er nie feuert.
+ * Gerechnet wird sie in `auegService.js` — nach § 1 Abs. 1b AUEG, je Paar
+ * (Kraft, Entleiher), mit tariflich abweichbarer Frist aus
+ * `aueg_konfiguration`. Was der Dienst NICHT wissen kann, sagt er selbst:
+ * Ueberlassungen ueber Verleiher ausserhalb dieser Plattform fehlen in der
+ * Rechnung, obwohl das Gesetz sie anrechnen wuerde. `nur_plattformdaten` steht
+ * deshalb in jeder Antwort.
+ *
+ * `nicht_geprueft` bleibt als Feld bestehen, auch wenn es heute leer ist: ein
+ * Konflikt, der stillschweigend fehlt, waere genau die Fehlerklasse dieser
+ * Spur — und die naechste Konfliktart, die man nicht rechnen kann, soll dort
+ * landen statt zu verschwinden.
  */
 
 import { todayDE } from "../utils/dateDE.js";
+// E-K3-1 (Owner 2026-08-31): die Ueberlassungshoechstdauer wird geprueft und
+// dargestellt. Der rechtliche Kern liegt bewusst in einem eigenen Dienst —
+// eine reine Funktion, einzeln pruefbar, mit Rueckmutationen.
+import { auegBefunde } from "./auegService.js";
 
 /** Die beiden Spuren aus Plan-Abschnitt 3b. */
 export const SEITEN = Object.freeze(["kunde", "agentur"]);
+
+/**
+ * E-K3-3 (Owner 2026-08-31): "immer bis monatsrand und mit vermerk laeuft noch".
+ *
+ * Ein Einsatz ohne Enddatum wird also NICHT am Monatsrand abgeschnitten, als
+ * ende er dort — er laeuft bis zum Rand und traegt einen Vermerk. Der Vermerk
+ * kommt aus dem Dienst und nicht aus der Oberflaeche: sonst erfaende ihn jede
+ * Flaeche neu, und die dritte hiesse dann "unbefristet".
+ */
+export const RANDVERMERK = Object.freeze({
+  laeuft_noch: "laeuft_noch",   // kein Enddatum bekannt
+  endet_spaeter: "endet_spaeter" // Enddatum bekannt, liegt hinter dem Fenster
+});
+
+/** Welcher Vermerk am rechten Rand einer Zeile steht — oder keiner. */
+export function randvermerk(zeile) {
+  if (zeile?.offen) return RANDVERMERK.laeuft_noch;
+  if (zeile?.endet_spaeter) return RANDVERMERK.endet_spaeter;
+  return null;
+}
 
 /** Abo-/Einsatzzustaende, die im Plan ueberhaupt auftauchen. */
 const SICHTBARE_ZUSTAENDE = ["planned", "active", "completed"];
@@ -112,7 +143,9 @@ function wirksamerBeginn(linkAlias, einsatzAlias) {
 export const KONFLIKTARTEN = Object.freeze({
   doppelbelegung: { grad: "hart", geprueft: true },
   abwesenheit:    { grad: "hart", geprueft: true },
-  aueg_frist:     { grad: "hart", geprueft: false, grund: "E-K3-1: kein Feld im Schema" },
+  /* Der Grad haengt hier am Befund, nicht an der Art: eine erreichte Frist ist
+   * hart, eine in den naechsten drei Monaten drohende ist weich. */
+  aueg_frist:     { grad: "hart", geprueft: true },
   bedarf_offen:   { grad: "weich", geprueft: true },
   nachweis_laeuft_ab: { grad: "weich", geprueft: true }
 });
@@ -442,9 +475,29 @@ export async function monatsplan(pool, { orgId, seite = "kunde", monat } = {}) {
     ablaufendeNachweise(pool, { orgId, seite: gewaehlteSeite, fenster })
   ]);
 
+  /* E-K3-1: die AUEG-Frist. Die Paare (Kraft, Entleiher) kommen aus den
+   * Eintraegen, die ohnehin sichtbar sind — es gelangt also nichts in die
+   * Antwort, das der Abfragende nicht ohnehin sehen darf. */
+  const paare = [];
+  for (const z of zeilen) {
+    for (const k of z.kraefte || []) {
+      if (!k?.worker_user_id || !z.org_id) continue;
+      paare.push({
+        worker_user_id: k.worker_user_id,
+        org_id: z.org_id,
+        kraft_name: k.name || null,
+        assignment_id: z.id
+      });
+    }
+  }
+  const aueg = await auegBefunde(pool, paare, {
+    fensterVon: fenster.von, fensterBis: fenster.bis
+  });
+
   const konflikte = [
     ...doppel,
     ...abwesend,
+    ...aueg.befunde,
     ...offeneBedarfe(bedarfsZeilen),
     ...nachweise
   ].map((k) => konfliktFuerSeite(k, gewaehlteSeite));
@@ -454,7 +507,9 @@ export async function monatsplan(pool, { orgId, seite = "kunde", monat } = {}) {
     ...nachbarmonate(fenster.monat),
     seite: gewaehlteSeite,
     org_id: orgId,
-    eintraege: zeilen,
+    // E-K3-3: der Vermerk am rechten Rand kommt aus dem Dienst, nicht aus der
+    // Oberflaeche — sonst erfindet ihn jede Flaeche neu.
+    eintraege: zeilen.map((z) => ({ ...z, randvermerk: randvermerk(z) })),
     bedarfe: bedarfsZeilen,
     konflikte,
     zusammenfassung: {
@@ -471,6 +526,10 @@ export async function monatsplan(pool, { orgId, seite = "kunde", monat } = {}) {
      * Antwort, nicht in ihrem Fehlen. */
     nicht_geprueft: Object.entries(KONFLIKTARTEN)
       .filter(([, v]) => !v.geprueft)
-      .map(([art, v]) => ({ art, grad: v.grad, grund: v.grund }))
+      .map(([art, v]) => ({ art, grad: v.grad, grund: v.grund })),
+    /* WAS DIE AUEG-PRUEFUNG NICHT SEHEN KANN. Steht auch dann in der Antwort,
+     * wenn nichts gefunden wurde — eine Frist, die sich sicherer gibt, als sie
+     * ist, waere die schlechtere Variante von gar keiner. */
+    aueg_nur_plattformdaten: aueg.nur_plattformdaten
   };
 }

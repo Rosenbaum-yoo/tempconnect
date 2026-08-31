@@ -28,6 +28,7 @@ import {
   monatsplan, monatsfenster, doppelbelegungen, abwesenheiten,
   ablaufendeNachweise, eintraege, bedarfe
 } from "../../services/monatsplanService.js";
+import { auegBefunde, konfigurationen, ueberlassungen } from "../../services/auegService.js";
 
 describe("K3 · die Monatsplanung gegen das echte Schema",
   { skip: !hasDb && "No database configured" }, () => {
@@ -168,9 +169,146 @@ describe("K3 · die Monatsplanung gegen das echte Schema",
     assert.ok(ueberRand >= 0);
   });
 
-  it("die AUEG-Frist steht als ungeprueft in der Antwort — auch gegen die echte DB", async () => {
+  /* ── E-K3-1 · die AUEG-Pruefung gegen das echte Schema ─────── */
+
+  it("Migration 211 ist eingespielt: die Hoechstdauer hat eine Grundlage", async () => {
+    const { rows } = await pool.query(
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'aueg_konfiguration'
+          AND column_name IN ('org_id','hoechstdauer_monate','unterbrechung_monate','grundlage')
+        ORDER BY column_name`
+    );
+    assert.deepEqual(rows.map((r) => r.column_name),
+      ["grundlage", "hoechstdauer_monate", "org_id", "unterbrechung_monate"]);
+  });
+
+  it("eine Abweichung OHNE Grundlage weist die Datenbank ab", async () => {
+    /* Eine laengere Frist ohne benannten Tarifvertrag ist eine Behauptung, und
+     * im Streitfall traegt sie niemand. Die Regel steht in der Datenbank, nicht
+     * nur im Code. */
+    const { rows: org } = await pool.query(`SELECT id FROM organizations LIMIT 1`);
+    if (!org[0]) return;
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await assert.rejects(
+        () => client.query(
+          `INSERT INTO aueg_konfiguration (org_id, hoechstdauer_monate) VALUES ($1, 36)`,
+          [org[0].id]
+        ),
+        /aueg_abweichung_braucht_grundlage/
+      );
+    } finally {
+      await client.query("ROLLBACK");
+      client.release();
+    }
+  });
+
+  it("mit Grundlage geht sie durch — und wird wieder entfernt", async () => {
+    const { rows: org } = await pool.query(`SELECT id FROM organizations LIMIT 1`);
+    if (!org[0]) return;
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `INSERT INTO aueg_konfiguration (org_id, hoechstdauer_monate, grundlage)
+         VALUES ($1, 48, 'TV BZ ME NRW, § 3 Abs. 2 — 48 Monate')`,
+        [org[0].id]
+      );
+      const { rows } = await client.query(
+        `SELECT hoechstdauer_monate FROM aueg_konfiguration WHERE org_id = $1`, [org[0].id]
+      );
+      assert.equal(Number(rows[0].hoechstdauer_monate), 48);
+    } finally {
+      await client.query("ROLLBACK");
+      client.release();
+    }
+  });
+
+  it("die Ueberlassungs-Abfrage ist gueltiges Postgres", async () => {
+    assert.equal((await ueberlassungen(pool, [{ worker_user_id: fremd, org_id: fremd }])).size, 0);
+    assert.equal((await konfigurationen(pool, [fremd])).size, 0);
+    const r = await auegBefunde(pool, [{ worker_user_id: fremd, org_id: fremd }],
+      { fensterVon: "2026-04-01", fensterBis: "2026-04-30" });
+    assert.deepEqual(r.befunde, []);
+    assert.equal(r.nur_plattformdaten, true);
+  });
+
+  it("die AUEG-Pruefung FEUERT gegen den echten Bestand — nicht nur wenn nichts da ist", async () => {
+    /* Eine Pruefung, die immer schweigt, ist von einer kaputten nicht zu
+     * unterscheiden. Gesucht wird das Fenster, in dem die laengste
+     * Ueberlassungskette ihre Frist reisst. */
+    const { rows } = await pool.query(
+      `SELECT l.worker_user_id, l.org_id,
+              MIN(GREATEST(l.start_date, a.start_date)) AS beginn
+         FROM worker_assignment_links l
+         JOIN assignments a ON a.id = l.assignment_id
+        WHERE a.status <> 'cancelled'
+        GROUP BY l.worker_user_id, l.org_id
+        ORDER BY beginn ASC LIMIT 1`
+    );
+    if (!rows[0]) return;   // leerer Bestand ist kein Fehlschlag dieses Tests
+
+    const beginn = rows[0].beginn.toISOString
+      ? rows[0].beginn.toISOString().slice(0, 10)
+      : String(rows[0].beginn).slice(0, 10);
+    // 18 Monate nach dem Kettenbeginn liegt die Frist.
+    const jahr = Number(beginn.slice(0, 4));
+    const monat = Number(beginn.slice(5, 7));
+    const zielIndex = monat - 1 + 18;
+    const fenster = `${jahr + Math.floor(zielIndex / 12)}-${String((zielIndex % 12) + 1).padStart(2, "0")}`;
+
+    const r = await auegBefunde(pool,
+      [{ worker_user_id: rows[0].worker_user_id, org_id: rows[0].org_id }],
+      { fensterVon: `${fenster}-01`, fensterBis: `${fenster}-28` });
+
+    assert.ok(Array.isArray(r.befunde), "die Pruefung lief");
+    for (const b of r.befunde) {
+      assert.equal(b.art, "aueg_frist");
+      assert.ok(["hart", "weich"].includes(b.grad));
+      assert.match(b.ueberschreitung_am, /^\d{4}-\d{2}-\d{2}$/);
+      assert.equal(b.hoechstdauer_monate, 18, "ohne Eintrag gilt die gesetzliche Frist");
+    }
+  });
+
+  it("`nicht_geprueft` ist leer, aber vorhanden — auch gegen die echte DB", async () => {
     const plan = await monatsplan(pool, { orgId: fremd, seite: "agentur", monat: "2026-04" });
-    assert.equal(plan.nicht_geprueft.length, 1);
-    assert.equal(plan.nicht_geprueft[0].art, "aueg_frist");
+    assert.deepEqual(plan.nicht_geprueft, []);
+    assert.equal(plan.aueg_nur_plattformdaten, true);
+  });
+
+  /* ── E-K3-4 · die Bereinigung haelt ────────────────────────── */
+
+  it("keine Zuordnung ist mehr offen, obwohl ihr Einsatz beendet ist", async () => {
+    const { rows } = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM worker_assignment_links l
+         JOIN assignments a ON a.id = l.assignment_id
+        WHERE l.end_date IS NULL
+          AND COALESCE(a.actual_end_date, a.planned_end_date) < CURRENT_DATE`
+    );
+    assert.equal(rows[0].n, 0, "Migration 210 hat sie geschlossen — sie duerfen nicht zurueckkommen");
+  });
+
+  it("die Org-Angaben von Zuordnung und Einsatz stimmen ueberein", async () => {
+    /* Wichen sie ab, saehe die Agentur Konflikte zu Eintraegen, die nicht in
+     * ihrer Liste stehen — eine Sackgasse. */
+    const { rows } = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM worker_assignment_links l
+         JOIN assignments a ON a.id = l.assignment_id
+        WHERE l.org_id IS DISTINCT FROM a.org_id
+           OR (a.supplier_org_id IS NOT NULL AND l.supplier_org_id IS DISTINCT FROM a.supplier_org_id)`
+    );
+    assert.equal(rows[0].n, 0);
+  });
+
+  it("das Vorher-Bild der Bereinigung ist erhalten", async () => {
+    /* Eine Bestandsaenderung ohne Rueckweg ist keine. */
+    const { rows } = await pool.query(
+      `SELECT art, COUNT(*)::int AS n FROM zuordnung_bereinigung_210 GROUP BY art ORDER BY art`
+    );
+    assert.ok(rows.length > 0, "ohne Vorher-Bild waere die Bereinigung nicht zuruecknehmbar");
+    for (const r of rows) {
+      assert.ok(["link_geschlossen", "lieferant_nachgetragen"].includes(r.art));
+    }
   });
 });

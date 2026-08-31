@@ -40,7 +40,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **K4** | Der Feed fällt nie auf leer zurück | ✅ **gebaut** `eb46707` (Mig 204, `feedKopieService`, 18 Proben, 4 Rückmutationen) |
 | **K1** | Rabatt sichtbar + Eingriffspunkt | ✅ **gebaut** — Mig 206, drei Dienste, Staff-CC-Modul `rabatt-faelle`, 75 Proben, **14 Rückmutationen** |
 | **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | ✅ **vollständig gebaut** — Mig 208 + 209, `werbepraemieService`, 26 Proben, **16 Rückmutationen** |
-| **K3** | Monatsplanung | **K3.2 ✅ · K3.1 ✅ · K3.3/K3.4 ✅ gebaut** (lesende Fläche + vier Konfliktarten) — K3.5/K3.6 warten auf E-K3-1 bis E-K3-4 |
+| **K3** | Monatsplanung | **K3.1–K3.4 ✅ gebaut**, alle vier Owner-Entscheidungen beantwortet — **K3.5 als Nächstes**, dazu die Oberfläche |
 | **L** | Tragfähigkeit / Hochverfügbarkeit | dokumentiert, **nicht gebaut** (eigener Abschnitt, Owner-Vorgabe) |
 
 **Der nächste Griff: die Antwort des Owners auf E-K3-1 bis E-K3-3.** Der Entwurf
@@ -50,10 +50,35 @@ in [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_
 Gate, das man messen kann, sondern eine Produktentscheidung. Reihenfolge laut
 Plan: **K0 → K4 → K1 → K2 → K3** — die ersten vier sind durch.
 
-### Offene Owner-Entscheidungen: E-K3-1 bis E-K3-3
+### Die vier Owner-Entscheidungen sind beantwortet *(2026-08-31)*
 
-| | Frage | Warum sie nicht ableitbar ist |
-|---|---|---|
+| | Frage | Entscheid | Stand |
+|---|---|---|---|
+| **E-K3-1** | AÜG-Höchstdauer prüfen? | **ja — prüfen und darstellen** | ✅ Mig 211, `auegService` |
+| **E-K3-2** | in vergangene Monate planen? | **ja**, *„alleine wegen fehlenden Stundenzetteln"* | ⏭ gilt für K3.5 |
+| **E-K3-3** | offene Einsätze am Rand? | **bis Monatsrand, Vermerk „läuft noch"** | ✅ `randvermerk` |
+| **E-K3-4** | Zuordnungen aufräumen? | **ja, mehrfach prüfen** | ✅ Mig 210, acht Wege |
+
+**Der nächste Griff: `K3.5`** — beide Spuren schreibend. E-K3-2 ist beantwortet,
+also darf in einen vergangenen Monat geplant werden. Dazu fehlt die
+**Oberfläche**: der Dienst liefert den Monat samt Konflikten, ein Raster dafür
+gibt es noch nicht.
+
+> **Was beim Bauen der AÜG-Prüfung schiefging und gefangen wurde.** Zwei
+> Falschalarme: eine Kette, die 2026 endete, wurde für September 2027 gemeldet
+> (Rückfall auf „die letzte Kette"), und `ueberschritten` rechnete gegen heute,
+> während der Härtegrad gegen das Fenster rechnete — dieselbe Zeile sagte „hart"
+> und „nicht überschritten". Beim Rückmutieren kam ein dritter Fund dazu: die
+> beiden Riegel **deckten sich gegenseitig**, einzeln entfernt blieb die Suite
+> grün. Jeder hat jetzt einen eigenen, isolierten Testfall.
+
+> **Ein Befund, der offen bleibt: 49 der 68 Einsätze tragen keinen Lieferanten**
+> — und für sie gibt es keinerlei Anker (kein Angebot, kein Vertrag, keine
+> Ausschreibung, keine Zuordnung). Die Agentur-Spur der Monatsplanung sieht sie
+> deshalb nicht. Migration 210 hat nur die zwei rekonstruierbaren nachgetragen;
+> die übrigen zu raten wäre das Gegenteil von vorsichtig.
+
+---|---|---|
 | **E-K3-1** | **Soll die AÜG-Überlassungshöchstdauer geprüft werden?** | Sie hat **kein Feld im Schema**. Prüfbar wäre sie nur mit einem neuen Datum (Überlassungsbeginn je Kraft und Kunde) und einer Regel (18 Monate, mit tariflichen Abweichungen) — ein eigener Bau. Eine falsch gerechnete gesetzliche Frist ist schlimmer als keine. **Ohne diese Antwort kann K3.4 nicht vollständig gebaut werden.** |
 | **E-K3-2** | **Darf in einen vergangenen Monat geplant werden?** | 25 % der Einsätze werden rückwirkend angelegt (bis zu 426 Tage). Entweder die Fläche kann das auch — dann ist sie zugleich Nachtragewerkzeug — oder nicht. Beides ist vertretbar. |
 | **E-K3-3** | **Wie weit zeigt das Raster einen Einsatz ohne Enddatum?** | Offene Einsätze sind der Normalfall, nicht die Ausnahme. |
@@ -315,7 +340,7 @@ zurückziehen müssen.**
 
 | Plan | Inhalt |
 |---|---|
-| [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md) | **Der aktive Plan.** Owner-Abschnitte 12 + 13: Bounty-Verwaltung ins Staff CC, Werbe-Cashback, Monatsplanung, Feed-Rückfall. Alle Owner-Entscheidungen getroffen (2026-08-27). **K0 + K4 + K1 + K2 gebaut. K3.1/K3.2 liegen vor — E-K3-1 bis E-K3-3 warten auf Freigabe.** |
+| [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md) | **Der aktive Plan.** Owner-Abschnitte 12 + 13: Bounty-Verwaltung ins Staff CC, Werbe-Cashback, Monatsplanung, Feed-Rückfall. Alle Owner-Entscheidungen getroffen (2026-08-27). **K0 + K4 + K1 + K2 gebaut, K3.1–K3.4 gebaut. K3.5 und die Oberfläche sind offen.** |
 | [features/L_TRAGFAEHIGKEIT.md](features/L_TRAGFAEHIGKEIT.md) | Hochverfügbarkeit und Skalierung („wie tragen wir 10 000 Kunden?"). **Eigenständiger Abschnitt, dokumentiert und ausdrücklich nicht gebaut** — Owner-Vorgabe 2026-08-27. |
 | [features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md](features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md) | Welle J: Live-Belegschaft ↔ Marktplatz, Rechnungsstammdaten, E-Rechnung (ZUGFeRD, PDF/A-3u, Schematron). Gebaut. |
 | [features/I_AUDIT_ZUWEISUNG_SUPPORT.md](features/I_AUDIT_ZUWEISUNG_SUPPORT.md) · [features/I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md](features/I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md) | Welle I: Audit-Trennung, Fristen, Support-Weg. **I3 Stufe 1 gebaut** (E-Mail im Arbeiter-Weg), Stufen 2–4 offen (Web Push statt SMS — billiger und die Einwilligung ist sauberer). |

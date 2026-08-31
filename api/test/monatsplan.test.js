@@ -30,6 +30,7 @@ import assert from "node:assert/strict";
 import {
   monatsfenster, nachbarmonate, konfliktFuerSeite, offeneBedarfe,
   monatsplan, doppelbelegungen, abwesenheiten, ablaufendeNachweise,
+  randvermerk, RANDVERMERK,
   SEITEN, KONFLIKTARTEN
 } from "../services/monatsplanService.js";
 
@@ -337,31 +338,126 @@ describe("K3.4 · ein unbesetzter Bedarf ist ein weicher Punkt, keine Warnung", 
  * Was der Monat NICHT weiß
  * ══════════════════════════════════════════════════════════════════════════ */
 
-describe("K3.4 · die AÜG-Frist fehlt — und sagt das selbst", () => {
-  it("sie steht als `nicht_geprueft` in der Antwort, nicht in deren Fehlen", async () => {
+describe("K3.4 · die AÜG-Frist wird geprüft (E-K3-1) — und sagt, was sie nicht weiß", () => {
+  it("alle fünf Konfliktarten gelten als geprüft", () => {
+    const ungeprueft = Object.entries(KONFLIKTARTEN).filter(([, v]) => !v.geprueft).map(([k]) => k);
+    assert.deepEqual(ungeprueft, [],
+      "seit E-K3-1 wird auch die Überlassungshöchstdauer gerechnet");
+    assert.equal(Object.keys(KONFLIKTARTEN).length, 5);
+  });
+
+  it("`nicht_geprueft` bleibt als Feld bestehen, auch wenn es leer ist", async () => {
     /* Ein Konflikt, der stillschweigend fehlt, wäre genau die Fehlerklasse
-     * dieser Spur: gebaut, montiert, und niemand merkt, dass er nie feuert. */
+     * dieser Spur. Das Feld bleibt, damit die nächste Art, die man nicht
+     * rechnen kann, dort landet statt zu verschwinden. */
     const p = musterPool(() => ({ rows: [] }));
     const plan = await monatsplan(p, { orgId: "org-1", seite: "agentur", monat: "2026-04" });
-
-    assert.equal(plan.nicht_geprueft.length, 1);
-    assert.equal(plan.nicht_geprueft[0].art, "aueg_frist");
-    assert.equal(plan.nicht_geprueft[0].grad, "hart");
-    assert.match(plan.nicht_geprueft[0].grund, /E-K3-1/,
-      "der Grund muss auf die offene Owner-Entscheidung zeigen, nicht bloß 'nicht implementiert' sagen");
+    assert.ok(Array.isArray(plan.nicht_geprueft));
+    assert.deepEqual(plan.nicht_geprueft, []);
   });
 
-  it("die vier übrigen Arten sind als geprüft ausgewiesen", () => {
-    const geprueft = Object.entries(KONFLIKTARTEN).filter(([, v]) => v.geprueft).map(([k]) => k);
-    assert.deepEqual(geprueft.sort(),
-      ["abwesenheit", "bedarf_offen", "doppelbelegung", "nachweis_laeuft_ab"]);
+  it("die Grenze der AÜG-Datenlage steht in jeder Antwort", async () => {
+    const p = musterPool(() => ({ rows: [] }));
+    const plan = await monatsplan(p, { orgId: "org-1", seite: "kunde", monat: "2026-04" });
+    assert.equal(plan.aueg_nur_plattformdaten, true,
+      "Überlassungen über fremde Verleiher fehlen in der Rechnung — das muss dabeistehen");
   });
 
-  it("RÜCKMUTATION: würde die AÜG-Frist als geprüft gelten, fiele sie aus der Liste", () => {
-    /* Der Gegenbeweis dafür, dass `nicht_geprueft` wirklich aus den Arten
-     * gebildet wird und keine fest verdrahtete Zeile ist. */
-    const alsGeprueft = { ...KONFLIKTARTEN, aueg_frist: { grad: "hart", geprueft: true } };
-    const rest = Object.entries(alsGeprueft).filter(([, v]) => !v.geprueft);
-    assert.deepEqual(rest, []);
+  it("die Paare für die AÜG-Prüfung kommen aus den sichtbaren Einträgen", async () => {
+    /* Damit gelangt nichts in die Antwort, das der Abfragende nicht ohnehin
+     * sehen darf — die Prüfung erweitert die Mandantengrenze nicht. */
+    const p = musterPool((s) => {
+      if (/FROM assignments a/.test(s)) {
+        return { rows: [{
+          id: "a-1", org_id: "org-1", beginnt_vorher: false, endet_spaeter: false, offen: false,
+          kraefte: [{ worker_user_id: "w-1", name: "Meier" }]
+        }] };
+      }
+      return { rows: [] };
+    });
+    await monatsplan(p, { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+    const aueg = p.calls.find((x) => /a\.status <> 'cancelled'/.test(x.sql));
+    assert.ok(aueg, "die AÜG-Abfrage wurde nicht gestellt");
+    assert.deepEqual(aueg.params[0], ["w-1"], "nur die Kraft aus dem sichtbaren Eintrag");
+    assert.deepEqual(aueg.params[1], ["org-1"]);
+  });
+
+  it("ein AÜG-Befund landet WIRKLICH in den Konflikten des Monats", async () => {
+    /* Beim Rückmutieren fiel auf, dass sich `...aueg.befunde` aus der
+     * Konfliktliste entfernen ließ, ohne dass eine Probe rot wurde: alle
+     * bisherigen liefen mit leeren Zeilen. Eine Verdrahtung, die niemand
+     * durchläuft, ist genau die Fehlerklasse dieser Spur. */
+    const p = musterPool((s) => {
+      if (/FROM assignments a/.test(s)) {
+        return { rows: [{
+          id: "a-1", org_id: "org-1", beginnt_vorher: true, endet_spaeter: true, offen: false,
+          kraefte: [{ worker_user_id: "w-1", name: "Meier" }]
+        }] };
+      }
+      // Die Überlassungsgeschichte: eine Kette ab 2026-01-15, die bis in das
+      // Fenster reicht und ihre Frist dort reißt.
+      if (/a\.status <> 'cancelled'/.test(s)) {
+        return { rows: [{
+          worker_user_id: "w-1", org_id: "org-1",
+          von: "2026-01-15", bis: "9999-12-31",
+          assignment_id: "a-1", supplier_org_id: "lief-1"
+        }] };
+      }
+      return { rows: [] };
+    });
+
+    const plan = await monatsplan(p, { orgId: "org-1", seite: "agentur", monat: "2027-08" });
+    const aueg = plan.konflikte.filter((k) => k.art === "aueg_frist");
+    assert.equal(aueg.length, 1, "der AÜG-Befund ist nicht in den Konflikten angekommen");
+    assert.equal(aueg[0].grad, "hart");
+    assert.equal(aueg[0].ueberschreitung_am, "2027-07-15");
+    assert.equal(plan.zusammenfassung.konflikte_hart, 1,
+      "die Zusammenfassung muss ihn mitzählen, sonst sieht die Fläche eine andere Zahl");
+  });
+
+  it("ohne Kräfte im Fenster wird die AÜG gar nicht erst abgefragt", async () => {
+    const p = musterPool(() => ({ rows: [] }));
+    await monatsplan(p, { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+    assert.equal(p.calls.filter((x) => /a\.status <> 'cancelled'/.test(x.sql)).length, 0);
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * E-K3-3 · der Randvermerk
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+describe("E-K3-3 · bis zum Monatsrand, mit Vermerk", () => {
+  it("ein Einsatz ohne Enddatum trägt „läuft noch\"", () => {
+    assert.equal(randvermerk({ offen: true, endet_spaeter: false }), RANDVERMERK.laeuft_noch);
+    assert.equal(RANDVERMERK.laeuft_noch, "laeuft_noch");
+  });
+
+  it("ein bekanntes Ende hinter dem Fenster trägt einen anderen Vermerk", () => {
+    /* Zwei verschiedene Aussagen: „wir wissen nicht, wann es endet" und „es
+     * endet, aber später". Ein gemeinsamer Vermerk würde beides verwischen. */
+    assert.equal(randvermerk({ offen: false, endet_spaeter: true }), RANDVERMERK.endet_spaeter);
+  });
+
+  it("ein Einsatz, der im Fenster endet, trägt keinen Vermerk", () => {
+    assert.equal(randvermerk({ offen: false, endet_spaeter: false }), null);
+    assert.equal(randvermerk(null), null);
+  });
+
+  it("der Vermerk kommt am Eintrag mit, nicht aus der Oberfläche", async () => {
+    /* Sonst erfindet ihn jede Fläche neu, und die dritte heißt dann
+     * „unbefristet". */
+    const p = musterPool((s) => {
+      if (/FROM assignments a/.test(s)) {
+        return { rows: [
+          { id: "a1", org_id: "o1", offen: true,  endet_spaeter: false, kraefte: [] },
+          { id: "a2", org_id: "o1", offen: false, endet_spaeter: true,  kraefte: [] },
+          { id: "a3", org_id: "o1", offen: false, endet_spaeter: false, kraefte: [] }
+        ] };
+      }
+      return { rows: [] };
+    });
+    const plan = await monatsplan(p, { orgId: "o1", seite: "agentur", monat: "2026-04" });
+    assert.deepEqual(plan.eintraege.map((e) => e.randvermerk),
+      ["laeuft_noch", "endet_spaeter", null]);
   });
 });
