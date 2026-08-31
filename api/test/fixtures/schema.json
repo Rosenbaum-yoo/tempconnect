@@ -1,11 +1,11 @@
 {
   "_hinweis": "GENERIERT — nicht von Hand bearbeiten. Neu erzeugen mit: npm run schema:snapshot (liest die laufende Datenbank im Container tempconnect_db).",
-  "erzeugt_am": "2026-08-29T21:04:10.304Z",
+  "erzeugt_am": "2026-08-31T06:23:29.664Z",
   "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
   "migrations_fingerabdruck": {
     "init": "49a1c9ef343102f593f1267155c30cea987684bf1a93826cf237e61101238c7e",
-    "dateien": 211,
-    "hash": "017c070e078f080838ba5e6643bcaa9ea4cdd0ed03370a5443a34e7eb53fb4bf"
+    "dateien": 212,
+    "hash": "0d0603710c5215dee822dc8f43c4f654456cb271e1acaf3da5cd97ed94b9b3de"
   },
   "pruefwerte": {
     "approval_requests": {
@@ -2779,6 +2779,7 @@
         "available_until",
         "category",
         "created_at",
+        "deckel_frei",
         "description_de",
         "discount_pct",
         "icon",
@@ -2796,6 +2797,7 @@
       "nicht_null": [
         "category",
         "created_at",
+        "deckel_frei",
         "description_de",
         "discount_pct",
         "icon",
@@ -5386,10 +5388,13 @@
     "referral_rewards": {
       "spalten": [
         "amount_eur",
+        "angewandt_am",
         "applied_at",
         "description",
+        "faellig_ab",
         "id",
         "month_label",
+        "rechnung_id",
         "referral_id",
         "reward_type",
         "user_id"

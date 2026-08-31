@@ -39,16 +39,32 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **K0** | Vorlauf: Merge, Gegenprüfung, Feed-Fehler | ✅ durch — Gate grün, Feed-Fehler (`e845c2d`) bestätigt behoben |
 | **K4** | Der Feed fällt nie auf leer zurück | ✅ **gebaut** `eb46707` (Mig 204, `feedKopieService`, 18 Proben, 4 Rückmutationen) |
 | **K1** | Rabatt sichtbar + Eingriffspunkt | ✅ **gebaut** — Mig 206, drei Dienste, Staff-CC-Modul `rabatt-faelle`, 75 Proben, **14 Rückmutationen** |
-| **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | ⏭ **als Nächstes**; **Gate K2.2 zuerst** |
+| **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | **Gate K2.2 ✅ beantwortet**, K2.1 gemessen, K2.3 gebaut (Mig 208) — **K2.4–K2.7 offen** |
 | **K3** | Monatsplanung | offen; setzt Welle J vollständig voraus |
 | **L** | Tragfähigkeit / Hochverfügbarkeit | dokumentiert, **nicht gebaut** (eigener Abschnitt, Owner-Vorgabe) |
 
-**Der nächste Griff:** **Gate `K2.2`** aus
+**Der nächste Griff:** **`K2.4`** aus
 [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md)
-— *„Verträgt der Abrechnungsweg eine 0-€-Rechnung?"* Das ist ein **Gate, keine
-Phase**: verträgt er sie nicht, ändert das den ganzen Entwurf des Werbe-Cashbacks
-(dann z. B. 99 % plus Restbetrag oder ein Gutschriftsweg). Es wird **gemessen,
-bevor gebaut wird.** Reihenfolge laut Plan: **K0 → K4 → K1 → K2 → K3.**
+— die Karenz-Uhr (30 Tage Bestand), dann K2.5 (Deckel bei 3), K2.6 (Stapelung),
+K2.7 (Eingriffspunkt). Das **Gate K2.2 ist beantwortet**, der Weg trägt jetzt eine
+0-€-Rechnung. Reihenfolge laut Plan: **K0 → K4 → K1 → K2 → K3.**
+
+> **Was das Gate ergeben hat, in einem Satz: die Rechenkette trug die 0 € auf
+> Anhieb, drei andere Schichten nicht.** Der schwerste Befund: der Lauf setzt das
+> Abo auf `past_due`, eine 0-€-Rechnung bezahlt niemand, `applyRenewalPayment`
+> hat **keinen einzigen Aufrufer** — nach 14 Tagen hätte `applyHardLocks` den
+> Kunden, dem die Rechnung geschenkt wurde, auf DEMO **ausgesperrt**. Dazu: die
+> Tier-Deckelung stutzte 100 % auf 25 %, der Katalog ließ überhaupt nur 20 % zu,
+> und der Mahnlauf hätte 0,00 € angemahnt. Alle vier behoben (Mig 208,
+> `nullEuroRechnung.test.js`, 9 Rückmutationen). **Der Owner-Entscheid bleibt
+> unverändert** — keine 99-%-Krücke, kein Gutschriftsweg nötig.
+
+> **Zwei Stellen, an denen der Bestandscode dem Owner-Entscheid widerspricht** —
+> in K2.4/K2.5 zu korrigieren, nicht neu zu verhandeln: `MAX_REFERRAL_REWARDS = 6`
+> (Owner: **höchstens 3**) und die Qualifikation feuert **sofort** beim
+> Zahlungseingang (Owner: **30 Tage Bestand**). Und: die Werbeprämie wird seit
+> jeher **gebucht und nie angewandt** — keine Datei des Geldpfads erwähnt
+> `referral` überhaupt.
 
 > **`K4-B1` gilt weiter, und K1 ist ihm genauso begegnet.** Es gibt **keinen Kanal,
 > der das Team erreicht**: `notificationMatrix.dispatch()` kennt nur org- und
@@ -255,7 +271,7 @@ zurückziehen müssen.**
 
 | Plan | Inhalt |
 |---|---|
-| [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md) | **Der aktive Plan.** Owner-Abschnitte 12 + 13: Bounty-Verwaltung ins Staff CC, Werbe-Cashback, Monatsplanung, Feed-Rückfall. Alle Owner-Entscheidungen getroffen (2026-08-27). **K0 + K4 + K1 gebaut, Gate K2.2 als Nächstes.** |
+| [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md) | **Der aktive Plan.** Owner-Abschnitte 12 + 13: Bounty-Verwaltung ins Staff CC, Werbe-Cashback, Monatsplanung, Feed-Rückfall. Alle Owner-Entscheidungen getroffen (2026-08-27). **K0 + K4 + K1 gebaut, Gate K2.2 beantwortet, K2.4 als Nächstes.** |
 | [features/L_TRAGFAEHIGKEIT.md](features/L_TRAGFAEHIGKEIT.md) | Hochverfügbarkeit und Skalierung („wie tragen wir 10 000 Kunden?"). **Eigenständiger Abschnitt, dokumentiert und ausdrücklich nicht gebaut** — Owner-Vorgabe 2026-08-27. |
 | [features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md](features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md) | Welle J: Live-Belegschaft ↔ Marktplatz, Rechnungsstammdaten, E-Rechnung (ZUGFeRD, PDF/A-3u, Schematron). Gebaut. |
 | [features/I_AUDIT_ZUWEISUNG_SUPPORT.md](features/I_AUDIT_ZUWEISUNG_SUPPORT.md) · [features/I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md](features/I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md) | Welle I: Audit-Trennung, Fristen, Support-Weg. **I3 Stufe 1 gebaut** (E-Mail im Arbeiter-Weg), Stufen 2–4 offen (Web Push statt SMS — billiger und die Einwilligung ist sauberer). |

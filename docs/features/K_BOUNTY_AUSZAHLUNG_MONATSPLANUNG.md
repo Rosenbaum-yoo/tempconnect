@@ -1,6 +1,6 @@
 # Welle K — Bounty-Auszahlung, Werbe-Cashback, Monatsplanung
 
-> **Status (2026-08-29): K0 ✅ · K4 ✅ · K1 ✅ gebaut · K2, K3 offen.**
+> **Status (2026-08-31): K0 ✅ · K4 ✅ · K1 ✅ · Gate K2.2 ✅ beantwortet · K2.4–K2.7 offen · K3 offen.**
 > Alle Owner-Entscheidungen getroffen (2026-08-27).
 > Owner-Abschnitte **12** und **13**, dazu zwei Punkte aus dem Betrieb.
 >
@@ -339,19 +339,84 @@ zuständigen Probe gefangen.** Migration 206 (`rabatt_ausfaelle`,
 **höchstens 3 Monate**, **nächste Rechnung frei** (keine Rückerstattung). Der
 Geworbene bekommt **nichts extra**.
 
-| Phase | Inhalt | Nachweis |
+| Phase | Inhalt | Stand |
 |---|---|---|
-| K2.1 | **Erhebung:** ist `referrals` → Prämie heute verdrahtet? `reward_applied_at` prüfen. | Befund, nicht Vermutung |
-| K2.2 | **Vertragen 0-€-Rechnungen den Weg?** `berechneRabatt(netto, 100)` → netto 0, Steuer 0, gesamt 0 — durch `createInvoice`, den Zahlungsweg und den PDF-Beleg. | **Bevor** irgendetwas gebaut wird |
-| K2.3 | **Ausnahme von der Tier-Deckelung** für den Cashback-Typ (siehe 2.3) | Bronze-Kunde bekommt 100 %, nicht 8 % |
+| K2.1 | **Erhebung:** ist `referrals` → Prämie heute verdrahtet? | ✅ **gemessen** — siehe unten |
+| K2.2 | **Gate: vertragen 0-€-Rechnungen den Weg?** | ✅ **beantwortet** — Rechenkette ja, drei andere Schichten nein; alle drei behoben (Mig 208) |
+| K2.3 | **Ausnahme von der Tier-Deckelung** für den Cashback-Typ (siehe 2.3) | ✅ `bounties.deckel_frei` — Bronze-Kunde bekommt 100 %, nicht 8 % |
 | K2.4 | Karenz-Uhr: der Geworbene muss 30 Tage bestehen | Kündigung an Tag 29 → keine Prämie |
 | K2.5 | Deckel bei 3 Monaten | vierter geworbener Kunde → keine weitere Prämie |
 | K2.6 | Stapelung klären: 100 % neben einem Treuerabatt | Ergebnis nie über 100 %, Treuerabatt geht nicht verloren |
 | K2.7 | Eingriffspunkt wie K1.4 | Audit-Probe |
 
-> **K2.2 ist ein Gate, keine Phase.** Verträgt der Abrechnungsweg keine 0-€-Rechnung,
-> ändert das den ganzen Entwurf — dann ist die Prämie z. B. 99 % plus ein
-> Restbetrag, oder ein Gutschriftsweg. Das muss vor dem Bau feststehen.
+> **K2.2 war ein Gate, keine Phase** — und es hat sich gelohnt.
+
+### Das Ergebnis des Gates *(gemessen 2026-08-30/31)*
+
+**Die Rechenkette trug es auf Anhieb. Drei andere Schichten nicht.**
+
+| Schicht | Trägt 0 €? | Befund |
+|---|---|---|
+| `berechneRabatt(netto, 100)` | ✅ | Abzug = netto, Rest 0 — bei jedem Betrag, auch bei 1 Cent |
+| `createInvoice` | ✅ | amount 0, Steuer 0, gesamt 0, brutto 15000, Rabatt 15000 |
+| DB-Prüfregeln | ✅ | alle `>= 0`; `invoices_rabatt_stimmig` geht auf. Keine verlangt einen positiven Betrag |
+| **Tier-Deckelung** | ❌ | Diamant-Kunde bekam **25 % statt 100 %** — die Vorhersage aus 2.3, jetzt am Code belegt |
+| **Katalog-Grenze** | ❌ | `discount_pct <= 20` — ein 100-%-Eintrag war **gar nicht anlegbar**. Stand nicht im Plan |
+| **Lebenszyklus** | ❌ | **der schwerste** — siehe unten |
+| **Mahnlauf** | ❌ | hätte eine Zahlungserinnerung über **0,00 €** verschickt |
+
+> **Der Freimonat führte in die Sperre statt in die Freude.** Der Lauf setzt das
+> Abo auf `past_due`. Eine 0-€-Rechnung bezahlt niemand — es gibt nichts zu
+> zahlen. `applyRenewalPayment`, das aus `past_due` zurückführt, hat **keinen
+> einzigen Aufrufer**. Nach 14 Tagen greift `applyHardLocks`: Abo `canceled`,
+> Organisation auf DEMO. **Der Kunde, dem die nächste Rechnung geschenkt wurde,
+> wäre ausgesperrt worden.**
+>
+> Das trifft nicht nur den Cashback: **jede** Rechnung, die auf null fällt, lief
+> hinein — auch ein Eingriff nach K1.4, der die 100 % erreicht.
+
+**Die Entscheidung: keine 99-%-Krücke, kein Gutschriftsweg.** Die im Plan
+genannten Auswege lösen das Problem an der falschen Stelle. Eine Forderung über
+null ist in dem Moment erfüllt, in dem sie entsteht — das ist keine Umgehung,
+sondern die richtige Buchung. Der Lauf bucht sie deshalb sofort als bezahlt und
+rollt die Periode weiter, **in derselben Transaktion** wie der Status-Flip (sonst
+gäbe es ein Fenster, in dem der Härte-Riegel zuschlagen könnte). Damit bleibt der
+Owner-Entscheid unverändert gültig: 100 %, die nächste Rechnung ist frei, keine
+Rückerstattung.
+
+**Die 20-%-Katalogregel ist nicht gefallen, sondern genauer geworden:**
+`CHECK (discount_pct <= CASE WHEN deckel_frei THEN 100 ELSE 20 END)`. Für jeden
+normalen Eintrag gilt exakt dieselbe Grenze wie vorher — dieselbe Überlegung, aus
+der Migration 170 auf eine negative `invoice_items`-Zeile verzichtet hat.
+
+**Belege:** Migration 208, `api/test/nullEuroRechnung.test.js` (15 Proben),
+**9 Rückmutationen an der Produktionsquelle**, `test/integration/rabattWirdSichtbar.flow.test.js`
+26/26 im Container gegen das echte Schema.
+
+### Das Ergebnis von K2.1 *(gemessen 2026-08-30)*
+
+| | Zahl |
+|---|---|
+| `referral_codes` | 17 |
+| `referrals` | 1 |
+| `referral_rewards` | 2 — **beide `pilot_base`**, keine einzige `free_month`/`cashback` |
+| `reward_applied_at` gesetzt | **0** |
+
+**Die Mechanik existiert und ist verdrahtet — nur nicht ans Geld.**
+`qualifyReferralReward` wird aus `routes/payment.js:683` gerufen, sobald der
+geworbene Kunde zahlt, und schreibt eine `referral_rewards`-Zeile. Aber: **keine
+einzige Datei des Geldpfads** (`invoiceService`, `recurringBillingService`,
+`paymentService`, `planCatalog`) erwähnt `referral` überhaupt. Die Prämie wird
+gebucht und **nie angewandt** — dieselbe Fehlerklasse wie der Treue-Rabatt vor
+Migration 170: *ein Preisversprechen ohne Wirkung.*
+
+Migration 208 legt die fehlende Hälfte an: `faellig_ab` (Karenz), `angewandt_am`
+und `rechnung_id` (der Beleg).
+
+> **Zwei Stellen, an denen der Code dem Owner-Entscheid widerspricht** — für
+> K2.4/K2.5 zu korrigieren, nicht neu zu verhandeln:
+> `MAX_REFERRAL_REWARDS = 6` (Owner: **höchstens 3**) und die Qualifikation
+> feuert **sofort** beim Zahlungseingang (Owner: **30 Tage Bestand**).
 
 ---
 
@@ -406,7 +471,7 @@ entfernt — **jede von genau der zuständigen Probe gefangen**.
 K0 (erledigt sich mit dem Merge)          ✅ durch
  ├── K4 (Feed-Rückfall)      ← klein, schützt die sichtbarste Fläche   ✅ eb46707
  ├── K1 (Rabatt + Eingriff)  ← behebt einen Geldfehler                 ✅ gebaut
- ├── K2 (Werbe-Cashback)     ← Gate K2.2 zuerst                        ⏭ als Nächstes
+ ├── K2 (Werbe-Cashback)     ← Gate K2.2 ✅, K2.3 ✅, K2.4-K2.7 offen   ⏭ laeuft
  └── K3 (Monatsplanung)      ← braucht Welle J vollständig             offen
 ```
 

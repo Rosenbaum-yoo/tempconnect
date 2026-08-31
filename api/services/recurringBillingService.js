@@ -435,6 +435,7 @@ export async function generateRecurringInvoices(pool, opts = {}) {
   let invoiced = 0;
   let skipped = 0;
   let eingriffeAngewandt = 0;
+  let ohneForderung = 0;
   const failed = [];
 
   for (const s of rows) {
@@ -465,6 +466,12 @@ export async function generateRecurringInvoices(pool, opts = {}) {
       // Client (.release vorhanden) und öffnet KEINE zweite Transaktion.
       let angewandterEingriff = null;
       let angewandterSatz = entscheidung.rabattSatz;
+      // Gate K2.2: wurde DIESE Rechnung mit ihrer Ausstellung beglichen?
+      // BEWUSST hier deklariert und nicht in der Transaktion — genau die Falle,
+      // die in K4 einen ReferenceError erzeugt hat (`opts` mit `const`
+      // innerhalb des try, im catch unsichtbar). Und bewusst ANDERS benannt als
+      // der Zaehler `ohneForderung` weiter oben: zwei Dinge, zwei Namen.
+      let rechnungOhneForderung = false;
 
       const invoice = await withTransaction(pool, async (client) => {
         const { rowCount } = await client.query(
@@ -518,6 +525,47 @@ export async function generateRecurringInvoices(pool, opts = {}) {
           angewandterEingriff = entscheidung.eingriff;
         }
 
+        /* ══════════════════════════════════════════════════════════════════
+         * GATE K2.2 — EINE 0-EUR-RECHNUNG IST MIT IHRER AUSSTELLUNG BEGLICHEN
+         * ══════════════════════════════════════════════════════════════════
+         *
+         * Ohne diesen Zweig endete ein Freimonat in der SPERRE statt in der
+         * Freude. Gemessen am 2026-08-30:
+         *
+         *   Rechnung ueber 0,00 EUR  →  Abo auf `past_due`
+         *   niemand zahlt sie        →  es gibt nichts zu zahlen
+         *   applyRenewalPayment      →  hat KEINEN EINZIGEN AUFRUFER
+         *   nach 14 Tagen            →  applyHardLocks: `canceled`, Org auf DEMO
+         *
+         * Der Kunde, dem die naechste Rechnung geschenkt wurde, waere
+         * ausgesperrt worden. Das ist kein Randfall des Cashbacks — es trifft
+         * JEDE Rechnung, die auf null faellt, also auch einen Eingriff nach
+         * K1.4, der die 100 % erreicht.
+         *
+         * Der Fix ist keine Umgehung, sondern die richtige Buchung: eine
+         * Forderung ueber null ist in dem Moment erfuellt, in dem sie entsteht.
+         * Also wird sie sofort als bezahlt gebucht und die Periode
+         * weitergerollt — mit derselben Funktion, die auch ein echter
+         * Zahlungseingang benutzen wuerde.
+         *
+         * IN DERSELBEN TRANSAKTION wie der Flip: sonst gaebe es ein Fenster, in
+         * dem das Abo `past_due` ist und der Haerte-Riegel zuschlagen koennte.
+         *
+         * Die Reihenfolge bleibt: erst der bewachte Flip (er ist der
+         * Idempotenz-Riegel gegen den Parallellauf), dann die Rechnung, dann
+         * der Ausgleich. */
+        if (inv && Number(inv.total_cents) === 0) {
+          await client.query(
+            `UPDATE invoices SET status = 'paid', paid_at = NOW(), updated_at = NOW()
+              WHERE id = $1 AND status = 'issued'`,
+            [inv.id]
+          );
+          // `applyRenewalPayment` erwartet `past_due` — genau der Zustand, den
+          // der Flip zwei Anweisungen vorher hergestellt hat.
+          await applyRenewalPayment(client, { subscriptionId: s.id, now: nowTs });
+          rechnungOhneForderung = true;
+        }
+
         return inv;
       });
 
@@ -527,6 +575,7 @@ export async function generateRecurringInvoices(pool, opts = {}) {
       }
 
       if (angewandterEingriff) eingriffeAngewandt++;
+      if (rechnungOhneForderung) ohneForderung++;
 
       /* K1.1 — der Befund bekommt seinen Beleg. Erst dadurch ist er prüfbar:
        * „DIESE Rechnung ging ohne Rabatt raus". Wirft nie. */
@@ -569,7 +618,13 @@ export async function generateRecurringInvoices(pool, opts = {}) {
     }
   }
 
-  return { processed, invoiced, skipped, failed, batch_size: batch, eingriffe_angewandt: eingriffeAngewandt };
+  return {
+    processed, invoiced, skipped, failed, batch_size: batch,
+    eingriffe_angewandt: eingriffeAngewandt,
+    // Gate K2.2: wie viele Rechnungen mit ihrer Ausstellung beglichen waren.
+    // Ein Lauf, der Freimonate ausgibt, ohne das zu berichten, waere wieder still.
+    ohne_forderung: ohneForderung
+  };
 }
 
 /* ── 2) Dunning Sweep ───────────────────────────────────────── */
@@ -604,6 +659,15 @@ export async function runDunningSweep(pool, opts = {}) {
        LEFT JOIN organizations o ON o.id = i.org_id
       WHERE i.status = 'overdue'
         AND i.invoice_type = 'subscription'
+        -- Gate K2.2: eine Rechnung ueber 0,00 EUR wird NIE gemahnt.
+        --
+        -- Gemessen am 2026-08-30: diese Bedingung fehlte, und der Mahnlauf
+        -- haette dem Kunden, dem gerade ein Freimonat geschenkt wurde, eine
+        -- Zahlungserinnerung ueber 0,00 EUR geschickt. Der Ausgleich beim
+        -- Ausstellen (siehe generateRecurringInvoices) verhindert das schon —
+        -- diese Zeile ist der zweite Riegel fuer den Altbestand und fuer jede
+        -- Rechnung, die auf anderem Weg auf null faellt.
+        AND i.total_cents > 0
         AND i.dunning_level < $1
         AND (i.last_dunning_at IS NULL OR i.last_dunning_at <= $2)
       ORDER BY i.due_at ASC

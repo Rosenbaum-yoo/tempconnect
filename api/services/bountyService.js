@@ -347,14 +347,36 @@ export async function getUserBounties(pool, userId) {
  *                    stufe:object|null, stufenFehler:string|null}>}
  */
 export async function getUserDiscountDetail(pool, userId, opts = {}) {
+  /* WELLE K2.3 — die EINE Ausnahme an dieser Rechenkette.
+   *
+   * Bis hierher war jedes Bounty gleich: alles summieren, von der Stufe
+   * deckeln. Fuer Treue- und Leistungsbounties ist das genau richtig — die
+   * Stufe IST die Obergrenze dessen, was Treue wert sein soll.
+   *
+   * Der Werbe-Cashback ist etwas anderes: eine ZUSAGE ("die naechste Rechnung
+   * ist frei"), keine Belohnung fuer Treue. Unter der Stufen-Obergrenze waere
+   * er bei einem Bronze-Kunden von 100 % auf 8 % geschrumpft — die Praemie
+   * verkleinert sich lautlos auf ein Zwoelftel, und niemand merkt es.
+   * Gemessen am 2026-08-30: ein Diamant-Kunde bekam 25 statt 100.
+   *
+   * Die Trennung steht am KATALOG (`deckel_frei`), nicht an einem Schluessel im
+   * Code: ein `if (key === 'werbe_cashback')` waere der Sonderfall, den der
+   * naechste Anlass kopiert und der uebernaechste vergisst.
+   *
+   * Der Alias `total` bleibt bewusst stehen. Er traegt weiterhin genau die
+   * gedeckelte Summe — damit rechnet jeder bestehende Aufrufer und jede
+   * bestehende Probe unveraendert weiter, und die Aenderung ist eine
+   * Erweiterung statt eines Umbaus. */
   const { rows } = await pool.query(
-    `SELECT COALESCE(SUM(b.discount_pct), 0) AS total
+    `SELECT COALESCE(SUM(b.discount_pct) FILTER (WHERE NOT b.deckel_frei), 0) AS total,
+            COALESCE(SUM(b.discount_pct) FILTER (WHERE b.deckel_frei), 0)     AS deckel_frei_summe
      FROM user_bounties ub
      JOIN bounties b ON b.id = ub.bounty_id
      WHERE ub.user_id = $1 AND ub.is_active = TRUE AND b.is_active`,
     [userId]
   );
   const raw = Number(rows[0]?.total || 0);
+  const deckelFrei = Number(rows[0]?.deckel_frei_summe || 0);
   // Discount-Cap kommt vom aktuellen Tier (Bronze=8%, ..., Diamant=25%)
   let maxPct;
   // Welle K1.1: `stufenFehler` unterscheidet "hat noch keine Stufe" von "die
@@ -382,11 +404,21 @@ export async function getUserDiscountDetail(pool, userId, opts = {}) {
     });
   }
 
+  /* Die Deckelung wirkt auf die gedeckelten Bounties, der deckel-freie Teil
+   * kommt DANEBEN hinzu. Die 100 sind die absolute Grenze: mehr als die ganze
+   * Rechnung laesst sich nicht erlassen, und `berechneRabatt` wuerde ohnehin
+   * dort abschneiden — nur waere die Zahl in der Flaeche dann eine andere als
+   * die auf dem Beleg. */
+  const satz = Math.min(100, Math.min(maxPct, raw) + deckelFrei);
+
   return {
-    satz: Math.min(maxPct, raw),
+    satz,
     roh: raw,
     deckel: maxPct,
     gedeckelt: raw > maxPct,
+    // Getrennt ausgewiesen: die Staff-Flaeche muss erklaeren koennen, warum ein
+    // Kunde ueber seiner Stufen-Obergrenze liegt, ohne dass das ein Fehler ist.
+    deckel_frei_pct: deckelFrei,
     stufe,
     stufenFehler
   };

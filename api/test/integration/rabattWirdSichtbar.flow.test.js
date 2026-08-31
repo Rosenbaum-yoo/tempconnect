@@ -188,6 +188,98 @@ describe("K1 · die Abfragen sind gueltiges Postgres gegen das echte Schema",
     assert.ok(v.grund && v.grund.length > 0, "eine Ablehnung ohne Grund ist eine Sackgasse");
   });
 
+  /* ── Gate K2.2 / Migration 208 ────────────────────────────── */
+
+  it("Migration 208 ist eingespielt: der Katalog kennt deckel-freie Eintraege", async () => {
+    const { rows } = await pool.query(
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'bounties' AND column_name = 'deckel_frei'`
+    );
+    assert.equal(rows.length, 1, "ohne die Spalte deckelt die Stufe den Werbe-Cashback auf 8 %");
+  });
+
+  it("die 20-%-Grenze gilt WEITER — nur nicht fuer deckel-freie Eintraege", async () => {
+    /* Die Regel wurde genauer, nicht schwaecher. Beide Haelften werden gegen die
+     * echte Datenbank belegt, nicht gegen den Kommentar in der Migration. */
+    const { rows } = await pool.query(
+      `SELECT pg_get_constraintdef(c.oid) AS def
+         FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid
+        WHERE t.relname = 'bounties' AND c.conname = 'bounties_discount_pct_check'`
+    );
+    assert.equal(rows.length, 1, "die Geld-Schutzregel ist verschwunden statt praeziser zu werden");
+    assert.match(rows[0].def, /deckel_frei/);
+    assert.match(rows[0].def, /20/, "fuer normale Eintraege muss die alte Grenze stehen bleiben");
+    assert.match(rows[0].def, /100/);
+  });
+
+  it("ein normaler Katalogeintrag ueber 20 % wird von der Datenbank abgewiesen", async () => {
+    await assert.rejects(
+      () => pool.query(
+        `INSERT INTO bounties (key, name_de, description_de, category, discount_pct, deckel_frei)
+         VALUES ('k2_probe_normal', 'Probe', 'Probe', 'loyalty', 50, FALSE)`
+      ),
+      /bounties_discount_pct_check/,
+      "die Grenze fuer normale Bounties darf nicht gefallen sein"
+    );
+  });
+
+  it("ein deckel-freier Eintrag mit 100 % geht durch — und wird wieder entfernt", async () => {
+    /* Der Gegenbeweis zur Zeile darueber: dieselbe Zahl, andere Kennzeichnung,
+     * anderes Urteil. Aufgeraeumt wird in derselben Transaktion, damit im
+     * Katalog kein Testrest zurueckbleibt. */
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `INSERT INTO bounties (key, name_de, description_de, category, discount_pct, deckel_frei)
+         VALUES ('k2_probe_frei', 'Probe', 'Probe', 'loyalty', 100, TRUE)`
+      );
+      const { rows } = await client.query(
+        `SELECT discount_pct, deckel_frei FROM bounties WHERE key = 'k2_probe_frei'`
+      );
+      assert.equal(Number(rows[0].discount_pct), 100);
+      assert.equal(rows[0].deckel_frei, true);
+    } finally {
+      await client.query("ROLLBACK");
+      client.release();
+    }
+  });
+
+  it("die Werbepraemie hat jetzt eine zweite Haelfte: Faelligkeit, Anwendung, Beleg", async () => {
+    /* Vorher wurde sie gebucht und nie angewandt — dieselbe Fehlerklasse wie der
+     * Treue-Rabatt vor Migration 170: ein Preisversprechen ohne Wirkung. */
+    const { rows } = await pool.query(
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'referral_rewards'
+          AND column_name IN ('faellig_ab', 'angewandt_am', 'rechnung_id')
+        ORDER BY column_name`
+    );
+    assert.deepEqual(rows.map((r) => r.column_name), ["angewandt_am", "faellig_ab", "rechnung_id"]);
+  });
+
+  it("Bestandszeilen sind sofort faellig — eine Karenz wird nicht rueckwirkend erfunden", async () => {
+    const { rows } = await pool.query(
+      `SELECT COUNT(*)::int AS ohne_faelligkeit FROM referral_rewards WHERE faellig_ab IS NULL`
+    );
+    assert.equal(rows[0].ohne_faelligkeit, 0);
+  });
+
+  it("die offenen Praemien haben ihren Teilindex", async () => {
+    const { rows } = await pool.query(
+      `SELECT indexdef FROM pg_indexes WHERE tablename = 'referral_rewards'`
+    );
+    assert.ok(rows.some((r) => /angewandt_am IS NULL/i.test(r.indexdef)),
+      `kein Teilindex auf offene Praemien: ${JSON.stringify(rows)}`);
+  });
+
+  it("die getrennte Rabatt-Abfrage ist gueltiges Postgres gegen das echte Schema", async () => {
+    /* Das FILTER-Konstrukt und die Spalte `deckel_frei` — ein Mock haette beides
+     * anstandslos beantwortet. */
+    const d = await getUserDiscountDetail(pool, fremd);
+    assert.equal(d.satz, 0);
+    assert.equal(d.deckel_frei_pct, 0);
+  });
+
   /* ── Der Schreibweg ─────────────────────────────────────────────────── */
 
   it("ausfallFesthalten schreibt gueltiges SQL — und wirft auch gegen die echte DB nie", async () => {
