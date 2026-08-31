@@ -462,10 +462,47 @@ und `rechnung_id` (der Beleg).
 |---|---|---|
 | K3.1 | **Entwurf nach 3b** | ✅ **freigegeben 2026-08-31** (E-K3-1 bis E-K3-4) |
 | K3.2 | **Datenlage messen** | ✅ **gemessen 2026-08-31** — siehe unten |
-| K3.3 | Lesende Fläche: der Monat als Raster | ✅ `monatsplanService` — Dienst gebaut, Oberfläche offen |
+| K3.3 | Lesende Fläche: der Monat als Raster | ✅ **vollständig** — `monatsplanService`, `GET /workforce/monatsplan`, `monatsplan.html`; im Browser belegt (Raster, Leerzustand, Fehlerzustand) |
 | K3.4 | **Konflikte nach 3b** — hart und weich getrennt | ✅ **alle fünf Arten**, inkl. AÜG |
 | K3.5 | Beide Spuren schreibend, ohne Zustimmungspflicht | ⏭ **als Nächstes** — E-K3-2 ist beantwortet |
 | K3.6 | Härtung: Skalierung (10 → 300), `Europe/Berlin`, Mutation Testing auf der Konfliktlogik | Lastprobe + Mutationsergebnis |
+
+---
+
+## K3.3 — die Fläche
+
+`GET /workforce/monatsplan` in `api/routes/workforce.js`, Seite `monatsplan.html`
+mit `js/pages/monatsplan.js`.
+
+**Die Spur wird abgeleitet, nicht erfragt.** `organizations.type` ist `company`
+oder `agency`; daraus folgt die Spur. Käme sie aus dem Browser, könnte ein
+Einsatzunternehmen die Agentur-Sicht anfordern — und die zeigt bei einer
+Doppelbelegung den Namen der Gegenseite. Im Zweifel gilt die Kundenspur, weil
+sie die engere ist.
+
+**Das Raster schneidet an, statt zu kürzen.** Ein Balken, der vor dem Monat
+begann, läuft ohne linke Rundung aus dem Bild und trägt ein `←`; einer ohne
+Enddatum reicht bis zum Monatsrand und trägt „läuft noch →" (E-K3-3). Der
+Vermerk kommt vom Server — eine Fläche, die ihn selbst erfindet, nennt ihn beim
+nächsten Mal anders.
+
+**Konflikte sind Information plus Hebel.** Jeder nennt, was kollidiert, und die
+Handlung, die auf der **eigenen** Seite löst — bei einer Doppelbelegung sagt die
+Agentur-Ansicht *„besetzen Sie einen der beiden Einsätze anders, ohne
+Rückfrage"*, die Kundenansicht *„fordern Sie eine andere Einsatzkraft an"*. Es
+geht keine Aufforderung an die Gegenseite raus.
+
+**Im Browser belegt** (Vorschau-Server des Worktrees, echte Dienst-Antwort aus
+der laufenden Datenbank): Raster mit vier angeschnittenen Balken, drei mit
+„läuft noch", zwei harte AÜG-Befunde mit Datum und Hebel, der Hinweis auf die
+Grenze der Datenlage. Dazu der **Leerzustand** („In diesem Monat ist nichts
+geplant") und der **Fehlerzustand**. Konsole ohne Fehler.
+
+> **Was der Browser hier NICHT beweist.** Der API-Container läuft einen
+> Prozess-Schnappschuss vom Startzeitpunkt und kennt die neue Route nicht — die
+> Fläche wurde deshalb gegen eine **echte, aus der laufenden Datenbank gezogene**
+> Dienst-Antwort geprüft, nicht gegen den laufenden Server. Dass die Route selbst
+> trägt, belegen die Proben am echten Handler und die Container-Tests.
 
 ---
 

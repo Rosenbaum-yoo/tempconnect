@@ -27,8 +27,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
+import { createWorkforceRouter } from "../routes/workforce.js";
 import {
   monatsfenster, nachbarmonate, konfliktFuerSeite, offeneBedarfe,
+  seiteFuerOrg,
   monatsplan, doppelbelegungen, abwesenheiten, ablaufendeNachweise,
   randvermerk, RANDVERMERK,
   SEITEN, KONFLIKTARTEN
@@ -459,5 +461,125 @@ describe("E-K3-3 · bis zum Monatsrand, mit Vermerk", () => {
     const plan = await monatsplan(p, { orgId: "o1", seite: "agentur", monat: "2026-04" });
     assert.deepEqual(plan.eintraege.map((e) => e.randvermerk),
       ["laeuft_noch", "endet_spaeter", null]);
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * Die Verdrahtung — am ECHTEN Handler, nicht nur am Dienst darunter
+ * ══════════════════════════════════════════════════════════════════════════
+ *
+ * Die Lehre aus K4: acht grüne Dienst-Proben, und der Rückfall hätte in der
+ * Praxis nie gegriffen, weil `opts` mit `const` innerhalb des `try` stand.
+ */
+
+describe("K3.3 · die Spur wird abgeleitet, nicht erfragt", () => {
+  it("eine `agency` bekommt die Agentur-Spur, alles andere die Kundenspur", async () => {
+    for (const [typ, erwartet] of [["agency", "agentur"], ["company", "kunde"], [null, "kunde"]]) {
+      const p = musterPool((s) => (/FROM organizations WHERE id/.test(s)
+        ? { rows: typ ? [{ type: typ }] : [] } : { rows: [] }));
+      assert.equal(await seiteFuerOrg(p, "org-1"), erwartet, `type=${typ}`);
+    }
+  });
+
+  it("bei Großschreibung greift sie trotzdem", async () => {
+    const p = musterPool(() => ({ rows: [{ type: "AGENCY" }] }));
+    assert.equal(await seiteFuerOrg(p, "org-1"), "agentur");
+  });
+
+  it("ohne Auskunft gilt die ENGERE Sicht", async () => {
+    /* Ein Ausfall darf nie die weitere Sicht öffnen — die Agentur-Spur zeigt
+     * bei einer Doppelbelegung den Namen der Gegenseite. */
+    const p = musterPool(() => { throw new Error("connection terminated"); });
+    assert.equal(await seiteFuerOrg(p, "org-1"), "kunde");
+  });
+});
+
+describe("K3.3 · GET /workforce/monatsplan am echten Handler", () => {
+  function handler(router, pfad) {
+    for (const layer of router.stack) {
+      if (!layer.route || layer.route.path !== pfad) continue;
+      if (!layer.route.methods.get) continue;
+      return {
+        handle: layer.route.stack[layer.route.stack.length - 1].handle,
+        kette: layer.route.stack.map((l) => l.handle.name || "anonym")
+      };
+    }
+    throw new Error(`Route GET ${pfad} nicht gefunden`);
+  }
+
+  const antwort = () => {
+    const r = { _status: 200, _json: null };
+    r.status = (c) => { r._status = c; return r; };
+    r.json = (b) => { r._json = b; return r; };
+    return r;
+  };
+
+  const deps = (p) => ({
+    pool: p,
+    requireAuth: (_req, _res, next) => next(),
+    logger: { warn() {}, info() {}, error() {} }
+  });
+
+  it("liefert den Monat und leitet die Spur aus dem Organisationstyp ab", async () => {
+    const p = musterPool((s) => {
+      if (/FROM organizations WHERE id/.test(s)) return { rows: [{ type: "agency" }] };
+      return { rows: [] };
+    });
+    const r = antwort();
+    const h = handler(createWorkforceRouter(deps(p)), "/workforce/monatsplan");
+    await h.handle({ orgId: "org-1", query: { monat: "2026-04" } }, r, () => {});
+
+    assert.equal(r._status, 200);
+    assert.equal(r._json.seite, "agentur", "der Typ der Organisation entscheidet");
+    assert.equal(r._json.fenster.monat, "2026-04");
+    assert.ok(Array.isArray(r._json.konflikte));
+  });
+
+  it("die Spur aus der Anfrage wird IGNORIERT", async () => {
+    /* Käme sie aus dem Browser, könnte ein Einsatzunternehmen die Agentur-Sicht
+     * anfordern — und die zeigt bei einer Doppelbelegung den Namen der
+     * Gegenseite. */
+    const p = musterPool((s) => {
+      if (/FROM organizations WHERE id/.test(s)) return { rows: [{ type: "company" }] };
+      return { rows: [] };
+    });
+    const r = antwort();
+    const h = handler(createWorkforceRouter(deps(p)), "/workforce/monatsplan");
+    await h.handle({ orgId: "org-1", query: { monat: "2026-04", seite: "agentur" } }, r, () => {});
+    assert.equal(r._json.seite, "kunde", "die Spur aus der Anfrage darf nichts bewirken");
+  });
+
+  it("ohne Organisationskontext gibt es keinen Monat", async () => {
+    const r = antwort();
+    const h = handler(createWorkforceRouter(deps(musterPool())), "/workforce/monatsplan");
+    await h.handle({ query: {} }, r, () => {});
+    assert.equal(r._status, 400);
+    assert.equal(r._json.error, "NO_ORG_CONTEXT");
+  });
+
+  it("ein unbrauchbarer Monat fällt auf den laufenden zurück statt zu werfen", async () => {
+    /* E-K3-2 erlaubt ausdrücklich auch vergangene Monate — ein 400 wäre hier
+     * die falsche Antwort. */
+    const p = musterPool(() => ({ rows: [] }));
+    const r = antwort();
+    const h = handler(createWorkforceRouter(deps(p)), "/workforce/monatsplan");
+    await h.handle({ orgId: "org-1", query: { monat: "kaputt" } }, r, () => {});
+    assert.equal(r._status, 200);
+    assert.match(r._json.fenster.monat, /^\d{4}-\d{2}$/);
+  });
+
+  it("ein vergangener Monat wird ausgeliefert — E-K3-2", async () => {
+    const p = musterPool(() => ({ rows: [] }));
+    const r = antwort();
+    const h = handler(createWorkforceRouter(deps(p)), "/workforce/monatsplan");
+    await h.handle({ orgId: "org-1", query: { monat: "2020-01" } }, r, () => {});
+    assert.equal(r._json.fenster.monat, "2020-01",
+      "Nachträge sind ein Viertel der Wirklichkeit — die Fläche muss dorthin blättern können");
+  });
+
+  it("die Route steht hinter Anmeldung und Berechtigung", () => {
+    const h = handler(createWorkforceRouter(deps(musterPool())), "/workforce/monatsplan");
+    assert.ok(h.kette.length >= 3,
+      `zu kurze Kette: ${h.kette.join(" → ")} — Anmeldung und Berechtigung fehlen`);
   });
 });

@@ -40,7 +40,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **K4** | Der Feed fällt nie auf leer zurück | ✅ **gebaut** `eb46707` (Mig 204, `feedKopieService`, 18 Proben, 4 Rückmutationen) |
 | **K1** | Rabatt sichtbar + Eingriffspunkt | ✅ **gebaut** — Mig 206, drei Dienste, Staff-CC-Modul `rabatt-faelle`, 75 Proben, **14 Rückmutationen** |
 | **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | ✅ **vollständig gebaut** — Mig 208 + 209, `werbepraemieService`, 26 Proben, **16 Rückmutationen** |
-| **K3** | Monatsplanung | **K3.1–K3.4 ✅ gebaut**, alle vier Owner-Entscheidungen beantwortet — **K3.5 als Nächstes**, dazu die Oberfläche |
+| **K3** | Monatsplanung | **K3.1–K3.4 ✅ gebaut, Fläche steht** (`monatsplan.html`, im Browser belegt) — **K3.5 als Nächstes**, dann K3.6 |
 | **L** | Tragfähigkeit / Hochverfügbarkeit | dokumentiert, **nicht gebaut** (eigener Abschnitt, Owner-Vorgabe) |
 
 **Der nächste Griff: die Antwort des Owners auf E-K3-1 bis E-K3-3.** Der Entwurf
@@ -60,9 +60,16 @@ Plan: **K0 → K4 → K1 → K2 → K3** — die ersten vier sind durch.
 | **E-K3-4** | Zuordnungen aufräumen? | **ja, mehrfach prüfen** | ✅ Mig 210, acht Wege |
 
 **Der nächste Griff: `K3.5`** — beide Spuren schreibend. E-K3-2 ist beantwortet,
-also darf in einen vergangenen Monat geplant werden. Dazu fehlt die
-**Oberfläche**: der Dienst liefert den Monat samt Konflikten, ein Raster dafür
-gibt es noch nicht.
+also darf in einen vergangenen Monat geplant werden. **Die lesende Fläche steht**
+(`monatsplan.html`, `GET /workforce/monatsplan`) und ist im Browser belegt —
+Raster, Leerzustand, Fehlerzustand, Konsole sauber. Danach K3.6 (Härtung).
+
+> **Für den Browser-Nachweis wichtig:** der API-Container läuft einen
+> Prozess-Schnappschuss und kennt neue Routen nicht. Die Fläche wurde deshalb
+> gegen eine **echte, aus der laufenden Datenbank gezogene** Dienst-Antwort
+> geprüft (`.claude/monatsplan-probe.json`, vom Worktree-Vorschauserver
+> ausgeliefert). Dass die Route selbst trägt, belegen die Proben am echten
+> Handler und die Container-Tests — nicht der Browser.
 
 > **Was beim Bauen der AÜG-Prüfung schiefging und gefangen wurde.** Zwei
 > Falschalarme: eine Kette, die 2026 endete, wurde für September 2027 gemeldet

@@ -459,6 +459,7 @@ Weiterleitung oder für keinen Nutzer erreichbar.
 | `timesheets.html` | Zeitarbeitsfirma, Unternehmen | Arbeitszeiten eintragen, einreichen, freigeben lassen | aktiv |
 | `company-timesheets.html` | Unternehmen | Stundenzettel-Eingang prüfen, bestätigen oder zurückweisen | aktiv |
 | `company-live-workforce.html` | Unternehmen | Live-Belegschaft: wer gerade im Einsatz ist, Meldungen, Sperrliste (Welle J1, vorher Reiter in `company-timesheets.html`) | aktiv |
+| `monatsplan.html` | Unternehmen **und** Zeitarbeitsfirma | Monatsplanung: der Monat als Fenster — Einsätze und Bedarfe im Raster, am Rand angeschnitten statt gekürzt, mit den fünf Konfliktarten (Doppelbelegung, Abwesenheit, AÜG-Höchstdauer, unbesetzter Bedarf, ablaufender Nachweis). Die Spur wird aus `organizations.type` abgeleitet, nicht erfragt (Welle K3.3/K3.4) | aktiv |
 | `approvals.html` | Unternehmen | alles, was auf eine Entscheidung wartet | aktiv |
 
 ### Einsatzportal (Einsatzkräfte)

@@ -93,6 +93,28 @@ export const RANDVERMERK = Object.freeze({
   endet_spaeter: "endet_spaeter" // Enddatum bekannt, liegt hinter dem Fenster
 });
 
+/**
+ * Welche Spur einer Organisation gehoert — abgeleitet, nicht erfragt.
+ *
+ * `organizations.type` ist `company` oder `agency`. Die Seite ist damit KEINE
+ * Wahl des Aufrufers, sondern das, was die Organisation IST. Käme sie als
+ * Parameter aus dem Browser, koennte ein Einsatzunternehmen die Agentur-Sicht
+ * anfordern — und die zeigt den Bestand anders zugeschnitten.
+ *
+ * Im Zweifel gilt die Kundenspur: sie ist die engere von beiden.
+ */
+export async function seiteFuerOrg(pool, orgId) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT type FROM organizations WHERE id = $1`, [orgId]
+    );
+    return String(rows[0]?.type || "").toLowerCase() === "agency" ? "agentur" : "kunde";
+  } catch {
+    // Ohne Auskunft die engere Sicht — nie die weitere.
+    return "kunde";
+  }
+}
+
 /** Welcher Vermerk am rechten Rand einer Zeile steht — oder keiner. */
 export function randvermerk(zeile) {
   if (zeile?.offen) return RANDVERMERK.laeuft_noch;

@@ -5,6 +5,8 @@
  */
 import { Router } from "express";
 import * as workforceService from "../services/workforceService.js";
+// Welle K3: der Monat als Fenster. Zwei Spuren, keine Zustimmungspflicht.
+import { monatsplan, seiteFuerOrg } from "../services/monatsplanService.js";
 import { requirePermission } from "../middleware/rbac.js";
 
 export function createWorkforceRouter(deps) {
@@ -61,6 +63,35 @@ export function createWorkforceRouter(deps) {
       if (!detail) return res.status(404).json({ error: "NOT_FOUND" });
       if (detail.error === 'ORG_BOUNDARY_VIOLATION') return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
       res.json(detail);
+    } catch (err) { next(err); }
+  });
+
+  /**
+   * GET /workforce/monatsplan — der Monat als Fenster (Welle K3.3/K3.4).
+   *
+   * DIE SPUR WIRD ABGELEITET, NICHT ERFRAGT. `seiteFuerOrg` liest den Typ der
+   * Organisation; ein Einsatzunternehmen kann die Agentur-Sicht nicht anfordern.
+   * Der Zuschnitt ist verschieden — die Agentur sieht bei einer Doppelbelegung
+   * die Gegenseite mit Namen, der Kunde nicht.
+   *
+   * Die Mandantengrenze steht im Dienst (`WHERE a.org_id = $1` bzw.
+   * `a.supplier_org_id = $1`), nicht hier: sie gehoert an die Abfrage, nicht in
+   * eine Nachpruefung, die man vergessen kann.
+   */
+  router.get("/workforce/monatsplan", requireAuth, rperm("assignment.view"), async (req, res, next) => {
+    try {
+      const orgId = req.orgId;
+      if (!orgId) return res.status(400).json({ error: "NO_ORG_CONTEXT" });
+
+      const seite = await seiteFuerOrg(pool, orgId);
+      const plan = await monatsplan(pool, {
+        orgId,
+        seite,
+        // Ein unbrauchbarer Monat faellt auf den laufenden zurueck, statt zu
+        // werfen — E-K3-2 erlaubt ausdruecklich auch vergangene Monate.
+        monat: typeof req.query.monat === "string" ? req.query.monat : null
+      });
+      res.json(plan);
     } catch (err) { next(err); }
   });
 
