@@ -38,6 +38,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import pg from "pg";
+import { applyTypeParsers, DATE_OID } from "../db/typeParsers.js";
+
+const pgTypen = pg.types;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -226,5 +230,77 @@ suite("Welle F3 — kein roher UTC-Schnitt auf Kalendertagen", () => {
       assert.ok(a.grund && a.grund.length > 20,
         `Ausnahme ${a.datei} hat keine tragfaehige Begruendung`);
     }
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Die EINE Zeile, an der jeder Kalendertag der Plattform haengt.
+
+   `db/typeParsers.js` setzt den pg-Parser fuer DATE (OID 1082) auf
+   Durchreichen, damit eine Datumsspalte als "2026-04-01" in der Antwort steht
+   statt als "2026-03-31T22:00:00.000Z". `pg` haelt Typparser MODULWEIT — der
+   Import in `db/pool.js` wirkt deshalb fuer jeden Pool im Prozess.
+
+   Genau das macht ihn gefaehrlich: die Zeile sieht aus wie ein unbenutzter
+   Import. Wer sie beim Aufraeumen entfernt, dreht in EINEM Schritt jedes Datum
+   der ganzen Plattform auf den Vortag zurueck — Vertragsende, Sperrdatum,
+   Abrechnungswoche. Kein Test schlaegt an, der nicht genau hierauf zeigt.
+
+   GEFUNDEN 2026-08-31 beim Bauen von K3.5: eine Messung mit einem SELBST
+   gebauten `pg.Pool` (ohne diesen Import) lieferte Zeitstempel und sah aus wie
+   ein Produktfehler. War keiner — aber sie hat gezeigt, wie duenn die
+   Absicherung dieser Zeile ist.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("Kalendertag · der Typparser haengt an einer einzigen Zeile", () => {
+  const poolPfad = path.join(ROOT, "api", "db", "pool.js");
+  const parserPfad = path.join(ROOT, "api", "db", "typeParsers.js");
+
+  it("db/pool.js laedt die Typparser — sonst kippt jedes Datum der Plattform", () => {
+    assert.ok(fs.existsSync(poolPfad), "api/db/pool.js muss es geben");
+
+    /* OHNE KOMMENTARE PRUEFEN. Beim Rueckmutieren dieser Probe ist sie genau
+     * hier durchgefallen — auf die Falle, vor der diese Datei weiter oben selbst
+     * warnt: die auskommentierte Zeile `// import "./typeParsers.js";` enthaelt
+     * den gesuchten Text weiterhin, und ein Muster ohne Kommentarstreifen haelt
+     * sie fuer einen gueltigen Import. Ein Waechter, der ein Auskommentieren
+     * nicht bemerkt, bewacht nichts. */
+    const quelle = fs.readFileSync(poolPfad, "utf8")
+      .split(/\r?\n/)
+      .map((zeile) => zeile.replace(/\/\/.*$/, ""))
+      .join("\n")
+      .replace(/\/\*[\s\S]*?\*\//g, "");
+
+    assert.match(
+      quelle,
+      /import\s+["'](\.\/)?typeParsers\.js["']/,
+      "ohne diesen Import liefert JEDE DATE-Spalte wieder einen UTC-Zeitpunkt — "
+        + "und jede UTC-Formatierung zeigt den Vortag"
+    );
+  });
+
+  it("der Parser setzt DATE auf Durchreichen und laesst Zeitpunkte in Ruhe", () => {
+    const quelle = fs.readFileSync(parserPfad, "utf8");
+    assert.match(quelle, /setTypeParser\(\s*DATE_OID\s*,/,
+      "DATE (OID 1082) muss unveraendert durchgereicht werden");
+    assert.ok(
+      !/setTypeParser\(\s*(1114|1184)\b/.test(quelle),
+      "timestamp und timestamptz sind echte Zeitpunkte — die UTC-Serialisierung "
+        + "ist dort richtig und darf nicht mitgeaendert werden"
+    );
+    assert.ok(
+      !/setTypeParser\(\s*1700\b/.test(quelle),
+      "numeric bleibt Zeichenkette — Geldbetraege verlieren sonst Praezision"
+    );
+  });
+
+  it("die Zusage gilt fuer JEDEN Pool im Prozess, nicht nur den der App", () => {
+    /* Der Beweis am lebenden Objekt: nach dem Import steht der Parser fuer die
+     * DATE-OID auf Durchreichen — unabhaengig davon, wer den Pool gebaut hat.
+     * Genau diese Eigenschaft ist der Grund, warum EIN Import genuegt. */
+    assert.equal(pgTypen.getTypeParser(DATE_OID)("2026-04-01"), "2026-04-01",
+      "ein Kalendertag muss als Kalendertag herauskommen");
+    assert.equal(applyTypeParsers(), false,
+      "der Aufruf ist idempotent — ein zweiter Aufruf darf nichts mehr setzen");
   });
 });

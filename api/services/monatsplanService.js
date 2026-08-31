@@ -158,6 +158,30 @@ function wirksamerBeginn(linkAlias, einsatzAlias) {
   return `GREATEST(${linkAlias}.start_date, ${einsatzAlias}.start_date)`;
 }
 
+
+/**
+ * EINE ZUORDNUNG BINDET NUR, SOLANGE SIE GILT.
+ *
+ * GEMESSEN 2026-08-31: 9 von 24 Zuordnungen stehen auf `is_active = FALSE`,
+ * eine auf `worker_unavailable`. Ohne diesen Filter meldet der Plan eine
+ * Doppelbelegung fuer eine Absage und fuehrt Abgesagte als besetzt. Ein
+ * Konflikt, der keiner ist, wird weggeklickt — und beim naechsten Mal der
+ * echte gleich mit.
+ *
+ * Wirkung im heutigen Bestand: **null** — es gibt derzeit gar keine
+ * Doppelbelegung. Der Defekt ist LATENT, und mit K3.5 wird er scharf: dann ist
+ * der Plan die Flaeche, aus der heraus jemand schreibt.
+ *
+ * Dieselbe Bedingung benutzt die Domaene in `getWorkerSchedulingConflicts`.
+ * NICHT uebernommen wird deren Lebenszyklus-Praedikat
+ * (`buildAssignmentActivePredicateSql`): das misst gegen HEUTE und beantwortet
+ * "wer ist gerade im Einsatz". Der Plan fragt "wer ist in DIESEM Fenster
+ * gebunden" — fuer einen Monat in der Zukunft waere die Heute-Frage falsch.
+ */
+const ZUORDNUNG_GILT = (alias) =>
+  `${alias}.is_active = TRUE
+        AND ${alias}.worker_confirmation_status NOT IN ('worker_declined','worker_unavailable')`;
+
 /**
  * Konfliktarten. `nicht_geprueft` ist Teil der Antwort, nicht ihr Fehlen —
  * eine Flaeche muss sagen koennen, was sie NICHT weiss.
@@ -263,6 +287,7 @@ export async function eintraege(pool, { orgId, seite, fenster }) {
            FROM worker_assignment_links l
            LEFT JOIN worker_profiles wp ON wp.user_id = l.worker_user_id
           WHERE l.assignment_id = a.id
+            AND ${ZUORDNUNG_GILT("l")}
        ) k ON TRUE
       WHERE ${spalte} = $1
         AND a.status = ANY($4::text[])
@@ -293,7 +318,7 @@ export async function bedarfe(pool, { orgId, seite, fenster }) {
                WHERE of.demand_request_id = d.id AND of.confirmed_at IS NOT NULL
             ) AS besetzt
        FROM demand_requests d
-      WHERE d.requester_company_id = $1
+      WHERE d.requester_company_id IN (SELECT u.id FROM users u WHERE u.org_id = $1)
         AND d.start_date <= $3::date
         AND COALESCE(d.end_date, DATE '9999-12-31') >= $2::date
       ORDER BY d.start_date ASC, d.id ASC`,
@@ -346,6 +371,8 @@ export async function doppelbelegungen(pool, { orgId, seite, fenster }) {
        LEFT JOIN worker_profiles wp ON wp.user_id = a.worker_user_id
        LEFT JOIN organizations og ON og.id = b.org_id
       WHERE ${spalte} = $1
+        AND ${ZUORDNUNG_GILT("a")}
+        AND ${ZUORDNUNG_GILT("b")}
         AND ${beginnA} <= ${endeB}
         AND ${beginnB} <= ${endeA}
         AND ${beginnA} <= $3::date AND ${endeA} >= $2::date
@@ -393,6 +420,7 @@ export async function abwesenheiten(pool, { orgId, seite, fenster }) {
        JOIN worker_assignment_links l ON l.worker_user_id = wp.user_id
        JOIN assignments e ON e.id = l.assignment_id
       WHERE ${spalte} = $1
+        AND ${ZUORDNUNG_GILT("l")}
         AND ab.aufgehoben_am IS NULL
         AND ab.zustand = 'wirksam'
         AND ab.von <= $3::date
@@ -458,6 +486,7 @@ export async function ablaufendeNachweise(pool, { orgId, seite, fenster }) {
        JOIN assignments e ON e.id = l.assignment_id
        LEFT JOIN worker_profiles wp ON wp.user_id = d.worker_user_id
       WHERE ${spalte} = $1
+        AND ${ZUORDNUNG_GILT("l")}
         AND d.valid_until IS NOT NULL
         AND d.valid_until BETWEEN $2::date AND $3::date
         AND ${beginn} <= $3::date AND ${ende} >= $2::date

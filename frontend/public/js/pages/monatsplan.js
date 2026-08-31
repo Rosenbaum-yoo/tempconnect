@@ -118,7 +118,20 @@
     });
   }
 
-  /** Kalendertag aus einem beliebigen Wert — ohne Zeitzonen-Rutsch. */
+  /**
+   * Kalendertag aus einem beliebigen Wert — ohne Zeitzonen-Rutsch.
+   *
+   * DAS SCHNEIDEN IST HIER SICHER, WEIL DER SERVER SCHON EINEN TAG LIEFERT.
+   * `api/db/typeParsers.js` reicht DATE-Spalten unveraendert als "2026-03-11"
+   * durch, geladen ueber `api/db/pool.js`; `pg` haelt Typparser prozessweit.
+   * Kaeme stattdessen ein Zeitstempel ("2026-03-10T23:00:00.000Z" — lokale
+   * Mitternacht Berlin ist 22:00/23:00 UTC des VORTAGS), zeigte dieser Schnitt
+   * ganzjaehrig den falschen Tag.
+   *
+   * Hier NICHTS nachbauen. Eine Umrechnung an dieser Stelle waere eine zweite
+   * Mechanik fuer dieselbe Zusage, und beim naechsten Umbau zieht jemand nur
+   * eine von beiden nach. Die Zusage bewacht `api/test/kalendertagDE.test.js`.
+   */
   function tag(wert) {
     if (!wert) return null;
     return String(wert).slice(0, 10);

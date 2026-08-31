@@ -583,3 +583,136 @@ describe("K3.3 · GET /workforce/monatsplan am echten Handler", () => {
       `zu kurze Kette: ${h.kette.join(" → ")} — Anmeldung und Berechtigung fehlen`);
   });
 });
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Drei Defekte, am 2026-08-31 gegen den echten Bestand gemessen.
+
+   Alle drei sind beim Vorbereiten von K3.5 aufgefallen — beim Nachsehen, wie
+   die schreibende Fläche an die bestehenden Pfade andockt. Keiner davon war
+   im Browser sichtbar, und genau das ist ihr gemeinsames Merkmal.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("K3.5 · Vorarbeit — drei stille Defekte, gemessen statt vermutet", () => {
+  /* (1) DER FILTER, DER NIE GREIFEN KONNTE.
+   *
+   * `demand_requests.requester_company_id` trägt eine NUTZER-Kennung: 40 von 40
+   * Zeilen verbinden sich mit `users`, null mit `organizations`. Die erste
+   * Fassung filterte mit der ORG-Kennung — gemessen fand dieser Filter im
+   * gesamten Bestand NULL Zeilen.
+   *
+   * Die Folge war nicht nur eine leere Liste: `offeneBedarfe()` leitet den
+   * weichen Konflikt AUS dieser Liste ab. Eine der fünf Konfliktarten konnte
+   * strukturell nie feuern — während die Welle behauptete, alle fünf stünden. */
+  it("Bedarfe werden über die NUTZER der Organisation gesucht, nicht über die Org-Kennung", async () => {
+    const pool = musterPool();
+    await monatsplan(pool, { orgId: "org-1", seite: "kunde", monat: "2026-09" });
+
+    const [abfrage] = pool.find("FROM demand_requests");
+    assert.ok(abfrage, "die Bedarfsabfrage muss überhaupt laufen");
+    assert.ok(
+      /FROM users u WHERE u\.org_id = \$1/.test(abfrage.sql),
+      "der Bedarf hängt am Nutzer, die Organisation am Nutzer — beides muss verbunden werden"
+    );
+    assert.ok(
+      !/requester_company_id = \$1/.test(abfrage.sql),
+      "die Org-Kennung direkt gegen requester_company_id zu stellen findet garantiert nichts"
+    );
+  });
+
+  it("die Kundenspur liefert Bedarfe UND den weichen Konflikt daraus", async () => {
+    const pool = musterPool((sql) => {
+      if (sql.includes("FROM demand_requests")) {
+        return {
+          rows: [{
+            id: "b-1", title: "Zwei Staplerfahrer", role: "Stapler", headcount: 2,
+            status: "open", start_date: "2026-09-10", end_date: "2026-09-20",
+            beginnt_vorher: false, endet_spaeter: false, besetzt: false
+          }]
+        };
+      }
+      return null;
+    });
+
+    const plan = await monatsplan(pool, { orgId: "org-1", seite: "kunde", monat: "2026-09" });
+    assert.equal(plan.bedarfe.length, 1);
+    assert.equal(plan.zusammenfassung.bedarfe, 1);
+
+    const offen = plan.konflikte.filter((k) => k.art === "bedarf_offen");
+    assert.equal(offen.length, 1, "ein unbesetzter Bedarf ist der weiche Konflikt W1");
+    assert.equal(offen[0].grad, "weich");
+    assert.equal(offen[0].bedarf_id, "b-1");
+    assert.equal(offen[0].von, "2026-09-10");
+  });
+
+  /* (2) EIN KALENDERTAG BLEIBT EIN KALENDERTAG — und zwar an EINER Stelle.
+   *
+   * Beim Messen fuer K3.5 lieferte der Dienst scheinbar Zeitstempel
+   * ("2026-03-10T23:00:00.000Z" statt "2026-03-11"). Das war KEIN Produktfehler:
+   * das Messskript hatte sich einen eigenen `pg.Pool` gebaut, ohne
+   * `db/typeParsers.js` zu laden. Der echte Pool laedt ihn (`db/pool.js:7`), und
+   * `pg` haelt Typparser modulweit — die Zusage steht also plattformweit.
+   *
+   * Die Lehre ging nicht ins Leere: dass ALLES daran haengt und NICHTS es
+   * festhielt, war eine echte Luecke. Der Waechter dafuer steht jetzt in
+   * `kalendertagDE.test.js`; hier waere er am falschen Ort. Ein zweiter
+   * TO_CHAR-Riegel im Dienst waere eine zweite Mechanik fuer dieselbe Zusage —
+   * und beim naechsten Umbau aendert jemand eine davon. */
+
+  /* (3) EINE ZUORDNUNG, DIE NICHT MEHR GILT, BINDET NICHT MEHR.
+   *
+   * Gemessen: 9 von 24 Zuordnungen stehen auf `is_active = FALSE`, eine auf
+   * `worker_unavailable`. Ohne Zustandsfilter meldet der Plan eine
+   * Doppelbelegung für eine Absage und führt Abgesagte als besetzt.
+   *
+   * Wirkung im heutigen Bestand: null — es gibt derzeit keine einzige
+   * Doppelbelegung. Der Defekt ist LATENT. Mit K3.5 wird er scharf, denn dann
+   * ist der Plan die Fläche, aus der heraus jemand schreibt. */
+  it("alle vier Abfragen über Zuordnungen prüfen deren Zustand — nicht drei von vier", async () => {
+    const pool = musterPool();
+    await monatsplan(pool, { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+
+    const mitZuordnung = pool.calls.filter((c) => c.sql.includes("worker_assignment_links"));
+    assert.ok(mitZuordnung.length >= 4, "vier Abfragen fassen Zuordnungen an");
+
+    for (const c of mitZuordnung) {
+      assert.ok(
+        /is_active = TRUE/.test(c.sql),
+        "eine archivierte Zuordnung bindet niemanden:\n" + c.sql.slice(0, 220)
+      );
+      assert.ok(
+        /worker_confirmation_status NOT IN \('worker_declined','worker_unavailable'\)/.test(c.sql),
+        "wer abgesagt hat, ist nicht doppelt belegt:\n" + c.sql.slice(0, 220)
+      );
+    }
+  });
+
+  it("die Doppelbelegung prüft BEIDE Seiten des Paars, nicht nur die eigene", async () => {
+    const pool = musterPool();
+    await monatsplan(pool, { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+
+    const [doppel] = pool.find("FROM worker_assignment_links a");
+    const aSeite = /a\.is_active = TRUE/.test(doppel.sql);
+    const bSeite = /b\.is_active = TRUE/.test(doppel.sql);
+    assert.ok(aSeite && bSeite,
+      "eine Kollision mit einer archivierten Gegenzuordnung ist keine Kollision");
+  });
+
+  /* Die Grenze der Prüfung, ausgesprochen: das Lebenszyklus-Prädikat der
+   * Domäne wird ABSICHTLICH nicht übernommen. `buildAssignmentActivePredicateSql`
+   * misst gegen CURRENT_DATE und beantwortet "wer ist gerade im Einsatz". Der
+   * Plan fragt "wer ist in DIESEM Fenster gebunden" — für einen Monat in der
+   * Zukunft wäre die Heute-Frage die falsche und würde jede Vorausplanung
+   * leerräumen. */
+  it("das Heute-Prädikat der Domäne wird bewusst NICHT übernommen", async () => {
+    const pool = musterPool();
+    await monatsplan(pool, { orgId: "org-1", seite: "agentur", monat: "2027-09" });
+
+    for (const c of pool.calls.filter((x) => x.sql.includes("worker_assignment_links"))) {
+      assert.ok(
+        !/CURRENT_DATE/.test(c.sql),
+        "ein Monat in der Zukunft darf nicht gegen heute gefiltert werden:\n" + c.sql.slice(0, 220)
+      );
+    }
+  });
+});

@@ -60,6 +60,151 @@ describe("K3 · die Monatsplanung gegen das echte Schema",
     });
   }
 
+
+  /* ── K3.5-Vorarbeit: zwei Defekte, die nur die echte DB zeigt ──────────
+   *
+   * Beide sind gegen den Mock-Pool unsichtbar: der eine braucht Postgres, um
+   * TO_CHAR ueberhaupt auszufuehren, der andere braucht echte Zeilen, um zu
+   * zeigen, dass ein Filter nichts findet. Ein leeres Ergebnis sieht im Mock
+   * genauso aus wie ein leeres Ergebnis in Wirklichkeit — das ist der Kern
+   * dieser ganzen Welle. */
+
+  /** Sucht rekursiv jedes Feld, das wie ein Zeitstempel aussieht. */
+  function zeitstempelFelder(wert, pfad, treffer) {
+    if (wert == null) return treffer;
+    if (wert instanceof Date) { treffer.push(pfad + " (Date-Objekt)"); return treffer; }
+    if (typeof wert === "string") {
+      if (/^\d{4}-\d{2}-\d{2}T/.test(wert)) treffer.push(pfad + " = " + wert);
+      return treffer;
+    }
+    if (Array.isArray(wert)) {
+      wert.forEach((v, i) => zeitstempelFelder(v, pfad + "[" + i + "]", treffer));
+      return treffer;
+    }
+    if (typeof wert === "object") {
+      for (const [k, v] of Object.entries(wert)) zeitstempelFelder(v, pfad + "." + k, treffer);
+    }
+    return treffer;
+  }
+
+  it("kein Datumsfeld verlaesst den Dienst als Zeitstempel — gegen echte Zeilen", async () => {
+    /* GEMESSEN 2026-08-31: `date`-Spalten kamen als "2026-03-10T23:00:00.000Z"
+     * heraus, obwohl der Kalendertag der 11.03. ist (Winter UTC+1, Sommer
+     * UTC+2). Die Flaeche nahm die ersten zehn Zeichen und zeichnete den
+     * Vortag, waehrend die Konfliktliste daneben den richtigen Tag nannte. */
+    const { rows } = await pool.query(
+      `SELECT supplier_org_id AS id FROM assignments
+        WHERE supplier_org_id IS NOT NULL GROUP BY 1 ORDER BY count(*) DESC LIMIT 1`
+    );
+    if (!rows[0]) return;                    // kein Bestand: nichts zu zeigen
+
+    for (const monat of ["2026-04", "2027-09"]) {
+      const plan = await monatsplan(pool, { orgId: rows[0].id, seite: "agentur", monat });
+      const treffer = zeitstempelFelder(JSON.parse(JSON.stringify(plan)), "", []);
+      assert.deepEqual(treffer, [],
+        `Zeitstempel statt Kalendertag im Monat ${monat}: ${treffer.join(", ")}`);
+    }
+  });
+
+  it("ein Kalendertag sieht auch wirklich wie einer aus", async () => {
+    /* DIESE PROBE HAT SICH SELBST ALS BLIND ERWIESEN und ist deshalb gezaehlt:
+     * in ihrer ersten Fassung lief sie ueber `plan.eintraege` und bestand auch
+     * dann, wenn der Monat leer war — eine gruene Zusage ueber null Werte. Sie
+     * zaehlt jetzt mit, wie viele Felder sie tatsaechlich angesehen hat, und
+     * faellt durch, wenn sie nichts zu pruefen bekam. */
+    const { rows } = await pool.query(
+      `SELECT supplier_org_id AS id FROM assignments
+        WHERE supplier_org_id IS NOT NULL GROUP BY 1 ORDER BY count(*) DESC LIMIT 1`
+    );
+    if (!rows[0]) return;
+
+    let geprueft = 0;
+    for (const monat of ["2026-04", "2026-09", "2027-09"]) {
+      const plan = await monatsplan(pool, { orgId: rows[0].id, seite: "agentur", monat });
+      for (const z of plan.eintraege) {
+        if (z.start_date) { assert.match(z.start_date, /^\d{4}-\d{2}-\d{2}$/); geprueft++; }
+        for (const k of z.kraefte || []) {
+          if (k.von) { assert.match(k.von, /^\d{4}-\d{2}-\d{2}$/); geprueft++; }
+          if (k.bis) { assert.match(k.bis, /^\d{4}-\d{2}-\d{2}$/); geprueft++; }
+        }
+      }
+      for (const k of plan.konflikte) {
+        if (k.von) { assert.match(String(k.von), /^\d{4}-\d{2}-\d{2}$/); geprueft++; }
+        if (k.bis) { assert.match(String(k.bis), /^\d{4}-\d{2}-\d{2}$/); geprueft++; }
+      }
+    }
+    assert.ok(geprueft > 0,
+      "die Probe hat kein einziges Datumsfeld gesehen — sie beweist damit nichts");
+  });
+
+  it("die Kundenspur FINDET Bedarfe — der alte Filter fand im ganzen Bestand keinen", async () => {
+    /* GEMESSEN 2026-08-31: `demand_requests.requester_company_id` traegt eine
+     * NUTZER-Kennung (40 von 40 verbinden sich mit `users`, null mit
+     * `organizations`). Der Filter `requester_company_id = <org>` konnte damit
+     * strukturell nie greifen — und mit ihm fiel die fuenfte Konfliktart
+     * (unbesetzter Bedarf) lautlos aus. */
+    const alterFilter = await pool.query(
+      `SELECT count(*) n FROM demand_requests
+        WHERE requester_company_id IN (SELECT id FROM organizations)`
+    );
+    assert.equal(Number(alterFilter.rows[0].n), 0,
+      "der alte Filter konnte nie greifen — das ist der Anlass dieser Probe");
+
+    const kandidat = await pool.query(
+      `SELECT u.org_id AS id, min(d.start_date) AS frueheste
+         FROM demand_requests d JOIN users u ON u.id = d.requester_company_id
+        WHERE u.org_id IS NOT NULL
+        GROUP BY 1 ORDER BY count(*) DESC LIMIT 1`
+    );
+    if (!kandidat.rows[0]) return;
+
+    const monat = String(kandidat.rows[0].frueheste instanceof Date
+      ? kandidat.rows[0].frueheste.toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin" })
+      : kandidat.rows[0].frueheste).slice(0, 7);
+
+    const zeilen = await bedarfe(pool, {
+      orgId: kandidat.rows[0].id, seite: "kunde", fenster: monatsfenster(monat)
+    });
+    assert.ok(zeilen.length > 0,
+      `die Organisation hat Bedarfe, der Plan muss sie im Monat ${monat} finden`);
+    for (const b of zeilen) {
+      if (b.start_date) assert.match(b.start_date, /^\d{4}-\d{2}-\d{2}$/);
+    }
+  });
+
+  it("eine archivierte oder abgesagte Zuordnung bindet niemanden mehr", async () => {
+    /* GEMESSEN 2026-08-31: 9 von 24 Zuordnungen stehen auf `is_active = FALSE`,
+     * eine auf `worker_unavailable`. Der Plan darf sie weder als Besetzung
+     * fuehren noch daraus einen Konflikt bauen. */
+    const { rows } = await pool.query(
+      `SELECT l.id, l.assignment_id, l.worker_user_id, a.supplier_org_id
+         FROM worker_assignment_links l JOIN assignments a ON a.id = l.assignment_id
+        WHERE (l.is_active = FALSE
+               OR l.worker_confirmation_status IN ('worker_declined','worker_unavailable'))
+          AND a.supplier_org_id IS NOT NULL
+        LIMIT 1`
+    );
+    if (!rows[0]) return;                    // kein solcher Fall im Bestand
+
+    const tot = rows[0];
+    for (const monat of ["2026-04", "2026-09", "2027-09"]) {
+      const plan = await monatsplan(pool, {
+        orgId: tot.supplier_org_id, seite: "agentur", monat
+      });
+      const alsKraft = plan.eintraege
+        .flatMap((z) => z.kraefte || [])
+        .filter((k) => k.worker_user_id === tot.worker_user_id
+          && plan.eintraege.some((z) => z.id === tot.assignment_id));
+      const imKonflikt = plan.konflikte.filter(
+        (k) => k.art === "doppelbelegung" && k.einsatz_id === tot.assignment_id
+      );
+      assert.deepEqual(imKonflikt, [],
+        `eine nicht mehr geltende Zuordnung erzeugt keinen Konflikt (${monat})`);
+      assert.deepEqual(alsKraft, [],
+        `eine nicht mehr geltende Zuordnung ist keine Besetzung (${monat})`);
+    }
+  });
+
   /* ── Der Fund: nie geschlossene Zuordnungen ────────────────── */
 
   it("es gibt Zuordnungen, deren Einsatz laengst beendet ist — der Anlass fuer die wirksame Spanne", async () => {

@@ -40,7 +40,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **K4** | Der Feed fällt nie auf leer zurück | ✅ **gebaut** `eb46707` (Mig 204, `feedKopieService`, 18 Proben, 4 Rückmutationen) |
 | **K1** | Rabatt sichtbar + Eingriffspunkt | ✅ **gebaut** — Mig 206, drei Dienste, Staff-CC-Modul `rabatt-faelle`, 75 Proben, **14 Rückmutationen** |
 | **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | ✅ **vollständig gebaut** — Mig 208 + 209, `werbepraemieService`, 26 Proben, **16 Rückmutationen** |
-| **K3** | Monatsplanung | **K3.1–K3.4 ✅ gebaut, Fläche steht** (`monatsplan.html`, im Browser belegt) — **K3.5 als Nächstes**, dann K3.6 |
+| **K3** | Monatsplanung | **K3.1–K3.4 ✅ gebaut, Fläche steht**; **K3.5-Vorarbeit ✅** (drei Befunde, einer ein echter Ausfall) — **die Schreibwege selbst stehen aus**, dann K3.6 |
 | **L** | Tragfähigkeit / Hochverfügbarkeit | dokumentiert, **nicht gebaut** (eigener Abschnitt, Owner-Vorgabe) |
 
 **Der nächste Griff: die Antwort des Owners auf E-K3-1 bis E-K3-3.** Der Entwurf
@@ -62,7 +62,36 @@ Plan: **K0 → K4 → K1 → K2 → K3** — die ersten vier sind durch.
 **Der nächste Griff: `K3.5`** — beide Spuren schreibend. E-K3-2 ist beantwortet,
 also darf in einen vergangenen Monat geplant werden. **Die lesende Fläche steht**
 (`monatsplan.html`, `GET /workforce/monatsplan`) und ist im Browser belegt —
-Raster, Leerzustand, Fehlerzustand, Konsole sauber. Danach K3.6 (Härtung).
+Raster, Leerzustand, Fehlerzustand, Konsole sauber.
+
+**Die Vorarbeit für K3.5 ist erledigt, die Schreibwege selbst stehen aus.** Beim
+Nachsehen, wie sie an die bestehende Domäne andocken, sind drei Befunde
+herausgefallen (vollständig im Arbeitsplan, Abschnitt „K3.5 — die Vorarbeit"):
+
+1. **Echter Ausfall:** die Bedarfsliste der Kundenspur filterte mit der
+   Org-Kennung gegen `demand_requests.requester_company_id`, die eine
+   **Nutzer**kennung trägt. Gemessen: **0 Treffer im gesamten Bestand**. Damit
+   konnte auch die fünfte Konfliktart (unbesetzter Bedarf) nie feuern. Behoben.
+2. **Latent:** die vier Abfragen über Zuordnungen prüften deren Zustand nicht —
+   9 von 24 sind archiviert. Wirkung heute null, mit K3.5 scharf. Behoben.
+3. **Fehlalarm aus dem eigenen Prüfstand:** ein Messskript ohne
+   `db/typeParsers.js` ließ Datumswerte wie Zeitstempel aussehen. Kein
+   Produktfehler — der echte Pool lädt den Parser. Der voreilig eingebaute
+   `TO_CHAR`-Riegel wurde wieder entfernt.
+
+> **Was daraus dauerhaft bleibt:** jeder Kalendertag der Plattform hängt an der
+> einen Zeile `import "./typeParsers.js";` in `api/db/pool.js`. Sie sieht aus wie
+> ein unbenutzter Import; wer sie entfernt, dreht jedes Datum auf den Vortag.
+> **Nichts hielt sie fest** — jetzt tut es `api/test/kalendertagDE.test.js`.
+
+**Wenn K3.5 gebaut wird, sind die Schreibpfade bereits gefunden:** Bedarf über
+`marketplaceService.createDemandRequest(pool, requesterId, plan, payload)` —
+`requesterId` ist eine **Nutzer**kennung, nicht die Org. Besetzung läuft NICHT
+direkt in `worker_assignment_links`: dort hängt die ganze Besetzungsmaschinerie
+(Einladung, Zusage, Reservierung, `recalcAssignmentStaffing`). Ein zweiter
+Schreibweg daneben wäre eine Schattenwahrheit.
+
+Danach K3.6 (Härtung).
 
 > **Für den Browser-Nachweis wichtig:** der API-Container läuft einen
 > Prozess-Schnappschuss und kennt neue Routen nicht. Die Fläche wurde deshalb

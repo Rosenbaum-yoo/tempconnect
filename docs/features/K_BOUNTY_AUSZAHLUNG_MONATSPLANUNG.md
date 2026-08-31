@@ -464,8 +464,100 @@ und `rechnung_id` (der Beleg).
 | K3.2 | **Datenlage messen** | ✅ **gemessen 2026-08-31** — siehe unten |
 | K3.3 | Lesende Fläche: der Monat als Raster | ✅ **vollständig** — `monatsplanService`, `GET /workforce/monatsplan`, `monatsplan.html`; im Browser belegt (Raster, Leerzustand, Fehlerzustand) |
 | K3.4 | **Konflikte nach 3b** — hart und weich getrennt | ✅ **alle fünf Arten**, inkl. AÜG |
-| K3.5 | Beide Spuren schreibend, ohne Zustimmungspflicht | ⏭ **als Nächstes** — E-K3-2 ist beantwortet |
+| K3.5 | Beide Spuren schreibend, ohne Zustimmungspflicht | ⏭ **Vorarbeit erledigt** — drei Befunde beim Andocken an die bestehenden Schreibpfade, einer davon ein echter Ausfall (siehe unten). Die Schreibwege selbst stehen noch aus |
 | K3.6 | Härtung: Skalierung (10 → 300), `Europe/Berlin`, Mutation Testing auf der Konfliktlogik | Lastprobe + Mutationsergebnis |
+
+---
+
+## K3.5 — die Vorarbeit: drei Befunde, einer davon meiner
+
+Bevor die Fläche schreiben darf, muss sie stimmen. Beim Nachsehen, wie die
+Schreibwege an die bestehende Domäne andocken (`createDemandRequest`,
+`createWorkerAssignmentLink`), sind drei Dinge herausgefallen — **keines davon
+war im Browser sichtbar**, und das ist ihr gemeinsames Merkmal.
+
+### 1. Die Bedarfsliste konnte nie etwas finden — echter Ausfall
+
+`demand_requests.requester_company_id` trägt eine **Nutzer**kennung. Gemessen:
+40 von 40 Zeilen verbinden sich mit `users`, **null** mit `organizations`. Jeder
+andere Dienst im Repo verbindet entsprechend (`JOIN users u ON u.id =
+dr.requester_company_id`) — `monatsplanService` war die einzige Abweichung und
+filterte mit der **Org**kennung:
+
+```
+Filter von heute (orgId gegen requester_company_id) …  0 Zeilen im GANZEN Bestand
+korrigiert über users.org_id ……………………………………………………  25 von 40 Zeilen
+```
+
+Die Folge war nicht nur eine leere Liste. `offeneBedarfe()` leitet den weichen
+Konflikt **aus dieser Liste** ab — die fünfte Konfliktart konnte damit
+strukturell nie feuern, während K3.4 „alle fünf Arten" meldete. Nach der
+Korrektur liefert die Kundenspur im September 2026 drei Bedarfe und **einen**
+offenen-Bedarf-Konflikt.
+
+Warum es keiner sah: der Browser-Nachweis der Fläche lief auf der **Agentur**spur,
+und dort gibt `bedarfe()` planmäßig sofort `[]` zurück. Eine leere Liste sieht aus
+wie kein Bedarf — dieselbe Fehlerklasse, die diese ganze Welle behandelt.
+
+### 2. Eine nicht mehr geltende Zuordnung band trotzdem — latent
+
+Gemessen: **9 von 24 Zuordnungen** stehen auf `is_active = FALSE`, eine auf
+`worker_unavailable`. Die vier Abfragen über `worker_assignment_links` prüften
+diesen Zustand nicht. Der Plan hätte eine Absage als Besetzung geführt und aus
+ihr eine Doppelbelegung gebaut.
+
+**Wirkung im heutigen Bestand: null** — es gibt derzeit keine einzige
+Doppelbelegung. Der Defekt ist latent; mit K3.5 wird er scharf, denn dann ist der
+Plan die Fläche, aus der heraus jemand schreibt.
+
+Die Domäne prüft in `getWorkerSchedulingConflicts` genau so. **Nicht** übernommen
+wird ihr Lebenszyklus-Prädikat (`buildAssignmentActivePredicateSql`): das misst
+gegen `CURRENT_DATE` und beantwortet *„wer ist gerade im Einsatz"*. Der Plan fragt
+*„wer ist in DIESEM Fenster gebunden"* — für einen Monat in der Zukunft wäre die
+Heute-Frage die falsche und würde jede Vorausplanung leerräumen. Ein Test hält
+fest, dass `CURRENT_DATE` hier **nicht** auftaucht.
+
+### 3. Ein Fehlalarm aus meinem eigenen Prüfstand — und was er trotzdem wert war
+
+Eine Messung zeigte scheinbar, dass Datumswerte als Zeitstempel herausgehen
+(`"2026-03-10T23:00:00.000Z"` statt `"2026-03-11"`), was auf der Fläche den
+**Vortag** ergeben hätte. Das war **kein Produktfehler**: mein Messskript hatte
+sich einen eigenen `pg.Pool` gebaut, ohne `api/db/typeParsers.js` zu laden. Der
+echte Pool lädt ihn (`api/db/pool.js:7`), und `pg` hält Typparser modulweit — die
+Zusage steht plattformweit. Ein bereits eingebauter `TO_CHAR`-Riegel wurde
+deshalb **wieder entfernt**: eine zweite Mechanik für dieselbe Zusage ist keine
+doppelte Sicherheit, sondern die Garantie, dass beim nächsten Umbau nur eine von
+beiden nachgezogen wird.
+
+Der Fehlalarm hat trotzdem eine echte Lücke aufgedeckt: **jeder Kalendertag der
+Plattform hängt an dieser einen Importzeile, und nichts hielt sie fest.** Wer sie
+beim Aufräumen entfernt — sie sieht aus wie ein unbenutzter Import — dreht in
+einem Schritt jedes Datum auf den Vortag zurück: Vertragsende, Sperrdatum,
+Abrechnungswoche. Der Wächter dafür steht jetzt in `api/test/kalendertagDE.test.js`.
+
+> **Beim Rückmutieren fiel dieser neue Wächter zunächst selbst durch** — auf die
+> Falle, vor der dieselbe Datei weiter oben warnt: `// import "./typeParsers.js";`
+> enthält den gesuchten Text weiterhin, ein Muster ohne Kommentarstreifen hält das
+> für einen gültigen Import. Ein Wächter, der ein Auskommentieren nicht bemerkt,
+> bewacht nichts.
+
+### Und eine Probe, die sich selbst als blind erwies
+
+Die erste Fassung der Integrationsprobe für Kalendertage lief über
+`plan.eintraege` und bestand auch bei leerem Monat — eine grüne Zusage über null
+Werte. Sie zählt jetzt mit, wie viele Felder sie tatsächlich angesehen hat, und
+fällt durch, wenn sie nichts zu prüfen bekam.
+
+**Nachweis:** `api/test/monatsplan.test.js` (46 Proben), `api/test/kalendertagDE.test.js`
+(7, davon 3 neu), `api/test/integration/monatsplan.flow.test.js` — **22/22 im
+Container gegen das echte Schema**. **Neun Rückmutationen an der Produktionsquelle,
+jede von genau der zuständigen Probe gefangen** (im ersten Durchgang acht von
+neun — die Lücke ist oben beschrieben und geschlossen).
+
+**Offene Datenlücke, benannt statt geschluckt:** 15 der 40 Bedarfe gehören einem
+Besteller **ohne Organisation** (`users.org_id IS NULL`). Sie erscheinen in keiner
+Kundenspur. Das ist keine Lücke im Code, sondern in den Daten — wie die 49
+ankerlosen Einsätze aus E-K3-4 wird sie benannt und nicht geraten.
 
 ---
 
