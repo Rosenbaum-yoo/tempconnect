@@ -458,14 +458,114 @@ und `rechnung_id` (der Beleg).
 
 ### K3 · Monatsplanung *(setzt Welle J voraus)*
 
-| Phase | Inhalt | Nachweis |
+| Phase | Inhalt | Stand |
 |---|---|---|
-| K3.1 | **Entwurf nach 3b** — zwei Spuren, keine Zustimmungspflicht. Ein Bild, kein Code. | **Owner-Freigabe des Entwurfs** |
-| K3.2 | **Datenlage messen:** Einsätze über Monatsgrenzen, Vorlauf, nachträgliche Änderungen | Zahlen aus der laufenden Datenbank |
+| K3.1 | **Entwurf nach 3b** — zwei Spuren, keine Zustimmungspflicht. Ein Bild, kein Code. | ⏸ **liegt vor, wartet auf Owner-Freigabe** — siehe unten |
+| K3.2 | **Datenlage messen** | ✅ **gemessen 2026-08-31** — siehe unten |
 | K3.3 | Lesende Fläche: der Monat als Raster aus Live-Belegschaft + Marktplatz | Browser-Nachweis, Zero-State, Org-Grenze |
 | K3.4 | **Konflikte nach 3b** — hart und weich getrennt | jede Konfliktart mit echter Zeile belegt |
 | K3.5 | Beide Spuren schreibend, ohne Zustimmungspflicht | keine Seite kann Einträge der anderen ändern |
 | K3.6 | Härtung: Skalierung (10 → 300), `Europe/Berlin`, Mutation Testing auf der Konfliktlogik | Lastprobe + Mutationsergebnis |
+
+---
+
+## K3.2 — die Datenlage, gemessen *(2026-08-31, laufende Datenbank)*
+
+| Was | Zahl |
+|---|---|
+| Einsätze | **68** — 52 geplant, 14 aktiv, 2 abgeschlossen |
+| davon mit Enddatum | 45 |
+| **über eine Monatsgrenze hinweg** | **41 von 45 — 91 %** |
+| Spannweite | 34 spannen **drei** Monate; nur **5** bleiben in einem einzigen |
+| Dauer | Ø **98 Tage**, kürzester 4, längster 550 |
+| Vorlauf (Anlage → Beginn) | Ø **10 Tage**, höchstens 40 |
+| **rückwirkend angelegt** | **17 von 68 — 25 %** (Beginn liegt vor der Anlage, bis zu 426 Tage) |
+| später geändert | 7 |
+| Bedarfe | 40, davon **26 über eine Monatsgrenze** |
+| Angebote | 38, davon 22 bestätigt |
+| Kraft-Zuordnungen | 24 auf 15 Kräfte und 15 Einsätze |
+| **echte Doppelbelegung im Bestand** | **1** |
+| Abwesenheiten | **0** — `worker_absences` existiert und ist leer |
+| AÜG-Überlassungsdauer | **kein Feld im Schema** |
+
+**Drei Befunde, die den Entwurf bestimmen:**
+
+**(1) Der Monat ist ein Fenster, kein Kasten.** 91 % der Einsätze überschreiten
+eine Monatsgrenze, 34 von 45 spannen drei Monate. Ein Raster, das den Monat als
+abgeschlossene Einheit behandelt, wäre für **neun von zehn Zeilen falsch** — es
+würde entweder Einsätze weglassen, die im Vormonat begannen, oder sie so
+darstellen, als begännen sie am Ersten. Beides ist eine Unwahrheit über einen
+laufenden Einsatz.
+
+**(2) Ein Viertel wird rückwirkend angelegt.** 17 von 68 Einsätzen haben einen
+Beginn, der vor ihrer Anlage liegt — bis zu 426 Tage. Die Fläche ist also nicht
+nur ein Planungswerkzeug, sondern auch ein Nachtragewerkzeug. Ein Raster, das
+nur in die Zukunft zeigt, träfe ein Viertel der Wirklichkeit nicht.
+
+**(3) Die Doppelbelegung ist keine Theorie — sie liegt bereits im Bestand.**
+Eine Einsatzkraft ist seit dem 01.04.2026 zwei **verschiedenen Unternehmen**
+zugeordnet, beide Einsätze ohne Enddatum. Heute sieht das niemand. Das ist genau
+der harte Konflikt aus Abschnitt 3b, und er beweist, dass die Konfliktanzeige
+nicht optional ist.
+
+---
+
+## K3.1 — der Entwurf *(wartet auf Owner-Freigabe)*
+
+### Das Leitbild
+
+> **Der Monat ist die Ansicht, der Einsatz ist die Sache.**
+
+Ein Einsatz, der im Vormonat begann, wird **am linken Rand angeschnitten**
+dargestellt — mit dem Hinweis, seit wann er läuft. Ein Einsatz ohne Enddatum
+läuft **über den rechten Rand hinaus**. Nichts wird auf den Monat zurechtgestutzt.
+
+### Zwei Spuren, kein Pingpong *(Owner-Entscheid 2026-08-27)*
+
+| | Einsatzunternehmen | Zeitarbeitsfirma |
+|---|---|---|
+| legt an | **Bedarf** — „hier brauche ich jemanden" | **Besetzung** — „diese Person kommt" |
+| sieht | eigene Einsätze und Bedarfe | den ganzen eigenen Bestand |
+| braucht Zustimmung | **nein** | **nein** |
+| ändert Einträge der Gegenseite | **nein** | **nein** |
+
+Ein Bedarf ist kein Auftrag, sondern eine sichtbare Absicht. Eine Besetzung ist
+keine Bitte, sondern eine Zusage.
+
+### Die Konflikte, nach Härtegrad getrennt
+
+| | Konflikt | Grad | Datenlage heute |
+|---|---|---|---|
+| **H1** | eine Person, zwei Orte gleichzeitig | hart | ✅ berechenbar — **1 Fall liegt im Bestand** |
+| **H2** | Abwesenheit im Zeitraum | hart | ⚠️ Tabelle vorhanden, **0 Zeilen** — prüfbar, aber ungenutzt |
+| **H3** | AÜG-Überlassungshöchstdauer überschritten | hart | ❌ **kein Feld im Schema** — siehe Entscheidung E-K3-1 |
+| **W1** | Bedarf unbesetzt | weich | ✅ berechenbar (Bedarf ohne Besetzung im Zeitraum) |
+| **W2** | Nachweis läuft im Zeitraum ab | weich | ✅ berechenbar aus `compliance_documents` |
+
+**Ein Konflikt erzeugt kein Formular und keine Aufforderung an die Gegenseite.**
+Er nennt, was kollidiert, und bietet die Handlung an, die **auf der eigenen
+Seite** löst. Niemand wartet auf niemanden.
+
+### Was der Entwurf bewusst NICHT tut
+
+- **Keine Zustimmungspflicht**, in keiner Richtung.
+- **Keine Benachrichtigung an die Gegenseite** bei einem Konflikt — sonst wäre
+  aus der Information doch wieder eine Bitte geworden.
+- **Kein Schreiben in die Spur der Gegenseite** — auch nicht „hilfsweise".
+- **Keine eigene Terminverwaltung.** Der Monat liest aus Live-Belegschaft und
+  Marktplatz; er legt keine dritte Wahrheit über Einsätze an.
+
+### Die offenen Entscheidungen — **hier wird die Freigabe gebraucht**
+
+| | Frage | Warum sie nicht ableitbar ist |
+|---|---|---|
+| **E-K3-1** | **Soll die AÜG-Frist geprüft werden?** | Sie hat **kein Feld im Schema**. Prüfbar wäre sie nur mit einem neuen Datum (Überlassungsbeginn je Kraft und Kunde) und einer Regel (18 Monate, mit tariflichen Abweichungen). Das ist ein eigener Bau, kein Nebenprodukt der Planung — und eine falsch gerechnete gesetzliche Frist ist schlimmer als keine. |
+| **E-K3-2** | **Darf in einen vergangenen Monat geplant werden?** | 25 % der Einsätze werden rückwirkend angelegt. Entweder die Fläche kann das auch (dann ist sie zugleich Nachtragewerkzeug), oder sie kann es nicht (dann bleibt der Nachtrag, wo er heute ist). Beides ist vertretbar; die Wahl ist eine Produktentscheidung. |
+| **E-K3-3** | **Wie weit zeigt das Raster einen Einsatz ohne Enddatum?** | Bis zum Monatsrand, oder mit einem Zeichen „läuft weiter"? Die Datenlage sagt: offene Einsätze sind der Normalfall, nicht die Ausnahme. |
+
+> **Ohne E-K3-1 kann K3.4 nicht vollständig gebaut werden** — der Plan nennt die
+> AÜG-Frist ausdrücklich als harten Konflikt, und sie ist die einzige der fünf,
+> die heute nicht berechenbar ist.
 
 ---
 
