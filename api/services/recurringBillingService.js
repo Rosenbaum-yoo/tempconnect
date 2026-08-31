@@ -44,6 +44,11 @@ import { ausfallFesthalten, rechnungNachtragen, grundText } from "./rabattAusfal
 import {
   offenenEingriffLesen, eingriffVerbrauchen, eingriffBelegNachtragen, EINGRIFF_QUELLE
 } from "./rabattEingriffService.js";
+// Welle K2: die Werbepraemie erreicht die Rechnung — dieselbe Schiene wie der
+// Eingriff, andere Herkunft. Auch dieser Dienst kennt die Abrechnung NICHT.
+import {
+  werbepraemieFuerLauf, werbepraemieVerbrauchen, werbepraemieBelegNachtragen
+} from "./werbepraemieService.js";
 import * as auditLog from "./auditLog.js";
 import { getPlanPriceCentsByKey, normalizePlanKey } from "../config/planCatalog.js";
 import { dunningEmail } from "./emailHtmlTemplates.js";
@@ -276,11 +281,29 @@ export async function abrechnungsEntscheidung(pool, s, opts = {}) {
       "Folgerechnung: Eingriff nicht lesbar, es gilt die Automatik");
   }
 
-  const satzMitEingriff = eingriff
-    ? Math.min(100, rabattSatz + (Number(eingriff.zusatz_pct) || 0))
-    : rabattSatz;
+  /* K2.4-K2.6: die Werbepraemie faehrt auf DERSELBEN Schiene wie der Eingriff —
+   * einmalig, hier gelesen, in der Transaktion verbraucht. `werbepraemieFuerLauf`
+   * wirft nie und sagt im `grund`, warum nichts gewaehrt wird; Schweigen waere
+   * hier wieder der stille Ausfall, gegen den diese ganze Spur antritt. */
+  const werbung = await werbepraemieFuerLauf(pool, s.user_id);
+
+  /* K2.6 — die Stapelung. Alle drei Quellen addieren sich, gedeckelt bei 100:
+   *   Automatik  (Treue-Rabatt, bereits von der Stufe gedeckelt)
+   * + Eingriff   (K1.4, ein Mensch mit Grund)
+   * + Werbepraemie (K2, deckel-frei per Katalog)
+   *
+   * Der Treuerabatt geht dabei NICHT verloren: seine Bounties bleiben aktiv und
+   * wirken im Folgemonat weiter, sobald die Praemie verbraucht ist. Verbraucht
+   * wird immer nur die Praemie, nie die Treue. */
+  const satzMitEingriff = Math.min(
+    100,
+    rabattSatz
+      + (eingriff ? (Number(eingriff.zusatz_pct) || 0) : 0)
+      + (werbung.praemie ? (Number(werbung.satz) || 0) : 0)
+  );
 
   return {
+    werbung,
     status: "rechnung",
     subscription: s,
     billing,
@@ -293,8 +316,11 @@ export async function abrechnungsEntscheidung(pool, s, opts = {}) {
   };
 }
 
+/** Die Quelle, die eine eingeloeste Werbepraemie auf der Rechnung hinterlaesst. */
+export const WERBUNG_QUELLE = "bounty_werbepraemie";
+
 /** Die Notiz auf dem Beleg — eine Fassung für Vorschau und Lauf. */
-function rechnungsNotiz(s, satz, ausEingriff) {
+function rechnungsNotiz(s, satz, herkunft = {}) {
   // Klasse DB_WERT_NACH_UTC: current_period_end kam korrekt aus der DB und
   // wurde per toISOString().slice(0,10) nach UTC zurueckgerechnet. Auf dem
   // Beleg stand dadurch ein Periodenbeginn, der einen Tag vor dem
@@ -302,10 +328,17 @@ function rechnungsNotiz(s, satz, ausEingriff) {
   // fuer billing_period_start/end bereits behoben ist.
   const kopf = `Automatische Folgerechnung (Abo-Verlängerung) — Periode ab ${dateOnlyDE(s.current_period_end)}`;
   if (!(satz > 0)) return kopf;
-  // Die Quelle steht auf der Rechnung (Plan-Abschnitt 3a): Automatik oder Eingriff.
-  return kopf + (ausEingriff
-    ? ` · Rabatt ${satz} % beruecksichtigt (Automatik + Eingriff des TempConnect-Teams)`
-    : ` · Treue-Rabatt ${satz} % beruecksichtigt`);
+
+  /* Die Quelle steht auf der Rechnung (Plan-Abschnitt 3a). Wenn mehrere Teile
+   * zusammenkommen, werden sie ALLE genannt — `discount_source` traegt nur den
+   * staerksten, und ein Kunde, der eine Werbepraemie UND einen Eingriff hatte,
+   * soll auf dem Beleg beides wiederfinden. */
+  const teile = [];
+  if (herkunft.ausWerbung) teile.push("Werbepraemie");
+  if (herkunft.ausEingriff) teile.push("Eingriff des TempConnect-Teams");
+
+  if (teile.length === 0) return kopf + ` · Treue-Rabatt ${satz} % beruecksichtigt`;
+  return kopf + ` · Rabatt ${satz} % beruecksichtigt (Automatik + ${teile.join(" + ")})`;
 }
 
 /**
@@ -328,6 +361,7 @@ export async function vorschauRecurringInvoices(pool, opts = {}) {
   let summeRabattCents = 0;
   let uebersprungen = 0;
   let mitEingriff = 0;
+  let mitWerbung = 0;
 
   for (const s of rows) {
     let e;
@@ -358,6 +392,7 @@ export async function vorschauRecurringInvoices(pool, opts = {}) {
     summeNettoCents += e.nettoCents;
     summeRabattCents += rabatt.betragCents;
     if (e.eingriff) mitEingriff++;
+    if (e.werbung?.praemie) mitWerbung++;
 
     posten.push({
       subscription_id: s.id, user_id: s.user_id, plan: s.plan,
@@ -367,11 +402,19 @@ export async function vorschauRecurringInvoices(pool, opts = {}) {
       netto_cents: e.nettoCents,
       rabatt_pct: satz,
       rabatt_cents: rabatt.betragCents,
-      rabatt_quelle: satz > 0 ? (e.eingriff ? EINGRIFF_QUELLE : "bounty") : null,
+      rabatt_quelle: satz > 0
+        ? (e.werbung?.praemie ? WERBUNG_QUELLE : (e.eingriff ? EINGRIFF_QUELLE : "bounty"))
+        : null,
       automatik_pct: e.rabattSatz,
       eingriff: e.eingriff
         ? { id: e.eingriff.id, bounty_key: e.eingriff.bounty_key, zusatz_pct: Number(e.eingriff.zusatz_pct) }
         : null,
+      // K2: die Praemie MIT Grund, wenn keine faellig ist. Eine Vorschau, die
+      // schweigt, laesst offen, ob geprueft wurde oder nichts da war.
+      werbepraemie: e.werbung?.praemie
+        ? { id: e.werbung.praemie.id, satz_pct: Number(e.werbung.satz), faellig_ab: e.werbung.praemie.faellig_ab }
+        : null,
+      werbepraemie_grund: e.werbung?.grund || null,
       // Der Ausfall wird in der Vorschau GEZEIGT, aber nicht festgehalten.
       ausfall: e.ausfall
     });
@@ -384,6 +427,7 @@ export async function vorschauRecurringInvoices(pool, opts = {}) {
     rechnungen: rows.length - uebersprungen - posten.filter((p) => p.status === "fehler").length,
     uebersprungen,
     mit_eingriff: mitEingriff,
+    mit_werbepraemie: mitWerbung,
     summe_netto_cents: summeNettoCents,
     summe_rabatt_cents: summeRabattCents,
     posten,
@@ -436,6 +480,7 @@ export async function generateRecurringInvoices(pool, opts = {}) {
   let skipped = 0;
   let eingriffeAngewandt = 0;
   let ohneForderung = 0;
+  let werbepraemien = 0;
   const failed = [];
 
   for (const s of rows) {
@@ -465,6 +510,7 @@ export async function generateRecurringInvoices(pool, opts = {}) {
       // createInvoice erhält den Transaktions-Client; withTransaction erkennt den geschachtelten
       // Client (.release vorhanden) und öffnet KEINE zweite Transaktion.
       let angewandterEingriff = null;
+      let angewandteWerbung = null;
       let angewandterSatz = entscheidung.rabattSatz;
       // Gate K2.2: wurde DIESE Rechnung mit ihrer Ausstellung beglichen?
       // BEWUSST hier deklariert und nicht in der Transaktion — genau die Falle,
@@ -488,18 +534,39 @@ export async function generateRecurringInvoices(pool, opts = {}) {
          * den Parallellauf. Gewinnt ein zweiter Lauf das Rennen, kommt `false`
          * zurück und der Zuschlag wird NICHT angesetzt — derselbe Eingriff kann
          * niemals auf zwei Rechnungen landen. */
+        /* K2.4-K2.6: die Werbepraemie wird GENAUSO verbraucht — eigener Riegel,
+         * eigener Ausgang. Beide Zuschlaege werden EINZELN angesetzt und nicht
+         * als fertige Summe uebernommen: gewinnt ein Parallellauf das Rennen um
+         * den einen, muss der andere trotzdem gelten. Eine vorgerechnete Summe
+         * waere hier falsch, sobald nur eines von beidem durchgeht. */
         let satz = entscheidung.rabattSatz;
         let quelle = satz > 0 ? "bounty" : null;
         let ausEingriff = false;
+        let ausWerbung = false;
 
         if (entscheidung.eingriff) {
           const verbraucht = await eingriffVerbrauchen(client, entscheidung.eingriff.id);
           if (verbraucht) {
-            satz = entscheidung.satzMitEingriff;
+            satz += Number(entscheidung.eingriff.zusatz_pct) || 0;
             quelle = EINGRIFF_QUELLE; // die Quelle steht auf der Rechnung
             ausEingriff = true;
           }
         }
+
+        if (entscheidung.werbung?.praemie) {
+          const verbraucht = await werbepraemieVerbrauchen(client, entscheidung.werbung.praemie.id);
+          if (verbraucht) {
+            satz += Number(entscheidung.werbung.satz) || 0;
+            /* Die Praemie ist die groessere Zusage — sie benennt die Quelle,
+             * auch wenn zusaetzlich eingegriffen wurde. Die Notiz auf dem Beleg
+             * nennt trotzdem BEIDE Teile, damit nichts verschwindet. */
+            quelle = WERBUNG_QUELLE;
+            ausWerbung = true;
+          }
+        }
+
+        // Mehr als die ganze Rechnung laesst sich nicht erlassen.
+        satz = Math.min(100, satz);
         angewandterSatz = satz;
 
         const inv = await createInvoice(client, {
@@ -511,7 +578,7 @@ export async function generateRecurringInvoices(pool, opts = {}) {
           // Kunde das Bounty naechsten Monat, bleibt diese Rechnung unveraendert.
           discountPct: satz,
           discountSource: quelle,
-          notes: rechnungsNotiz(s, satz, ausEingriff)
+          notes: rechnungsNotiz(s, satz, { ausEingriff, ausWerbung })
         });
 
         if (ausEingriff) {
@@ -523,6 +590,13 @@ export async function generateRecurringInvoices(pool, opts = {}) {
           const ohne = invoiceService.berechneRabatt(entscheidung.nettoCents, entscheidung.rabattSatz).betragCents;
           await eingriffBelegNachtragen(client, entscheidung.eingriff.id, inv?.id || null, Math.max(0, mit - ohne));
           angewandterEingriff = entscheidung.eingriff;
+        }
+
+        if (ausWerbung) {
+          // Der Beleg: welche Rechnung diese Praemie frei gemacht hat. Ohne ihn
+          // waere "angewandt" eine Behauptung ohne Gegenstueck.
+          await werbepraemieBelegNachtragen(client, entscheidung.werbung.praemie.id, inv?.id || null);
+          angewandteWerbung = entscheidung.werbung.praemie;
         }
 
         /* ══════════════════════════════════════════════════════════════════
@@ -576,6 +650,7 @@ export async function generateRecurringInvoices(pool, opts = {}) {
 
       if (angewandterEingriff) eingriffeAngewandt++;
       if (rechnungOhneForderung) ohneForderung++;
+      if (angewandteWerbung) werbepraemien++;
 
       /* K1.1 — der Befund bekommt seinen Beleg. Erst dadurch ist er prüfbar:
        * „DIESE Rechnung ging ohne Rabatt raus". Wirft nie. */
@@ -600,9 +675,10 @@ export async function generateRecurringInvoices(pool, opts = {}) {
             discount_pct: angewandterSatz,
             // Automatik oder Eingriff — im Audit wie auf der Rechnung.
             discount_source: angewandterSatz > 0
-              ? (angewandterEingriff ? EINGRIFF_QUELLE : "bounty")
+              ? (angewandteWerbung ? WERBUNG_QUELLE : (angewandterEingriff ? EINGRIFF_QUELLE : "bounty"))
               : null,
             rabatt_eingriff_id: angewandterEingriff?.id || null,
+            werbepraemie_id: angewandteWerbung?.id || null,
             rabatt_ausfall: entscheidung.ausfall || null,
             auto: true
           }
@@ -623,7 +699,9 @@ export async function generateRecurringInvoices(pool, opts = {}) {
     eingriffe_angewandt: eingriffeAngewandt,
     // Gate K2.2: wie viele Rechnungen mit ihrer Ausstellung beglichen waren.
     // Ein Lauf, der Freimonate ausgibt, ohne das zu berichten, waere wieder still.
-    ohne_forderung: ohneForderung
+    ohne_forderung: ohneForderung,
+    // K2: wie viele Werbepraemien dieser Lauf eingeloest hat.
+    werbepraemien
   };
 }
 

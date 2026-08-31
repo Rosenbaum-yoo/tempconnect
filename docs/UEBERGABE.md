@@ -39,15 +39,32 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **K0** | Vorlauf: Merge, Gegenprüfung, Feed-Fehler | ✅ durch — Gate grün, Feed-Fehler (`e845c2d`) bestätigt behoben |
 | **K4** | Der Feed fällt nie auf leer zurück | ✅ **gebaut** `eb46707` (Mig 204, `feedKopieService`, 18 Proben, 4 Rückmutationen) |
 | **K1** | Rabatt sichtbar + Eingriffspunkt | ✅ **gebaut** — Mig 206, drei Dienste, Staff-CC-Modul `rabatt-faelle`, 75 Proben, **14 Rückmutationen** |
-| **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | **Gate K2.2 ✅ beantwortet**, K2.1 gemessen, K2.3 gebaut (Mig 208) — **K2.4–K2.7 offen** |
-| **K3** | Monatsplanung | offen; setzt Welle J vollständig voraus |
+| **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | ✅ **vollständig gebaut** — Mig 208 + 209, `werbepraemieService`, 26 Proben, **16 Rückmutationen** |
+| **K3** | Monatsplanung | ⏭ **als Nächstes**; setzt Welle J vollständig voraus |
 | **L** | Tragfähigkeit / Hochverfügbarkeit | dokumentiert, **nicht gebaut** (eigener Abschnitt, Owner-Vorgabe) |
 
-**Der nächste Griff:** **`K2.4`** aus
+**Der nächste Griff:** **`K3.1`** aus
 [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md)
-— die Karenz-Uhr (30 Tage Bestand), dann K2.5 (Deckel bei 3), K2.6 (Stapelung),
-K2.7 (Eingriffspunkt). Das **Gate K2.2 ist beantwortet**, der Weg trägt jetzt eine
-0-€-Rechnung. Reihenfolge laut Plan: **K0 → K4 → K1 → K2 → K3.**
+— der Entwurf der Monatsplanung nach Abschnitt 3b: zwei Spuren, keine
+Zustimmungspflicht, *ein Bild, kein Code*. **K3.1 braucht die Owner-Freigabe des
+Entwurfs, bevor gebaut wird** — anders als K1 und K2 ist das kein Gate, das man
+messen kann, sondern eine Produktentscheidung. Reihenfolge laut Plan:
+**K0 → K4 → K1 → K2 → K3** — die ersten vier sind durch.
+
+> **Was K2 gekostet hat und wofür.** Der Plan sah sieben Phasen vor; gebaut sind
+> sie alle, aber das **Gate K2.2 hat drei Blocker gefunden, die nicht im Plan
+> standen** — die Tier-Deckelung (vorhergesagt), die 20-%-Katalogregel und, am
+> schwersten, der Lebenszyklus: eine 0-€-Rechnung hätte das Abo auf `past_due`
+> gesetzt, niemand hätte sie bezahlt, und nach 14 Tagen wäre der Kunde, dem die
+> Rechnung geschenkt wurde, auf DEMO **ausgesperrt** worden. `applyRenewalPayment`
+> hat bis heute **keinen einzigen Aufrufer**. Das trifft nicht nur den Cashback,
+> sondern jede Rechnung, die auf null fällt — auch einen K1-Eingriff bei 100 %.
+
+> **Die zwei Widersprüche zum Owner-Entscheid sind korrigiert, nicht neu
+> verhandelt:** `MAX_REFERRAL_REWARDS` stand auf **6** statt 3, und die
+> Qualifikation feuerte **sofort** beim Zahlungseingang statt nach 30 Tagen.
+> Beides steht jetzt auf dem entschiedenen Wert. Und die Prämie, die seit jeher
+> **gebucht und nie angewandt** wurde, erreicht die Rechnung.
 
 > **Was das Gate ergeben hat, in einem Satz: die Rechenkette trug die 0 € auf
 > Anhieb, drei andere Schichten nicht.** Der schwerste Befund: der Lauf setzt das
@@ -271,7 +288,7 @@ zurückziehen müssen.**
 
 | Plan | Inhalt |
 |---|---|
-| [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md) | **Der aktive Plan.** Owner-Abschnitte 12 + 13: Bounty-Verwaltung ins Staff CC, Werbe-Cashback, Monatsplanung, Feed-Rückfall. Alle Owner-Entscheidungen getroffen (2026-08-27). **K0 + K4 + K1 gebaut, Gate K2.2 beantwortet, K2.4 als Nächstes.** |
+| [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md) | **Der aktive Plan.** Owner-Abschnitte 12 + 13: Bounty-Verwaltung ins Staff CC, Werbe-Cashback, Monatsplanung, Feed-Rückfall. Alle Owner-Entscheidungen getroffen (2026-08-27). **K0 + K4 + K1 + K2 gebaut, K3 als Nächstes (braucht Owner-Freigabe des Entwurfs).** |
 | [features/L_TRAGFAEHIGKEIT.md](features/L_TRAGFAEHIGKEIT.md) | Hochverfügbarkeit und Skalierung („wie tragen wir 10 000 Kunden?"). **Eigenständiger Abschnitt, dokumentiert und ausdrücklich nicht gebaut** — Owner-Vorgabe 2026-08-27. |
 | [features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md](features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md) | Welle J: Live-Belegschaft ↔ Marktplatz, Rechnungsstammdaten, E-Rechnung (ZUGFeRD, PDF/A-3u, Schematron). Gebaut. |
 | [features/I_AUDIT_ZUWEISUNG_SUPPORT.md](features/I_AUDIT_ZUWEISUNG_SUPPORT.md) · [features/I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md](features/I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md) | Welle I: Audit-Trennung, Fristen, Support-Weg. **I3 Stufe 1 gebaut** (E-Mail im Arbeiter-Weg), Stufen 2–4 offen (Web Push statt SMS — billiger und die Einwilligung ist sauberer). |

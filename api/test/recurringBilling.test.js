@@ -61,10 +61,12 @@ describe("recurringBillingService — generateRecurringInvoices", () => {
     // `eingriffe_angewandt` kam mit Welle K1.4 dazu, `ohne_forderung` mit dem
     // Gate K2.2: ein Lauf, der Eingriffe anwendet oder Freimonate ausgibt, ohne
     // das zu berichten, waere wieder still. Die Pruefung bleibt streng
-    // (vollstaendige Form), sie kennt nur zwei Felder mehr.
+    // (vollstaendige Form), sie kennt nur drei Felder mehr — `werbepraemien` kam
+    // mit K2.4 dazu.
     assert.deepEqual(result, {
       processed: 0, invoiced: 0, skipped: 0, failed: [],
-      batch_size: MAX_BATCH_SIZE, eingriffe_angewandt: 0, ohne_forderung: 0
+      batch_size: MAX_BATCH_SIZE, eingriffe_angewandt: 0, ohne_forderung: 0,
+      werbepraemien: 0
     });
   });
 

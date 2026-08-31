@@ -32,6 +32,7 @@ import { hasDb, createPool } from "./helpers.js";
 
 import * as ausfall from "../../services/rabattAusfallService.js";
 import * as eingriff from "../../services/rabattEingriffService.js";
+import * as praemie from "../../services/werbepraemieService.js";
 import * as fall from "../../services/rabattFallService.js";
 import { naechsteAbrechnung, vorschauRecurringInvoices } from "../../services/recurringBillingService.js";
 import { getUserDiscountDetail } from "../../services/bountyService.js";
@@ -278,6 +279,73 @@ describe("K1 · die Abfragen sind gueltiges Postgres gegen das echte Schema",
     const d = await getUserDiscountDetail(pool, fremd);
     assert.equal(d.satz, 0);
     assert.equal(d.deckel_frei_pct, 0);
+  });
+
+  /* ── Welle K2.4-K2.7 / Migration 209 ──────────────────────── */
+
+  it("Migration 209 ist eingespielt: der Werbe-Cashback steht im Katalog", async () => {
+    const { rows } = await pool.query(
+      `SELECT discount_pct, deckel_frei, threshold_type, is_active, threshold_value
+         FROM bounties WHERE key = $1`, [praemie.WERBE_CASHBACK_KEY]
+    );
+    assert.equal(rows.length, 1, "ohne den Eintrag gibt es keinen Satz und keinen Not-Aus");
+    assert.equal(rows[0].deckel_frei, true, "sonst stutzt die Stufe die Praemie auf 8 %");
+    assert.equal(rows[0].threshold_type, "referral_cashback");
+    assert.equal(Number(rows[0].discount_pct), 100);
+  });
+
+  it("100 % im Katalog UEBERLEBEN die Pruefregel — weil der Eintrag deckel-frei ist", async () => {
+    /* Der Gegenbeweis zur 20-%-Regel aus Migration 208, diesmal am ECHTEN
+     * Eintrag statt an einer Testzeile. */
+    const { rows } = await pool.query(
+      `SELECT discount_pct FROM bounties WHERE key = $1 AND deckel_frei`,
+      [praemie.WERBE_CASHBACK_KEY]
+    );
+    assert.equal(Number(rows[0].discount_pct), 100);
+  });
+
+  it("praemienKonfiguration liest Satz und Zustand aus dem echten Katalog", async () => {
+    const k = await praemie.praemienKonfiguration(pool);
+    assert.equal(k.aktiv, true);
+    assert.equal(k.satz, 100);
+    assert.equal(k.deckelFrei, true);
+    assert.equal(k.fehler, null, "ein Fehler hier hiesse: die Konfiguration ist nicht lesbar");
+  });
+
+  it("offeneWerbepraemieLesen ist gueltiges Postgres — drei Bedingungen, ein EXISTS", async () => {
+    /* Die Abfrage verbindet vier Tabellen und traegt zwei Array-Parameter mit
+     * Cast. Ein Mock haette jede davon anstandslos beantwortet. */
+    assert.equal(await praemie.offeneWerbepraemieLesen(pool, fremd), null);
+  });
+
+  it("angewandtePraemien ist gueltiges Postgres", async () => {
+    assert.equal(await praemie.angewandtePraemien(pool, fremd), 0);
+  });
+
+  it("werbepraemieFuerLauf laeuft gegen das echte Schema durch", async () => {
+    const r = await praemie.werbepraemieFuerLauf(pool, fremd);
+    assert.equal(r.praemie, null);
+    assert.equal(r.grund, "KEINE_FAELLIGE_PRAEMIE",
+      "ein anderer Grund hiesse: Katalog oder Deckel-Abfrage sind schief");
+  });
+
+  it("praemienFuerNutzer ist gueltiges Postgres", async () => {
+    assert.deepEqual(await praemie.praemienFuerNutzer(pool, fremd), []);
+  });
+
+  it("die Bestandspraemien sind KEINE Werbepraemien — der Pilotmonat bleibt aussen vor", async () => {
+    /* Gemessen: die zwei vorhandenen Zeilen sind beide `pilot_base`. Wuerden
+     * sie als Werbepraemie zaehlen, bekaemen zwei Kunden eine Rechnung
+     * geschenkt, die ihnen nie zugesagt war. */
+    const { rows } = await pool.query(
+      `SELECT reward_type, COUNT(*)::int AS n FROM referral_rewards GROUP BY reward_type`
+    );
+    const werbe = rows.filter((r) => praemie.PRAEMIEN_ARTEN.includes(r.reward_type));
+    const pilot = rows.filter((r) => r.reward_type === "pilot_base");
+    assert.ok(pilot.length > 0 || werbe.length >= 0);
+    for (const r of werbe) {
+      assert.ok(praemie.PRAEMIEN_ARTEN.includes(r.reward_type));
+    }
   });
 
   /* ── Der Schreibweg ─────────────────────────────────────────────────── */

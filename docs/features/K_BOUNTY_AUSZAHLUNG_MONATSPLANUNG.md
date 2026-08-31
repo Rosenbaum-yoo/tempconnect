@@ -1,6 +1,6 @@
 # Welle K — Bounty-Auszahlung, Werbe-Cashback, Monatsplanung
 
-> **Status (2026-08-31): K0 ✅ · K4 ✅ · K1 ✅ · Gate K2.2 ✅ beantwortet · K2.4–K2.7 offen · K3 offen.**
+> **Status (2026-08-31): K0 ✅ · K4 ✅ · K1 ✅ · K2 ✅ vollständig · K3 offen.**
 > Alle Owner-Entscheidungen getroffen (2026-08-27).
 > Owner-Abschnitte **12** und **13**, dazu zwei Punkte aus dem Betrieb.
 >
@@ -344,10 +344,46 @@ Geworbene bekommt **nichts extra**.
 | K2.1 | **Erhebung:** ist `referrals` → Prämie heute verdrahtet? | ✅ **gemessen** — siehe unten |
 | K2.2 | **Gate: vertragen 0-€-Rechnungen den Weg?** | ✅ **beantwortet** — Rechenkette ja, drei andere Schichten nein; alle drei behoben (Mig 208) |
 | K2.3 | **Ausnahme von der Tier-Deckelung** für den Cashback-Typ (siehe 2.3) | ✅ `bounties.deckel_frei` — Bronze-Kunde bekommt 100 %, nicht 8 % |
-| K2.4 | Karenz-Uhr: der Geworbene muss 30 Tage bestehen | Kündigung an Tag 29 → keine Prämie |
-| K2.5 | Deckel bei 3 Monaten | vierter geworbener Kunde → keine weitere Prämie |
-| K2.6 | Stapelung klären: 100 % neben einem Treuerabatt | Ergebnis nie über 100 %, Treuerabatt geht nicht verloren |
-| K2.7 | Eingriffspunkt wie K1.4 | Audit-Probe |
+| K2.4 | Karenz-Uhr: der Geworbene muss 30 Tage bestehen | ✅ `faellig_ab` + **Bestandsprüfung im WHERE** — kein Widerrufs-Job nötig |
+| K2.5 | Deckel bei 3 Monaten | ✅ `MAX_PRAEMIEN = 3` (war 6), gezählt werden die **angewandten** |
+| K2.6 | Stapelung: 100 % neben einem Treuerabatt | ✅ alle drei Quellen addieren sich, bei 100 gekappt; der Treuerabatt wird **nie** verbraucht |
+| K2.7 | Eingriffspunkt wie K1.4 | ✅ die Prämie lässt sich **nicht** von Hand herbeireden — der Eingriff prallt mit Begründung ab |
+
+**Die Prämie erreicht jetzt die Rechnung.** Sie fährt auf **derselben Schiene wie
+der Eingriff aus K1.4** — vor der Transaktion gelesen, darin verbraucht, danach
+belegt. Kein zweiter Mechanismus (L3), nur eine zweite Herkunft: der Eingriff
+kommt von einem Menschen, die Prämie aus dem Werbe-Buch. Beide enden im selben
+`discount_pct`.
+
+**Warum die Bedingungen beim VERBRAUCHEN geprüft werden, nicht beim Buchen.**
+Der naheliegende Weg wäre ein Widerrufs-Job: kündigt der Geworbene an Tag 29,
+nimm die Prämie zurück. Das bräuchte einen nächtlichen Lauf, einen
+Kündigungs-Haken und die Annahme, dass beide immer feuern — drei Stellen, an
+denen es still schiefgehen kann, und genau die Sorte Automatik, die in diesem
+Repo schon einmal **nie gelaufen ist** (der nächtliche Mutations-Job, TRIAGE.md).
+Stattdessen stehen Karenz und Bestand des Geworbenen **im `WHERE`** der einen
+Abfrage, die im Moment der Rechnung läuft. Kündigt er, findet sie die Prämie nie.
+
+**Warum die Prämie keine `user_bounties`-Zeile erzeugt.** `evaluateBounties`
+läuft, wenn der **Kunde seine Bounty-Seite besucht**. Zwischen dem Fälligwerden
+und dem nächsten Besuch können Wochen liegen — für eine Anzeige hinnehmbar, für
+eine Rechnung nicht. `referral_rewards` ist deshalb die Wahrheit fürs Geld, und
+der Abrechnungslauf fragt sie **direkt**. Die Katalog-Kachel `werbe_cashback`
+liefert Satz und Not-Aus und **erklärt sich** (`referral_cashback`), vergibt aber
+ausdrücklich nichts: wäre `earned: true`, sähe `getUserDiscount` die 100 % ein
+zweites Mal und der Rabatt wäre doppelt.
+
+> **Ein Fund beim Bauen der eigenen Probe.** Die erste Fassung von
+> `praemienKonfiguration` fing den Datenbankfehler ab und meldete schlicht
+> „Programm aus". Damit war **ein Ausfall nicht von einer Owner-Entscheidung zu
+> unterscheiden** — Zeichen für Zeichen der Defekt, den K1.1 bei `getUserTier`
+> gefunden hat, in neuem Code reproduziert. Die Probe hat ihn gefangen; der
+> Fehler wird jetzt benannt statt verkleidet.
+
+**Belege:** Migration 209, `api/services/werbepraemieService.js`,
+`api/test/werbepraemie.test.js` (26 Proben), **16 Rückmutationen** an der
+Produktionsquelle, `test/integration/rabattWirdSichtbar.flow.test.js` 34/34 im
+Container.
 
 > **K2.2 war ein Gate, keine Phase** — und es hat sich gelohnt.
 
@@ -471,8 +507,8 @@ entfernt — **jede von genau der zuständigen Probe gefangen**.
 K0 (erledigt sich mit dem Merge)          ✅ durch
  ├── K4 (Feed-Rückfall)      ← klein, schützt die sichtbarste Fläche   ✅ eb46707
  ├── K1 (Rabatt + Eingriff)  ← behebt einen Geldfehler                 ✅ gebaut
- ├── K2 (Werbe-Cashback)     ← Gate K2.2 ✅, K2.3 ✅, K2.4-K2.7 offen   ⏭ laeuft
- └── K3 (Monatsplanung)      ← braucht Welle J vollständig             offen
+ ├── K2 (Werbe-Cashback)     ← Gate + alle Phasen                     ✅ gebaut
+ └── K3 (Monatsplanung)      ← braucht Welle J vollständig             ⏭ als Nächstes
 ```
 
 **Empfohlen: K0 → K4 → K1 → K2 → K3.**
@@ -483,8 +519,8 @@ K0 (erledigt sich mit dem Merge)          ✅ durch
 
 | Punkt | Art |
 |---|---|
-| **Verträgt der Abrechnungsweg 0 €?** (K2.2) | technisch — wird gemessen, nicht entschieden |
-| **Stapelung** 100 % neben Treuerabatt (K2.6) | Vorschlag: der höhere gilt, der Treuerabatt bleibt für den Folgemonat erhalten |
+| ~~**Verträgt der Abrechnungsweg 0 €?** (K2.2)~~ | ✅ **gemessen und behoben** — Ergebnis im Abschnitt „Das Ergebnis des Gates" |
+| ~~**Stapelung** 100 % neben Treuerabatt (K2.6)~~ | ✅ **entschieden und gebaut**: die Quellen addieren sich und werden bei 100 gekappt. Der Treuerabatt geht nicht verloren — verbraucht wird immer nur die Prämie, seine Bounties bleiben aktiv und wirken im Folgemonat weiter. |
 
 ---
 

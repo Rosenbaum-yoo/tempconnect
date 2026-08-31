@@ -1,3 +1,13 @@
+/*
+ * OWNER-ENTSCHEID 2026-08-27, nachgezogen in Welle K2.5 (2026-08-31):
+ * der Deckel der Werbepraemien steht auf DREI, nicht mehr auf sechs
+ * ("hoechstens 3 Monate insgesamt"). Vier Zusicherungen dieser Datei hielten
+ * die alte Sechs fest und sind deshalb auf drei geaendert — die Zahl, nicht die
+ * Pruefung. Alle Zusicherungen sind gleich streng geblieben; keine wurde
+ * entfernt oder abgeschwaecht. Die Zahl selbst steht ab jetzt an EINER Stelle
+ * (`werbepraemieService.MAX_PRAEMIEN`), damit sie nicht ein zweites Mal
+ * auseinanderlaufen kann.
+ */
 /**
  * Coverage suite for services/referralProgramService.js
  *
@@ -160,7 +170,7 @@ describe("createReferralInvite", () => {
     const result = await svc.createReferralInvite(pool, "r1", "New@Example.com");
     assert.equal(result.ok, false);
     assert.equal(result.error, "MAX_REFERRALS_REACHED");
-    assert.equal(result.limit, 6);
+    assert.equal(result.limit, 3);
     // Should not have attempted the duplicate check or insert.
     assert.equal(countCalls(pool.calls, "INSERT INTO referrals"), 0);
   });
@@ -353,16 +363,16 @@ describe("qualifyReferralReward", () => {
     assert.equal(result.plan, "FREE");
   });
 
-  it("returns TOTAL_LIMIT_REACHED when referrer already has 6 rewards", async () => {
+  it("returns TOTAL_LIMIT_REACHED when referrer already has 3 rewards", async () => {
     const pool = trackingPool([
       { match: "r.reward_applied = FALSE", rows: [pendingReferral] },
       { match: "SELECT plan FROM subscriptions", rows: [{ plan: "PRO" }] },
-      { match: "SELECT COUNT(*)::int AS total FROM referral_rewards", rows: [{ total: 6 }] },
+      { match: "SELECT COUNT(*)::int AS total FROM referral_rewards", rows: [{ total: 3 }] },
     ]);
     const result = await svc.qualifyReferralReward(pool, "buyer1");
     assert.equal(result.ok, false);
     assert.equal(result.reason, "TOTAL_LIMIT_REACHED");
-    assert.equal(result.limit, 6);
+    assert.equal(result.limit, 3);
   });
 
   it("returns MONTHLY_LIMIT_REACHED when one reward already booked this month", async () => {
@@ -473,12 +483,12 @@ describe("getReferralStatus", () => {
     // free_months counts pilot_base + free_month = 2
     assert.equal(result.free_months_total, 2);
     assert.equal(result.free_months_remaining, 2); // usedMonthsSincePilot 0
-    assert.equal(result.free_months_max, 6);
+    assert.equal(result.free_months_max, 3);
     assert.equal(result.cashback_months_earned, 1);
     assert.equal(result.referrals_total, 3);
     assert.equal(result.referrals_active, 1);
     assert.equal(result.referrals_pending, 1); // not active, not expired -> the 'registered' one
-    assert.equal(result.referrals_remaining, 6 - 2); // 2 non-expired
+    assert.equal(result.referrals_remaining, 3 - 2); // 2 non-expired
     assert.equal(result.referrals.length, 3);
     assert.deepEqual(result.referred_by, {
       referrer_id: "spons1",
@@ -502,7 +512,7 @@ describe("getReferralStatus", () => {
     assert.equal(result.free_months_total, 0);
     assert.equal(result.cashback_months_earned, 0);
     assert.equal(result.referrals_total, 0);
-    assert.equal(result.referrals_remaining, 6);
+    assert.equal(result.referrals_remaining, 3);
     // No survey lookup issued when not referred.
     assert.equal(countCalls(pool.calls, "SELECT id FROM referral_surveys WHERE referral_id"), 0);
   });

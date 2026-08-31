@@ -1040,6 +1040,36 @@ function checkBountyCondition(bounty, data) {
       const needed = tv.min_referrals || 5;
       return { earned: refCount >= needed, progress: Math.min(100, (refCount / needed) * 100) };
     }
+    case 'referral_cashback': {
+      /* WELLE K2 — die Kachel erklaert sich, vergibt aber NICHTS.
+       *
+       * Die Werbepraemie ist die einzige Kachel, deren Geld NICHT ueber
+       * `user_bounties` laeuft. Der Grund steht ausgeschrieben in Migration 209:
+       * `evaluateBounties` wird beim BESUCH der Bounty-Seite ausgefuehrt,
+       * zwischen dem Faelligwerden einer Praemie und dem naechsten Besuch
+       * koennen Wochen liegen — und ein veralteter Stand darf keine Rechnung
+       * bestimmen. Die Wahrheit fuer das Geld ist `referral_rewards`, gelesen
+       * vom Abrechnungslauf im Moment der Rechnung.
+       *
+       * `earned: false` ist deshalb kein Versehen, sondern Pflicht: waere es
+       * `true`, saehe `getUserDiscount` die 100 % ein ZWEITES Mal, und der
+       * Kunde bekaeme den Rabatt doppelt gutgeschrieben.
+       *
+       * Was diese Kachel leistet, ist die Erklaerung. Ohne sie stuende die
+       * Praemie als "gesperrt, 0 %" ohne ein Wort da — genau die stumme
+       * Kachel, die Welle P9/A2 an anderer Stelle aufgeraeumt hat. */
+      const geworben = data.referralCount || 0;
+      const deckel = Number(tv.max_praemien) || 3;
+      const tage = Number(tv.karenz_tage) || 30;
+      return {
+        earned: false,
+        progress: Math.min(100, Math.round((geworben / deckel) * 100)),
+        note: `Wird nicht hier vergeben, sondern direkt auf der Rechnung: `
+            + `wer ein Unternehmen wirbt, das ${tage} Tage bleibt, bekommt die `
+            + `naechste Monatsrechnung geschenkt — bis zu ${deckel}-mal. `
+            + `Bisher geworben: ${geworben}.`
+      };
+    }
     case 'ratings_given': {
       const given = data.ratingsGiven || 0;
       const needed = tv.min_ratings || 50;

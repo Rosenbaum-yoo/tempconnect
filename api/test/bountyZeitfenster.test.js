@@ -51,6 +51,11 @@ const MESSUNG = Object.freeze({
   subscription_age:    { fenster: "months", liest: "firstSubDate" },
   registration_before: { fenster: null,     liest: "userCreatedAt" },
   referrals:           { fenster: null,     liest: "referralCount" },
+  /* Welle K2: die einzige Kachel, die NICHTS vergibt. Ihr Geld laeuft nicht
+   * ueber `user_bounties`, sondern ueber `referral_rewards`, gelesen vom
+   * Abrechnungslauf im Moment der Rechnung (Begruendung in Migration 209).
+   * Sie liest `referralCount` nur, um den Fortschritt zu zeigen. */
+  referral_cashback:   { fenster: null,     liest: "referralCount" },
   ratings_given:       { fenster: null,     liest: "ratingsGiven" },
   mentoring:           { fenster: null,     liest: "mentoringCount" },
   top_percentile_12m:  { fenster: null,     liest: "percentileRank" }

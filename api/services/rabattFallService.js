@@ -48,6 +48,9 @@ import { naechsteAbrechnung } from "./recurringBillingService.js";
 import { berechneRabatt } from "./invoiceService.js";
 import { ausfaelleFuerNutzer } from "./rabattAusfallService.js";
 import { eingriffeFuerNutzer, offenenEingriffLesen, eingriffVorschau } from "./rabattEingriffService.js";
+// Welle K2: die Werbepraemie gehoert in den Einzelfall — sonst sieht das Team
+// einen Rabatt, dessen Quelle es nicht erklaeren kann.
+import { praemienFuerNutzer, werbepraemieFuerLauf } from "./werbepraemieService.js";
 
 /**
  * Die Kundenliste der Flaeche: wer haelt einen Rabatt, wo hakt es.
@@ -201,13 +204,21 @@ export async function rabattFall(pool, userId) {
   const ausfaelle = await ausfaelleFuerNutzer(pool, userId);
   const eingriffe = await eingriffeFuerNutzer(pool, userId);
   const offenerEingriff = await offenenEingriffLesen(pool, userId);
+  const praemien = await praemienFuerNutzer(pool, userId);
+  // `werbepraemieFuerLauf` wirft nie und nennt im `grund`, warum nichts faellig
+  // ist — genau die Auskunft, die eine Flaeche braucht, um "geprueft, nichts da"
+  // von "nicht geprueft" zu unterscheiden.
+  const werbung = await werbepraemieFuerLauf(pool, userId);
 
   /* Was beim naechsten Lauf tatsaechlich angesetzt wuerde — inklusive eines
    * offenen Eingriffs. Genau die Zahl, die `abrechnungsEntscheidung` bilden
    * wird; hier nur zusammengesetzt, nicht neu erfunden. */
-  const satzNaechsterLauf = offenerEingriff
-    ? Math.min(100, satz + (Number(offenerEingriff.zusatz_pct) || 0))
-    : satz;
+  const satzNaechsterLauf = Math.min(
+    100,
+    satz
+      + (offenerEingriff ? (Number(offenerEingriff.zusatz_pct) || 0) : 0)
+      + (werbung.praemie ? (Number(werbung.satz) || 0) : 0)
+  );
 
   return {
     kunde: {
@@ -248,7 +259,12 @@ export async function rabattFall(pool, userId) {
     rechnungen,
     ausfaelle,
     eingriffe,
-    offener_eingriff: offenerEingriff
+    offener_eingriff: offenerEingriff,
+    praemien,
+    werbepraemie: werbung.praemie
+      ? { ...werbung.praemie, satz_pct: Number(werbung.satz) }
+      : null,
+    werbepraemie_grund: werbung.grund || null
   };
 }
 

@@ -1,11 +1,11 @@
 {
   "_hinweis": "GENERIERT — nicht von Hand bearbeiten. Neu erzeugen mit: npm run schema:snapshot (liest die laufende Datenbank im Container tempconnect_db).",
-  "erzeugt_am": "2026-08-31T06:23:29.664Z",
+  "erzeugt_am": "2026-08-31T06:59:12.717Z",
   "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
   "migrations_fingerabdruck": {
     "init": "49a1c9ef343102f593f1267155c30cea987684bf1a93826cf237e61101238c7e",
-    "dateien": 212,
-    "hash": "0d0603710c5215dee822dc8f43c4f654456cb271e1acaf3da5cd97ed94b9b3de"
+    "dateien": 213,
+    "hash": "54cc2d838fb8a285ba5f3d316782b82944829e7605f1ddff1223161d9a14469c"
   },
   "pruefwerte": {
     "approval_requests": {

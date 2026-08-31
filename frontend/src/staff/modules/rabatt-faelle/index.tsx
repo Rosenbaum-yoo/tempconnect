@@ -58,6 +58,14 @@ interface Ausfall {
   zuerst_am: string; zuletzt_am: string; invoice_number: string | null;
 }
 
+interface Praemie {
+  id: string; reward_type: string; month_label: string | null; description: string | null;
+  applied_at: string; faellig_ab: string | null; angewandt_am: string | null;
+  rechnung_id: string | null; referred_email: string | null;
+  werbung_status: string | null; invoice_number: string | null;
+  satz_pct?: number;
+}
+
 interface Eingriff {
   id: string; bounty_key: string; zusatz_pct: number;
   erwartete_ersparnis_cents: number; tatsaechliche_ersparnis_cents: number | null;
@@ -86,6 +94,9 @@ interface Fall {
   ausfaelle: Ausfall[];
   eingriffe: Eingriff[];
   offener_eingriff: Eingriff | null;
+  praemien: Praemie[];
+  werbepraemie: Praemie | null;
+  werbepraemie_grund: string | null;
 }
 
 interface Vorschau {
@@ -103,12 +114,15 @@ interface LaufPosten {
   periode_ab?: string; netto_cents?: number; rabatt_pct?: number;
   rabatt_cents?: number; rabatt_quelle?: string | null; automatik_pct?: number;
   eingriff?: { id: string; bounty_key: string; zusatz_pct: number } | null;
+  werbepraemie?: { id: string; satz_pct: number; faellig_ab: string | null } | null;
+  werbepraemie_grund?: string | null;
   ausfall?: string | null;
 }
 
 interface Lauf {
   stand: string; faellig: number; rechnungen: number; uebersprungen: number;
-  mit_eingriff: number; summe_netto_cents: number; summe_rabatt_cents: number;
+  mit_eingriff: number; mit_werbepraemie: number;
+  summe_netto_cents: number; summe_rabatt_cents: number;
   posten: LaufPosten[]; abgeschnitten: boolean;
 }
 
@@ -137,6 +151,21 @@ function monatJetzt(): string {
 
 function stellenName(stelle: string): string {
   return stelle === "stufe" ? "Stufen-Abfrage" : "Rabattsatz";
+}
+
+/** Warum keine Werbepraemie faellig ist — in Worten statt als Schluessel. */
+function praemienGrund(grund: string | null): string {
+  if (!grund) return "";
+  if (grund === "KEINE_FAELLIGE_PRAEMIE") return "Keine faellige Werbepraemie.";
+  if (grund === "DECKEL_ERREICHT") return "Der Deckel von drei geschenkten Monaten ist erreicht.";
+  if (grund === "PROGRAMM_AUS") return "Das Werbe-Programm ist im Rabatt-Katalog abgeschaltet.";
+  if (grund === "KEIN_KATALOGEINTRAG") return "Der Katalogeintrag der Werbepraemie fehlt.";
+  if (grund === "SATZ_IST_NULL") return "Der Satz der Werbepraemie steht auf 0 %.";
+  if (grund.startsWith("NICHT_ERMITTELBAR")) {
+    // Ein Ausfall darf NICHT wie eine Entscheidung aussehen.
+    return `Die Werbepraemie war nicht ermittelbar — das ist ein Fehler, keine Entscheidung: ${grund.replace(/^NICHT_ERMITTELBAR:\s*/, "")}`;
+  }
+  return grund;
 }
 
 const kachelStil = {
@@ -546,13 +575,62 @@ export default function RabattFaelle() {
                           <td>{fmtCents(r.amount_cents)}</td>
                           <td>{Number(r.discount_pct) > 0 ? `${pct(r.discount_pct)} · ${fmtCents(r.discount_amount_cents)}` : "–"}</td>
                           <td style={{ fontSize: 12 }}>
-                            {r.discount_source === "bounty_eingriff"
-                              ? <span className="scc-pill scc-pill--warn">Eingriff</span>
-                              : r.discount_source === "bounty"
-                                ? <span className="scc-pill scc-pill--live">Automatik</span>
-                                : "–"}
+                            {r.discount_source === "bounty_werbepraemie"
+                              ? <span className="scc-pill scc-pill--warn">Werbepraemie</span>
+                              : r.discount_source === "bounty_eingriff"
+                                ? <span className="scc-pill scc-pill--warn">Eingriff</span>
+                                : r.discount_source === "bounty"
+                                  ? <span className="scc-pill scc-pill--live">Automatik</span>
+                                  : "–"}
                           </td>
                           <td>{fmtCents(r.total_cents)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Werbepraemie */}
+              <div className="scc-card__eyebrow">Werbepraemie</div>
+              {fall.werbepraemie ? (
+                <div style={{
+                  fontSize: 13, margin: "8px 0 14px", padding: "10px 12px",
+                  border: "1px solid var(--scc-line)", borderRadius: 4,
+                }}>
+                  <b>Beim naechsten Lauf faellig: {pct(fall.werbepraemie.satz_pct)}.</b>
+                  {fall.werbepraemie.referred_email && <> Geworben: {fall.werbepraemie.referred_email}.</>}
+                  <div style={{ fontSize: 11, color: "var(--scc-muted)", marginTop: 4 }}>
+                    Faellig ab {fmtDateShort(fall.werbepraemie.faellig_ab)} · verdient{" "}
+                    {fmtDateShort(fall.werbepraemie.applied_at)}. Sie wird von genau einer Rechnung
+                    verbraucht und steht danach als angewandt im Buch.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: "var(--scc-muted)", margin: "8px 0 14px" }}>
+                  {praemienGrund(fall.werbepraemie_grund) || "Keine faellige Werbepraemie."}
+                </div>
+              )}
+
+              {fall.praemien.length > 0 && (
+                <div style={{ overflowX: "auto", margin: "0 0 18px" }}>
+                  <table className="scc-table">
+                    <thead>
+                      <tr>{["Verdient", "Geworben", "Faellig ab", "Angewandt", "Rechnung", "Art"].map((h) => <th key={h}>{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {fall.praemien.map((p) => (
+                        <tr key={p.id} style={{ opacity: p.angewandt_am ? 0.7 : 1 }}>
+                          <td style={{ fontSize: 12 }}>{fmtDateShort(p.applied_at)}</td>
+                          <td style={{ fontSize: 12 }}>{p.referred_email || "–"}</td>
+                          <td style={{ fontSize: 12 }}>{fmtDateShort(p.faellig_ab)}</td>
+                          <td style={{ fontSize: 12 }}>
+                            {p.angewandt_am
+                              ? fmtDate(p.angewandt_am)
+                              : <span className="scc-pill scc-pill--warn">offen</span>}
+                          </td>
+                          <td style={{ fontFamily: "monospace", fontSize: 11 }}>{p.invoice_number || "–"}</td>
+                          <td style={{ fontSize: 11 }}>{p.reward_type}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -690,6 +768,7 @@ export default function RabattFaelle() {
                 { label: "Rechnungen", wert: String(lauf.rechnungen) },
                 { label: "uebersprungen", wert: String(lauf.uebersprungen) },
                 { label: "mit Eingriff", wert: String(lauf.mit_eingriff) },
+                { label: "mit Werbepraemie", wert: String(lauf.mit_werbepraemie) },
                 { label: "Netto gesamt", wert: fmtCents(lauf.summe_netto_cents) },
                 { label: "Rabatt gesamt", wert: fmtCents(lauf.summe_rabatt_cents) },
               ]} />
@@ -725,11 +804,13 @@ export default function RabattFaelle() {
                               : "–"}
                           </td>
                           <td style={{ fontSize: 12 }}>
-                            {p.rabatt_quelle === "bounty_eingriff"
-                              ? <span className="scc-pill scc-pill--warn">Eingriff</span>
-                              : p.rabatt_quelle === "bounty"
-                                ? <span className="scc-pill scc-pill--live">Automatik</span>
-                                : "–"}
+                            {p.rabatt_quelle === "bounty_werbepraemie"
+                              ? <span className="scc-pill scc-pill--warn">Werbepraemie</span>
+                              : p.rabatt_quelle === "bounty_eingriff"
+                                ? <span className="scc-pill scc-pill--warn">Eingriff</span>
+                                : p.rabatt_quelle === "bounty"
+                                  ? <span className="scc-pill scc-pill--live">Automatik</span>
+                                  : "–"}
                           </td>
                           <td style={{ fontSize: 11 }}>
                             {p.status === "uebersprungen" && (
@@ -746,6 +827,16 @@ export default function RabattFaelle() {
                             {p.eingriff && (
                               <div style={{ color: "var(--scc-muted)", marginTop: 3 }}>
                                 +{pct(p.eingriff.zusatz_pct)} aus „{p.eingriff.bounty_key}“
+                              </div>
+                            )}
+                            {p.werbepraemie && (
+                              <div style={{ color: "var(--scc-muted)", marginTop: 3 }}>
+                                +{pct(p.werbepraemie.satz_pct)} Werbepraemie
+                              </div>
+                            )}
+                            {p.werbepraemie_grund && p.werbepraemie_grund.startsWith("NICHT_ERMITTELBAR") && (
+                              <div style={{ color: "var(--scc-muted)", marginTop: 3 }}>
+                                {praemienGrund(p.werbepraemie_grund)}
                               </div>
                             )}
                           </td>
