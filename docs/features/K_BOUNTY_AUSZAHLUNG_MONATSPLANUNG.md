@@ -484,7 +484,8 @@ und `rechnung_id` (der Beleg).
 | Bedarfe | 40, davon **26 über eine Monatsgrenze** |
 | Angebote | 38, davon 22 bestätigt |
 | Kraft-Zuordnungen | 24 auf 15 Kräfte und 15 Einsätze |
-| **echte Doppelbelegung im Bestand** | **1** |
+| Doppelbelegung im Bestand | **0 echte** — die zuerst gemeldete war ein Phantom, siehe Korrektur unten |
+| **Zuordnungen, die nie geschlossen wurden** | **3** — `end_date IS NULL`, obwohl der Einsatz beendet ist |
 | Abwesenheiten | **0** — `worker_absences` existiert und ist leer |
 | AÜG-Überlassungsdauer | **kein Feld im Schema** |
 
@@ -502,11 +503,24 @@ Beginn, der vor ihrer Anlage liegt — bis zu 426 Tage. Die Fläche ist also nic
 nur ein Planungswerkzeug, sondern auch ein Nachtragewerkzeug. Ein Raster, das
 nur in die Zukunft zeigt, träfe ein Viertel der Wirklichkeit nicht.
 
-**(3) Die Doppelbelegung ist keine Theorie — sie liegt bereits im Bestand.**
-Eine Einsatzkraft ist seit dem 01.04.2026 zwei **verschiedenen Unternehmen**
-zugeordnet, beide Einsätze ohne Enddatum. Heute sieht das niemand. Das ist genau
-der harte Konflikt aus Abschnitt 3b, und er beweist, dass die Konfliktanzeige
-nicht optional ist.
+**(3) Der harte Konflikt ist kein Fund — aber die Datenhygiene ist einer.**
+
+> **Korrektur (2026-08-31, beim Bauen von K3.4).** Die erste Fassung dieses
+> Abschnitts meldete *„eine echte Doppelbelegung liegt im Bestand"*. **Das war
+> falsch.** Die Zählung las nur `worker_assignment_links` — und dort steht bei
+> **drei** Zuordnungen `end_date IS NULL`, obwohl ihr Einsatz längst beendet ist.
+> Einer davon endete am **31.03.2025**; er erzeugte eine Überschneidung mit einem
+> Einsatz ab dem 01.04.2026, die es in Wirklichkeit nie gab.
+>
+> **Gegen die wirksame Zeitspanne gerechnet — Link-Ende, begrenzt vom Ende des
+> Einsatzes — gibt es null Doppelbelegungen.**
+
+Der Befund ist damit ein anderer, aber kein kleinerer: **Zuordnungen werden beim
+Abschluss eines Einsatzes nicht geschlossen.** Eine naive Konfliktprüfung hätte
+daraus einen **dauerhaften Fehlalarm** gemacht — und ein Konflikt, der immer da
+ist, wird weggeklickt; danach übersieht man den echten. Die Prüfung rechnet
+deshalb gegen die wirksame Spanne, nicht gegen den Link
+(`WIRKSAMES_ENDE` in `monatsplanService.js`).
 
 ---
 
@@ -536,7 +550,7 @@ keine Bitte, sondern eine Zusage.
 
 | | Konflikt | Grad | Datenlage heute |
 |---|---|---|---|
-| **H1** | eine Person, zwei Orte gleichzeitig | hart | ✅ berechenbar — **1 Fall liegt im Bestand** |
+| **H1** | eine Person, zwei Orte gleichzeitig | hart | ✅ berechenbar — **0 echte Fälle**, gegen die wirksame Spanne gerechnet |
 | **H2** | Abwesenheit im Zeitraum | hart | ⚠️ Tabelle vorhanden, **0 Zeilen** — prüfbar, aber ungenutzt |
 | **H3** | AÜG-Überlassungshöchstdauer überschritten | hart | ❌ **kein Feld im Schema** — siehe Entscheidung E-K3-1 |
 | **W1** | Bedarf unbesetzt | weich | ✅ berechenbar (Bedarf ohne Besetzung im Zeitraum) |
@@ -562,6 +576,7 @@ Seite** löst. Niemand wartet auf niemanden.
 | **E-K3-1** | **Soll die AÜG-Frist geprüft werden?** | Sie hat **kein Feld im Schema**. Prüfbar wäre sie nur mit einem neuen Datum (Überlassungsbeginn je Kraft und Kunde) und einer Regel (18 Monate, mit tariflichen Abweichungen). Das ist ein eigener Bau, kein Nebenprodukt der Planung — und eine falsch gerechnete gesetzliche Frist ist schlimmer als keine. |
 | **E-K3-2** | **Darf in einen vergangenen Monat geplant werden?** | 25 % der Einsätze werden rückwirkend angelegt. Entweder die Fläche kann das auch (dann ist sie zugleich Nachtragewerkzeug), oder sie kann es nicht (dann bleibt der Nachtrag, wo er heute ist). Beides ist vertretbar; die Wahl ist eine Produktentscheidung. |
 | **E-K3-3** | **Wie weit zeigt das Raster einen Einsatz ohne Enddatum?** | Bis zum Monatsrand, oder mit einem Zeichen „läuft weiter"? Die Datenlage sagt: offene Einsätze sind der Normalfall, nicht die Ausnahme. |
+| **E-K3-4** | *(neu)* **Sollen nicht geschlossene Zuordnungen aufgeräumt werden?** | Drei Links stehen offen, obwohl ihr Einsatz beendet ist. Die Monatsplanung kommt ohne die Bereinigung aus — sie rechnet gegen die wirksame Spanne. Aber jede andere Auswertung, die nur den Link liest, zählt weiterhin falsch. Aufräumen heißt: Bestandsdaten anfassen. |
 
 > **Ohne E-K3-1 kann K3.4 nicht vollständig gebaut werden** — der Plan nennt die
 > AÜG-Frist ausdrücklich als harten Konflikt, und sie ist die einzige der fünf,

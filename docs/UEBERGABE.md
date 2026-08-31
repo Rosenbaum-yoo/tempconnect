@@ -40,7 +40,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **K4** | Der Feed fällt nie auf leer zurück | ✅ **gebaut** `eb46707` (Mig 204, `feedKopieService`, 18 Proben, 4 Rückmutationen) |
 | **K1** | Rabatt sichtbar + Eingriffspunkt | ✅ **gebaut** — Mig 206, drei Dienste, Staff-CC-Modul `rabatt-faelle`, 75 Proben, **14 Rückmutationen** |
 | **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | ✅ **vollständig gebaut** — Mig 208 + 209, `werbepraemieService`, 26 Proben, **16 Rückmutationen** |
-| **K3** | Monatsplanung | ⏸ **K3.2 gemessen, K3.1 entworfen — wartet auf Owner-Freigabe** (E-K3-1 bis E-K3-3) |
+| **K3** | Monatsplanung | **K3.2 ✅ · K3.1 ✅ · K3.3/K3.4 ✅ gebaut** (lesende Fläche + vier Konfliktarten) — K3.5/K3.6 warten auf E-K3-1 bis E-K3-4 |
 | **L** | Tragfähigkeit / Hochverfügbarkeit | dokumentiert, **nicht gebaut** (eigener Abschnitt, Owner-Vorgabe) |
 
 **Der nächste Griff: die Antwort des Owners auf E-K3-1 bis E-K3-3.** Der Entwurf
@@ -57,6 +57,7 @@ Plan: **K0 → K4 → K1 → K2 → K3** — die ersten vier sind durch.
 | **E-K3-1** | **Soll die AÜG-Überlassungshöchstdauer geprüft werden?** | Sie hat **kein Feld im Schema**. Prüfbar wäre sie nur mit einem neuen Datum (Überlassungsbeginn je Kraft und Kunde) und einer Regel (18 Monate, mit tariflichen Abweichungen) — ein eigener Bau. Eine falsch gerechnete gesetzliche Frist ist schlimmer als keine. **Ohne diese Antwort kann K3.4 nicht vollständig gebaut werden.** |
 | **E-K3-2** | **Darf in einen vergangenen Monat geplant werden?** | 25 % der Einsätze werden rückwirkend angelegt (bis zu 426 Tage). Entweder die Fläche kann das auch — dann ist sie zugleich Nachtragewerkzeug — oder nicht. Beides ist vertretbar. |
 | **E-K3-3** | **Wie weit zeigt das Raster einen Einsatz ohne Enddatum?** | Offene Einsätze sind der Normalfall, nicht die Ausnahme. |
+| **E-K3-4** | **Sollen die drei nicht geschlossenen Zuordnungen aufgeräumt werden?** | Die Monatsplanung kommt ohne die Bereinigung aus — sie rechnet gegen die wirksame Spanne. Aber jede andere Auswertung, die nur den Link liest, zählt weiterhin falsch. Aufräumen heißt: Bestandsdaten anfassen. |
 
 > **Was die Messung ergeben hat und warum sie den Entwurf bestimmt** *(2026-08-31,
 > laufende Datenbank)*: **91 % der Einsätze überschreiten eine Monatsgrenze** (41
@@ -66,9 +67,16 @@ Plan: **K0 → K4 → K1 → K2 → K3** — die ersten vier sind durch.
 > die Sache.** Dazu: Ø 98 Tage Dauer, Ø 10 Tage Vorlauf, **25 % rückwirkend
 > angelegt**, 7 später geändert.
 >
-> **Der harte Konflikt liegt bereits im Bestand:** eine Einsatzkraft ist seit dem
-> 01.04.2026 **zwei verschiedenen Unternehmen** zugeordnet, beide Einsätze ohne
-> Enddatum. Heute sieht das niemand. `worker_absences` existiert und ist leer.
+> **Korrigiert am 2026-08-31 beim Bauen von K3.4:** die zuerst gemeldete
+> „echte Doppelbelegung im Bestand" war **ein Phantom**. Bei **drei** Zuordnungen
+> steht `end_date IS NULL`, obwohl ihr Einsatz beendet ist — einer endete am
+> 31.03.2025. Gegen die **wirksame Zeitspanne** gerechnet (Link-Ende, begrenzt
+> vom Einsatzende) gibt es **null** Doppelbelegungen. Der Befund ist damit ein
+> anderer, aber kein kleinerer: **Zuordnungen werden beim Abschluss eines
+> Einsatzes nicht geschlossen**, und eine naive Prüfung hätte daraus einen
+> dauerhaften Fehlalarm gemacht. `worker_absences` und
+> `worker_profile_documents` existieren und sind leer — H2 und W2 sind gebaut
+> und berechenbar, aber heute ohne Daten.
 
 > **Was K2 gekostet hat und wofür.** Der Plan sah sieben Phasen vor; gebaut sind
 > sie alle, aber das **Gate K2.2 hat drei Blocker gefunden, die nicht im Plan

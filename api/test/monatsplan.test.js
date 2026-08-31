@@ -1,0 +1,367 @@
+/**
+ * Der Monat als Fenster — Welle K3.3 und K3.4.
+ *
+ * DAS LEITBILD, das diese Datei festhält: **der Monat ist die Ansicht, der
+ * Einsatz ist die Sache.** Gemessen am 2026-08-31 überschreiten 91 % der
+ * Einsätze mit Enddatum eine Monatsgrenze (41 von 45), 34 spannen drei Monate.
+ * Ein Raster, das den Monat als Kasten behandelt, wäre für neun von zehn Zeilen
+ * falsch.
+ *
+ * ZWEI DINGE, DIE HIER BESONDERS BEWACHT WERDEN:
+ *
+ *   (1) DIE MANDANTENGRENZE IM KONFLIKT. "Eine Person, zwei Orte" ist
+ *       naturgemäß org-übergreifend — die Gegenzuordnung liegt bei einer
+ *       anderen Firma. Die Zeitarbeitsfirma darf sie benennen (ihr eigener
+ *       Bestand), das Einsatzunternehmen NICHT: das wäre der Kundenname eines
+ *       Wettbewerbers, geliefert von uns.
+ *
+ *   (2) DIE WIRKSAME ZEITSPANNE. Beim Bauen gegen die echten Daten meldete die
+ *       erste Fassung eine Doppelbelegung, die es nicht gab: drei Zuordnungen
+ *       im Bestand haben `end_date IS NULL`, obwohl ihr Einsatz beendet ist —
+ *       einer endete am 31.03.2025. Ein Konflikt, der IMMER da ist, wird
+ *       weggeklickt, und danach übersieht man den echten.
+ *
+ * Run: node --test --test-force-exit test/monatsplan.test.js
+ */
+
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  monatsfenster, nachbarmonate, konfliktFuerSeite, offeneBedarfe,
+  monatsplan, doppelbelegungen, abwesenheiten, ablaufendeNachweise,
+  SEITEN, KONFLIKTARTEN
+} from "../services/monatsplanService.js";
+
+/* ── Werkzeug ─────────────────────────────────────────────────────────── */
+
+function musterPool(fn) {
+  const calls = [];
+  const pool = {
+    calls,
+    query: async (sql, params) => {
+      const s = String(sql || "");
+      calls.push({ sql: s, params: params || [] });
+      const r = fn ? await fn(s, params || []) : null;
+      return r === undefined || r === null ? { rows: [], rowCount: 0 } : r;
+    },
+    find(teil) { return calls.filter((c) => c.sql.includes(teil)); }
+  };
+  return pool;
+}
+
+const KONFLIKT_DOPPEL = {
+  art: "doppelbelegung", grad: "hart",
+  worker_user_id: "w-1", kraft_name: "Lukas Bauer",
+  einsatz_id: "a-1", von: "2026-04-01", bis: "2026-04-30",
+  gegenseite_assignment_id: "a-2",
+  gegenseite_org_id: "org-fremd",
+  gegenseite_org_name: "Mustermann Logistik GmbH"
+};
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * Das Fenster
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+describe("K3.3 · das Monatsfenster", () => {
+  it("kennt die Länge jedes Monats — auch im Schaltjahr", () => {
+    assert.deepEqual(monatsfenster("2026-02"), { monat: "2026-02", von: "2026-02-01", bis: "2026-02-28", tage: 28 });
+    assert.deepEqual(monatsfenster("2024-02"), { monat: "2024-02", von: "2024-02-01", bis: "2024-02-29", tage: 29 });
+    assert.deepEqual(monatsfenster("2026-12"), { monat: "2026-12", von: "2026-12-01", bis: "2026-12-31", tage: 31 });
+  });
+
+  it("ohne Angabe gilt der laufende Monat, nie ein leeres Fenster", () => {
+    const f = monatsfenster();
+    assert.match(f.monat, /^\d{4}-\d{2}$/);
+    assert.equal(f.von, `${f.monat}-01`);
+    assert.ok(f.tage >= 28 && f.tage <= 31);
+  });
+
+  it("Unsinn fällt auf den laufenden Monat zurück statt zu werfen", () => {
+    for (const kaputt of ["kaputt", "2026-13-99", "", null, "2026"]) {
+      const f = monatsfenster(kaputt);
+      assert.match(f.monat, /^\d{4}-\d{2}$/, `${kaputt} ergab ${f.monat}`);
+    }
+  });
+
+  it("das Blättern überspringt die Jahresgrenze nicht", () => {
+    assert.deepEqual(nachbarmonate("2026-01"), { vorheriger: "2025-12", naechster: "2026-02" });
+    assert.deepEqual(nachbarmonate("2026-12"), { vorheriger: "2026-11", naechster: "2027-01" });
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * K3.4 · die Mandantengrenze im Konflikt
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+describe("K3.4 · die Zeitarbeitsfirma darf die Gegenseite benennen, der Kunde nicht", () => {
+  it("die Agentur bekommt den Konflikt vollständig — es ist ihr eigener Bestand", () => {
+    const k = konfliktFuerSeite(KONFLIKT_DOPPEL, "agentur");
+    assert.equal(k.gegenseite_org_name, "Mustermann Logistik GmbH");
+    assert.equal(k.gegenseite_org_id, "org-fremd");
+    assert.equal(k.gegenseite_assignment_id, "a-2");
+  });
+
+  it("RÜCKMUTATION: dem Kunden fehlt jede Spur der anderen Firma", () => {
+    /* Der Kundenname eines Wettbewerbers, geliefert von uns, wäre ein echter
+     * Schaden — nicht bloß zu viel Information. Dieselbe Trennung wie in
+     * Welle H1: die Kundenansicht zeigt den Ausfall, nie die Art. */
+    const k = konfliktFuerSeite(KONFLIKT_DOPPEL, "kunde");
+    assert.equal("gegenseite_org_name" in k, false, "der Firmenname der Gegenseite ist durchgerutscht");
+    assert.equal("gegenseite_org_id" in k, false, "die Org-Kennung der Gegenseite ist durchgerutscht");
+    assert.equal("gegenseite_assignment_id" in k, false, "über die Einsatz-Kennung wäre die Firma auffindbar");
+
+    const alsText = JSON.stringify(k);
+    assert.ok(!alsText.includes("Mustermann"), `der Name steckt noch irgendwo: ${alsText}`);
+    assert.ok(!alsText.includes("org-fremd"), `die Kennung steckt noch irgendwo: ${alsText}`);
+  });
+
+  it("die AUSSAGE bleibt für den Kunden vollständig — nur der Name fehlt", () => {
+    /* Weglassen ist kein Verschweigen: der Kunde muss den Konflikt handhaben
+     * können, also braucht er Kraft, Zeitraum und Härtegrad. */
+    const k = konfliktFuerSeite(KONFLIKT_DOPPEL, "kunde");
+    assert.equal(k.grad, "hart");
+    assert.equal(k.kraft_name, "Lukas Bauer");
+    assert.equal(k.von, "2026-04-01");
+    assert.equal(k.bis, "2026-04-30");
+    assert.match(k.hinweis, /anderweitig gebunden/);
+  });
+
+  it("andere Konfliktarten werden nicht angefasst", () => {
+    const weich = { art: "bedarf_offen", grad: "weich", bedarf_id: "b-1" };
+    assert.deepEqual(konfliktFuerSeite(weich, "kunde"), weich);
+    assert.deepEqual(konfliktFuerSeite(weich, "agentur"), weich);
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * K3.4 · die wirksame Zeitspanne — der Fund gegen die echten Daten
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+describe("K3.4 · eine Zuordnung bindet höchstens so lange wie ihr Einsatz", () => {
+  it("die Doppelbelegung rechnet gegen das Einsatzende, nicht nur gegen den Link", async () => {
+    /* DER FUND: drei Zuordnungen im Bestand haben `end_date IS NULL`, obwohl
+     * ihr Einsatz beendet ist. Die erste Fassung las nur den Link und meldete
+     * daraufhin eine Doppelbelegung für eine Kraft, deren einer Einsatz am
+     * 31.03.2025 abgeschlossen wurde — ein Fehlalarm, der nie wieder weggeht. */
+    const p = musterPool(() => ({ rows: [] }));
+    await doppelbelegungen(p, { orgId: "org-1", seite: "agentur", fenster: monatsfenster("2026-04") });
+    const [c] = p.find("worker_assignment_links a");
+
+    assert.ok(c, "die Abfrage wurde nicht gestellt");
+    assert.match(c.sql, /JOIN assignments ea ON ea\.id = a\.assignment_id/,
+      "ohne den Einsatz kennt die Abfrage sein Ende nicht");
+    assert.match(c.sql, /JOIN assignments eb ON eb\.id = b\.assignment_id/,
+      "die Gegenseite braucht dieselbe Begrenzung");
+    assert.match(c.sql, /actual_end_date/,
+      "ein vorzeitig beendeter Einsatz bindet nicht bis zum geplanten Ende");
+    assert.match(c.sql, /LEAST\(/, "das wirksame Ende ist das FRÜHESTE der drei Daten");
+  });
+
+  it("auch Abwesenheit und Nachweis rechnen gegen die wirksame Spanne", async () => {
+    /* Dieselbe Falle, zweimal daneben: eine Abwesenheit auf einer nie
+     * geschlossenen Zuordnung wäre ebenso ein Dauer-Fehlalarm. */
+    for (const [fn, teil] of [[abwesenheiten, "worker_absences"], [ablaufendeNachweise, "worker_profile_documents"]]) {
+      const p = musterPool(() => ({ rows: [] }));
+      await fn(p, { orgId: "org-1", seite: "agentur", fenster: monatsfenster("2026-04") });
+      const [c] = p.find(teil);
+      assert.ok(c, `${teil} wurde nicht abgefragt`);
+      assert.match(c.sql, /JOIN assignments e ON e\.id = l\.assignment_id/,
+        `${teil}: der Einsatz begrenzt die Zuordnung nicht`);
+      assert.match(c.sql, /LEAST\(/, `${teil}: kein wirksames Ende`);
+    }
+  });
+
+  it("eine aufgehobene Abwesenheit ist kein Konflikt mehr", async () => {
+    const p = musterPool(() => ({ rows: [] }));
+    await abwesenheiten(p, { orgId: "org-1", seite: "agentur", fenster: monatsfenster("2026-04") });
+    const [c] = p.find("worker_absences");
+    assert.match(c.sql, /ab\.aufgehoben_am IS NULL/,
+      "eine zurückgenommene Krankmeldung wäre sonst ein dauerhafter Konflikt");
+    assert.match(c.sql, /ab\.zustand = 'wirksam'/);
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * K3.3 · der Rand wird angeschnitten, nicht gekürzt
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+describe("K3.3 · was über den Rand läuft, wird als solches gezeigt", () => {
+  function planPool({ zeilen = [], bedarfsZeilen = [] } = {}) {
+    return musterPool((s) => {
+      if (/FROM assignments a/.test(s)) return { rows: zeilen };
+      if (/FROM demand_requests d/.test(s)) return { rows: bedarfsZeilen };
+      return { rows: [] };
+    });
+  }
+
+  it("die Auswahl nimmt jeden Einsatz, der das Fenster BERÜHRT", async () => {
+    const p = planPool();
+    await monatsplan(p, { orgId: "org-1", seite: "kunde", monat: "2026-04" });
+    const [c] = p.find("FROM assignments a");
+    assert.match(c.sql, /a\.start_date <= \$3::date/,
+      "ein Einsatz, der im Fenster beginnt oder früher, gehört hinein");
+    assert.match(c.sql, /COALESCE\(a\.actual_end_date, a\.planned_end_date, DATE '9999-12-31'\) >= \$2::date/,
+      "ein Einsatz ohne Enddatum läuft weiter und darf nicht herausfallen");
+  });
+
+  it("`endet_spaeter` ist bei einem offenen Einsatz FALSE, nicht null", async () => {
+    /* `NULL > date` ist in SQL NULL. Ohne COALESCE käme in der Fläche weder
+     * ja noch nein an — und eine Kachel, die „vielleicht" bedeutet, ist keine. */
+    const p = planPool();
+    await monatsplan(p, { orgId: "org-1", monat: "2026-04" });
+    const [c] = p.find("FROM assignments a");
+    assert.match(c.sql, /COALESCE\(COALESCE\(a\.actual_end_date, a\.planned_end_date\) > \$3::date, FALSE\) AS endet_spaeter/);
+  });
+
+  it("die Zusammenfassung zählt, wie viele Zeilen über den Rand laufen", async () => {
+    const p = planPool({
+      zeilen: [
+        { id: "a1", beginnt_vorher: true,  endet_spaeter: true,  offen: false },
+        { id: "a2", beginnt_vorher: false, endet_spaeter: false, offen: true },
+        { id: "a3", beginnt_vorher: false, endet_spaeter: false, offen: false }
+      ]
+    });
+    const plan = await monatsplan(p, { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+    assert.equal(plan.zusammenfassung.eintraege, 3);
+    assert.equal(plan.zusammenfassung.beginnt_vorher, 1);
+    assert.equal(plan.zusammenfassung.endet_spaeter, 2, "der offene Einsatz zählt mit");
+  });
+
+  it("die Zahl der Abfragen wächst NICHT mit der Zahl der Einsätze", async () => {
+    /* Die Skalierungsregel des Projekts: die Menge wächst unbegrenzt mit den
+     * Einsätzen eines Kunden. Der einzige belastbare Nachweis ist deshalb der
+     * Vergleich zweier Größen — eine feste Zahl zu erwarten misst nur, wie viele
+     * Abfrage-ARTEN es gibt, und das ist nicht dasselbe.
+     *
+     * (Genau daran ist die erste Fassung dieser Probe gescheitert: sie zählte
+     * `worker_assignment_links l` und fand drei — die Zuordnung im LATERAL plus
+     * die beiden Konfliktabfragen. Kein N+1, nur drei verschiedene Fragen.) */
+    const zeilen = (n) => Array.from({ length: n }, (_, i) => ({ id: `a${i}` }));
+
+    const wenige = planPool({ zeilen: zeilen(3) });
+    await monatsplan(wenige, { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+
+    const viele = planPool({ zeilen: zeilen(300) });
+    await monatsplan(viele, { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+
+    assert.equal(viele.calls.length, wenige.calls.length,
+      `3 Einsätze → ${wenige.calls.length} Abfragen, 300 Einsätze → ${viele.calls.length}. `
+      + "Das ist das N+1, das die Skalierungsregel verbietet.");
+    assert.equal(wenige.find("FROM assignments a").length, 1,
+      "die Einsätze selbst kommen in genau einer Abfrage");
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * Zwei Spuren, keine Vermischung
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+describe("K3.3 · zwei Spuren — jede sieht ihre eigene", () => {
+  function seitenPool() {
+    return musterPool(() => ({ rows: [] }));
+  }
+
+  it("der Kunde wird über `org_id` gebunden, die Agentur über `supplier_org_id`", async () => {
+    const kunde = seitenPool();
+    await monatsplan(kunde, { orgId: "org-1", seite: "kunde", monat: "2026-04" });
+    assert.match(kunde.find("FROM assignments a")[0].sql, /WHERE a\.org_id = \$1/);
+
+    const agentur = seitenPool();
+    await monatsplan(agentur, { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+    assert.match(agentur.find("FROM assignments a")[0].sql, /WHERE a\.supplier_org_id = \$1/);
+  });
+
+  it("nur die Kundenspur hat Bedarfe — das ist Bauart, kein Fehlen", async () => {
+    const agentur = seitenPool();
+    const plan = await monatsplan(agentur, { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+    assert.deepEqual(plan.bedarfe, []);
+    assert.equal(agentur.find("FROM demand_requests d").length, 0,
+      "die Agentur legt Besetzungen an, keine Bedarfe — die Abfrage darf gar nicht laufen");
+
+    const kunde = seitenPool();
+    await monatsplan(kunde, { orgId: "org-1", seite: "kunde", monat: "2026-04" });
+    assert.equal(kunde.find("FROM demand_requests d").length, 1);
+  });
+
+  it("eine unbekannte Seite fällt auf die Kundenspur zurück statt zu werfen", async () => {
+    const p = seitenPool();
+    const plan = await monatsplan(p, { orgId: "org-1", seite: "erfunden", monat: "2026-04" });
+    assert.equal(plan.seite, "kunde");
+    assert.deepEqual(SEITEN, ["kunde", "agentur"]);
+  });
+
+  it("ohne Organisation gibt es keinen Monatsplan", async () => {
+    await assert.rejects(
+      () => monatsplan(musterPool(), { seite: "kunde", monat: "2026-04" }),
+      /MONATSPLAN_ORG_ERFORDERLICH/,
+      "ein Plan ohne Mandantenbindung wäre ein plattformweiter Read"
+    );
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * W1 · Bedarf unbesetzt
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+describe("K3.4 · ein unbesetzter Bedarf ist ein weicher Punkt, keine Warnung", () => {
+  it("besetzt heißt: es gibt eine bestätigte Vereinbarung", () => {
+    const offen = offeneBedarfe([
+      { id: "b1", besetzt: false, status: "open", title: "Zwei Elektriker", headcount: 2, start_date: "2026-04-05", end_date: "2026-04-20" },
+      { id: "b2", besetzt: true,  status: "open", title: "Ein Lagerist", headcount: 1 }
+    ]);
+    assert.equal(offen.length, 1);
+    assert.equal(offen[0].bedarf_id, "b1");
+    assert.equal(offen[0].grad, "weich", "ein offener Bedarf ist kein Alarm");
+    assert.equal(offen[0].koepfe, 2);
+  });
+
+  it("ein zurückgezogener Bedarf ist kein offener Punkt mehr", () => {
+    const offen = offeneBedarfe([
+      { id: "b3", besetzt: false, status: "cancelled" },
+      { id: "b4", besetzt: false, status: "closed" }
+    ]);
+    assert.deepEqual(offen, [], "sonst bliebe jeder je angelegte Bedarf ewig als Konflikt stehen");
+  });
+
+  it("die Besetzung wird gegen BESTÄTIGTE Angebote geprüft, nicht gegen bloße", async () => {
+    const p = musterPool(() => ({ rows: [] }));
+    await monatsplan(p, { orgId: "org-1", seite: "kunde", monat: "2026-04" });
+    const [c] = p.find("FROM demand_requests d");
+    assert.match(c.sql, /of\.confirmed_at IS NOT NULL/,
+      "ein unbestätigtes Angebot besetzt nichts — die Sofort-Pfade setzen `accepted`, bevor eine Vereinbarung besteht");
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * Was der Monat NICHT weiß
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+describe("K3.4 · die AÜG-Frist fehlt — und sagt das selbst", () => {
+  it("sie steht als `nicht_geprueft` in der Antwort, nicht in deren Fehlen", async () => {
+    /* Ein Konflikt, der stillschweigend fehlt, wäre genau die Fehlerklasse
+     * dieser Spur: gebaut, montiert, und niemand merkt, dass er nie feuert. */
+    const p = musterPool(() => ({ rows: [] }));
+    const plan = await monatsplan(p, { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+
+    assert.equal(plan.nicht_geprueft.length, 1);
+    assert.equal(plan.nicht_geprueft[0].art, "aueg_frist");
+    assert.equal(plan.nicht_geprueft[0].grad, "hart");
+    assert.match(plan.nicht_geprueft[0].grund, /E-K3-1/,
+      "der Grund muss auf die offene Owner-Entscheidung zeigen, nicht bloß 'nicht implementiert' sagen");
+  });
+
+  it("die vier übrigen Arten sind als geprüft ausgewiesen", () => {
+    const geprueft = Object.entries(KONFLIKTARTEN).filter(([, v]) => v.geprueft).map(([k]) => k);
+    assert.deepEqual(geprueft.sort(),
+      ["abwesenheit", "bedarf_offen", "doppelbelegung", "nachweis_laeuft_ab"]);
+  });
+
+  it("RÜCKMUTATION: würde die AÜG-Frist als geprüft gelten, fiele sie aus der Liste", () => {
+    /* Der Gegenbeweis dafür, dass `nicht_geprueft` wirklich aus den Arten
+     * gebildet wird und keine fest verdrahtete Zeile ist. */
+    const alsGeprueft = { ...KONFLIKTARTEN, aueg_frist: { grad: "hart", geprueft: true } };
+    const rest = Object.entries(alsGeprueft).filter(([, v]) => !v.geprueft);
+    assert.deepEqual(rest, []);
+  });
+});
