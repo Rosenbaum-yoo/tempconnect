@@ -30,7 +30,7 @@ import assert from "node:assert/strict";
 
 import {
   monateSpaeter, tageZwischen, ketten, bewerteKette, auegBefunde,
-  konfigurationen, ueberlassungen,
+  konfigurationen, ueberlassungen, tag,
   HOECHSTDAUER_MONATE, UNTERBRECHUNG_MONATE, VORWARNUNG_MONATE
 } from "../services/auegService.js";
 
@@ -654,5 +654,387 @@ describe("K3.6 · die Bewertung an ihren Grenzen", () => {
     assert.equal(tariflich.ueberschreitung_am, "2028-01-01");
     assert.equal(tariflich.ueberschritten, false, "mit 36 Monaten hält dieselbe Kette");
     assert.equal(tariflich.hoechstdauer_monate, 36, "die geltende Dauer steht in der Antwort");
+  });
+});
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   K3.8 · die Datenzugriffe und die Gestalt des Befunds
+
+   Owner-Vorgabe 2026-09-01: 90 % Mutations-Punktzahl je Bereich. Was in diesem
+   Dienst noch offen war, sind nicht die Grenzfälle der Rechnung (die stehen
+   oben), sondern die Ränder ringsherum: die Datums-Hilfsfunktionen, die beiden
+   Abfragen mit ihren Bindungen, und die Gestalt des Befunds, den die Fläche
+   liest.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("K3.8 · die Datums-Hilfen an ihren Rändern", () => {
+  it("monateSpaeter klemmt auf den letzten Tag des Zielmonats", () => {
+    /* Der 31. Januar plus einen Monat ist der 28. Februar, nicht der 3. März.
+     * Ohne die Klemme rutschte die Frist in den Folgemonat — und mit ihr die
+     * Rechtsfolge. */
+    assert.equal(monateSpaeter("2026-01-31", 1), "2026-02-28");
+    assert.equal(monateSpaeter("2028-01-31", 1), "2028-02-29", "Schaltjahr");
+    assert.equal(monateSpaeter("2026-03-31", 1), "2026-04-30");
+    assert.equal(monateSpaeter("2026-08-31", 6), "2027-02-28");
+  });
+
+  it("monateSpaeter rechnet über Jahresgrenzen und mit der vollen Höchstdauer", () => {
+    assert.equal(monateSpaeter("2025-01-01", 18), "2026-07-01");
+    assert.equal(monateSpaeter("2026-12-01", 1), "2027-01-01");
+    assert.equal(monateSpaeter("2026-06-15", 0), "2026-06-15", "null Monate ändern nichts");
+  });
+
+  it("tageZwischen zählt vorwärts positiv und rückwärts negativ", () => {
+    assert.equal(tageZwischen("2026-04-01", "2026-04-01"), 0);
+    assert.equal(tageZwischen("2026-04-01", "2026-04-02"), 1);
+    assert.equal(tageZwischen("2026-04-02", "2026-04-01"), -1,
+      "negativ heißt: die Frist liegt zurück");
+    assert.equal(tageZwischen("2026-02-28", "2026-03-01"), 1, "2026 ist kein Schaltjahr");
+    assert.equal(tageZwischen("2028-02-28", "2028-03-01"), 2, "2028 schon");
+  });
+
+  it("tag macht aus allem einen Kalendertag oder null", () => {
+    assert.equal(tag("2026-04-01"), "2026-04-01");
+    assert.equal(tag("2026-04-01T12:00:00Z"), "2026-04-01",
+      "ein Zeitstempel wird auf den Tag gekürzt");
+    assert.equal(tag(new Date(Date.UTC(2026, 3, 1))), "2026-04-01");
+    for (const nichts of [null, undefined, "", 0]) {
+      assert.equal(tag(nichts), null, `»${nichts}« ist kein Tag`);
+    }
+  });
+});
+
+describe("K3.8 · konfigurationen — eine Abfrage, und sie wirft nie", () => {
+  function pool(fn) {
+    const calls = [];
+    return {
+      calls,
+      query: async (sql, params) => {
+        calls.push({ sql: String(sql), params: params || [] });
+        return fn ? fn(String(sql), params) : { rows: [] };
+      }
+    };
+  }
+
+  it("EINE Abfrage für alle Organisationen, mit Feld-Bindung", async () => {
+    const p = pool(() => ({ rows: [] }));
+    await konfigurationen(p, ["o-1", "o-2", "o-1", null, undefined, ""]);
+    assert.equal(p.calls.length, 1, "eine Abfrage, nicht eine je Organisation");
+    assert.match(p.calls[0].sql, /FROM aueg_konfiguration WHERE org_id = ANY\(\$1::uuid\[\]\)/);
+    assert.deepEqual(p.calls[0].params, [["o-1", "o-2"]],
+      "doppelte und leere Kennungen fallen vorher raus");
+  });
+
+  it("ohne Organisationen wird gar nicht gefragt", async () => {
+    const p = pool();
+    assert.equal((await konfigurationen(p, [])).size, 0);
+    assert.equal((await konfigurationen(p, null)).size, 0);
+    assert.equal((await konfigurationen(p, [null, ""])).size, 0);
+    assert.equal(p.calls.length, 0);
+  });
+
+  it("die Zeile wird in Zahlen übersetzt, die Grundlage bleibt Text", async () => {
+    const p = pool(() => ({ rows: [
+      { org_id: "o-1", hoechstdauer_monate: "36", unterbrechung_monate: "3",
+        grundlage: "Tarifvertrag M+E Bayern" },
+      { org_id: "o-2", hoechstdauer_monate: 24, unterbrechung_monate: 3, grundlage: null }
+    ] }));
+    const m = await konfigurationen(p, ["o-1", "o-2"]);
+    assert.deepEqual(m.get("o-1"),
+      { hoechstdauerMonate: 36, unterbrechungMonate: 3, grundlage: "Tarifvertrag M+E Bayern" });
+    assert.deepEqual(m.get("o-2"),
+      { hoechstdauerMonate: 24, unterbrechungMonate: 3, grundlage: null });
+  });
+
+  it("EIN AUSFALL ERGIBT DIE STRENGERE ANNAHME, keinen Absturz", async () => {
+    /* Ohne Konfiguration gilt überall 18/3. Ein Ausfall darf hier nicht dazu
+     * führen, dass eine Überschreitung unbemerkt bleibt — deshalb wirft die
+     * Funktion nie, sondern liefert eine leere Karte. */
+    const kaputt = { query: async () => { throw new Error("Tabelle fehlt"); } };
+    const m = await konfigurationen(kaputt, ["o-1"]);
+    assert.equal(m.size, 0, "leer heißt: die gesetzliche Voreinstellung gilt");
+  });
+});
+
+describe("K3.8 · ueberlassungen — die vollständige Geschichte, in einer Abfrage", () => {
+  function pool(fn) {
+    const calls = [];
+    return {
+      calls,
+      query: async (sql, params) => {
+        calls.push({ sql: String(sql), params: params || [] });
+        return fn ? fn(String(sql), params) : { rows: [] };
+      }
+    };
+  }
+
+  it("die Abfrage bindet Kräfte und Entleiher als Felder", async () => {
+    const p = pool(() => ({ rows: [] }));
+    await ueberlassungen(p, [
+      { worker_user_id: "w-1", org_id: "k-1" },
+      { worker_user_id: "w-2", org_id: "k-1" },
+      { worker_user_id: "w-1", org_id: "k-2" }
+    ]);
+    assert.equal(p.calls.length, 1);
+    assert.deepEqual(p.calls[0].params, [["w-1", "w-2"], ["k-1", "k-2"]],
+      "je Kraft und je Entleiher genau einmal");
+    assert.match(p.calls[0].sql, /a\.status <> 'cancelled'/,
+      "ein abgesagter Einsatz ist keine Überlassung");
+    assert.match(p.calls[0].sql, /ORDER BY l\.worker_user_id, l\.org_id, von/);
+  });
+
+  it("ohne Paare wird nicht gefragt", async () => {
+    const p = pool();
+    assert.equal((await ueberlassungen(p, [])).size, 0);
+    assert.equal((await ueberlassungen(p, null)).size, 0);
+    assert.equal(p.calls.length, 0);
+  });
+
+  it("die Platzhalter-Unendlichkeit wird zu `null`, nicht zu einem Datum", async () => {
+    const p = pool(() => ({ rows: [
+      { worker_user_id: "w-1", org_id: "k-1", von: "2025-01-01", bis: "9999-12-31",
+        assignment_id: "a-1", supplier_org_id: "s-1" },
+      { worker_user_id: "w-1", org_id: "k-1", von: "2024-01-01", bis: "2024-06-30",
+        assignment_id: "a-0", supplier_org_id: "s-1" }
+    ] }));
+    const m = await ueberlassungen(p, [{ worker_user_id: "w-1", org_id: "k-1" }]);
+    assert.deepEqual(m.get("w-1|k-1"), [
+      { von: "2025-01-01", bis: null, quelle: { assignment_id: "a-1", supplier_org_id: "s-1" } },
+      { von: "2024-01-01", bis: "2024-06-30", quelle: { assignment_id: "a-0", supplier_org_id: "s-1" } }
+    ]);
+  });
+});
+
+describe("K3.8 · die Gestalt des AÜG-Befunds", () => {
+  function poolMit(zeilen) {
+    return {
+      query: async (sql) => {
+        if (/FROM aueg_konfiguration/.test(String(sql))) return { rows: [] };
+        return { rows: zeilen };
+      }
+    };
+  }
+
+  it("ein harter Befund trägt jedes Feld, das die Fläche liest", async () => {
+    const p = poolMit([{
+      worker_user_id: "w-1", org_id: "k-1", von: "2025-01-01", bis: "2026-12-31",
+      assignment_id: "a-1", supplier_org_id: "s-1"
+    }]);
+    const { befunde, nur_plattformdaten } = await auegBefunde(p, [{
+      worker_user_id: "w-1", org_id: "k-1", kraft_name: "Lukas Bauer", assignment_id: "a-1"
+    }], { heute: "2026-04-01", fensterVon: "2026-07-01", fensterBis: "2026-07-31" });
+
+    assert.equal(nur_plattformdaten, true, "die Grenze steht in JEDER Antwort");
+    assert.equal(befunde.length, 1);
+    const b = befunde[0];
+    assert.deepEqual(Object.keys(b).sort(), [
+      "art", "bereits_ueberschritten", "bis", "einsatz_id", "grad", "grundlage",
+      "hoechstdauer_monate", "kette_offen", "kraft_name", "org_id",
+      "tage_bis_ueberschreitung", "ueberlassungen", "ueberschreitung_am",
+      "ueberschritten", "von", "worker_user_id"
+    ]);
+    assert.equal(b.art, "aueg_frist");
+    assert.equal(b.grad, "hart", "die Frist liegt IM Fenster");
+    assert.equal(b.ueberschreitung_am, "2026-07-01");
+    assert.equal(b.hoechstdauer_monate, 18, "ohne Eintrag gilt die gesetzliche Dauer");
+    assert.equal(b.grundlage, null, "ohne Abweichung gibt es keine Grundlage zu nennen");
+    assert.equal(b.kette_offen, false);
+    assert.equal(b.kraft_name, "Lukas Bauer");
+    assert.equal(b.einsatz_id, "a-1");
+  });
+
+  it("dasselbe Paar erzeugt nur EINEN Befund, auch bei mehreren Einsätzen", async () => {
+    const p = poolMit([{
+      worker_user_id: "w-1", org_id: "k-1", von: "2025-01-01", bis: "2026-12-31",
+      assignment_id: "a-1", supplier_org_id: "s-1"
+    }]);
+    const { befunde } = await auegBefunde(p, [
+      { worker_user_id: "w-1", org_id: "k-1", assignment_id: "a-1" },
+      { worker_user_id: "w-1", org_id: "k-1", assignment_id: "a-2" }
+    ], { heute: "2026-04-01", fensterVon: "2026-07-01", fensterBis: "2026-07-31" });
+    assert.equal(befunde.length, 1, "die Frist gilt dem PAAR, nicht dem Vertrag");
+  });
+
+  it("eine Frist weit in der Zukunft ist WEICH — eine Vorwarnung, kein Befund", async () => {
+    const p = poolMit([{
+      worker_user_id: "w-1", org_id: "k-1", von: "2025-06-01", bis: null,
+      assignment_id: "a-1", supplier_org_id: "s-1"
+    }]);
+    // Frist: 01.12.2026. Fenster im Oktober 2026 → zwei Monate davor: weich.
+    const { befunde } = await auegBefunde(p, [{ worker_user_id: "w-1", org_id: "k-1" }],
+      { heute: "2026-04-01", fensterVon: "2026-10-01", fensterBis: "2026-10-31" });
+    assert.equal(befunde.length, 1);
+    assert.equal(befunde[0].grad, "weich", "sie droht, sie ist noch nicht erreicht");
+    assert.equal(befunde[0].kette_offen, true);
+  });
+
+  it("eine Frist jenseits der Vorwarnzeit erzeugt GAR KEINEN Befund", async () => {
+    const p = poolMit([{
+      worker_user_id: "w-1", org_id: "k-1", von: "2026-01-01", bis: null,
+      assignment_id: "a-1", supplier_org_id: "s-1"
+    }]);
+    // Frist: 01.07.2027. Fenster im Januar 2027 → mehr als drei Monate davor.
+    const { befunde } = await auegBefunde(p, [{ worker_user_id: "w-1", org_id: "k-1" }],
+      { heute: "2026-04-01", fensterVon: "2027-01-01", fensterBis: "2027-01-31" });
+    assert.deepEqual(befunde, [],
+      "eine Warnung, die ein halbes Jahr zu früh kommt, wird nicht gelesen");
+  });
+
+  it("eine BEENDETE Überlassung bekommt keine Vorwarnung", async () => {
+    /* Bei einer beendeten gibt es nichts mehr zu verhindern — eine Vorwarnung
+     * dafür wäre ein Alarm ohne Handlung, und der entwertet die echten. */
+    const p = poolMit([{
+      worker_user_id: "w-1", org_id: "k-1", von: "2025-06-01", bis: "2026-08-31",
+      assignment_id: "a-1", supplier_org_id: "s-1"
+    }]);
+    const { befunde } = await auegBefunde(p, [{ worker_user_id: "w-1", org_id: "k-1" }],
+      { heute: "2026-04-01", fensterVon: "2026-10-01", fensterBis: "2026-10-31" });
+    assert.deepEqual(befunde, [], "die Überlassung endete vor dem Fenster");
+  });
+
+  it("ohne Paare und ohne Geschichte gibt es nichts zu melden — aber die Grenze steht da", async () => {
+    const p = poolMit([]);
+    for (const paare of [[], null, [{ worker_user_id: "w-1", org_id: "k-1" }]]) {
+      const e = await auegBefunde(p, paare,
+        { heute: "2026-04-01", fensterVon: "2026-04-01", fensterBis: "2026-04-30" });
+      assert.deepEqual(e.befunde, []);
+      assert.equal(e.nur_plattformdaten, true);
+    }
+  });
+
+  it("eine abweichende Höchstdauer erscheint MIT ihrer Grundlage im Befund", async () => {
+    const p = {
+      query: async (sql) => {
+        if (/FROM aueg_konfiguration/.test(String(sql))) {
+          return { rows: [{ org_id: "k-1", hoechstdauer_monate: 24,
+            unterbrechung_monate: 3, grundlage: "Tarifvertrag M+E" }] };
+        }
+        return { rows: [{
+          worker_user_id: "w-1", org_id: "k-1", von: "2025-01-01", bis: "2027-12-31",
+          assignment_id: "a-1", supplier_org_id: "s-1"
+        }] };
+      }
+    };
+    const { befunde } = await auegBefunde(p, [{ worker_user_id: "w-1", org_id: "k-1" }],
+      { heute: "2026-04-01", fensterVon: "2027-01-01", fensterBis: "2027-01-31" });
+    assert.equal(befunde.length, 1);
+    assert.equal(befunde[0].hoechstdauer_monate, 24);
+    assert.equal(befunde[0].ueberschreitung_am, "2027-01-01");
+    assert.equal(befunde[0].grundlage, "Tarifvertrag M+E",
+      "eine abweichende Frist ohne genannte Grundlage wäre eine Behauptung");
+  });
+});
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   K3.8 · die Kettenbildung ist von der Eingabereihenfolge unabhängig
+
+   Die Datenbank liefert sortiert — heute. Die Kettenbildung verlässt sich nicht
+   darauf, sondern sortiert selbst, und genau dieser Schritt war unbewacht: fünf
+   Mutanten sassen allein im Vergleich. Er entscheidet, welcher Tag als
+   KETTENBEGINN gilt, und daran hängt die ganze Frist.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("K3.8 · die Reihenfolge der Überlassungen ist gleichgültig", () => {
+  const REGEL = { hoechstdauerMonate: 18, unterbrechungMonate: 3 };
+
+  function anordnungen(liste) {
+    if (liste.length <= 1) return [liste];
+    const alle = [];
+    for (let i = 0; i < liste.length; i++) {
+      const rest = liste.slice(0, i).concat(liste.slice(i + 1));
+      for (const a of anordnungen(rest)) alle.push([liste[i], ...a]);
+    }
+    return alle;
+  }
+
+  it("drei Überlassungen ergeben in JEDER der sechs Anordnungen dieselbe Kette", () => {
+    const zeitraeume = [
+      { von: "2025-07-01", bis: "2025-09-30" },
+      { von: "2025-01-01", bis: "2025-03-31" },
+      { von: "2025-05-01", bis: "2025-06-30" }
+    ];
+    const varianten = anordnungen(zeitraeume);
+    assert.equal(varianten.length, 6);
+    for (const v of varianten) {
+      const k = ketten(v, REGEL);
+      assert.equal(k.length, 1, "Anordnung " + v.map((z) => z.von).join(" "));
+      assert.equal(k[0].von, "2025-01-01",
+        "der FRÜHESTE Beginn trägt die Frist — egal, wie die Zeilen ankommen");
+      assert.equal(k[0].bis, "2025-09-30");
+      assert.equal(k[0].teile.length, 3);
+    }
+  });
+
+  it("auch getrennte Ketten entstehen unabhängig von der Reihenfolge", () => {
+    /* Zwischen der zweiten und der dritten liegt mehr als die zulässige Pause —
+     * es müssen ZWEI Ketten werden, und die zweite muss die spätere sein. */
+    const zeitraeume = [
+      { von: "2026-06-01", bis: "2026-08-31" },
+      { von: "2025-01-01", bis: "2025-03-31" },
+      { von: "2025-05-01", bis: "2025-06-30" }
+    ];
+    for (const v of anordnungen(zeitraeume)) {
+      const k = ketten(v, REGEL);
+      assert.equal(k.length, 2, "Anordnung " + v.map((z) => z.von).join(" "));
+      assert.equal(k[0].von, "2025-01-01");
+      assert.equal(k[1].von, "2026-06-01");
+      assert.equal(k[0].teile.length, 2);
+      assert.equal(k[1].teile.length, 1);
+    }
+  });
+
+  it("gleicher Beginn, verschiedenes Ende: die Kette behält das spätere", () => {
+    const a = { von: "2025-01-01", bis: "2025-03-31" };
+    const b = { von: "2025-01-01", bis: "2025-08-31" };
+    for (const v of [[a, b], [b, a]]) {
+      const [k] = ketten(v, REGEL);
+      assert.equal(k.von, "2025-01-01");
+      assert.equal(k.bis, "2025-08-31");
+    }
+  });
+
+  it("Zeiträume ohne Beginn fallen raus, statt die Kette zu verschieben", () => {
+    /* Ein Eintrag ohne `von` hat keinen Platz in einer Kette — er würde beim
+     * Sortieren irgendwohin rutschen und den Kettenbeginn verfälschen. */
+    const k = ketten([
+      { von: null, bis: "2025-06-30" },
+      { von: "2025-01-01", bis: "2025-03-31" },
+      null,
+      undefined,
+      { bis: "2025-12-31" }
+    ], REGEL);
+    assert.equal(k.length, 1);
+    assert.equal(k[0].von, "2025-01-01");
+    assert.equal(k[0].teile.length, 1);
+  });
+
+  it("die Quelle jeder Überlassung bleibt an der Kette hängen", () => {
+    /* `teile` ist der Beleg: welche Einsätze die Frist gebildet haben. Ohne ihn
+     * wäre der Befund eine Behauptung ohne Herkunft. */
+    const [k] = ketten([
+      { von: "2025-01-01", bis: "2025-03-31", quelle: { assignment_id: "a-1" } },
+      { von: "2025-05-01", bis: "2025-06-30" }
+    ], REGEL);
+    assert.deepEqual(k.teile.map((t) => t.quelle), [{ assignment_id: "a-1" }, null],
+      "ohne Quelle steht null da — nicht undefined, das aus der Antwort fiele");
+  });
+
+  it("ohne Zeiträume gibt es keine Kette, und es wirft nicht", () => {
+    for (const eingabe of [[], null, undefined]) {
+      assert.deepEqual(ketten(eingabe, REGEL), []);
+    }
+  });
+
+  it("eine abweichende Pausenlänge verschiebt die Kettengrenze mit", () => {
+    /* Sechs Monate Pause: mit der gesetzlichen Drei-Monats-Regel sind es zwei
+     * Ketten, mit einer tariflich längeren eine. */
+    const zeitraeume = [
+      { von: "2025-01-01", bis: "2025-03-31" },
+      { von: "2025-09-01", bis: "2025-12-31" }
+    ];
+    assert.equal(ketten(zeitraeume, { unterbrechungMonate: 3 }).length, 2);
+    assert.equal(ketten(zeitraeume, { unterbrechungMonate: 6 }).length, 1);
   });
 });

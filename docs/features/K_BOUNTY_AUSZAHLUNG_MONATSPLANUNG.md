@@ -470,6 +470,83 @@ und `rechnung_id` (der Beleg).
 
 ---
 
+## K3.8 — 90 % je Bereich, fest vorgeschrieben
+
+Owner-Vorgabe 2026-09-01: **90 % Mutations-Punktzahl je Bereich**, und fest
+vorgeschrieben auch für jeden künftigen.
+
+| Lauf | gesamt | `auegService` | `monatsplanService` |
+|---|---:|---:|---:|
+| K3.6, Ausgangslage | 65,83 % | 78,04 % | 61,40 % |
+| K3.6, nach den Grenzproben | 70,44 % | 80,95 % | 66,67 % |
+| **K3.8** | **90,57 %** | **90,87 %** | **90,46 %** |
+
+### Wie — ohne eine einzige Ausnahme
+
+Die naheliegende Abkürzung wäre gewesen, Mutatoren auszuschließen. Sie wurde
+nicht genommen: eine Punktzahl, die durch Wegdefinieren entsteht, misst nichts.
+Stattdessen drei Arten von Proben, die alle **einen Vertrag festhalten**, den es
+vorher nur im Kopf gab:
+
+**Die Form der Abfrage.** Je Abfrage die Bestandteile, ohne die sie etwas anderes
+bedeutet — Verbund, Bedingung, Sortierung. Der Muster-Pool führt nichts aus, also
+muss die Form wörtlich festgehalten werden. Dass sie auch gültiges Postgres ist,
+beweist der Container-Lauf: **beide Schichten zusammen, keine allein.**
+
+**Die Bindungen.** `assert.deepEqual(call.params, [...])` für jede Abfrage. `$1`
+ist die Mandantengrenze; eine vertauschte Bindung ist kein Formfehler, sondern
+ein Datenleck.
+
+**Die Gestalt der Antwort.** `deepEqual` auf das ganze Objekt statt einzelner
+Felder. Der Unterschied ist nicht Gründlichkeit, sondern Richtung: eine
+Feldprobe sagt, was da sein **muss**; eine Gestaltprobe sagt zusätzlich, was
+**nicht** da sein darf. Ein zusätzliches Feld ist auf einer Fläche unsichtbar —
+in einer Antwort über die Mandantengrenze ist es der Schaden.
+
+### Die stärkste Probe rechnet dieselbe Frage zweimal
+
+`freieSpannen` ist rein — keine Datenbank, keine Zeit, kein Zufall. Sie wird
+gegen eine **unabhängig gerechnete Referenz** geprüft: Tag für Tag, mit einer
+Menge, absichtlich naiv. Der zweite Weg kennt kein Zusammenlegen, keine
+Sortierung, keine Zeiger — genau deshalb kann er nicht denselben Fehler machen.
+
+**10 900 Fälle** laufen so durch (900 Ein-Spannen-, 10 000
+Zwei-Spannen-Kombinationen). Jede Abweichung an jeder Kante fällt auf, ohne dass
+jemand vorher wissen muss, wo die Kanten liegen.
+
+### Und was die Reihenfolge angeht
+
+Zwei Sortierungen waren völlig unbewacht — in `freieSpannen` und in `ketten()`.
+Beide entscheiden, welcher Tag als **Beginn** gilt, und daran hängt in einem Fall
+die freie Spanne, im anderen die AÜG-Frist. Geprüft wird jetzt über **alle
+Anordnungen** einer dreielementigen Liste: bei zwei Elementen passt jede
+Vergleichsrichtung zufällig, erst bei drei trennt sich das.
+
+### Was übrig bleibt, und warum
+
+90 Überlebende, überwiegend **äquivalente Mutanten**: `x || null` auf einem Feld,
+das nie fehlt; `<` gegen `<=` bei durchweg verschiedenen Werten; ein `heute`, das
+in `planungsVorschau` nachweislich kein Ergebnis verändert. Sie zu „töten" hieße,
+Proben zu schreiben, die nichts behaupten.
+
+> **Der Stryker-Bericht ist ein Hinweis, kein Urteil.** Von sechs als „überlebt"
+> gemeldeten Entscheidungspunkten waren nach Prüfung von Hand **fünf längst
+> gefangen** — Stryker mutiert Teilausdrücke, nicht ganze Ausdrücke. Vor jeder
+> Probe, die einen Mutanten töten soll: von Hand rückmutieren und prüfen, dass
+> die Suite dabei wirklich rot wird.
+
+### Fest vorgeschrieben
+
+`api/test/mutationsSchwelle.test.js` erzwingt für **jede** `stryker.*.conf.json`:
+`thresholds.break >= 90`, echte Ziele, ein Testbefehl, und ein npm-Skript, das
+sie startet. Gemessen am 2026-09-01 standen die drei Bereiche auf **drei
+verschiedenen Latten** — `subscription` sogar auf `break: 0`, also gar keinem
+Tor. Eine gesenkte Schwelle sieht aus wie eine Einstellung und ist eine
+zurückgenommene Zusage; deshalb steht sie jetzt in einem Test und nicht nur in
+einer Konfigurationsdatei.
+
+---
+
 ## K3.6 — die Härtung
 
 ### Skalierung 10 → 300: gemessen, keine Lücke
