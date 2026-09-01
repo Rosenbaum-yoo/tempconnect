@@ -535,6 +535,73 @@ Proben zu schreiben, die nichts behaupten.
 > Probe, die einen Mutanten töten soll: von Hand rückmutieren und prüfen, dass
 > die Suite dabei wirklich rot wird.
 
+### Alle drei Bereiche, gemessen
+
+Die Vorgabe gilt nicht nur für den Bereich dieser Welle. Gemessen am 2026-09-01,
+jeweils ohne Zwischenspeicher:
+
+| Bereich | vorher | nachher |
+|---|---:|---:|
+| `monatsplan` | 65,83 % | **90,57 %** |
+| `rbac` | 95,94 % ¹ | **97,47 %** |
+| `subscription` | 41,03 % | **94,85 %** |
+
+¹ *Die 95,94 % waren selbst schon eine Falschmeldung — siehe unten.*
+
+**`rbac`** hielt im Mittel die Latte, aber zwei Middleware-Dateien lagen darunter
+(`rbac.js` 88,46 %, `orgContext.js` 89,80 %). „Je Bereich" heißt je Datei;
+gemittelt versteckt sich jede Lücke. Nach 37 Proben: **99,36 %** und **98,98 %**.
+
+**`subscription`** stand bei 41,03 % — und der Grund war struktureller Natur: der
+Läufer fuhr **zwei von acht** vorhandenen Testdateien. Alle acht bringen nur
++2,5 Punkte; der Dienst war wirklich kaum abgedeckt. 183 neue Proben in sechs
+Dateien haben ihn auf **94,85 %** gebracht (920 von 970 Mutanten getötet).
+
+### Der Zwischenspeicher, der eine Stunde gekostet hat
+
+Nach den 37 RBAC-Proben meldete der Lauf **auf die Kommastelle dasselbe
+Ergebnis** wie vorher. Der naheliegende Schluss wäre gewesen, die Proben taugten
+nichts — jede war einzeln durch Rückmutation als wirksam belegt.
+
+Die Ursache: `"incremental": true`. Stryker schlüsselt seinen Zwischenspeicher
+auf Änderungen am **Quelltext**, nicht auf die der **Tests**. Die Quelle war
+unverändert, also spielte er alles ab.
+
+**Erste Abhilfe war zu schwach:** die npm-Skripte räumten den Speicher weg — aber
+ein direkter `npx stryker run`, also genau das, was man beim Iterieren tippt, las
+ihn weiter. Auf Owner-Anweisung („sorge dafür das er nicht mehr unzufällig aus
+dem zwischenspeicher liest, auch global und lokal") steht die Regel jetzt in der
+**Konfiguration**: `incremental: false`, kein `incrementalFile`. Kein Aufrufweg
+kann noch eine alte Zahl liefern — erzwungen von `mutationsSchwelle.test.js`,
+samt Selbsttest.
+
+**Global** trug die Vorlage im projektübergreifenden `MUTATION_TESTING_PLAYBOOK.md`
+genau dieselben zwei Fehler: `incremental: true` und `"break": 0` mit dem Rat
+*„bis der Bereich sauber ist"*. Beide sind ersetzt.
+
+### Was die Gegenprüfung gefunden hat
+
+Jedes Bündel wurde von einem unabhängigen Skeptiker geprüft. Alle bestätigten:
+Produktionscode unverändert, Tests grün. Vier konkrete Einwände waren berechtigt
+und sind abgearbeitet:
+
+* **Eine Probe behauptete mehr, als sie zeigte.** „Der Zielstatus des Verlaufs
+  stammt aus der Zeile, nicht aus der Eingabe" — beide Quellen waren im Aufbau
+  deckungsgleich gesetzt, die Probe konnte sie gar nicht trennen. Jetzt gehen sie
+  auseinander.
+* **Eine Probe war eine Kopie** der Gestaltprobe darüber. Sie hat jetzt eine
+  eigene Aufgabe: *ausdrücklich leere* Angaben gegen *fehlende*.
+* **Eine Gleichwertigkeits-Behauptung war falsch.** `details || {}` galt als
+  nicht tötbar, weil „keine der acht Aufrufstellen `details` weglässt" — das
+  übersieht, dass `transitionStatus` **exportiert** ist und sein Vorgabewert nur
+  bei `undefined` greift, nicht bei `null`. Ohne den Rückfall stünde die
+  Zeichenkette `"null"` in einer jsonb-Spalte. Die Probe ist geschrieben und
+  tötet den Mutanten (von Hand belegt).
+* Ein vierter Einwand (toter Querverweis im Dateikopf) traf **nicht** zu — die
+  genannten Kommentare gibt es, an vier Stellen.
+
+---
+
 ### Fest vorgeschrieben
 
 `api/test/mutationsSchwelle.test.js` erzwingt für **jede** `stryker.*.conf.json`:

@@ -121,6 +121,50 @@ describe("Mutations-Schwelle — 90 % je Bereich, ohne Ausnahme",
     });
   }
 
+  it("KEIN Bereich misst inkrementell — sonst meldet der Lauf eine alte Zahl", () => {
+    /* GEFUNDEN AM 2026-09-01, und es hat eine Stunde gekostet.
+     *
+     * Stryker kann inkrementell arbeiten: unveraenderte Mutanten spielt es aus
+     * `stryker-incremental.json` ab, statt sie erneut zu fahren. Der
+     * Zwischenspeicher ist auf Aenderungen am QUELLTEXT geschluesselt — NICHT
+     * auf Aenderungen an den TESTS.
+     *
+     * Wer also Proben ergaenzt und danach misst, bekommt die ALTE Zahl. Genau
+     * das ist passiert: 37 frisch geschriebene Proben, jede einzeln durch
+     * Rueckmutation als wirksam belegt, und der Lauf meldete auf die
+     * Kommastelle dasselbe Ergebnis wie vorher. Der naheliegende Schluss waere
+     * gewesen, die Proben taugten nichts.
+     *
+     * DIE ERSTE FASSUNG DIESES WAECHTERS WAR ZU SCHWACH: sie verlangte nur, dass
+     * die npm-Skripte den Zwischenspeicher wegraeumen. Ein direkter Aufruf
+     * (`npx stryker run …`) las ihn weiter — und genau so misst man beim
+     * Iterieren. Owner-Anweisung: "sorge dafuer, dass er nicht mehr unzufaellig
+     * aus dem Zwischenspeicher liest."
+     *
+     * Deshalb steht die Regel jetzt in der KONFIGURATION, nicht im Aufrufweg:
+     * kein Weg kann eine alte Zahl liefern. Ein Werkzeug, das die alte Antwort
+     * gibt, ohne zu sagen, dass es die alte ist, ist schlimmer als eines, das
+     * langsam ist. */
+    for (const { datei, inhalt } of konfigurationen()) {
+      assert.notEqual(inhalt.incremental, true,
+        `${datei}: \`incremental\` steht auf true — ein Lauf nach neuen Proben `
+          + "meldet dann die Punktzahl des ALTEN Testbestands");
+      assert.equal(inhalt.incrementalFile, undefined,
+        `${datei}: \`incrementalFile\` ist gesetzt, obwohl nicht inkrementell `
+          + "gemessen wird — eine Datei, die niemand liest, laedt zum Wieder-"
+          + "Einschalten ein");
+    }
+  });
+
+  it("er wuerde ein wieder eingeschaltetes inkrementelles Messen bemerken", () => {
+    /* SELBSTTEST. Ein Waechter, der nie anschlaegt, ist von einem kaputten nicht
+     * zu unterscheiden. */
+    const erfunden = { incremental: true, thresholds: { break: 95, low: 95, high: 99 } };
+    assert.throws(
+      () => assert.notEqual(erfunden.incremental, true, "muss anschlagen"),
+      /muss anschlagen/);
+  });
+
   it("jedes Mutations-Skript zeigt auf eine Konfiguration, die es gibt", () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(API, "package.json"), "utf8"));
     for (const [name, befehl] of Object.entries(pkg.scripts || {})) {

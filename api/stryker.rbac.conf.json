@@ -32,7 +32,6 @@
   },
   "concurrency": "50%",
   "timeoutMS": 60000,
-  "incremental": true,
-  "incrementalFile": "reports/mutation/rbac/stryker-incremental.json",
+  "incremental": false,
   "cleanTempDir": "always"
 }

@@ -160,7 +160,28 @@ Leer- und Fehlerzustand.
 > Punktzahl einer Datei, die zur Hälfte aus SQL besteht, ist dadurch gedeckelt —
 > und das ist kein Testmangel, sondern die Bauart der Schicht.
 
-**DER NÄCHSTE GRIFF:** Welle K ist damit durch (K0–K4). Was als Nächstes ansteht,
+**Mutation Testing: alle drei Bereiche halten die Latte** (Owner-Vorgabe
+2026-09-01, 90 % je Bereich, fest vorgeschrieben auch für künftige):
+
+| Bereich | vorher | nachher |
+|---|---:|---:|
+| `monatsplan` | 65,83 % | **90,57 %** |
+| `rbac` | 95,94 % gemittelt, zwei Dateien darunter | **97,47 %**, jede Datei ≥ 91,5 % |
+| `subscription` | 41,03 % | **94,85 %** |
+
+> **Zwei Dinge, die man wissen muss, bevor man wieder misst.**
+>
+> 1. **Nie inkrementell.** Der Zwischenspeicher ist auf Änderungen am *Quelltext*
+>    geschlüsselt, nicht auf die der *Tests*. Wer Proben ergänzt und danach misst,
+>    bekommt sonst die alte Zahl — das hat hier eine Stunde gekostet. Steht jetzt
+>    in der Konfiguration (`incremental: false`) und wird von
+>    `api/test/mutationsSchwelle.test.js` erzwungen, lokal wie im
+>    projektübergreifenden Playbook.
+> 2. **„Je Bereich" heißt je Datei.** `rbac` hielt im Mittel 95,94 %, während zwei
+>    Middleware-Dateien bei 88,5 und 89,8 % lagen. Ein Mittelwert versteckt jede
+>    Lücke.
+
+**DER NÄCHSTE GRIFF:** Welle K ist durch (K0–K4). Was als Nächstes ansteht,
 entscheidet der Owner.
 
 **Zwei Datenlücken, benannt statt geraten** (wie die 49 ankerlosen Einsätze aus

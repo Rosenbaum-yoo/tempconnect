@@ -7,7 +7,7 @@
     "services/subscriptionRequestService.js"
   ],
   "commandRunner": {
-    "command": "node --test --test-force-exit test/subscriptionRequestService.test.js test/subscriptionRequests.routes.test.js"
+    "command": "node --test --test-force-exit test/subscriptionRequestService.test.js test/subscriptionRequests.routes.test.js test/subscriptionLifecycle.test.js test/subscriptionSecurity.test.js test/subscriptionDocuments.test.js test/staffSubscriptionRequests.routes.test.js test/subscriptionNotifications.test.js test/accountSubscriptionPage.test.js test/subscriptionMutanten.anwenden.test.js test/subscriptionMutanten.anlegen.test.js test/subscriptionMutanten.helfer.test.js test/subscriptionMutanten.aktionen.test.js test/subscriptionMutanten.zustand.test.js test/subscriptionMutanten.rest.test.js"
   },
   "reporters": [
     "clear-text",
@@ -27,5 +27,6 @@
   },
   "concurrency": "50%",
   "timeoutMS": 60000,
-  "cleanTempDir": "always"
+  "cleanTempDir": "always",
+  "incremental": false
 }
