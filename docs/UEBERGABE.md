@@ -40,7 +40,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **K4** | Der Feed fällt nie auf leer zurück | ✅ **gebaut** `eb46707` (Mig 204, `feedKopieService`, 18 Proben, 4 Rückmutationen) |
 | **K1** | Rabatt sichtbar + Eingriffspunkt | ✅ **gebaut** — Mig 206, drei Dienste, Staff-CC-Modul `rabatt-faelle`, 75 Proben, **14 Rückmutationen** |
 | **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | ✅ **vollständig gebaut** — Mig 208 + 209, `werbepraemieService`, 26 Proben, **16 Rückmutationen** |
-| **K3** | Monatsplanung | **K3.1–K3.5 + K3.7 ✅ vollständig verdrahtet** — zwei Achsen (Einsätze / **Mitarbeiter**), Konfliktvorschau vor dem Schreiben, Seite in der Navigation. **Offen: K3.6 (Härtung)** |
+| **K3** | Monatsplanung | **✅ ABGESCHLOSSEN** — zwei Achsen (Einsätze / Mitarbeiter), Konfliktvorschau vor dem Schreiben, in der Navigation, gehärtet (Indizes, Zeitzone, Mutation Testing) |
 | **L** | Tragfähigkeit / Hochverfügbarkeit | dokumentiert, **nicht gebaut** (eigener Abschnitt, Owner-Vorgabe) |
 
 **Der nächste Griff: die Antwort des Owners auf E-K3-1 bis E-K3-3.** Der Entwurf
@@ -125,8 +125,31 @@ Leer- und Fehlerzustand.
 > es dauerhaft: was das Register `aktiv` nennt, muss erreichbar sein. Ausnahmen
 > gehören ins Register, nicht in eine Testdatei.
 
-**DER NÄCHSTE GRIFF: K3.6 (Härtung)** — Skalierung 10→300, `Europe/Berlin`,
-Mutation Testing auf der Konfliktlogik.
+**K3.6 (Härtung) ist abgeschlossen** — und hat drei Dinge ergeben:
+
+* **Skalierung:** Indizes für alle sieben neuen Abfragen vorhanden, auch für den
+  kritischen Weg `users(org_id)` (die Tabelle wächst mit *allen* Plattformnutzern).
+  `EXPLAIN` bestätigt den Indexzugriff. **Keine Migration nötig.**
+* **Europe/Berlin:** `TZ` ist im Container gesetzt, aber `date` meldet UTC — dem
+  Abbild fehlt die tzdata. Node rechnet über ICU (77.1) trotzdem richtig. **Nichts
+  hielt das fest**; jetzt tut es `kalendertagDE.test.js`, mit einem Kindprozess
+  unter `TZ=UTC`, weil sich „ausdrücklich Berlin" von „zufällig Berlin" sonst
+  nicht unterscheiden lässt.
+* **Mutation Testing:** 957 Mutanten, `npm run test:mutation:monatsplan`. Gesamt
+  65,83 → **70,44 %**, der AÜG-Kern 78,04 → **80,95 %**. Die Schwelle steht als
+  Ratsche auf dem gemessenen Stand. Geschlossen wurden die drei Klassen, die
+  wirklich zählen: welche Spalte die Mandantengrenze zieht, was die Kundenspur
+  nicht erfahren darf, und die Grenzen der AÜG-Kettenbildung.
+
+> **Zwei Lehren daraus, die über dieses Projekt hinausgehen.** Erstens: der
+> Stryker-Bericht ist ein Hinweis, kein Urteil — von sechs „überlebten"
+> Entscheidungspunkten waren nach Prüfung von Hand fünf längst gefangen.
+> Zweitens: eine DB-freie Suite kann Mutanten in SQL-Text nicht töten. Die
+> Punktzahl einer Datei, die zur Hälfte aus SQL besteht, ist dadurch gedeckelt —
+> und das ist kein Testmangel, sondern die Bauart der Schicht.
+
+**DER NÄCHSTE GRIFF:** Welle K ist damit durch (K0–K4). Was als Nächstes ansteht,
+entscheidet der Owner.
 
 **Zwei Datenlücken, benannt statt geraten** (wie die 49 ankerlosen Einsätze aus
 E-K3-4): 15 von 40 Bedarfen gehören einem Besteller ohne Organisation; **6 von 24

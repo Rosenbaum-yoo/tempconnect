@@ -466,7 +466,96 @@ und `rechnung_id` (der Beleg).
 | K3.4 | **Konflikte nach 3b** — hart und weich getrennt | ✅ **alle fünf Arten**, inkl. AÜG |
 | K3.5 | Beide Spuren schreibend, ohne Zustimmungspflicht | ✅ **vollständig** — beide Schreibwege existierten bereits; neu ist die **Konfliktvorschau vor dem Schreiben**, auf der Fläche verdrahtet |
 | K3.7 | **Der Monat je Mitarbeiter** | ✅ **neu** — das Einsatz-Raster zeigte 4 von 31 Mitarbeitern; die zweite Achse zeigt alle, mit freier Spanne und Auslastung |
-| K3.6 | Härtung: Skalierung (10 → 300), `Europe/Berlin`, Mutation Testing auf der Konfliktlogik | Lastprobe + Mutationsergebnis |
+| K3.6 | Härtung: Skalierung (10 → 300), `Europe/Berlin`, Mutation Testing auf der Konfliktlogik | ✅ **abgeschlossen** — Indizes geprüft (keine Lücke), Zeitzone gewächtert, 957 Mutanten gefahren; AÜG-Kern 78,04 → **80,95 %** |
+
+---
+
+## K3.6 — die Härtung
+
+### Skalierung 10 → 300: gemessen, keine Lücke
+
+Zwei Wächter zählen bereits Abfragen statt Zeilen — `monatsplan` mit 3 gegen 300
+Einsätzen, `mitarbeiterMonat` mit 3 gegen 300 Mitarbeitern. Beide fordern
+**dieselbe** Abfragezahl. Was fehlte, war der Blick auf die Indizes: bei 24
+Zuordnungen wählt Postgres ohnehin Sequenzsuche, ein `EXPLAIN` sagt hier also
+nichts. Aussagekräftig ist, ob es die Indizes überhaupt gibt.
+
+| Abfrage | Prädikat | Index |
+|---|---|---|
+| `belegungenImFenster` | `worker_user_id = ANY(…) AND is_active` | `(worker_user_id, is_active)` ✓ |
+| `mitarbeiterDerFirma` | `supplier_org_id = $1 AND is_active` | `(supplier_org_id, is_active)` ✓ |
+| `abwesenheitenImFenster` | `worker_profile_id = ANY(…)` | `(worker_profile_id, von DESC)` ✓ |
+| `nachweiseImFenster` | `worker_user_id = ANY(…)` | `(worker_user_id, …)` ✓ |
+| `vorschauDoppelbelegung` | `worker_user_id = $1` | `(worker_user_id, is_active)` ✓ |
+| `bedarfe` (neu) | `IN (SELECT id FROM users WHERE org_id = $1)` | `users(org_id)` ✓ |
+
+Der letzte war der interessante: `users` wächst mit **allen** Plattformnutzern,
+nicht nur denen einer Firma — genau die Form „läuft bei 10, bricht bei 300".
+Gegengeprüft mit `EXPLAIN`: der Planer nimmt `users_org_id_idx`. **Keine
+Migration nötig.**
+
+### Europe/Berlin: die Bitte war da, die Zusage nicht
+
+`dateDE.js` bittet um `timeZone: "Europe/Berlin"`. **Dass die Bitte erfüllt wird,
+hängt an der ICU-Datenbank in Node** — nicht an der Systemzeitzone. Gemessen im
+API-Container: `TZ=Europe/Berlin` ist gesetzt, aber `date` meldet UTC, weil dem
+Abbild die tzdata fehlt. Node hat volles ICU (77.1) und rechnet trotzdem richtig.
+
+Das ist eine dünne Stelle: ein Abbild mit `small-icu`, ein schlankeres
+Basis-Abbild, ein Node-Wechsel — und `Intl` fällt still auf UTC zurück. Kein
+Fehler, keine Warnung; nur jeder Kalendertag der Plattform rückt nachts um einen
+Tag.
+
+Der Wächter steht in `kalendertagDE.test.js` und prüft an den Zeitpunkten, die
+**genau dann** falsch werden: 23:30 UTC ist in Berlin bereits der Folgetag — im
+Winter (+1) wie im Sommer (+2).
+
+> **Beim Rückmutieren fiel er zuerst durch die eigene Lücke.** `timeZone:
+> undefined` blieb grün, weil `Intl` dann die **System**zeitzone nimmt — und die
+> ist auf diesem Rechner zufällig Berlin. Der Unterschied zwischen
+> „ausdrücklich Berlin" und „zufällig Berlin" ist im laufenden Prozess nicht
+> messbar. Die Probe startet dafür jetzt einen **Kindprozess mit `TZ=UTC`**;
+> dort trennt sich beides.
+
+### Mutation Testing: 957 Mutanten gegen die Konfliktlogik
+
+`npm run test:mutation:monatsplan` (`stryker.monatsplan.conf.json`).
+
+| Lauf | gesamt | `auegService` | `monatsplanService` |
+|---|---:|---:|---:|
+| zu Beginn | 65,83 % | 78,04 % | 61,40 % |
+| nach den Grenzproben | **70,44 %** | **80,95 %** | 66,67 % |
+
+**Die Punktzahl ist nicht der Maßstab** — die Projektregel verlangt *null
+Überlebende im Entscheidungs-Zweig*. Dort saßen drei Klassen, die keine Probe sah:
+
+1. **Welche Spalte die Mandantengrenze zieht.** Vier Abfragen wählen zwischen
+   `supplier_org_id` (Agentur) und `org_id` (Kunde). Ein stiller Flip liefert die
+   Einsätze der **fremden** Seite — und die Suite blieb grün, weil die Proben nur
+   prüften, *dass* gefiltert wird, nicht *womit*.
+2. **Was die Kundenspur nicht erfahren darf.** Abwesenheitsgrund und Art des
+   Nachweises gehören der Zeitarbeitsfirma. Ein Flip gibt beides weiter.
+3. **Die Grenzen der AÜG-Kettenbildung** — die Pausengrenze auf den Tag genau,
+   die Klemme am Stichtag, „am Überschreitungstag erreicht" gegen „danach", und
+   ob eine Kette offen ist.
+
+**Ein echter Fund nebenbei:** in `ketten()` endeten beide Zweige einer Bedingung
+mit `continue` — die Bedingung war wirkungslos. Aufgefallen ist sie nicht beim
+Lesen, sondern daran, dass drei Mutanten an dieser Zeile überlebten, **ohne dass
+eine Probe sie hätte töten können**. Entfernt.
+
+**Die Schwelle steht jetzt auf dem gemessenen Stand (70 %)** — eine Ratsche: sie
+kann nur noch steigen. Die verbleibenden 282 Überlebenden sind überwiegend
+strukturell unerreichbar: eine **DB-freie** Suite kann keinen Mutanten in einem
+SQL-Text töten, weil der Muster-Pool die Abfrage nie ausführt (dafür gibt es die
+wörtlichen SQL-Proben und den Container-Lauf), und ein `x || null` auf einem
+Feld, das nie fehlt, ist ein äquivalenter Mutant.
+
+> **Vorsicht bei Stryker-Meldungen.** Von sechs Entscheidungspunkten, die der
+> Bericht als „überlebt" führte, waren nach Prüfung von Hand **fünf bereits
+> gefangen** — Stryker mutiert dort enger, als der Bericht vermuten lässt
+> (`ConditionalExpression → true` trifft einen Teilausdruck, nicht den ganzen).
+> Der Bericht ist ein Hinweis, kein Urteil: **nachrechnen, nicht glauben.**
 
 ---
 

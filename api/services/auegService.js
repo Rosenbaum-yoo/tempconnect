@@ -142,10 +142,15 @@ export function ketten(zeitraeume, opts = {}) {
     /* Eine offene Kette laeuft weiter — sie kann nie unterbrochen sein, weil sie
      * kein Ende hat. Alles, was danach beginnt, gehoert dazu. */
     if (letzte.offen) {
+      /* Ob die neue Ueberlassung selbst ein Ende hat, aendert hier NICHTS: die
+       * Kette bleibt offen, solange die offene nicht beendet wurde.
+       *
+       * Hier stand bis zur Mutationsprobe (K3.6) ein `if (z.bis === null)
+       * continue;` davor — mit demselben `continue` dahinter. Beide Zweige
+       * taten dasselbe, die Bedingung war wirkungslos. Aufgefallen ist sie
+       * nicht beim Lesen, sondern daran, dass drei Mutanten an dieser Zeile
+       * ueberlebten, ohne dass eine Probe sie haette toeten koennen. */
       letzte.teile.push(z);
-      if (z.bis === null) continue;          // bleibt offen
-      // Eine offene und eine geschlossene Ueberlassung: die Kette bleibt offen,
-      // solange die offene nicht beendet wurde.
       continue;
     }
 

@@ -492,3 +492,167 @@ describe("AÜG · die Überlassungen kommen ohne N+1", () => {
       "`9999-12-31` ist die Unendlichkeit der Abfrage, kein Enddatum");
   });
 });
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   K3.6 · die Grenzen der Kettenbildung, aus der Mutationsprobe
+
+   Stryker hat gegen `auegService` 255 Mutanten gefahren; 56 haben überlebt, und
+   die interessanten saßen alle im selben Bereich: den ENTSCHEIDUNGEN der
+   Kettenbildung und der Bewertung. Ein stiller Flip dort ändert nicht die
+   Darstellung, sondern die RECHTSFOLGE — § 9 Abs. 1 Nr. 1b und § 10 Abs. 1 AÜG
+   knüpfen an die Überschreitung ein fingiertes Arbeitsverhältnis beim Entleiher.
+
+   Die Projektregel verlangt für solche Logik null Überlebende im
+   Entscheidungs-Zweig. Diese Proben sind genau dafür geschrieben: jede pinnt
+   eine GRENZE, nicht einen Normalfall.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("K3.6 · die Kettenbildung an ihren Grenzen", () => {
+  const REGEL = { hoechstdauerMonate: 18, unterbrechungMonate: 3 };
+
+  it("die Pause zählt AB DEM TAG NACH dem Ende — der letzte zulässige Anschluss zählt noch dazu", () => {
+    /* Ende 30.06., drei Monate Pause → spätester Anschluss 30.09. Wer am 30.09.
+     * beginnt, setzt die Kette FORT; wer am 01.10. beginnt, beginnt eine neue.
+     * Ein Flip von `<=` auf `<` verschiebt die Grenze um einen Tag — und mit ihr
+     * den Fristbeginn um Monate. */
+    const gerade = ketten([
+      { von: "2025-01-01", bis: "2025-06-30" },
+      { von: "2025-09-30", bis: "2025-12-31" }
+    ], REGEL);
+    assert.equal(gerade.length, 1, "am letzten zulässigen Tag wird fortgesetzt");
+    assert.equal(gerade[0].von, "2025-01-01", "der Kettenbeginn bleibt stehen — daran hängt die Frist");
+
+    const knapp = ketten([
+      { von: "2025-01-01", bis: "2025-06-30" },
+      { von: "2025-10-01", bis: "2025-12-31" }
+    ], REGEL);
+    assert.equal(knapp.length, 2, "einen Tag später ist die Kette unterbrochen");
+    assert.equal(knapp[1].von, "2025-10-01", "die neue Kette beginnt neu — die Frist auch");
+    /* Und sie ist GESCHLOSSEN. Eine neue Kette, die faelschlich als offen gilt,
+     * endet nie — sie waechst gegen jede spaetere Ueberlassung weiter und
+     * meldet irgendwann eine Ueberschreitung, die es nicht gibt. */
+    assert.equal(knapp[1].offen, false, "sie hat ein Ende, also ist sie nicht offen");
+    assert.equal(knapp[1].bis, "2025-12-31");
+    assert.equal(knapp[0].offen, false, "auch die erste Kette ist geschlossen");
+  });
+
+  it("eine OFFENE Überlassung schluckt alles Spätere — sie kann nicht unterbrochen sein", () => {
+    const k = ketten([
+      { von: "2025-01-01", bis: null },
+      { von: "2027-06-01", bis: "2027-08-31" }
+    ], REGEL);
+    assert.equal(k.length, 1, "was kein Ende hat, hat keine Pause danach");
+    assert.equal(k[0].offen, true);
+    assert.equal(k[0].bis, null, "eine offene Kette bekommt kein Enddatum angehängt");
+    assert.equal(k[0].teile.length, 2);
+  });
+
+  it("eine geschlossene Kette wird durch eine offene Fortsetzung selbst offen", () => {
+    const k = ketten([
+      { von: "2025-01-01", bis: "2025-06-30" },
+      { von: "2025-08-01", bis: null }
+    ], REGEL);
+    assert.equal(k.length, 1);
+    assert.equal(k[0].offen, true, "ohne Ende ist die Kette offen");
+    assert.equal(k[0].bis, null, "das alte Ende darf nicht stehen bleiben");
+  });
+
+  it("eine kürzere Fortsetzung verkürzt die Kette NICHT", () => {
+    /* Zwei Überlassungen, die zweite endet FRÜHER als die erste. Ohne den
+     * Vergleich `z.bis > letzte.bis` schrumpfte die Kette — und eine Frist,
+     * die längst gerissen ist, sähe wieder eingehalten aus. */
+    const k = ketten([
+      { von: "2025-01-01", bis: "2025-12-31" },
+      { von: "2025-03-01", bis: "2025-06-30" }
+    ], REGEL);
+    assert.equal(k.length, 1);
+    assert.equal(k[0].bis, "2025-12-31", "das spätere Ende gewinnt");
+  });
+
+  it("eine einzelne Überlassung ohne Ende ist von Anfang an offen", () => {
+    const [k] = ketten([{ von: "2025-01-01", bis: null }], REGEL);
+    assert.equal(k.offen, true);
+    assert.equal(k.bis, null);
+  });
+
+  it("Zeiträume kommen in ZEITLICHER Reihenfolge in die Kette, nicht in Eingabereihenfolge", () => {
+    /* Verdrehte Eingabe: die spätere zuerst. Ohne Sortierung entstünde als
+     * Kettenbeginn der 01.06. statt des 01.01. — und die Frist begänne fünf
+     * Monate zu spät. */
+    const k = ketten([
+      { von: "2025-06-01", bis: "2025-08-31" },
+      { von: "2025-01-01", bis: "2025-03-31" }
+    ], REGEL);
+    assert.equal(k.length, 1);
+    assert.equal(k[0].von, "2025-01-01", "der früheste Beginn trägt die Frist");
+  });
+});
+
+describe("K3.6 · die Bewertung an ihren Grenzen", () => {
+  const REGEL = { hoechstdauerMonate: 18, unterbrechungMonate: 3, heute: "2026-01-01" };
+
+  it("die Frist ist AM Überschreitungstag erreicht, nicht erst danach", () => {
+    /* Beginn 01.01.2025 + 18 Monate = 01.07.2026. Eine Kette bis zum 30.06.
+     * hält; eine bis zum 01.07. reisst. Ein Flip von `>=` auf `>` verschöbe die
+     * Rechtsfolge um einen Tag. */
+    const haelt = bewerteKette(
+      { von: "2025-01-01", bis: "2026-06-30", offen: false, teile: [] },
+      { ...REGEL, stichtag: "2026-06-30" });
+    assert.equal(haelt.ueberschreitung_am, "2026-07-01");
+    assert.equal(haelt.ueberschritten, false, "einen Tag vorher hält sie noch");
+
+    const reisst = bewerteKette(
+      { von: "2025-01-01", bis: "2026-07-01", offen: false, teile: [] },
+      { ...REGEL, stichtag: "2026-07-01" });
+    assert.equal(reisst.ueberschritten, true, "am Überschreitungstag selbst ist sie erreicht");
+  });
+
+  it("der Stichtag klemmt das Ende — eine Kette zählt nur bis dahin", () => {
+    /* Eine Kette, die bis zum 30.09. geplant ist, hat am 30.06. die Frist NOCH
+     * NICHT erreicht. Ohne die Klemme meldete jeder Monat vor der Frist bereits
+     * eine Überschreitung — und der erste Falschalarm entwertet alle weiteren. */
+    const kette = { von: "2025-01-01", bis: "2026-09-30", offen: false, teile: [] };
+
+    const imJuni = bewerteKette(kette, { ...REGEL, stichtag: "2026-06-30" });
+    assert.equal(imJuni.ueberschritten, false, "am 30.06. ist die Frist noch nicht erreicht");
+
+    const imJuli = bewerteKette(kette, { ...REGEL, stichtag: "2026-07-31" });
+    assert.equal(imJuli.ueberschritten, true, "im Juli schon");
+  });
+
+  it("eine OFFENE Kette wird am Stichtag gemessen, nicht an einem Ende, das sie nicht hat", () => {
+    const offen = { von: "2025-01-01", bis: null, offen: true, teile: [] };
+    assert.equal(bewerteKette(offen, { ...REGEL, stichtag: "2026-06-30" }).ueberschritten, false);
+    assert.equal(bewerteKette(offen, { ...REGEL, stichtag: "2026-07-01" }).ueberschritten, true);
+  });
+
+  it("`bereits_ueberschritten` misst gegen HEUTE, `ueberschritten` gegen den Stichtag", () => {
+    /* Zwei verschiedene Fragen, und sie dürfen sich nicht vermischen: die eine
+     * ist ein Zustand, die andere eine Vorhersage. Genau hier lagen in K3.4
+     * zwei Falschalarme. */
+    const kette = { von: "2025-01-01", bis: null, offen: true, teile: [] };
+    const b = bewerteKette(kette, { ...REGEL, heute: "2026-01-01", stichtag: "2027-09-30" });
+    assert.equal(b.ueberschritten, true, "am Stichtag im Jahr 2027 ist sie gerissen");
+    assert.equal(b.bereits_ueberschritten, false, "heute (01.01.2026) noch nicht");
+
+    const c = bewerteKette(kette, { ...REGEL, heute: "2026-07-01", stichtag: "2026-07-01" });
+    assert.equal(c.bereits_ueberschritten, true, "am Überschreitungstag ist es auch heute so weit");
+  });
+
+  it("eine abweichende Höchstdauer verschiebt den Überschreitungstag mit", () => {
+    /* Tarifverträge der Einsatzbranche dürfen abweichen (24, 36, 48 Monate sind
+     * in der Metall- und Elektroindustrie üblich). Eine fest verdrahtete 18 wäre
+     * für einen Teil der Kunden falsch — und zwar in der gefährlichen Richtung. */
+    const kette = { von: "2025-01-01", bis: "2027-06-30", offen: false, teile: [] };
+    const gesetzlich = bewerteKette(kette, { ...REGEL, stichtag: "2027-06-30" });
+    assert.equal(gesetzlich.ueberschreitung_am, "2026-07-01");
+    assert.equal(gesetzlich.ueberschritten, true);
+
+    const tariflich = bewerteKette(kette,
+      { ...REGEL, hoechstdauerMonate: 36, stichtag: "2027-06-30" });
+    assert.equal(tariflich.ueberschreitung_am, "2028-01-01");
+    assert.equal(tariflich.ueberschritten, false, "mit 36 Monaten hält dieselbe Kette");
+    assert.equal(tariflich.hoechstdauer_monate, 36, "die geltende Dauer steht in der Antwort");
+  });
+});

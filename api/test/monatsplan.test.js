@@ -32,7 +32,7 @@ import {
   monatsfenster, nachbarmonate, konfliktFuerSeite, offeneBedarfe,
   seiteFuerOrg,
   monatsplan, doppelbelegungen, abwesenheiten, ablaufendeNachweise,
-  planungsVorschau, mitarbeiterMonat, freieSpannen,
+  planungsVorschau, mitarbeiterMonat, freieSpannen, eintraege, bedarfe,
   randvermerk, RANDVERMERK,
   SEITEN, KONFLIKTARTEN
 } from "../services/monatsplanService.js";
@@ -1353,5 +1353,197 @@ describe("K3.7 · GET /workforce/monatsplan/mitarbeiter am echten Handler", () =
     await h({ orgId: null, query: {} }, r, () => {});
     assert.equal(r._status, 400);
     assert.equal(r._json.error, "NO_ORG_CONTEXT");
+  });
+});
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   K3.6 · was die Mutationsprobe aufgedeckt hat
+
+   Stryker hat 957 Mutanten gegen `monatsplanService` und `auegService` gefahren.
+   Die reine Punktzahl ist nicht der Maßstab — die Projektregel verlangt NULL
+   Überlebende im ENTSCHEIDUNGS-Zweig, und dort saßen zwei Klassen, die keine
+   Probe sah:
+
+     (1) WELCHE SPALTE DIE MANDANTENGRENZE ZIEHT. Vier Abfragen wählen zwischen
+         `supplier_org_id` (Agentur) und `org_id` (Kunde). Ein stiller Flip
+         liefert die Einsätze einer FREMDEN Seite — die Suite blieb grün, weil
+         die Proben nur prüften, DASS gefiltert wird, nicht WOMIT.
+
+     (2) WAS DIE KUNDENSPUR NICHT ERFAHREN DARF. Der Abwesenheitsgrund und die
+         Art des Nachweises gehören der Zeitarbeitsfirma. Ein Flip von
+         `seite === "agentur" ? r.art : null` gibt beides an den Kunden weiter —
+         ohne dass irgendetwas rot wird.
+
+   Beides ist kein Schönheitsfehler: es ist die Grenze zwischen zwei Firmen.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("K3.6 · die Mandantengrenze hängt an EINER Spalte je Abfrage", () => {
+  const FENSTER = { monat: "2026-04", von: "2026-04-01", bis: "2026-04-30", tage: 30 };
+
+  /* Je Abfrage: welche Spalte MUSS vorkommen, und welche darf es NICHT.
+   * `eintraege` filtert auf `assignments`, die drei anderen auf der Zuordnung. */
+  const FAELLE = [
+    { name: "eintraege", fn: eintraege, marke: "FROM assignments a",
+      agentur: "a.supplier_org_id = $1", kunde: "a.org_id = $1" },
+    { name: "doppelbelegungen", fn: doppelbelegungen, marke: "FROM worker_assignment_links a",
+      agentur: "a.supplier_org_id = $1", kunde: "a.org_id = $1" },
+    { name: "abwesenheiten", fn: abwesenheiten, marke: "FROM worker_absences",
+      agentur: "l.supplier_org_id = $1", kunde: "l.org_id = $1" },
+    { name: "ablaufendeNachweise", fn: ablaufendeNachweise, marke: "FROM worker_profile_documents",
+      agentur: "l.supplier_org_id = $1", kunde: "l.org_id = $1" }
+  ];
+
+  for (const f of FAELLE) {
+    it(`${f.name}: die Agenturspur filtert auf den LIEFERANTEN, nie auf den Entleiher`, async () => {
+      const p = musterPool();
+      await f.fn(p, { orgId: "org-1", seite: "agentur", fenster: FENSTER });
+      const [abfrage] = p.find(f.marke);
+      assert.ok(abfrage, `die Abfrage ${f.name} muss laufen`);
+      assert.ok(abfrage.sql.includes(f.agentur),
+        `erwartet: ${f.agentur}\n` + abfrage.sql.slice(0, 320));
+      assert.ok(!abfrage.sql.includes(f.kunde),
+        `die Agentur darf NICHT auf ${f.kunde} filtern — das wären die Einsätze `
+          + "einer fremden Seite");
+    });
+
+    it(`${f.name}: die Kundenspur filtert auf den ENTLEIHER, nie auf den Lieferanten`, async () => {
+      const p = musterPool();
+      await f.fn(p, { orgId: "org-1", seite: "kunde", fenster: FENSTER });
+      const [abfrage] = p.find(f.marke);
+      assert.ok(abfrage, `die Abfrage ${f.name} muss laufen`);
+      assert.ok(abfrage.sql.includes(f.kunde),
+        `erwartet: ${f.kunde}\n` + abfrage.sql.slice(0, 320));
+      assert.ok(!abfrage.sql.includes(f.agentur),
+        `der Kunde darf NICHT auf ${f.agentur} filtern`);
+    });
+  }
+});
+
+describe("K3.6 · was die Kundenspur nicht erfährt", () => {
+  const FENSTER = { monat: "2026-04", von: "2026-04-01", bis: "2026-04-30", tage: 30 };
+
+  const ABWESEND = [{
+    id: "ab-1", art: "krank", von: "2026-04-10", bis: "2026-04-14",
+    worker_user_id: "w-1", assignment_id: "a-1", kraft_name: "Lukas Bauer"
+  }];
+  const NACHWEIS = [{
+    id: "d-1", title: "Staplerschein", category: "qualifikation",
+    valid_until: "2026-04-20",
+    worker_user_id: "w-1", assignment_id: "a-1", kraft_name: "Lukas Bauer"
+  }];
+
+  it("DASS jemand fehlt, sieht der Kunde — WARUM, nicht", async () => {
+    const p = musterPool(() => ({ rows: ABWESEND }));
+
+    const [fuerAgentur] = await abwesenheiten(p, { orgId: "org-1", seite: "agentur", fenster: FENSTER });
+    assert.equal(fuerAgentur.abwesenheitsart, "krank",
+      "die eigene Firma führt die Abwesenheit — sie darf den Grund sehen");
+
+    const [fuerKunde] = await abwesenheiten(p, { orgId: "org-1", seite: "kunde", fenster: FENSTER });
+    assert.equal(fuerKunde.abwesenheitsart, null,
+      "der Grund einer Abwesenheit ist eine Personalangelegenheit der Zeitarbeitsfirma");
+    assert.equal(fuerKunde.von, "2026-04-10",
+      "DASS jemand fehlt, bleibt sichtbar — sonst könnte der Kunde nicht umplanen");
+    assert.equal(fuerKunde.grad, "hart");
+  });
+
+  it("WELCHER Nachweis abläuft, sieht der Kunde nicht", async () => {
+    const p = musterPool(() => ({ rows: NACHWEIS }));
+
+    const [fuerAgentur] = await ablaufendeNachweise(p, { orgId: "org-1", seite: "agentur", fenster: FENSTER });
+    assert.equal(fuerAgentur.nachweis, "Staplerschein");
+
+    const [fuerKunde] = await ablaufendeNachweise(p, { orgId: "org-1", seite: "kunde", fenster: FENSTER });
+    assert.equal(fuerKunde.nachweis, null,
+      "welche Qualifikation jemand hat, ist Sache der Zeitarbeitsfirma");
+    assert.equal(fuerKunde.von, "2026-04-20",
+      "DASS etwas abläuft, bleibt sichtbar — der Einsatz hängt davon ab");
+  });
+
+  it("die Spur entscheidet, nicht die abfragende Organisation", async () => {
+    /* Die Redaktion haengt am Wort "agentur", nicht daran, wem `orgId` gehoert.
+     * Ein Flip auf "kunde" oder ein leerer Vergleich gaebe beides frei. */
+    const p = musterPool(() => ({ rows: ABWESEND }));
+    for (const seite of ["kunde", "", null, undefined, "AGENTUR"]) {
+      const [z] = await abwesenheiten(p, { orgId: "org-1", seite, fenster: FENSTER });
+      assert.equal(z.abwesenheitsart, null,
+        `Spur ${JSON.stringify(seite)} ist nicht "agentur" und darf den Grund nicht sehen`);
+    }
+  });
+});
+
+describe("K3.6 · die Platzhalter-Unendlichkeit verlässt den Dienst nicht", () => {
+  it("ein offenes Ende kommt aus der VORSCHAU als `null`, nicht als 9999-12-31", async () => {
+    /* `DATE '9999-12-31'` ist die Rechenhilfe der Abfrage, kein Datum. Käme sie
+     * durch, stünde auf der Fläche ein Konflikt "bis 31.12.9999" — und jede
+     * Sortierung nach Enddatum wäre still verdreht.
+     *
+     * Nur die VORSCHAU braucht diese Umsetzung: die Monatsansicht kappt die
+     * Überschneidung ohnehin am Fensterrand (`LEAST(…, $3::date)`), dort kann
+     * die Unendlichkeit gar nicht entstehen. */
+    const p = musterPool((sql) => {
+      if (/FROM assignments a\s*\n\s*LEFT JOIN organizations o/.test(sql)) {
+        return { rows: [{
+          id: "a-1", org_id: "kunde-1", supplier_org_id: "org-1", status: "active",
+          von: "2026-04-01", bis: null, kunde_name: "Nordbau GmbH",
+          kraft_org: "org-1", kraft_name: "Lukas Bauer"
+        }] };
+      }
+      if (/FROM worker_assignment_links l\s*\n\s*JOIN assignments e/.test(sql)) {
+        return { rows: [{
+          assignment_id: "a-2", org_id: "kunde-2", gegenseite_org_name: "Südbau AG",
+          gegen_von: "2026-04-05", gegen_bis: "9999-12-31",
+          ueberschneidung_von: "2026-04-05", ueberschneidung_bis: "9999-12-31"
+        }] };
+      }
+      return null;
+    });
+
+    const e = await planungsVorschau(p, {
+      orgId: "org-1", seite: "agentur", workerUserId: "w-1", assignmentId: "a-1"
+    });
+    const [k] = e.konflikte.filter((x) => x.art === "doppelbelegung");
+    assert.ok(k, "die Kollision muss gemeldet werden");
+    assert.equal(k.bis, null,
+      "die Platzhalter-Unendlichkeit wird zu `offen`, nicht zu einem Datum");
+    assert.equal(k.von, "2026-04-05");
+  });
+
+  it("die Monatsansicht kappt am Fensterrand, statt die Unendlichkeit zu melden", async () => {
+    const p = musterPool(() => ({ rows: [] }));
+    await doppelbelegungen(p, {
+      orgId: "org-1", seite: "agentur",
+      fenster: { monat: "2026-04", von: "2026-04-01", bis: "2026-04-30", tage: 30 }
+    });
+    const [abfrage] = p.find("FROM worker_assignment_links a");
+    assert.match(abfrage.sql, /LEAST\([\s\S]*\$3::date\)\s+AS ueberschneidung_bis/,
+      "ohne die Kappung am Fensterrand träte die Unendlichkeit auch hier aus");
+  });
+});
+
+describe("K3.6 · die Spur fällt im Zweifel auf die ENGERE", () => {
+  it("ohne Organisationstyp gilt die Kundenspur", async () => {
+    /* Der Rückfall darf nie die weitere Sicht öffnen: die Agenturspur zeigt bei
+     * einer Doppelbelegung den Namen der Gegenseite. */
+    for (const zeile of [{}, { type: null }, { type: "" }, { type: "company" }, { type: "COMPANY" }]) {
+      const p = musterPool(() => ({ rows: [zeile] }));
+      assert.equal(await seiteFuerOrg(p, "org-1"), "kunde",
+        `Typ ${JSON.stringify(zeile)} darf nicht zur Agentursicht führen`);
+    }
+  });
+
+  it("gar keine Zeile — und ein Fehler — enden ebenfalls bei der Kundenspur", async () => {
+    const leer = musterPool(() => ({ rows: [] }));
+    assert.equal(await seiteFuerOrg(leer, "org-1"), "kunde");
+
+    const kaputt = { query: async () => { throw new Error("DB weg"); } };
+    assert.equal(await seiteFuerOrg(kaputt, "org-1"), "kunde",
+      "eine Mandantengrenze, die sich beim Stolpern öffnet, ist keine");
+  });
+
+  it("nur `agency` öffnet die Agentursicht", async () => {
+    const p = musterPool(() => ({ rows: [{ type: "agency" }] }));
+    assert.equal(await seiteFuerOrg(p, "org-1"), "agentur");
   });
 });

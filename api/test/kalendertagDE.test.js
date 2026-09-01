@@ -38,8 +38,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 import pg from "pg";
 import { applyTypeParsers, DATE_OID } from "../db/typeParsers.js";
+import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
+import { monatsfenster } from "../services/monatsplanService.js";
 
 const pgTypen = pg.types;
 
@@ -302,5 +305,97 @@ describe("Kalendertag · der Typparser haengt an einer einzigen Zeile", () => {
       "ein Kalendertag muss als Kalendertag herauskommen");
     assert.equal(applyTypeParsers(), false,
       "der Aufruf ist idempotent — ein zweiter Aufruf darf nichts mehr setzen");
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Greift Europe/Berlin ueberhaupt? — die Frage hinter allen anderen
+
+   `dateDE.js` bittet um `timeZone: "Europe/Berlin"`. DASS die Bitte erfuellt
+   wird, haengt an der ICU-Datenbank, die in Node steckt — nicht an der
+   Systemzeitzone. Gemessen 2026-09-01 im API-Container: `TZ=Europe/Berlin` ist
+   gesetzt, aber `date` meldet UTC, weil dem Abbild die tzdata fehlt. Node hat
+   volles ICU (77.1) und rechnet trotzdem richtig.
+
+   DAS IST EINE DUENNE STELLE. Ein Abbild mit `--with-intl=small-icu`, ein
+   schlankeres Basis-Abbild, ein Node-Wechsel — und `Intl` faellt still auf UTC
+   zurueck. Es gaebe keinen Fehler, keine Warnung: jeder Kalendertag der
+   Plattform ruecke nur nachts um einen Tag. Vertragsende, Sperrdatum,
+   Abrechnungswoche.
+
+   Die beiden Zeitpunkte unten sind so gewaehlt, dass sie GENAU DANN falsch
+   werden: 23:30 UTC ist in Berlin bereits der Folgetag — im Winter (+1) wie im
+   Sommer (+2). Faellt die Zeitzone weg, liefern sie den Vortag.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("Kalendertag · Europe/Berlin muss wirklich greifen, nicht nur erbeten sein", () => {
+  it("volles ICU ist vorhanden — sonst kennt Node die Zeitzone gar nicht", () => {
+    assert.ok(process.versions.icu,
+      "ohne ICU-Daten faellt jede Zeitzonen-Angabe still auf UTC zurueck");
+    const zonen = Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" })
+      .resolvedOptions().timeZone;
+    assert.equal(zonen, "Europe/Berlin",
+      "die Zeitzone wurde nicht uebernommen — Intl rechnet dann in UTC");
+  });
+
+  it("die Zeitzone ist AUSDRUECKLICH gesetzt, nicht vom Rechner geerbt", () => {
+    /* DIESE PROBE GAB ES ZUERST NICHT, und beim Rueckmutieren ist genau das
+     * aufgefallen: `timeZone: undefined` blieb unbemerkt gruen. Der Grund ist
+     * unangenehm — `Intl` faellt dann auf die SYSTEMZEITZONE zurueck, und die
+     * ist auf diesem Rechner zufaellig Europe/Berlin. Im Container ohne tzdata,
+     * auf einem UTC-Server oder in CI waere sie es nicht, und jeder Kalendertag
+     * ruecke nachts um einen Tag.
+     *
+     * Der Unterschied zwischen "ausdruecklich Berlin" und "zufaellig Berlin"
+     * ist im laufenden Prozess nicht messbar. Deshalb ein KINDPROZESS mit
+     * TZ=UTC: dort trennt sich beides. */
+    const skript =
+      "import { dateOnlyDE } from './utils/dateDE.js';"
+      + "console.log(dateOnlyDE(new Date('2026-03-31T23:30:00Z')));";
+    const ergebnis = spawnSync(
+      process.execPath, ["--input-type=module", "-e", skript],
+      { cwd: path.join(ROOT, "api"), env: { ...process.env, TZ: "UTC" },
+        encoding: "utf8" }
+    );
+    assert.equal(ergebnis.status, 0,
+      "der Kindprozess ist gescheitert:\n" + (ergebnis.stderr || "").slice(0, 400));
+    assert.equal((ergebnis.stdout || "").trim(), "2026-04-01",
+      "mit TZ=UTC kam der Vortag heraus — die Zeitzone wird also vom Rechner "
+        + "geerbt statt in dateDE.js ausdruecklich gesetzt");
+  });
+
+  it("23:30 UTC ist in Berlin schon der Folgetag — im WINTER", () => {
+    // 31.01.2026, 23:30 UTC = 01.02.2026, 00:30 Berlin (MEZ, +1)
+    assert.equal(dateOnlyDE(new Date("2026-01-31T23:30:00Z")), "2026-02-01",
+      "ohne Zeitzone stuende hier der 31.01. — ein Tag zu frueh");
+  });
+
+  it("23:30 UTC ist in Berlin schon der Folgetag — im SOMMER", () => {
+    // 31.03.2026, 23:30 UTC = 01.04.2026, 01:30 Berlin (MESZ, +2)
+    assert.equal(dateOnlyDE(new Date("2026-03-31T23:30:00Z")), "2026-04-01",
+      "ohne Zeitzone stuende hier der 31.03. — ein Tag zu frueh");
+  });
+
+  it("die Sommerzeit-Umstellung selbst verschiebt keinen Kalendertag", () => {
+    /* In der Nacht zum 29.03.2026 springt Berlin von 02:00 auf 03:00. Ein
+     * Zeitpunkt kurz davor und kurz danach gehoert zu DEMSELBEN Kalendertag —
+     * eine Rechnung, die Stunden addiert statt Tage, faellt hier auf. */
+    assert.equal(dateOnlyDE(new Date("2026-03-29T00:30:00Z")), "2026-03-29");
+    assert.equal(dateOnlyDE(new Date("2026-03-29T01:30:00Z")), "2026-03-29");
+    assert.equal(dateOnlyDE(new Date("2026-03-29T22:30:00Z")), "2026-03-30",
+      "22:30 UTC ist im Sommer bereits 00:30 des Folgetages");
+  });
+
+  it("todayDE liefert einen Kalendertag, keinen Zeitstempel", () => {
+    assert.match(todayDE(), /^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("der Monatsplan haengt an genau diesem Helfer", () => {
+    /* Ohne Argument nimmt `monatsfenster` den laufenden Monat aus `todayDE()`.
+     * Kippte die Zeitzone, waere am Monatsersten vor 01:00 bzw. 02:00 der
+     * VORMONAT aufgeschlagen — und niemand saehe, warum. */
+    const f = monatsfenster();
+    assert.equal(f.monat, todayDE().slice(0, 7));
+    assert.equal(f.von, f.monat + "-01");
   });
 });
