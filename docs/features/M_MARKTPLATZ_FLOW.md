@@ -1,0 +1,578 @@
+# Welle M — Der Marktplatz-Flow, Ende zu Ende
+
+> **Status: Bauanweisung. Ist-Stand gemessen und gegengeprüft am 2026-09-01.**
+> Owner-Vorgabe: der vollständige Ablauf des Unternehmens-Marktplatzes, festgeschrieben
+> als Kette — vom Abokauf bis zum Dokument im Einsatzportal.
+>
+> Vorgänger: [`K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md`](K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md),
+> [`J_LIVE_BELEGSCHAFT_MARKTPLATZ.md`](J_LIVE_BELEGSCHAFT_MARKTPLATZ.md),
+> [`L_TRAGFAEHIGKEIT.md`](L_TRAGFAEHIGKEIT.md) (dokumentiert, nicht gebaut).
+
+---
+
+## 0. Die Regel, die über allem steht
+
+**Das meiste davon ist gebaut.** Gemessen: **130 Einzelurteile — 65 fertig, 33 teilweise,
+24 fehlen, 7 gebaut aber unerreichbar, 1 unklar.**
+
+Diese Welle ist deshalb überwiegend **Verkettung, Sichtbarmachung und Beweis** — nicht
+Neubau. Wer sie als Neubau anfasst, baut ein zweites Mal daneben.
+
+> **Vor jeder Phase gilt: erst messen, dann bauen.** Abschnitt 2 ist ein **Vorbefund**,
+> kein Freibrief — Phase **M0** ist die eigene Nachmessung und nicht überspringbar.
+>
+> **Fehlt etwas wirklich, wird gefragt, nicht erfunden.** Eine Rückfrage kostet zehn
+> Minuten; ein Parallelbau kostet eine Woche und hinterlässt zwei Wahrheiten.
+
+### Wie dieser Ist-Stand entstanden ist — und warum das zählt
+
+Acht Prüfer haben je einen Abschnitt der Kette gegen den Code gemessen, **acht
+Gegenprüfer haben jede Behauptung zu widerlegen versucht.** Das war kein Ritual: die
+Gegenprüfung hat in **jedem einzelnen Abschnitt** Korrekturen gefunden, und mehrere
+davon hätten einen Doppelbau ausgelöst. Drei Beispiele:
+
+| Behauptung | Gegenprüfung |
+|---|---|
+| „Zeilen ohne E-Mail werden fälschlich abgewiesen — ein fehlendes `.optional()`" | **Falsch.** `api/test/csvFeldregeln.test.js:191` nagelt die Pflicht *absichtlich* fest, mit dem Kommentar, er solle rot werden, sobald jemand das Schema öffnet. Kein Bug — eine Entscheidung |
+| „Dem Feed fehlt das Plan-Gate" | **Folgenlos.** `capacity_exchange_basic` ist für *jeden* Plan inkl. DEMO offen. Ein nachgerüstetes Gate wäre ein No-op. Und das freie Browsen steht als Absicht im Code |
+| „Es fehlt eine Fläche für die zukünftige Besetzung" | **Existiert.** Sie heißt Monatsplan, ist org-gebunden und verdrahtet (`monatsplanService.js:129/295`) |
+
+**Merke daraus:** ein „fehlt" ist genauso teuer wie ein „fertig", wenn es falsch ist.
+
+---
+
+## 1. Die Owner-Vorgabe im Wortlaut
+
+1. Zeitarbeitsfirma **und** Unternehmen kaufen ein Abo
+2. **Nur** die Zeitarbeitsfirma lädt Mitarbeiter als CSV hoch
+3. Profile werden mit den vorhandenen Daten automatisch angelegt
+4. Automatische E-Mail-Einladung an **alle** Mitarbeiter gleichzeitig
+5. Mitarbeiter öffnet den Link in der E-Mail
+6. Wird ins **Einsatzportal** geleitet und registriert sich dort
+7. **Keine Kollision** wegen der E-Mail-Anmeldung — vorbefüllt aus dem CSV
+8. **Strikte Trennung:** kein Mitarbeiter-Zugang zur Plattform; und der Chef der
+   Zeitarbeitsfirma kommt mit seinem Plattform-Konto **nicht** an das Einsatzportal-Konto
+   seiner Mitarbeiter. *„Das muss wirklich sicher funktionieren."*
+9. Mitarbeiter trägt Skills ein
+10. Das löst **automatisch Angebote** aus
+11. TempConnect befüllt den Marktplatz **automatisch aus diesen Skills**
+12. Unternehmen greifen durch die Suche auf **Profile** zu — **DSGVO-konform**, aus dem
+    Live-Bestand der Zeitarbeitsfirmen
+13. Unternehmen kann **30 Mitarbeiter auf einmal** buchen, über **mehrere** Firmen
+14. Modal in vier Schritten: **Ort → Anzahl → Zeitraum → Preis**
+15. Dann: **Anfrage senden** / **Deal sofort abschließen** / **Abbrechen**
+16. Der Abschluss geht als **echter Auftrag** an die Firma und löst **sofort** die
+    Zuordnung in Live-Belegschaft und Einsatzportal aus
+17. Die Firma bestätigt **per Klick** — oder schreibt zurück
+18. **Staff Control Center:** Audit und Eingriff — Angebot zurücknehmen, Sperrlisten
+19. **Dokumente der Einsätze** überall verdrahtet
+
+---
+
+## 2. Ist-Stand — gemessen, nicht vermutet
+
+Belege als `datei:zeile`. Legende: ✅ fertig · ◐ teilweise · ⊘ gebaut, aber unerreichbar
+· ✗ fehlt.
+
+| # | Schritt | Stand | Beleg / Befund |
+|---|---|---|---|
+| 1 | Abo → wirksamer Plan | ✅ | `subscriptionRequestService.js:793` → `organizations.plan`, gelesen in `userService.js:268` |
+| 1b | Abo-**Wirksamkeit** am Marktplatz | ✗ | `requireFeature` prüft nur die Plan-Matrix, **nie** `subscription.active`. Die abo-bewusste Variante `requireOrgFeature` gibt es und sie hängt an zehn Routendateien — Marktplatz und Kapazitätsbörse sind **nicht** darunter |
+| 1c | Paywall im Frontend | ⊘ | Der Block ist vollständig gebaut, übersetzt, mit CTA — und **kann nie erscheinen**: `data-sla-guard="sla_access"`, und `sla_access` ist für **jeden** Plan wahr, DEMO eingeschlossen. Derselbe tote Schlüssel auf rund 20 Seiten |
+| 1d | Zwei Wahrheiten für dasselbe Limit | ◐ | `capacityExchangeService.js:18` sagt PRO = 50 Angebote, `userService.js:165` sagt unbegrenzt. **Wirksam ist der niedrigere** — die verkaufte Zusage gilt faktisch nicht |
+| 2 | CSV-Upload, Spaltenzuordnung, Duplikatprüfung | ✅ | `POST /workers/import`, `/import/map-columns`, `/check-duplicates`, org-gebunden über `req.orgId` |
+| 2b | „Nur die Zeitarbeitsfirma" ist erzwungen | ◐ | Es gibt **keinen** `org_type`-Riegel — nur Plan + `rperm('worker.create')`. Eine Unternehmens-Org mit passendem Plan könnte denselben Import fahren |
+| 3 | Profile automatisch anlegen | ✅ | `bulkImportWorkers` legt ein **volles Konto** an, nicht nur ein Profil |
+| 3b | Zeilen **ohne** E-Mail | ⊘ | Datenmodell (Mig 175), Dienst (`createWorkerProfileWithoutAccount`) und Oberfläche („nur Stammdaten") sind fertig — das Routen-Schema weist jede Zeile ohne E-Mail eine Ebene höher ab. **Absichtlich**, per Test festgenagelt |
+| 4 | Einladung an alle gleichzeitig | ◐ | `POST /worker-invites/bulk` existiert, set-based, kollisionsfrei (Mig 159). **Der Import löst sie nicht aus** — zwei Knöpfe, dazwischen ein `window.confirm` |
+| 4b | Der Kandidatenkreis | ✗ | **Gefährlich:** die Route lädt **org-weit** alle unverifizierten Kräfte; der Dialog nennt die Zahl des *gerade importierten* Stapels. Wer 10 importiert und bestätigt, kann **180 Einladungen an Unbeteiligte** auslösen |
+| 4c | Obergrenze 200 | ◐ | `BULK_INVITE_MAX = 200`. Der Server meldet `truncated` ehrlich — **das Frontend zeigt es nirgends**. Bei 1000 Kräften gehen 200 Mails raus, 800 verschwinden lautlos |
+| 4d | Kommt die Mail überhaupt an? | ✗ | **`sendMail` gibt ohne konfigurierten Transport still `true` zurück** (`app.js:156`). Die Oberfläche meldet dann „200 eingeladen, 0 fehlgeschlagen", obwohl **keine einzige Mail** das Haus verlassen hat |
+| 5 | Link in der Mail | ✅ | `worker-login.html?invite=<token>`, 7 Tage, eigener nginx-Block |
+| 6 | Registrierung im Portal | ◐ | Formular, Vorbefüllung (`GET /auth/worker/invite/:token`), Passwortvergabe: alles gebaut |
+| 6b | **Der Sprung danach** | ✗ | **Sackgasse.** Der Sprung ist *relativ*, es gibt kein `<base>`, und für `einsatzportal` existiert **kein** nginx-Alias (`worker-login.html` hat einen). Der frisch registrierte Mensch landet auf der **Marketing-Startseite**, HTTP 200 |
+| 7 | Kollision auf dem **Import**-Weg | ✅ | `EMAIL_EXISTS_OTHER_ROLE` (`workerService.js:3282`) |
+| 7b | Kollision auf dem **Einladungs**-Weg | ✗ | **Der schwerste Befund.** `acceptInvite` macht `INSERT INTO users … ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, is_verified = TRUE`. Gehört die Adresse schon einem Plattform-Konto, wird **dessen Passwort still überschrieben**, das Konto an die einladende Firma gehängt — und `role` bleibt unangetastet. Derselbe Riegel existiert im Import-Weg und fehlt hier ersatzlos |
+| 8a | Trennwand Arbeiter → Plattform | ◐ | **Aufgezählt, nicht strukturell.** `hidden_worker` ist **reines Frontend** (`hubVisibility.js:170`) — im ganzen `api/` kommt es nur als Kommentar vor. Es trägt: `requireCompanyOrg` (wo montiert) und `rbacService` (`worker` steht in keiner Erlaubnisliste). **Die Lücke:** Routen mit nur `requireAuth`. Gemessen: **165 Routenzeilen** tragen `requireAuth` als einzigen Riegel — darunter `GET /invoices/operational` mit den Umsatzkennzahlen der Firma, und ein per Einladung angelegter Arbeiter hat eine `org_membership` in genau dieser Org |
+| 8b | Trennwand Plattform → Portal | ✅ | `requireWorkerRole` (`workerPortal.js:214`), **44 von 44 Wegen** tragen ihn. Selbst nachgezählt |
+| 8c | Der Wächter dazu | ◐ | Der Torwächter-Test sieht **nur 18 der 44 Routen** — beide Schleifen filtern auf `path.includes(':')`. Nicht gesehen werden ausgerechnet `GET /worker/me`, `PUT /worker/me/skills`, `GET /worker/documents`. **Ein Wächter, der Sicherheit zusagt, die er nicht prüft, ist teurer als keiner** |
+| 8d | Getrennte Sitzungen? | ✗ | **Nein.** Es gibt zwei Sitzungswelten: `tc.staff.sid` (eigener Store, Pfad `/staff`) und `tc.sid` für **alles andere**. Portal und Plattform teilen Cookie, Store und `users`-Tabelle — getrennt allein durch `users.role`. Das Muster für die Trennung existiert bereits (`/staff`) |
+| 9 | Skills eintragen | ✅ | `GET/PUT /worker/me/skills`, aus der Portal-Navigation erreichbar |
+| 10 | Skills lösen Angebote aus | ⊘ | `setWorkerSkills` löst **nichts** aus. Die Materialisierung steckt allein in `sweepMarktpraesenz`, und deren **einziger Aufrufer** ist `POST /internal/staffing-maintenance` |
+| 11 | Marktplatz füllt sich automatisch | ⊘ | **Der Mechanismus ist vollständig und sauber gebaut** (Mig 200/201, anonyme `capacity_posts` mit `quelle='live_belegschaft'`) — **er läuft nur nicht.** Kein Crontab im Repo, kein Scheduler-Container, kein BullMQ-Takt. Die eigene Betriebsakte hält zum 2026-08-24 fest: *„der Weg ist jetzt offen, aber es ruft ihn noch niemand"* |
+| 12 | DSGVO-Profil statt Angebot | ◐ | Feldsparsamkeit ist maschinell erzwungen (`marktplatzFeldWaechter`), interne Notizen bleiben draußen. **Offen:** das Auto-Angebot trägt die **Wohnort-PLZ** der Person — in einem kleinen Ort ist PLZ + Skill + Zeitfenster re-identifizierend |
+| 12b | Widerspruch des Arbeiters | ✗ | Der einzige Ausschalter liegt bei der **Agentur** (`POST /workers/:id/marktpraesenz`). Der Mensch selbst kann nicht widersprechen. Und das Portal verspricht ihm „Änderungen wirken sich **sofort** auf Ihre Sichtbarkeit aus" — im Automatik-Pfad nachweislich unwahr |
+| 12c | Rücknahme bei Skill-Entzug | ✗ | Nimmt der Mensch eine Fähigkeit heraus, **bleibt das öffentliche Angebot stehen** — und weil `availability_to` NULL bleibt, fällt es auch aus keinem Verfallslauf |
+| 12d | Audit der Automatik | ✗ | Beide **manuellen** Wege auditieren. Ausgerechnet der Weg **ohne menschliche Entscheidung** nicht. Auf „seit wann stand ich im Markt?" gibt es keine Quelle |
+| 13 | Sammelabschluss über mehrere Firmen | ✗ | Nicht vorhanden. `accept-deal` sperrt genau **einen** `capacity_post`. **Aber:** die Bausteine stehen (siehe M5) |
+| 13b | Teilangebot einer Firma | ⊘ | Die einzige Seite mit freiem Mengenfeld (`sla_angebote.html`) speist ihre Bedarfsauswahl aus einem Endpunkt, der **hart auf die eigenen Bedarfe** scopet — für eine Agentur ist die Liste **immer leer** |
+| 14 | Vier-Schritte-Modal | ◐ | Es sind **drei** Schritte (Anzahl, Zeitraum, Preis); „Ort" ist ein Listenfilter davor. **Achtung Doppelbau:** in `offer_detail.html` steht bereits ein generischer mehrstufiger Assistent, dessen Schritt 1 exakt Leistung, Zeitraum, **Menge, Ort und Preis** auflistet |
+| 15 | Drei Ausgänge | ◐ | Das Modal hat **zwei** Knöpfe. „Anfrage senden" fehlt — der Endpunkt `negotiate-deal` **existiert** und hat auf dieser Fläche keinen Aufrufer |
+| 16 | Abschluss → sofort Zuordnung | ✗ | **Die Kette reißt zwischen `assignments` und `worker_assignment_links`.** `activateAgreement` schreibt den Einsatz-Container und schickt eine **Benachrichtigung** — die Zuordnung eines Menschen macht **immer ein Mensch**. Fünf INSERT-Stellen, alle mit menschlichen Aufrufern |
+| 16b | Kunde sieht es sofort | ◐ | Die Live-Tafel ist eine **Heute**-Tafel (`start_date <= CURRENT_DATE`). Ein Deal mit Start in zwei Wochen erscheint dort nicht — **aber im Monatsplan**, org-gebunden und verdrahtet |
+| 16c | Portal aktualisiert sich | ◐ | Der Live-Strom aktualisiert **nur den Glockenzähler**. Die Einsatzliste hat weder SSE noch Polling — der Mensch sieht den Einsatz erst nach Neuladen |
+| 17 | Firma bestätigt / schreibt zurück | ✅ | `confirm-agreement`, `counter` — beide verdrahtet |
+| 18 | Staff-Eingriff auf **einen** Vorgang | ✗ | Da ist Aufsicht auf **Org-Ebene** (freigeben, aussetzen, Moderation, Missbrauchsmeldungen). Es gibt **keinen** Endpunkt, um ein einzelnes Angebot zurückzunehmen; `companyBlocklistService` wird vom Staff CC **nie** importiert |
+| 19 | Dokumente überall | ◐ | Plattform: ja. **Einsatzportal: nein** — der Mensch kennt nur seine *eigenen* Nachweise, die Einsatzvereinbarung, die ihn betrifft, kann er nirgends öffnen. Staff CC: nur eine Übersicht. **Eine von drei Flächen** |
+
+---
+
+## 3. Die Rechtsfrage — und warum die Antwort das Produkt besser macht
+
+> „kann das irgendwie von tempconnect übernommen werden oder ist das rechtlich heikel?"
+
+**Übernehmen: nein. Bündeln: ja — und zwar vollständig.**
+
+### 3.1 Was nicht geht
+
+Arbeitnehmerüberlassung ist erlaubnispflichtig, und verleihen darf nur, wer den
+Arbeitnehmer **selbst beschäftigt**. **Kettenverleih ist untersagt.** Säße TempConnect als
+Vertragspartei in der Mitte, wäre die Folge nicht ein Bußgeld allein, sondern im
+schlimmsten Fall, dass die Arbeitsverhältnisse **beim Kunden** entstehen.
+
+### 3.2 Was geht: ein Akt, N Verträge
+
+TempConnect handelt als **Bevollmächtigter beider Seiten** (Vollmacht in den AGB). Ein
+Klick erzeugt **N einzelne Überlassungsverträge**, jeder zwischen *einer* Firma und dem
+Unternehmen.
+
+| Ebene | Was der Kunde erlebt | Was juristisch passiert |
+|---|---|---|
+| Oberfläche | **ein** Kauf, zwei Klicks | — |
+| Vertrag | — | **N** bilaterale Überlassungsverträge |
+| Rechnung | **eine** Sammelaufstellung | **N** Rechnungen, je Verleiher eine |
+| Geld | ein Vorgang | direkt an die Verleiher bzw. über einen lizenzierten Anbieter |
+
+Das ist keine Notlösung, sondern die **stärkere** Position: TempConnect ist nicht ein
+weiterer Verleiher, sondern die Schicht, die zwanzig zu einem Einkauf zusammenfasst.
+
+### 3.3 Zwei harte Folgen für den Ablauf
+
+**(a) Die Konkretisierungspflicht.** Der Vertrag muss die Überlassung als solche
+bezeichnen **und die Person benennen, bevor die Überlassung beginnt.** „30 Pflegekräfte,
+zwei Klicks" ist deshalb **nie der ganze Vertrag** — es ist der **Rahmen**.
+
+> **Und genau das kann die Plattform schon.** Die namentliche Zuordnung ist die
+> Live-Belegschaft. Der rechtliche Zwang und der gebaute Ablauf fallen zusammen.
+>
+> **Bauvorgabe:** Der Korb erzeugt **zwei** Ebenen. Wer beides in eine Tabelle presst,
+> baut den Rechtsfehler ins Datenmodell.
+
+**(b) Das Geld.** Fremdes Geld einsammeln und weiterleiten ist ein Zahlungsdienst und
+erlaubnispflichtig. Sicherer Weg: **Rechnung im Namen und für Rechnung des Verleihers**,
+das Unternehmen bekommt eine Sammelaufstellung.
+
+### 3.4 Das Gate vor dem Korb
+
+**Die Form des Überlassungsvertrags.** Historisch Schriftform; das
+Bürokratieentlastungsgesetz IV hat sie zum **01.01.2025 auf Textform** gesenkt — nach
+meinem Kenntnisstand, aber **anwaltlich zu bestätigen, bevor der Zwei-Klick-Abschluss
+ausgeliefert wird** (Entscheidung **M-E1**).
+
+| Antwort | Folge |
+|---|---|
+| **Textform genügt** | Der Zwei-Klick-Abschluss trägt: Vertragstext + Protokoll + Zustellung an beide |
+| **Schriftform bleibt** | Der Rahmen braucht eine qualifizierte Signatur. Mig 084 ist der Anker; „Sofort-Abschluss" wird zur „Sofort-Anfrage mit Signaturlauf" |
+
+**Der Entwurf muss beide Antworten tragen** — Formweg als Schalter, nicht hartverdrahtet.
+
+### 3.5 Drei Grenzen, die heute **nicht** greifen
+
+| Grenze | Befund |
+|---|---|
+| **Verleiherlaubnis** | `compliance_documents` kennt `doc_type = 'aueg_erlaubnis'` samt Prüf- und Ablaufzuständen. **Kein einziger Marktplatz-, Kapazitäts- oder Vertragspfad liest sie.** Der Compliance-Filter im Feed ist **selbstdeklariert**, Vorgabe `"unknown"`. Eine Firma ohne Erlaubnis kann anbieten, gebucht werden und zuordnen |
+| **Equal Pay nach neun Monaten** | Existiert **nirgends** — ein einziger Treffer im ganzen Repo, und der ist eine Absichtserklärung in einem Plan. Dabei betrifft es genau das Geld, das das Buchungsmodal nennt |
+| **Überlassungshöchstdauer** | Existiert **zweimal**: `auegService` (Frist je Kunde konfigurierbar, mit Datenlage-Vorbehalt) und `auegFristService` (Konstante 18/3, ohne Vorbehalt). Im **Buchungsmodal läuft die schwächere.** Dazu: die Konfigurationstabelle hat **keinen Schreiber**, es gibt **keine einzige AÜG-Benachrichtigung**, und ein **stornierter** Deal verbraucht weiter Frist |
+
+---
+
+## 4. Verbindliche Leitentscheidungen
+
+| Nr. | Entscheidung | Begründung |
+|---|---|---|
+| **M-L1** ✅ entschieden | **Ein Akt, N Verträge.** TempConnect wird nie Vertragspartei der Überlassung | Kettenverleih ist verboten |
+| **M-L2** ✅ entschieden | **Rahmen und Konkretisierung getrennt** — im Datenmodell, nicht nur in der Anzeige | Konkretisierungspflicht |
+| **M-L3** ✅ entschieden | **Eine Sammelaufstellung, N Rechnungen.** Kein fremdes Geld über ein TempConnect-Konto | Zahlungsdiensterecht |
+| **M-L4** ✅ entschieden | **Der Import bereitet die Einladungen vor, sendet sie erst auf einen Klick** — mit Vorschau, und **begrenzt auf den gerade importierten Stapel** | Eine Mail an die halbe Belegschaft ist nicht zurückholbar. Die Messung zeigt: heute kann ein Klick 180 Unbeteiligte erreichen |
+| **M-L5** ✅ entschieden | **Die Trennwand wird bewiesen, nicht behauptet** — beide Richtungen, entdeckender Wächter, Mutationsprüfung | Ein Flip von 403 auf 200 ist hier ein Datenschutzvorfall |
+| **M-L6** ✅ entschieden | **Kein neues Datenmodell für das Modal.** Und **kein dritter Assistent** — `offer_detail.html` hat bereits einen mehrstufigen Rahmen mit genau diesen Feldern | Zwei Assistenten sind schon zu viel |
+| **M-L7** ✅ entschieden | **Der Staff-Eingriff folgt dem 3a-Muster aus Welle K:** Grund statt Freitext, Wirkungsvorschau, Verfall, nie in eigener Sache, Quelle sichtbar | Es gibt keine zweite Staff-Rolle |
+| **M-L8** ✅ entschieden | **Verdrahtet, aber unerreichbar zählt nicht als fertig.** Jede Phase weist den Klickpfad nach | Die häufigste Fehlerklasse dieses Repos — hier siebenmal gemessen |
+| **M-L9** ✅ entschieden | **Ein Takt-Herzschlag vor allem anderen.** Kein Automatismus gilt als geliefert, solange nicht messbar ist, wann er zuletzt lief | An einer nie eingerichteten Crontab-Zeile hängen: die gesamte Marktplatz-Automatik, der Hard-Lock bei Zahlungsausfall, das automatische Nachrücken und der Verfall von Einladungen |
+
+---
+
+## 5. Was im Ablauf fehlt — der Owner hat richtig vermutet
+
+> „vielleicht habe ich noch was vergessen"
+
+**Der Ablauf hat kein Ende.** Das ist die größte Lücke, und sie zieht eine halbe
+Nachlaufkette mit sich.
+
+| Rang | Lücke | Warum es weh tut |
+|---|---|---|
+| **1** | **Nichts setzt jemals `assignments.status = 'completed'`.** Die zwei Wege dorthin haben **null Frontend-Aufrufer**; kein Cron schließt einen Einsatz ab | Damit sind **Bewertung** (`WHERE a.status='completed'`) und **Lieferantenreputation** strukturell tot — das Bewertungsmodal ist gebaut und auf zwei Seiten eingehängt und kann nie etwas anzeigen. Und die AÜG-Rechnung **zählt Zeiten weiter, die längst vorbei sind**; Mig 210 beschreibt genau diesen Schaden und hat drei Zeilen von Hand repariert, nicht die Ursache |
+| **2** | **Equal Pay: kein Rechenwerk** | Betrifft das Geld, das das Buchungsmodal nennt. Rechtsfolge: Nachzahlung, SV-Beiträge rückwirkend, Bußgeld |
+| **3** | **Die Sperrliste greift an drei von fünf Zuweisungswegen nicht** — `assignmentStaffingService.js` enthält **kein einziges** Vorkommen von „Sperr"/„blocklist", und genau diese Datei trägt den **automatischen** Weg | Der Kunde sperrt eine Kraft nach einem Vorfall. Der automatische Nachrücker setzt **exakt diese Person** wieder auf dieselbe Baustelle. Kein Fehler, keine Meldung |
+| **4** | **„Deaktivieren" ist irreversibel und trifft alle Kunden gleichzeitig** — ein Knopf ohne Rückfrage, ohne Grund; der Wiederherstellungsblock steht hinter `if (!isActive)` und feuert nie | Die Kraft verschwindet aus **jeder** Live-Belegschaft, der Einsatz gilt weiter als besetzt, kein Kunde erfährt es. Der *korrekte* Ausfallweg macht fünf Schritte inklusive Kundenmeldung — der Versehensweg macht ein UPDATE |
+| **5** | **Absage ≠ Verfall.** `declineAssignment` macht **einen** Schritt; Verfall und Rückzug machen vier | Nach einer Absage bleibt der Marktplatz-Posten auf „belegt", die Kraft bleibt reserviert, **und der Kunde plant weiter mit jemandem, der abgesagt hat** |
+| **6** | **Automatischer Ersatz feuert nie** — zwei Ursachen: kein Takt, **und** der Kandidatenfilter schließt jeden Einsatz mit offener Einladung aus, während das Frontend nie ein `expires_at` sendet | „Takt nachrüsten" allein würde nichts ändern — genau die Sorte Fehlannahme, die eine Woche kostet |
+| **7** | **Verlängerung und Übernahme fehlen** — die zwei profitabelsten Enden. `extended` ist ein gültiger Status **mit Anzeigeplättchen**, erreichbar nur über die aufruferlose Route; `temp_to_perm` existiert als Aufzählungswert und Beschriftung, „Übernahmegebühr" hat **null Treffer** | Wiederkehrender Umsatz und eine einmalige Provision laufen an der Plattform vorbei — der Kunde verlängert am Telefon |
+| **8** | **Zahlungsausfall auf der operativen Rechnung ist nicht modelliert.** `overdue` ist ein gültiger Zustand, den **nichts** je setzt | `overdue_count` ist **strukturell immer null** — eine Kennzahl, die nicht ungleich null werden kann. Die Firma erfährt nicht, dass ihr Kunde nicht zahlt |
+| **9** | **Kein Storno-Entgelt.** Null Treffer für Stornogebühr/`cancellation_fee`/Absagefrist | Der Kunde sagt drei Stunden vorher ab; die Firma hat Bereitschaft bezahlt und bekommt eine Reputationszahl. *(Stornogrund, Vorlaufberechnung und Wirkungsvorschau existieren — nur die Folge fehlt)* |
+| **10** | **Skalierung:** `worker_assignment_links` hat **neun Indizes und keinen auf `org_id`** — der Spalte, mit der **jede** Kundenabfrage beginnt und die alle 30 Sekunden gepollt wird. Mig 196 legt zusätzlich RLS auf genau diese Spalte | Bei 24 Zeilen unsichtbar. Bei 300 Kunden ist das die heißeste Abfrage der Plattform auf einem Sequential Scan |
+
+### Was **nicht** fehlt — damit nichts doppelt gebaut wird
+
+- **Stundenzettel-Schleife kundenseitig**: vollständig (bestätigen, ablehnen, Korrekturzustand, Beschwerdekanal)
+- **Rechnungskorrektur, E-Rechnung, DATEV**: vorhanden, samt Aussteller-Riegel
+- **Kulanzfrist bei Zahlungsausfall des Abos**: 14 Tage, dann Hard-Lock
+- **Ausfall im laufenden Einsatz**: `reportUnavailable`, Ersatzstellung mit 4-Stunden-Frist, Kundenmeldung — gebaut und verdrahtet
+- **Sperrliste selbst**: anlegen, lesen, löschen — es fehlt nur die **Durchsetzung**
+- **Fläche für die zukünftige Besetzung**: existiert als **Monatsplan**
+- **Wirkungsvorschau vor dem Storno**: existiert
+
+---
+
+## 6. Wellen und Phasen
+
+Jede Phase ist für sich abgeschlossen, grün und committbar. Jede nennt ihren
+**Nachweis** — und wo etwas geschützt wird, gehört eine **Rückmutation** dazu: die Regel
+von Hand kaputtmachen und prüfen, dass die Suite dabei wirklich rot wird.
+
+---
+
+### M0 · Die Bestandsprüfung *(kein Code — und trotzdem die wichtigste Phase)*
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| M0.1 | **Jeden Schritt aus Abschnitt 2 selbst nachmessen** — Urteil plus Beleg `datei:zeile` | Eine Tabelle, die der Owner lesen kann |
+| M0.2 | **Jede Abweichung melden**, in beide Richtungen. „Ist doch schon da" ist so wertvoll wie „fehlt doch" | Abweichungsliste mit Beleg |
+| M0.3 | **Erreichbarkeit separat**: welche Seite ist aus der Navigation eines Unternehmens wirklich zu erreichen? | Klickpfad je Seite, oder die Feststellung, dass es keinen gibt |
+
+> **M0 endet mit einem Bericht an den Owner, nicht mit einem Commit.**
+> Findest du, dass etwas **wirklich fehlt** — frag, bevor du baust.
+
+---
+
+### M1 · Die stillen Ausfälle *(zuerst — ohne sie funktioniert der Ablauf auf dem Papier)*
+
+Drei Dinge melden heute Erfolg, ohne etwas zu tun. Solange sie stehen, ist jede weitere
+Messung wertlos.
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| M1.1 | **Takt-Herzschlag** (`D1`): Tabelle `betriebs_takt`, geschrieben von **jedem** `/internal/*`-Handler und **jedem** BullMQ-Takt; Kachel im Staff CC; Wächter, der rot wird, wenn eine Aufgabe länger schweigt als ihr Intervall mal drei | Eine Aufgabe künstlich aussetzen → Wächter rot. **Blueprint-fähig: gehört unverändert in jedes Folgeprojekt** |
+| M1.2 | **Den Takt tatsächlich einrichten** — als Dienst im Stack, nicht als Zeile in der Doku | `sweepMarktpraesenz` läuft; der Herzschlag beweist es |
+| M1.3 | **Mail ehrlich machen** (`D2`): ohne Transport in Produktion **hart ablehnen** statt still `true`; Versandprotokoll je Zweck; Bulk-Einladung über die vorhandene Queue statt seriell im Request | Ohne SMTP → die Route meldet den Fehlschlag, nicht Erfolg |
+| M1.4 | **Die Sackgasse schließen** (`H7`): Sprungziele nach der Registrierung auf absolute Pfade, oder derselbe nginx-Alias wie für `worker-login.html` | `curl -I` gegen beide Adressen im laufenden Stack |
+
+---
+
+### M2 · Die Trennwand *(sicherheitskritisch)*
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| M2.1 | **Das Passwort-Überschreiben schließen.** `createWorkerInvite` **und** `acceptInvite` bekommen denselben Riegel wie der Import (`EMAIL_EXISTS_OTHER_ROLE`) — als harter Abbruch statt `ON CONFLICT DO UPDATE` | Einladung an eine Adresse mit Plattform-Konto → Abbruch mit lesbarem Grund. **Rückmutation** |
+| M2.2 | **Gemischte Groß-/Kleinschreibung**: heute entsteht dabei statt der Überschreibung ein **Zweitkonto** | Beide Fälle real durchgespielt |
+| M2.3 | **Richtung Arbeiter → Plattform strukturell schließen** (`W2`): `wachen.json` um **lesende** Wege erweitern — jede GET-Route, die `req.orgId`/`req.session.userId` in eine Abfrage gibt, braucht eine Wachart | Gemessener Bestand: 496 GET-Routen, Register kennt nur schreibende. Konkreter Beleg: `GET /invoices/operational` |
+| M2.4 | **Den Torwächter reparieren** (`W3`): den Filter `path.includes(':')` an drei Stellen entfernen | Er sieht dann 44 statt 18 Routen. Neue Route ohne Guard → rot |
+| M2.5 | **Eine Arbeitersitzung gegen Plattform-Routen fahren** und 403 erwarten — den Test gibt es heute **nicht** | Echte Sitzung, echte Routen |
+| M2.6 | **Eigenes Cookie und eigener Store für die Arbeiterwelt** — das Muster `/staff` existiert. *Alternative: harter Riegel gegen Rollenkollision auf der E-Mail* | Owner-Entscheidung, wenn M2.1 nicht genügt |
+| M2.7 | **Mutationsprüfung** auf der Entscheidungslogik, Schwelle 90 % | Bericht, **null Überlebende** in `if`/`&&`/Vergleich |
+
+---
+
+### M3 · Der Kettenanfang
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| M3.1 | **Der Import endet mit dem Angebot einzuladen** — Vorschau plus ein Klick (M-L4) | Import mit 3 Zeilen → Zahl stimmt, Klick sendet |
+| M3.2 | **Auf den Stapel begrenzen** (`H4`): `created`-IDs im Rumpf statt org-weit | 10 importiert → höchstens 10 eingeladen |
+| M3.3 | **Die drei verschwiegenen Felder anzeigen**: `truncated`, `skipped_pending`, `skipped_accepted` | 500 importiert → die Oberfläche nennt die 300, die nicht gingen |
+| M3.4 | **Vom abgelaufenen Link auf „Passwort vergessen" verlinken** (`H6`) — der Weg **funktioniert bereits**, er ist nur nicht verlinkt. Und die Reset-Mail rollenabhängig ins Portal zeigen lassen | Abgelaufener Link → der Mensch kommt allein weiter |
+| M3.5 | **Wiedervorlage** für nicht angenommene Einladungen | Rückmutation: Erinnerung entfernen → Probe rot |
+| M3.6 | **Zeilen ohne E-Mail freischalten** (`H3`) — vier Stellen, kein Neubau. **Nur mit Owner-Freigabe:** `csvFeldregeln.test.js:191` nagelt die Pflicht absichtlich fest | Der Test wird mit dokumentierter Begründung geändert, nicht abgeschwächt |
+| M3.7 | **`org_type`-Riegel für den Import** — „nur die Zeitarbeitsfirma" ist heute nicht erzwungen | Unternehmens-Org → 403 |
+
+---
+
+### M4 · Der Markt entsteht wirklich
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| M4.1 | **Rücknahme bei Skill-Entzug**: Bedingung `NOT EXISTS (worker_profile_skills …)`, und `availability_to` bekommt ein Ende | Skill entfernen → Angebot verschwindet |
+| M4.2 | **Audit der automatischen Veröffentlichung** (`D4`) | „Seit wann stand ich im Markt?" ist beantwortbar. **Voraussetzung dafür, den Markt mit Personenprofilen überhaupt betreiben zu dürfen** |
+| M4.3 | **Widerspruch für den Menschen selbst** — plus ein wahrhaftiger Hinweis an der Skill-Karte. Heute steht dort „wirkt sich **sofort** aus", und das ist im Automatik-Pfad unwahr | Widerspruch wirkt, Text stimmt |
+| M4.4 | **Ein gemeinsames Katalog-Gate.** Die beiden Wege prüfen heute **disjunkt**: die Automatik nur `is_active`, der Generator nur `status='approved'` — unkuratierter Freitext erreicht den öffentlichen Markt | Beide Spalten, ein Gate |
+| M4.5 | **Wohnort-PLZ**: Entscheidung **M-E4**, dann umsetzen | Owner-Entscheidung |
+| M4.6 | **`markt_merkmale` und `quelle` auch im allgemeinen Feed rendern** (`H5`) — die API liefert sie an jeden, gerendert werden sie auf **einer** Fläche | Herkunft ist überall sichtbar |
+| M4.7 | **Der Trichter** (`D3`): sechs Zahlen je Org und Woche — importiert / eingeladen / angenommen / Skills gesetzt / im Markt sichtbar / gebucht | **Wirtschaftlich der beste Nicht-Feature-Bau: er priorisiert alles andere.** Ausgangsbefund im Quelltext: 30 von 33 Kräften unsichtbar |
+
+---
+
+### M5 · Der Korb — ein Akt, N Verträge
+
+**Gate: M-E1 muss vorliegen, bevor M5.6 ausgeliefert wird.** M5.1–M5.5 sind unabhängig.
+
+> **Die gute Nachricht der Messung:** der Sammelabschluss ist **kein Neubau**. Endpunkt,
+> Mengenfeld, Restmengen-Buchführung und die Summierung über alle angenommenen Angebote
+> sind gebaut. Was fehlt, ist ein **Anbieter-Modus** in der Bedarfsliste — und drei Riegel.
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| M5.1 | **Ein kanonischer Rechner für die Restmenge** (`W5`). Heute schreiben **drei** Dienste dieselben Spalten — und der dritte feuert **bei einem reinen Lesezugriff**: Firma A öffnet ihre Dealakte, und der Anteil von Firma B verschwindet | Zwei Firmen, ein Bedarf, Dealakte geöffnet → beide Anteile stehen noch. **Vorbedingung für alles Weitere** |
+| M5.2 | **Überfüllungs-Riegel auf den Normalweg heben** (`H8`) — er existiert im Notdienst | Zwei Angebote à 30 auf einem 30er-Bedarf → das zweite wird abgewiesen |
+| M5.3 | **`offered_quantity` nicht mehr auf den vollen Bedarf defaulten** | Leere Menge → 1 oder Pflichtangabe, nicht 30 |
+| M5.4 | **Anbieter-Modus der Bedarfsliste** (`H1`): offene **fremde** Bedarfe für Agenturen, ohne Kontaktdaten des Bestellers; `sla_angebote.html` daran hängen; Deep-Link „Teilmenge anbieten"; Navigationseintrag | Eine Agentur sieht offene Bedarfe und kann 12 von 30 anbieten |
+| M5.5 | **Der Korb als Ansicht**: die Kombination, die den Bedarf deckt, mit Preis je Firma und Gesamtpreis | 12 + 10 + 8 → gedeckt, kein Überlauf |
+| M5.6 | **Ein Klick, N Verträge** (M-L1/M-L2): je Firma ein Vertrag, Rahmen und Konkretisierung getrennt | 3 Firmen → 3 Verträge, 3 Belege, **0** Verträge mit TempConnect als Partei |
+| M5.7 | **Die Sammelaufstellung** (M-L3) | Summe der N stimmt |
+| M5.8 | **Selbstgeschäfts-Riegel auf dem normalen Angebotsweg.** Heute hat ihn nur `accept-deal` — auf dem normalen Weg kann ein Unternehmen **auf den eigenen Bedarf bieten und selbst annehmen** | Versuch → 403 |
+| M5.9 | **`partial_fulfillment_allowed` beleben** — heute eine **tote Spalte**, die im Schema vorhanden aussieht | „Alle 30 oder keiner" ist wählbar und wirkt |
+
+---
+
+### M6 · Der Assistent *(Umverpackung, kein Neubau)*
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| M6.1 | **Erst messen, welcher Assistent bleibt.** In `offer_detail.html` steht bereits ein mehrstufiger Rahmen mit Leistung, Zeitraum, **Menge, Ort, Preis** | Befund, **bevor** etwas gebaut wird (M-L6) |
+| M6.2 | **Vier Schritte**, die den **bestehenden** Bedarf erzeugen | Der Datensatz ist identisch mit dem der Formularseite |
+| M6.3 | **„Anfrage senden" als dritter Knopf** (`H5`) auf `negotiate-deal` — der Endpunkt existiert und hat auf dieser Fläche keinen Aufrufer. Bei `PRICE_OUTSIDE_OFFER` **dorthin leiten** statt nur den Rahmen zu erklären | Drei Ausgänge, alle wirksam |
+| M6.4 | **Abbrechen verliert nichts** | Modal schließen, wiederkommen, Stand ist da |
+| M6.5 | **Der Marktplatz-Detailweg schickt heute einen leeren Rumpf** und bucht pauschal die volle Kopfzahl | Auch dort wählbare Teilmenge |
+
+---
+
+### M7 · Der Durchstich
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| M7.1 | **Die Kette zwischen `assignments` und `worker_assignment_links` schließen** — oder die Erwartung ehrlich korrigieren. Heute macht die Zuordnung **immer ein Mensch** | Owner-Entscheidung: automatisch (bei eindeutiger Kraft) oder als Aufgabe mit Frist |
+| M7.2 | **Der stille Ausfallpfad in `activateAgreement`**: schlägt eine Org-Auflösung fehl, wird der Deal trotzdem auf „aktiviert" gesetzt, ohne Einsatz, ohne Fehler, ohne Audit | Rückmutation: Auflösung scheitern lassen → sichtbarer Fehler |
+| M7.3 | **Absage = Verfall** (Rang 5): Posten zurückgeben, Reservierung lösen, **Kunden melden**, org-weit statt an eine Person | Vier Wirkungen, jede belegt |
+| M7.4 | **Automatischer Ersatz entsperren** (Rang 6): **beide** Ursachen — Takt *und* der Kandidatenfilter, der auf ein nie gesendetes `expires_at` wartet | Absage → Ersatzlauf feuert wirklich |
+| M7.5 | **Die Einsatzliste im Portal aktualisiert sich** — heute springt nur der Glockenzähler | Neuer Einsatz erscheint ohne Neuladen |
+| M7.6 | **Sperrliste an allen fünf Zuweisungswegen** (Rang 3) | Gesperrte Kraft → automatischer Nachrücker weist sie ab. **Rückmutation je Weg** |
+| M7.7 | **„Deaktivieren" entschärfen** (Rang 4): Rückfrage, Grund, Wirkungsvorschau („betrifft 3 Kunden"), Rückweg | Der Wiederherstellungsblock feuert wirklich |
+
+---
+
+### M8 · Das Ende der Kette
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| M8.1 | **Einsatzende-Sweep**: `end_date < heute` → `completed`, plus Vorwarnung „endet in X Tagen" | Bewertung und Reputation werden **erstmals** erreichbar |
+| M8.2 | **Verlängerung als Handlung** — Zustand und Etikett existieren bereits | Aus der Vorwarnung heraus verlängerbar |
+| M8.3 | **Übernahme durch den Kunden** (`temp_to_perm`) samt Provision | Der profitabelste fehlende Ausgang |
+| M8.4 | **`overdue` auf der operativen Rechnung** setzen | `overdue_count` kann erstmals ungleich null werden |
+| M8.5 | **Storno-Entgelt** — Grund, Vorlauf und Wirkungsvorschau existieren, die Folge fehlt | Kurzfristabsage hat eine Folge |
+
+---
+
+### M9 · Recht und Haftung
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| M9.1 | **Verleiherlaubnis als Voraussetzung.** `doc_type='aueg_erlaubnis'` existiert samt Ablaufzuständen und wird **nirgends gelesen** | Firma ohne gültige Erlaubnis kann nicht anbieten. **Rückmutation** |
+| M9.2 | **Eine AÜG-Wahrheit.** Der schwächere Dienst verschwindet aus dem Buchungsweg; der Datenlage-Vorbehalt gilt überall | Kunde mit Tarifausnahme bekommt überall dieselbe Antwort |
+| M9.3 | **Schreiber für `aueg_konfiguration`** — heute nur Lesezugriffe | Die Tarifausnahme ist über das Produkt setzbar |
+| M9.4 | **AÜG-Benachrichtigungen** mit Entdopplung je (Kraft, Kunde, Stufe) | Die Frist meldet sich von selbst |
+| M9.5 | **Stornierter Deal verbraucht keine Frist mehr** | Zuordnung eines stornierten Einsatzes zählt nicht |
+| M9.6 | **Equal Pay nach neun Monaten** — Rechenwerk, Warnung vor der Buchung, Hinweis am Preis | Ein Einsatz, der die Grenze reißt → Warnung **vor** dem Klick |
+
+---
+
+### M10 · Staff-Eingriff und Dokumente
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| M10.1 | **Ein konkretes Angebot, ein Deal, ein Bedarf sind im Staff CC auffindbar** | Suche nach echter ID führt zum Vorgang |
+| M10.2 | **Rücknahme mit Grund**, Wirkungsvorschau vor der Handlung (M-L7) | „Betrifft 3 Zuordnungen und 1 Rechnung" — Vorschau = Wirkung |
+| M10.3 | **Sperrlisten-Aufsicht im Staff CC** — heute wird der Dienst dort nie importiert | Staff sieht und klärt Sperren |
+| M10.4 | **Jeder Eingriff auditiert, nie in eigener Sache** | Versuch in eigener Sache → 403. Rückmutation |
+| M10.5 | **Der Mensch sieht die Dokumente seines Einsatzes im Portal** — heute kennt er nur seine eigenen Nachweise | Am gerenderten Portal |
+| M10.6 | **Staff CC sieht alles, protokolliert jeden Blick** | Audit je Einsicht |
+| M10.7 | **Notdienst-Leitstand** (`H2`): sieben fertige, auditierte Endpunkte ohne jeden Aufrufer — darunter die **einzige** Möglichkeit, eine Teilzusage zurückzunehmen | **Größter Bestand pro Aufwand im ganzen Repo.** Der Notdienst ist zugleich die einzige Stelle, an der Teilzusagen und Überfüllungsschutz bereits richtig sind |
+
+---
+
+### M11 · Härtung *(begleitend, nicht am Ende)*
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| M11.1 | **Endpunkt-Erreichbarkeits-Wächter** (`W1`): jede Route braucht einen Aufrufer oder einen Registereintrag mit Grund | Macht aus „vergessen" ein „bewusst entschieden" und zählt die Restschuld sichtbar |
+| M11.2 | **Gate-Trennschärfe-Wächter** (`W4`): ein Feature-Schlüssel, der für **alle** Pläne wahr ist, darf keine Paywall auslösen — rot mit „dieses Gate kann nie greifen" | Deckt zusätzlich die Abweichung zwischen `visibilityMatrix` und Route auf |
+| M11.3 | **Ein-Schreiber-Wächter** (`W5`) für Buchhaltungsspalten | Zweiter Schreiber → rot |
+| M11.4 | **Tote-Spalte-Wächter** (`W6`) | `partial_fulfillment_allowed` wäre aufgefallen |
+| M11.5 | **Konvention „BEFUND"** (`W7`): ein Test, der einen **Defekt** festschreibt, trägt es im Namen | Heute sind zwei kaputte Fehlerpfade per grünem Test zementiert |
+| M11.6 | **Mutationswellen** in dieser Reihenfolge: `M1` Plan-Entitlement (die einzige real wirkende Paywall ist ein `<`) · `M2` Deal-Zustandsmaschine · `M3` Mengen-Mathematik · `M4` Fristen · `M5` Marktpräsenz-DSGVO | Schwelle 90 %, null Überlebende im Entscheidungs-Branch |
+| M11.7 | **Index auf `worker_assignment_links(org_id)`** (Rang 10) | Lastprobe: 300 Kunden |
+| M11.8 | **Frontend-Erreichbarkeit als Wächter** | Neue Seite ohne Klickpfad → rot |
+
+---
+
+## 7. Reihenfolge
+
+```
+M0  Bestandsprüfung           ← zuerst, immer, ohne Ausnahme
+ │
+ ├── M1  Stille Ausfälle      ← ohne Takt und Mail ist alles andere Theater
+ ├── M2  Trennwand            ← Sicherheit vor Funktion
+ ├── M3  Kettenanfang
+ ├── M4  Der Markt entsteht   ← M4.7 (Trichter) priorisiert alles Weitere
+ ├── M5  Der Korb             ← M5.1 ist Vorbedingung; Gate M-E1 vor M5.6
+ ├── M6  Der Assistent        ← billig, sofort sichtbar
+ ├── M7  Der Durchstich
+ ├── M8  Das Ende der Kette   ← macht Bewertung und Reputation erstmals erreichbar
+ ├── M9  Recht und Haftung    ← M9.1 kann vorgezogen werden, wenn Pilotkunden starten
+ └── M10 Staff und Dokumente
+     M11 Härtung — begleitend, je Phase
+```
+
+**Empfohlen: M0 → M1 → M2 → M3 → M4 → M5 → M6 → M7 → M8 → M9 → M10.**
+
+M11 steht bewusst nicht am Ende: ein Wächter, der erst nach dem Bau entsteht, prüft den
+Bau, der ihn erzeugt hat. Er gehört in dieselbe Phase wie die Regel, die er schützt.
+
+---
+
+## 8. Offene Owner-Entscheidungen
+
+| Nr. | Frage | Warum sie niemand ableiten kann |
+|---|---|---|
+| **M-E1** | **Genügt Textform für den Überlassungsvertrag?** (Abschnitt 3.4) | Rechtsauskunft. Beide Antworten sind baubar, aber nur eine ist auslieferbar |
+| **M-E2** | **Welcher Feature-Schlüssel schützt die Marktplatz-Erstellung?** Heute ist es einer, der für jeden Plan wahr ist. `sla_offers_create` gäbe es agenturseitig — für die Unternehmens-Bedarfsseite existiert **gar kein** Create-Schlüssel | Produkt- und Katalogentscheidung, keine Ableitung. Davon hängt ab, ob die Paywall je erscheint |
+| **M-E3** | **PRO-Angebotslimit: 50 oder unbegrenzt?** Zwei Tabellen widersprechen sich; wirksam ist die niedrigere | Der verkaufte Plan gilt heute faktisch nicht |
+| **M-E4** | **Darf die Wohnort-PLZ einer anonym gemeinten Person öffentlich stehen?** In einem kleinen Ort ist PLZ + Skill + Zeitfenster re-identifizierend | Datenschutzabwägung |
+| **M-E5** | **Braucht die Zeitarbeitsfirma ein anderes Entitlement als das Unternehmen?** Heute gibt es **keine** `org_type`-Dimension im Plankatalog | Wenn beide Seiten unterschiedlich bepreist werden sollen, fehlt dafür jede Struktur |
+| **M-E6** | **Soll der Deal-Abschluss die Zuordnung automatisch auslösen** (bei eindeutiger Kraft) oder als Aufgabe mit Frist? (M7.1) | Ändert, wie „sofort" der Ablauf wirklich ist |
+
+---
+
+## 9. Wie gegengeprüft wird
+
+Wer die Liste vorher kennt, baut anders. Das ist der Zweck.
+
+| # | Frage | Wie sie beantwortet wird |
+|---|---|---|
+| 1 | **Ist die Kette durchgängig?** | Ein Durchlauf von Schritt 1 bis 19 an echten Daten — ein Mensch kommt vom Abo bis zum Dokument im Portal |
+| 2 | **Ist etwas doppelt gebaut worden?** | Für jede neue Datei und jede neue Tabelle: gab es das schon? M0.2 muss die Antwort vorher gegeben haben |
+| 3 | **Zählt „fertig" wirklich als fertig?** | Jeder Endpunkt braucht einen Aufrufer, jede Seite einen Klickpfad (M-L8) |
+| 4 | **Beißt jede Probe?** | Für jede Schutzregel eine Rückmutation. Wird die Suite nicht rot, schützt sie nichts |
+| 5 | **Hält die Mandantengrenze?** | Fremde Organisation → 403, nicht 200 mit leerer Liste |
+| 6 | **Läuft es wirklich?** | Der Takt-Herzschlag aus M1.1 beantwortet das für jeden Automatismus |
+| 7 | **Stimmt die Doku mit dem Code?** | `dokuWaechter`, `uebergabe`, `flaechenZuordnung` grün; Register nachgezogen |
+
+**Eine Phase gilt als nicht abgenommen**, wenn: ein Test durch Abschwächen grün wurde ·
+eine Behauptung ohne Beleg im Bericht steht · ein Beleg aus dem Browser gegen einen
+laufenden Container stammt, ohne dass die Prozesslaufzeit geprüft wurde · ein Testlauf
+durch eine Pipe beurteilt wurde · etwas neu gebaut wurde, das es schon gab · eine Lücke
+erfunden statt gefragt wurde.
+
+### Der Bericht je Welle
+
+```
+Welle:            M2
+Gebaut:           <Dateien>
+Gemessen:         <was war vorher da, mit Beleg>
+Nachweis:         <Proben, Rückmutationen, Browser-/DOM-Beleg>
+Erreichbarkeit:   <Klickpfad>
+Org-Grenze:       <geprüft ja/nein, wie>
+Offen:            <was bewusst nicht gebaut wurde und warum>
+Gefragt:          <welche Owner-Entscheidung noch aussteht>
+```
+
+**Was beim Bauen auffällt, gehört in den Bericht — auch und gerade, wenn es den Plan
+widerlegt.** In Welle K4 war die geplante Meldung an das Team nicht baubar; das offen zu
+sagen war mehr wert, als sie vorzutäuschen.
+
+---
+
+## 10. Arbeitsanweisung
+
+### 10.1 Zuerst lesen
+
+1. `docs/UEBERGABE.md` — der Gesamtstand, per Test erzwungen
+2. **dieses Dokument**, vollständig, vor der ersten Änderung
+3. `CLAUDE.md`, Abschnitt *„Das Team ist eine Person"*
+4. `docs/FLAECHEN.md` — was ins Staff CC gehört, was ins OCC, was ins Support Center
+
+### 10.2 Eiserne Regeln
+
+| Regel | Warum |
+|---|---|
+| **Nie `git add -A`** | Im Baum liegen ungetrackte Geschäftsunterlagen |
+| **Immer `git commit --only <pfade>`** | Mehrere Sitzungen arbeiten parallel |
+| **Commit-Freigabe steht, Push nur auf Zuruf** | Owner-Entscheid |
+| `Co-Authored-By: Claude <noreply@anthropic.com>` | An jeden Commit |
+| **Tests sind die Spezifikation** | Ein roter Test wird nie durch Abschwächen grün gemacht |
+| **Kein stiller Skip** | Pfade über `import.meta.url` |
+
+### 10.3 Wie geprüft wird
+
+```bash
+cd api && node scripts/run-tests.js
+```
+
+**Niemals durch eine Pipe** — `| grep | head` liefert den Rückgabewert von `head`, also 0.
+In eine Datei umleiten und die Datei lesen.
+
+DB-gestützte Proben laufen nur im Container:
+
+```bash
+docker exec tempconnect_api sh -c "cd /app && node --test --test-force-exit test/integration/<datei>"
+```
+
+### 10.4 Vier Fallen, jede teuer bezahlt
+
+1. **`api/.stryker-tmp` ist 124 MB groß** und enthält vollständige Kopien von `routes/`,
+   `services/` und `test/` — mit **veralteten Zeilennummern**. Jede rohe `grep -r`-Suche
+   findet sie doppelt. Wer dort liest, belegt seine Aussage mit einem Stand von vorgestern.
+   **Suchen immer mit ripgrep/Grep (respektiert `.gitignore`) oder mit
+   `--exclude-dir=.stryker-tmp`.**
+2. **Escape-Zeichen kollabieren** durch Bash, Heredoc, `python -c` und die
+   Schreib-Werkzeuge. Inhalte **ohne jedes Escape** erzeugen (`chr(10)`,
+   `String.fromCharCode`), Skripte in eine **Datei** schreiben statt `-c`, und **immer das
+   Ergebnis ansehen**.
+3. **Eine Pipe verschluckt den Rückgabewert.** Siehe 10.3.
+4. **Der Browser beweist nichts über das Backend.** Der Container bedient einen
+   Prozess-Schnappschuss vom Startzeitpunkt:
+   ```bash
+   docker exec tempconnect_api sh -c "ps -o etime,args | grep '[n]ode server.js'"
+   ```
+
+### 10.5 Die Fehlerklasse dieser Welle
+
+*Etwas ist gebaut, montiert — und niemand benutzt es.* **Siebenmal gemessen**, und
+zweimal betrifft es den Kern des Ablaufs: die Marktplatz-Automatik läuft nie, und der
+Teilmengen-Weg ist für die handelnde Partei unerreichbar.
+
+**Deshalb bekommt jede Verdrahtung eine Probe, die den echten Handler durchläuft** —
+nicht nur den Dienst darunter. In Welle K4 fand genau so eine Probe beim ersten Lauf
+einen `ReferenceError`, während alle acht Dienst-Proben grün blieben.
+
+**Und: Wächter, die suchen statt abzuhaken.** Vorbilder im Baum:
+`api/test/jedeMailHatEinenAbsender.test.js`, `api/test/statuswertSpiegel.test.js`.
+
+### 10.6 Nach jeder Welle
+
+Register nachziehen: `sql/migrations/NUMBERING.md`, Schema-Momentaufnahme
+(`api/scripts/schema-snapshot.js`), `docs/PLATTFORM_REGISTER.md` über den Generator,
+dieses Dokument auf den Stand bringen. Dann volles Gate, dann committen.
+
+---
+
+## 11. Was Welle M **nicht** tut
+
+- **TempConnect zur Vertragspartei der Überlassung machen.** Nie. (M-L1)
+- **Ein zweites Bedarfs- oder Angebotsmodell bauen.** Der Korb setzt auf
+  `demand_requests` und `offers` auf.
+- **Einen dritten mehrstufigen Assistenten bauen.** (M-L6)
+- **Die Live-Belegschaft oder die Marktplatz-Befüllung neu bauen.** Beide sind Welle E/J
+  — M sorgt dafür, dass sie **laufen**.
+- **Eine Fläche für die zukünftige Besetzung bauen.** Sie existiert als Monatsplan.
+- **Hochverfügbarkeit.** Das ist Welle L.
+- **OCC-Module anlegen oder entfernen.** Owner-Entscheid 2026-08-27.
+- **Zahlungsflüsse über ein TempConnect-Konto.** (M-L3)

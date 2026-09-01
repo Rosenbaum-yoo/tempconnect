@@ -42,6 +42,18 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | ✅ **vollständig gebaut** — Mig 208 + 209, `werbepraemieService`, 26 Proben, **16 Rückmutationen** |
 | **K3** | Monatsplanung | **✅ ABGESCHLOSSEN** — zwei Achsen (Einsätze / Mitarbeiter), Konfliktvorschau vor dem Schreiben, in der Navigation, gehärtet (Indizes, Zeitzone, Mutation Testing) |
 | **L** | Tragfähigkeit / Hochverfügbarkeit | dokumentiert, **nicht gebaut** (eigener Abschnitt, Owner-Vorgabe) |
+| **M** | Marktplatz-Flow Ende zu Ende (19 Schritte) | **gemessen und geplant** (2026-09-01), noch nicht gebaut — zwölf Wellen M0–M11 |
+
+> **Der wichtigste Befund der M-Messung, weil er alles andere betrifft:**
+> **Die Marktplatz-Automatik läuft nicht.** Der Mechanismus ist vollständig gebaut
+> (Mig 200/201, „Verfügbarkeit ist das Angebot"), aber `sweepMarktpraesenz` hat genau
+> einen Aufrufer — `POST /internal/staffing-maintenance` —, und **den ruft nichts**: kein
+> Crontab im Repo, kein Scheduler-Container, kein BullMQ-Takt. An derselben nie
+> eingerichteten Zeile hängen außerdem der Hard-Lock bei Zahlungsausfall, das automatische
+> Nachrücken und der Verfall von Einladungen. Die eigene Betriebsakte hält es seit dem
+> 2026-08-24 fest: *„der Weg ist jetzt offen, aber es ruft ihn noch niemand."*
+> **Deshalb ist M1.1 ein Takt-Herzschlag** — eine Tabelle, die sagt, wann jede Aufgabe
+> zuletzt lief, plus ein Wächter, der bei Schweigen rot wird. Blueprint-fähig.
 
 **Der nächste Griff: die Antwort des Owners auf E-K3-1 bis E-K3-3.** Der Entwurf
 der Monatsplanung liegt vor (K3.1) und die Datenlage ist gemessen (K3.2), beides
@@ -440,6 +452,7 @@ zurückziehen müssen.**
 
 | Plan | Inhalt |
 |---|---|
+| [features/M_MARKTPLATZ_FLOW.md](features/M_MARKTPLATZ_FLOW.md) | **Der große Plan.** Der vollständige Unternehmens-Marktplatz als Kette, 19 Schritte vom Abokauf bis zum Dokument im Einsatzportal. Ist-Stand **gemessen und gegengeprüft** (130 Urteile: 65 fertig, 33 teilweise, 24 fehlen, 7 unerreichbar), zwölf Wellen M0–M11, sechs offene Owner-Entscheidungen M-E1…M-E6. **Vor jedem Anfassen des Marktplatzes lesen.** |
 | [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md) | **Der aktive Plan.** Owner-Abschnitte 12 + 13: Bounty-Verwaltung ins Staff CC, Werbe-Cashback, Monatsplanung, Feed-Rückfall. Alle Owner-Entscheidungen getroffen (2026-08-27). **K0 + K4 + K1 + K2 gebaut, K3.1–K3.4 gebaut. K3.5 und die Oberfläche sind offen.** |
 | [features/L_TRAGFAEHIGKEIT.md](features/L_TRAGFAEHIGKEIT.md) | Hochverfügbarkeit und Skalierung („wie tragen wir 10 000 Kunden?"). **Eigenständiger Abschnitt, dokumentiert und ausdrücklich nicht gebaut** — Owner-Vorgabe 2026-08-27. |
 | [features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md](features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md) | Welle J: Live-Belegschaft ↔ Marktplatz, Rechnungsstammdaten, E-Rechnung (ZUGFeRD, PDF/A-3u, Schematron). Gebaut. |
@@ -1418,6 +1431,35 @@ Doku-Waechter P2-W1).
 ## Offene Owner-Entscheidungen
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
+
+### Welle M — Marktplatz-Flow *(neu, 2026-09-01)*
+
+Vollständig in [features/M_MARKTPLATZ_FLOW.md](features/M_MARKTPLATZ_FLOW.md), Abschnitt 8.
+
+- **M-E1** — **Genügt Textform für den Überlassungsvertrag?** Historisch Schriftform;
+  das Bürokratieentlastungsgesetz IV hat sie zum 01.01.2025 auf Textform gesenkt. **Braucht
+  anwaltliche Bestätigung, bevor der Zwei-Klick-Abschluss ausgeliefert wird.** Genügt
+  Textform, trägt der Sofort-Abschluss; bleibt Schriftform, braucht der Rahmen eine
+  qualifizierte Signatur und der Entwurf sieht anders aus. *Gate vor Welle M5.6.*
+- **M-E2** — **Welcher Feature-Schlüssel schützt die Marktplatz-Erstellung?** Heute steht
+  auf rund 20 Seiten ein Schlüssel, der für **jeden** Plan wahr ist — der vollständig
+  gebaute, übersetzte Paywall-Block kann deshalb **nie** erscheinen. Ein naheliegender
+  Ersatz wäre ebenfalls ein No-op; für die Unternehmens-Bedarfsseite existiert **gar kein**
+  Create-Schlüssel. *Produkt- und Katalogentscheidung, keine Ableitung.*
+- **M-E3** — **PRO-Angebotslimit: 50 oder unbegrenzt?** Zwei Tabellen widersprechen sich
+  (`capacityExchangeService.js:18` gegen `userService.js:165`); wirksam ist die niedrigere.
+  Die verkaufte Zusage „unbegrenzt" gilt damit faktisch nicht.
+- **M-E4** — **Darf die Wohnort-PLZ einer anonym gemeinten Person öffentlich stehen?**
+  Das automatisch erzeugte Angebot trägt sie. In einem kleinen Ort ist PLZ + Fähigkeit +
+  Verfügbarkeitsfenster re-identifizierend. *Datenschutzabwägung.*
+- **M-E5** — **Braucht die Zeitarbeitsfirma ein anderes Entitlement als das Unternehmen?**
+  Es gibt heute **keine** `org_type`-Dimension im Plankatalog — beide Seiten kaufen
+  denselben. Getrennt werden sie nur zur Laufzeit über Rollenriegel und zwei Limitfelder.
+  Sollen beide Seiten unterschiedlich bepreist werden, fehlt dafür jede Struktur.
+- **M-E6** — **Soll der Deal-Abschluss die Zuordnung automatisch auslösen** (bei
+  eindeutiger Kraft) oder als Aufgabe mit Frist? Heute macht die Zuordnung **immer ein
+  Mensch** — die Kette reißt zwischen `assignments` und `worker_assignment_links`.
+  Entscheidet, wie „sofort" der Ablauf wirklich ist.
 
 - ~~**D-E3**~~ ✅ entschieden 2026-08-13: **Weg (a)**. Ursprünglich: Weg für Welle D6 (DSGVO für Profile ohne Konto): zweiter Einstieg für
   Profil-IDs **(a, empfohlen)** oder Vereinheitlichung der bestehenden Löschpfade (b).
