@@ -364,7 +364,7 @@ if (HUB_VISIBILITY_AVAILABLE) {
     it("hubVisibility.js muss auffindbar sein, sonst ist die Abdeckung gelogen", () => {
       assert.fail(
         `hubVisibility.js nicht gefunden (gesucht: '${HUB_VISIBILITY_REL}' relativ zu ` +
-        `cwd=${_ROOT_DOCKER} und Projekt-Root=${_ROOT_LOCAL}). Frontend nicht ` +
+        `cwd=${process.cwd()} und Projekt-Root=${ROOT}). Frontend nicht ` +
         `gemountet/ausgecheckt? Docker erwartet: ./frontend/public/js:/app/frontend/public/js:ro`
       );
     });
