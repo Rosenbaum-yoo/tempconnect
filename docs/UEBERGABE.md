@@ -181,8 +181,49 @@ Leer- und Fehlerzustand.
 >    Middleware-Dateien bei 88,5 und 89,8 % lagen. Ein Mittelwert versteckt jede
 >    Lücke.
 
-**DER NÄCHSTE GRIFF:** Welle K ist durch (K0–K4). Was als Nächstes ansteht,
-entscheidet der Owner.
+## Welle M — M0 ist gemessen, der Rest wartet auf Entscheidungen
+
+**[`M0_BESTANDSPRUEFUNG.md`](features/M0_BESTANDSPRUEFUNG.md)** — der Ist-Stand des
+Marktplatz-Flows, selbst nachgemessen gegen den Vorbefund in
+[`M_MARKTPLATZ_FLOW.md`](features/M_MARKTPLATZ_FLOW.md).
+
+Sieben Prüfer, sieben Skeptiker, **48 Urteile mit Beleg**. Ergebnis in einem Satz:
+**der Vorbefund hält im Kern** — kein Urteil geht von `fehlt` auf `fertig`, ein
+Doppelbau droht aus dieser Messung also nicht. Drei Urteile gehen aber von `fehlt`
+auf `unerreichbar`, und das ist die teuerste Verwechslung des Plans: wer `fehlt`
+liest, baut einen Vorgang; wer `unerreichbar` liest, hängt einen Knopf an einen
+fertigen.
+
+**Drei Befunde habe ich zusätzlich selbst nachgemessen**, weil M1 und M2 auf ihnen
+aufsetzen:
+
+* `acceptInvite` überschreibt per `ON CONFLICT (email)` das Passwort eines
+  bestehenden Plattform-Kontos (`workerService.js:941`) — und hängt es der
+  einladenden Firma als Mitglied an, wobei eine höhere Rolle still auf `worker`
+  **herabgestuft** wird (`:949`). Der Riegel `EMAIL_EXISTS_OTHER_ROLE` existiert
+  im Import-Weg und fehlt hier ersatzlos.
+* Die Marktplatz-Automatik hat **einen** Aufrufer (`internal.js:559`), der ist ein
+  HTTP-Endpunkt, und **kein Dienst im Stack ruft ihn**: `docker-compose.yml` führt
+  db, mailpit, redis, migrate, api, frontend — keinen Takt.
+* Ein Einsatz kann über das Produkt **nie** abgeschlossen werden: die Route
+  `POST /assignments/:id/complete` existiert, der einzige `/complete`-Aufruf im
+  Frontend gilt Datenschutz-Anfragen. Damit ist die Bewertung strukturell tot.
+
+**M0 endet hier — mit einem Bericht, nicht mit einem Bauauftrag.** Der Plan sagt:
+*fehlt etwas wirklich, wird gefragt, nicht erfunden.* Es stehen **33 Fragen** offen,
+keine davon autonom beantwortbar. Die vier, die alles andere blockieren:
+
+1. **Wer schließt einen Einsatz ab?** Kunde, Zeitarbeitsfirma, oder automatisch am
+   geplanten Ende? Ohne diese Antwort ist die größte Lücke nicht baubar.
+2. **Soll der Takt eingerichtet werden?** Eine Betriebszeile aktiviert in einem
+   Schritt die Marktbefüllung, die Fälligkeitsmarkierung und das Nachrücken.
+3. **Bekommt das Einsatzportal eine eigene Sitzungswelt** nach dem `/staff`-Muster?
+   Das berührt alle bestehenden Arbeiter-Sitzungen — eine Migrationsfrage.
+4. **Welche Zahl gilt für PRO: 50 Angebote oder unbegrenzt?** Das generierte
+   Abo-Dokument sagt schriftlich „Unbegrenzt“; wirksam sind 50.
+
+**DER NÄCHSTE GRIFF:** M1 (die stillen Ausfälle) — sobald Frage 2 beantwortet ist.
+Welle K ist durch (K0–K4).
 
 **Zwei Datenlücken, benannt statt geraten** (wie die 49 ankerlosen Einsätze aus
 E-K3-4): 15 von 40 Bedarfen gehören einem Besteller ohne Organisation; **6 von 24
