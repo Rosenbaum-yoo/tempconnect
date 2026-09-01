@@ -51,6 +51,30 @@
     'mp.anmelden': 'Bitte melden Sie sich an, um Ihre Monatsplanung zu sehen.',
     'mp.grenze': 'Die AÜG-Höchstdauer wird nur aus Überlassungen berechnet, die auf dieser Plattform stehen. Lief dieselbe Einsatzkraft zuvor über einen anderen Verleiher bei demselben Unternehmen, fehlt diese Zeit in der Rechnung — obwohl das Gesetz sie anrechnen würde.',
 
+    'mp.achse.einsaetze': 'Einsätze',
+    'mp.achse.mitarbeiter': 'Mitarbeiter',
+    'mp.leer.mitarbeiter': 'Für diesen Monat sind keine Mitarbeiter hinterlegt.',
+    'mp.kpi.mitarbeiter': 'Mitarbeiter',
+    'mp.kpi.ganz_frei': 'ganzen Monat frei',
+    'mp.kpi.teils_frei': 'teilweise frei',
+    'mp.kpi.ganz_belegt': 'durchgehend belegt',
+    'mp.ohne_konto': 'ohne Konto',
+    'mp.frei_tage': '{n} Tage frei',
+    'mp.frei_tag': '1 Tag frei',
+    'mp.frei_keine': 'durchgehend belegt',
+    'mp.auslastung': '{n} % belegt',
+    'mp.abwesend': 'abwesend',
+    'mp.pruef.knopf': 'Besetzung prüfen',
+    'mp.pruef.titel': 'Wer kann auf diesen Einsatz?',
+    'mp.pruef.sub': 'Die Prüfung zeigt, was bei einer Besetzung kollidieren würde. Sie legt nichts an — besetzt wird weiterhin über den gewohnten Weg.',
+    'mp.pruef.schliessen': 'Schließen',
+    'mp.pruef.laedt': 'Prüfe …',
+    'mp.pruef.sauber': 'Kein Konflikt: {name} kann für diesen Zeitraum eingeplant werden.',
+    'mp.pruef.fehler': 'Die Prüfung konnte nicht durchgeführt werden.',
+    'mp.pruef.keine_kraefte': 'Für diesen Monat sind keine Mitarbeiter hinterlegt, die geprüft werden könnten.',
+    'mp.pruef.nur_agentur': 'Diese Prüfung gibt es nur für Zeitarbeitsfirmen — sie betrifft die Besetzung mit eigenen Einsatzkräften.',
+    'mp.aueg.durch': 'Diese Besetzung verursacht die Überschreitung.',
+    'mp.aueg.vorher': 'Die Frist war schon vorher überschritten — nicht durch diese Besetzung.',
     'mp.k.doppelbelegung': 'Doppelbelegung',
     'mp.k.abwesenheit': 'Abwesenheit',
     'mp.k.aueg_frist': 'AÜG-Höchstdauer',
@@ -90,6 +114,30 @@
     'mp.anmelden': 'Please sign in to see your monthly plan.',
     'mp.grenze': 'The AÜG maximum assignment period is calculated only from assignments recorded on this platform. If the same worker previously worked for the same company through another agency, that time is missing — although the law would count it.',
 
+    'mp.achse.einsaetze': 'Assignments',
+    'mp.achse.mitarbeiter': 'People',
+    'mp.leer.mitarbeiter': 'No staff on record for this month.',
+    'mp.kpi.mitarbeiter': 'people',
+    'mp.kpi.ganz_frei': 'free all month',
+    'mp.kpi.teils_frei': 'partly free',
+    'mp.kpi.ganz_belegt': 'booked throughout',
+    'mp.ohne_konto': 'no account',
+    'mp.frei_tage': '{n} days free',
+    'mp.frei_tag': '1 day free',
+    'mp.frei_keine': 'booked throughout',
+    'mp.auslastung': '{n} % booked',
+    'mp.abwesend': 'absent',
+    'mp.pruef.knopf': 'Check staffing',
+    'mp.pruef.titel': 'Who can take this assignment?',
+    'mp.pruef.sub': 'The check shows what a placement would collide with. It creates nothing — staffing still goes the usual way.',
+    'mp.pruef.schliessen': 'Close',
+    'mp.pruef.laedt': 'Checking …',
+    'mp.pruef.sauber': 'No conflict: {name} can be scheduled for this period.',
+    'mp.pruef.fehler': 'The check could not be carried out.',
+    'mp.pruef.keine_kraefte': 'No staff on record for this month to check.',
+    'mp.pruef.nur_agentur': 'This check exists for staffing agencies only — it concerns placing your own workers.',
+    'mp.aueg.durch': 'This placement causes the limit to be exceeded.',
+    'mp.aueg.vorher': 'The limit was already exceeded before — not by this placement.',
     'mp.k.doppelbelegung': 'Double booking',
     'mp.k.abwesenheit': 'Absence',
     'mp.k.aueg_frist': 'AÜG maximum period',
@@ -161,6 +209,19 @@
   /* ── Zustand ─────────────────────────────────────────────────────────── */
 
   var monat = null;   // "YYYY-MM"; null = der laufende
+  var ansicht = 'einsaetze';   // 'einsaetze' | 'mitarbeiter'
+  var letzterPlan = null;      // die zuletzt gezeichnete Antwort
+  var belegschaft = null;      // Antwort des Mitarbeiter-Endpunkts, je Monat
+  var pruefEinsatz = null;     // der Einsatz, fuer den gerade geprueft wird
+
+  /** Platzhalter fuellen, ohne eine zweite Textquelle aufzumachen. */
+  function tf(schluessel, werte) {
+    var text = t(schluessel);
+    Object.keys(werte || {}).forEach(function (k) {
+      text = text.split('{' + k + '}').join(String(werte[k]));
+    });
+    return text;
+  }
 
   /* ── Laden ───────────────────────────────────────────────────────────── */
 
@@ -168,19 +229,28 @@
     zeig(el('mpLaedt'), true);
     zeig(el('mpFehler'), false);
 
-    var url = '/api/v1/workforce/monatsplan' + (monat ? '?monat=' + encodeURIComponent(monat) : '');
+    var pfad = ansicht === 'mitarbeiter'
+      ? '/api/v1/workforce/monatsplan/mitarbeiter'
+      : '/api/v1/workforce/monatsplan';
+    var url = pfad + (monat ? '?monat=' + encodeURIComponent(monat) : '');
     fetch(url, { credentials: 'include' })
       .then(function (r) {
         if (r.status === 401) { throw new Error('AUTH'); }
         if (!r.ok) { throw new Error('HTTP_' + r.status); }
         return r.json();
       })
-      .then(zeichnen)
+      .then(function (antwort) {
+        if (ansicht === 'mitarbeiter') { belegschaft = antwort; zeichneBelegschaft(antwort); }
+        else { zeichnen(antwort); }
+      })
       .catch(function (e) {
         zeig(el('mpLaedt'), false);
         zeig(el('mpRaster'), false);
         zeig(el('mpKpis'), false);
         zeig(el('mpKonflikte'), false);
+        zeig(el('mpLeer'), false);
+        zeig(el('mpGrenze'), false);
+        zeig(el('mpPruefung'), false);
         var box = el('mpFehler');
         box.textContent = e && e.message === 'AUTH' ? t('mp.anmelden') : t('mp.fehler');
         zeig(box, true);
@@ -191,6 +261,7 @@
 
   function zeichnen(plan) {
     monat = plan.fenster.monat;
+    letzterPlan = plan;
     zeig(el('mpLaedt'), false);
 
     el('mpMonat').textContent = monatsname(plan.fenster.monat);
@@ -286,7 +357,15 @@
 
       teile.push(
         '<div class="mp-zeile" style="grid-template-columns:' + spalten + '">'
-        + '<div class="mp-zeile__kopf"><b>' + esc(titel) + '</b><span>' + esc(unter) + '</span></div>'
+        + '<div class="mp-zeile__kopf"><b>' + esc(titel) + '</b><span>' + esc(unter) + '</span>'
+        /* Nur die Agenturspur besetzt mit eigenen Kraeften — und nur ein echter
+         * Einsatz, kein Bedarf. Ein Knopf, der nichts beantworten kann, waere
+         * schlimmer als keiner. */
+        + (plan.seite === 'agentur' && !z._bedarf
+            ? '<button class="mp-pruef" type="button" data-einsatz="' + esc(z.id)
+              + '" data-titel="' + esc(titel) + '">' + esc(t('mp.pruef.knopf')) + '</button>'
+            : '')
+        + '</div>'
         + '<div class="mp-spurbahn" style="grid-column:2 / span ' + f.tage + '">'
         + '<div class="mp-balken ' + klasse
         + (z.beginnt_vorher ? ' mp-balken--vorher' : '')
@@ -345,6 +424,263 @@
     zeig(box, true);
   }
 
+
+  /* ── Der Monat je Mitarbeiter (K3.7) ──────────────────────────────────
+     Das Einsatz-Raster zeigt die Minderheit: gemessen am 2026-08-31 erscheinen
+     von 31 Mitarbeitern der Zeitarbeitsfirmen im April-Raster VIER. Der Rest hat
+     in diesem Monat keinen Einsatz — und das sind genau die verplanbaren.
+     Hier sind die Zeilen Menschen, und die FREIE Spanne ist der Inhalt. */
+
+  function zeichneBelegschaft(plan) {
+    monat = plan.fenster.monat;
+    letzterPlan = null;
+    zeig(el('mpLaedt'), false);
+    zeig(el('mpKonflikte'), false);
+    zeig(el('mpGrenze'), false);
+    zeig(el('mpPruefung'), false);
+
+    el('mpMonat').textContent = monatsname(plan.fenster.monat);
+
+    var spur = el('mpSpur');
+    spur.textContent = t('mp.spur.' + plan.seite);
+    spur.className = 'mp-spur mp-spur--' + (plan.seite === 'agentur' ? 'agentur' : 'kunde');
+    zeig(spur, true);
+
+    var z = plan.zusammenfassung || {};
+    el('mpKpis').innerHTML = [
+      { wert: z.mitarbeiter, label: t('mp.kpi.mitarbeiter') },
+      { wert: z.ganz_frei, label: t('mp.kpi.ganz_frei') },
+      { wert: z.teilweise_frei, label: t('mp.kpi.teils_frei') },
+      { wert: z.ganz_belegt, label: t('mp.kpi.ganz_belegt') }
+    ].map(function (k) {
+      return '<div class="mp-kpi"><div class="mp-kpi__val">' + esc(k.wert == null ? 0 : k.wert)
+        + '</div><div class="mp-kpi__label">' + esc(k.label) + '</div></div>';
+    }).join('');
+    zeig(el('mpKpis'), true);
+
+    var leute = plan.mitarbeiter || [];
+    if (!leute.length) {
+      zeig(el('mpRaster'), false);
+      var leer = el('mpLeer');
+      leer.textContent = t('mp.leer.mitarbeiter');
+      zeig(leer, true);
+      return;
+    }
+    zeig(el('mpLeer'), false);
+
+    var f = plan.fenster;
+    var spalten = '220px repeat(' + f.tage + ', 1fr)';
+    var teile = [];
+
+    var kopf = ['<div class="mp-tage" style="grid-template-columns:' + spalten + '">',
+      '<div class="mp-tag"></div>'];
+    for (var d = 1; d <= f.tage; d++) {
+      var iso = f.von.slice(0, 8) + String(d).padStart(2, '0');
+      var wt = new Date(iso + 'T00:00:00Z').getUTCDay();
+      kopf.push('<div class="mp-tag' + (wt === 0 || wt === 6 ? ' mp-tag--we' : '') + '">' + d + '</div>');
+    }
+    kopf.push('</div>');
+    teile.push(kopf.join(''));
+
+    leute.forEach(function (m) {
+      var balken = [];
+
+      // Freie Spannen zuerst zeichnen, damit Belegungen darueber liegen.
+      (m.frei || []).forEach(function (fr) {
+        var lage = spanne(fr.von, fr.bis, f);
+        balken.push('<div class="mp-frei" style="left:' + lage.links + '%;width:' + lage.weite + '%"'
+          + ' title="' + esc(datumKurz(fr.von) + ' – ' + datumKurz(fr.bis)) + '">'
+          + (lage.weiteZahl > 8 ? esc(fr.tage) : '') + '</div>');
+      });
+
+      (m.belegungen || []).forEach(function (b) {
+        var lage = spanne(b.von, b.bis || f.bis, f);
+        var randText = b.randvermerk ? t('mp.rand.' + b.randvermerk) : '';
+        balken.push('<div class="mp-balken mp-balken--besetzung'
+          + (b.beginnt_vorher ? ' mp-balken--vorher' : '')
+          + (b.bis == null || b.randvermerk ? ' mp-balken--spaeter' : '')
+          + '" style="left:' + lage.links + '%;width:' + lage.weite + '%"'
+          + ' title="' + esc((b.entleiher_name || '') + ' · ' + datumKurz(b.von) + ' – '
+              + (b.bis ? datumKurz(b.bis) : t('mp.rand.laeuft_noch'))) + '">'
+          + (b.beginnt_vorher ? '<span class="mp-rand">←</span>' : '')
+          + '<span>' + esc(b.entleiher_name || '') + '</span>'
+          + (randText ? '<span class="mp-rand">· ' + esc(randText) + ' →</span>' : '')
+          + '</div>');
+      });
+
+      (m.abwesenheiten || []).forEach(function (a) {
+        var lage = spanne(a.von, a.bis || f.bis, f);
+        // Die ART kommt nur der Agentur zu — der Server entscheidet das, nicht
+        // diese Datei. Fehlt sie, steht hier das neutrale Wort.
+        var text = a.art || t('mp.abwesend');
+        balken.push('<div class="mp-balken mp-balken--abwesend"'
+          + ' style="left:' + lage.links + '%;width:' + lage.weite + '%"'
+          + ' title="' + esc(text + ' · ' + datumKurz(a.von)
+              + (a.bis ? ' – ' + datumKurz(a.bis) : '')) + '">'
+          + '<span>' + esc(text) + '</span></div>');
+      });
+
+      var freiText = m.freie_tage === 0 ? t('mp.frei_keine')
+        : (m.freie_tage === 1 ? t('mp.frei_tag') : tf('mp.frei_tage', { n: m.freie_tage }));
+
+      teile.push(
+        '<div class="mp-zeile" style="grid-template-columns:' + spalten + '">'
+        + '<div class="mp-zeile__kopf">'
+        + '<b class="mp-kopf-name">' + esc(m.name || '—')
+        + (m.ohne_konto ? '<span class="mp-nokonto">' + esc(t('mp.ohne_konto')) + '</span>' : '')
+        + '</b>'
+        /* "durchgehend belegt · 100 % belegt" sagt zweimal dasselbe — die
+         * Prozentzahl traegt nur, solange sie etwas hinzufuegt. */
+        + '<span>' + esc(freiText)
+        + (m.freie_tage > 0
+            ? ' · <span class="mp-last">' + esc(tf('mp.auslastung', { n: m.auslastung_prozent })) + '</span>'
+            : '')
+        + '</span></div>'
+        + '<div class="mp-spurbahn" style="grid-column:2 / span ' + f.tage + '">'
+        + balken.join('') + '</div></div>'
+      );
+    });
+
+    el('mpGitter').innerHTML = teile.join('');
+    zeig(el('mpRaster'), true);
+  }
+
+  /** Lage eines Zeitraums im Fenster, in Prozent der Monatsbreite. */
+  function spanne(von, bis, f) {
+    var a = tagImMonat(von, f) || 1;
+    var b = tagImMonat(bis, f) || f.tage;
+    if (b < a) b = a;
+    var weite = ((b - a + 1) / f.tage) * 100;
+    return {
+      links: (((a - 1) / f.tage) * 100).toFixed(3),
+      weite: weite.toFixed(3),
+      weiteZahl: weite
+    };
+  }
+
+  /* ── Besetzung pruefen — die Antwort VORHER (K3.5) ────────────────────
+     Der Endpunkt liest nur. Besetzt wird weiterhin ueber den gewohnten Weg;
+     eine zweite Schreibtuer daneben waere eine zweite Wahrheit. */
+
+  function pruefungOeffnen(einsatzId, titel) {
+    pruefEinsatz = { id: einsatzId, titel: titel };
+    var panel = el('mpPruefung');
+    el('mpPruefTitel').textContent = t('mp.pruef.titel');
+    el('mpPruefSub').textContent = titel + ' — ' + t('mp.pruef.sub');
+    el('mpPruefErgebnis').innerHTML = '';
+    el('mpKandidaten').innerHTML = '';
+    zeig(panel, true);
+    panel.scrollIntoView({ block: 'nearest' });
+
+    // Die Belegschaft desselben Monats — einmal geladen, dann wiederverwendet.
+    if (belegschaft && belegschaft.fenster && belegschaft.fenster.monat === monat) {
+      zeichneKandidaten(belegschaft);
+      return;
+    }
+    el('mpKandidaten').innerHTML = '<div class="mp-leer">' + esc(t('mp.pruef.laedt')) + '</div>';
+    fetch('/api/v1/workforce/monatsplan/mitarbeiter?monat=' + encodeURIComponent(monat),
+      { credentials: 'include' })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP_' + r.status); return r.json(); })
+      .then(function (antwort) { belegschaft = antwort; zeichneKandidaten(antwort); })
+      .catch(function () {
+        el('mpKandidaten').innerHTML =
+          '<div class="mp-fehler">' + esc(t('mp.pruef.fehler')) + '</div>';
+      });
+  }
+
+  function zeichneKandidaten(plan) {
+    var leute = (plan.mitarbeiter || []).filter(function (m) { return m.worker_user_id; });
+    if (!leute.length) {
+      el('mpKandidaten').innerHTML =
+        '<div class="mp-leer">' + esc(t('mp.pruef.keine_kraefte')) + '</div>';
+      return;
+    }
+    // Wer am meisten frei hat, steht oben — danach sucht eine Disposition.
+    var sortiert = leute.slice().sort(function (a, b) { return b.freie_tage - a.freie_tage; });
+
+    el('mpKandidaten').innerHTML = sortiert.map(function (m) {
+      var freiText = m.freie_tage === 0 ? t('mp.frei_keine')
+        : (m.freie_tage === 1 ? t('mp.frei_tag') : tf('mp.frei_tage', { n: m.freie_tage }));
+      return '<button class="mp-kandidat" type="button" aria-pressed="false"'
+        + ' data-kraft="' + esc(m.worker_user_id) + '" data-name="' + esc(m.name || '') + '">'
+        + '<span>' + esc(m.name || '—') + '</span>'
+        + '<span class="mp-kandidat__frei' + (m.freie_tage === 0 ? ' mp-kandidat__frei--keine' : '')
+        + '">' + esc(freiText) + '</span></button>';
+    }).join('');
+  }
+
+  function pruefen(workerUserId, name, knopf) {
+    if (!pruefEinsatz) return;
+    Array.prototype.forEach.call(
+      el('mpKandidaten').querySelectorAll('.mp-kandidat'),
+      function (b) { b.setAttribute('aria-pressed', b === knopf ? 'true' : 'false'); });
+
+    var ziel = el('mpPruefErgebnis');
+    ziel.innerHTML = '<div class="mp-leer">' + esc(t('mp.pruef.laedt')) + '</div>';
+
+    var url = '/api/v1/workforce/monatsplan/vorschau'
+      + '?assignment_id=' + encodeURIComponent(pruefEinsatz.id)
+      + '&worker_user_id=' + encodeURIComponent(workerUserId);
+
+    fetch(url, { credentials: 'include' })
+      .then(function (r) {
+        if (r.status === 400) return r.json().then(function (b) { throw new Error(b.error || 'HTTP_400'); });
+        if (!r.ok) throw new Error('HTTP_' + r.status);
+        return r.json();
+      })
+      .then(function (e) { zeichneVorschau(e, name, ziel); })
+      .catch(function (err) {
+        var text = err && err.message === 'NUR_AGENTURSPUR'
+          ? t('mp.pruef.nur_agentur') : t('mp.pruef.fehler');
+        ziel.innerHTML = '<div class="mp-fehler">' + esc(text) + '</div>';
+      });
+  }
+
+  function zeichneVorschau(e, name, ziel) {
+    var liste = e.konflikte || [];
+    if (!liste.length) {
+      // Kein Konflikt ist ein ERGEBNIS, keine leere Flaeche: leer waere von
+      // "nicht geprueft" nicht zu unterscheiden.
+      ziel.innerHTML = '<div class="mp-sauber">'
+        + esc(tf('mp.pruef.sauber', { name: name || e.kraft_name || '' })) + '</div>';
+      return;
+    }
+    var sortiert = liste.slice().sort(function (a, b) {
+      if (a.grad === b.grad) return 0;
+      return a.grad === 'hart' ? -1 : 1;
+    });
+
+    ziel.innerHTML = sortiert.map(function (k) {
+      var zeitraum = k.von ? datumKurz(k.von)
+        + (k.bis && k.bis !== k.von ? ' – ' + datumKurz(k.bis) : '') : '';
+      var zusatz = '';
+      if (k.art === 'doppelbelegung' && k.gegenseite_org_name) {
+        zusatz = ' · ' + esc(k.gegenseite_org_name);
+      }
+      var hebel = t('mp.hebel.' + k.art + (k.art === 'doppelbelegung' ? '.agentur' : ''));
+      // Verursacht DIESE Besetzung die Ueberschreitung — oder lag sie schon vor?
+      if (k.art === 'aueg_hoechstdauer') {
+        hebel = (k.durch_diese_besetzung ? t('mp.aueg.durch') : t('mp.aueg.vorher'))
+          + ' ' + t('mp.hebel.aueg_frist');
+      }
+      var art = t('mp.k.' + (k.art === 'aueg_hoechstdauer' ? 'aueg_frist' : k.art)) || k.art;
+
+      return '<div class="mp-konflikt mp-konflikt--' + esc(k.grad) + '">'
+        + '<div class="mp-konflikt__art">' + esc(art) + '</div>'
+        + '<div>' + esc(name || '') + (zeitraum ? ' · ' + esc(zeitraum) : '') + zusatz + '</div>'
+        + '<div class="mp-konflikt__hebel">' + esc(hebel) + '</div></div>';
+    }).join('');
+  }
+
+  function achseWechseln(neu) {
+    if (ansicht === neu) return;
+    ansicht = neu;
+    el('mpAchseEinsaetze').setAttribute('aria-pressed', String(neu === 'einsaetze'));
+    el('mpAchseMitarbeiter').setAttribute('aria-pressed', String(neu === 'mitarbeiter'));
+    zeig(el('mpPruefung'), false);
+    laden();
+  }
+
   /* ── Verdrahtung ─────────────────────────────────────────────────────── */
 
   function blaettern(richtung) {
@@ -362,6 +698,28 @@
     el('mpZurueck').addEventListener('click', function () { blaettern(-1); });
     el('mpVor').addEventListener('click', function () { blaettern(1); });
     el('mpHeute').addEventListener('click', function () { monat = null; laden(); });
+
+    el('mpAchseEinsaetze').addEventListener('click', function () { achseWechseln('einsaetze'); });
+    el('mpAchseMitarbeiter').addEventListener('click', function () { achseWechseln('mitarbeiter'); });
+    el('mpPruefZu').addEventListener('click', function () {
+      pruefEinsatz = null;
+      zeig(el('mpPruefung'), false);
+    });
+
+    /* Ein Zuhoerer am Behaelter statt einer je Zeile: das Raster wird bei jedem
+     * Monatswechsel neu gebaut, und einzeln gebundene Zuhoerer waeren danach
+     * entweder verloren oder doppelt. */
+    el('mpGitter').addEventListener('click', function (ev) {
+      var knopf = ev.target.closest && ev.target.closest('.mp-pruef');
+      if (!knopf) return;
+      pruefungOeffnen(knopf.getAttribute('data-einsatz'), knopf.getAttribute('data-titel'));
+    });
+    el('mpKandidaten').addEventListener('click', function (ev) {
+      var knopf = ev.target.closest && ev.target.closest('.mp-kandidat');
+      if (!knopf) return;
+      pruefen(knopf.getAttribute('data-kraft'), knopf.getAttribute('data-name'), knopf);
+    });
+
     laden();
   });
 })();

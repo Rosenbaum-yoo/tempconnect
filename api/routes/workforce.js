@@ -6,7 +6,9 @@
 import { Router } from "express";
 import * as workforceService from "../services/workforceService.js";
 // Welle K3: der Monat als Fenster. Zwei Spuren, keine Zustimmungspflicht.
-import { monatsplan, seiteFuerOrg, planungsVorschau } from "../services/monatsplanService.js";
+import {
+  monatsplan, seiteFuerOrg, planungsVorschau, mitarbeiterMonat
+} from "../services/monatsplanService.js";
 import { requirePermission } from "../middleware/rbac.js";
 
 export function createWorkforceRouter(deps) {
@@ -141,6 +143,38 @@ export function createWorkforceRouter(deps) {
       }
 
       res.json(ergebnis);
+    } catch (err) { next(err); }
+  });
+
+  /**
+   * GET /workforce/monatsplan/mitarbeiter — der Monat je Mitarbeiter (K3.7)
+   *
+   * DAS EINSATZ-RASTER ZEIGT DIE MINDERHEIT. Gemessen am 2026-08-31: von 31
+   * Mitarbeitern der Zeitarbeitsfirmen erscheinen im April-Raster VIER — der
+   * Rest hat in diesem Monat keinen Einsatz und kommt deshalb gar nicht vor.
+   * Das sind genau die, die man verplanen will.
+   *
+   * Diese Ansicht dreht die Achse: Zeilen sind MENSCHEN, und die freie Spanne
+   * ist der Inhalt, nicht die Luecke zwischen zwei Balken.
+   *
+   * DIE FIRMA ERGIBT SICH AUS DEM BESITZ DER PERSONALAKTE
+   * (`worker_profiles.supplier_org_id`), nicht aus dem Organisationstyp. Wer
+   * Personalakten fuehrt, sieht seine eigenen — und nur die. Die Spur entscheidet
+   * hier nur ueber den ZUSCHNITT (ob Entleiher-Namen und Abwesenheitsgruende
+   * mitgehen), so wie im Einsatz-Raster.
+   */
+  router.get("/workforce/monatsplan/mitarbeiter", requireAuth, rperm("worker.view"), async (req, res, next) => {
+    try {
+      const orgId = req.orgId;
+      if (!orgId) return res.status(400).json({ error: "NO_ORG_CONTEXT" });
+
+      const seite = await seiteFuerOrg(pool, orgId);
+      const plan = await mitarbeiterMonat(pool, {
+        orgId,
+        seite,
+        monat: typeof req.query.monat === "string" ? req.query.monat : null
+      });
+      res.json(plan);
     } catch (err) { next(err); }
   });
 

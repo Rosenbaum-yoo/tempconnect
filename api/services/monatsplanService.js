@@ -76,7 +76,8 @@ import { todayDE } from "../utils/dateDE.js";
 // dargestellt. Der rechtliche Kern liegt bewusst in einem eigenen Dienst —
 // eine reine Funktion, einzeln pruefbar, mit Rueckmutationen.
 import {
-  auegBefunde, ueberlassungen, konfigurationen, ketten, bewerteKette, tag as auegTag
+  auegBefunde, ueberlassungen, konfigurationen, ketten, bewerteKette,
+  tag as auegTag, tageZwischen
 } from "./auegService.js";
 
 /** Die beiden Spuren aus Plan-Abschnitt 3b. */
@@ -746,6 +747,290 @@ export async function planungsVorschau(pool, {
      * TempConnect nicht benutzt, steht hier nicht — obwohl das Gesetz es
      * anrechnen würde. */
     nur_plattformdaten: true
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   K3.7 — DER MONAT JE MITARBEITER
+
+   DER BEFUND, DER DIESE ANSICHT NOETIG MACHT (gemessen 2026-08-31):
+   das Raster hat EINSAETZE als Zeilen. Wer in diesem Monat keinen Einsatz hat,
+   kommt darin ueberhaupt nicht vor.
+
+     Demo Zeitarbeit GmbH …  12 Mitarbeiter, im April-Raster sichtbar:  4
+     E2E Zeitarbeit GmbH  …   7 Mitarbeiter, sichtbar:                  0
+     ElektroStaff GmbH    …   3 Mitarbeiter, sichtbar:                  0
+     ─────────────────────────────────────────────────────────────────────
+     ueber alle Agenturen …  31 Mitarbeiter, sichtbar:                  4
+
+   87 % fehlen — und zwar GENAU DIE, die man verplanen will. Ein Planungsraster,
+   das die freien Leute nicht zeigt, beantwortet die Frage nicht, wegen der man
+   es aufschlaegt.
+
+   DIE FREIE SPANNE IST DER EIGENTLICHE INHALT, nicht die Luecke zwischen zwei
+   Balken. Deshalb wird sie ausgerechnet und benannt, statt sie dem Auge zu
+   ueberlassen.
+
+   VIER ABFRAGEN FUER BELIEBIG VIELE MITARBEITER, nicht vier je Mitarbeiter.
+   `workerAvailabilityService.resolveAvailability()` beantwortet EINE Kraft und
+   ist punktbezogen („ab wann frei"); darueber zu schleifen waere der
+   Skalierungsdefekt „laeuft bei 10, bricht bei 300" in Reinform — bei 300
+   Mitarbeitern 300 Abfragen je Seitenaufruf.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Die freien Spannen im Fenster — was von einem Monat uebrig bleibt.
+ *
+ * REINE FUNKTION, absichtlich ohne Datenbank: die Rechnung „was ist frei" ist
+ * der Kern dieser Ansicht und muss einzeln pruefbar sein. Ueberlappende und
+ * offene Spannen werden zusammengelegt, bevor invertiert wird — sonst entstehen
+ * aus zwei ueberlappenden Einsaetzen Phantom-Luecken.
+ *
+ * @param {Array<{von: string, bis: string|null}>} belegt
+ * @param {{von: string, bis: string}} fenster
+ * @returns {Array<{von: string, bis: string, tage: number}>}
+ */
+export function freieSpannen(belegt, fenster) {
+  const grenzeVon = fenster.von;
+  const grenzeBis = fenster.bis;
+
+  const spannen = (belegt || [])
+    .map((b) => ({
+      von: b.von && b.von > grenzeVon ? b.von : grenzeVon,
+      // Ohne Ende bindet die Spanne bis zum Monatsrand (E-K3-3).
+      bis: b.bis == null || b.bis > grenzeBis ? grenzeBis : b.bis
+    }))
+    .filter((b) => b.von <= b.bis)
+    .sort((a, b) => (a.von < b.von ? -1 : a.von > b.von ? 1 : 0));
+
+  const zusammengelegt = [];
+  for (const sp of spannen) {
+    const letzte = zusammengelegt[zusammengelegt.length - 1];
+    if (letzte && sp.von <= tagNach(letzte.bis)) {
+      if (sp.bis > letzte.bis) letzte.bis = sp.bis;
+    } else {
+      zusammengelegt.push({ ...sp });
+    }
+  }
+
+  const frei = [];
+  let zeiger = grenzeVon;
+  for (const sp of zusammengelegt) {
+    if (sp.von > zeiger) frei.push({ von: zeiger, bis: tagVor(sp.von) });
+    if (tagNach(sp.bis) > zeiger) zeiger = tagNach(sp.bis);
+  }
+  if (zeiger <= grenzeBis) frei.push({ von: zeiger, bis: grenzeBis });
+
+  return frei.map((f) => ({ ...f, tage: tageZwischen(f.von, f.bis) + 1 }));
+}
+
+/**
+ * Kalendertag-Arithmetik — BEWUSST OHNE `toISOString().slice(0, 10)`.
+ *
+ * Der Schnitt waere hier sogar richtig (alles ist UTC-verankert), aber der
+ * Waechter `kalendertagDE.test.js` zaehlt das Muster, und er hat recht damit:
+ * er kann nicht wissen, ob der Wert UTC-verankert ist. Genau diese
+ * Unterscheidung faellt beim naechsten Umbau als Erste weg. `monatsfenster`
+ * weiter oben macht es aus demselben Grund schon so; die Bestandteile einzeln
+ * zusammenzusetzen kostet zwei Zeilen und braucht keine Ausnahme.
+ */
+function tagVerschoben(datum, um) {
+  const d = new Date(`${datum}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + um);
+  const zwei = (n) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${zwei(d.getUTCMonth() + 1)}-${zwei(d.getUTCDate())}`;
+}
+function tagNach(datum) { return tagVerschoben(datum, 1); }
+function tagVor(datum) { return tagVerschoben(datum, -1); }
+
+/**
+ * Alle Mitarbeiter der Firma — auch die ohne Konto.
+ *
+ * `worker_profiles.user_id` ist seit Migration 175 nullbar: ein Mitarbeiter
+ * existiert, bevor er sich anmeldet. Ein Verbund ueber `users` wuerde genau die
+ * verschlucken, die noch keinen Zugang haben — und das waeren in einer frisch
+ * importierten Belegschaft alle.
+ */
+async function mitarbeiterDerFirma(pool, orgId) {
+  const { rows } = await pool.query(
+    `SELECT wp.id AS profil_id, wp.user_id,
+            TRIM(COALESCE(wp.first_name, '') || ' ' || COALESCE(wp.last_name, '')) AS name,
+            wp.personnel_number, wp.is_active
+       FROM worker_profiles wp
+      WHERE wp.supplier_org_id = $1
+        AND wp.is_active = TRUE
+      ORDER BY wp.last_name ASC NULLS LAST, wp.first_name ASC NULLS LAST, wp.id ASC`,
+    [orgId]
+  );
+  return rows;
+}
+
+/** Die Bindungen aller genannten Kraefte im Fenster — EINE Abfrage. */
+async function belegungenImFenster(pool, { userIds, fenster }) {
+  if (!userIds.length) return [];
+  const ende = wirksamesEnde("l", "e");
+  const beginn = wirksamerBeginn("l", "e");
+  const { rows } = await pool.query(
+    `SELECT l.worker_user_id, l.assignment_id, l.org_id,
+            og.name AS entleiher_name,
+            e.status,
+            ${beginn} AS von,
+            NULLIF(${ende}, DATE '9999-12-31') AS bis,
+            (${beginn} < $2::date) AS beginnt_vorher,
+            (${ende} > $3::date)   AS endet_spaeter
+       FROM worker_assignment_links l
+       JOIN assignments e ON e.id = l.assignment_id
+       LEFT JOIN organizations og ON og.id = l.org_id
+      WHERE l.worker_user_id = ANY($1::uuid[])
+        AND ${ZUORDNUNG_GILT("l")}
+        AND ${beginn} <= $3::date
+        AND ${ende}   >= $2::date
+      ORDER BY l.worker_user_id, ${beginn}`,
+    [userIds, fenster.von, fenster.bis]
+  );
+  return rows;
+}
+
+/** Abwesenheiten aller genannten Kraefte — ueber das PROFIL, nicht das Konto. */
+async function abwesenheitenImFenster(pool, { profilIds, orgId, fenster }) {
+  if (!profilIds.length) return [];
+  const { rows } = await pool.query(
+    `SELECT ab.worker_profile_id, ab.id, ab.art, ab.von,
+            COALESCE(ab.bis, $4::date) AS bis, (ab.bis IS NULL) AS offen
+       FROM worker_absences ab
+      WHERE ab.worker_profile_id = ANY($1::uuid[])
+        AND ab.supplier_org_id = $2
+        AND ab.aufgehoben_am IS NULL
+        AND ab.zustand = 'wirksam'
+        AND ab.von <= $4::date
+        AND COALESCE(ab.bis, DATE '9999-12-31') >= $3::date
+      ORDER BY ab.worker_profile_id, ab.von`,
+    [profilIds, orgId, fenster.von, fenster.bis]
+  );
+  return rows;
+}
+
+/** Nachweise, die im Fenster ablaufen — EINE Abfrage fuer alle Kraefte. */
+async function nachweiseImFenster(pool, { userIds, orgId, fenster }) {
+  if (!userIds.length) return [];
+  const { rows } = await pool.query(
+    `SELECT d.worker_user_id, d.id, d.title, d.category, d.valid_until
+       FROM worker_profile_documents d
+      WHERE d.worker_user_id = ANY($1::uuid[])
+        AND d.supplier_org_id = $2
+        AND d.valid_until IS NOT NULL
+        AND d.valid_until BETWEEN $3::date AND $4::date
+      ORDER BY d.worker_user_id, d.valid_until`,
+    [userIds, orgId, fenster.von, fenster.bis]
+  );
+  return rows;
+}
+
+/**
+ * Der Monat je Mitarbeiter.
+ *
+ * @returns {Promise<{fenster, vorheriger, naechster, org_id, seite,
+ *   mitarbeiter: Array, zusammenfassung: object}>}
+ */
+export async function mitarbeiterMonat(pool, { orgId, seite = "agentur", monat } = {}) {
+  if (!orgId) throw new Error("MONATSPLAN_ORG_ERFORDERLICH");
+  const gewaehlteSeite = SEITEN.includes(seite) ? seite : "kunde";
+  const fenster = monatsfenster(monat);
+
+  const leute = await mitarbeiterDerFirma(pool, orgId);
+  const userIds = leute.map((m) => m.user_id).filter(Boolean);
+  const profilIds = leute.map((m) => m.profil_id).filter(Boolean);
+
+  const [belegungen, abwesend, nachweise] = await Promise.all([
+    belegungenImFenster(pool, { userIds, fenster }),
+    abwesenheitenImFenster(pool, { profilIds, orgId, fenster }),
+    nachweiseImFenster(pool, { userIds, orgId, fenster })
+  ]);
+
+  const jeKraft = new Map();
+  for (const m of leute) {
+    jeKraft.set(m.profil_id, { belegungen: [], abwesenheiten: [], nachweise: [] });
+  }
+  const profilVonUser = new Map(leute.filter((m) => m.user_id).map((m) => [m.user_id, m.profil_id]));
+
+  for (const b of belegungen) {
+    const eintrag = jeKraft.get(profilVonUser.get(b.worker_user_id));
+    if (eintrag) eintrag.belegungen.push(b);
+  }
+  for (const a of abwesend) {
+    const eintrag = jeKraft.get(a.worker_profile_id);
+    if (eintrag) eintrag.abwesenheiten.push(a);
+  }
+  for (const n of nachweise) {
+    const eintrag = jeKraft.get(profilVonUser.get(n.worker_user_id));
+    if (eintrag) eintrag.nachweise.push(n);
+  }
+
+  const mitarbeiter = leute.map((m) => {
+    const e = jeKraft.get(m.profil_id);
+    /* Belegt ist, wer im Einsatz ODER abwesend ist: fuer die Planung ist beides
+     * dasselbe — die Person steht an diesem Tag nicht zur Verfuegung. Die
+     * Unterscheidung bleibt in den Listen erhalten, nur die freie Spanne fasst
+     * sie zusammen. */
+    const belegt = [
+      ...e.belegungen.map((b) => ({ von: b.von, bis: b.bis })),
+      ...e.abwesenheiten.map((a) => ({ von: a.von, bis: a.offen ? null : a.bis }))
+    ];
+    const frei = freieSpannen(belegt, fenster);
+    const tageImMonat = fenster.tage;
+    const freieTage = frei.reduce((summe, f) => summe + f.tage, 0);
+
+    return {
+      profil_id: m.profil_id,
+      worker_user_id: m.user_id || null,
+      name: m.name || null,
+      personalnummer: m.personnel_number || null,
+      // Ein Mitarbeiter ohne Konto ist trotzdem ein Mitarbeiter (Migration 175).
+      ohne_konto: !m.user_id,
+      belegungen: e.belegungen.map((b) => ({
+        assignment_id: b.assignment_id,
+        entleiher_org_id: gewaehlteSeite === "agentur" ? b.org_id : null,
+        entleiher_name: gewaehlteSeite === "agentur" ? (b.entleiher_name || null) : null,
+        status: b.status,
+        von: b.von, bis: b.bis,
+        beginnt_vorher: b.beginnt_vorher,
+        randvermerk: b.bis == null ? RANDVERMERK.laeuft_noch
+          : (b.endet_spaeter ? RANDVERMERK.endet_spaeter : null)
+      })),
+      abwesenheiten: e.abwesenheiten.map((a) => ({
+        von: a.von, bis: a.bis, offen: a.offen,
+        // Die ART der Abwesenheit ist Sache der Zeitarbeitsfirma — dieselbe
+        // Trennung wie im Einsatzraster.
+        art: gewaehlteSeite === "agentur" ? a.art : null
+      })),
+      nachweise: e.nachweise.map((n) => ({
+        laeuft_ab_am: n.valid_until,
+        nachweis: gewaehlteSeite === "agentur" ? (n.title || n.category) : null
+      })),
+      frei,
+      freie_tage: freieTage,
+      tage_im_monat: tageImMonat,
+      // Der eine Wert, nach dem eine Disposition sortiert.
+      auslastung_prozent: tageImMonat > 0
+        ? Math.round(((tageImMonat - freieTage) / tageImMonat) * 100) : 0
+    };
+  });
+
+  return {
+    fenster,
+    ...nachbarmonate(fenster.monat),
+    org_id: orgId,
+    seite: gewaehlteSeite,
+    mitarbeiter,
+    zusammenfassung: {
+      mitarbeiter: mitarbeiter.length,
+      // Die drei Zahlen, die eine Disposition wirklich braucht.
+      ganz_frei: mitarbeiter.filter((m) => m.freie_tage === m.tage_im_monat).length,
+      teilweise_frei: mitarbeiter.filter(
+        (m) => m.freie_tage > 0 && m.freie_tage < m.tage_im_monat).length,
+      ganz_belegt: mitarbeiter.filter((m) => m.freie_tage === 0).length,
+      ohne_konto: mitarbeiter.filter((m) => m.ohne_konto).length
+    }
   };
 }
 

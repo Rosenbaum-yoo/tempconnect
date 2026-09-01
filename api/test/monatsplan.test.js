@@ -32,7 +32,7 @@ import {
   monatsfenster, nachbarmonate, konfliktFuerSeite, offeneBedarfe,
   seiteFuerOrg,
   monatsplan, doppelbelegungen, abwesenheiten, ablaufendeNachweise,
-  planungsVorschau,
+  planungsVorschau, mitarbeiterMonat, freieSpannen,
   randvermerk, RANDVERMERK,
   SEITEN, KONFLIKTARTEN
 } from "../services/monatsplanService.js";
@@ -1014,6 +1014,342 @@ describe("K3.5 · GET /workforce/monatsplan/vorschau am echten Handler", () => {
     const r = antwort();
     const h = handler(createWorkforceRouter(deps(pool("agency", KONTEXT))),
       "/workforce/monatsplan/vorschau");
+    await h({ orgId: null, query: {} }, r, () => {});
+    assert.equal(r._status, 400);
+    assert.equal(r._json.error, "NO_ORG_CONTEXT");
+  });
+});
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   K3.7 · der Monat je Mitarbeiter
+
+   DER BEFUND, DER DIESE ANSICHT AUSGELOEST HAT (gemessen 2026-08-31): das
+   Einsatz-Raster hat Einsätze als Zeilen — wer in diesem Monat keinen Einsatz
+   hat, kommt darin gar nicht vor.
+
+     Demo Zeitarbeit GmbH …  12 Mitarbeiter, im April-Raster sichtbar:  4
+     E2E Zeitarbeit GmbH  …   7 Mitarbeiter, sichtbar:                  0
+     über alle Agenturen  …  31 Mitarbeiter, sichtbar:                  4
+
+   87 % fehlen — und zwar genau die, die man verplanen will.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("K3.7 · freieSpannen — die Rechnung, um die es geht", () => {
+  const APRIL = { monat: "2026-04", von: "2026-04-01", bis: "2026-04-30", tage: 30 };
+
+  it("ohne Belegung ist der ganze Monat frei", () => {
+    assert.deepEqual(freieSpannen([], APRIL),
+      [{ von: "2026-04-01", bis: "2026-04-30", tage: 30 }]);
+  });
+
+  it("eine Belegung in der Mitte lässt zwei Spannen übrig", () => {
+    const frei = freieSpannen([{ von: "2026-04-10", bis: "2026-04-20" }], APRIL);
+    assert.deepEqual(frei, [
+      { von: "2026-04-01", bis: "2026-04-09", tage: 9 },
+      { von: "2026-04-21", bis: "2026-04-30", tage: 10 }
+    ]);
+  });
+
+  it("ÜBERLAPPENDE Belegungen erzeugen keine Phantom-Lücke", () => {
+    /* Ohne Zusammenlegen entstünde zwischen zwei überlappenden Einsätzen eine
+     * freie Spanne, die es nicht gibt — und ein Disponent besetzt Tage doppelt,
+     * weil das Raster sie als frei anbot. */
+    const frei = freieSpannen([
+      { von: "2026-04-05", bis: "2026-04-15" },
+      { von: "2026-04-10", bis: "2026-04-20" }
+    ], APRIL);
+    assert.deepEqual(frei, [
+      { von: "2026-04-01", bis: "2026-04-04", tage: 4 },
+      { von: "2026-04-21", bis: "2026-04-30", tage: 10 }
+    ]);
+  });
+
+  it("zwei Belegungen, die direkt aneinander stoßen, lassen keine Lücke", () => {
+    /* Der 15. endet, der 16. beginnt: dazwischen ist kein Tag. */
+    const frei = freieSpannen([
+      { von: "2026-04-01", bis: "2026-04-15" },
+      { von: "2026-04-16", bis: "2026-04-30" }
+    ], APRIL);
+    assert.deepEqual(frei, []);
+  });
+
+  it("eine Belegung ohne Ende reicht bis zum Monatsrand (E-K3-3)", () => {
+    assert.deepEqual(freieSpannen([{ von: "2026-04-20", bis: null }], APRIL),
+      [{ von: "2026-04-01", bis: "2026-04-19", tage: 19 }]);
+  });
+
+  it("eine Belegung, die vor dem Monat begann, wird am Rand angeschnitten", () => {
+    assert.deepEqual(freieSpannen([{ von: "2025-11-01", bis: "2026-04-10" }], APRIL),
+      [{ von: "2026-04-11", bis: "2026-04-30", tage: 20 }]);
+  });
+
+  it("eine Belegung ausserhalb des Fensters lässt den Monat unberührt", () => {
+    assert.deepEqual(freieSpannen([{ von: "2026-06-01", bis: "2026-06-30" }], APRIL),
+      [{ von: "2026-04-01", bis: "2026-04-30", tage: 30 }]);
+  });
+
+  it("der ganze Monat belegt heisst: keine freie Spanne", () => {
+    assert.deepEqual(freieSpannen([{ von: "2026-03-01", bis: "2026-05-31" }], APRIL), []);
+  });
+});
+
+describe("K3.7 · der Monat je Mitarbeiter", () => {
+  const LEUTE = [
+    { profil_id: "p-1", user_id: "w-1", name: "Anna Berg", personnel_number: "A-1", is_active: true },
+    { profil_id: "p-2", user_id: "w-2", name: "Bernd Cato", personnel_number: "A-2", is_active: true },
+    { profil_id: "p-3", user_id: null,  name: "Clara Dorn", personnel_number: "A-3", is_active: true }
+  ];
+
+  function poolMit({ leute = LEUTE, belegungen = [], abwesend = [], nachweise = [] } = {}) {
+    return musterPool((sql) => {
+      if (/FROM worker_profiles wp\s*\n\s*WHERE wp\.supplier_org_id/.test(sql)) {
+        return { rows: leute };
+      }
+      if (/FROM worker_assignment_links l\s*\n\s*JOIN assignments e/.test(sql)) {
+        return { rows: belegungen };
+      }
+      if (/FROM worker_absences ab/.test(sql)) return { rows: abwesend };
+      if (/FROM worker_profile_documents d/.test(sql)) return { rows: nachweise };
+      return null;
+    });
+  }
+
+  it("WER KEINEN EINSATZ HAT, STEHT TROTZDEM DA — der Anlass dieser Ansicht", async () => {
+    const plan = await mitarbeiterMonat(poolMit(), {
+      orgId: "org-1", seite: "agentur", monat: "2026-04"
+    });
+    assert.equal(plan.mitarbeiter.length, 3,
+      "alle drei Mitarbeiter gehören in den Monat, auch die ohne Einsatz");
+    assert.deepEqual(plan.mitarbeiter.map((m) => m.name),
+      ["Anna Berg", "Bernd Cato", "Clara Dorn"]);
+    assert.equal(plan.zusammenfassung.ganz_frei, 3);
+    assert.equal(plan.zusammenfassung.ganz_belegt, 0);
+    for (const m of plan.mitarbeiter) {
+      assert.equal(m.freie_tage, 30, "ohne Belegung ist der ganze April frei");
+      assert.equal(m.auslastung_prozent, 0);
+    }
+  });
+
+  it("ein Mitarbeiter OHNE Konto ist trotzdem ein Mitarbeiter", async () => {
+    /* `worker_profiles.user_id` ist seit Migration 175 nullbar: der Mensch
+     * existiert, bevor er sich anmeldet. Ein Verbund über `users` verschluckte
+     * genau die frisch importierte Belegschaft. */
+    const plan = await mitarbeiterMonat(poolMit(), {
+      orgId: "org-1", seite: "agentur", monat: "2026-04"
+    });
+    const clara = plan.mitarbeiter.find((m) => m.name === "Clara Dorn");
+    assert.ok(clara, "die Kraft ohne Konto fehlt");
+    assert.equal(clara.ohne_konto, true);
+    assert.equal(clara.worker_user_id, null);
+    assert.equal(clara.personalnummer, "A-3", "ohne Konto ist die Nummer der Schlüssel");
+    assert.equal(plan.zusammenfassung.ohne_konto, 1);
+  });
+
+  it("Belegung und Abwesenheit zusammen ergeben die freie Spanne", async () => {
+    const plan = await mitarbeiterMonat(poolMit({
+      belegungen: [{
+        worker_user_id: "w-1", assignment_id: "a-1", org_id: "kunde-1",
+        entleiher_name: "Nordbau GmbH", status: "active",
+        von: "2026-04-01", bis: "2026-04-10",
+        beginnt_vorher: false, endet_spaeter: false
+      }],
+      abwesend: [{
+        worker_profile_id: "p-1", id: "ab-1", art: "krank",
+        von: "2026-04-20", bis: "2026-04-25", offen: false
+      }]
+    }), { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+
+    const anna = plan.mitarbeiter.find((m) => m.profil_id === "p-1");
+    assert.deepEqual(anna.frei, [
+      { von: "2026-04-11", bis: "2026-04-19", tage: 9 },
+      { von: "2026-04-26", bis: "2026-04-30", tage: 5 }
+    ], "für die Planung ist abwesend genauso wenig verfügbar wie im Einsatz");
+    assert.equal(anna.freie_tage, 14);
+    assert.equal(anna.auslastung_prozent, 53);
+    assert.equal(plan.zusammenfassung.teilweise_frei, 1);
+    assert.equal(plan.zusammenfassung.ganz_frei, 2);
+  });
+
+  it("die Kundenspur bekommt WEDER den Entleiher NOCH den Abwesenheitsgrund", async () => {
+    /* Dieselbe Trennung wie im Einsatz-Raster: dass jemand fehlt, geht die
+     * Gegenseite an; WARUM er fehlt, nicht. */
+    const plan = await mitarbeiterMonat(poolMit({
+      belegungen: [{
+        worker_user_id: "w-1", assignment_id: "a-1", org_id: "kunde-1",
+        entleiher_name: "Nordbau GmbH", status: "active",
+        von: "2026-04-01", bis: "2026-04-10",
+        beginnt_vorher: false, endet_spaeter: false
+      }],
+      abwesend: [{
+        worker_profile_id: "p-1", id: "ab-1", art: "krank",
+        von: "2026-04-20", bis: "2026-04-25", offen: false
+      }]
+    }), { orgId: "org-1", seite: "kunde", monat: "2026-04" });
+
+    const anna = plan.mitarbeiter.find((m) => m.profil_id === "p-1");
+    assert.equal(anna.belegungen[0].entleiher_name, null);
+    assert.equal(anna.belegungen[0].entleiher_org_id, null);
+    assert.equal(anna.abwesenheiten[0].art, null);
+    assert.equal(anna.abwesenheiten[0].von, "2026-04-20",
+      "DASS jemand fehlt, bleibt sichtbar — nur das Warum nicht");
+  });
+
+  it("der Randvermerk kommt vom Dienst, auch hier (E-K3-3)", async () => {
+    const plan = await mitarbeiterMonat(poolMit({
+      belegungen: [{
+        worker_user_id: "w-1", assignment_id: "a-1", org_id: "kunde-1",
+        entleiher_name: "Nordbau GmbH", status: "active",
+        von: "2026-04-01", bis: null,
+        beginnt_vorher: true, endet_spaeter: false
+      }]
+    }), { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+
+    const anna = plan.mitarbeiter.find((m) => m.profil_id === "p-1");
+    assert.equal(anna.belegungen[0].randvermerk, RANDVERMERK.laeuft_noch);
+    assert.deepEqual(anna.frei, [], "ein offener Einsatz belegt bis zum Monatsrand");
+    assert.equal(anna.auslastung_prozent, 100);
+  });
+
+  it("VIER Abfragen für beliebig viele Mitarbeiter, nicht vier JE Mitarbeiter", async () => {
+    /* Die Skalierungsregel des Projekts ("läuft bei 10, bricht bei 300"): die
+     * Menge wächst mit der Belegschaft. `resolveAvailability()` beantwortet EINE
+     * Kraft — darüber zu schleifen wären bei 300 Mitarbeitern 300 Abfragen je
+     * Seitenaufruf. Gezählt wird deshalb der UNTERSCHIED zwischen 3 und 300. */
+    const viele = Array.from({ length: 300 }, (_, i) => ({
+      profil_id: `p-${i}`, user_id: `w-${i}`, name: `Kraft ${i}`,
+      personnel_number: `N-${i}`, is_active: true
+    }));
+
+    const wenig = poolMit();
+    await mitarbeiterMonat(wenig, { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+
+    const gross = poolMit({ leute: viele });
+    const plan = await mitarbeiterMonat(gross, { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+
+    assert.equal(plan.mitarbeiter.length, 300);
+    assert.equal(gross.calls.length, wenig.calls.length,
+      `300 Mitarbeiter kosteten ${gross.calls.length} Abfragen, 3 kosteten `
+        + `${wenig.calls.length} — die Zahl darf NICHT mit der Belegschaft wachsen`);
+    assert.ok(gross.calls.length <= 4,
+      `${gross.calls.length} Abfragen — erwartet werden höchstens vier`);
+  });
+
+  it("die Belegung zählt nur, wenn die Zuordnung GILT", async () => {
+    const p = poolMit();
+    await mitarbeiterMonat(p, { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+    const [belegung] = p.find("FROM worker_assignment_links l");
+    assert.ok(belegung, "die Belegungsabfrage muss laufen");
+    assert.match(belegung.sql, /is_active = TRUE/);
+    assert.match(belegung.sql,
+      /worker_confirmation_status NOT IN \('worker_declined','worker_unavailable'\)/);
+  });
+
+  it("Abwesenheiten hängen am PROFIL, nicht am Konto", async () => {
+    /* Sonst hätte ein Mitarbeiter ohne Konto nie eine Abwesenheit — obwohl
+     * gerade er sie am ehesten per Hand gemeldet bekommt. */
+    const p = poolMit();
+    await mitarbeiterMonat(p, { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+    const [ab] = p.find("FROM worker_absences ab");
+    assert.ok(ab, "die Abwesenheitsabfrage muss laufen");
+    assert.match(ab.sql, /ab\.worker_profile_id = ANY/);
+    assert.match(ab.sql, /ab\.supplier_org_id = \$2/);
+  });
+
+  it("die Zusammenfassung stammt aus genau den gelieferten Zeilen", async () => {
+    /* Keine zweite Rechenregel: eine Kennzahl, die anders rechnet als die Liste
+     * darunter, ist eine Schattenwahrheit. */
+    const plan = await mitarbeiterMonat(poolMit({
+      belegungen: [{
+        worker_user_id: "w-1", assignment_id: "a-1", org_id: "kunde-1",
+        entleiher_name: "Nordbau", status: "active",
+        von: "2026-03-01", bis: null, beginnt_vorher: true, endet_spaeter: false
+      }, {
+        worker_user_id: "w-2", assignment_id: "a-2", org_id: "kunde-2",
+        entleiher_name: "Südbau", status: "active",
+        von: "2026-04-05", bis: "2026-04-08", beginnt_vorher: false, endet_spaeter: false
+      }]
+    }), { orgId: "org-1", seite: "agentur", monat: "2026-04" });
+
+    const z = plan.zusammenfassung;
+    assert.equal(z.mitarbeiter, plan.mitarbeiter.length);
+    assert.equal(z.ganz_belegt,
+      plan.mitarbeiter.filter((m) => m.freie_tage === 0).length);
+    assert.equal(z.ganz_frei,
+      plan.mitarbeiter.filter((m) => m.freie_tage === m.tage_im_monat).length);
+    assert.equal(z.teilweise_frei,
+      plan.mitarbeiter.filter((m) => m.freie_tage > 0 && m.freie_tage < m.tage_im_monat).length);
+    assert.equal(z.ganz_belegt + z.ganz_frei + z.teilweise_frei, z.mitarbeiter,
+      "jeder Mitarbeiter fällt in genau eine der drei Klassen");
+  });
+
+  it("das Blättern trägt auch hier — Vor- und Folgemonat kommen mit", async () => {
+    const plan = await mitarbeiterMonat(poolMit(), {
+      orgId: "org-1", seite: "agentur", monat: "2026-01"
+    });
+    assert.equal(plan.fenster.monat, "2026-01");
+    assert.equal(plan.vorheriger, "2025-12");
+    assert.equal(plan.naechster, "2026-02");
+  });
+});
+
+describe("K3.7 · GET /workforce/monatsplan/mitarbeiter am echten Handler", () => {
+  function handler(router, pfad) {
+    for (const layer of router.stack) {
+      if (!layer.route || layer.route.path !== pfad) continue;
+      if (!layer.route.methods.get) continue;
+      return layer.route.stack[layer.route.stack.length - 1].handle;
+    }
+    throw new Error(`Route GET ${pfad} nicht gefunden`);
+  }
+  const antwort = () => {
+    const r = { _status: 200, _json: null };
+    r.status = (c) => { r._status = c; return r; };
+    r.json = (b) => { r._json = b; return r; };
+    return r;
+  };
+  const deps = (p) => ({
+    pool: p,
+    requireAuth: (_req, _res, next) => next(),
+    logger: { warn() {}, info() {}, error() {} }
+  });
+
+  function pool(typ) {
+    return musterPool((sql) => {
+      if (/FROM organizations WHERE id/.test(sql)) return { rows: [{ type: typ }] };
+      if (/FROM worker_profiles wp\s*\n\s*WHERE wp\.supplier_org_id/.test(sql)) {
+        return { rows: [
+          { profil_id: "p-1", user_id: "w-1", name: "Anna Berg", personnel_number: "A-1", is_active: true }
+        ] };
+      }
+      return { rows: [] };
+    });
+  }
+
+  it("liefert die Belegschaft des Monats", async () => {
+    const r = antwort();
+    const h = handler(createWorkforceRouter(deps(pool("agency"))),
+      "/workforce/monatsplan/mitarbeiter");
+    await h({ orgId: "org-1", query: { monat: "2026-04" } }, r, () => {});
+    assert.equal(r._status, 200);
+    assert.equal(r._json.fenster.monat, "2026-04");
+    assert.equal(r._json.mitarbeiter.length, 1);
+    assert.equal(r._json.zusammenfassung.ganz_frei, 1);
+  });
+
+  it("die Spur wird abgeleitet — ein Unternehmen bekommt den engeren Zuschnitt", async () => {
+    const r = antwort();
+    const h = handler(createWorkforceRouter(deps(pool("company"))),
+      "/workforce/monatsplan/mitarbeiter");
+    await h({ orgId: "org-1", query: {} }, r, () => {});
+    assert.equal(r._status, 200);
+    assert.equal(r._json.seite, "kunde");
+  });
+
+  it("ohne Organisationskontext wird nichts beantwortet", async () => {
+    const r = antwort();
+    const h = handler(createWorkforceRouter(deps(pool("agency"))),
+      "/workforce/monatsplan/mitarbeiter");
     await h({ orgId: null, query: {} }, r, () => {});
     assert.equal(r._status, 400);
     assert.equal(r._json.error, "NO_ORG_CONTEXT");

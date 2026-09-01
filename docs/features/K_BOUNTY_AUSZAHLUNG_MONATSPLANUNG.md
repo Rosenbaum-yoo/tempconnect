@@ -464,8 +464,87 @@ und `rechnung_id` (der Beleg).
 | K3.2 | **Datenlage messen** | ✅ **gemessen 2026-08-31** — siehe unten |
 | K3.3 | Lesende Fläche: der Monat als Raster | ✅ **vollständig** — `monatsplanService`, `GET /workforce/monatsplan`, `monatsplan.html`; im Browser belegt (Raster, Leerzustand, Fehlerzustand) |
 | K3.4 | **Konflikte nach 3b** — hart und weich getrennt | ✅ **alle fünf Arten**, inkl. AÜG |
-| K3.5 | Beide Spuren schreibend, ohne Zustimmungspflicht | ⏭ **Backend fertig** — beide Schreibwege existierten bereits; neu ist die **Konfliktvorschau vor dem Schreiben** (`GET /workforce/monatsplan/vorschau`). Offen: die Bedienelemente auf `monatsplan.html` |
+| K3.5 | Beide Spuren schreibend, ohne Zustimmungspflicht | ✅ **vollständig** — beide Schreibwege existierten bereits; neu ist die **Konfliktvorschau vor dem Schreiben**, auf der Fläche verdrahtet |
+| K3.7 | **Der Monat je Mitarbeiter** | ✅ **neu** — das Einsatz-Raster zeigte 4 von 31 Mitarbeitern; die zweite Achse zeigt alle, mit freier Spanne und Auslastung |
 | K3.6 | Härtung: Skalierung (10 → 300), `Europe/Berlin`, Mutation Testing auf der Konfliktlogik | Lastprobe + Mutationsergebnis |
+
+---
+
+## K3.7 — der Monat je Mitarbeiter
+
+**Das Einsatz-Raster zeigt die Minderheit.** Gemessen am 2026-08-31:
+
+| Zeitarbeitsfirma | Mitarbeiter | im April-Raster sichtbar |
+|---|---:|---:|
+| Demo Zeitarbeit GmbH | 12 | 4 |
+| E2E Zeitarbeit GmbH | 7 | **0** |
+| Zeitarbeit | 7 | **0** |
+| ElektroStaff GmbH | 3 | **0** |
+| **über alle Agenturen** | **31** | **4** |
+
+87 % fehlen — und zwar **genau die, die man verplanen will.** Ein Raster mit
+Einsätzen als Zeilen kann niemanden zeigen, der gerade keinen Einsatz hat. Ein
+Planungswerkzeug, das die freien Leute verschweigt, beantwortet die Frage nicht,
+wegen der man es aufschlägt.
+
+`GET /workforce/monatsplan/mitarbeiter` dreht die Achse: **Zeilen sind
+Menschen.** Die freie Spanne wird ausgerechnet und benannt, statt sie dem Auge
+als Lücke zwischen zwei Balken zu überlassen.
+
+**Belegt heißt: im Einsatz ODER abwesend.** Für die Planung ist beides dasselbe —
+die Person steht an dem Tag nicht zur Verfügung. Die Unterscheidung bleibt in den
+Listen erhalten, nur die freie Spanne fasst sie zusammen.
+
+**`freieSpannen()` ist eine reine Funktion.** Die Rechnung „was ist frei" ist der
+Kern dieser Ansicht und muss einzeln prüfbar sein. Überlappende Spannen werden
+zusammengelegt, **bevor** invertiert wird: sonst entstünde zwischen zwei
+überlappenden Einsätzen eine freie Spanne, die es nicht gibt — und ein Disponent
+besetzte Tage doppelt, weil das Raster sie als frei anbot.
+
+**Wer kein Konto hat, ist trotzdem Mitarbeiter.** `worker_profiles.user_id` ist
+seit Migration 175 nullbar: der Mensch existiert, bevor er sich anmeldet. Ein
+Verbund über `users` verschluckte genau die frisch importierte Belegschaft. Die
+Zeile trägt dann die Personalnummer und ein Kennzeichen.
+
+**Vier Abfragen für beliebig viele Mitarbeiter**, nicht vier je Mitarbeiter.
+`workerAvailabilityService.resolveAvailability()` beantwortet **eine** Kraft und
+ist punktbezogen („ab wann frei"); darüber zu schleifen wären bei 300
+Mitarbeitern 300 Abfragen je Seitenaufruf — die Skalierungsregel des Projekts in
+Reinform. Ein Test vergleicht die Abfragezahl für 3 und für 300 Mitarbeiter.
+
+### Und die Fläche kann jetzt gefunden werden
+
+`monatsplan.html` war end-to-end gebaut, im Browser belegt, im Register als
+`aktiv` geführt — und über **keine Navigation** erreichbar. Gemessen war sie die
+einzige *lebende* Seite von 80, auf die das zutraf; die übrigen neun sind laut
+Register tot oder ausdrücklich ohne Navigation.
+
+Sie steht jetzt unter *Deals & Einsätze*. Damit das nicht von Aufmerksamkeit
+abhängt, erzwingt es `api/test/erreichbarkeit.test.js`: **was das Register `aktiv`
+oder `teilweise` nennt, muss erreichbar sein.** Das Register ist dabei die
+Wahrheit, nicht eine zweite Liste — Ausnahmen müssen *dort* stehen und ihren
+Grund nennen („bewusst ohne Navigation"). Der Wächter prüft sich selbst: er
+erfindet eine unerreichbare Seite und muss sie finden, und er muss eine tote
+Seite in Ruhe lassen.
+
+**Im Browser belegt** (echte Antworten aus der laufenden Datenbank): der
+Umschalter, das Mitarbeiter-Raster mit **12 Zeilen statt 4** (8 ganzen Monat
+frei, 2 teilweise, 2 belegt), *Besetzung prüfen* mit nach freien Tagen sortierten
+Kandidaten, und ein echter Befund — Doppelbelegung samt Hebel und AÜG-Frist mit
+dem Zusatz *„Diese Besetzung verursacht die Überschreitung."* Dazu Leerzustand
+und Fehlerzustand. Konsole ohne Fehler.
+
+**Nachweis:** `api/test/monatsplan.test.js` — 83 Proben (20 zu K3.7, davon 8 zur
+reinen Rechnung und 3 am echten Handler). `api/test/erreichbarkeit.test.js` — 5
+Proben inkl. Selbsttest und Gegenprobe. **Rückmutationen:** beide Wege des
+Erreichbarkeits-Wächters gefangen.
+
+**Eine Datenanomalie, benannt statt geraten:** **6 von 24 Zuordnungen** tragen die
+Zeitarbeitsfirma **selbst** als Entleiher (`org_id = supplier_org_id`) —
+konsistent zwischen Zuordnung und Einsatz. In der Vorschau erscheint dann die
+eigene Firma als Gegenseite. Der Konflikt ist trotzdem wahr (die Kraft ist
+gebunden); nur das Etikett ist sinnlos. Welcher Entleiher gemeint war, steht
+nirgends — raten wäre das Gegenteil von vorsichtig.
 
 ---
 

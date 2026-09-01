@@ -40,7 +40,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **K4** | Der Feed fällt nie auf leer zurück | ✅ **gebaut** `eb46707` (Mig 204, `feedKopieService`, 18 Proben, 4 Rückmutationen) |
 | **K1** | Rabatt sichtbar + Eingriffspunkt | ✅ **gebaut** — Mig 206, drei Dienste, Staff-CC-Modul `rabatt-faelle`, 75 Proben, **14 Rückmutationen** |
 | **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | ✅ **vollständig gebaut** — Mig 208 + 209, `werbepraemieService`, 26 Proben, **16 Rückmutationen** |
-| **K3** | Monatsplanung | **K3.1–K3.5 ✅ im Backend** — beide Schreibwege gab es bereits, neu ist die **Konfliktvorschau vor dem Schreiben**. **Offen: die Bedienelemente auf `monatsplan.html`**, dann K3.6 |
+| **K3** | Monatsplanung | **K3.1–K3.5 + K3.7 ✅ vollständig verdrahtet** — zwei Achsen (Einsätze / **Mitarbeiter**), Konfliktvorschau vor dem Schreiben, Seite in der Navigation. **Offen: K3.6 (Härtung)** |
 | **L** | Tragfähigkeit / Hochverfügbarkeit | dokumentiert, **nicht gebaut** (eigener Abschnitt, Owner-Vorgabe) |
 
 **Der nächste Griff: die Antwort des Owners auf E-K3-1 bis E-K3-3.** Der Entwurf
@@ -107,9 +107,32 @@ ohne Zusatzangabe.
 **E-K3-2 brauchte keine Änderung:** gemessen kennt keines der beiden Schemata eine
 Vergangenheitssperre. Es wurde auch keine eingebaut, um sie danach zu entfernen.
 
-**DER NÄCHSTE GRIFF: die Bedienelemente auf `monatsplan.html`.** Der Endpunkt
-trägt, die Fläche ruft ihn noch nicht. Danach K3.6 (Härtung: Skalierung 10→300,
-`Europe/Berlin`, Mutation Testing auf der Konfliktlogik).
+**K3.7 kam dazu, weil das Raster die Minderheit zeigte.** Gemessen: von 31
+Mitarbeitern der Zeitarbeitsfirmen erschienen im April-Raster **vier** — Zeilen
+waren Einsätze, und wer gerade keinen hat, kam nicht vor. Das sind genau die
+verplanbaren. `GET /workforce/monatsplan/mitarbeiter` dreht die Achse: Zeilen
+sind Menschen, die **freie Spanne** ist der Inhalt, und wer kein Konto hat
+(Migration 175) steht trotzdem da.
+
+**Die Fläche ist jetzt vollständig verdrahtet:** Umschalter Einsätze/Mitarbeiter,
+*Besetzung prüfen* je Einsatz mit nach freien Tagen sortierten Kandidaten, und der
+Befund mit Hebel. Im Browser gegen echte Datenbank-Antworten belegt, inklusive
+Leer- und Fehlerzustand.
+
+> **Und sie ist auffindbar.** `monatsplan.html` war vorher über KEINE Navigation
+> erreichbar — die einzige lebende Seite von 80, auf die das zutraf. Sie steht
+> jetzt unter *Deals & Einsätze*, und `api/test/erreichbarkeit.test.js` erzwingt
+> es dauerhaft: was das Register `aktiv` nennt, muss erreichbar sein. Ausnahmen
+> gehören ins Register, nicht in eine Testdatei.
+
+**DER NÄCHSTE GRIFF: K3.6 (Härtung)** — Skalierung 10→300, `Europe/Berlin`,
+Mutation Testing auf der Konfliktlogik.
+
+**Zwei Datenlücken, benannt statt geraten** (wie die 49 ankerlosen Einsätze aus
+E-K3-4): 15 von 40 Bedarfen gehören einem Besteller ohne Organisation; **6 von 24
+Zuordnungen** tragen die Zeitarbeitsfirma selbst als Entleiher, wodurch in der
+Vorschau die eigene Firma als Gegenseite erscheint. Der Konflikt stimmt trotzdem
+— nur das Etikett ist sinnlos, und welcher Entleiher gemeint war, steht nirgends.
 
 > **Für den Browser-Nachweis wichtig:** der API-Container läuft einen
 > Prozess-Schnappschuss und kennt neue Routen nicht. Die Fläche wurde deshalb

@@ -83,6 +83,64 @@
     .mp-leer { text-align:center; padding:44px 20px; color:var(--ds-text-secondary,#64748b); }
     .mp-fehler { background:var(--ds-danger-muted); color:var(--ds-danger); border-radius:10px;
                  padding:13px 16px; margin-bottom:16px; font-size:.86rem; }
+
+    /* ── Ansichtsumschalter ─────────────────────────────────────────────
+       Zwei Achsen auf dieselbe Wahrheit: der Monat nach EINSAETZEN und der
+       Monat nach MENSCHEN. Die zweite ist keine Zugabe — im Einsatz-Raster
+       fehlen alle, die gerade nichts haben, und das sind die verplanbaren. */
+    .mp-achsen { display:inline-flex; border:1px solid var(--ds-border,#e2e8f0);
+                 border-radius:9px; overflow:hidden; margin-right:6px; }
+    .mp-achse { border:0; background:var(--ds-surface,#fff); color:inherit;
+                padding:6px 14px; font-size:.82rem; cursor:pointer; }
+    .mp-achse + .mp-achse { border-left:1px solid var(--ds-border,#e2e8f0); }
+    .mp-achse[aria-pressed="true"] { background:var(--ds-brand,#4a9eff); color:var(--ds-bg,#fff); font-weight:600; }
+    .mp-achse:focus-visible { outline:2px solid var(--ds-brand,#4a9eff); outline-offset:-2px; }
+
+    /* ── Mitarbeiter-Raster ─────────────────────────────────────────────
+       Der Balken zeigt, was belegt ist; die FREIE Spanne ist der Inhalt. */
+    .mp-kopf-name { display:flex; align-items:baseline; gap:7px; }
+    .mp-nokonto { font-size:.62rem; text-transform:uppercase; letter-spacing:.05em;
+                  padding:1px 6px; border-radius:999px;
+                  background:var(--ds-warning-muted); color:var(--ds-warning); }
+    .mp-frei { position:absolute; top:9px; height:20px; border-radius:5px;
+               border:1px dashed var(--ds-success); background:var(--ds-success-muted);
+               color:var(--ds-success); font-size:.66rem; font-weight:600;
+               display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    .mp-balken--abwesend { background:var(--ds-warning); }
+    .mp-last { font-size:.72rem; color:var(--ds-text-secondary,#64748b);
+               font-variant-numeric:tabular-nums; }
+
+    /* ── Besetzung prüfen ───────────────────────────────────────────────
+       Die Antwort VORHER: was bricht, wenn diese Person auf diesen Einsatz
+       kommt. Geschrieben wird hier nichts. */
+    .mp-pruef { border:1px solid var(--ds-border,#e2e8f0); background:var(--ds-surface,#fff);
+                color:inherit; border-radius:7px; padding:3px 9px; font-size:.72rem;
+                cursor:pointer; white-space:nowrap; }
+    .mp-pruef:hover { border-color:var(--ds-brand,#4a9eff); }
+    .mp-pruef:focus-visible { outline:2px solid var(--ds-brand,#4a9eff); outline-offset:2px; }
+
+    .mp-panel { background:var(--ds-surface,#fff); border:1px solid var(--ds-border,#e2e8f0);
+                border-radius:12px; padding:16px 18px; margin-top:18px; }
+    .mp-panel__kopf { display:flex; justify-content:space-between; align-items:flex-start;
+                      gap:12px; margin-bottom:12px; }
+    .mp-panel h2 { margin:0; font-size:1rem; }
+    .mp-panel__sub { font-size:.78rem; color:var(--ds-text-secondary,#64748b); margin-top:3px; }
+    .mp-kandidaten { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:9px; }
+    .mp-kandidat { display:flex; justify-content:space-between; align-items:center; gap:10px;
+                   width:100%; text-align:left; border:1px solid var(--ds-border,#e2e8f0);
+                   background:var(--ds-surface,#fff); color:inherit; border-radius:9px;
+                   padding:9px 12px; font-size:.82rem; cursor:pointer; }
+    .mp-kandidat:hover { border-color:var(--ds-brand,#4a9eff); }
+    .mp-kandidat:focus-visible { outline:2px solid var(--ds-brand,#4a9eff); outline-offset:2px; }
+    .mp-kandidat[aria-pressed="true"] { border-color:var(--ds-brand,#4a9eff);
+                                        background:var(--ds-accent-muted); }
+    .mp-kandidat__frei { font-size:.72rem; color:var(--ds-success); font-weight:600;
+                         font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .mp-kandidat__frei--keine { color:var(--ds-text-secondary,#64748b); }
+    .mp-ergebnis { margin-top:14px; }
+    .mp-sauber { border-left:3px solid var(--ds-success); background:var(--ds-success-muted);
+                 border-radius:8px; padding:11px 14px; font-size:.85rem; color:var(--ds-success); }
+
     .mp-tot { display:none; }
   </style>
 </head>
@@ -102,6 +160,12 @@
     <div id="mpFehler" class="mp-fehler mp-tot" role="alert"></div>
 
     <nav class="mp-navi">
+      <span class="mp-achsen" role="group" aria-label="Ansicht">
+        <button id="mpAchseEinsaetze" class="mp-achse" type="button" aria-pressed="true"
+                data-i18n="mp.achse.einsaetze">Einsätze</button>
+        <button id="mpAchseMitarbeiter" class="mp-achse" type="button" aria-pressed="false"
+                data-i18n="mp.achse.mitarbeiter">Mitarbeiter</button>
+      </span>
       <button id="mpZurueck" class="mp-btn" type="button" data-i18n="mp.zurueck">← Vormonat</button>
       <span id="mpMonat" class="mp-monat">…</span>
       <button id="mpVor" class="mp-btn" type="button" data-i18n="mp.vor">Folgemonat →</button>
@@ -120,6 +184,20 @@
     <section id="mpKonflikte" class="mp-konflikte mp-tot" aria-live="polite"></section>
 
     <p id="mpGrenze" class="mp-hinweis mp-tot"></p>
+
+    <!-- Die Antwort VORHER: wer kann auf diesen Einsatz, und was bricht dabei?
+         Liest nur — geschrieben wird über den bestehenden Besetzungsweg. -->
+    <section id="mpPruefung" class="mp-panel mp-tot" aria-live="polite">
+      <div class="mp-panel__kopf">
+        <div>
+          <h2 id="mpPruefTitel"></h2>
+          <div id="mpPruefSub" class="mp-panel__sub"></div>
+        </div>
+        <button id="mpPruefZu" class="mp-btn" type="button" data-i18n="mp.pruef.schliessen">Schließen</button>
+      </div>
+      <div id="mpKandidaten" class="mp-kandidaten"></div>
+      <div id="mpPruefErgebnis" class="mp-ergebnis"></div>
+    </section>
   </main>
 
   <script src="/public/js/pageShell.js"></script>
