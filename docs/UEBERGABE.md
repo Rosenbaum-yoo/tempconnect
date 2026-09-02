@@ -664,6 +664,40 @@ hat die Zeilen schon angefasst), 409 wieder zu 400. Dazu eine Fixture-Pflege in
 `mitarbeiterOhneKonto.test.js`: dessen Mock beantwortete **jede** Pool-Abfrage mit der
 Einladung, also auch den neuen Nachschlag — er unterscheidet sie jetzt.
 
+### Offener Befund: `invoice_type` wird uneinheitlich gefiltert *(gemessen 2026-09-02)*
+
+Aus der Parallelsitzung gemeldet, von mir **selbst nachgemessen** — der Vorbefund derselben
+Sitzung war einmal falsch, deshalb steht hier nur, was ich gelesen habe.
+
+Operative Rechnungen (zwischen **zwei Kunden**) und Abo-Rechnungen (an **TempConnect**)
+liegen in **derselben** Tabelle `invoices`, unterschieden allein durch die Spalte
+`invoice_type`. Wer sie nicht filtert, mischt fremdes Geld in die eigenen Bücher.
+
+| Stelle | Filter? | Wirkung |
+|---|---|---|
+| `recurringBillingService.js:739` | **ja** (`= 'subscription'`) | die Mahnstrecke ist sauber |
+| `revenueMetricsService.js:520‑526` | **ja** (`= 'operational'`) | die Trennung ist im Haus bekannt |
+| `staffBillingOverviewService.js:78` `loadAttention` | **nein** | die **Mahn-Arbeitsliste des Operators** |
+| `staffBillingOverviewService.js:99` `loadInvoiceTotals` | **nein** | „plattformweite Rechnungs-Summen" |
+| `revenueMetricsService.js:354` `queryInvoiceTruth` | **halb** | die vier Geldsummen ungefiltert, die Zählungen korrekt getrennt |
+
+Die letzte Zeile ist die aufschlussreichste: `operational_count` und `subscription_count`
+sind sauber getrennt, aber `invoiced_revenue_cents`, `paid_revenue_cents`,
+`open_receivables_cents` und `overdue_receivables_cents` tragen **keinen** Typfilter. Die
+Trennung war also bekannt und wurde auf die Zählung angewendet, auf die Beträge nicht.
+
+**Heute folgenlos — und der nächste Takt stellt es scharf.** `markOverdueInvoices` hängt an
+`POST /internal/invoice-overdue-scan`, und das ist in meiner Registratur **Aufgabe 2, Zustand
+still**. Sie steht dort mit `intervall_min: 1440`, der Takt ist also vorgesehen. Sobald er
+läuft, füllt sich die Mahnliste des Staff CC mit Rückständen, die Kunden **einander**
+schulden.
+
+> **Owner-Frage (Anschluss an F30):** soll das Team fremde Rückstände überhaupt sehen? Als
+> Abwanderungssignal wäre das nützlich — aber dann in einer **eigenen** Sicht, nicht in der
+> Mahnliste, aus der heraus gemahnt wird. Und: soll eine als „Umsatz" beschriftete Summe
+> Geld enthalten, das zwischen zwei Kunden fließt? Der Fix ist je eine Zeile; **welche**
+> Zeile, ist eine Produktentscheidung — deshalb gemeldet statt geändert.
+
 **Als Nächstes:** die restlichen M2-Phasen. Die 29 offenen Fragen aus Abschnitt 5 des
 M0-Berichts blockieren sie nicht.
 
