@@ -33,6 +33,7 @@ import { fileURLToPath } from "node:url";
 import {
   TAKTE, TOLERANZ, taktNotieren, bewerteAufgabe, taktStand
 } from "../services/betriebsTaktService.js";
+import { loadOperationsSnapshot } from "../services/staffControlService.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const API = path.resolve(__dirname, "..");
@@ -411,5 +412,54 @@ describe("M1.1 · der Herzschlag haengt VOR den Routen, nicht in ihnen", () => {
       "der Aufgabenname ist der Schluessel — ein Protokoll waechst unbegrenzt");
     assert.match(sql, /betriebs_takt_ergebnis_chk/);
     assert.match(sql, /betriebs_takt_quelle_chk/);
+  });
+});
+
+/* ── Erreichbarkeit: der Stand muss im Staff CC ankommen ──────────────── */
+
+describe("M1.1 · der Stand erreicht die Operations-Aufnahme", () => {
+  /*
+   * M-L8: "verdrahtet, aber unerreichbar" zaehlt nicht als geliefert. Der Takt
+   * kann noch so genau rechnen — solange niemand ihn sieht, ist er derselbe
+   * stille Automatismus, gegen den er gebaut wurde.
+   */
+  it("die Aufnahme traegt den Takt, und zwar gerechnet, nicht leer", async () => {
+    const pool = musterPool((sql) => {
+      if (sql.includes("betriebs_takt")) return { rows: [], rowCount: 0 };
+      return { rows: [], rowCount: 0 };
+    });
+    const auf = await loadOperationsSnapshot(pool);
+    assert.ok(auf.betriebs_takt, "betriebs_takt fehlt in der Aufnahme");
+    assert.equal(auf.betriebs_takt.zusammenfassung.ueberwacht, Object.keys(TAKTE).length);
+    /* Ohne Zeilen ist der ehrliche Befund "alles still", nicht "alles gut". */
+    assert.equal(auf.betriebs_takt.zusammenfassung.still, Object.keys(TAKTE).length);
+    assert.equal(auf.betriebs_takt.zusammenfassung.ok, 0);
+  });
+
+  it("der Takt wird ZULETZT abgefragt — sonst verrutschen fremde Proben", async () => {
+    /*
+     * Muster-Pool-Proben zaehlen Abfragen der Reihe nach. Beim ersten Anlauf
+     * stand der Takt ganz oben in der Aufnahme und haette jede bestehende
+     * Sequenz um eins verschoben. Diese Probe haelt die Reihenfolge fest,
+     * damit der naechste Einbau nicht denselben Fehler macht.
+     */
+    const pool = musterPool();
+    await loadOperationsSnapshot(pool);
+    const letzte = pool.calls[pool.calls.length - 1];
+    assert.ok(letzte, "keine einzige Abfrage — die Aufnahme ist leer");
+    assert.ok(letzte.sql.includes("betriebs_takt"),
+      `letzte Abfrage war: ${letzte.sql.slice(0, 80)}`);
+  });
+
+  it("ein Ausfall des Takts kostet EINE Kachel, nicht die Seite", async () => {
+    const pool = musterPool((sql) => {
+      if (sql.includes("betriebs_takt")) throw new Error("relation fehlt");
+      return { rows: [{ runbook_key: "x", status: "success" }], rowCount: 1 };
+    });
+    const auf = await loadOperationsSnapshot(pool);
+    /* taktStand faengt selbst ab und liefert "alles still" — die Aufnahme
+     * darf davon nichts merken, und der Rest muss stehen bleiben. */
+    assert.ok(auf.betriebs_takt, "der Takt haette einen ehrlichen Leerstand liefern muessen");
+    assert.ok(Array.isArray(auf.recent_runs), "recent_runs wurde mitgerissen");
   });
 });

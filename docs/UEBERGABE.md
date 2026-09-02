@@ -225,9 +225,57 @@ Ausführlich mit den Folgen: `M_MARKTPLATZ_FLOW.md`, Abschnitte 8.4 und 8.5.
 **Die übrigen 29 Fragen** stehen in Abschnitt 5 des M0-Berichts. Sie blockieren M1
 und M2 nicht.
 
-> **Stand 2026-09-01: Es wird auf Anweisungen aus der Parallelsitzung gewartet**
-> (Owner: *„auch auf die andere sitzung warten da bekommst du noch anweisungen“*).
-> M1 ist damit vorbereitet, aber nicht begonnen.
+### M1.1 und M1.2 sind gebaut *(2026-09-02)*
+
+**Der Betriebstakt** — Migration `212_betriebs_takt.sql`, eine Zeile **je Aufgabe**
+(`aufgabe TEXT PRIMARY KEY`), kein Laufprotokoll. Ein Protokoll wächst unbegrenzt und
+beantwortet die eigentliche Frage schlechter.
+
+Drei Entscheidungen daran sind wichtiger als der Code:
+
+* **Der Herzschlag hängt VOR den Routen, nicht in ihnen.** Ein `router.use` vor allen
+  28 `/internal/*`-Endpunkten statt 28 einzelner Einbauten — der 29. Endpunkt trägt ihn
+  dann automatisch. Dasselbe bei BullMQ: alle vier Arbeiter gehen durch dieselbe Naht
+  (`instrumentWorker`), also genügte dort ein Griff.
+* **Der Stand geht von der ERWARTUNG aus, nicht von der Tabelle.** `TAKTE` ist eine
+  eingefrorene Registratur von zehn Aufgaben. Eine Aufgabe, die nie lief, hat keine
+  Zeile — wer Zeilen zählt, zählt sie nicht. Genau so ist die Marktplatz-Automatik ein
+  Jahr lang durchgerutscht. `still` ist deshalb der Zustand mit dem lautesten Ton, und
+  `taktStand` iteriert die Registratur, nicht die Tabelle.
+* **Der Takt ruft die Dienste direkt** (`staffingWorker.js`), nicht den eigenen
+  HTTP-Endpunkt. Ein Dienst, der sich selbst über das Netz aufruft, braucht ein
+  Geheimnis, eine erreichbare Adresse und einen zweiten Fehlerpfad.
+
+**Die Kachel steht im Staff CC unter Operations** — dort und nicht in einem eigenen
+Modul, weil „läuft das noch?" genau die Frage ist, wegen der jemand Operations
+aufschlägt. Abgefragt wird der Takt **zuletzt** in `loadOperationsSnapshot`: eine neue
+Abfrage vorne verschiebt jede bestehende Muster-Pool-Sequenz um eins. Beim ersten
+Anlauf stand sie oben — der Fehler, vor dem die Bemerkung über `service_health` seit
+Monaten warnt.
+
+**Ein neuer Wächter kam dabei heraus, und er hat sofort etwas gefunden.** Die Kachel
+benutzte sieben CSS-Klassen (`scc-kpi-grid`, `scc-card__title`, `scc-badge--danger` …),
+die in **keiner** Datei des Staff CC stehen. `tsc --noEmit` war grün und musste es
+sein: `className` ist ein freier String. Die Kachel wäre als unformatierter Textblock
+erschienen — kein Fehler, keine Meldung, nur falsch.
+[`sccKlassen.test.js`](../api/test/sccKlassen.test.js) schließt die Lücke: jede feste
+Klasse braucht eine Regel, jede zusammengesetzte (`scc-status--${ton}`) ihre Familie.
+Er liest eng — nur `className`, nicht `id`, nicht `var(--scc-danger)` —, weil ein
+Wächter mit Fehlalarmen abgeschaltet wird. Ein erster, gröberer Anlauf meldete 25
+Verletzungen, von denen 25 keine waren.
+
+> **Blueprint-fähig:** Herzschlag und Klassen-Wächter gehören unverändert in jedes
+> Folgeprojekt. Beide kosten nichts, brauchen keine Datenbank und fangen eine
+> Fehlerklasse, die kein Übersetzer sehen kann.
+
+Belegt durch `betriebsTakt.test.js` (32), `betriebsTaktKachel.test.js` (6) und
+`sccKlassen.test.js` (7) — jeweils mit Rückmutation: die Aufgabe aussetzen, die Kachel
+in den Kopfbereich zurückschieben, die tote Klasse wieder einsetzen. Alle drei werden
+rot.
+
+**Als Nächstes: M1.3** — `sendMail` liefert ohne Transport ein erfolgreich aussehendes
+Ergebnis zurück (`emailService.js:84`, `accepted: [to]`). Eine nie zugestellte Einladung
+meldet Zustellung.
 
 **DER NÄCHSTE GRIFF:** M1 (die stillen Ausfälle) — alle Entscheidungen dafür
 liegen vor. Zuvor wird die Anweisung aus der Parallelsitzung abgewartet.

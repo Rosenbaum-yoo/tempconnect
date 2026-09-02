@@ -4,6 +4,7 @@
  */
 
 import { getSystemDiagnostics } from "./healthService.js";
+import { taktStand } from "./betriebsTaktService.js";
 
 export async function loadExecutiveSnapshot(pool) {
   const snapshot = {
@@ -86,6 +87,13 @@ export async function loadOperationsSnapshot(pool) {
     recent_runs: [],
     infra_health: [],   // Letzter Snapshot pro Host (max. 24 h alt)
     service_health: null, // Live-Diagnostics (DB/Redis/Process/API/Billing/Email) — Phase I Slice 2
+    /*
+     * M1.1 — DER BETRIEBSTAKT. Hier statt in einem eigenen Modul: die Frage
+     * "laeuft das noch?" ist genau die Frage, wegen der jemand Operations
+     * aufschlaegt. Ein zweites Modul daneben waere eine zweite Anlaufstelle
+     * fuer dieselbe Sorge.
+     */
+    betriebs_takt: null,
     errors: []
   };
 
@@ -126,6 +134,23 @@ export async function loadOperationsSnapshot(pool) {
     snapshot.service_health = await getSystemDiagnostics(pool);
   } catch (err) {
     snapshot.errors.push({ area: "service_health", error: String(err.code || err.message || err) });
+  }
+
+  /*
+   * Der Betriebstakt kommt ZULETZT — aus demselben Grund, den die Zeilen ueber
+   * service_health nennen: Muster-Pool-Proben zaehlen Abfragen der Reihe nach.
+   * Eine neue Abfrage vorne verschiebt jede bestehende Sequenz um eins und
+   * macht Proben rot, die mit der Sache nichts zu tun haben. Beim ersten
+   * Anlauf stand dieser Block ganz oben — genau der Fehler, vor dem die
+   * Bemerkung warnt.
+   *
+   * Und er faengt seinen eigenen Fehler: faellt der Takt aus, fehlt EINE
+   * Kachel, nicht die ganze Seite. `taktStand` wirft ohnehin nicht.
+   */
+  try {
+    snapshot.betriebs_takt = await taktStand(pool);
+  } catch (e) {
+    snapshot.errors.push({ area: "betriebs_takt", error: String(e?.code || e?.message || e) });
   }
 
   return snapshot;
