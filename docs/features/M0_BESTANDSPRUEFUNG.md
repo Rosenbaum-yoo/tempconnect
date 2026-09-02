@@ -421,6 +421,86 @@ eine Produkt-, Vertrags- oder Rechtsfolge hat.
 
 ---
 
+## 5b. Nachtrag 2026-09-02 — drei Korrekturen aus der Gegenprüfung
+
+Die Parallelsitzung hat die vier Korrekturen aus diesem Bericht unabhängig
+nachgemessen. Alle vier tragen — und drei Dinge kamen hinzu, von denen zwei die
+Einordnung ändern und eines den Bauauftrag.
+
+### 7b hat KEINEN Angriffsweg — und richtet trotzdem mehr an als beschrieben
+
+**Zur Einordnung, damit dieser Bericht nicht überspitzt gelesen wird:** die
+Kette „eine Agentur lädt eine beliebige Adresse ein und übernimmt das Konto“ ist
+**zu**. Drei Austrittsstellen wurden geprüft:
+
+* `listInvites` wählt zehn Felder — **keinen Token**
+* `POST /worker-invites/:id/resend` antwortet `{ok:true}`, der Token geht nur in die Mail
+* `POST /worker-invites` baut den Token ausschließlich in die Mail-URL
+
+Der Token verlässt den Server nur ins Postfach des Eingeladenen. **7b bleibt ein
+schwerer Defekt, ist aber keine Schwachstelle mit Angriffsweg.**
+
+**Was es tatsächlich anrichtet, ist schlimmer als „Passwort überschrieben“.**
+Nimmt der echte Adressinhaber an, entsteht dieser Zustand:
+
+* Passwort ersetzt, `is_verified` gesetzt
+* Mitgliedschaft in der einladenden Org auf `worker` **herabgestuft**
+* `users.role` bleibt **unangetastet** (z. B. `company`)
+
+Daraus folgt: `rbacService` gibt über `role_key='worker'` keine Berechtigung mehr,
+und `requireWorkerRole` lässt die Person wegen `session.userRole !== 'worker'`
+auch nicht ins Portal. **Das Konto ist danach in BEIDEN Welten tot.**
+
+> **Für M2.1:** der Nachweis muss genau diesen Zustand prüfen, nicht nur das
+> Passwort. Ein Riegel, der die Überschreibung verhindert, aber die Herabstufung
+> stehen lässt, löst den halben Schaden.
+
+### Eine Einladung ist faktisch eine Mitgliedschaftsvergabe
+
+Wer annimmt, hat danach eine `org_membership` in der einladenden Firma. Zusammen
+mit den 165 Routen, die nur `requireAuth` tragen (Zeile 8a), liest die eingeladene
+Person danach Daten dieser Firma.
+
+Kein Angriffsweg — der Einladende verschenkt seine eigenen Daten. Aber **eine
+Einladung verdient damit dieselbe Sorgfalt wie eine Rechtevergabe**, und das ist
+heute nicht so gebaut.
+
+### 5.8 — eine dritte Ursache wurde vorgeschlagen und ist WIDERLEGT
+
+Die Gegenprüfung meldete einen dritten Grund: `markOverdueInvoices` laufe auf
+der Plattform-Tabelle `invoices`, während die operative Rechnung in
+`operational_invoices` liege — der Lauf träfe sie also selbst dann nicht, wenn
+sie `issued` wäre.
+
+**Selbst nachgemessen: das stimmt nicht.** Es gibt keine Tabelle
+`operational_invoices`.
+
+```
+SELECT table_name FROM information_schema.tables
+ WHERE table_name IN ('invoices','operational_invoices');
+  -> invoices          (eine Zeile, nicht zwei)
+```
+
+`operationalInvoiceService.js:293` schreibt `INSERT INTO invoices` — dieselbe
+Tabelle, unterschieden durch die Spalte `invoice_type = 'operational'`. Und
+`markOverdueInvoices` (`invoiceService.js:327`) läuft auf
+`UPDATE invoices … WHERE status = 'issued' AND due_at < NOW()` — **ohne**
+`invoice_type`-Filter. Der Lauf trifft die operative Rechnung also sehr wohl.
+
+**Es bleibt bei ZWEI Ursachen** (kein Takt; angelegt als `draft`, und der
+Ausstellen-Endpunkt hat null Frontend-Aufrufer). Beide müssen behoben werden —
+die dritte gibt es nicht.
+
+> **Was an der Stelle WIRKLICH offen ist**, und es zeigt in dieselbe Richtung:
+> weil der Filter fehlt, kippen Abo- und operative Rechnungen **gemeinsam** auf
+> `overdue`, sobald der Takt läuft. Ob das gewollt ist, ist eine Owner-Frage
+> (F30 in Abschnitt 5) — an `status='overdue'` hängt die Mahnstrecke in
+> `recurringBillingService.js:738`.
+
+**Merke:** ein falsches „trifft nicht“ ist genauso teuer wie ein falsches
+„fertig“. Hätte diese Zeile unwidersprochen im Bericht gestanden, wäre eine
+Tabellen-Trennung gebaut worden, die es nicht zu trennen gibt.
+---
 ## 6. Was M0 NICHT getan hat
 
 - **Keine Zeile Produktionscode angefasst.** Alle sieben Prüfer und alle sieben
