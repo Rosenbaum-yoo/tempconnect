@@ -267,7 +267,7 @@ describe("P10/D5 · Kontolose Mitarbeiter verschwinden nicht", () => {
  * acceptInvite arbeitet auf einem Client aus dem Pool. Der Mock protokolliert
  * jede Anweisung, damit sich pruefen laesst, WELCHER Weg gegangen wurde.
  */
-function einladungsPool({ invite, antworten }) {
+function einladungsPool({ invite, antworten, bestand = null }) {
   const abfragen = [];
   const client = {
     query: async (text, params) => {
@@ -280,8 +280,18 @@ function einladungsPool({ invite, antworten }) {
   };
   return {
     abfragen,
-    // getInviteByToken laeuft ueber den Pool, nicht ueber den Client.
-    query: async () => ({ rows: [invite] }),
+    /*
+     * Ueber den POOL laufen zwei Abfragen, nicht mehr eine: getInviteByToken
+     * und — seit M2.1 — der Riegel, der nachsieht, ob die Adresse schon einem
+     * Konto gehoert. Der Mock muss sie unterscheiden; gab er auf JEDE
+     * Pool-Abfrage die Einladung zurueck, las der Riegel deren `role`
+     * (undefined) als "fremde Rolle" und lehnte ab. Reine Fixture-Pflege.
+     */
+    query: async (text) => {
+      const q = String(text || "");
+      if (q.includes("FROM users WHERE LOWER(email)")) return { rows: bestand ? [bestand] : [] };
+      return { rows: [invite] };
+    },
     connect: async () => client
   };
 }

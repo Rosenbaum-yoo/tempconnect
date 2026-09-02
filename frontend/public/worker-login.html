@@ -169,6 +169,10 @@ TCi18n.register('de', {
   'wk.invite.done': 'Konto eingerichtet! Weiterleitung…',
   'wk.invite.errGeneric': 'Fehler beim Einrichten des Kontos. Bitte versuchen Sie es erneut.',
   'wk.invite.errUsed': 'Diese Einladung wurde bereits verwendet. Bitte melden Sie sich an.',
+  /* M2.1: dieser Fall braucht eine eigene Antwort. Vorher lief er in den
+     Sammeltext 'Bitte versuchen Sie es erneut' — und ein erneuter Versuch
+     hilft hier nie, weil die Adresse schon einem anderen Konto gehoert. */
+  'wk.invite.errOtherRole': 'Zu dieser E-Mail-Adresse gibt es bereits ein Konto. Melden Sie sich damit an — oder bitten Sie um eine Einladung an eine andere Adresse.',
   'wk.invite.errRevoked': 'Diese Einladung wurde widerrufen. Bitte kontaktieren Sie Ihren Arbeitgeber.',
   'wk.invite.errExpired': 'Dieser Einladungslink ist abgelaufen. Bitte fordern Sie eine neue Einladung an.',
   'wk.invite.errNotFound': 'Einladungslink nicht gefunden oder ungültig.',
@@ -214,6 +218,7 @@ TCi18n.register('en', {
   'wk.invite.done': 'Account ready! Redirecting…',
   'wk.invite.errGeneric': 'Could not set up your account. Please try again.',
   'wk.invite.errUsed': 'This invitation has already been used. Please sign in.',
+  'wk.invite.errOtherRole': 'An account already exists for this email address. Sign in with it — or ask for an invitation to a different address.',
   'wk.invite.errRevoked': 'This invitation was revoked. Please contact your employer.',
   'wk.invite.errExpired': 'This invitation link has expired. Please request a new invitation.',
   'wk.invite.errNotFound': 'Invitation link not found or invalid.',
@@ -382,7 +387,9 @@ async function acceptInvite() {
   } catch (e) {
     errEl.textContent = e.message === 'INVITE_ALREADY_USED'
       ? t('wk.invite.errUsed')
-      : t('wk.invite.errGeneric');
+      : e.message === 'EMAIL_EXISTS_OTHER_ROLE'
+        ? t('wk.invite.errOtherRole')
+        : t('wk.invite.errGeneric');
     errEl.style.display = 'block';
     btn.disabled = false; btn.textContent = t('wk.invite.submit');
   }

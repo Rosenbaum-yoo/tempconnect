@@ -615,11 +615,57 @@ verwerfen.
 > Eingriff in fremde Tests — der Befund gehört aber notiert, weil er bei jeder künftigen
 > Abfrage erneut zuschlägt.
 
-**Als Nächstes: M2.1**, der `acceptInvite`-Riegel. Dafür gilt der Befund aus der
-Gegenprüfung: der Nachweis muss den **beidseitig toten** Kontostand prüfen — Passwort
-ersetzt, Rolle in der Org auf `worker` herabgestuft, `users.role` unangetastet —, nicht nur
-das überschriebene Passwort. Ein Riegel, der die Überschreibung verhindert und die
-Herabstufung stehen lässt, löst den halben Schaden.
+### M2.1 ist gebaut *(2026-09-02)* — der Riegel hat zwei Hälften
+
+`acceptInvite` legte den Nutzer mit `ON CONFLICT (email) DO UPDATE SET password_hash` an
+und die Mitgliedschaft mit `ON CONFLICT … DO UPDATE SET role_key = 'worker'`. Auf ein
+**bestehendes** Konto wirkte das dreifach: Passwort ersetzt, Mitgliedschaft auf `worker`
+**herabgestuft**, `users.role` unangetastet.
+
+**Der Schaden ist „beidseitig tot", nicht „Passwort weg".** `rbacService` fragt `role_key`
+— jetzt `worker`, also keine Berechtigung mehr über die Org. `requireWorkerRole`
+([`workerPortal.js:217`](../api/routes/workerPortal.js)) fragt `session.userRole`, und das
+kommt aus `users.role` — noch `company`, also auch kein Zugang zum Arbeiter-Portal. Die
+Probe prüft deshalb den **Zustand**, nicht das Passwort.
+
+**Kein Angriffsweg**, das bleibt richtig: der Token verlässt den Server nur ins Postfach
+des Eingeladenen. Es braucht den echten Adressinhaber, der annimmt — und genau der verliert
+dabei sein Konto.
+
+**Hälfte 1 — fremde Rolle ablehnen, an BEIDEN Stellen.** Der Plan nennt
+`createWorkerInvite` **und** `acceptInvite`, und beide haben ihn jetzt. Der Riegel beim
+Annehmen allein genügt nicht: ohne den beim Anlegen entstünde trotzdem eine Einladung, die
+Mail ginge hinaus, und der Empfänger erführe erst **nach** dem Setzen eines Passworts, dass
+es nicht geht. Eine Einladung, die niemand annehmen kann, soll gar nicht erst entstehen —
+und der Disponent erfährt den Grund dort, wo er noch etwas daran ändern kann.
+
+Beide benutzen dasselbe Fehlerwort wie der Import-Weg (`EMAIL_EXISTS_OTHER_ROLE`); zwei
+Namen für dieselbe Ablehnung wären der Anfang der nächsten Doppelung. Die Route antwortet
+**409**, nicht 400 — ein erneuter Versuch hilft hier nie. Die fremde Rolle wird **nicht**
+nach außen gegeben: sie verriete einem Unbefugten, dass es zu dieser Adresse ein
+Firmenkonto gibt. Und der Riegel prüft `role <> 'worker'` — ein Arbeiter mit Konto bei
+Agentur A darf von B eingeladen werden; er gilt fremden **Rollen**, nicht fremden Agenturen.
+
+**Hälfte 2 — der bestehende Arbeiter behält sein Passwort.** Die subtilere. Wer bei Agentur
+A ein Konto hat und von B eingeladen wird, hat `role === 'worker'` — Hälfte 1 greift bei ihm
+**nicht**, und trotzdem wurde ihm das Passwort überschrieben. Eine Einladung ist eine
+Einladung, kein Zurücksetzen.
+
+> **Die Probe fand eine zweite Fundstelle, die nicht im Plan stand.** Dieselbe Herabstufung
+> stand wortgleich in `createWorkerWithAccount` (`workerService.js:679`). Sie ist heute
+> **unerreichbar** — der `INSERT` darüber trägt kein `ON CONFLICT`, die Kennung ist immer
+> frisch. Genau deshalb war sie eine Falle für später: ein `ON CONFLICT (email)` eine Zeile
+> höher, und die Herabstufung wäre über Nacht wieder lebendig. Jetzt gilt einheitlich:
+> **kein Pfad stuft eine bestehende Mitgliedschaft herab.**
+
+Fünf Rückmutationen, alle rot: Riegel entfernen, Passwort-Überschreibung wieder einsetzen,
+Herabstufung wieder einsetzen, Riegel erst *nach* dem `BEGIN` (ein Riegel, der zurückrollt,
+hat die Zeilen schon angefasst), 409 wieder zu 400. Dazu eine Fixture-Pflege in
+`mitarbeiterOhneKonto.test.js`: dessen Mock beantwortete **jede** Pool-Abfrage mit der
+Einladung, also auch den neuen Nachschlag — er unterscheidet sie jetzt.
+
+**Als Nächstes:** die restlichen M2-Phasen. Die 29 offenen Fragen aus Abschnitt 5 des
+M0-Berichts blockieren sie nicht.
 
 **DER NÄCHSTE GRIFF:** M1 (die stillen Ausfälle) — alle Entscheidungen dafür
 liegen vor. Zuvor wird die Anweisung aus der Parallelsitzung abgewartet.

@@ -672,11 +672,24 @@ export async function createWorkerAccount(pool, {
     );
 
 
-    // Org-Membership als worker-Rolle
+    /*
+     * Org-Membership als worker-Rolle.
+     *
+     * M2.1: `DO UPDATE SET role_key = 'worker'` ist hier RAUS. Heute ist der
+     * Zweig unerreichbar — der INSERT darueber traegt kein `ON CONFLICT`, die
+     * Kennung ist also immer frisch und der Konflikt kann nicht eintreten.
+     * Genau deshalb war er eine Falle fuer spaeter: ein `ON CONFLICT (email)`
+     * eine Zeile weiter oben, und die Herabstufung waere ueber Nacht wieder
+     * lebendig. Sie stand hier wortgleich wie in `acceptInvite`, wo sie ein
+     * bestehendes Konto in beiden Welten tot gemacht hat.
+     *
+     * Die Regel gilt jetzt einheitlich: KEIN Pfad stuft eine bestehende
+     * Mitgliedschaft herab. Nachgezogen wird nur der Aktiv-Zustand.
+     */
     await client.query(
       `INSERT INTO org_memberships (user_id, org_id, role_key, is_active)
        VALUES ($1, $2, 'worker', TRUE)
-       ON CONFLICT (user_id, org_id) DO UPDATE SET role_key = 'worker', is_active = TRUE`,
+       ON CONFLICT (user_id, org_id) DO UPDATE SET is_active = TRUE`,
       [user.id, supplierOrgId]
     );
 
@@ -798,6 +811,27 @@ export async function createWorkerInvite(pool, {
   );
   if (existing.length > 0) {
     return { error: "INVITE_ALREADY_PENDING", inviteId: existing[0].id };
+  }
+
+  /*
+   * M2.1 — DERSELBE RIEGEL SCHON HIER, nicht erst beim Annehmen.
+   *
+   * `acceptInvite` lehnt eine Adresse ab, die bereits einem Konto mit anderer
+   * Rolle gehoert. Das allein genuegt nicht: ohne diese Pruefung entstuende
+   * trotzdem eine Einladung, die Mail ginge raus, und der Empfaenger erfuehre
+   * erst nach dem Setzen eines Passworts, dass es nicht geht. Eine Einladung,
+   * die nicht angenommen werden KANN, soll gar nicht erst entstehen.
+   *
+   * Der Disponent bekommt den Grund sofort — an der Stelle, an der er noch
+   * etwas daran aendern kann (andere Adresse waehlen).
+   */
+  const { rows: fremd } = await pool.query(
+    "SELECT role FROM users WHERE LOWER(email) = LOWER($1) AND role <> 'worker'",
+    [email]
+  );
+  if (fremd.length > 0) {
+    /* Dasselbe Fehlerwort wie im Import-Weg und in acceptInvite. */
+    return { error: "EMAIL_EXISTS_OTHER_ROLE", role: fremd[0].role };
   }
 
   const token = generateInviteToken();
@@ -932,25 +966,77 @@ export async function acceptInvite(pool, { token, passwordHash }) {
     return { error: "INVITE_EXPIRED" };
   }
 
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * DER RIEGEL (M2.1)
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * Vorher stand hier ein `ON CONFLICT (email) DO UPDATE SET password_hash`.
+   * Auf ein BESTEHENDES Konto wirkte das dreifach:
+   *
+   *   1. Passwort ersetzt, is_verified gesetzt
+   *   2. Mitgliedschaft in der einladenden Org auf 'worker' HERABGESTUFT
+   *   3. users.role blieb unangetastet (z. B. 'company')
+   *
+   * Aus 2 und 3 folgt der eigentliche Schaden, und er ist groesser als
+   * "Passwort weg": `rbacService` gibt ueber `role_key='worker'` keine
+   * Berechtigung mehr, und `requireWorkerRole` (routes/workerPortal.js:217)
+   * laesst die Person wegen `session.userRole !== 'worker'` auch nicht ins
+   * Portal. **Das Konto ist danach in BEIDEN Welten tot.**
+   *
+   * Kein Angriffsweg: der Einladungs-Token verlaesst den Server nur ins
+   * Postfach des Eingeladenen (drei Austrittsstellen geprueft — `listInvites`
+   * waehlt keinen Token, `resend` antwortet `{ok:true}`, `POST
+   * /worker-invites` baut ihn nur in die Mail-URL). Es braucht also den
+   * echten Adressinhaber, der annimmt — und genau der verliert dabei sein
+   * Konto.
+   *
+   * Der Import-Weg hat diesen Riegel seit jeher (siehe
+   * EMAIL_EXISTS_OTHER_ROLE weiter unten); hier fehlte er ersatzlos.
+   */
+  const { rows: bestand } = await pool.query(
+    "SELECT id, role, password_hash FROM users WHERE LOWER(email) = LOWER($1)",
+    [invite.email]
+  );
+  const vorhanden = bestand[0] || null;
+  if (vorhanden && vorhanden.role !== "worker") {
+    /* Dasselbe Fehlerwort wie im Import-Weg — zwei Namen fuer dieselbe
+     * Ablehnung waeren der Anfang der naechsten Doppelung. */
+    return { error: "EMAIL_EXISTS_OTHER_ROLE", role: vorhanden.role };
+  }
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    // User anlegen
-    const { rows: [user] } = await client.query(
-      `INSERT INTO users (role, email, password_hash, is_verified)
-       VALUES ('worker', $1, $2, TRUE)
-       ON CONFLICT (email) DO UPDATE
-         SET password_hash = EXCLUDED.password_hash, is_verified = TRUE
-       RETURNING id, email, role`,
-      [invite.email, passwordHash]
-    );
+    /*
+     * DIE ZWEITE HAELFTE DES RIEGELS, und die subtilere.
+     *
+     * Ein Arbeiter mit Konto bei Agentur A, den Agentur B einlaedt, hat
+     * `role === 'worker'` — der Riegel oben greift bei ihm NICHT. Trotzdem
+     * wurde ihm bisher das Passwort ueberschrieben. Eine Einladung ist eine
+     * Einladung, kein Zuruecksetzen: er behaelt sein Passwort und bekommt
+     * eine Mitgliedschaft dazu.
+     */
+    const { rows: [user] } = vorhanden
+      ? { rows: [{ id: vorhanden.id, email: invite.email, role: "worker" }] }
+      : await client.query(
+        `INSERT INTO users (role, email, password_hash, is_verified)
+         VALUES ('worker', $1, $2, TRUE)
+         RETURNING id, email, role`,
+        [invite.email, passwordHash]
+      );
 
-    // Org-Membership
+    /*
+     * Org-Membership: anlegen, aber eine BESTEHENDE nicht herabstufen. Wer in
+     * dieser Org schon eine hoehere Rolle hat, behaelt sie — `DO NOTHING`
+     * statt `DO UPDATE SET role_key = 'worker'`. Nur `is_active` wird
+     * gesetzt, damit eine stillgelegte Mitgliedschaft wieder greift.
+     */
     await client.query(
       `INSERT INTO org_memberships (user_id, org_id, role_key, is_active)
        VALUES ($1, $2, 'worker', TRUE)
-       ON CONFLICT (user_id, org_id) DO UPDATE SET role_key = 'worker', is_active = TRUE`,
+       ON CONFLICT (user_id, org_id) DO UPDATE SET is_active = TRUE`,
       [user.id, invite.supplier_org_id]
     );
 

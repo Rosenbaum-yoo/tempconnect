@@ -345,6 +345,9 @@ describe("createWorkerInvite", () => {
   it("creates an invite and returns a raw token not persisted in invite obj", async () => {
     const pool = sequencePool(
       { rows: [] },                                   // existing check → none
+      // M2.1: der Riegel sieht nach, ob die Adresse schon einem Konto mit
+      // ANDERER Rolle gehoert. Leer = frei. Reine Fixture-Pflege.
+      { rows: [] },                                   // fremde Rolle? → keine
       { rows: [{ id: "inv2", email: "a@b.de", status: "pending" }] } // INSERT
     );
     const out = await svc.createWorkerInvite(pool, {

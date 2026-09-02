@@ -485,7 +485,14 @@ export function createAuthRouter(deps) {
       const status = result.error === "INVITE_NOT_FOUND"  ? 404
                    : result.error === "INVITE_EXPIRED"    ? 410
                    : result.error === "INVITE_REVOKED"    ? 410
-                   : result.error === "INVITE_ALREADY_USED" ? 409 : 400;
+                   : result.error === "INVITE_ALREADY_USED" ? 409
+                   /* M2.1: 409 und nicht 400 — die Anfrage war formal richtig,
+                    * die Adresse gehoert nur schon einem anderen Konto. Der
+                    * Unterschied entscheidet, ob die Oberflaeche "Eingabe
+                    * pruefen" oder "melden Sie sich mit Ihrem Konto an" sagt. */
+                   : result.error === "EMAIL_EXISTS_OTHER_ROLE" ? 409 : 400;
+      /* Die fremde Rolle NICHT mitschicken: sie verraet einem Unbefugten, dass
+       * es zu dieser Adresse ein Firmenkonto gibt. Der Code genuegt. */
       return res.status(status).json({ error: result.error });
     }
 
