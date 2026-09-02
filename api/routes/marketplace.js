@@ -371,6 +371,16 @@ export function createMarketplaceRouter(deps) {
   const { pool, requireAuth, requireFeature, sendMail, getUserAndPlan, logger } = deps;
   const router = Router();
   const slaAccess = requireFeature("sla_access");
+  /*
+   * M1.5 — `sla_access` ist fuer JEDEN Plan wahr, DEMO eingeschlossen; als
+   * alleiniger Waechter einer Erstellen-Route sagt er nichts. Bis hierher
+   * blockierte ein DEMO-Konto erst weiter unten an
+   * `max_workers_per_request` (0) — mit 403 WORKER_LIMIT_EXCEEDED, also
+   * einer Meldung ueber die Kopfzahl, wo eine Planaussage gehoert. Die
+   * Planliste des neuen Schluessels ist aus genau diesem Limit abgeleitet:
+   * es aendert sich fuer keinen Kunden etwas ausser der Meldung.
+   */
+  const demandCreate = requireFeature("marketplace_demand_create");
 
   /* ── capacity_posts (Zeitarbeit = Supplier) ───────────────── */
 
@@ -940,7 +950,7 @@ export function createMarketplaceRouter(deps) {
     }
   });
 
-  router.post("/marketplace/demand-requests", requireAuth, slaAccess, async (req, res) => {
+  router.post("/marketplace/demand-requests", requireAuth, slaAccess, demandCreate, async (req, res) => {
     try {
       const me = await getUserAndPlan(req.session.userId);
       if (me?.role !== "company") return res.status(403).json({ error: "COMPANY_ONLY" });

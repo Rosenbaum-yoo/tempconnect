@@ -315,6 +315,7 @@ const FEATURE_CATALOG_RAW = [
   // ── CORE ──
   { feature_key: "legacy_access",            name: "Marketplace-Zugang",                 description: "Vermittlung und Vermittlungs-Listings durchsuchen.",                                  category: FEATURE_CATEGORIES.CORE,        sort_order: 100, available_as_addon: false, requires_staff_approval: false, visible_in_pricing: true,  visible_in_subscription: true,  active: true },
   { feature_key: "sla_access",               name: "SLA-Bereich",                         description: "Zugriff auf SLA-Dashboards, Suchauftraege und Pulse-Sicht.",                       category: FEATURE_CATEGORIES.CORE,        sort_order: 110, available_as_addon: false, requires_staff_approval: false, visible_in_pricing: false, visible_in_subscription: true,  active: true },
+  { feature_key: "marketplace_demand_create",  name: "Bedarf veroeffentlichen",              description: "Personalbedarf im Marktplatz ausschreiben (ab BASIS).",                        category: FEATURE_CATEGORIES.CORE,        sort_order: 115, available_as_addon: false, requires_staff_approval: false, visible_in_pricing: false, visible_in_subscription: true,  active: true },
 
   // ── STAFFING ──
   { feature_key: "worker_module",            name: "Worker-Modul",                        description: "Mitarbeiter pflegen, qualifizieren und in Einsaetze einplanen.",                  category: FEATURE_CATEGORIES.STAFFING,    sort_order: 200, available_as_addon: false, requires_staff_approval: false, visible_in_pricing: true,  visible_in_subscription: true,  active: true },
@@ -331,6 +332,12 @@ const FEATURE_CATALOG_RAW = [
 
   // ── CAPACITY ──
   { feature_key: "capacity_exchange_basic",  name: "Capacity Exchange (Basis)",             description: "Personal anbieten und durchsuchen.",                                          category: FEATURE_CATEGORIES.CAPACITY,    sort_order: 400, available_as_addon: false, requires_staff_approval: false, visible_in_pricing: false, visible_in_subscription: true,  active: true },
+  /* M1.5: Erstellen ist eine eigene Faehigkeit, nicht Teil von "Basis".
+     Ohne Katalog-Eintrag taucht sie in der Abo-Uebersicht nicht auf — der
+     Kunde saehe dann eine Paywall fuer etwas, das die Plan-Tabelle gar nicht
+     nennt. Die Planzuordnung steht in planFeatures.js und ist aus den
+     Mengen-Limits abgeleitet (siehe dort). */
+  { feature_key: "capacity_exchange_create",   name: "Kapazitaet einstellen",                description: "Eigenes Personal einstellen und veroeffentlichen (ab BASIS).",                 category: FEATURE_CATEGORIES.CAPACITY,    sort_order: 405, available_as_addon: false, requires_staff_approval: false, visible_in_pricing: false, visible_in_subscription: true,  active: true },
   { feature_key: "capacity_exchange_matching", name: "Capacity-Matching",                   description: "Automatisches Matching zwischen Personal und Arbeitsplatzangebot.",                          category: FEATURE_CATEGORIES.CAPACITY,    sort_order: 410, available_as_addon: false, requires_staff_approval: false, visible_in_pricing: false, visible_in_subscription: true,  active: true },
   { feature_key: "capacity_exchange_priority", name: "Capacity-Prioritaet",                 description: "Bevorzugte Sichtbarkeit des eigenen Personals.",                               category: FEATURE_CATEGORIES.CAPACITY,    sort_order: 420, available_as_addon: false, requires_staff_approval: false, visible_in_pricing: false, visible_in_subscription: true,  active: true },
   { feature_key: "capacity_exchange_multi",  name: "Capacity Multi-Pool",                   description: "Mehrere Pools, Sites oder Mandanten gleichzeitig.",                               category: FEATURE_CATEGORIES.CAPACITY,    sort_order: 430, available_as_addon: false, requires_staff_approval: false, visible_in_pricing: false, visible_in_subscription: true,  active: true },

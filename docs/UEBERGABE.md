@@ -381,9 +381,59 @@ Wurzel aus `/public/` bedient wird, und verlangt von ihr absolute Verweise — `
 Seite sofort bewacht. Eine Namensliste wäre in vier Wochen falsch und brächte denselben
 Fehler zurück. Rückmutation für beide Sorten (Stylesheet und Sprungziel): beide werden rot.
 
-**Als Nächstes: M1.5** — die Paywall zum ersten Mal wirksam machen. Der heutige Schlüssel
-ist für **jeden** Plan wahr, der fertige Paywall-Block kann auf ~20 Seiten also nie
-erscheinen.
+### M1.5 ist gebaut *(2026-09-02)* — die Paywall kann zum ersten Mal erscheinen
+
+20 von 23 bewachten Seiten trugen `data-sla-guard="sla_access"`, und dieser Schlüssel ist
+für **jeden** Plan wahr. `slaGuard.js` fragt `hasFeature(plan, feature)` — die Antwort war
+also immer ja, und der fertige Paywall-Block konnte nie wegen des Plans erscheinen, nur im
+Störfall (dem `.catch`-Zweig).
+
+**Zur Einordnung, damit das nicht überspitzt gelesen wird: kein Sicherheitsloch.** Beide
+Erstellen-Wege halten. Ein DEMO-Konto füllte aber das ganze Formular aus und bekam beim
+Absenden:
+
+| Fläche | Antwort für DEMO | warum |
+|---|---|---|
+| Kapazitätsbörse | `429 PLAN_LIMIT_REACHED` | `listings`-Limit ist 0 |
+| Marktplatz-Bedarf | `403 WORKER_LIMIT_EXCEEDED` | `max_workers_per_request` ist 0 |
+
+Falsch war der **Zeitpunkt** (nach der Arbeit statt davor) und die **Botschaft** (eine
+Quoten- bzw. Kopfzahl-Meldung, wo eine Planaussage gehört).
+
+**Die Planlisten sind abgeleitet, nicht erfunden.** Die beiden neuen Schlüssel
+(`capacity_exchange_create`, `marketplace_demand_create`) enthalten genau die Pläne, deren
+zugehöriges Limit in `PLAN_LIMITS` nicht null ist — also die, die es ohnehin schon dürfen.
+**M1.5 trifft damit keine neue Preisentscheidung**; der Schlüssel sagt nur vorher, was das
+Backend hinterher ohnehin entscheidet. `paywallSchluessel.test.js` rechnet beide
+Ableitungen nach und wird rot, sobald ein Limit sich ändert und die Liste nicht.
+
+> **Eine Abkürzung, die teuer gewesen wäre:** „Erstellen ist PLUS und aufwärts" liegt nahe
+> — `sla_offers_create` ist so definiert. Sie hätte einen zahlenden **BASIS**-Kunden
+> ausgesperrt, dem `PLAN_LIMITS.BASIS.listings = 5` seit jeher fünf Anzeigen zusagt. Zwei
+> Wahrheiten über dieselbe Frage; die Ableitung löst das an der Wurzel.
+
+Der Schlüssel hängt an **Seite und Route** — und in der Route **vor** dem Mengen-Limit,
+sonst käme weiterhin die Quotenmeldung. Dazu je ein Eintrag im Plan-Katalog, sonst sähe der
+Kunde eine Paywall für etwas, das die Abo-Übersicht gar nicht nennt. Rückmutation für alle
+vier Zusagen (Schlüssel wieder plan-blind, Seite zurück auf `sla_access`, Route ohne
+Schlüssel, Limit vor Schlüssel): alle vier werden rot.
+
+**Zwei Befunde, bewusst NICHT mitgebaut** — sie brauchen eine Owner-Entscheidung:
+
+* **`POST /capacities` hat null Frontend-Aufrufer.** Die Route ist mit
+  `sla_offers_create` (PLUS+) bewacht, aber niemand ruft sie; die Kapazitätsbörse schreibt
+  über `POST /capacity-exchange/entries`. Entfernen oder verdrahten? Ein bewachter Weg, den
+  niemand geht, ist dieselbe Karteileiche wie ein toter Knopf.
+* **Sechs Seiten tragen einen plan-blinden Schlüssel und haben ein Formular mit POST**
+  (`capacity_search`, `deal_management`, `sla_search_job_detail`, `supplier_scorecard`,
+  plus die zwei jetzt behobenen). Bei den vier verbliebenen ist der POST eine **Suche oder
+  Aktion**, keine Erstellung — deshalb wurde hier nichts geändert. Eine generische Regel
+  „Formular + POST ⇒ eigener Schlüssel" wäre zu laut gewesen; sie hätte vier Fehlalarme
+  erzeugt. Ob eine dieser vier Aktionen planpflichtig sein soll, ist eine Produktfrage.
+
+**Als Nächstes: M1.6** — das öffentliche Schaufenster (Zahlen und Kategorien ohne Personen,
+indexierbar). Die Grundlage existiert: `/marketplace/public/capacity-posts` entfernt
+Kontaktdaten bereits, muss aber aggregieren statt auflisten.
 
 **DER NÄCHSTE GRIFF:** M1 (die stillen Ausfälle) — alle Entscheidungen dafür
 liegen vor. Zuvor wird die Anweisung aus der Parallelsitzung abgewartet.

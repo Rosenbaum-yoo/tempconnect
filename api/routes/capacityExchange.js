@@ -107,12 +107,22 @@ export function createCapacityExchangeRouter(deps) {
 
   // Feature gates
   const ceBasic = requireFeature("capacity_exchange_basic");
+  /*
+   * M1.5 — ERSTELLEN IST NICHT BROWSEN.
+   * `capacity_exchange_basic` ist fuer JEDEN Plan wahr, DEMO eingeschlossen.
+   * Bis hierher blockierte ein DEMO-Konto erst `listingsLimitGate` — mit
+   * 429 PLAN_LIMIT_REACHED, also einer Quotenmeldung, wo eine Planaussage
+   * gehoert. Der Schluessel davor sagt dasselbe frueher und richtig; die
+   * Planliste ist aus demselben Limit abgeleitet, es aendert sich also fuer
+   * keinen Kunden etwas ausser der Meldung.
+   */
+  const ceCreate = requireFeature("capacity_exchange_create");
   const ceMatching = requireFeature("capacity_exchange_matching");
   const listingsLimitGate = requireOrgLimit("listings", { pool, logger });
 
   /* ── Supplier: Create entry ───────────────────────── */
 
-  router.post("/capacity-exchange/entries", requireAuth, requireScope("write:capacity"), ceBasic, listingsLimitGate, async (req, res) => {
+  router.post("/capacity-exchange/entries", requireAuth, requireScope("write:capacity"), ceBasic, ceCreate, listingsLimitGate, async (req, res) => {
     try {
       const me = req.user;
       if (me?.role !== "agency") return res.status(403).json({ error: "AGENCY_ONLY" });
@@ -406,7 +416,7 @@ export function createCapacityExchangeRouter(deps) {
     }
   }
 
-  router.post("/capacity-exchange/entries/:id/activate", requireAuth, requireScope("write:capacity"), ceBasic, listingsLimitGate, (req, res) => handleTransition(req, res, "active"));
+  router.post("/capacity-exchange/entries/:id/activate", requireAuth, requireScope("write:capacity"), ceBasic, ceCreate, listingsLimitGate, (req, res) => handleTransition(req, res, "active"));
   router.post("/capacity-exchange/entries/:id/pause", requireAuth, requireScope("write:capacity"), ceBasic, (req, res) => handleTransition(req, res, "paused"));
   router.post("/capacity-exchange/entries/:id/reactivate", requireAuth, requireScope("write:capacity"), ceBasic, listingsLimitGate, (req, res) => handleTransition(req, res, "active"));
   router.post("/capacity-exchange/entries/:id/fill", requireAuth, requireScope("write:capacity"), ceBasic, (req, res) => handleTransition(req, res, "filled"));
