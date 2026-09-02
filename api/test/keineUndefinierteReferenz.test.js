@@ -58,8 +58,20 @@ try {
   ESLint = null;
 }
 
-/** Die Verzeichnisse, in denen eine undefinierte Referenz einen Nutzer trifft. */
-const PRODUKTIV = ["routes", "services", "utils", "config", "middleware", "db", "jobs"];
+/**
+ * Die Verzeichnisse, in denen eine undefinierte Referenz einen Nutzer trifft.
+ *
+ * `workers` und `queue` kamen am 2026-09-01 dazu (gegengeprueft): dort laufen die
+ * BullMQ-Takte. Ein vergessener Import wirft dort KEINEN 500er beim Nutzer — der
+ * Arbeiterprozess faellt still aus, und niemand sieht eine Fehlermeldung. Das ist
+ * nicht harmloser als ein 500er, sondern schlechter zu bemerken. Gemessen waren es
+ * 7 Dateien ohne Aufsicht, mit 0 Befunden — die Luecke war real, der Schaden nicht.
+ *
+ * Vorsicht beim Erweitern: `lintFiles` WIRFT, wenn ein genanntes Verzeichnis
+ * existiert, aber vollstaendig ignoriert ist (`types` ist so ein Fall). Der
+ * `existsSync`-Filter unten schuetzt davor nicht.
+ */
+const PRODUKTIV = ["routes", "services", "utils", "config", "middleware", "db", "workers", "queue", "jobs"];
 
 describe("Keine undefinierte Referenz — der vergessene Import wird zum 500er",
   { skip: (!API && "api/ nicht gefunden") || (!ESLint && "eslint nicht installiert") }, () => {
