@@ -448,7 +448,7 @@ Bau, der ihn erzeugt hat. Er gehört in dieselbe Phase wie die Regel, die er sch
 
 ---
 
-## 8. Owner-Entscheidungen — **alle sechs beantwortet (2026-09-01)**
+## 8. Owner-Entscheidungen — **alle neun beantwortet (2026-09-01)**
 
 | Nr. | Frage | Entscheid |
 |---|---|---|
@@ -458,6 +458,9 @@ Bau, der ihn erzeugt hat. Er gehört in dieselbe Phase wie die Regel, die er sch
 | **M-E4** ✅ entschieden | Darf die Wohnort-PLZ öffentlich stehen? | **Nein — Einsatzradius statt Ort.** Wählbar 10 / 50 / 100 km. Die Kraft erscheint dadurch **als Radius-Fundstelle in jeder Suche, die ihr Gebiet trifft**, nicht nur bei ihrem Ort. Siehe 8.3 |
 | **M-E5** ✅ entschieden | Eigene Tarife je Org-Typ? | **Struktur jetzt, Werte später.** Die `org_type`-Dimension wird angelegt, mit sinnvollen Vorgabewerten, die der Owner später anpasst |
 | **M-E6** ✅ entschieden | Löst der Abschluss die Zuordnung automatisch aus? | **Automatisch, wenn eindeutig — sonst Aufgabe mit Frist.** Genau eine passende freie Kraft → zugeordnet; mehrere → Aufgabe, keine Willkür durch das System |
+| **M-E7** ✅ entschieden | Wer schließt einen Einsatz ab? | **Beide Seiten, beidseitig und gegenseitenorientiert.** Unternehmen UND Zeitarbeitsfirma können abschließen; die Handlung richtet sich an die Gegenseite und wird ihr sichtbar. Siehe 8.4 |
+| **M-E8** ✅ entschieden | Soll der Takt eingerichtet werden? | **Ja.** Herzschlag (M1.1) und Takt (M1.2) werden gebaut. Damit fallen in einem Schritt: Marktbefüllung, Fälligkeitsmarkierung, automatisches Nachrücken, Verfall von Einladungen |
+| **M-E9** ✅ entschieden | Eigene Sitzungswelt fürs Einsatzportal? | **Ja**, nach dem `/staff`-Muster (eigenes Cookie, eigener Store, eigener Pfad). Die Vorlage ist geprüft vorhanden — kein Neubau. Siehe 8.5 |
 
 ### 8.1 M-E1 — was „schaltbar" konkret heißt, und was offen bleibt
 
@@ -526,6 +529,55 @@ viele Bedarfe gefunden wie eine, die nur an ihrem Ort steht.
 
 ---
 
+
+### 8.4 M-E7 — was „beidseitig und gegenseitenorientiert“ konkret heißt
+
+**Owner am 2026-09-01:** *„ja kunde als unternehmen und zeitarbeitsfirma schliessen
+deals ab. beidseitig und gegenseitenorientiert.“*
+
+Damit ist die größte Lücke des Plans (Abschnitt 5, Rang 1) baubar. Was gilt:
+
+- **Beide Seiten dürfen abschließen.** Kein Vorrecht einer Partei, keine Freigabe
+  durch die andere.
+- **Die Handlung ist gegenseitenorientiert:** sie richtet sich an die Gegenseite und
+  wird ihr sichtbar. Der Abschluss ist keine stille Buchung, sondern eine Mitteilung
+  mit Folge.
+- **Technisch fehlt danach nur noch ein Aufrufer.** `POST /assignments/:id/complete`
+  existiert samt Org-Grenze, Zustandsautomat, Audit und Reputationsnachlauf
+  (`routes/assignments.js:147`, `assignmentService.js:246`). Die Oberfläche nennt den
+  Schritt sogar schon beim Namen — `dealProgressHelper.js:44` führt
+  `ASSIGNMENT_STARTED → „Einsatz abschließen“` als nächste Handlung, gerendert als
+  **reiner Text ohne Bedienelement**. Es fehlt ein Knopf, kein Vorgang.
+- **Was daran hängt:** Bewertung (`WHERE a.status='completed'`),
+  Lieferantenreputation, und die AÜG-Rechnung, die heute Zeiten weiterzählt, die
+  längst vorbei sind.
+
+> **Eine Kante bleibt und wird beim Bau von M8 entschieden, nicht jetzt:** was gilt,
+> wenn die Gegenseite widerspricht („so war das nicht“). Das Muster dafür existiert
+> bereits im Stundenzettel-Weg (bestätigen / ablehnen / Korrekturzustand) und wird von
+> dort übernommen, statt neu erfunden zu werden.
+
+### 8.5 M-E9 — die zweite Sitzungswelt ist eine Wiederholung, kein Neubau
+
+**Owner am 2026-09-01: ja.** Das Einsatzportal bekommt eigenes Cookie, eigenen Store
+und eigenen Pfad — so wie `/staff` es seit Langem hat.
+
+Warum das kein Umbau ins Ungewisse ist: die Vorlage steht geprüft im Baum.
+`api/app.js:255` trägt die Begründung im Kommentar, und `staffSessionSecret` ist als
+**HMAC-Ableitung** gebaut, nicht als zusammengeklebte Zeichenkette. Wer M-E9 baut,
+wendet dasselbe Muster ein zweites Mal an.
+
+**Was die Messung dazu ergab:** heute teilen Portal und Plattform Cookie (`tc.sid`),
+Store und `users`-Tabelle; getrennt sind sie allein durch `users.role`. Genau deshalb
+wiegt der Befund aus Zeile 7b so schwer — ein überschriebenes Passwort trifft dann
+beide Welten auf einmal.
+
+> **Die Migrationsfrage gehört zur Phase, nicht hierher:** bestehende
+> Arbeiter-Sitzungen laufen heute auf `tc.sid`. Ob sie ablaufen dürfen oder umgezogen
+> werden, wird beim Bau entschieden — mit einer Messung, wie viele es zum
+> Umstellungszeitpunkt überhaupt sind.
+
+---
 ## 9. Wie gegengeprüft wird
 
 Wer die Liste vorher kennt, baut anders. Das ist der Zweck.

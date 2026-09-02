@@ -209,20 +209,28 @@ aufsetzen:
   `POST /assignments/:id/complete` existiert, der einzige `/complete`-Aufruf im
   Frontend gilt Datenschutz-Anfragen. Damit ist die Bewertung strukturell tot.
 
-**M0 endet hier — mit einem Bericht, nicht mit einem Bauauftrag.** Der Plan sagt:
-*fehlt etwas wirklich, wird gefragt, nicht erfunden.* Es stehen **33 Fragen** offen,
-keine davon autonom beantwortbar. Die vier, die alles andere blockieren:
+**M0 endete mit einem Bericht, nicht mit einem Bauauftrag.** Der Plan sagt: *fehlt
+etwas wirklich, wird gefragt, nicht erfunden.* Es wurden **33 Fragen** gestellt; die
+vier blockierenden hat der Owner am 2026-09-01 beantwortet:
 
-1. **Wer schließt einen Einsatz ab?** Kunde, Zeitarbeitsfirma, oder automatisch am
-   geplanten Ende? Ohne diese Antwort ist die größte Lücke nicht baubar.
-2. **Soll der Takt eingerichtet werden?** Eine Betriebszeile aktiviert in einem
-   Schritt die Marktbefüllung, die Fälligkeitsmarkierung und das Nachrücken.
-3. **Bekommt das Einsatzportal eine eigene Sitzungswelt** nach dem `/staff`-Muster?
-   Das berührt alle bestehenden Arbeiter-Sitzungen — eine Migrationsfrage.
-4. **Welche Zahl gilt für PRO: 50 Angebote oder unbegrenzt?** Das generierte
-   Abo-Dokument sagt schriftlich „Unbegrenzt“; wirksam sind 50.
+| | Frage | Entscheid |
+|---|---|---|
+| **M-E7** ✅ entschieden | Wer schließt einen Einsatz ab? | **Beide Seiten**, beidseitig und gegenseitenorientiert |
+| **M-E8** ✅ entschieden | Takt einrichten? | **Ja** |
+| **M-E9** ✅ entschieden | Eigene Sitzungswelt fürs Portal? | **Ja**, nach dem `/staff`-Muster |
+| **M-E3** ✅ entschieden (bestätigt) | PRO-Angebotslimit? | **Unbegrenzt** — war bereits entschieden; offen ist nur, dass der CODE noch 50 sagt |
 
-**DER NÄCHSTE GRIFF:** M1 (die stillen Ausfälle) — sobald Frage 2 beantwortet ist.
+Ausführlich mit den Folgen: `M_MARKTPLATZ_FLOW.md`, Abschnitte 8.4 und 8.5.
+
+**Die übrigen 29 Fragen** stehen in Abschnitt 5 des M0-Berichts. Sie blockieren M1
+und M2 nicht.
+
+> **Stand 2026-09-01: Es wird auf Anweisungen aus der Parallelsitzung gewartet**
+> (Owner: *„auch auf die andere sitzung warten da bekommst du noch anweisungen“*).
+> M1 ist damit vorbereitet, aber nicht begonnen.
+
+**DER NÄCHSTE GRIFF:** M1 (die stillen Ausfälle) — alle Entscheidungen dafür
+liegen vor. Zuvor wird die Anweisung aus der Parallelsitzung abgewartet.
 Welle K ist durch (K0–K4).
 
 **Zwei Datenlücken, benannt statt geraten** (wie die 49 ankerlosen Einsätze aus
