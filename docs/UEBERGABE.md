@@ -336,8 +336,54 @@ werden rot.
 > `loadOperationsSnapshot`, wo er jede bestehende Muster-Pool-Sequenz um eins verschoben
 > hätte — genau davor warnt die Bemerkung über `service_health` seit Monaten.
 
-**Als Nächstes: M1.4** — die Sackgasse nach der Registrierung (relative Sprungziele, kein
-nginx-Alias für `einsatzportal`).
+### M1.4 ist gebaut *(2026-09-02)* — HTTP 200 ist die schlimmere Sackgasse
+
+`worker-login.html` ist die Seite, auf der ein eingeladener Mitarbeiter landet. Sie liegt
+unter `frontend/public/`, wird aber über einen nginx-Alias an der **Wurzel** ausgeliefert,
+damit der Link in der Einladungsmail hübsch ist. Ihre Verweise waren relativ — und an der
+Wurzel lösen die nicht nach `/public/…` auf, sondern nach `/…`, wo der Catch-all greift.
+
+Am laufenden Stapel gemessen, nicht vermutet:
+
+```
+GET /worker-login.html             200  text/html  22034 B   richtig
+GET /worker.css                    200  text/html  71681 B   Landeseite
+GET /einsatzportal-dashboard.html  200  text/html  71681 B   Landeseite
+```
+
+Beide liefern `<title>TempConnect – Personal in Stunden…</title>`. **Kein 404.** Ein 404
+wäre sichtbar; ein 200 mit der falschen Seite ist es nicht. Folge: das Stylesheet wird als
+MIME-Fehler verworfen — die Seite erschien ungestaltet —, und wer sein Passwort gesetzt
+hatte, landete auf der **Verkaufsseite** statt im Portal.
+
+Der Rest der Anwendung macht es an vier Stellen richtig (`pageShell.js`,
+`worker-portal.html` verweisen absolut auf `/public/einsatzportal-dashboard.html`). Genau
+diese eine Seite fiel heraus, **weil sie als einzige nicht unter `/public/` ausgeliefert
+wird** — die Ausnahme, die den Alias nötig macht, ist dieselbe, die den Fehler erzeugt.
+
+Nach der Umstellung auf absolute Pfade, gegen denselben Stapel gemessen:
+
+```
+GET /public/worker.css                   200  text/css   15325 B
+GET /public/einsatzportal-dashboard.html 200  text/html  41869 B
+GET /public/einsatzportal-profil.html    200  text/html  94636 B
+```
+
+> **Hinweis für die nächste Sitzung:** der Container bedient das **Haupt-Repo**
+> (`docker inspect tempconnect_frontend`: `…\frontend -> /usr/share/nginx/html`), nicht den
+> Worktree. Ein `curl` beweist hier also die Zieladressen, nicht die geänderte Datei. Die
+> Datei selbst ist per Wächter und Rückmutation belegt.
+
+**Der Wächter liest die nginx-Konfiguration, nicht eine Liste.**
+[`wurzelSeiten.test.js`](../api/test/wurzelSeiten.test.js) findet jede Seite, die an der
+Wurzel aus `/public/` bedient wird, und verlangt von ihr absolute Verweise — `href`, `src`
+**und** `location.href/replace/assign`. Kommt morgen ein zweiter Alias dazu, ist die neue
+Seite sofort bewacht. Eine Namensliste wäre in vier Wochen falsch und brächte denselben
+Fehler zurück. Rückmutation für beide Sorten (Stylesheet und Sprungziel): beide werden rot.
+
+**Als Nächstes: M1.5** — die Paywall zum ersten Mal wirksam machen. Der heutige Schlüssel
+ist für **jeden** Plan wahr, der fertige Paywall-Block kann auf ~20 Seiten also nie
+erscheinen.
 
 **DER NÄCHSTE GRIFF:** M1 (die stillen Ausfälle) — alle Entscheidungen dafür
 liegen vor. Zuvor wird die Anweisung aus der Parallelsitzung abgewartet.

@@ -6,7 +6,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TempConnect – Worker Portal Login</title>
-  <link rel="stylesheet" href="worker.css">
+  <!-- ABSOLUT, nicht relativ (M1.4). Diese Seite wird per nginx-Alias an der
+       WURZEL ausgeliefert (/worker-login.html), damit der Link in der
+       Einladungsmail huebsch ist. Ein relatives "worker.css" laedt dort
+       /worker.css — das gibt es nicht, der Catch-all liefert die Landeseite
+       mit 200 und text/html, und der Browser verwirft sie als Stylesheet.
+       Gemessen am 2026-09-02: 200, text/html, 71681 B. Die Seite, auf der
+       ein eingeladener Mitarbeiter landet, war ungestaltet. -->
+  <link rel="stylesheet" href="/public/worker.css">
   <style>
     /* Editorial — Worker-Login an die Markenfarben angleichen. Nur Login-Scope (.wk-auth-page):
        --wk-primary lokal auf Forest umdefiniert -> Logo/Button/Focus folgen automatisch; restliches
@@ -365,7 +372,13 @@ async function acceptInvite() {
     // Fortschrittsbanner eine Begruessung mit dem ersten offenen Schritt.
     // Der normale Login unten fuehrt weiterhin aufs Dashboard — eine Bestandskraft will
     // ihre Einsaetze sehen, nicht ihr Profil.
-    setTimeout(() => location.href = 'einsatzportal-profil.html?willkommen=1', 1500);
+    // ABSOLUT (M1.4): relativ landet der Sprung auf /einsatzportal-profil.html,
+    // und dort liefert der Catch-all die MARKETING-LANDESEITE mit HTTP 200.
+    // Kein 404, also lautlos falsch: wer gerade sein Passwort gesetzt hat,
+    // sieht die Verkaufsseite. Der Rest der Anwendung macht es an vier
+    // Stellen richtig (pageShell.js, worker-portal.html) — nur diese Seite
+    // fiel heraus, weil sie als einzige nicht unter /public/ ausgeliefert wird.
+    setTimeout(() => location.href = '/public/einsatzportal-profil.html?willkommen=1', 1500);
   } catch (e) {
     errEl.textContent = e.message === 'INVITE_ALREADY_USED'
       ? t('wk.invite.errUsed')
@@ -403,7 +416,7 @@ async function doLogin() {
       return;
     }
     await persistLocale(csrf);
-    location.href = 'einsatzportal-dashboard.html';
+    location.href = '/public/einsatzportal-dashboard.html';   // absolut, siehe oben (M1.4)
   } catch (e) {
     errEl.textContent = e.message === 'INVALID_CREDENTIALS'
       ? t('wk.login.errCreds')
