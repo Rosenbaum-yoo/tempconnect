@@ -610,6 +610,10 @@ TCi18n.register('de', {
   'mit.ok.allAlreadyInvited': 'Alle Mitarbeiter sind bereits registriert oder eingeladen.',
   'mit.ok.bulkInvited': '{count} eingeladen',
   'mit.ok.bulkMailErrors': '{count} Mail-Fehler',
+  /* M1.3: ueber die Warteschlange ist die Mail EINGEREIHT, nicht zugestellt.
+     Der Unterschied gehoert in die Meldung — sonst liest der Disponent
+     wieder eine Zustellung, die noch gar nicht stattgefunden hat. */
+  'mit.ok.bulkQueued': 'Versand laeuft im Hintergrund ({count} eingereiht)',
   'mit.ok.bulkSkipped': '{count} übersprungen',
   'mit.confirm.inviteImported': '{count} importierte Mitarbeiter jetzt ins Einsatzportal einladen? Bereits Eingeladene/Registrierte werden übersprungen.',
   'mit.confirm.inviteUnregistered': '{count} noch nicht registrierte Mitarbeiter einladen? Bereits Registrierte werden übersprungen.',
@@ -1230,6 +1234,7 @@ TCi18n.register('en', {
   'mit.ok.allAlreadyInvited': 'All workers are already registered or invited.',
   'mit.ok.bulkInvited': '{count} invited',
   'mit.ok.bulkMailErrors': '{count} mail errors',
+  'mit.ok.bulkQueued': 'Sending in the background ({count} queued)',
   'mit.ok.bulkSkipped': '{count} skipped',
   'mit.confirm.inviteImported': 'Invite {count} imported workers to the worker portal now? Anyone already invited or registered is skipped.',
   'mit.confirm.inviteUnregistered': 'Invite {count} workers who are not registered yet? Anyone already registered is skipped.',
@@ -2482,6 +2487,7 @@ function csvInviteImported(createdCount) {
   if (!window.confirm(TCi18n.t("mit.confirm.inviteImported", { count: createdCount }))) return;
   api("/worker-invites/bulk", { method: "POST", body: {} }).then(function(r) {
     toast(TCi18n.t("mit.ok.bulkInvited", { count: r.invited_count || 0 }) +
+      (r.queued_count ? " · " + TCi18n.t("mit.ok.bulkQueued", { count: r.queued_count }) : "") +
       (r.failed_count ? " · " + TCi18n.t("mit.ok.bulkMailErrors", { count: r.failed_count }) : "") + ".");
     showTab("invites");
     loadWorkers();
@@ -2498,6 +2504,7 @@ function inviteAllUnregistered() {
   if (!window.confirm(TCi18n.t("mit.confirm.inviteUnregistered", { count: count }))) return;
   api("/worker-invites/bulk", { method: "POST", body: {} }).then(function(r) {
     toast(TCi18n.t("mit.ok.bulkInvited", { count: r.invited_count || 0 }) +
+      (r.queued_count ? " · " + TCi18n.t("mit.ok.bulkQueued", { count: r.queued_count }) : "") +
       (r.failed_count ? " · " + TCi18n.t("mit.ok.bulkSkipped", { count: r.failed_count }) : "") + ".");
     loadWorkers();
     loadInvites();

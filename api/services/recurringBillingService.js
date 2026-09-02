@@ -795,7 +795,7 @@ export async function runDunningSweep(pool, opts = {}) {
         downloadUrl
       });
 
-      const sent = await sendMail(email, subject, html);
+      const sent = await sendMail(email, subject, html, { zweck: "zahlungserinnerung" });
       if (!sent) { failed.push({ id: inv.id, error: "MAIL_NOT_SENT" }); continue; }
 
       // Stufe erst NACH erfolgreichem Versand markieren.

@@ -1,10 +1,14 @@
 /**
- * Die Betriebstakt-Kachel im Staff Control Center (M1.1, Erreichbarkeit).
+ * Die Kacheln der Operations-Sicht im Staff CC (M1.1 + M1.3, Erreichbarkeit).
+ *
+ * Zwei Kacheln, eine Frage: laeuft das noch, und kommt es an? Beide sitzen
+ * unter Operations statt in eigenen Modulen — es ist dieselbe Sorge, und zwei
+ * Anlaufstellen dafuer waeren eine zu viel.
  *
  * WARUM DIESE DATEI GETRENNT LIEGT
- * `betriebsTakt.test.js` prueft den Dienst und laeuft deshalb auch im Abbild
- * mit. Diese Datei liest `frontend/src/staff` — und das liegt nicht im
- * Container. Sie benutzt darum bewusst das REPO_ROOT-Idiom, an dem
+ * `betriebsTakt.test.js` und `mailEhrlich.test.js` pruefen die Dienste und
+ * laufen deshalb auch im Abbild mit. Diese Datei liest `frontend/src/staff` —
+ * und das liegt nicht im Container. Sie benutzt darum bewusst das REPO_ROOT-Idiom, an dem
  * `api/scripts/lib/abbildSuite.mjs` sie als "nur Host" erkennt. Zusammen in
  * einer Datei waere entweder der Dienst aus dem Abbild-Lauf gefallen oder die
  * Oberflaechen-Probe dort rot geworden.
@@ -130,5 +134,49 @@ suite("M1.1 · die Kachel haengt wirklich im Operations-Modul", () => {
     const b = divBereich(text, '<div className="scc-section__header">');
     assert.equal(b, '<div className="scc-section__header"><div>a</div></div>');
     assert.ok(!b.includes(">b<"), "der Sucher hat zu weit gegriffen");
+  });
+});
+
+suite("M1.3 · die Versandprotokoll-Kachel haengt daneben, nicht darin", () => {
+  it("der Datentyp kennt das Feld", () => {
+    const s = quelle();
+    assert.match(s, /interface OperationsData \{[\s\S]*?mail_versand\?:\s*MailVersand/,
+      "mail_versand fehlt in OperationsData");
+  });
+
+  it("das Feld wird gelesen und gereicht", () => {
+    const s = quelle();
+    assert.match(s, /const mail\s*=\s*data\?\.mail_versand/);
+    assert.match(s, /<MailVersandKachel\s+mail=\{mail\}\s*\/>/);
+  });
+
+  it("NICHT LESBAR ist ein Befund, keine Entwarnung", () => {
+    const s = quelle();
+    const i = s.indexOf("function MailVersandKachel");
+    assert.ok(i > 0, "die Kachel gibt es nicht");
+    const leerfall = s.slice(i, i + 1000);
+    assert.match(leerfall, /if \(!mail \|\| !mail\.verfuegbar\)/,
+      "ein nicht lesbares Protokoll muss anders aussehen als ein leeres");
+    assert.match(leerfall, /scc-error-inline/);
+  });
+
+  it("beide Kacheln stehen NEBEN dem Kopfbereich, nicht darin", () => {
+    const s = quelle();
+    const kopf = divBereich(s, '<div className="scc-section__header">');
+    assert.ok(kopf, "der Kopfbereich wurde nicht gefunden — Anker veraltet");
+    assert.ok(!kopf.includes("MailVersandKachel"), "die Mail-Kachel haengt IM Kopfbereich");
+    assert.ok(!kopf.includes("BetriebsTaktKachel"), "die Takt-Kachel haengt IM Kopfbereich");
+  });
+
+  it("OHNE VERSANDWEG bekommt den schaerfsten Ton", () => {
+    /* Ein Versand, der mangels Transport nie stattfand, ist ein
+     * Konfigurationsfehler — und damit schwerer als ein abgelehnter Server.
+     * Faerbt die Kachel ihn milder, wiederholt sie den Fehler leise. */
+    const s = quelle();
+    const i = s.indexOf("function MailVersandKachel");
+    const kachel = s.slice(i, s.indexOf("export default function Operations"));
+    assert.match(kachel, /x\.ohne_versandweg > 0 \? "critical"/,
+      "'ohne Versandweg' muss der lauteste Zustand sein");
+    assert.match(kachel, /scc-card--danger/, "und die Kennzahl ebenso");
   });
 });

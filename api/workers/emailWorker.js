@@ -16,9 +16,13 @@ export function startEmailWorker() {
   if (!conn) return null;
 
   const worker = new Worker("email", async (job) => {
-    const { to, subject, html, text, templateName } = job.data;
-    logger.info({ jobId: job.id, to, subject, templateName }, "Processing email job");
-    await emailService.sendMail({ to, subject, html, text });
+    const { to, subject, html, text, templateName, zweck } = job.data;
+    logger.info({ jobId: job.id, to, subject, templateName, zweck }, "Processing email job");
+    /* `zweck` durchreichen (M1.3): sonst landet jede Mail aus der
+     * Warteschlange im Sammelposten "unbenannt", und das Versandprotokoll
+     * koennte gerade fuer die Masseneinladung nichts aussagen — den Fall,
+     * fuer den es gebaut wurde. */
+    await emailService.sendMail({ to, subject, html, text, zweck });
   }, {
     connection: conn,
     concurrency: 5,

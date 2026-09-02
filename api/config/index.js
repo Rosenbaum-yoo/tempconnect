@@ -5,6 +5,10 @@
 import dotenv from "dotenv";
 import pino from "pino";
 import { describeBilling } from "../services/billingProviderService.js";
+/* M1.3 — die Startpruefung fuer den Mailweg. Sie steht in
+ * `emailProviderService.js`, weil DIESE Datei sonst im Ring haengt: der
+ * Protokoll-Dienst braucht `logger` von hier. */
+import { startPruefung as mailStartPruefung } from "../services/emailProviderService.js";
 
 dotenv.config();
 
@@ -291,10 +295,27 @@ export function runProductionValidation() {
     fatal("In Produktion muss DATABASE_URL oder (DB_HOST + POSTGRES_PASSWORD) gesetzt sein");
   }
 
-  // SMTP: Warnung wenn kein SMTP_HOST gesetzt (E-Mails werden nicht gesendet)
-  if (!process.env.SMTP_HOST) {
-    logger.warn("SMTP_HOST nicht gesetzt – E-Mails werden in Produktion NICHT gesendet!");
-  }
+  /*
+   * ═════════════════════════════════════════════════════════════════════════
+   * E-MAIL: FEHLERSTART STATT WARNUNG (M1.3, 2026-09-02)
+   * ═════════════════════════════════════════════════════════════════════════
+   * Hier stand eine Warnung: "SMTP_HOST nicht gesetzt – E-Mails werden in
+   * Produktion NICHT gesendet!". Jede andere Pflichtangabe in dieser Funktion
+   * beendet den Prozess; ausgerechnet der Mailweg durfte fehlen.
+   *
+   * Die Warnung war folgenlos, und danach meldeten BEIDE Versandwege Erfolg:
+   * `app.js` gab `true` zurueck, `emailService.js` lieferte `accepted: [to]`.
+   * Eine Einladung an einen echten Kunden bestaetigte die Zustellung, ohne
+   * dass je etwas das Haus verliess. Eine Zeile im Log am Starttag faengt das
+   * nicht auf.
+   *
+   * Geprueft wird der WEG, nicht die Variable: SendGrid ist genauso gueltig
+   * wie SMTP. Und wer bewusst ohne Mail betreiben will, setzt
+   * EMAIL_PROVIDER=disabled — dann startet der Prozess, und jeder einzelne
+   * Versand scheitert laut. Das ist ehrlich; still Erfolg melden ist es nicht.
+   */
+  const mailFehler = mailStartPruefung(config, { produktion: true });
+  if (mailFehler) fatal(mailFehler);
 
   // Stripe: wenn PAYMENT_MODE != demo, muessen Stripe-Keys gesetzt sein
   const paymentMode = (process.env.PAYMENT_MODE || "demo").toLowerCase();

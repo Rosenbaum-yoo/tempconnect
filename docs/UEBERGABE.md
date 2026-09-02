@@ -273,9 +273,71 @@ Belegt durch `betriebsTakt.test.js` (32), `betriebsTaktKachel.test.js` (6) und
 in den Kopfbereich zurückschieben, die tote Klasse wieder einsetzen. Alle drei werden
 rot.
 
-**Als Nächstes: M1.3** — `sendMail` liefert ohne Transport ein erfolgreich aussehendes
-Ergebnis zurück (`emailService.js:84`, `accepted: [to]`). Eine nie zugestellte Einladung
-meldet Zustellung.
+### M1.3 ist gebaut *(2026-09-02)* — drei ineinandergreifende stille Ausfälle
+
+Gemessen, nicht vermutet:
+
+1. `app.js`s `sendMail` endete ohne Transport mit `return true`.
+2. `emailService.sendMail` gab `{ accepted: [to], rejected: [] }` zurück — von einem
+   echten Versand nicht zu unterscheiden.
+3. **Der schlimmste:** die Masseneinladung umschloss den Versand mit `try/catch` und
+   führte eine Liste `failed`. Nur **wirft `sendMail` nie** — es fängt selbst und gibt
+   `false` zurück. Der `catch` war toter Code, `failed` blieb **immer leer**, und der
+   Disponent las „alle eingeladen", auch wenn keine einzige Mail hinausging.
+
+Von 42 Aufrufern prüfen 6 die Rückgabe. Der schlimmste Fall war damit nicht „eine Mail
+geht verloren", sondern „hundert Einladungen melden Zustellung, und niemand erfährt es".
+
+**Die Antwort hat zwei Hälften, und sie greifen ineinander:**
+
+* **Der Riegel** (`versandwegPflicht` in `emailProviderService.js`): in Produktion ohne
+  Versandweg wird hart abgelehnt (503, `MAIL_NO_TRANSPORT`) statt still Erfolg zu
+  melden. In Entwicklung bleibt es beim Loggen — Mailpit ist dort der Normalzustand.
+  Dazu die Startprüfung: **`runProductionValidation` beendet den Prozess**, wie bei
+  jeder anderen Pflichtangabe. Vorher stand dort eine Warnung, und die war folgenlos.
+  Wer bewusst ohne Mail betreiben will, setzt `EMAIL_PROVIDER=disabled` — eine
+  Entscheidung, kein Versehen.
+* **Die Sicht** (`mail_versand`, Migration 213): jeder Versuch zählt je Zweck und
+  Kalendertag. Damit bleibt auch der Fehlschlag sichtbar, den einer der 36 ungeprüften
+  Aufrufer ignoriert.
+
+Drei Entscheidungen daran, die beim Nachbauen zählen:
+
+* **Aggregiert, nicht eine Zeile je Mail.** Eine Zeile je Mail wächst unbegrenzt **und**
+  trägt die Empfängeradresse — also eine Löschpflicht. Die Tabelle trägt weder Adresse
+  noch Betreff. Gefragt wird ohnehin nicht „ging Mail 4711 raus?", sondern „kommen
+  Einladungen überhaupt an?".
+* **`ohne_versandweg` zählt getrennt von `fehlgeschlagen`.** Das erste ist ein
+  Konfigurationsfehler, das zweite ein Betriebsvorfall. Sie brauchen verschiedene
+  Antworten, also stehen sie in verschiedenen Spalten.
+* **Der Stand geht von der ERWARTUNG aus**, wie beim Betriebstakt: ein Zweck ohne jede
+  Zeile erscheint trotzdem und fällt auf. Wer Zeilen zählt, zählt ihn nicht.
+
+**Die Masseneinladung** reicht den Versand jetzt in **einem** `addBulk` an die vorhandene
+`email`-Queue — 200 Einladungen waren vorher 200 SMTP-Gespräche in der Anfrage. Fällt
+Redis aus, wird direkt gesendet statt still nichts zu tun. Die Antwort trennt
+`queued_count` von `invited_count`: über die Warteschlange ist die Mail **eingereiht**,
+nicht zugestellt, und das steht auch so in der Meldung an den Disponenten.
+
+**Die Kachel** steht neben dem Betriebstakt unter Operations. Beide beantworten dieselbe
+Sorge, und zwei Anlaufstellen dafür wären eine zu viel.
+
+Belegt durch `mailEhrlich.test.js` (37) und `operationsKacheln.test.js` (11, aus
+`betriebsTaktKachel.test.js` hervorgegangen). **Rückmutation für fünf Struktur-Proben** —
+Riegel ausbauen, Rückgabeprüfung entfernen, Fehlerstart zur Warnung machen, den Stand
+aus der Tabelle statt der Erwartung bilden, den Zweck nicht durchreichen: alle fünf
+werden rot.
+
+> **Zwei Fallen, beide schon einmal teuer gewesen und hier wieder aufgetreten:**
+> die Migrations-Probe schlug erst an der eigenen `--`-Begründung an, dann am Wort
+> „Empfängeradresse" in einem `COMMENT ON`-Text — also in echtem SQL, das kein
+> Kommentar-Strippen entfernt. Wer die Datei liest, prüft Prosa. Jetzt wird die
+> **Spaltenliste** gelesen. Und der Betriebstakt landete zuerst ganz oben in
+> `loadOperationsSnapshot`, wo er jede bestehende Muster-Pool-Sequenz um eins verschoben
+> hätte — genau davor warnt die Bemerkung über `service_health` seit Monaten.
+
+**Als Nächstes: M1.4** — die Sackgasse nach der Registrierung (relative Sprungziele, kein
+nginx-Alias für `einsatzportal`).
 
 **DER NÄCHSTE GRIFF:** M1 (die stillen Ausfälle) — alle Entscheidungen dafür
 liegen vor. Zuvor wird die Anweisung aus der Parallelsitzung abgewartet.

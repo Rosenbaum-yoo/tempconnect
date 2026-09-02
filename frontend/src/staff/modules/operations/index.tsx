@@ -67,6 +67,7 @@ interface ServiceHealth {
 }
 
 interface OperationsData {
+  mail_versand?: MailVersand | null;
   betriebs_takt?: BetriebsTakt | null;
   generated_at?:   string;
   infra_health:    InfraSnapshot[];
@@ -380,6 +381,144 @@ function BetriebsTaktKachel({ takt }: { takt: BetriebsTakt | null }) {
   );
 }
 
+/* ── M1.3 · Das Versandprotokoll ──────────────────────────────────────────
+   Dieselbe Frage wie beim Betriebstakt, nur fuer Mails: was SCHWEIGT?
+
+   Ein Zweck, zu dem in sieben Tagen kein einziger Versuch lief, hat in der
+   Tabelle keine Zeile — er faellt aus jeder Abfrage heraus. Deshalb kommt die
+   Liste der erwarteten Zwecke aus dem Code (ZWECKE_ERWARTET), und der Dienst
+   fuellt sie auf. "stumm" ist der Befund, "keine Zeile" waere es nicht.
+
+   Und "ohne Versandweg" zaehlt getrennt von "fehlgeschlagen": das erste ist
+   ein Konfigurationsfehler, das zweite ein Betriebsvorfall. Sie brauchen
+   verschiedene Antworten, also stehen sie in verschiedenen Spalten. */
+
+type MailZweck = {
+  zweck: string;
+  erwartet: boolean;
+  versucht: number;
+  zugestellt: number;
+  fehlgeschlagen: number;
+  ohne_versandweg: number;
+  stumm: boolean;
+  letzte_um: string | null;
+  letzter_weg: string | null;
+  letzter_fehler: string | null;
+  auffaellig: boolean;
+};
+
+type MailVersand = {
+  verfuegbar: boolean;
+  fenster_tage: number;
+  zwecke: MailZweck[];
+  zusammenfassung: {
+    zwecke: number; versucht: number; zugestellt: number;
+    fehlgeschlagen: number; ohne_versandweg: number; stumm: number;
+  };
+};
+
+function MailVersandKachel({ mail }: { mail: MailVersand | null }) {
+  if (!mail || !mail.verfuegbar) {
+    /* Nicht lesbar ist ein Befund, keine Entwarnung — dieselbe Regel wie
+       beim Betriebstakt. Ein leeres Feld sieht aus wie "alles in Ordnung". */
+    return (
+      <>
+        <div className="scc-section__header" style={{ marginTop: 0 }}>
+          <h2 className="scc-section__title" style={{ fontSize: 14 }}>Mailversand</h2>
+        </div>
+        <div className="scc-error-inline" style={{ marginBottom: 28 }}>
+          Das Versandprotokoll konnte nicht gelesen werden. Solange es fehlt, ist
+          unbekannt, ob Einladungen und Zahlungserinnerungen ankommen.
+        </div>
+      </>
+    );
+  }
+
+  const z = mail.zusammenfassung;
+  const auffaellig = mail.zwecke.filter((x) => x.auffaellig);
+
+  return (
+    <>
+      <div className="scc-section__header" style={{ marginTop: 0 }}>
+        <h2 className="scc-section__title" style={{ fontSize: 14 }}>Mailversand</h2>
+        <span className="scc-muted" style={{ fontSize: 12 }}>
+          {z.zwecke} Zwecke · letzte {mail.fenster_tage} Tage
+        </span>
+      </div>
+
+      <div className="scc-grid" style={{ marginBottom: 16 }}>
+        <div className={`scc-card${z.zugestellt > 0 ? " scc-card--ok" : ""}`}>
+          <div className="scc-card__eyebrow">Zugestellt</div>
+          <div className="scc-card__value">{z.zugestellt}</div>
+          <div className="scc-card__hint">von {z.versucht} Versuchen</div>
+        </div>
+        <div className={`scc-card${z.fehlgeschlagen > 0 ? " scc-card--warn" : ""}`}>
+          <div className="scc-card__eyebrow">Fehlgeschlagen</div>
+          <div className="scc-card__value">{z.fehlgeschlagen}</div>
+        </div>
+        <div className={`scc-card${z.ohne_versandweg > 0 ? " scc-card--danger" : ""}`}>
+          <div className="scc-card__eyebrow">Ohne Versandweg</div>
+          <div className="scc-card__value">{z.ohne_versandweg}</div>
+          <div className="scc-card__hint">
+            {z.ohne_versandweg > 0
+              ? "nie versucht — kein Transport konfiguriert"
+              : "jeder Versuch hatte einen Weg"}
+          </div>
+        </div>
+        <div className={`scc-card${z.stumm > 0 ? " scc-card--warn" : ""}`}>
+          <div className="scc-card__eyebrow">Stumme Zwecke</div>
+          <div className="scc-card__value">{z.stumm}</div>
+          <div className="scc-card__hint">erwartet, aber kein Versuch</div>
+        </div>
+      </div>
+
+      {auffaellig.length === 0 ? (
+        <div className="scc-empty-state" style={{ marginBottom: 28 }}>
+          <div className="scc-empty-state__icon">○</div>
+          <div className="scc-empty-state__text">
+            Alle erwarteten Zwecke haben in den letzten {mail.fenster_tage} Tagen
+            zugestellt.
+          </div>
+        </div>
+      ) : (
+        <table className="scc-table" style={{ marginBottom: 28 }}>
+          <thead>
+            <tr>
+              <th>Zweck</th><th>Befund</th><th>Zugestellt</th>
+              <th>Ohne Weg</th><th>Letzter Fehler</th>
+            </tr>
+          </thead>
+          <tbody>
+            {auffaellig.map((x) => (
+              <tr key={x.zweck}>
+                <td>
+                  <strong>{x.zweck}</strong>
+                  {x.letzter_weg ? (
+                    <div className="scc-muted" style={{ fontSize: 11 }}>zuletzt via {x.letzter_weg}</div>
+                  ) : null}
+                </td>
+                <td>
+                  <span className={`scc-status scc-status--${
+                    x.ohne_versandweg > 0 ? "critical"
+                      : x.stumm ? "warn"
+                        : x.fehlgeschlagen > 0 ? "error" : "ok"}`}>
+                    {x.ohne_versandweg > 0 ? "ohne Versandweg"
+                      : x.stumm ? "kein Versuch"
+                        : `${x.fehlgeschlagen} fehlgeschlagen`}
+                  </span>
+                </td>
+                <td>{x.zugestellt} / {x.versucht}</td>
+                <td>{x.ohne_versandweg}</td>
+                <td className="scc-muted">{x.letzter_fehler || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </>
+  );
+}
+
 export default function Operations() {
   const { data, loading, error, reload } = useSccQuery<OperationsData>("/operations");
 
@@ -392,6 +531,7 @@ export default function Operations() {
   );
 
   const takt   = data?.betriebs_takt ?? null;
+  const mail   = data?.mail_versand ?? null;
   const infra  = data?.infra_health ?? [];
   const runs   = data?.recent_runs  ?? [];
   const health = data?.service_health ?? null;
@@ -423,6 +563,8 @@ export default function Operations() {
       </div>
 
       <BetriebsTaktKachel takt={takt} />
+
+      <MailVersandKachel mail={mail} />
 
       {/* ── Live-Service-Health (Phase I Slice 2) ───────────── */}
       {health && (

@@ -7,8 +7,14 @@
 import nodemailer from "nodemailer";
 import { config } from "../config/index.js";
 import { createServiceLogger } from "../utils/logger.js";
-import { resolveEmailProvider, describeEmail, EMAIL_PROVIDERS } from "./emailProviderService.js";
+import { resolveEmailProvider, describeEmail, EMAIL_PROVIDERS, versandwegPflicht } from "./emailProviderService.js";
 import { mitRahmen } from "./emailHtmlTemplates.js";
+/* M1.3 — Riegel und Protokoll. Der Pool wird hier direkt geholt statt
+ * durchgereicht: `sendMail` hat 42 Aufrufer, und ein neuer Pflichtparameter
+ * an allen 42 waere ein grosser Diff fuer eine Beobachtung, die ohnehin nie
+ * wirft. `mailNotieren` vertraegt einen Pool ohne Datenbank. */
+import { pool } from "../db/pool.js";
+import { mailNotieren, KeinVersandweg } from "./mailProtokollService.js";
 
 const logger = createServiceLogger("emailService");
 
@@ -79,14 +85,38 @@ export function describe() {
  * @param {string} [opts.from] - Absender (default: SMTP_FROM)
  * @returns {Promise<Object>} Nodemailer-Info oder Log-Dummy
  */
-export async function sendMail({ to, subject, html, text, from } = {}) {
+export async function sendMail({ to, subject, html, text, from, zweck } = {}) {
   const fromAddr = from || config.SMTP_FROM;
   const transporter = getTransporter();
 
-  if (!transporter) {
-    // Dev-Modus: nur loggen
-    logger.info({ to, subject, from: fromAddr }, "E-Mail (Dev-Modus, nicht gesendet)");
-    return { messageId: `dev-${Date.now()}`, accepted: [to], rejected: [] };
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * DER RIEGEL (M1.3)
+   * ═══════════════════════════════════════════════════════════════════════
+   * Vorher gab dieser Zweig ohne Transport ein erfolgreich AUSSEHENDES
+   * Ergebnis zurueck: `{ messageId: "dev-…", accepted: [to], rejected: [] }`.
+   * Wer die Antwort prueft — und der BullMQ-Email-Arbeiter tut das ueber den
+   * Wurf —, konnte den Nichtversand nicht von einem Versand unterscheiden.
+   *
+   * Die Entscheidung kommt aus `versandwegPflicht`, also aus derselben
+   * Funktion wie im Weg ueber `app.js`. Zwei Mechaniken fuer dieselbe Zusage
+   * waeren genau der Zustand, den M1.3 abschafft.
+   */
+  const pflicht = versandwegPflicht(config);
+  if (!transporter || !pflicht.senden) {
+    await mailNotieren(pool, {
+      zweck, ergebnis: "ohne_versandweg", weg: pflicht.weg, fehler: pflicht.grund
+    });
+    if (pflicht.hart) {
+      logger.error({ zweck, weg: pflicht.weg }, "E-Mail ohne Versandweg abgelehnt");
+      throw new KeinVersandweg(pflicht.grund);
+    }
+    logger.info({ to, subject, from: fromAddr, zweck, weg: pflicht.weg },
+      "E-Mail nicht gesendet (kein Versandweg, Entwicklung)");
+    /* `accepted` bleibt LEER — auch in Entwicklung. Wer die Antwort liest,
+     * soll den Unterschied sehen koennen; der Dev-Modus ist kein Grund,
+     * dieselbe Luege leiser zu erzaehlen. */
+    return { messageId: `ohne-versandweg-${Date.now()}`, accepted: [], rejected: [to], zugestellt: false };
   }
 
   /*
@@ -104,15 +134,25 @@ export async function sendMail({ to, subject, html, text, from } = {}) {
    * NUR wenn es HTML gibt — eine reine Textmail in einen HTML-Rahmen zu packen
    * ergaebe ein leeres Dokument mit Fuss und ohne Inhalt.
    */
-  const info = await transporter.sendMail({
-    from: fromAddr,
-    to,
-    subject,
-    html: html ? mitRahmen(html, subject) : undefined,
-    text: text || undefined,
-  });
+  let info;
+  try {
+    info = await transporter.sendMail({
+      from: fromAddr,
+      to,
+      subject,
+      html: html ? mitRahmen(html, subject) : undefined,
+      text: text || undefined,
+    });
+  } catch (e) {
+    /* Der Wurf bleibt — der BullMQ-Arbeiter braucht ihn fuer seinen
+     * Wiederholungsversuch. Neu ist nur, dass der Fehlschlag auch dann
+     * sichtbar wird, wenn ihn oben niemand faengt. */
+    await mailNotieren(pool, { zweck, ergebnis: "fehlgeschlagen", weg: pflicht.weg, fehler: e?.message });
+    throw e;
+  }
 
-  logger.info({ messageId: info.messageId, to, subject }, "E-Mail gesendet");
+  await mailNotieren(pool, { zweck, ergebnis: "zugestellt", weg: pflicht.weg });
+  logger.info({ messageId: info.messageId, to, subject, zweck }, "E-Mail gesendet");
   return info;
 }
 

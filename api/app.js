@@ -14,6 +14,14 @@ import cors from "cors";
 import helmet from "helmet";
 import { createTransport } from "nodemailer";
 import { mitRahmen } from "./services/emailHtmlTemplates.js";
+/* M1.3 — der Riegel gegen den stillen Versand und das Protokoll je Zweck.
+ * Beide Mailwege benutzen dieselbe Entscheidung: zwei Mechaniken fuer
+ * dieselbe Zusage waeren genau der Zustand, den M1.3 abschafft. */
+import { versandwegPflicht } from "./services/emailProviderService.js";
+import {
+  mailNotieren, KeinVersandweg, ZWECK_UNBENANNT
+} from "./services/mailProtokollService.js";
+import { sendMail as emailServiceSendMail } from "./services/emailService.js";
 import Stripe from "stripe";
 import { config, logger, runProductionValidation } from "./config/index.js";
 import { captureException, setupSentryErrorHandler, sentryContextMiddleware } from "./utils/monitoring.js";
@@ -127,12 +135,48 @@ export async function createApp() {
     if (SMTP_USER && SMTP_PASS) transportConfig.auth = { user: SMTP_USER, pass: SMTP_PASS };
     mailTransport = createTransport(transportConfig);
   }
-  async function sendMail(to, subject, html) {
+  /**
+   * @param {string} to
+   * @param {string} subject
+   * @param {string} html
+   * @param {{zweck?: string}} [opts] Wofuer die Mail geht — landet im
+   *   Versandprotokoll (M1.3). Ohne Angabe zaehlt sie unter "unbenannt", und
+   *   das ist im Staff CC sichtbar, nicht still.
+   */
+  async function sendMail(to, subject, html, opts = {}) {
+    const zweck = opts?.zweck || ZWECK_UNBENANNT;
+
     // Demo-Mail-Adressen unterdrücken (kein Versand an Demo-Accounts)
     if (to && (/^demo[-.].*@tempconnect\.de$/i.test(to) || /@demo\.tempconnect\.de$/i.test(to))) {
       logger.debug({ to, subject }, "Demo-Mail unterdrückt");
+      /* Bewusst NICHT protokolliert: eine unterdrueckte Demo-Mail ist kein
+       * Versandversuch. Sie als "zugestellt" zu zaehlen waere dieselbe Luege
+       * in klein — und als "fehlgeschlagen" ein Fehlalarm. */
       return true;
     }
+
+    /*
+     * ═════════════════════════════════════════════════════════════════════
+     * DER RIEGEL (M1.3)
+     * ═════════════════════════════════════════════════════════════════════
+     * Vorher endete diese Funktion ohne Transport mit `return true`. Eine
+     * Einladung meldete damit Zustellung, ohne dass je etwas das Haus
+     * verliess — und 36 von 42 Aufrufern pruefen die Rueckgabe gar nicht.
+     *
+     * In Produktion wird das jetzt hart abgelehnt. In Entwicklung bleibt es
+     * beim Loggen: Mailpit und `console` sind dort der Normalzustand.
+     */
+    const pflicht = versandwegPflicht(config);
+    if (!pflicht.senden) {
+      await mailNotieren(pool, { zweck, ergebnis: "ohne_versandweg", weg: pflicht.weg, fehler: pflicht.grund });
+      if (pflicht.hart) {
+        logger.error({ zweck, weg: pflicht.weg }, "E-Mail ohne Versandweg abgelehnt");
+        throw new KeinVersandweg(pflicht.grund);
+      }
+      logger.info({ to, subject, zweck, weg: pflicht.weg }, "E-Mail nicht gesendet (kein Versandweg, Entwicklung)");
+      return true;
+    }
+
     if (mailTransport) {
       try {
         /*
@@ -147,13 +191,31 @@ export async function createApp() {
          * die Vorlagen bleiben unberuehrt.
          */
         await mailTransport.sendMail({ from: SMTP_FROM, to, subject, html: mitRahmen(html, subject) });
+        await mailNotieren(pool, { zweck, ergebnis: "zugestellt", weg: pflicht.weg });
         return true;
       } catch (e) {
-        logger.error({ err: e.message }, "E-Mail-Fehler");
+        logger.error({ err: e.message, zweck }, "E-Mail-Fehler");
+        await mailNotieren(pool, { zweck, ergebnis: "fehlgeschlagen", weg: pflicht.weg, fehler: e.message });
         return false;
       }
     }
-    return true;
+
+    /*
+     * Hierher kommt nur, wer einen Versandweg HAT, aber keinen Transport in
+     * dieser Funktion — konkret: SendGrid. `emailService.sendMail` kennt den
+     * Weg, diese Funktion hier baut ihren Transport nur aus SMTP_*.
+     *
+     * Vorher stand hier `return true`, was denselben Fehlschluss enthielt wie
+     * oben. Jetzt wird der Versand an den Dienst gereicht, der den Weg
+     * wirklich kennt, statt Erfolg zu behaupten.
+     */
+    try {
+      await emailServiceSendMail({ to, subject, html, from: SMTP_FROM, zweck });
+      return true;
+    } catch (e) {
+      logger.error({ err: e.message, zweck, weg: pflicht.weg }, "E-Mail-Fehler (Provider-Weg)");
+      return false;
+    }
   }
   const stripe = config.STRIPE_SECRET_KEY ? new Stripe(config.STRIPE_SECRET_KEY) : null;
   const app = express();

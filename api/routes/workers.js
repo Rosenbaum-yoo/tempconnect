@@ -32,6 +32,9 @@ import { trackProductEventFromRequest } from "../services/productAnalyticsServic
 import { fristLabelDE, todayDE } from "../utils/dateDE.js";
 import * as auegFrist from "../services/auegFristService.js";
 import * as marktpraesenzService from "../services/marktpraesenzService.js";
+/* M1.3 — die Masseneinladung reicht den Versand an die vorhandene
+ * Warteschlange weiter, statt 200 SMTP-Gespraeche in die Anfrage zu legen. */
+import { emailQueue } from "../queue/queues.js";
 import * as merkmalKatalog from "../services/workerMerkmalKatalog.js";
 import { swallow } from "../utils/logger.js";
 import { recordActivity } from "../services/eventTrackingService.js";
@@ -1487,8 +1490,16 @@ export function createWorkersRouter(deps) {
       const { invite, token } = result;
       const BASE_URL = deps.config?.BASE_URL || "http://localhost:8080";
       const inviteUrl = `${BASE_URL}/worker-login.html?invite=${token}`;
+      /*
+       * M1.3 — die E-Mail meldet jetzt so ehrlich wie die SMS zwei Absaetze
+       * weiter unten. Vorher stand hier ein `await` ohne Pruefung in einem
+       * `catch`, der nie zuschlug: `sendMail` faengt Transportfehler selbst
+       * und gibt `false` zurueck. Die Antwort trug `sms: { sent }`, aber
+       * ueber die Mail — den verlaesslichen Kanal — sagte sie nichts.
+       */
+      let mailErgebnis = { sent: false, reason: "UNKNOWN" };
       try {
-        await deps.sendMail(
+        const ok = await deps.sendMail(
           invite.email,
           "Ihre Einladung zu TempConnect Worker-Portal",
           `<h2>Willkommen bei TempConnect!</h2>
@@ -1497,10 +1508,16 @@ export function createWorkersRouter(deps) {
            <p>Klicken Sie auf den folgenden Link, um Ihr Konto einzurichten:</p>
            <p><a href="${inviteUrl}" style="background:#0070f3;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">Konto einrichten</a></p>
            <p style="color:#666;font-size:14px">Der Link ist 7 Tage gültig.</p>
-           <p style="color:#666;font-size:12px">Falls Sie diese Einladung nicht erwartet haben, ignorieren Sie diese E-Mail.</p>`
+           <p style="color:#666;font-size:12px">Falls Sie diese Einladung nicht erwartet haben, ignorieren Sie diese E-Mail.</p>`,
+          { zweck: "worker-einladung" }
         );
+        mailErgebnis = ok ? { sent: true, reason: null } : { sent: false, reason: "MAIL_FAILED" };
       } catch (mailErr) {
-        logger.warn({ err: mailErr?.message }, "Worker-Invite E-Mail konnte nicht gesendet werden");
+        logger.warn({ err: mailErr?.message, invite_id: invite.id }, "Worker-Invite E-Mail konnte nicht gesendet werden");
+        mailErgebnis = {
+          sent: false,
+          reason: mailErr?.code === "MAIL_NO_TRANSPORT" ? "MAIL_NO_TRANSPORT" : "MAIL_FAILED"
+        };
       }
 
       // Zweiter Zustellweg: gewerbliche Einsatzkraefte lesen eine SMS zuverlaessiger
@@ -1525,7 +1542,11 @@ export function createWorkersRouter(deps) {
         action: "worker.invite_sent", entity_type: "worker_invite",
         entity_id: invite.id,
         // Kein Klartext der Nummer ins Audit (S-2) — nur ob der Zweitweg griff.
-        details: { email: invite.email, sms_sent: smsErgebnis.sent === true, sms_reason: smsErgebnis.reason }
+        details: {
+          email: invite.email,
+          mail_sent: mailErgebnis.sent === true, mail_reason: mailErgebnis.reason,
+          sms_sent: smsErgebnis.sent === true, sms_reason: smsErgebnis.reason
+        }
       };
       try {
         await trackProductEventFromRequest(pool, req, "worker_invite_sent", {
@@ -1533,7 +1554,11 @@ export function createWorkersRouter(deps) {
           metadata: { invite_id: invite.id }
         });
       } catch { /* analytics non-critical */ }
-      res.status(201).json({ invite, sms: { sent: smsErgebnis.sent, reason: smsErgebnis.reason } });
+      res.status(201).json({
+        invite,
+        mail: { sent: mailErgebnis.sent, reason: mailErgebnis.reason },
+        sms: { sent: smsErgebnis.sent, reason: smsErgebnis.reason }
+      });
     } catch (err) { next(err); }
   });
 
@@ -1557,34 +1582,87 @@ export function createWorkersRouter(deps) {
       const BASE_URL = deps.config?.BASE_URL || "http://localhost:8080";
       const invited = [];
       const failed = [];
-      for (const invite of bulk.invites) {
-        const inviteUrl = `${BASE_URL}/worker-login.html?invite=${invite.token}`;
-        try {
-          await deps.sendMail(
-            invite.email,
-            "Ihre Einladung zu TempConnect Worker-Portal",
-            `<h2>Willkommen bei TempConnect!</h2>
+      let queued = 0;
+
+      const mails = bulk.invites.map((invite) => ({
+        invite,
+        betreff: "Ihre Einladung zu TempConnect Worker-Portal",
+        html:
+          `<h2>Willkommen bei TempConnect!</h2>
              <p>Hallo ${invite.first_name},</p>
              <p>Sie wurden eingeladen, das Worker Self-Service Portal zu nutzen.</p>
-             <p><a href="${inviteUrl}" style="background:#0070f3;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">Konto einrichten</a></p>
+             <p><a href="${BASE_URL}/worker-login.html?invite=${invite.token}" style="background:#0070f3;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">Konto einrichten</a></p>
              <p style="color:#666;font-size:14px">Der Link ist 7 Tage gültig.</p>`
-          );
-          invited.push({ email: invite.email, invite_id: invite.id });
-        } catch (mailErr) {
-          // `invite_id` statt der Adresse: personenbezogen darf nicht ins Log (S-2),
-          // und die ID ist zum Nachverfolgen ohnehin die bessere Kennung — ueber sie
-          // findet man den Datensatz, die Adresse haette man erst suchen muessen.
-          logger.warn({ err: mailErr?.message, invite_id: invite.id }, "Bulk-Invite E-Mail fehlgeschlagen");
-          // Invite existiert (Resend moeglich) — als failed melden, damit der
-          // Disponent weiss, dass diese Mail nicht ankam.
-          failed.push({ email: invite.email, error: "MAIL_FAILED", invite_id: invite.id });
+      }));
+
+      /*
+       * ═════════════════════════════════════════════════════════════════════
+       * M1.3 — DER VERSAND VERLAESST DIE ANFRAGE
+       * ═════════════════════════════════════════════════════════════════════
+       * Vorher lief hier eine Schleife mit `await sendMail` je Einladung. Bei
+       * 200 Mitarbeitern sind das 200 SMTP-Gespraeche nacheinander, waehrend
+       * der Browser wartet — und der emailWorker drosselt bewusst auf 20
+       * Mails je Minute, was in der Anfrage gar nicht erst greifen konnte.
+       *
+       * `addBulk` reicht alle Auftraege in EINEM Redis-Gespraech ein. Faellt
+       * Redis aus, wird direkt gesendet statt still nichts zu tun: eine
+       * Einladung, die niemand einreiht und niemand sendet, waere genau der
+       * Ausfall, den diese Welle abschafft.
+       */
+      const schlange = emailQueue();
+      if (schlange && mails.length) {
+        try {
+          await schlange.addBulk(mails.map(({ invite, betreff, html }) => ({
+            name: "worker-einladung",
+            data: { to: invite.email, subject: betreff, html, zweck: "worker-einladung" },
+            opts: { attempts: 3, backoff: { type: "exponential", delay: 2000 } }
+          })));
+          queued = mails.length;
+          for (const { invite } of mails) invited.push({ email: invite.email, invite_id: invite.id });
+        } catch (qErr) {
+          logger.warn({ err: qErr?.message }, "Bulk-Invite: Warteschlange nicht erreichbar — direkter Versand");
+          queued = 0;
         }
       }
+
+      if (!queued) {
+        for (const { invite, betreff, html } of mails) {
+          try {
+            /*
+             * DIE RUECKGABE WIRD JETZT GEPRUEFT.
+             *
+             * Vorher stand hier nur `await deps.sendMail(...)` in einem
+             * try/catch. Nur wirft `sendMail` bei einem Transportfehler NICHT
+             * — es faengt selbst und gibt `false` zurueck. Der catch war
+             * toter Code, `failed` blieb IMMER leer, und der Disponent las
+             * "alle eingeladen", auch wenn keine einzige Mail hinausging.
+             * Gemessen am 2026-09-02.
+             */
+            const ok = await deps.sendMail(invite.email, betreff, html, { zweck: "worker-einladung" });
+            if (ok) invited.push({ email: invite.email, invite_id: invite.id });
+            else failed.push({ email: invite.email, error: "MAIL_FAILED", invite_id: invite.id });
+          } catch (mailErr) {
+            // `invite_id` statt der Adresse: personenbezogen darf nicht ins Log (S-2),
+            // und die ID ist zum Nachverfolgen ohnehin die bessere Kennung — ueber sie
+            // findet man den Datensatz, die Adresse haette man erst suchen muessen.
+            logger.warn({ err: mailErr?.message, invite_id: invite.id }, "Bulk-Invite E-Mail fehlgeschlagen");
+            // Invite existiert (Resend moeglich) — als failed melden, damit der
+            // Disponent weiss, dass diese Mail nicht ankam.
+            failed.push({
+              email: invite.email,
+              error: mailErr?.code === "MAIL_NO_TRANSPORT" ? "MAIL_NO_TRANSPORT" : "MAIL_FAILED",
+              invite_id: invite.id
+            });
+          }
+        }
+      }
+
       res.locals.audit = {
         action: "worker.bulk_invite_sent", entity_type: "worker_invite",
         entity_id: null,
         details: {
-          invited: invited.length, failed: failed.length,
+          invited: invited.length, failed: failed.length, queued,
+          versandweg: queued ? "queue" : "direkt",
           skipped_pending: bulk.skipped_pending, skipped_accepted: bulk.skipped_accepted,
           truncated: bulk.truncated
         }
@@ -1592,6 +1670,11 @@ export function createWorkersRouter(deps) {
       res.status(201).json({
         invited_count: invited.length,
         failed_count: failed.length,
+        queued_count: queued,
+        /* Ehrlich benannt: ueber die Warteschlange ist die Mail EINGEREIHT,
+         * nicht zugestellt. Das Versandprotokoll (mail_versand, Zweck
+         * "worker-einladung") sagt, was daraus geworden ist. */
+        versandweg: queued ? "queue" : "direkt",
         invited, failed,
         skipped_pending: bulk.skipped_pending,
         skipped_accepted: bulk.skipped_accepted,
@@ -1615,7 +1698,8 @@ export function createWorkersRouter(deps) {
            <p>Hallo ${result.invite.first_name},</p>
            <p>Ihr Einladungslink:</p>
            <p><a href="${inviteUrl}">Konto einrichten</a></p>
-           <p style="color:#666;font-size:14px">Der Link ist 7 Tage gültig.</p>`
+           <p style="color:#666;font-size:14px">Der Link ist 7 Tage gültig.</p>`,
+          { zweck: "worker-einladung" }
         );
       } catch (mailErr) {
         logger.warn({ err: mailErr?.message }, "Resend-Invite E-Mail konnte nicht gesendet werden");

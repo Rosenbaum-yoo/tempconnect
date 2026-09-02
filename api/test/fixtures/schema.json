@@ -1,11 +1,11 @@
 {
   "_hinweis": "GENERIERT — nicht von Hand bearbeiten. Neu erzeugen mit: npm run schema:snapshot (liest die laufende Datenbank im Container tempconnect_db).",
-  "erzeugt_am": "2026-09-02T06:39:42.155Z",
+  "erzeugt_am": "2026-09-02T07:36:40.253Z",
   "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
   "migrations_fingerabdruck": {
     "init": "49a1c9ef343102f593f1267155c30cea987684bf1a93826cf237e61101238c7e",
-    "dateien": 216,
-    "hash": "138cc96f053d6f6ab8e854dc6cd1af03318def20060e6e71f0c66d42a2d2f2e6"
+    "dateien": 217,
+    "hash": "5efd4b34f3e2193d101a0f710e569c54479e6bac3ae47bc3443e6d9e52a7eb48"
   },
   "pruefwerte": {
     "approval_requests": {
@@ -4003,6 +4003,31 @@
         "region",
         "type",
         "updated_at"
+      ]
+    },
+    "mail_versand": {
+      "spalten": [
+        "erstellt_am",
+        "fehlgeschlagen",
+        "letzte_um",
+        "letzter_fehler",
+        "letzter_fehler_um",
+        "letzter_weg",
+        "ohne_versandweg",
+        "tag",
+        "versucht",
+        "zugestellt",
+        "zweck"
+      ],
+      "nicht_null": [
+        "erstellt_am",
+        "fehlgeschlagen",
+        "letzte_um",
+        "ohne_versandweg",
+        "tag",
+        "versucht",
+        "zugestellt",
+        "zweck"
       ]
     },
     "marktplatz_feed_kopie": {

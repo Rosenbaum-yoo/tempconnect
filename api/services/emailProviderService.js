@@ -123,3 +123,82 @@ export function describeEmail(config = {}, opts = {}) {
     warnings
   };
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * M1.3 — DIE ENTSCHEIDUNG "DARF GESENDET WERDEN?"
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Sie steht HIER und nicht im Protokoll-Dienst, aus einem harten Grund: der
+ * Startpruefer sitzt in `config/index.js`, und diese Datei ist die einzige der
+ * beiden, die `config` nicht importiert. Umgekehrt gaebe es einen Ringschluss.
+ *
+ * Inhaltlich gehoert sie ohnehin neben `describeEmail`: es ist dieselbe Frage,
+ * einmal als Auskunft und einmal als Urteil.
+ */
+/**
+ * Darf ueberhaupt gesendet werden — und wenn nein, ist das ein Fehler?
+ *
+ * Trennt die zwei Faelle, die vorher einen Topf bildeten:
+ *
+ *   - KEIN VERSANDWEG IN PRODUKTION → das ist ein Konfigurationsfehler. Eine
+ *     Einladung, die Zustellung meldet und nie ankommt, kostet einen Kunden.
+ *     Hier wird hart abgelehnt.
+ *   - KEIN VERSANDWEG IN ENTWICKLUNG → gewollt. Mailpit und `console` sind
+ *     der Normalzustand; ein Wurf waere nur laestig.
+ *
+ * @param {object} config
+ * @param {{produktion?: boolean}} [opts]
+ * @returns {{senden: boolean, weg: string, hart: boolean, grund: string|null}}
+ *   `senden`  – es gibt einen echten Versandweg
+ *   `hart`    – ohne Versandweg MUSS der Aufruf scheitern
+ *   `weg`     – smtp | sendgrid | console | disabled
+ */
+export function versandwegPflicht(config = {}, opts = {}) {
+  const produktion = typeof opts.produktion === "boolean"
+    ? opts.produktion
+    : String(process.env.NODE_ENV || "").toLowerCase() === "production";
+
+  const auskunft = describeEmail(config);
+  const senden = Boolean(auskunft.capabilities?.outbound_delivery);
+
+  if (senden) return { senden: true, weg: auskunft.provider, hart: false, grund: null };
+
+  /*
+   * `disabled` ist eine AUSDRUECKLICHE Entscheidung des Betreibers, `console`
+   * ist der Zustand, in den man ohne Konfiguration faellt. Beide duerfen in
+   * Produktion nicht still Erfolg melden — aber nur der zweite ist auch ein
+   * Grund, den Start zu verweigern (siehe `startPruefung`).
+   */
+  const grund = auskunft.provider === EMAIL_PROVIDERS.DISABLED
+    ? "E-Mail-Versand ist abgeschaltet (EMAIL_PROVIDER=disabled)"
+    : "Kein E-Mail-Versandweg konfiguriert (weder SMTP_HOST noch SENDGRID_API_KEY)";
+
+  return { senden: false, weg: auskunft.provider, hart: produktion, grund };
+}
+
+/**
+ * Die Startpruefung: soll der Prozess mit dieser Konfiguration ueberhaupt
+ * hochkommen?
+ *
+ * Nur wenn NIEMAND den Zustand gewaehlt hat. `EMAIL_PROVIDER=disabled` ist
+ * eine Betriebsentscheidung und wird respektiert — dann scheitert spaeter
+ * jeder einzelne Versand laut, was ehrlich genug ist. Ein abgeleitetes
+ * `console` dagegen heisst: es hat schlicht niemand eingerichtet.
+ *
+ * @returns {string|null} Fehlermeldung, oder null wenn in Ordnung
+ */
+export function startPruefung(config = {}, opts = {}) {
+  const produktion = typeof opts.produktion === "boolean"
+    ? opts.produktion
+    : String(process.env.NODE_ENV || "").toLowerCase() === "production";
+  if (!produktion) return null;
+
+  const auskunft = describeEmail(config);
+  if (auskunft.capabilities?.outbound_delivery) return null;
+  if (auskunft.provider === EMAIL_PROVIDERS.DISABLED) return null;
+
+  return "In Produktion muss ein E-Mail-Versandweg konfiguriert sein "
+    + "(SMTP_HOST oder SENDGRID_API_KEY). Ohne ihn melden Einladungen und "
+    + "Zahlungserinnerungen Zustellung, ohne zugestellt zu werden. "
+    + "Bewusst ohne Mailversand betreiben: EMAIL_PROVIDER=disabled setzen.";
+}

@@ -186,7 +186,7 @@ export function createAuthRouter(deps) {
      <p>Bitte klicke auf den folgenden Link, um deine E-Mail-Adresse zu bestätigen:</p>
      <p><a href="${verifyUrl}">${verifyUrl}</a></p>
      <p>Falls du dich nicht registriert hast, ignoriere diese E-Mail.</p>`
-    );
+    , { zweck: "registrierung" });
 
     // SEC-001: Regenerate session to prevent session fixation
     await new Promise((resolve, reject) => req.session.regenerate((err) => err ? reject(err) : resolve()));
@@ -245,7 +245,7 @@ export function createAuthRouter(deps) {
       info.email,
       "TempConnect: Bitte bestätige deine E-Mail-Adresse",
       `<h2>E-Mail-Bestätigung</h2><p>Bitte klicke auf den folgenden Link, um deine E-Mail-Adresse zu bestätigen:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`
-    );
+    , { zweck: "registrierung" });
     res.locals.audit = { action: "auth.resend_verification", entity_type: "user", entity_id: req.session.userId, action_type: "SECURITY" };
     res.json({ ok: true, sent: true });
   }));
@@ -418,7 +418,7 @@ export function createAuthRouter(deps) {
      <p><a href="${resetUrl}" style="background:#635bff;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">Neues Passwort setzen</a></p>
      <p style="margin-top:20px;color:#666">Der Link ist 1 Stunde gültig.</p>
      <p style="color:#666">Falls du keine Zurücksetzung angefordert hast, ignoriere diese E-Mail.</p>`
-    );
+    , { zweck: "passwort-zuruecksetzen" });
     res.locals.audit = { action: "auth.forgot_password", entity_type: "user", action_type: "SECURITY", details: { email } };
     res.json({ ok: true, message: "Falls ein Konto existiert, wurde eine E-Mail gesendet." });
   }));
@@ -445,7 +445,7 @@ export function createAuthRouter(deps) {
       u.email,
       "TempConnect: Passwort wurde geändert",
       `<h2>Passwort geändert</h2><p>Dein Passwort wurde erfolgreich geändert.</p><p>Falls du diese Änderung nicht durchgeführt hast, kontaktiere uns sofort!</p>`
-    );
+    , { zweck: "passwort-geaendert" });
     res.json({ ok: true, message: "Passwort wurde erfolgreich geändert." });
   }));
 
@@ -528,7 +528,7 @@ export function createAuthRouter(deps) {
          <p>Hallo ${result.profile.first_name},</p>
          <p>Ihr Worker-Konto wurde erfolgreich eingerichtet. Sie können sich jetzt im Portal anmelden.</p>
          <p><a href="${BASE_URL}/public/einsatzportal-dashboard.html">Zum Einsatzportal</a></p>`
-      );
+      , { zweck: "konto-eingerichtet" });
     } catch (mailErr) {
       logger.warn({ err: mailErr?.message }, "Worker-Welcome-Mail konnte nicht gesendet werden");
     }

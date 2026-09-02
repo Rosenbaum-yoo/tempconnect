@@ -5,6 +5,7 @@
 
 import { getSystemDiagnostics } from "./healthService.js";
 import { taktStand } from "./betriebsTaktService.js";
+import { mailStand } from "./mailProtokollService.js";
 
 export async function loadExecutiveSnapshot(pool) {
   const snapshot = {
@@ -94,6 +95,8 @@ export async function loadOperationsSnapshot(pool) {
      * fuer dieselbe Sorge.
      */
     betriebs_takt: null,
+    /* M1.3 — kommen die Mails an? Siehe Begruendung am Aufruf unten. */
+    mail_versand: null,
     errors: []
   };
 
@@ -151,6 +154,19 @@ export async function loadOperationsSnapshot(pool) {
     snapshot.betriebs_takt = await taktStand(pool);
   } catch (e) {
     snapshot.errors.push({ area: "betriebs_takt", error: String(e?.code || e?.message || e) });
+  }
+
+  /*
+   * M1.3 — DAS VERSANDPROTOKOLL, aus demselben Grund an derselben Stelle wie
+   * der Betriebstakt darueber: "kommen die Einladungen an?" ist eine Frage der
+   * Betriebsaufsicht, nicht ein eigenes Modul. Und sie hat dieselbe Form wie
+   * "laeuft das noch?" — beide beantwortet man, indem man nachsieht, was
+   * SCHWEIGT.
+   */
+  try {
+    snapshot.mail_versand = await mailStand(pool, { tage: 7 });
+  } catch (e) {
+    snapshot.errors.push({ area: "mail_versand", error: String(e?.code || e?.message || e) });
   }
 
   return snapshot;

@@ -436,19 +436,28 @@ describe("M1.1 · der Stand erreicht die Operations-Aufnahme", () => {
     assert.equal(auf.betriebs_takt.zusammenfassung.ok, 0);
   });
 
-  it("der Takt wird ZULETZT abgefragt — sonst verrutschen fremde Proben", async () => {
+  it("VORNE kommt nichts dazu — sonst verrutschen fremde Proben", async () => {
     /*
      * Muster-Pool-Proben zaehlen Abfragen der Reihe nach. Beim ersten Anlauf
      * stand der Takt ganz oben in der Aufnahme und haette jede bestehende
-     * Sequenz um eins verschoben. Diese Probe haelt die Reihenfolge fest,
-     * damit der naechste Einbau nicht denselben Fehler macht.
+     * Sequenz um eins verschoben.
+     *
+     * Die erste Fassung dieser Probe verlangte, der Takt sei die LETZTE
+     * Abfrage — und wurde prompt rot, als M1.3 das Versandprotokoll dahinter
+     * haengte. Sie prueft jetzt, was wirklich zugesagt ist: die ERSTEN beiden
+     * Abfragen bleiben, wo sie sind. Daran haengen die fremden Sequenzen;
+     * was danach kommt, darf wachsen.
      */
     const pool = musterPool();
     await loadOperationsSnapshot(pool);
-    const letzte = pool.calls[pool.calls.length - 1];
-    assert.ok(letzte, "keine einzige Abfrage — die Aufnahme ist leer");
-    assert.ok(letzte.sql.includes("betriebs_takt"),
-      `letzte Abfrage war: ${letzte.sql.slice(0, 80)}`);
+    assert.ok(pool.calls.length >= 2, "keine zwei Abfragen — die Aufnahme ist leer");
+    assert.ok(pool.calls[0].sql.includes("staff_control_runbook_runs"),
+      `erste Abfrage war: ${pool.calls[0].sql.slice(0, 60)}`);
+    assert.ok(pool.calls[1].sql.includes("infrastructure_snapshots"),
+      `zweite Abfrage war: ${pool.calls[1].sql.slice(0, 60)}`);
+    /* Und der Takt laeuft ueberhaupt — sonst waere die Probe oben zufaellig. */
+    assert.ok(pool.calls.some((c) => c.sql.includes("betriebs_takt")),
+      "der Takt wurde gar nicht abgefragt");
   });
 
   it("ein Ausfall des Takts kostet EINE Kachel, nicht die Seite", async () => {
