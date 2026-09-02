@@ -1,6 +1,8 @@
 # Welle M — Der Marktplatz-Flow, Ende zu Ende
 
-> **Status: Bauanweisung. Ist-Stand gemessen und gegengeprüft am 2026-09-01.**
+> **Status: Bauanweisung, freigegeben. Ist-Stand gemessen und gegengeprüft am 2026-09-01.
+> Alle sechs Owner-Entscheidungen M-E1…M-E6 beantwortet (2026-09-01) — kein Gate blockiert
+> mehr den Bau.**
 > Owner-Vorgabe: der vollständige Ablauf des Unternehmens-Marktplatzes, festgeschrieben
 > als Kette — vom Abokauf bis zum Dokument im Einsatzportal.
 >
@@ -266,6 +268,10 @@ Messung wertlos.
 | M1.2 | **Den Takt tatsächlich einrichten** — als Dienst im Stack, nicht als Zeile in der Doku | `sweepMarktpraesenz` läuft; der Herzschlag beweist es |
 | M1.3 | **Mail ehrlich machen** (`D2`): ohne Transport in Produktion **hart ablehnen** statt still `true`; Versandprotokoll je Zweck; Bulk-Einladung über die vorhandene Queue statt seriell im Request | Ohne SMTP → die Route meldet den Fehlschlag, nicht Erfolg |
 | M1.4 | **Die Sackgasse schließen** (`H7`): Sprungziele nach der Registrierung auf absolute Pfade, oder derselbe nginx-Alias wie für `worker-login.html` | `curl -I` gegen beide Adressen im laufenden Stack |
+| M1.5 | **Die Paywall zum ersten Mal wirksam machen** (M-E2): je Seite ein eigener Erstellungs-Schlüssel, Browsen bleibt frei ab Konto. Der heutige Schlüssel ist für **jeden** Plan wahr — der fertige Paywall-Block kann auf ~20 Seiten nie erscheinen | DEMO-Konto → Feed sichtbar, Erstellen zeigt die Paywall. **Rückmutation:** Schlüssel wieder auf „alle Pläne" → Probe rot |
+| M1.6 | **Das öffentliche Schaufenster** (M-E2, Stufe 1): Zahlen und Kategorien ohne Personen, indexierbar. Grundlage existiert (`/marketplace/public/capacity-posts` entfernt Kontaktdaten bereits) — sie muss aggregieren statt auflisten | Ohne Anmeldung: Zahlen ja, **kein einziges Personenprofil**. Wächter auf die Feldliste |
+| M1.7 | **Die zweite Limit-Wahrheit entfernen** (M-E3): PRO ist unbegrenzt. Der abweichende Wert im Dienst wird **gelöscht**, nicht angeglichen — zwei Tabellen für dieselbe Grenze sind der Fehler, nicht ihr Inhalt | PRO-Agentur legt mehr als 50 Angebote an. **Ein-Schreiber-Wächter** (M11.3) verhindert die Rückkehr |
+| M1.8 | **`org_type`-Dimension im Plankatalog anlegen** (M-E5): Struktur jetzt, Werte später. Sinnvolle Vorgaben, vom Owner anpassbar, ohne Codeänderung | Beide Seiten haben getrennte Grenzen; ein geänderter Wert wirkt ohne Neubau |
 
 ---
 
@@ -305,7 +311,8 @@ Messung wertlos.
 | M4.2 | **Audit der automatischen Veröffentlichung** (`D4`) | „Seit wann stand ich im Markt?" ist beantwortbar. **Voraussetzung dafür, den Markt mit Personenprofilen überhaupt betreiben zu dürfen** |
 | M4.3 | **Widerspruch für den Menschen selbst** — plus ein wahrhaftiger Hinweis an der Skill-Karte. Heute steht dort „wirkt sich **sofort** aus", und das ist im Automatik-Pfad unwahr | Widerspruch wirkt, Text stimmt |
 | M4.4 | **Ein gemeinsames Katalog-Gate.** Die beiden Wege prüfen heute **disjunkt**: die Automatik nur `is_active`, der Generator nur `status='approved'` — unkuratierter Freitext erreicht den öffentlichen Markt | Beide Spalten, ein Gate |
-| M4.5 | **Wohnort-PLZ**: Entscheidung **M-E4**, dann umsetzen | Owner-Entscheidung |
+| M4.5 | **Einsatzradius statt Wohnort** (M-E4, siehe 8.3): 10 / 50 / 100 km um einen Anker, Vorgabe 50. Ausgeliefert werden **Radius plus grobe Raumangabe**, nie der Anker; gesucht wird per Abstandsrechnung serverseitig | Eine Kraft erscheint bei jedem Bedarf im Radius, und die exakte PLZ verlässt den Server nicht. **Rückmutation:** Anker in die Antwort legen → Feld-Wächter rot |
+| M4.5b | **Der Radius ist zugleich der Widerspruchshebel** (verbindet M4.3): Radius auf null heißt „nicht im Markt", vom Menschen selbst im Portal setzbar | Radius null → die Person verschwindet aus dem Feed, sofort |
 | M4.6 | **`markt_merkmale` und `quelle` auch im allgemeinen Feed rendern** (`H5`) — die API liefert sie an jeden, gerendert werden sie auf **einer** Fläche | Herkunft ist überall sichtbar |
 | M4.7 | **Der Trichter** (`D3`): sechs Zahlen je Org und Woche — importiert / eingeladen / angenommen / Skills gesetzt / im Markt sichtbar / gebucht | **Wirtschaftlich der beste Nicht-Feature-Bau: er priorisiert alles andere.** Ausgangsbefund im Quelltext: 30 von 33 Kräften unsichtbar |
 
@@ -313,7 +320,9 @@ Messung wertlos.
 
 ### M5 · Der Korb — ein Akt, N Verträge
 
-**Gate: M-E1 muss vorliegen, bevor M5.6 ausgeliefert wird.** M5.1–M5.5 sind unabhängig.
+**Kein Gate mehr — M-E1 ist entschieden: schaltbar bauen** (siehe 8.1). Die Rechtsauskunft
+bleibt eine Owner-Aufgabe mit Auslöser („vor dem ersten Abschluss zwischen zwei echten
+Kunden"), sie blockiert den Bau nicht.
 
 > **Die gute Nachricht der Messung:** der Sammelabschluss ist **kein Neubau**. Endpunkt,
 > Mengenfeld, Restmengen-Buchführung und die Summierung über alle angenommenen Angebote
@@ -326,7 +335,7 @@ Messung wertlos.
 | M5.3 | **`offered_quantity` nicht mehr auf den vollen Bedarf defaulten** | Leere Menge → 1 oder Pflichtangabe, nicht 30 |
 | M5.4 | **Anbieter-Modus der Bedarfsliste** (`H1`): offene **fremde** Bedarfe für Agenturen, ohne Kontaktdaten des Bestellers; `sla_angebote.html` daran hängen; Deep-Link „Teilmenge anbieten"; Navigationseintrag | Eine Agentur sieht offene Bedarfe und kann 12 von 30 anbieten |
 | M5.5 | **Der Korb als Ansicht**: die Kombination, die den Bedarf deckt, mit Preis je Firma und Gesamtpreis | 12 + 10 + 8 → gedeckt, kein Überlauf |
-| M5.6 | **Ein Klick, N Verträge** (M-L1/M-L2): je Firma ein Vertrag, Rahmen und Konkretisierung getrennt | 3 Firmen → 3 Verträge, 3 Belege, **0** Verträge mit TempConnect als Partei |
+| M5.6 | **Ein Klick, N Verträge** (M-L1/M-L2): je Firma ein Vertrag, Rahmen und Konkretisierung getrennt. **Über einen Formweg-Schalter** (`textform` \| `schriftform`, Vorgabe `textform`) — bei `schriftform` wird daraus eine Anfrage mit Signaturlauf auf Mig 084 | 3 Firmen → 3 Verträge, 3 Belege, **0** Verträge mit TempConnect als Partei. **Beide Formwege einmal durchgespielt**, nicht nur der voreingestellte |
 | M5.7 | **Die Sammelaufstellung** (M-L3) | Summe der N stimmt |
 | M5.8 | **Selbstgeschäfts-Riegel auf dem normalen Angebotsweg.** Heute hat ihn nur `accept-deal` — auf dem normalen Weg kann ein Unternehmen **auf den eigenen Bedarf bieten und selbst annehmen** | Versuch → 403 |
 | M5.9 | **`partial_fulfillment_allowed` beleben** — heute eine **tote Spalte**, die im Schema vorhanden aussieht | „Alle 30 oder keiner" ist wählbar und wirkt |
@@ -349,7 +358,8 @@ Messung wertlos.
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|
-| M7.1 | **Die Kette zwischen `assignments` und `worker_assignment_links` schließen** — oder die Erwartung ehrlich korrigieren. Heute macht die Zuordnung **immer ein Mensch** | Owner-Entscheidung: automatisch (bei eindeutiger Kraft) oder als Aufgabe mit Frist |
+| M7.1 | **Die Kette zwischen `assignments` und `worker_assignment_links` schließen** (M-E6 ✅): **automatisch, wenn eindeutig** — genau eine passende freie Kraft der Firma → zugeordnet, Anfrage an den Menschen raus. **Mehrere passende → Aufgabe mit Frist**, keine Willkür durch das System | Eine passende Kraft → Zuordnung ohne Klick, im Portal sichtbar. Zwei passende → Aufgabe entsteht, **nichts** wird stillschweigend gewählt. **Rückmutation je Zweig** |
+| M7.1b | **„Passend" ist eine Entscheidung, keine Vermutung.** Die Bedingung wird ausgeschrieben: freie Kraft, richtiger Skill, im Radius, verfügbar im Zeitraum, **nicht gesperrt** (M7.6), keine Fristkollision | Jede Bedingung mit einer echten Zeile belegt. Fällt eine weg, ist die Kraft nicht mehr „eindeutig" |
 | M7.2 | **Der stille Ausfallpfad in `activateAgreement`**: schlägt eine Org-Auflösung fehl, wird der Deal trotzdem auf „aktiviert" gesetzt, ohne Einsatz, ohne Fehler, ohne Audit | Rückmutation: Auflösung scheitern lassen → sichtbarer Fehler |
 | M7.3 | **Absage = Verfall** (Rang 5): Posten zurückgeben, Reservierung lösen, **Kunden melden**, org-weit statt an eine Person | Vier Wirkungen, jede belegt |
 | M7.4 | **Automatischer Ersatz entsperren** (Rang 6): **beide** Ursachen — Takt *und* der Kandidatenfilter, der auf ein nie gesendetes `expires_at` wartet | Absage → Ersatzlauf feuert wirklich |
@@ -422,7 +432,7 @@ M0  Bestandsprüfung           ← zuerst, immer, ohne Ausnahme
  ├── M2  Trennwand            ← Sicherheit vor Funktion
  ├── M3  Kettenanfang
  ├── M4  Der Markt entsteht   ← M4.7 (Trichter) priorisiert alles Weitere
- ├── M5  Der Korb             ← M5.1 ist Vorbedingung; Gate M-E1 vor M5.6
+ ├── M5  Der Korb             ← M5.1 ist Vorbedingung; Formweg schaltbar (M-E1)
  ├── M6  Der Assistent        ← billig, sofort sichtbar
  ├── M7  Der Durchstich
  ├── M8  Das Ende der Kette   ← macht Bewertung und Reputation erstmals erreichbar
@@ -438,16 +448,81 @@ Bau, der ihn erzeugt hat. Er gehört in dieselbe Phase wie die Regel, die er sch
 
 ---
 
-## 8. Offene Owner-Entscheidungen
+## 8. Owner-Entscheidungen — **alle sechs beantwortet (2026-09-01)**
 
-| Nr. | Frage | Warum sie niemand ableiten kann |
+| Nr. | Frage | Entscheid |
 |---|---|---|
-| **M-E1** | **Genügt Textform für den Überlassungsvertrag?** (Abschnitt 3.4) | Rechtsauskunft. Beide Antworten sind baubar, aber nur eine ist auslieferbar |
-| **M-E2** | **Welcher Feature-Schlüssel schützt die Marktplatz-Erstellung?** Heute ist es einer, der für jeden Plan wahr ist. `sla_offers_create` gäbe es agenturseitig — für die Unternehmens-Bedarfsseite existiert **gar kein** Create-Schlüssel | Produkt- und Katalogentscheidung, keine Ableitung. Davon hängt ab, ob die Paywall je erscheint |
-| **M-E3** | **PRO-Angebotslimit: 50 oder unbegrenzt?** Zwei Tabellen widersprechen sich; wirksam ist die niedrigere | Der verkaufte Plan gilt heute faktisch nicht |
-| **M-E4** | **Darf die Wohnort-PLZ einer anonym gemeinten Person öffentlich stehen?** In einem kleinen Ort ist PLZ + Skill + Zeitfenster re-identifizierend | Datenschutzabwägung |
-| **M-E5** | **Braucht die Zeitarbeitsfirma ein anderes Entitlement als das Unternehmen?** Heute gibt es **keine** `org_type`-Dimension im Plankatalog | Wenn beide Seiten unterschiedlich bepreist werden sollen, fehlt dafür jede Struktur |
-| **M-E6** | **Soll der Deal-Abschluss die Zuordnung automatisch auslösen** (bei eindeutiger Kraft) oder als Aufgabe mit Frist? (M7.1) | Ändert, wie „sofort" der Ablauf wirklich ist |
+| **M-E1** ✅ entschieden | Genügt Textform für den Überlassungsvertrag? | **Schaltbar bauen.** Textform als Vorgabe, Schriftform als umlegbarer Formweg — dokumentiert als Erweiterungsfeld. *Owner ausdrücklich: „das weiß ich nicht, ob es rechtlich reicht — für mich ist das ok so."* Siehe 8.1 |
+| **M-E2** ✅ entschieden | Welcher Schlüssel schützt die Marktplatz-Erstellung? | **Erst sehen, dann zahlen.** Browsen frei (Konto + Anmeldung genügt), Erstellen bezahlt — je Seite ein eigener Schlüssel. Dazu ein **öffentlicher Schaufenster-Stand ohne Personenprofile**, siehe 8.2 |
+| **M-E3** ✅ entschieden | PRO-Angebotslimit: 50 oder unbegrenzt? | **Unbegrenzt**, wie verkauft. Der zweite, widersprechende Wert wird **entfernt**, nicht angeglichen |
+| **M-E4** ✅ entschieden | Darf die Wohnort-PLZ öffentlich stehen? | **Nein — Einsatzradius statt Ort.** Wählbar 10 / 50 / 100 km. Die Kraft erscheint dadurch **als Radius-Fundstelle in jeder Suche, die ihr Gebiet trifft**, nicht nur bei ihrem Ort. Siehe 8.3 |
+| **M-E5** ✅ entschieden | Eigene Tarife je Org-Typ? | **Struktur jetzt, Werte später.** Die `org_type`-Dimension wird angelegt, mit sinnvollen Vorgabewerten, die der Owner später anpasst |
+| **M-E6** ✅ entschieden | Löst der Abschluss die Zuordnung automatisch aus? | **Automatisch, wenn eindeutig — sonst Aufgabe mit Frist.** Genau eine passende freie Kraft → zugeordnet; mehrere → Aufgabe, keine Willkür durch das System |
+
+### 8.1 M-E1 — was „schaltbar" konkret heißt, und was offen bleibt
+
+**Gebaut wird:** ein Formweg-Schalter je Vertragsart (`textform` | `schriftform`), Vorgabe
+`textform`. Bei `schriftform` wird aus dem Sofort-Abschluss eine Anfrage mit Signaturlauf
+auf Mig 084 (`deal_documents_and_signatures`). Der Schalter ist **kein Feature-Flag zum
+Ausprobieren**, sondern die Stelle, an der eine Rechtsauskunft ohne Umbau landet.
+
+**Was ausdrücklich offen bleibt** — der Owner hat es benannt und die Lage angenommen:
+ob Textform genügt, ist **nicht anwaltlich bestätigt**. Das ist kein Bauhindernis, aber
+es ist ein Punkt mit einem **Auslöser**, nicht mit einem Datum:
+
+> **Vor dem ersten Abschluss zwischen zwei echten Kunden gehört die Auskunft eingeholt.**
+> Solange nur Pilotkunden und Vorführdaten laufen, trägt der Schalter. Ab dem ersten
+> echten Überlassungsvertrag hängt an der Antwort, ob der Vertrag wirksam ist.
+
+Der Schalter macht die Korrektur billig: eine Konfigurationszeile statt eines Umbaus.
+**Er macht die Frage nicht kleiner.**
+
+### 8.2 M-E2 — „Konto und Login zum Schnuppern reicht" (Owner-Rückfrage, beantwortet)
+
+**Ja — für die Profile. Und darunter noch eine Stufe, die mehr bringt.**
+
+Warum Konto und Anmeldung die richtige Grenze für den Feed sind: was dort steht, sind
+**echte Menschen**, abgeleitet aus dem Live-Bestand. Ein Marktplatz mit Personenprofilen
+ohne jede Anmeldung wäre (a) datenschutzrechtlich kaum haltbar, (b) von Suchmaschinen
+indexierbar und (c) für jeden Wettbewerber ein kostenloser Marktüberblick über deine
+Lieferanten.
+
+Aber die Anmeldung ist eine Hürde, und dein Trichter beginnt davor. Deshalb **drei
+Stufen** statt zwei:
+
+| Stufe | Wer | Was er sieht |
+|---|---|---|
+| **Öffentlich, ohne Konto** | jeder, auch Suchmaschinen | **Zahlen und Kategorien, keine Personen.** „1.240 verfügbare Kräfte in 38 Berufsgruppen · 87 im Raum Münster · Ø Reaktionszeit 4 h". Indexierbar, wirbt für sich selbst, gibt niemanden preis |
+| **Konto + Anmeldung** *(deine Entscheidung)* | registriert, DEMO genügt | **Der volle Feed** mit anonymen Profilen, Merkmalen und Verfügbarkeit. Sehen, prüfen, vergleichen |
+| **Bezahlt** | ab dem gewählten Plan | **Handeln:** Bedarf anlegen, Angebot abgeben, buchen |
+
+Die Grundlage der ersten Stufe existiert bereits (`GET /marketplace/public/capacity-posts`
+entfernt Kontaktdaten ausdrücklich) — sie muss nur aggregieren statt aufzulisten.
+
+**Damit ist die Paywall zum ersten Mal echt:** heute steht auf rund 20 Seiten ein
+Schlüssel, der für jeden Plan wahr ist, und der fertig gebaute Paywall-Block kann **nie**
+erscheinen.
+
+### 8.3 M-E4 — der Radius, und warum er datensparsam **und** besser ist
+
+**Modell:** Nicht der Wohnort wird veröffentlicht, sondern ein **Einsatzradius**:
+10 / 50 / 100 km um einen Anker.
+
+| | Heute | Nach M-E4 |
+|---|---|---|
+| Was gespeichert wird | Wohnort-PLZ | Anker + gewählter Radius |
+| Was **ausgeliefert** wird | dieselbe exakte PLZ | **Radius plus grobe Raumangabe** („Einsatzradius 50 km · Raum Münster") — nie der Anker |
+| Wie gesucht wird | Treffer bei Ortsgleichheit | **Abstandsrechnung serverseitig** gegen den Anker, der den Betrachter nie erreicht |
+| Reichweite der Kraft | erscheint bei ihrem Ort | **erscheint in jeder Suche, deren Einsatzort im Radius liegt** |
+
+Das ist der Punkt, den der Owner betont hat: *„sodass er auch in weiteren Suchen
+erscheint als Radius-Fundstelle, nicht nur Ort."* Die datensparsame Lösung ist hier
+zugleich die **reichweitenstärkere** — eine Kraft mit 100-km-Radius wird für zehnmal so
+viele Bedarfe gefunden wie eine, die nur an ihrem Ort steht.
+
+**Vorgabe:** 50 km, wenn niemand etwas wählt. Die Kraft selbst kann den Radius im Portal
+ändern — das ist zugleich der **Widerspruchshebel** aus M4.3: Radius auf null heißt
+„nicht im Markt".
 
 ---
 

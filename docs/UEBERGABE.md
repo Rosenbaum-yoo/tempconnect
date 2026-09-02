@@ -1494,34 +1494,36 @@ Doku-Waechter P2-W1).
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
 
-### Welle M — Marktplatz-Flow *(neu, 2026-09-01)*
+### Welle M — Marktplatz-Flow: **alle sechs entschieden (2026-09-01)**
 
 Vollständig in [features/M_MARKTPLATZ_FLOW.md](features/M_MARKTPLATZ_FLOW.md), Abschnitt 8.
 
-- **M-E1** — **Genügt Textform für den Überlassungsvertrag?** Historisch Schriftform;
-  das Bürokratieentlastungsgesetz IV hat sie zum 01.01.2025 auf Textform gesenkt. **Braucht
-  anwaltliche Bestätigung, bevor der Zwei-Klick-Abschluss ausgeliefert wird.** Genügt
-  Textform, trägt der Sofort-Abschluss; bleibt Schriftform, braucht der Rahmen eine
-  qualifizierte Signatur und der Entwurf sieht anders aus. *Gate vor Welle M5.6.*
-- **M-E2** — **Welcher Feature-Schlüssel schützt die Marktplatz-Erstellung?** Heute steht
-  auf rund 20 Seiten ein Schlüssel, der für **jeden** Plan wahr ist — der vollständig
-  gebaute, übersetzte Paywall-Block kann deshalb **nie** erscheinen. Ein naheliegender
-  Ersatz wäre ebenfalls ein No-op; für die Unternehmens-Bedarfsseite existiert **gar kein**
-  Create-Schlüssel. *Produkt- und Katalogentscheidung, keine Ableitung.*
-- **M-E3** — **PRO-Angebotslimit: 50 oder unbegrenzt?** Zwei Tabellen widersprechen sich
-  (`capacityExchangeService.js:18` gegen `userService.js:165`); wirksam ist die niedrigere.
-  Die verkaufte Zusage „unbegrenzt" gilt damit faktisch nicht.
-- **M-E4** — **Darf die Wohnort-PLZ einer anonym gemeinten Person öffentlich stehen?**
-  Das automatisch erzeugte Angebot trägt sie. In einem kleinen Ort ist PLZ + Fähigkeit +
-  Verfügbarkeitsfenster re-identifizierend. *Datenschutzabwägung.*
-- **M-E5** — **Braucht die Zeitarbeitsfirma ein anderes Entitlement als das Unternehmen?**
-  Es gibt heute **keine** `org_type`-Dimension im Plankatalog — beide Seiten kaufen
-  denselben. Getrennt werden sie nur zur Laufzeit über Rollenriegel und zwei Limitfelder.
-  Sollen beide Seiten unterschiedlich bepreist werden, fehlt dafür jede Struktur.
-- **M-E6** — **Soll der Deal-Abschluss die Zuordnung automatisch auslösen** (bei
-  eindeutiger Kraft) oder als Aufgabe mit Frist? Heute macht die Zuordnung **immer ein
-  Mensch** — die Kette reißt zwischen `assignments` und `worker_assignment_links`.
-  Entscheidet, wie „sofort" der Ablauf wirklich ist.
+- ~~**M-E1**~~ ✅ **Schaltbar bauen.** Formweg-Schalter (`textform` \| `schriftform`),
+  Vorgabe `textform`; bei `schriftform` wird der Sofort-Abschluss zur Anfrage mit
+  Signaturlauf auf Mig 084. **Siehe die Rest-Aufgabe unten** — die Rechtslage ist
+  ausdrücklich *nicht* bestätigt.
+- ~~**M-E2**~~ ✅ **Erst sehen, dann zahlen**, in drei Stufen: öffentlich nur Zahlen und
+  Kategorien **ohne Personen** (indexierbar, wirbt für sich selbst) · ab Konto der volle
+  Feed mit anonymen Profilen · ab Plan das Handeln (Bedarf anlegen, anbieten, buchen).
+  Je Seite ein eigener Erstellungs-Schlüssel.
+- ~~**M-E3**~~ ✅ **Unbegrenzt**, wie verkauft. Der widersprechende zweite Wert wird
+  **entfernt**, nicht angeglichen — zwei Tabellen für dieselbe Grenze sind der Fehler.
+- ~~**M-E4**~~ ✅ **Einsatzradius statt Wohnort**, wählbar 10 / 50 / 100 km, Vorgabe 50.
+  Ausgeliefert werden Radius plus grobe Raumangabe, **nie der Anker**; gesucht wird per
+  Abstandsrechnung serverseitig. Die Kraft erscheint dadurch in **jeder** Suche, deren
+  Einsatzort im Radius liegt — datensparsam **und** reichweitenstärker. Radius null ist
+  zugleich der Widerspruchshebel der Person.
+- ~~**M-E5**~~ ✅ **Struktur jetzt, Werte später.** Die `org_type`-Dimension wird im
+  Plankatalog angelegt, mit sinnvollen Vorgaben, die der Owner ohne Codeänderung anpasst.
+- ~~**M-E6**~~ ✅ **Automatisch, wenn eindeutig — sonst Aufgabe mit Frist.** Genau eine
+  passende freie Kraft → zugeordnet; mehrere → Aufgabe. Das System wählt nie willkürlich.
+
+**Rest-Aufgabe mit Auslöser (nicht mit Datum):** Ob **Textform** für den
+Überlassungsvertrag genügt, ist **nicht anwaltlich bestätigt** — der Owner hat das benannt
+und die Lage angenommen. Der Schalter macht die Korrektur billig (eine Konfigurationszeile
+statt eines Umbaus), er macht die Frage nicht kleiner. **Vor dem ersten Abschluss zwischen
+zwei echten Kunden gehört die Auskunft eingeholt**; solange Pilotkunden und Vorführdaten
+laufen, trägt der Schalter.
 
 - ~~**D-E3**~~ ✅ entschieden 2026-08-13: **Weg (a)**. Ursprünglich: Weg für Welle D6 (DSGVO für Profile ohne Konto): zweiter Einstieg für
   Profil-IDs **(a, empfohlen)** oder Vereinheitlichung der bestehenden Löschpfade (b).
