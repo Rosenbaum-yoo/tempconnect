@@ -105,6 +105,17 @@ export const BEREICH_JE_PFAD = Object.freeze({
   audit: "audit",
   "audit-decisions": "audit",
   executive: "audit",
+  /*
+   * Markt-Sichtbarkeit: wessen Kraefte am Markt unauffindbar sind.
+   *
+   * Bewusst "audit" und nicht "commercial", obwohl die Liste eine Anrufliste
+   * ist: sie entscheidet nichts, sie zeigt nur. Und sie wird von ZWEI Seiten
+   * gebraucht — der Vertrieb ruft an, der Betrieb hat den Zustand verursacht
+   * (die Materialisierung ueberspringt Kraefte ohne Katalog-Faehigkeit) und
+   * kann ihn beheben. Unter "commercial" waere sie fuer staff_ops unsichtbar,
+   * ausgerechnet fuer die Rolle, die den Befund abstellen kann.
+   */
+  "markt-sichtbarkeit": "audit",
 });
 
 /**

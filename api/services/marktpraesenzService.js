@@ -1,3 +1,7 @@
+import { createServiceLogger } from "../utils/logger.js";
+
+const logger = createServiceLogger("marktpraesenz");
+
 /**
  * marktpraesenzService — Verfuegbarkeit IST das Angebot (Welle J2b)
  *
@@ -163,6 +167,57 @@ const HORIZONT_SQL = `
      AND cp.status IN ('draft', 'active', 'paused')
      AND cp.availability_to IS DISTINCT FROM wp.einsetzbar_bis`;
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * WER IST AM MARKT UNSICHTBAR — UND WARUM (eine Wahrheit, zwei Verbraucher)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Der Sweep misst seine eigene Luecke seit jeher mit. Gemessen am 2026-09-02:
+ * 33 aktive Kraefte, 30 davon OHNE Katalog-Faehigkeit — sie koennen gar nicht
+ * materialisiert werden und sind am Markt unauffindbar.
+ *
+ * Diese Zahl ging bisher an ihren Aufrufer, landete im Antwortkoerper von
+ * `POST /internal/staffing-maintenance` und in einer Log-Zeile — und war mit
+ * der naechsten Log-Rotation weg (M0-Bericht, Punkt 29). Ein Befund, den
+ * niemand sieht, ist derselbe stille Ausfall wie ein Automatismus, der nie
+ * laeuft.
+ *
+ * `marktSichtbarkeit()` am Ende dieser Datei liest denselben Bestand fuer die
+ * Anzeige. Damit gaebe es zwei Stellen, die "unsichtbar" definieren — genau
+ * die Doppelung, die M1.7 an anderer Stelle geloescht hat. Deshalb stehen die
+ * Bedingungen HIER, einmal, und beide Abfragen setzen sie ein.
+ * `api/test/marktSichtbarkeit.test.js` prueft nach, dass keine der beiden
+ * ihre eigene Fassung mitbringt.
+ */
+
+/** Wer ueberhaupt am Markt erscheinen SOLL: aktiv und nicht abgeschaltet. */
+export const PRAESENT_SQL = "wp.is_active = TRUE AND wp.marktpraesenz_deaktiviert = FALSE";
+
+/** Grund 1: keine Katalog-Faehigkeit — dann gibt es nichts zu materialisieren. */
+export const OHNE_SKILL_SQL =
+  "NOT EXISTS (SELECT 1 FROM worker_profile_skills s WHERE s.worker_profile_id = wp.id)";
+
+/**
+ * Grund 2: Faehigkeit ja, Ort nein. Bewusst MIT der Faehigkeits-Bedingung,
+ * damit die beiden Gruende einander ausschliessen und ihre Summe die Zahl der
+ * unsichtbaren Kraefte ist — nicht mehr.
+ */
+export const OHNE_ORT_SQL =
+  "(wp.city IS NULL OR wp.city = '') AND EXISTS "
+  + "(SELECT 1 FROM worker_profile_skills s WHERE s.worker_profile_id = wp.id)";
+
+/**
+ * Der Vorbehalt reist MIT der Zahl, nicht in der Oberflaeche.
+ *
+ * Gezaehlt werden ZWEI Gruende, und beide sind Pflegezustaende, die die
+ * Kundin selbst beheben kann. Ob der Rest tatsaechlich am Markt erscheint,
+ * sagt diese Zahl NICHT — die Materialisierung schliesst zusaetzlich
+ * Abwesende aus und verlangt einen Agentur-Nutzer.
+ */
+export const SICHTBARKEIT_HINWEIS =
+  "Gezaehlt sind zwei behebbare Gruende: keine Katalog-Faehigkeit und kein "
+  + "gepflegter Ort. Der Rest ist damit noch nicht zwingend am Markt sichtbar — "
+  + "Abwesenheit und ein fehlender Agentur-Nutzer schliessen zusaetzlich aus.";
+
 /**
  * Vollstaendiger Sweep: (1) Ruecknahme abgeschalteter Kraefte,
  * (2) Wiederkehr wieder eingeschalteter, (3) Horizont spiegeln,
@@ -187,15 +242,10 @@ export async function sweepMarktpraesenz(pool) {
    * (Welle J6) und den Hinweis auf der Agenturtafel (Welle J2c). */
   const luecke = await pool.query(`
     SELECT
-      COUNT(*) FILTER (WHERE NOT EXISTS (
-        SELECT 1 FROM worker_profile_skills s WHERE s.worker_profile_id = wp.id
-      ))::int AS ohne_skill,
-      COUNT(*) FILTER (WHERE (wp.city IS NULL OR wp.city = '') AND EXISTS (
-        SELECT 1 FROM worker_profile_skills s WHERE s.worker_profile_id = wp.id
-      ))::int AS ohne_ort
+      COUNT(*) FILTER (WHERE ${OHNE_SKILL_SQL})::int AS ohne_skill,
+      COUNT(*) FILTER (WHERE ${OHNE_ORT_SQL})::int AS ohne_ort
       FROM worker_profiles wp
-     WHERE wp.is_active = TRUE
-       AND wp.marktpraesenz_deaktiviert = FALSE`);
+     WHERE ${PRAESENT_SQL}`);
   return {
     zurueckgenommen: zurueck.rowCount || 0,
     wiederhergestellt: wieder.rowCount || 0,
@@ -357,5 +407,85 @@ export async function setzeMarktpraesenz(pool, supplierOrgId, workerProfileId, d
     zurueckgenommen: zurueck.rowCount || 0,
     wiederhergestellt: wieder.rowCount || 0,
     materialisiert: neu.rowCount || 0
+  };
+}
+
+/**
+ * Wer ist am Markt unsichtbar — und bei WEM (2026-09-02).
+ *
+ * Der Sweep zaehlt die Unsichtbaren plattformweit. Fuer eine Handlung genuegt
+ * das nicht: "30 von 33" sagt, DASS es ein Problem gibt, nicht WEN man anruft.
+ * Diese Funktion liefert dieselbe Zahl je Agentur, absteigend nach
+ * Betroffenen — das ist die Anrufliste.
+ *
+ * REIN LESEND. Sie schreibt nichts und laeuft deshalb auch dann, wenn der
+ * Sweep gerade nicht laeuft.
+ *
+ * WAS SIE BEWUSST NICHT BEHAUPTET: dass der Rest sichtbar IST. Die
+ * Materialisierung schliesst zusaetzlich Abwesende aus und verlangt einen
+ * Agentur-Nutzer (siehe MATERIALISIEREN_SQL). Gezaehlt werden die zwei
+ * Gruende, die ein PFLEGEZUSTAND sind und die die Kundin selbst beheben kann.
+ * Der Unterschied steht im Feld `hinweis` und wird mitgezeigt.
+ *
+ * Wirft nie: eine Aufsichtszahl darf die Seite nicht mitreissen.
+ */
+export async function marktSichtbarkeit(pool) {
+  const leer = {
+    verfuegbar: false,
+    gesamt: { aktive: 0, ohne_skill: 0, ohne_ort: 0, unsichtbar: 0 },
+    je_agentur: [],
+    hinweis: SICHTBARKEIT_HINWEIS
+  };
+  if (!pool || typeof pool.query !== "function") return leer;
+
+  let zeilen = [];
+  try {
+    const { rows } = await pool.query(`
+      SELECT wp.supplier_org_id                             AS org_id,
+             COALESCE(o.name, 'ohne Organisation')          AS name,
+             COUNT(*)::int                                  AS aktive,
+             COUNT(*) FILTER (WHERE ${OHNE_SKILL_SQL})::int AS ohne_skill,
+             COUNT(*) FILTER (WHERE ${OHNE_ORT_SQL})::int   AS ohne_ort
+        FROM worker_profiles wp
+        LEFT JOIN organizations o ON o.id = wp.supplier_org_id
+       WHERE ${PRAESENT_SQL}
+       GROUP BY wp.supplier_org_id, o.name`);
+    zeilen = rows || [];
+  } catch (e) {
+    logger.warn({ err: e?.message }, "Markt-Sichtbarkeit konnte nicht gelesen werden");
+    return leer;
+  }
+
+  const jeAgentur = zeilen.map((r) => {
+    const aktive = Number(r.aktive) || 0;
+    const ohneSkill = Number(r.ohne_skill) || 0;
+    const ohneOrt = Number(r.ohne_ort) || 0;
+    return {
+      org_id: r.org_id || null,
+      name: String(r.name || "ohne Organisation"),
+      aktive,
+      ohne_skill: ohneSkill,
+      ohne_ort: ohneOrt,
+      unsichtbar: ohneSkill + ohneOrt
+    };
+  }).sort((a, b) => b.unsichtbar - a.unsichtbar
+    || b.aktive - a.aktive
+    || a.name.localeCompare(b.name, "de"));
+
+  /* Die Kopfzahl wird aus den ZEILEN summiert, nicht getrennt abgefragt.
+   * Sonst koennten Kopf und Liste auseinanderlaufen — und eine Kennzahl, die
+   * ihrer eigenen Aufschluesselung widerspricht, ist keine. */
+  const summe = (feld) => jeAgentur.reduce((n, a) => n + a[feld], 0);
+
+  return {
+    verfuegbar: true,
+    gesamt: {
+      aktive: summe("aktive"),
+      ohne_skill: summe("ohne_skill"),
+      ohne_ort: summe("ohne_ort"),
+      unsichtbar: summe("unsichtbar")
+    },
+    je_agentur: jeAgentur,
+    hinweis: SICHTBARKEIT_HINWEIS
   };
 }

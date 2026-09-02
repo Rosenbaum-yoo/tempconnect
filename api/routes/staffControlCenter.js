@@ -20,6 +20,9 @@ import * as combinedInbox from "../services/staffCombinedInboxService.js";
 import * as subLifecycle from "../services/subscriptionLifecycleService.js";
 import * as customerOps from "../services/staffCustomerOperationsService.js";
 import * as orgSuspension from "../services/orgAccessSuspensionService.js";
+/* Markt-Sichtbarkeit (2026-09-02): derselbe Dienst, der die Angebote
+ * materialisiert, misst dabei seine eigene Luecke mit — hier wird sie lesbar. */
+import * as marktpraesenzService from "../services/marktpraesenzService.js";
 import * as staffBilling from "../services/staffBillingOverviewService.js";
 import * as staffMail from "../services/staffMailCenterService.js";
 import * as staffIncidents from "../services/staffIncidentService.js";
@@ -1611,6 +1614,22 @@ export function createStaffControlCenterRouter(deps) {
   });
   router.get("/support", requireStaff, async (_req, res) => {
     res.json({ success: true, data: await staffControlService.loadSupportSnapshot(pool) });
+  });
+  /*
+   * Markt-Sichtbarkeit: wessen Kraefte am Markt unauffindbar sind.
+   *
+   * Die Zahl gab es schon — `sweepMarktpraesenz` misst sie bei jedem Lauf mit
+   * und gibt sie zurueck. Sie landete im Antwortkoerper eines internen
+   * Endpunkts und in einer Log-Zeile, danach war sie weg (M0-Bericht, Punkt
+   * 29). Gemessen am 2026-09-02: 30 von 33 aktiven Kraeften unsichtbar.
+   *
+   * Hier ist sie plattformweit und je Agentur lesbar. Bewusst NICHT im OCC:
+   * die Liste betrifft die Plattform als Ganzes und die Arbeit des Teams
+   * (docs/FLAECHEN.md, Antwort 3) — und neue OCC-Module sind seit dem
+   * Owner-Entscheid vom 2026-08-27 ohnehin gesperrt.
+   */
+  router.get("/markt-sichtbarkeit", requireStaff, async (_req, res) => {
+    res.json({ success: true, data: await marktpraesenzService.marktSichtbarkeit(pool) });
   });
 
   // ── Support Cases — Liste (filterbar) ───────────────────────

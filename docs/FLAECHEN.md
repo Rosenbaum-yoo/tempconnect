@@ -106,6 +106,7 @@ Verwaltung der Plattform durch das TempConnect-Team.
 | `staff-access` | Staff-Zugänge |
 | `marketplace-visibility` | bezahlte Marktplatz-Sichtbarkeit (`profile_bounties`) |
 | `search-moderation` | Suchmeldungen |
+| `markt-sichtbarkeit` | wessen Kräfte am Markt unauffindbar sind — plattformweit und je Agentur. **Entscheidungsfrage:** betrifft nicht einen Kunden, sondern den Marktplatz als Ganzes und die Akquise-Arbeit des Teams → Antwort 3, Staff CC. Der Einzelfall („warum ist bei DIESER Firma niemand sichtbar“) wäre eine OCC-Frage — neue OCC-Module sind seit dem Owner-Entscheid vom 2026-08-27 gesperrt, und die Liste selbst ist ohnehin plattformweit |
 | `commercial-inbox` | kommerzieller Posteingang |
 
 ## Support Center

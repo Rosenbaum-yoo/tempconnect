@@ -28,6 +28,7 @@ export type AreaKey =
   | "rabatt-faelle"
   | "marketplace-visibility"
   | "search-moderation"
+  | "markt-sichtbarkeit"
   | "data-governance"
   | "document-vault";
 
@@ -70,6 +71,11 @@ export const AREAS: NavItem[] = [
   { key: "support-vendors",       label: "Support Vendors",      group: "Administration" },
   { key: "marketplace-visibility", label: "Marketplace Visibility", group: "Marketplace" },
   { key: "search-moderation",     label: "Suchmeldungen",          group: "Marketplace" },
+  // Kein Moderationsmodul, sondern die erste Marktzahl im Staff CC: wessen
+  // Kraefte am Markt unauffindbar sind. Steht bei "Marketplace", weil es den
+  // Marktplatz-Bestand betrifft — nicht bei Operations, wo es um den Betrieb
+  // der Plattform geht.
+  { key: "markt-sichtbarkeit",    label: "Markt-Sichtbarkeit",     group: "Marketplace" },
   { key: "data-governance",       label: "DSGVO / Datenschutz",    group: "Governance" },
   { key: "document-vault",        label: "Dokumenten-Tresor",      group: "Governance" },
 ];

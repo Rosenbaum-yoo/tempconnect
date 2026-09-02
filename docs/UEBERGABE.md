@@ -664,6 +664,75 @@ hat die Zeilen schon angefasst), 409 wieder zu 400. Dazu eine Fixture-Pflege in
 `mitarbeiterOhneKonto.test.js`: dessen Mock beantwortete **jede** Pool-Abfrage mit der
 Einladung, also auch den neuen Nachschlag — er unterscheidet sie jetzt.
 
+### Markt-Sichtbarkeit: die wertvollste Zahl war schon da *(2026-09-02)*
+
+**Der Anlass war eine Owner-Frage** — ob sich aus den Marktzahlen ableiten lässt, wo gerade
+Nachfrage herrscht, um gezielt Marketing zu machen. Der Entwurf dazu wurde breit geprüft
+(elf Agenten, drei unabhängige Ansätze, jeder adversarisch gegengelesen). **Alle drei
+Ansätze wurden verworfen**, mit drei verschiedenen, jeweils belegten Einwänden — und die
+Widerlegung war wertvoller als jeder der Entwürfe.
+
+**Was dabei an eigenen Aussagen fiel:**
+
+1. **Angebot und Nachfrage sind nicht vergleichbar gezählt.** `marktpraesenzService`
+   materialisiert `capacity_posts` **je Fähigkeit** mit fest verdrahtetem `headcount = 1`
+   (`MATERIALISIEREN_SQL`, `JOIN worker_profile_skills`). In den echten Daten: **Person
+   `c89f4638` steht sechsmal** in den 13 aktiven Angeboten — Ambulante Pflege,
+   Demenzbetreuung, Grundpflege, Kinderbetreuung, Pflegeassistenz, Stationäre Pflege. *Eine*
+   Pflegekraft, sechs „Köpfe". Jede Differenz „Bedarf minus Angebot" vergleicht Personen mit
+   Fähigkeits-Zeilen.
+2. **„Die Lücke über die Zeit" trägt nicht.** `capacity_posts` und `demand_requests` sind
+   **Zustands**-Tabellen. Derselbe offene Datensatz an 21 Tagen abgezogen ist *eine*
+   Beobachtung, 21-mal gezählt. Und `end_date` ist nullable, während die einzige Stelle, die
+   auf `expired` setzt (`capacityExchangeService.js:1506`), `end_date IS NOT NULL` verlangt:
+   gemessen **4 von 13 offenen Anfragen sind nie automatisch schließbar, die älteste 169
+   Tage**. Eine Dauer-Aussage verkauft dann einen Bedarf, den es nicht mehr gibt.
+3. **„Kein Angebot" misst nicht den Markt, sondern unsere Stammdaten.** Gemessen: **33
+   aktive Kräfte, 30 ohne Katalog-Fähigkeit** — sie werden gar nicht erst materialisiert.
+
+**Und genau darin lag die Antwort.** Die wertvollste Liste **wurde bereits berechnet und
+weggeworfen**: `sweepMarktpraesenz` misst bei jedem Lauf `unsichtbar_ohne_skill` und
+`unsichtbar_ohne_ort` mit, gibt sie zurück — und der Aufrufer legt sie in den Antwortkörper
+eines internen Endpunkts und in eine Log-Zeile. Der M0-Bericht hat das als **Punkt 29**
+festgehalten. Das J-Wellen-Dokument behauptet, die Zahl speise „Aufsicht (J6) und
+Agentur-Hinweis (J2c)" — **beide Verbraucher gibt es nicht.**
+
+Jetzt gibt es einen: **Staff CC → Marketplace → Markt-Sichtbarkeit**, plattformweit und je
+Agentur, absteigend nach Betroffenen. Das *ist* die Anrufliste:
+
+```
+Demo Zeitarbeit GmbH   12 aktive   10 unsichtbar
+Zeitarbeit              7 aktive    6 unsichtbar
+ElektroStaff GmbH       3 aktive    3 unsichtbar
+```
+
+Drei Entscheidungen daran:
+
+* **Eine Wahrheit.** Sweep und Anzeige lesen denselben Bestand. Zwei Stellen, die
+  „unsichtbar" definieren, wären die Doppelung aus M1.7 — dort gewann die zweite Tabelle,
+  weil sie im Schreibpfad stand. Die Bedingungen stehen deshalb **einmal**
+  (`PRAESENT_SQL`, `OHNE_SKILL_SQL`, `OHNE_ORT_SQL`), und eine Probe zählt nach, dass keine
+  Abfrage ihre eigene Fassung mitbringt.
+* **Kein Feld `sichtbar`.** Die Versuchung, `aktive − unsichtbar` als „sichtbar" zu melden,
+  wäre eine Behauptung: die Materialisierung schließt zusätzlich Abwesende aus und verlangt
+  einen Agentur-Nutzer. Der Vorbehalt reist als Feld `hinweis` **mit der Antwort** und wird
+  in der Oberfläche gezeigt, nicht weggelassen.
+* **Staff CC, nicht OCC.** Die Liste betrifft den Marktplatz als Ganzes und die Arbeit des
+  Teams — Antwort 3 der Entscheidungsfrage. Der Einzelfall wäre eine OCC-Frage; neue
+  OCC-Module sind seit dem Owner-Entscheid vom 2026-08-27 gesperrt.
+
+Sechs Rückmutationen, alle rot. Eine davon überlebte zunächst: `aktive: 33` fest verdrahtet
+sah richtig aus, **weil der Prüfdatensatz zufällig auf 33 summiert**. Ergänzt um einen
+zweiten Datensatz mit anderen Zahlen — *eine Probe, deren Erwartung mit dem Fehler
+übereinstimmt, prüft nichts.*
+
+> **Was daraus für ein späteres Nachfrage-Dashboard folgt:** die Achsen tragen noch nicht.
+> 24 aktive Zeilen auf 16 verschiedene Rollen (Freitext, kein Katalog), dazu `hamburg` neben
+> `Hamburg`. Erst Rollen-Katalog und Umkreis statt Stadtname, dann die Differenz — sonst
+> zeigt das Dashboard überzeugend aussehende Zufälle. Und: die Mindestgruppe 3 aus dem
+> öffentlichen Schaufenster darf **intern nicht** gelten, sie faltet genau die kleinen,
+> ansprechbaren Fälle weg.
+
 ### Offener Befund: `invoice_type` wird uneinheitlich gefiltert *(gemessen 2026-09-02)*
 
 Aus der Parallelsitzung gemeldet, von mir **selbst nachgemessen** — der Vorbefund derselben
