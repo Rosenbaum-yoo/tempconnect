@@ -517,8 +517,40 @@ dann in einem `COMMENT ON`-Text, den kein Kommentar-Strippen entfernt) und zulet
 SQL zusätzlich daran denken, dass `COMMENT ON` echter Code ist. Wo es geht, nicht die
 Datei lesen, sondern die Struktur (die Spaltenliste, den Block, die Zeile).
 
-**Als Nächstes: M1.7** — den zweiten PRO-Grenzwert löschen. Der Code sagt an einer Stelle
-noch 50 Angebote, entschieden ist **unbegrenzt** (M-E3).
+### M1.7 ist gebaut *(2026-09-02)* — die zweite Wahrheit gewann, weil sie im Schreibpfad stand
+
+`capacityExchangeService.js` führte **neben** `userService.PLAN_LIMITS` eine eigene
+Tabelle:
+
+```
+eigene Tabelle:   DEMO 0 · BASIS 5 · PLUS 20 · PRO  50 · INDIVIDUELL 999
+PLAN_LIMITS:      DEMO 0 · BASIS 5 · PLUS 20 · PRO  -1 · INDIVIDUELL  -1
+```
+
+Und die eigene entschied, weil `getActiveLimit` im Schreibpfad saß. Eine PRO-Agentur bekam
+bei der **51. Anzeige** `PLAN_LIMIT` — für eine Leistung, für die sie 799 €/Monat zahlt;
+INDIVIDUELL war bei 999 gedeckelt statt unbegrenzt. Owner-Entscheid M-E3: der abweichende
+Wert wird **gelöscht**, nicht angeglichen — angeglichen wären sie beim nächsten Preisumbau
+wieder auseinander.
+
+> **Die Falle beim Löschen:** die verbleibende Tabelle schreibt „unbegrenzt" als `-1`. Ein
+> bloßes Ersetzen hätte `cnt >= limit` zu `cnt >= -1` gemacht — **immer wahr**. Aus
+> „unbegrenzt" wäre „gar nichts" geworden, ausgerechnet für die zwei teuersten Pläne.
+> Deshalb `unbegrenzt()` an **jeder** Vergleichsstelle, auch im Aktivierungsweg.
+
+Die Proben prüfen deshalb **Verhalten, nicht Zahlen**: PRO mit 500 aktiven Anzeigen darf
+die 501. anlegen und einen Entwurf aktivieren; BASIS wird bei fünf weiterhin gebremst; ein
+unbekannter Plan bekommt nichts statt alles. Vier Rückmutationen, alle rot.
+
+> **Eine Probe hat dabei zunächst versagt, und das ist lehrreich.** Die erste Fassung
+> zählte Vorkommen von `unbegrenzt(limit)` im Quelltext und verlangte drei. Sie fing das
+> Entfernen einer Prüfstelle **nicht** — das Muster trifft auch die Funktions*definition*
+> mit, also blieben immer noch drei übrig. Eine Zählprobe zählt, was sie zählt, nicht was
+> sie meint. Ersetzt durch zwei Verhaltensproben.
+
+**Als Nächstes: M1.8** — die `org_type`-Dimension. Danach M2.1, der `acceptInvite`-Riegel;
+für den gilt: der Nachweis muss den **beidseitig toten** Kontostand prüfen, nicht nur das
+überschriebene Passwort.
 
 **DER NÄCHSTE GRIFF:** M1 (die stillen Ausfälle) — alle Entscheidungen dafür
 liegen vor. Zuvor wird die Anweisung aus der Parallelsitzung abgewartet.

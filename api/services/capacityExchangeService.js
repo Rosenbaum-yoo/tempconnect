@@ -12,22 +12,45 @@ import * as auditLog from "./auditLog.js";
 import { computePremiumBoost } from "./reputationService.js";
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
 import { cpSpaltenSql } from "./capacityPostOeffentlicheSpalten.js";
+/* M1.7 — die EINE Tabelle, die entscheidet, wie viele Anzeigen ein Plan
+ * tragen darf. Siehe die Begruendung am Block darunter. */
+import { PLAN_LIMITS } from "./userService.js";
 
-/* ── Plan-based limits ────────────────────────────── */
+/* ── Plan-based limits ──────────────────────────────
+ *
+ * M1.7 — HIER STAND EINE ZWEITE TABELLE, UND SIE GEWANN.
+ *
+ * Sie fuehrte `PRO: 50` und `INDIVIDUELL: 999`, waehrend
+ * `userService.PLAN_LIMITS` fuer beide `listings: -1` sagt — unbegrenzt, so
+ * ist es verkauft. Weil diese hier im SCHREIBPFAD stand, entschied sie: eine
+ * PRO-Agentur bekam bei der 51. Anzeige `PLAN_LIMIT`, fuer eine Leistung, fuer
+ * die sie 799 EUR im Monat zahlt.
+ *
+ * Owner-Entscheid M-E3: unbegrenzt, und der abweichende Wert wird GELOESCHT,
+ * nicht angeglichen. Zwei Tabellen fuer dieselbe Grenze sind der Fehler, nicht
+ * ihr Inhalt — angeglichen waeren sie beim naechsten Preisumbau wieder
+ * auseinander.
+ *
+ * DIE FALLE BEIM LOESCHEN: die verbleibende Tabelle schreibt "unbegrenzt" als
+ * `-1`. Ein blosses Ersetzen haette `cnt >= limit` zu `cnt >= -1` gemacht —
+ * immer wahr. Aus "unbegrenzt" waere "gar nichts" geworden, ausgerechnet fuer
+ * die zwei teuersten Plaene. Deshalb `unbegrenzt()` an JEDER Vergleichsstelle.
+ *
+ * Kein Ringschluss: `userService.js` importiert diese Datei nicht.
+ */
 
-const PLAN_LIMITS = {
-  DEMO: 0,
-  FREE: 0,
-  BASIS: 5,
-  PLUS: 20,
-  PRO: 50,
-  INDIVIDUELL: 999
-};
-PLAN_LIMITS.ENTERPRISE = PLAN_LIMITS.INDIVIDUELL;
-PLAN_LIMITS.INDIVIDUAL = PLAN_LIMITS.INDIVIDUELL;
+/** Die eine Schreibweise fuer "ohne Grenze". */
+const UNBEGRENZT = -1;
 
+/** Wie viele AKTIVE Anzeigen dieser Plan tragen darf. Unbekannt = keine. */
 function getActiveLimit(plan) {
-  return PLAN_LIMITS[plan] ?? 0;
+  const roh = Number(PLAN_LIMITS[plan]?.listings);
+  return Number.isFinite(roh) ? roh : 0;
+}
+
+/** Trennt "unbegrenzt" von "null erlaubt" — beides sind Zahlen <= 0. */
+function unbegrenzt(limit) {
+  return limit === UNBEGRENZT;
 }
 
 /* ── Helpers ──────────────────────────────────────── */
@@ -297,10 +320,10 @@ export async function syncCapacityCommercialStateForOffer(pool, offerId) {
 export async function createCapacityEntry(pool, supplierId, plan, data) {
   // Check plan limit
   const limit = getActiveLimit(plan);
-  if (limit <= 0 && data.status !== 'draft') {
+  if (!unbegrenzt(limit) && limit <= 0 && data.status !== 'draft') {
     throw Object.assign(new Error('Plan does not allow capacity entries'), { code: 'PLAN_LIMIT' });
   }
-  if (data.status === 'active' || !data.status) {
+  if (!unbegrenzt(limit) && (data.status === 'active' || !data.status)) {
     const { rows: countRows } = await pool.query(
       `SELECT COUNT(*)::int AS cnt FROM capacity_posts WHERE supplier_company_id = $1 AND status = 'active'`,
       [supplierId]
@@ -437,13 +460,15 @@ export async function transitionStatus(pool, entryId, supplierId, newStatus, pla
       return { error: 'VALIDATION', details: validation.errors };
     }
     const limit = getActiveLimit(plan);
-    const { rows: countRows } = await pool.query(
-      `SELECT COUNT(*)::int AS cnt FROM capacity_posts
+    if (!unbegrenzt(limit)) {
+      const { rows: countRows } = await pool.query(
+        `SELECT COUNT(*)::int AS cnt FROM capacity_posts
        WHERE supplier_company_id = $1 AND status = 'active' AND id != $2`,
-      [supplierId, entryId]
-    );
-    if (countRows[0].cnt >= limit) {
-      return { error: 'PLAN_LIMIT', limit };
+        [supplierId, entryId]
+      );
+      if (countRows[0].cnt >= limit) {
+        return { error: 'PLAN_LIMIT', limit };
+      }
     }
   }
 
