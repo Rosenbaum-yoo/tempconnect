@@ -664,6 +664,58 @@ hat die Zeilen schon angefasst), 409 wieder zu 400. Dazu eine Fixture-Pflege in
 `mitarbeiterOhneKonto.test.js`: dessen Mock beantwortete **jede** Pool-Abfrage mit der
 Einladung, also auch den neuen Nachschlag — er unterscheidet sie jetzt.
 
+### M2.2 ist gebaut *(2026-09-02)* — drei Konventionen, drei Symptome
+
+`users_email_key` ist ein gewöhnlicher `UNIQUE`-Index auf `email`, also
+**groß-/kleinschreibungsempfindlich**. Daneben standen **drei** Konventionen in fünf
+Dateien:
+
+| Stelle | Fassung | |
+|---|---|---|
+| `scimService.js:118` | `LOWER(email) = $1` | richtig |
+| `ssoService.js:178` | `email = $1`, Wert kleingeschrieben | **halb** — nur der Wert, nicht die Spalte |
+| `authService.js:10/72/78` | `email = $1` | gar nicht |
+| `routes/demo.js:48` | `email = $1` | gar nicht |
+
+Daraus folgten **drei** Symptome, nicht eines:
+
+1. **Registrierung** mit anderer Schreibweise → **zweites Konto** (`emailExists` fand
+   nichts, der Index ließ es durch).
+2. **Anmeldung** mit anderer Schreibweise → „Zugangsdaten falsch", obwohl das Konto
+   existiert.
+3. **Passwort zurücksetzen** → derselbe Fehlschlag, und dort still, weil die Antwort aus
+   Datenschutzgründen ohnehin nichts verrät.
+
+Gemessen: **404 Konten, 404 verschiedene Adressen nach Kleinschreibung** — heute also kein
+Doppel. Aber **zehn Adressen tragen Großbuchstaben**; das Risiko war scharf.
+
+**Die Datenbank garantiert es jetzt, nicht der Code.** Migration 215 legt einen
+`UNIQUE INDEX ON users (LOWER(email))` an — das zweite Konto ist damit *strukturell*
+unmöglich, unabhängig davon, ob jemand den nächsten Einfügepfad vergisst. Derselbe Index
+bedient die neuen Abfragen; ohne ihn wäre `LOWER(email) = LOWER($1)` ein voller
+Tabellendurchlauf bei **jeder** Anmeldung.
+
+> Die Migration sagt **vorher**, welche Doppel im Weg stehen, statt mit einem nackten
+> „could not create unique index" zu scheitern. Ein Migrationsfehler, den niemand einordnen
+> kann, wird übersprungen; einer mit Namen wird behoben.
+
+Der alte Index bleibt: er ist strenger, nicht falsch. Und die **zehn** vorhandenen
+Großbuchstaben-Adressen werden bewusst **nicht** kleingeschrieben — sie sind eindeutig, und
+eine Datenänderung an Konten braucht einen anderen Anlass als eine Index-Migration. Sobald
+die Abfragen beidseitig kleinschreiben, kommen diese Nutzer mit jeder Schreibweise hinein.
+
+Der Wächter [`emailSchreibweise.test.js`](../api/test/emailSchreibweise.test.js) liest
+**jede** Produktionsdatei, nicht die drei bekannten Stellen: der Fehler war eine fehlende
+Konvention, und eine Probe, die nur das Bekannte prüft, lässt die vierte Fassung durch.
+Sechs Rückmutationen, alle rot.
+
+> **Die Probe hat beim Bauen zwei eigene Fehler gefangen.** Erst meldete sie
+> `UPDATE users SET email = $2` aus der Anonymisierung — eine **Zuweisung**, das Gegenteil
+> eines Vergleichs; jetzt prüft sie auf das vorangehende `WHERE`/`AND`/`OR`. Und dann stand
+> in ihrem Muster zum **dritten Mal in dieser Sitzung** ein echtes Rücktaste-Zeichen statt
+> `\b`. Deshalb steht die Wortgrenze dort heute als Zeichenklasse: *was man nicht schreiben
+> kann, ohne es zu zerbrechen, schreibt man anders.*
+
 ### Markt-Sichtbarkeit: die wertvollste Zahl war schon da *(2026-09-02)*
 
 **Der Anlass war eine Owner-Frage** — ob sich aus den Marktzahlen ableiten lässt, wo gerade

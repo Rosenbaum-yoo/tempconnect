@@ -17,6 +17,14 @@
  * Run: node --test --test-force-exit test/auth.route.coverage.test.js
  */
 
+/*
+ * M2.2 (2026-09-02): die Matcher unten treffen die Abfrage ueber ihren
+ * ANFANG, nicht ueber den Wortlaut. Vorher stand dort
+ * `WHERE email=$1` woertlich — und die Zeilen brachen, als die Abfrage auf
+ * `WHERE LOWER(email) = LOWER($1)` umgestellt wurde, ohne dass sich am
+ * geprueften Verhalten etwas geaendert haette. Reine Fixture-Pflege; keine
+ * Zusicherung angefasst.
+ */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "crypto";
@@ -196,7 +204,7 @@ describe("POST /auth/register", () => {
 
   it("409 EMAIL_EXISTS when email already registered", async () => {
     const pool = trackingPool([
-      { match: (s) => s.includes("SELECT 1 FROM users WHERE email=$1"), respond: { rows: [{ "1": 1 }], rowCount: 1 } }
+      { match: (s) => s.includes("SELECT 1 FROM users WHERE"), respond: { rows: [{ "1": 1 }], rowCount: 1 } }
     ]);
     const handler = getHandler(createAuthRouter(makeDeps(pool)), "post", "/auth/register");
     const res = mockRes();
@@ -207,7 +215,7 @@ describe("POST /auth/register", () => {
 
   it("200 success: creates user, sends mail, regenerates session, returns me + verification_sent", async () => {
     const pool = trackingPool([
-      { match: (s) => s.includes("SELECT 1 FROM users WHERE email=$1"), respond: { rows: [], rowCount: 0 } },
+      { match: (s) => s.includes("SELECT 1 FROM users WHERE"), respond: { rows: [], rowCount: 0 } },
       { match: (s) => s.includes("INSERT INTO users"), respond: { rows: [{ id: "NEW-USER" }], rowCount: 1 } }
     ]);
     const handler = getHandler(createAuthRouter(makeDeps(pool, { id: "NEW-USER" })), "post", "/auth/register");
@@ -226,7 +234,7 @@ describe("POST /auth/register", () => {
 
   it("individual direct signup sets contract-request org stage", async () => {
     const pool = trackingPool([
-      { match: (s) => s.includes("SELECT 1 FROM users WHERE email=$1"), respond: { rows: [], rowCount: 0 } },
+      { match: (s) => s.includes("SELECT 1 FROM users WHERE"), respond: { rows: [], rowCount: 0 } },
       { match: (s) => s.includes("INSERT INTO users"), respond: { rows: [{ id: "IND-USER" }], rowCount: 1 } },
       // createOrgWithMembership returns an org id via its INSERT ... RETURNING id
       { match: (s) => s.includes("INSERT INTO organizations"), respond: { rows: [{ id: "ORG-NEW" }], rowCount: 1 } }
@@ -413,7 +421,7 @@ describe("POST /auth/forgot-password", () => {
 
   it("returns generic ok (no enumeration) when user does not exist", async () => {
     const pool = trackingPool([
-      { match: (s) => s.includes("SELECT id, email FROM users WHERE email=$1"), respond: { rows: [], rowCount: 0 } }
+      { match: (s) => s.includes("SELECT id, email FROM users WHERE"), respond: { rows: [], rowCount: 0 } }
     ]);
     const handler = getHandler(createAuthRouter(makeDeps(pool)), "post", "/auth/forgot-password");
     const res = mockRes();
@@ -426,7 +434,7 @@ describe("POST /auth/forgot-password", () => {
 
   it("sets reset token + sends mail + audit when user exists", async () => {
     const pool = trackingPool([
-      { match: (s) => s.includes("SELECT id, email FROM users WHERE email=$1"),
+      { match: (s) => s.includes("SELECT id, email FROM users WHERE"),
         respond: { rows: [{ id: "u7", email: "real@b.de" }], rowCount: 1 } }
     ]);
     const handler = getHandler(createAuthRouter(makeDeps(pool)), "post", "/auth/forgot-password");

@@ -23,7 +23,17 @@ const SIZE_CLASS_EMPLOYEE_DEFAULTS = { I: 15, II: 100, III: 500, IV: 2000 };
 const registerSchema = z.object({
   role: z.enum(["company", "agency"]),
   org_role: z.enum(["owner", "admin", "dispatcher", "member"]).optional().default("owner"),
-  email: z.string().email().max(254),
+  /*
+   * M2.2: an der Eingangsgrenze kleingeschrieben, denn HIER entsteht die
+   * Zeile. Die Abfragen suchen seit M2.2 ohnehin beidseitig kleingeschrieben,
+   * und Migration 215 verhindert das zweite Konto strukturell — dieser Griff
+   * sorgt zusaetzlich dafuer, dass gar nicht erst neue Adressen mit
+   * Grossbuchstaben entstehen. Gemessen waren es zehn im Bestand.
+   *
+   * Die Anmeldung braucht das NICHT: ihre Abfrage schreibt beide Seiten
+   * klein, also findet sie das Konto in jeder Schreibweise.
+   */
+  email: z.string().email().max(254).transform((v) => v.trim().toLowerCase()),
   password: z.string().min(8).max(128),
   company_name: z.string().max(200).optional().nullable(),
   phone: z.string().max(50).optional().nullable(),

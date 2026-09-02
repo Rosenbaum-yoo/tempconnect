@@ -45,7 +45,9 @@ export function createDemoRouter(deps) {
   /* ── Shared: Lookup + Session erstellen ─────────────────── */
   async function loginDemoUser(email, meta, req, res) {
     const { rows } = await pool.query(
-      "SELECT id, role FROM users WHERE email = $1 AND is_demo = TRUE",
+      /* M2.2: auch hier, obwohl Demo-Adressen erzeugt werden — eine
+         Ausnahme von der Konvention ist die naechste Fehlerquelle. */
+      "SELECT id, role FROM users WHERE LOWER(email) = LOWER($1) AND is_demo = TRUE",
       [email]
     );
     if (!rows[0]) {
