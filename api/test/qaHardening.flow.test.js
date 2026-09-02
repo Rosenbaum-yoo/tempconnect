@@ -240,6 +240,9 @@ describe("Flow 5: Downgrade", () => {
       { rows: [{ cnt: 0 }] },               // countSuppliers
       { rows: [{ cnt: 1 }] },               // countMultiOrgSlots
       { rows: [] },                          // loadOwnerUser → null
+      // M1.8: Abweichungen je Org-Typ (plan_grenze_je_orgtyp), zuletzt geholt
+      // und leer — es gelten die Code-Werte. Reine Fixture-Pflege.
+      { rows: [] },
       { rows: [{ id: "req-d", status: "submitted", request_type: "downgrade" }] }, // createRequest INSERT
       { rows: [] },                          // history INSERT
       { rows: [{}] }                         // UPDATE downgrade_impact_snapshot

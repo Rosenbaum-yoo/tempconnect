@@ -30,6 +30,10 @@ import { PLAN_CATALOG as _PLAN_CATALOG, FEATURE_CATALOG, ADDON_CATALOG, INDIVIDU
 import { PLAN_LIMITS } from "./userService.js";
 import * as usageMetering from "./usageMeteringService.js";
 import { dateOnlyDE } from "../utils/dateDE.js";
+/* M1.8 — die mittlere Schicht: Abweichungen je Org-Typ. Sie liegt ZWISCHEN
+ * der Code-Vorgabe und der je-Org-Uebersteuerung; die Reihenfolge ist der
+ * Inhalt, nicht ein Detail. */
+import { ladeAbweichungen, abweichungFuer } from "./orgTypGrenzenService.js";
 
 const OPEN_REQUEST_STATUSES = ["draft", "submitted", "under_review", "needs_clarification", "offered", "accepted"];
 
@@ -93,13 +97,24 @@ export async function getOrganizationEntitlements(pool, orgId) {
   // Aktive Add-ons aus dedizierter Live-Tabelle, Fallback nur fuer Backfill.
   const activeAddons = await loadActiveAddons(pool, orgId);
   applyActiveAddonsToFeatures(features, activeAddons);
-  const quotaLimits = computeQuotaLimits(effectivePlan, orgRow, activeAddons);
-
   // Pending Requests fuer UI-Hinweise + Self-Service-Sperren.
   const pendingRequests = await loadPendingRequests(pool, orgId);
 
   // Owner-Subscription (= "wer zahlt" pro Org).
   const subscription = await loadOwnerSubscription(pool, orgId);
+
+  /*
+   * M1.8 — die Org-Typ-Schicht wird ZULETZT geholt, obwohl sie logisch weiter
+   * oben gebraucht wird. Grund ist derselbe wie bei `service_health` und beim
+   * Betriebstakt: Muster-Pool-Proben zaehlen Abfragen der Reihe nach, und eine
+   * neue Abfrage in der Mitte verschiebt jede bestehende Sequenz um eins.
+   *
+   * Beim ersten Anlauf stand sie oben — und `entitlementService.test.js` wurde
+   * prompt rot mit "Unexpected query #6". Eine Welle nach derselben Warnung.
+   */
+  const typAbweichungen = abweichungFuer(
+    await ladeAbweichungen(pool), orgRow.type, effectivePlan);
+  const quotaLimits = computeQuotaLimits(effectivePlan, orgRow, activeAddons, typAbweichungen);
 
   const subscriptionStatus = computeSubscriptionStatus({ orgRow, subscription, plan, pilotActive });
 
@@ -195,11 +210,17 @@ export async function getUsageAgainstLimits(pool, orgId, opts = {}) {
     ? normalizePlan(opts.effectivePlan)
     : (orgRow.pilot_status === "active" ? "INDIVIDUELL" : plan);
   const activeAddons = await loadActiveAddons(pool, orgId);
-  const quotaLimits = computeQuotaLimits(effectivePlan, orgRow, activeAddons);
   const quotaUsage = await loadQuotaUsage(pool, orgId);
 
   const ownerUser = await loadOwnerUser(pool, orgId);
   const ownerUserId = ownerUser?.id || null;
+
+  /* Zuletzt geholt — siehe die Begruendung in getOrganizationEntitlements:
+   * eine neue Abfrage in der MITTE verschiebt jede bestehende Muster-Sequenz.
+   * Ganz am Ende verschiebt sie keine. */
+  const typAbweichungen = abweichungFuer(
+    await ladeAbweichungen(pool), orgRow.type, effectivePlan);
+  const quotaLimits = computeQuotaLimits(effectivePlan, orgRow, activeAddons, typAbweichungen);
 
   const baseLimits = PLAN_LIMITS[effectivePlan] || PLAN_LIMITS.DEMO;
   if (!ownerUserId) {
@@ -535,19 +556,40 @@ function applyActiveAddonsToFeatures(features, activeAddons) {
   }
 }
 
-function computeQuotaLimits(effectivePlan, orgRow = {}, activeAddons = []) {
+/**
+ * Drei Schichten, in dieser Reihenfolge (M1.8):
+ *
+ *     Code-Vorgabe            PLAN_LIMITS / PLAN_QUOTA_LIMITS
+ *       -> je Org-Typ         plan_grenze_je_orgtyp (nur Abweichungen)
+ *         -> je Org           organizations.custom_limit_*
+ *
+ * Die Reihenfolge IST der Inhalt: eine Abweichung fuer alle Agenturen darf
+ * eine Sondervereinbarung mit einer einzelnen Firma nicht ueberschreiben.
+ *
+ * `typAbweichungen` ist im Normalfall leer — die Tabelle haelt nur
+ * Abweichungen, und ausgeliefert wird mit keiner. Dann verhaelt sich diese
+ * Funktion exakt wie vorher.
+ */
+function computeQuotaLimits(effectivePlan, orgRow = {}, activeAddons = [], typAbweichungen = {}) {
   const baseQuota = PLAN_QUOTA_LIMITS[effectivePlan] || PLAN_QUOTA_LIMITS.DEMO;
   const planLimits = PLAN_LIMITS[effectivePlan] || PLAN_LIMITS.DEMO;
   const addonKeys = new Set((activeAddons || []).map((a) => a.key));
 
+  /** Code-Vorgabe, sofern der Org-Typ keine eigene Zahl nennt. */
+  const jeTyp = (metrik, vorgabe) => {
+    const w = typAbweichungen?.[metrik];
+    return Number.isFinite(Number(w)) ? Number(w) : vorgabe;
+  };
+
   return {
-    users: coalesceLimit(orgRow.custom_limit_users, baseQuota.users),
-    sites: coalesceLimit(orgRow.custom_limit_sites, baseQuota.sites),
-    listings: coalesceLimit(orgRow.custom_limit_listings, planLimits.listings),
-    suppliers: coalesceLimit(orgRow.custom_limit_suppliers, baseQuota.suppliers),
+    users: coalesceLimit(orgRow.custom_limit_users, jeTyp("users", baseQuota.users)),
+    sites: coalesceLimit(orgRow.custom_limit_sites, jeTyp("sites", baseQuota.sites)),
+    listings: coalesceLimit(orgRow.custom_limit_listings, jeTyp("listings", planLimits.listings)),
+    suppliers: coalesceLimit(orgRow.custom_limit_suppliers, jeTyp("suppliers", baseQuota.suppliers)),
     multi_org_slots: coalesceLimit(
       orgRow.custom_limit_multi_org_slots,
-      addonKeys.has("multitenant") ? Math.max(baseQuota.multi_org_slots || 1, 5) : baseQuota.multi_org_slots
+      jeTyp("multi_org_slots",
+        addonKeys.has("multitenant") ? Math.max(baseQuota.multi_org_slots || 1, 5) : baseQuota.multi_org_slots)
     )
   };
 }

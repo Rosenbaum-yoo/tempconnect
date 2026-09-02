@@ -190,7 +190,10 @@ describe("Preismanipulation - Customer kann KEINE Preise setzen", () => {
   it("Downgrade ignoriert proposed_price_cents im Body", async () => {
     // hasOpenRequest (1) + getUsageAgainstLimits: loadOrgRow, loadActiveAddons,
     // countActiveUsers, countSites, countListings, countSuppliers, countMultiOrgSlots,
-    // loadOwnerUser (8) + createRequest INSERT + history + UPDATE impact (3) = 12 total.
+    // loadOwnerUser, plan_grenze_je_orgtyp (9) + createRequest INSERT + history
+    // + UPDATE impact (3) = 13 total.
+    // M1.8: die letzte der neun ist die Org-Typ-Schicht — leer, also gelten die
+    // Code-Werte. Reine Fixture-Pflege, keine Zusicherung aendert sich.
     const orgRow = { id: "org-mine", plan: "PLUS", pilot_status: null, feature_bundle: "standard", account_type: "live", individual_tier_auto: null, employee_count_approx: null, billing_mode: null, customer_stage: "regular", pilot_started_at: null, pilot_ended_at: null, converted_at: null, parent_org_id: null, custom_limit_users: null, custom_limit_sites: null, custom_limit_listings: null, custom_limit_suppliers: null, custom_limit_multi_org_slots: null };
     const pool = sequencePool(
       { rows: [] },                                                                                                     // hasOpenRequest
@@ -202,6 +205,7 @@ describe("Preismanipulation - Customer kann KEINE Preise setzen", () => {
       { rows: [{ cnt: 0 }] },                                                                                          // countSuppliers
       { rows: [{ cnt: 0 }] },                                                                                          // countMultiOrgSlots
       { rows: [] },                                                                                                     // loadOwnerUser → null
+      { rows: [] },                                                                                                     // plan_grenze_je_orgtyp (M1.8)
       { rows: [{ id: "req-d", status: "submitted", request_type: "downgrade" }] },                                     // createRequest INSERT
       { rows: [] },                                                                                                     // history INSERT
       { rows: [{}] }                                                                                                    // UPDATE downgrade_impact_snapshot
@@ -211,7 +215,17 @@ describe("Preismanipulation - Customer kann KEINE Preise setzen", () => {
     const res = mockRes();
     await handler(mockReq({ body: { desired_plan: "BASIS", proposed_price_cents: 1 } }), res, () => {});
     assert.equal(res._status, 201);
-    const insertCall = pool.calls[9]; // createRequest INSERT ist jetzt calls[9] (0-indexed)
+    /*
+     * Die Einfuege-Abfrage wird ueber ihren INHALT gesucht, nicht ueber einen
+     * Index in der Aufrufliste. Vorher stand hier `pool.calls[9]` — und die
+     * Zeile brach bei JEDER neuen Abfrage weiter oben, zuletzt bei der
+     * Org-Typ-Schicht aus M1.8. Der Index war ein Implementierungsdetail; die
+     * Zusicherung darunter — der Kunde kann keinen Preis setzen — ist der
+     * eigentliche Inhalt und bleibt unveraendert.
+     */
+    const insertCall = pool.calls.find((c) =>
+      String(c.sql || c.text || "").includes("INSERT INTO subscription_requests"));
+    assert.ok(insertCall, "die Einfuege-Abfrage wurde nicht gefunden");
     assert.equal(insertCall.params[24], null);
   });
 });

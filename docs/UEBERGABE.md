@@ -548,9 +548,78 @@ unbekannter Plan bekommt nichts statt alles. Vier Rückmutationen, alle rot.
 > mit, also blieben immer noch drei übrig. Eine Zählprobe zählt, was sie zählt, nicht was
 > sie meint. Ersetzt durch zwei Verhaltensproben.
 
-**Als Nächstes: M1.8** — die `org_type`-Dimension. Danach M2.1, der `acceptInvite`-Riegel;
-für den gilt: der Nachweis muss den **beidseitig toten** Kontostand prüfen, nicht nur das
-überschriebene Passwort.
+### M1.8 ist gebaut *(2026-09-02)* — ein Halbsatz entscheidet die Bauart
+
+Owner-Entscheid M-E5: Struktur jetzt, Werte später — und **„ein geänderter Wert wirkt ohne
+Neubau"**. Genau dieser Halbsatz schließt eine Konstante im Quelltext aus: die verlangt ein
+neues Abbild. Nach der Config-Taxonomie ist eine Grenze je Plan ohnehin **Tier 3
+(Entitlement)** und gehört in die Datenbank.
+
+Die Schichtung, von der zwei Ebenen schon existierten:
+
+```
+Code-Vorgabe (userService.PLAN_LIMITS)
+  → NEU: je Org-Typ (plan_grenze_je_orgtyp, Migration 214)
+    → je Org (organizations.custom_limit_*)
+```
+
+`orgRow` trug `type` bereits — die neue Schicht kostet keine zusätzliche Abfrage auf die
+Organisation.
+
+**Die Tabelle hält nur Abweichungen, nicht die vollen Werte.** Das ist die wichtigste
+Entscheidung, und sie kommt aus dem Fehler von M1.7 desselben Tages: dort stand eine zweite
+Tabelle mit denselben Grenzen, sie gewann, und eine PRO-Agentur wurde bei der 51. Anzeige
+gesperrt. Wäre die neue Tabelle mit den heutigen Werten befüllt worden, wäre dieselbe
+Doppelung sofort zurück. **Leer heißt: beide Seiten teilen den Code-Wert** — und das *ist*
+die sinnvolle Vorgabe. Ausgeliefert wird ohne eine einzige Zeile.
+
+Ein `grund` ist Pflicht (mindestens 10 Zeichen): eine Abweichung ohne Begründung ist in
+einem halben Jahr eine Zahl, die niemand mehr erklären kann — und die deshalb niemand
+zurückzunehmen wagt.
+
+> **Zwei Selbstkorrekturen unterwegs, beide lehrreich.**
+>
+> **Der Zwischenspeicher ist wieder rausgeflogen.** Er sollte die Abfrage sparen (60 s
+> Haltezeit), machte aber die *Abfragezahl* uneinheitlich: derselbe Aufruf stellte mal eine
+> Abfrage und mal keine, je nachdem was vorher lief. `entitlementService.test.js` wurde
+> dadurch von der Reihenfolge **seiner eigenen Tests** abhängig. Ohne Speicher stimmt
+> „ohne Neubau" außerdem ohne Sternchen — sofort statt „innerhalb einer Minute".
+>
+> **Und ich habe die Abfrage erneut in die Mitte gesetzt** — eine Welle nach derselben
+> Warnung. `Unexpected query #6`. Sie steht jetzt am Ende beider Funktionen; **fünf**
+> Muster-Sequenzen sind als reine **Fixture-Pflege** um je eine leere Antwort ergänzt
+> (`entitlementService` ×2, `qaHardening`, `subscriptionRequests` — dort an *einer*
+> gemeinsamen Bauer-Funktion für alle ihre Tests —, `subscriptionSecurity`). Keine
+> einzige Zusicherung wurde angefasst.
+
+**Eine sechste Stelle war anders und wurde deshalb umgebaut.**
+`subscriptionSecurity.test.js` griff die Einfüge-Abfrage über `pool.calls[9]` — einen
+**Index in der Aufrufliste**. Der bricht bei jeder neuen Abfrage weiter oben; das ist ein
+Implementierungsdetail, kein Verhalten. Die Zusicherung darunter ist dagegen echt und
+wichtig: *der Kunde kann keinen Preis setzen* (`params[24] === null`). Sie bleibt Wort für
+Wort stehen; gesucht wird die Abfrage jetzt über ihren **Inhalt**
+(`INSERT INTO subscription_requests`). Gegengeprüft: dreht man die Erwartung auf `1`, wird
+die Probe rot — sie greift also nicht ins Leere.
+
+Fünf Rückmutationen, alle rot: Schicht überspringen, Reihenfolge vertauschen (Typ sticht
+Org), Zwischenspeicher wieder einbauen, unbekannter Typ liefert eine Grenze, `-1`
+verwerfen.
+
+> **Ein struktureller Befund am Rand, nicht umgebaut:** die Suite enthält **655**
+> Zugriffe der Form `pool.calls[N]`. Jeder davon hängt an einer Position statt an einem
+> Inhalt und bricht, sobald irgendwo davor eine Abfrage dazukommt — ohne dass sich am
+> geprüften Verhalten etwas geändert hätte. Von den Dateien, die das mit dem
+> Entitlement-Pfad verbinden, gibt es genau drei (`qaHardening`,
+> `subscriptionMutanten.rest`, `subscriptionSecurity`); die eine betroffene wurde auf
+> Inhalts-Suche umgestellt. Die übrigen 654 Stellen ungefragt umzubauen wäre ein großer
+> Eingriff in fremde Tests — der Befund gehört aber notiert, weil er bei jeder künftigen
+> Abfrage erneut zuschlägt.
+
+**Als Nächstes: M2.1**, der `acceptInvite`-Riegel. Dafür gilt der Befund aus der
+Gegenprüfung: der Nachweis muss den **beidseitig toten** Kontostand prüfen — Passwort
+ersetzt, Rolle in der Org auf `worker` herabgestuft, `users.role` unangetastet —, nicht nur
+das überschriebene Passwort. Ein Riegel, der die Überschreibung verhindert und die
+Herabstufung stehen lässt, löst den halben Schaden.
 
 **DER NÄCHSTE GRIFF:** M1 (die stillen Ausfälle) — alle Entscheidungen dafür
 liegen vor. Zuvor wird die Anweisung aus der Parallelsitzung abgewartet.
