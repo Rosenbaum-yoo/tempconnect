@@ -38,6 +38,7 @@ import { createAuthRouter } from "./routes/auth.js";
 import { createMeRouter } from "./routes/me.js";
 import { createPlansRouter } from "./routes/plans.js";
 import { createPublicPlansRouter } from "./routes/publicPlans.js";
+import { createSchaufensterRouter } from "./routes/schaufenster.js";
 import { createPilotPreregistrationRouter } from "./routes/pilotPreregistration.js";
 import { createSubscriptionRequestsRouter } from "./routes/subscriptionRequests.js";
 import { createSubscriptionDocumentsRouter } from "./routes/subscriptionDocuments.js";
@@ -435,6 +436,9 @@ export async function createApp() {
   v1.use(createMeRouter(deps));
   v1.use(createPlansRouter(deps));
   v1.use(createPublicPlansRouter(deps));
+  /* M1.6 — ohne Konto lesbar, bewusst NEBEN dem Tarifkatalog und nicht
+   * darin: der eine beschreibt Preise, der andere den Markt. */
+  v1.use(createSchaufensterRouter(deps));
   v1.use(createPilotPreregistrationRouter(deps));
   v1.use(createSubscriptionRequestsRouter(deps));
   v1.use(createSubscriptionDocumentsRouter(deps));

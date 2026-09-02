@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Marktzahlen — TempConnect</title>
+  <meta name="description" content="Wie viel Personal ist gerade verfügbar, wie viel wird gesucht — die offenen Zahlen des TempConnect-Marktplatzes. Ohne Anmeldung, ohne Personendaten."/>
+  <!--
+    M1.6 — DAS OEFFENTLICHE SCHAUFENSTER.
+
+    Indexierbar und ohne Konto lesbar: das ist der Zweck. Bis hierher lagen
+    alle Marktzahlen hinter `requireAuth` — eine Suchmaschine hat kein Konto,
+    und ein Interessent, der wissen will, ob sich die Anmeldung lohnt, auch
+    nicht.
+
+    Was hier steht, ist verdichtet und traegt keinen Firmennamen, keine
+    Kennung und kein Datum einer einzelnen Anzeige. Gruppen unterhalb der
+    Mindestgroesse wandern in "Sonstige" — die Begruendung dafuer steht in
+    `api/services/schaufensterService.js`.
+  -->
+  <meta name="robots" content="index, follow"/>
+  <link rel="canonical" href="/public/schaufenster.html"/>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
+  <script src="/public/js/theme.js"></script>
+</head>
+<body>
+  <main class="ds-container" style="max-width:960px;margin:0 auto;padding:48px 20px 24px">
+
+    <header style="margin-bottom:32px">
+      <a href="/" style="font-size:13px;color:var(--ds-text-tertiary,#5f6d8a);text-decoration:none">&larr; TempConnect</a>
+      <h1 style="margin:12px 0 8px;font-size:30px;line-height:1.2">Marktzahlen</h1>
+      <p style="margin:0;max-width:62ch;color:var(--ds-text-secondary,#8a97ad);line-height:1.6">
+        Wie viel Personal gerade angeboten wird und wie viel gesucht — offen einsehbar,
+        ohne Anmeldung. Verdichtet nach Rolle und Ort; einzelne Anzeigen, Firmen oder
+        Personen sind hier bewusst nicht zu sehen.
+      </p>
+    </header>
+
+    <div id="sfLaden" style="padding:32px 0;color:var(--ds-text-tertiary,#5f6d8a)">Zahlen werden geladen …</div>
+
+    <div id="sfFehler" style="display:none;padding:16px;border:1px solid var(--ds-border,rgba(255,255,255,.12));border-radius:10px;color:var(--ds-text-secondary,#8a97ad)">
+      Die Marktzahlen sind gerade nicht abrufbar. Das ist ein Ausfall auf unserer Seite,
+      keine Aussage über den Markt — bitte später erneut versuchen.
+    </div>
+
+    <div id="sfInhalt" style="display:none">
+
+      <section aria-labelledby="sfKapTitel" style="margin-bottom:40px">
+        <h2 id="sfKapTitel" style="font-size:18px;margin:0 0 4px">Verfügbares Personal</h2>
+        <p style="margin:0 0 16px;font-size:13px;color:var(--ds-text-tertiary,#5f6d8a)">
+          Aktive Angebote von Zeitarbeitsfirmen.
+        </p>
+        <div class="sf-zahlen" id="sfKapZahlen"></div>
+        <div class="sf-spalten">
+          <div><h3 class="sf-h3">Nach Tätigkeit</h3><div id="sfKapRolle"></div></div>
+          <div><h3 class="sf-h3">Nach Ort</h3><div id="sfKapOrt"></div></div>
+        </div>
+      </section>
+
+      <section aria-labelledby="sfBedTitel" style="margin-bottom:40px">
+        <h2 id="sfBedTitel" style="font-size:18px;margin:0 0 4px">Gesuchtes Personal</h2>
+        <p style="margin:0 0 16px;font-size:13px;color:var(--ds-text-tertiary,#5f6d8a)">
+          Offene Anfragen von Unternehmen.
+        </p>
+        <div class="sf-zahlen" id="sfBedZahlen"></div>
+        <div class="sf-spalten">
+          <div><h3 class="sf-h3">Nach Tätigkeit</h3><div id="sfBedRolle"></div></div>
+          <div><h3 class="sf-h3">Nach Ort</h3><div id="sfBedOrt"></div></div>
+        </div>
+      </section>
+
+      <p id="sfStand" style="font-size:12px;color:var(--ds-text-tertiary,#5f6d8a);line-height:1.7"></p>
+
+      <p style="margin-top:28px">
+        <a href="/" class="ds-btn ds-btn--primary" style="display:inline-block;padding:11px 20px;border-radius:8px;text-decoration:none">Konto anlegen und den Marktplatz sehen</a>
+      </p>
+    </div>
+  </main>
+
+  <div id="sfFuss"></div>
+
+  <style>
+    .sf-zahlen { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:22px }
+    .sf-kachel { flex:1 1 180px; padding:16px 18px; border:1px solid var(--ds-border,rgba(255,255,255,.10)); border-radius:10px }
+    .sf-kachel__wert { font-size:28px; font-weight:600; line-height:1.1; font-variant-numeric:tabular-nums }
+    .sf-kachel__text { font-size:12px; color:var(--ds-text-tertiary,#5f6d8a); margin-top:4px }
+    .sf-spalten { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:26px }
+    .sf-h3 { font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--ds-text-tertiary,#5f6d8a); margin:0 0 10px }
+    .sf-zeile { display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:7px 0; border-bottom:1px solid var(--ds-border,rgba(255,255,255,.06)) }
+    .sf-zeile__name { font-size:14px }
+    .sf-zeile__wert { font-size:13px; color:var(--ds-text-secondary,#8a97ad); font-variant-numeric:tabular-nums; white-space:nowrap }
+    .sf-leer { font-size:13px; color:var(--ds-text-tertiary,#5f6d8a); padding:7px 0 }
+  </style>
+
+  <script src="/public/js/footer.js"></script>
+  <script src="/public/js/pages/schaufenster.js"></script>
+</body>
+</html>

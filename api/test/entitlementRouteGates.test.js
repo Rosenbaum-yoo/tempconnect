@@ -86,11 +86,15 @@ describe("mutating target routes keep hard entitlement gates", () => {
       'requireOrgLimit("listings"',
       'router.post("/listings", requireAuth, legacyAccess, listingsLimitGate'
     ]);
+    /* M1.5/M1.7: die Kette traegt jetzt zusaetzlich `ceCreate` — den
+       Erstellen-Schluessel VOR dem Mengen-Limit. Die Erwartung wurde
+       nicht gelockert, sondern verschaerft: sie verlangt beides. */
     expectTokens("api/routes/capacityExchange.js", [
+      'requireFeature("capacity_exchange_create"',
       'requireOrgLimit("listings"',
-      'router.post("/capacity-exchange/entries", requireAuth, requireScope("write:capacity"), ceBasic, listingsLimitGate',
-      'router.post("/capacity-exchange/entries/:id/activate", requireAuth, requireScope("write:capacity"), ceBasic, listingsLimitGate',
-      'router.post("/capacity-exchange/entries/:id/reactivate", requireAuth, requireScope("write:capacity"), ceBasic, listingsLimitGate'
+      'router.post("/capacity-exchange/entries", requireAuth, requireScope("write:capacity"), ceBasic, ceCreate, listingsLimitGate',
+      'router.post("/capacity-exchange/entries/:id/activate", requireAuth, requireScope("write:capacity"), ceBasic, ceCreate, listingsLimitGate',
+      'router.post("/capacity-exchange/entries/:id/reactivate", requireAuth, requireScope("write:capacity"), ceBasic, ceCreate, listingsLimitGate'
     ]);
   });
 

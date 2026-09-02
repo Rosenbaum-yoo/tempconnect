@@ -27,6 +27,11 @@
     '<a href="' + LEGAL_BASE + 'sla.html" class="ds-footer__link" style="' + linkStyle + '">Pulse SLA</a>' +
     '<a href="/public/about.html" class="ds-footer__link" style="' + linkStyle + '">Ueber uns</a>' +
     '<a href="/public/capacity_exchange_feed.html" class="ds-footer__link" style="' + linkStyle + '">Vermittlung</a>' +
+    /* M1.6 — der Weg zum oeffentlichen Schaufenster. Er steht HIER und nicht
+       in der Landing-Markierung: der Fuss haengt an jeder Seite, also ist die
+       Seite von ueberall erreichbar, und die Landeseite bleibt unangetastet
+       (sichtbare Landing-Aenderungen brauchen laut CLAUDE.md eine Vorschau). */
+    '<a href="/public/schaufenster.html" class="ds-footer__link" style="' + linkStyle + '">Marktzahlen</a>' +
     '<a href="#" class="ds-footer__link" style="' + linkStyle + '" onclick="event.preventDefault();window.TCConsent&&window.TCConsent.open()">Cookie-Einstellungen</a>' +
     '</div>' +
     '<div class="ds-footer__copy" style="text-align:center;font-size:11px;color:var(--ds-text-tertiary,#5f6d8a)">' +

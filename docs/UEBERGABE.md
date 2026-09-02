@@ -431,9 +431,94 @@ Schlüssel, Limit vor Schlüssel): alle vier werden rot.
   „Formular + POST ⇒ eigener Schlüssel" wäre zu laut gewesen; sie hätte vier Fehlalarme
   erzeugt. Ob eine dieser vier Aktionen planpflichtig sein soll, ist eine Produktfrage.
 
-**Als Nächstes: M1.6** — das öffentliche Schaufenster (Zahlen und Kategorien ohne Personen,
-indexierbar). Die Grundlage existiert: `/marketplace/public/capacity-posts` entfernt
-Kontaktdaten bereits, muss aber aggregieren statt auflisten.
+### M1.6 ist gebaut *(2026-09-02)* — aggregieren allein ist noch keine Anonymität
+
+Die drei Endpunkte unter `/marketplace/public/*` tragen **alle** `requireAuth`.
+„Öffentlich" heißt dort „jeder **angemeldete** Nutzer". Eine Suchmaschine hat kein Konto,
+und ein Interessent, der wissen will, ob sich die Anmeldung lohnt, auch nicht. Solange die
+Zahlen hinter dem Login liegen, kann der Marktplatz nicht für sich werben.
+
+**Der Plan sagt „aggregieren statt auflisten". Das genügt nicht.** Gegen die laufende
+Datenbank gemessen, gruppiert nach Rolle und Ort:
+
+```
+Altenpflege|Hamburg|2     Software|Hamburg|1        Elektriker|Köln|1
+IT-Administrator|Köln|1   Demenzbetreuung|Hamburg|1  … (12 Gruppen)
+```
+
+**Jede** Rollengruppe hat ein oder zwei Anzeigen. Ein „Aggregat" der Größe eins ist kein
+Aggregat, sondern der Datensatz mit anderer Beschriftung: *„1 Software-Kraft in Hamburg,
+20 Köpfe"* ist genau eine Anzeige genau einer Firma. Ohne Mindestgruppengröße wäre das
+Schaufenster eine Personensuche mit Zwischenschritt.
+
+Deshalb hat der Dienst eine **Mindestgruppe von drei** — bei zwei genügt ein Mitwisser, um
+auf den anderen zu schließen. Was darunter liegt, wandert nach „Sonstige"; die Gesamtzahl
+bleibt richtig, nur die Zuordnung verschwindet. Gegen die echten Daten liefert das:
+
+```
+Kapazität  13 Anzeigen, 44 Köpfe   nach Rolle: nur „Sonstige" (13)
+                                    nach Ort:   Hamburg 9 · Sonstige 4
+Bedarf     11 Anfragen, 19 Köpfe    nach Rolle: Lagerhelfer 6 · Sonstige 5
+```
+
+Zwei weitere Entscheidungen: die Feldliste ist eine **Erlaubnisliste** (ein neues Feld ist
+per Vorgabe nicht öffentlich, bis jemand es einträgt und dabei nachdenkt), und die Abfrage
+**holt gar nicht erst**, was nicht heraus darf — kein `id`, kein `company_name`, kein
+Titel, keine Preisspanne. Was nie gelesen wird, kann kein späterer Umbau durchreichen.
+
+Die Seite [`schaufenster.html`](../frontend/public/schaufenster.html) ist indexierbar
+(`robots: index`, canonical, Beschreibung) und aus dem **gemeinsamen Seitenfuß** verlinkt —
+damit von jeder Seite erreichbar, ohne die Landeseite anzufassen (sichtbare
+Landing-Änderungen brauchen laut CLAUDE.md eine Vorschau). Fünf Rückmutationen belegt:
+Schwelle abschalten, Firmenname in die Gruppe, Anmeldezwang auf die Route, Router nicht
+einhängen, auch Erfülltes mitzählen — alle fünf werden rot.
+
+> **Im Browser gegen echte Daten geprüft**, über einen kurzlebigen Vorschau-Server aus
+> dieser Arbeitskopie (der Container bedient das Haupt-Repo). Inhalt vollständig, keine
+> Konsolenfehler, Dokumenthöhe 1001 px bei 720 px Fenster — der Fußnoten-Hinweis liegt bei
+> 592 px, also im Sichtbereich. Der Server ist gelöscht, nicht committet.
+
+### Ein Prüffehler, der eine Welle auf rotem Tor durchgehen ließ
+
+**M1.5 wurde committet, obwohl der Lauf `ℹ fail 1` meldete.** Ursache war nicht der Lauf,
+sondern wie ich ihn gelesen habe: ich suchte im Protokoll nach dem Abbruch-Block
+(*„ACHTUNG — diese Dateien sind unabhängig vom Abbruch rot"*) und nach Zeilen der Form
+`✖ test\datei.js`. Beide erscheinen **nur bei einem abgestürzten Testprozess**. Eine
+gewöhnlich fehlgeschlagene Zusicherung steht woanders — unter `✖ failing tests:` — und
+taucht in keinem der beiden Muster auf.
+
+Rot war `entitlementRouteGates.test.js`: es pinnt die Middleware-Kette der
+Kapazitäts-Routen als wörtliche Zeichenkette, und M1.5 hatte `ceCreate` eingefügt.
+Aufgefallen ist es erst eine Welle später, weil derselbe Test wieder rot war.
+
+**Regel ab sofort:** das Ergebnis eines Laufs wird an genau einer Zeile abgelesen —
+
+```bash
+grep -E "^ℹ (pass|fail)" <protokoll>
+```
+
+Erst bei `ℹ fail 0` ist der Lauf grün. Der Abbruch-Block ist eine *zusätzliche* Auskunft
+(Prozess gestorben, Klärungslauf nötig), kein Ersatz.
+
+> **Der Wächter hat dabei etwas gefunden, das ich übersehen hatte:** die Kette wird für
+> **drei** Routen gepinnt — `entries`, `activate` **und `reactivate`**. Reaktivieren stellt
+> ebenfalls eine Anzeige aktiv, hatte den Erstellen-Schlüssel aber nicht. Jetzt schon. Ein
+> spröder Test, der eine echte Lücke aufdeckt, ist kein spröder Test.
+
+### Eine Falle, die in dieser Sitzung VIERMAL zugeschlagen hat
+
+Eine Probe, die im Quelltext nach einer Zeichenkette sucht, findet sie auch **in der
+eigenen Begründung**. Getroffen hat es: den Herzschlag (`res.on("finish")` im Kommentar),
+den Import-Wächter, die Migrations-Probe (`„Empfängeradresse"` — erst im `--`-Kommentar,
+dann in einem `COMMENT ON`-Text, den kein Kommentar-Strippen entfernt) und zuletzt
+`innerHTML` in der Erklärung „nie mit innerHTML".
+
+**Regel:** vor jedem `includes`/`match` auf Quelltext die Kommentare entfernen — und bei
+SQL zusätzlich daran denken, dass `COMMENT ON` echter Code ist. Wo es geht, nicht die
+Datei lesen, sondern die Struktur (die Spaltenliste, den Block, die Zeile).
+
+**Als Nächstes: M1.7** — den zweiten PRO-Grenzwert löschen. Der Code sagt an einer Stelle
+noch 50 Angebote, entschieden ist **unbegrenzt** (M-E3).
 
 **DER NÄCHSTE GRIFF:** M1 (die stillen Ausfälle) — alle Entscheidungen dafür
 liegen vor. Zuvor wird die Anweisung aus der Parallelsitzung abgewartet.

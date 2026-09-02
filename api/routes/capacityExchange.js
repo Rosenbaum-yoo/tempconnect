@@ -418,7 +418,7 @@ export function createCapacityExchangeRouter(deps) {
 
   router.post("/capacity-exchange/entries/:id/activate", requireAuth, requireScope("write:capacity"), ceBasic, ceCreate, listingsLimitGate, (req, res) => handleTransition(req, res, "active"));
   router.post("/capacity-exchange/entries/:id/pause", requireAuth, requireScope("write:capacity"), ceBasic, (req, res) => handleTransition(req, res, "paused"));
-  router.post("/capacity-exchange/entries/:id/reactivate", requireAuth, requireScope("write:capacity"), ceBasic, listingsLimitGate, (req, res) => handleTransition(req, res, "active"));
+  router.post("/capacity-exchange/entries/:id/reactivate", requireAuth, requireScope("write:capacity"), ceBasic, ceCreate, listingsLimitGate, (req, res) => handleTransition(req, res, "active"));
   router.post("/capacity-exchange/entries/:id/fill", requireAuth, requireScope("write:capacity"), ceBasic, (req, res) => handleTransition(req, res, "filled"));
   router.post("/capacity-exchange/entries/:id/archive", requireAuth, requireScope("write:capacity"), ceBasic, (req, res) => handleTransition(req, res, "archived"));
 
