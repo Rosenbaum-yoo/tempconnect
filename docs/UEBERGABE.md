@@ -664,6 +664,42 @@ hat die Zeilen schon angefasst), 409 wieder zu 400. Dazu eine Fixture-Pflege in
 `mitarbeiterOhneKonto.test.js`: dessen Mock beantwortete **jede** Pool-Abfrage mit der
 Einladung, also auch den neuen Nachschlag — er unterscheidet sie jetzt.
 
+### M2.4 ist gebaut *(2026-09-02)* — der Torwächter sah die halbe Fläche
+
+Die Torwächter-Prüfung (Schicht B2) stellt die richtige Frage: *gibt es auf dieser Fläche
+eine Route, die das Tor nicht trägt?* Nur übersprang ihre Schleife jede Route **ohne
+Platzhalter**:
+
+```js
+if (!layer.route || !layer.route.path.includes(":")) continue;
+```
+
+Auf einer Fläche, deren **einzige** Eintrittsbedingung genau dieses Tor ist, hat der
+Wächter damit einen Teil geprüft und die Fläche als ganz geprüft gemeldet.
+
+**Beim Entfernen fällt genau eine Route auf** — und sie ist keine Lücke:
+`GET /scim/v2/ServiceProviderConfig`. RFC 7644 §3.2 stellt den SCIM-Entdeckungsendpunkt
+ausdrücklich frei: ein Client liest Fähigkeiten und Authentifizierungsverfahren, **bevor**
+er ein Token hat — mit Tor wäre die Reihenfolge unmöglich. Er liefert nur statische Angaben
+und respektiert `SCIM_ENABLED` mit 404.
+
+> **Der Filter hat also nichts geschützt, nur verdeckt.** Genau deshalb ist er weg, statt
+> dass die eine Route ein Tor bekommt, das die Norm verbietet.
+
+**Die Ausnahme wird nachgeprüft, nicht geglaubt.** Sie steht im Register mit Grund
+(mindestens 40 Zeichen), und der Wächter liest den **Quelltext des Handlers**: fasst er
+`req.orgId`, `req.session`, `req.user` oder `pool.query` an, wird er rot. Eine Ausnahme,
+die man nur behauptet, ist ein Loch mit Begründung.
+
+Vier Rückmutationen, alle rot — darunter die entscheidende: **eine neue torlose Route ohne
+Platzhalter wird jetzt gefunden.** Und die Selbstprobe des Wächters wurde mit umgestellt:
+ihr eigenes Beispiel kannte nur Platzhalter, sie hätte die Reparatur also gar nicht bemerkt.
+
+> **Abgegrenzt, damit es niemand verwechselt:** dieselbe Zeile steht auch in der
+> *Register*-Prüfung (Schicht A, Zeile 182). Dort ist sie etwas anderes — sie entscheidet,
+> welche Routen ein Org-Grenzen-**Urteil** brauchen. Sie zu entfernen verlangt Urteile für
+> **569** Routen; das ist M2.3 und eine eigene Welle, keine Nebenwirkung dieser hier.
+
 ### M2.2 ist gebaut *(2026-09-02)* — drei Konventionen, drei Symptome
 
 `users_email_key` ist ein gewöhnlicher `UNIQUE`-Index auf `email`, also

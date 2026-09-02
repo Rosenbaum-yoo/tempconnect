@@ -3100,7 +3100,13 @@
         "ohneVoraussetzung": {
           "isApiKeyAuth": false,
           "orgId": null
-        }
+        },
+        "ohneTor": [
+          {
+            "route": "GET /scim/v2/ServiceProviderConfig",
+            "grund": "Der SCIM-Entdeckungsendpunkt. RFC 7644 Abschnitt 3.2 stellt ihn ausdruecklich frei: ein Client liest die Faehigkeiten und die unterstuetzten Authentifizierungsverfahren, BEVOR er ein Token hat — mit Tor waere die Reihenfolge unmoeglich. Er liefert ausschliesslich statische Angaben (Schemata, patch/filter/sort, authenticationSchemes) und KEINE Mandantendaten, und er respektiert SCIM_ENABLED mit 404. Die Probe unten liest den Handler und faellt rot, sobald er req.orgId, eine Sitzung oder den Pool anfasst."
+          }
+        ]
       },
       "hinweis": "Die Probe schaltet SCIM ausdruecklich EIN (eigene Fabrik im Waechter): mit der Voreinstellung antwortet scimGate auf alles mit 404 'nicht aktiviert' — dann prueft man den Aus-Schalter, nicht das Tor."
     },

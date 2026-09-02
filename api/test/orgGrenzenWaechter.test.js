@@ -318,15 +318,56 @@ describe("Org-Grenzen-Waechter (B2) — Torwaechter der Sonderflaechen", () => {
       }
       const ohne = [];
       for (const layer of router.stack) {
-        if (!layer.route || !layer.route.path.includes(":")) continue;
+        /*
+         * M2.4: der Filter `path.includes(":")` stand hier und liess jede
+         * Route OHNE Platzhalter ungeprueft durch — auf einer Flaeche, deren
+         * einzige Eintrittsbedingung genau dieses Tor ist. Der Waechter sah
+         * damit einen Teil der Flaeche und meldete sie als ganz geprueft.
+         *
+         * Gemessen beim Entfernen: genau EINE Route faellt auf, und sie ist
+         * eine begruendete Ausnahme (siehe `ohneTor` im Register) — der
+         * Filter hat also nichts geschuetzt, nur verdeckt.
+         */
+        if (!layer.route) continue;
         const namen = layer.route.stack.map((x) => x.handle.name);
         if (namen.includes(tor.middleware)) continue;
         if (praefixTor && praefixTor.deckt(layer.route.path)) continue;
         ohne.push(`${Object.keys(layer.route.methods)[0].toUpperCase()} ${layer.route.path}`);
       }
+
+      /*
+       * Begruendete Ausnahmen abziehen — aber nicht blind. Jede muss (a) im
+       * Register stehen, (b) einen Grund tragen und (c) NACHWEISLICH harmlos
+       * sein: der Handler darf weder Mandant noch Sitzung noch Datenbank
+       * anfassen. Eine Ausnahme, die man nur behauptet, ist ein Loch mit
+       * Begruendung.
+       */
+      const ausnahmen = tor.ohneTor || [];
+      for (const a of ausnahmen) {
+        assert.ok(typeof a.grund === "string" && a.grund.length >= 40,
+          `${eintrag.datei}: die Ausnahme '${a.route}' nennt keinen tragfaehigen Grund`);
+        assert.ok(ohne.includes(a.route),
+          `${eintrag.datei}: '${a.route}' steht als Ausnahme im Register, traegt das Tor `
+          + `aber inzwischen (oder es gibt die Route nicht mehr) — die Ausnahme gehoert entfernt.`);
+
+        const layer = router.stack.find((l) => l.route
+          && `${Object.keys(l.route.methods)[0].toUpperCase()} ${l.route.path}` === a.route);
+        const quelltext = layer.route.stack.map((x) => String(x.handle)).join("\n");
+        for (const verboten of ["req.orgId", "req.session", "pool.query", "req.user"]) {
+          assert.ok(!quelltext.includes(verboten),
+            `${eintrag.datei}: die torlose Route '${a.route}' fasst ${verboten} an. `
+            + `Damit ist sie nicht mehr harmlos und braucht das Tor.`);
+        }
+      }
+      for (const a of ausnahmen) {
+        const i = ohne.indexOf(a.route);
+        if (i >= 0) ohne.splice(i, 1);
+      }
       // Sub-Router waeren hier unsichtbar; eine Torwaechter-Flaeche darf keine haben,
       // solange die Kette nicht auch durch sie hindurch geprueft wird.
-      const montierte = listRoutesTief(router).filter((r) => r.montiert && r.path.includes(":"));
+      /* M2.4: ebenfalls ohne Platzhalter-Filter — ein montierter Sub-Router ohne
+         Platzhalter war fuer den Torwaechter genauso unsichtbar. */
+      const montierte = listRoutesTief(router).filter((r) => r.montiert);
       assert.deepStrictEqual(
         montierte.map((r) => `${r.method.toUpperCase()} ${r.path}`), [],
         "Diese Flaeche montiert Sub-Router mit Platzhalter-Routen — der Torwaechter " +
@@ -705,15 +746,20 @@ describe("Org-Grenzen-Waechter (D) — Selbstprobe an kaputten Routern", () => {
     const router = Router();
     router.get("/a/:id", torwaechter, (_q, r) => r.json({ ok: true }));
     router.get("/b/:id", (_q, r) => r.json({ ok: true }));   // vergessen
+    /* M2.4: eine Route OHNE Platzhalter, ebenfalls ohne Tor. Bis hierher war
+       sie fuer den Waechter unsichtbar — die Selbstprobe haette die Reparatur
+       nicht bemerkt, weil ihr eigenes Beispiel nur Platzhalter kannte. */
+    router.get("/c", (_q, r) => r.json({ ok: true }));       // ebenfalls vergessen
 
     const ohne = [];
     for (const layer of router.stack) {
-      if (!layer.route || !layer.route.path.includes(":")) continue;
+      if (!layer.route) continue;
       if (!layer.route.stack.map((x) => x.handle.name).includes("torwaechter")) {
         ohne.push(layer.route.path);
       }
     }
-    assert.deepStrictEqual(ohne, ["/b/:id"], "die ungeschuetzte Route muss auffallen");
+    assert.deepStrictEqual(ohne, ["/b/:id", "/c"],
+      "beide ungeschuetzten Routen muessen auffallen — auch die ohne Platzhalter");
   });
 
   it("(k) Torwaechter: einer, der durchwinkt, wird gemeldet", async () => {
