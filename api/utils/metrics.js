@@ -22,6 +22,7 @@
  */
 
 import client from "prom-client";
+import { taktNotieren } from "../services/betriebsTaktService.js";
 
 // ── Registry ────────────────────────────────────────────────────────────────
 const register = new client.Registry();
@@ -315,10 +316,33 @@ export function registerQueueMetrics(queues) {
 // Registry-Export fuer programmatischen Zugriff (z.B. System-Health-Diagnostics)
 export { register as metricsRegistry };
 
-export function instrumentWorker(worker, queueName) {
+/**
+ * DER HERZSCHLAG DER TAKTE (M1.1).
+ *
+ * Hier statt an den vier Aufrufstellen in `workers/index.js`: durch diese
+ * Funktion geht JEDER Arbeiter, und ein fuenfter kann sie nicht vergessen.
+ * Beobachtung und Messung sind ohnehin dieselbe Naht — die Alternative waere
+ * ein zweiter Beobachter direkt daneben, den man einzeln montieren muss.
+ *
+ * Der Pool ist optional: ohne ihn misst die Funktion wie bisher und schreibt
+ * nur keinen Herzschlag. So bleibt sie in Tests und ohne Datenbank brauchbar.
+ */
+export function instrumentWorker(worker, queueName, opts = {}) {
   if (!worker) return;
+  const pool = opts.pool || null;
+
+  const herzschlag = (job, ergebnis, fehler) => {
+    if (!pool) return;
+    const name = job?.name ? `${queueName}:${job.name}` : queueName;
+    const dauer = job?.processedOn && job?.finishedOn
+      ? job.finishedOn - job.processedOn : null;
+    taktNotieren(pool, {
+      aufgabe: name, dauerMs: dauer, ergebnis, fehler, quelle: "takt"
+    });
+  };
 
   worker.on("completed", (job) => {
+    herzschlag(job, "ok", null);
     queueJobsCompleted.inc({ queue: queueName });
     // Track duration if BullMQ provides timestamps
     if (job?.processedOn && job?.finishedOn) {
@@ -329,7 +353,8 @@ export function instrumentWorker(worker, queueName) {
     }
   });
 
-  worker.on("failed", () => {
+  worker.on("failed", (job, err) => {
+    herzschlag(job, "fehler", err?.message || "unbekannt");
     queueJobsFailed.inc({ queue: queueName });
   });
 }

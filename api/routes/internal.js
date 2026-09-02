@@ -23,6 +23,7 @@ import * as dealFeedbackService from "../services/dealFeedbackService.js";
 import * as dealReliabilityService from "../services/dealReliabilityService.js";
 import fs from "node:fs";
 import path from "node:path";
+import { taktNotieren } from "../services/betriebsTaktService.js";
 
 /**
  * @param {{ pool, config, cronRateLimit, logger, sendMail }} deps
@@ -69,6 +70,41 @@ export function createInternalRouter(deps) {
     }
     next();
   }
+
+
+  /*
+   * DER HERZSCHLAG (M1.1) — EIN TOR, DAS MAN NICHT VERGESSEN KANN.
+   *
+   * Jeder interne Endpunkt schreibt beim Abschluss eine Zeile in
+   * `betriebs_takt`. NICHT je Handler eingebaut, sondern hier davor: es sind
+   * 28 Endpunkte, und der 29. wuerde es sonst vergessen. Dieselbe Bauart wie
+   * das Praefix-Tor in `support.js:773` — ein Riegel, den eine neue Route nicht
+   * umgehen kann, weil sie ihn gar nicht kennt.
+   *
+   * Gemessen wird ueber `res.on("finish")`, nicht im Handler: so faellt auch
+   * ein Lauf auf, der mit 500 endet — und gerade der ist der interessante.
+   * Ein Handler, der vorher `return`t, kann den Herzschlag nicht umgehen.
+   *
+   * Der Schreibvorgang WIRFT NIE (siehe betriebsTaktService). Ein Herzschlag,
+   * der den Lauf zum Scheitern bringt, den er beobachtet, waere schlimmer als
+   * keiner: der Takt fiele aus, WEIL er ueberwacht wird.
+   */
+  router.use("/internal", (req, res, next) => {
+    const begonnen = Date.now();
+    res.on("finish", () => {
+      /* `req.path` ist hier schon ohne das Praefix: "/staffing-maintenance". */
+      const aufgabe = String(req.path || "").replace(/^\//, "").split("?")[0];
+      if (!aufgabe) return;
+      taktNotieren(pool, {
+        aufgabe,
+        dauerMs: Date.now() - begonnen,
+        ergebnis: res.statusCode >= 400 ? "fehler" : "ok",
+        fehler: res.statusCode >= 400 ? `HTTP ${res.statusCode}` : null,
+        quelle: "intern"
+      });
+    });
+    next();
+  });
 
   router.post("/internal/expire-reservations", cronRateLimit, checkCronAuth, async (req, res) => {
     const clientIp = req.ip || req.socket?.remoteAddress || "unknown";

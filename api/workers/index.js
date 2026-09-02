@@ -11,6 +11,7 @@ import { startStaffingWorker } from "./staffingWorker.js";
 import { instrumentWorker, registerQueueMetrics } from "../utils/metrics.js";
 import { emailQueue, matchQueue, capacityQueue, staffingQueue } from "../queue/queues.js";
 import { logger } from "../config/index.js";
+import { pool } from "../db/pool.js";
 
 const _workers = [];
 
@@ -46,6 +47,29 @@ function scheduleCapacitySweeps() {
     .catch((e) => logger.warn({ err: e.message }, "Could not schedule ersatz-frist sweep"));
 }
 
+/**
+ * M1.2 — DIE TAKTE, DIE ES NOCH NICHT GAB.
+ *
+ * `upsertJobScheduler` ist idempotent und ueberlebt Neustarts ohne Duplikate —
+ * dieselbe Bauart wie die Capacity-Sweeps darueber.
+ *
+ * WARUM ALLE 15 MINUTEN: an `staffing-maintenance` haengen der Verfall von
+ * Einladungen und das automatische Nachruecken. Beides sind Fristen im
+ * Stundenbereich; ein Tagestakt waere dafuer eine Attrappe. Das Soll steht
+ * zusaetzlich in `betriebsTaktService.TAKTE` — dort liest der Waechter es.
+ *
+ * OHNE REDIS LAEUFT DIESER TAKT NICHT. Dann bleibt der interne Endpunkt der
+ * Weg, und der Herzschlag zeigt genau das: die Aufgabe steht auf `still`.
+ * Das ist der Unterschied zu vorher — das Schweigen ist jetzt sichtbar.
+ */
+function scheduleBetriebsTakte() {
+  const q = staffingQueue();
+  if (!q || typeof q.upsertJobScheduler !== "function") return;
+  q.upsertJobScheduler("staffing-maintenance-15min", { pattern: "*/15 * * * *" },
+    { name: "staffing-maintenance" })
+    .catch((e) => logger.warn({ err: e.message }, "Could not schedule staffing-maintenance"));
+}
+
 export function startWorkers() {
   if (!isQueueAvailable()) {
     logger.info("Redis not configured — background workers disabled");
@@ -53,20 +77,27 @@ export function startWorkers() {
   }
 
   const email = startEmailWorker();
-  if (email) { instrumentWorker(email, "email"); _workers.push(email); }
+  if (email) { instrumentWorker(email, "email", { pool }); _workers.push(email); }
 
   const match = startMatchWorker();
-  if (match) { instrumentWorker(match, "match"); _workers.push(match); }
+  if (match) { instrumentWorker(match, "match", { pool }); _workers.push(match); }
 
   const capacity = startCapacityWorker();
   if (capacity) {
-    instrumentWorker(capacity, "capacity");
+    instrumentWorker(capacity, "capacity", { pool });
     _workers.push(capacity);
     scheduleCapacitySweeps();
   }
 
   const staffing = startStaffingWorker();
-  if (staffing) { instrumentWorker(staffing, "staffing"); _workers.push(staffing); }
+  if (staffing) {
+    instrumentWorker(staffing, "staffing", { pool });
+    _workers.push(staffing);
+    /* Der Takt gehoert an den Arbeiter, der ihn verarbeitet. Ohne
+     * laufenden Staffing-Arbeiter waere ein eingeplanter Job eine Zeile
+     * in Redis, die niemand abholt. */
+    scheduleBetriebsTakte();
+  }
 
   // Register queue gauges (waiting/active counts) for Prometheus scraping
   const queues = [
