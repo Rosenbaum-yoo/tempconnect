@@ -90,7 +90,30 @@
   </style>
 </head>
 <body data-sla-guard="sla_access">
-  <div class="wrap">
+  <!-- M0/F2 — dieser Block fehlte, und damit war der Waechter im Kopf ein
+       vollstaendiger Leerlauf: `slaGuard.showPaywall()` tut genau zwei Dinge,
+       beide mit `if (element)` — `#paywall` einblenden und `#main-content`
+       ausblenden. Ohne beide entscheidet der Waechter und bewirkt nichts.
+
+       Gemessen am 2026-09-03: von 23 bewachten Seiten waren 21 vollstaendig und
+       genau diese zwei leer. Der Schluessel `sla_access` ist fuer jeden Plan
+       wahr, der Block erscheint also nie wegen des Tarifs — sondern nur im
+       Stoerfall (dem .catch-Zweig). Genau dort waren diese beiden Seiten die
+       einzigen, die bei einer gescheiterten Berechtigungsabfrage ALLES zeigten,
+       waehrend die anderen 21 zumachen. -->
+  <div id="paywall" class="wrap" style="display:none">
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="demd.od.paywall.home">Startseite</a></div></nav>
+    <div class="paywall-box">
+      <h2 data-i18n="demd.od.paywall.title">Bereich nicht verfügbar</h2>
+      <!-- Kein data-i18n auf dem ganzen Satz: slaGuard.js schreibt den Feature-Namen
+           zur Laufzeit in die Mitte. Ein Marker auf dem <p> wuerde den Namen beim
+           naechsten apply() wieder herausloeschen. -->
+      <p><span data-i18n="demd.od.paywall.featurePre">Das Feature &quot;</span><span id="paywall-feature-name">Pulse-Bereich</span><span data-i18n="demd.od.paywall.featurePost">&quot; ist mit deinem aktuellen Plan nicht nutzbar.</span></p>
+      <p><span data-i18n="demd.od.paywall.currentPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="demd.od.paywall.cta">Abo ansehen</a>
+    </div>
+  </div>
+  <div id="main-content" class="wrap">
     <div id="tc-shell"></div>
 
     <!-- Statische Seiten-Identitaet: die Dealakte baut ihren Inhalt komplett per
@@ -126,6 +149,12 @@
      - Firmen-, Personen-, Orts- und Rollennamen aus der API.
      - Waehrungs-/Einheitenkuerzel (EUR/h). */
   TCi18n.register('de', {
+        'demd.od.paywall.home': 'Startseite',
+        'demd.od.paywall.title': 'Bereich nicht verfügbar',
+        'demd.od.paywall.featurePre': 'Das Feature "',
+        'demd.od.paywall.featurePost': '" ist mit deinem aktuellen Plan nicht nutzbar.',
+        'demd.od.paywall.currentPlan': 'Aktueller Plan:',
+        'demd.od.paywall.cta': 'Abo ansehen',
     'demd.od.melden.title': 'Inhalt melden',
     'demd.od.melden.hint': 'Wirkt dieses Angebot betruegerisch, unserioes oder unangemessen? Eine Meldung geht direkt an das TempConnect-Team und wird dort geprueft. Der Anbieter erfaehrt nicht, wer gemeldet hat.',
     'demd.od.melden.open': 'Angebot melden',
@@ -394,6 +423,12 @@
     'demd.od.pool.errOrgContext': 'Kein Organisations-Kontext aktiv.'
   });
   TCi18n.register('en', {
+        'demd.od.paywall.home': 'Home',
+        'demd.od.paywall.title': 'Area not available',
+        'demd.od.paywall.featurePre': 'The feature "',
+        'demd.od.paywall.featurePost': '" is not included in your current plan.',
+        'demd.od.paywall.currentPlan': 'Current plan:',
+        'demd.od.paywall.cta': 'View plans',
     'demd.od.melden.title': 'Report content',
     'demd.od.melden.hint': 'Does this offer look fraudulent, dubious or inappropriate? A report goes straight to the TempConnect team for review. The supplier is not told who reported it.',
     'demd.od.melden.open': 'Report offer',

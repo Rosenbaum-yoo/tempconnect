@@ -440,6 +440,71 @@ nachgemessen, nicht aus der Übergabe abgeschrieben.
 | **F16** | E-Mail-Identität plattformweit case-unempfindlich? | **Gebaut (M2.2).** Migration `215_email_ohne_schreibweise.sql` legt `UNIQUE (LOWER(email))` an, mit vorgeschaltetem `RAISE EXCEPTION`, das bestehende Doppel benennt. `LOWER(email)` in `authService`, `ssoService`, `scimService`. |
 | **F29** | Crontab aus `SCHEDULER.md:55` einrichten? | **Überholt in der Form, offen in der Sache** — siehe unten. Der Mechanismus ist entschieden und fünfmal gebaut: `upsertJobScheduler` in `workers/index.js`, kein Host-Crontab. |
 
+### F1 und F2 — beide ruhten auf einer falschen Annahme
+
+Beide Fragen gehen davon aus, `data-sla-guard` sei **tot**: *„damit kein Wächter
+Sicherheit vortäuscht, die er nicht leistet"*. Nachgemessen stimmt das nicht.
+
+**F1 ist beantwortet — durch M-E2 und M1.5, und die Alternative ist widerlegt.**
+`sla_access` ist weiterhin für jeden Plan wahr und steht auf 18 Seiten. Das ist
+**Absicht**: M-E2 hat entschieden, dass Browsen ab Konto frei ist, und M1.5 hat den
+Schlüssel genau dort geschärft, wo etwas ENTSTEHT (`capacity_exchange_create`,
+`marketplace_demand_create`). Die zweite Variante der Frage — *die toten Attribute
+entfernen* — würde einen Schutz wegnehmen, den es gibt: `slaGuard.js` zeigt die
+Paywall auch im **`.catch`-Zweig**, also wenn die Berechtigungsabfrage scheitert. Das
+Attribut ist der fail-closed-Pfad, nicht Deko.
+
+**F2 war schlimmer als beschrieben — und ist repariert.** Der Bericht nannte es *„ein
+halber Wächter"*. Gemessen war es **gar keiner**: `showPaywall()` tut genau zwei Dinge,
+beide mit `if (element)` — `#paywall` einblenden, `#main-content` ausblenden. Auf
+`offer_detail.html` und `integrations.html` fehlten **beide**. Der Wächter entschied und
+bewirkte nichts.
+
+| | Seiten |
+|---|---|
+| vollständig (Paywall **und** main-content) | 21 von 23 |
+| halb | 0 |
+| **Leerlauf (weder noch)** | **2** |
+
+Da der Schlüssel dieser beiden `sla_access` ist, erschien die Paywall dort ohnehin nie
+wegen des Tarifs — sondern nur im Störfall. Genau dort waren sie die **einzigen zwei
+Seiten, die bei einer gescheiterten Berechtigungsabfrage alles zeigten**, während die
+anderen 21 zumachen. Beide tragen den Block jetzt, wortgleich zum Muster aus
+`agency_inbox.html`. Erzwungen von `paywallSchluessel.test.js`: jede bewachte Seite muss
+beide Elemente tragen, und der Block muss sagen, *was gilt* und *wohin*.
+
+> **Ein eigener Fehler, vom Wächter gefangen — und es ist derselbe, vor dem ich zwei
+> Absätze weiter unten warne.** Ich habe den Block wortgleich aus `agency_inbox.html`
+> kopiert, **mitsamt deren i18n-Präfix** `rst.d.`. Jede Seite trägt aber ihr eigenes
+> Wörterbuch inline (`TCi18n.register`), und `integrations.html` benutzt `sp.b.`,
+> `offer_detail.html` `demd.od.`. Ein englischsprachiger Nutzer hätte in der Paywall
+> rohe Schlüssel gesehen. `i18nFoundation.test.js` hat es beim ersten vollen Lauf
+> gefangen — sechs unbekannte Keys je Seite. Behoben: Marker auf das Präfix der Seite
+> umgestellt, sechs DE- und sechs EN-Schlüssel in **beide** Wörterbücher eingetragen,
+> Texte wortgleich zum Bestand.
+>
+> Das ist zugleich der Beleg dafür, warum die zwölf Seiten ohne Feature-Namen **nicht**
+> nebenbei nachgezogen werden: derselbe Griff, zwölfmal, mit zwölf verschiedenen
+> Präfixen und 144 Wörterbuch-Zeilen.
+
+> **Verifikation, ehrlich benannt:** die zwei Seiten sind **nicht** im Browser geprüft.
+> Der Docker-nginx bedient das Haupt-Repo und der Vorschau-Server einen anderen Worktree
+> — beide zeigen diesen Stand nicht. Geprüft wurde deterministisch am Diff: +24/−1 je
+> Datei, die eine Entfernung ist `<div class="wrap">` → `<div id="main-content"
+> class="wrap">`; die `<div>`-Bilanz bleibt ausgeglichen (148/148 und 48/48), der Block
+> trägt `display:none`.
+
+**Neuer Befund nebenbei: der Paywall-Block gibt es in zwei Varianten.**
+Von 23 Blöcken tragen **11** das Feld `paywall-feature-name` und **12 nicht**. Wer auf
+einer der zwölf landet, liest *„Bereich nicht verfügbar / Aktueller Plan: DEMO / Abo
+ansehen"* — ohne je zu erfahren, **welches** Feature fehlt. `slaGuard.js` berechnet den
+Namen (`featureLabel(feature)`) und findet kein Ziel.
+
+Nicht mitrepariert, mit Grund: die zwölf nachzuziehen verlangt `data-i18n`-Schlüssel je
+Seiten-Präfix (`rst.d.*`, `rst.e.*`, …), und ob der lange oder der kurze Text gelten
+soll, ist eine Produktfrage. Die Zusicherung verlangt deshalb nur die zwei **tragenden**
+Felder (Plan und Weiterweg) — ohne die steht der Mensch vor einer Wand ohne Tür.
+
 ### Anders als aufgenommen — mit dem Owner vorlegen, aber schärfer
 
 **F5 + F29 sind dieselbe Frage, und sie ist messbar geworden.**
