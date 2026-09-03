@@ -440,6 +440,55 @@ nachgemessen, nicht aus der Übergabe abgeschrieben.
 | **F16** | E-Mail-Identität plattformweit case-unempfindlich? | **Gebaut (M2.2).** Migration `215_email_ohne_schreibweise.sql` legt `UNIQUE (LOWER(email))` an, mit vorgeschaltetem `RAISE EXCEPTION`, das bestehende Doppel benennt. `LOWER(email)` in `authService`, `ssoService`, `scimService`. |
 | **F29** | Crontab aus `SCHEDULER.md:55` einrichten? | **Überholt in der Form, offen in der Sache** — siehe unten. Der Mechanismus ist entschieden und fünfmal gebaut: `upsertJobScheduler` in `workers/index.js`, kein Host-Crontab. |
 
+### F12 — `hidden_worker` kann gar nicht eintreten
+
+Die Frage bot zwei Reparaturen an: *die Wurzel* (org_type für `role='worker'` nicht aus
+der Agentur-Org ableiten) *oder den Guard auf `me.role` umstellen*. Gemessen ist die
+erste **falsch** und die zweite **fast** richtig — und der eigentliche Befund ist ein
+dritter: der Zustand ist tot.
+
+`hubVisibility.js:169` entscheidet über `orgType === "worker"`. Diesen Org-Typ **gibt es
+nicht**: die Datenbank kennt `company` (1872) und `agency` (694), sonst nichts. Ein
+Arbeiter ist regulär Mitglied in der Org seiner Zeitarbeitsfirma, sein `org_type` ist
+also `agency`.
+
+`normalizeOrgType` hat zwar einen Rückfall auf `me.role` — aber er greift aus **zwei**
+unabhängigen Gründen nie, und jeder genügt für sich:
+
+1. Der Rückfall läuft nur, wenn `me.org_type` **leer** ist. Gemessen an der echten
+   Antwort von `GET /me`: `org_type: "agency"`, nie leer.
+2. Er liest `me.role` — und das gibt es auf oberster Ebene **nicht**. Die Rolle liegt in
+   `me.user.role`.
+
+**Was der Arbeiter deshalb wirklich sieht**, ausgeführt mit der echten Funktion und der
+echten `/me`-Nutzlast:
+
+| Zustand | Flächen |
+|---|---|
+| `full` | **7** — marketplace, deals, assignments, my_company, activity, bounties, trust_center |
+| `hidden_wrong_side` | 3 |
+| `hidden_role` | 2 |
+| **`hidden_worker`** | **0** |
+
+Der Enterprise-Hub verbirgt sich vor einem Arbeiter also überhaupt nicht — was ihn
+fernhält, sind Org-Typ und Rolle je Fläche, nicht der dafür gebaute Zustand.
+
+> **Einordnung, damit das nicht überspitzt gelesen wird: kein Datenabfluss.** Die
+> Datenseite ist seit M2.5 zu — die Karten führen zu Routen, die einen Arbeiter
+> abweisen. Was bleibt, ist eine Oberfläche, die ihm sieben Bereiche anbietet, in denen
+> er nichts zu suchen hat, und die auf Klick ins Leere führen.
+
+**Die Frage ist damit kleiner geworden, aber sie ist immer noch eine.** Die *Wurzel* zu
+reparieren wäre falsch: `org_type = 'agency'` ist für einen Arbeiter **richtig**, er
+gehört zu dieser Org; die Ableitung zu ändern bräche jede andere Org-Typ-Prüfung. Bleibt
+der Guard — und dort nennt die Frage das falsche Feld: nicht `me.role` (existiert nicht),
+sondern **`me.org_role`**, das `org_memberships.role_key` trägt und für einen Arbeiter
+`'worker'` ist. Es steht bereits in der `/me`-Antwort; es liest nur niemand.
+
+*Nicht geändert:* der Bericht sagt ausdrücklich *„Owner-Entscheidung nötig, bevor
+irgendjemand etwas anfasst"*, und die Änderung nimmt sieben Karten aus der Ansicht. Der
+Eingriff ist eine Bedingung; was fehlt, ist die Zustimmung.
+
 ### F7 war kein Widerspruch — es war eine abgelaufene Begründung
 
 Die Frage lautete: *„Es liegen zwei einander widersprechende Entscheidungen im Repo;
