@@ -440,6 +440,65 @@ nachgemessen, nicht aus der Übergabe abgeschrieben.
 | **F16** | E-Mail-Identität plattformweit case-unempfindlich? | **Gebaut (M2.2).** Migration `215_email_ohne_schreibweise.sql` legt `UNIQUE (LOWER(email))` an, mit vorgeschaltetem `RAISE EXCEPTION`, das bestehende Doppel benennt. `LOWER(email)` in `authService`, `ssoService`, `scimService`. |
 | **F29** | Crontab aus `SCHEDULER.md:55` einrichten? | **Überholt in der Form, offen in der Sache** — siehe unten. Der Mechanismus ist entschieden und fünfmal gebaut: `upsertJobScheduler` in `workers/index.js`, kein Host-Crontab. |
 
+### F15 und F17 — erledigt
+
+**F15 ist faktisch beantwortet: null betroffene Konten.** Die Frage war, ob im
+Altbestand bereits ein Konto durch das `ON CONFLICT` überschrieben wurde. Der
+Bericht nannte die Prüfabfrage „billig" und führte sie ausdrücklich **nicht** aus.
+Sie ist rein lesend, also ausgeführt:
+
+```sql
+SELECT count(*) FROM worker_invites wi
+  JOIN users u ON u.id = wi.worker_user_id
+ WHERE wi.status = 'accepted' AND u.role IS DISTINCT FROM 'worker';   -- 0
+```
+
+**Und gegengeprüft, damit die Null nicht leerläuft:** `worker_invites` enthält eine
+angenommene Einladung, und die trägt einen `worker_user_id`. Die Abfrage hat also eine
+echte Zeile gesehen. (6 weitere stehen auf `pending`, dort ist die Spalte erwartungsgemäß
+leer.) Damit entfallen beide Folgefragen — melden und sperren —, weil es nichts zu melden
+gibt. **Gilt für diese Datenbank**; auf einer anderen dauert dieselbe Abfrage eine Sekunde.
+
+**F17 ist gebaut (M1.4): absolute Pfade, nicht ein Alias je Seite.** Damit wird die kurze
+Adresse **nicht** zu einer zweiten öffentlichen Oberflächen-URL — genau die Folge, wegen
+der die Frage dem Owner gehörte. Dazu ein Wächter, der die **nginx-Konfiguration liest**
+statt einer Namensliste (`wurzelSeiten.test.js`): kommt morgen ein zweiter Alias dazu, ist
+die neue Seite sofort bewacht.
+
+### F27 ist keine Vorsichtsfrage mehr — der Fall ist eingetreten
+
+Der Bericht warnt: *„sie muss VOR dem Einschalten des Takts fallen, sonst ist der erste
+Betriebstag eine Mailflut."* Gemessen am 2026-09-03: **beide Takte laufen bereits**
+(`staffing-maintenance` alle 15 min, `capacity-stale-check` täglich um 03:30), und die
+Bedingung ist erfüllt.
+
+`findStaleEntries` filtert **nicht** auf `quelle` — und die erste Hälfte seiner Bedingung
+ist `last_confirmed_at IS NULL`. Ein Eintrag ohne Bestätigung ist damit **sofort**
+überfällig, nicht erst nach sieben Tagen. Der aktuelle Bestand:
+
+| Quelle | Zustand | Zeilen | davon mit `last_confirmed_at` |
+|---|---|---|---|
+| `manuell` | aktiv | 7 | 1 |
+| `live_belegschaft` | aktiv | 6 | **0** |
+
+**Zwölf von dreizehn aktiven Einträgen sind dauerhaft überfällig** — darunter alle sechs,
+die die Automatik selbst erzeugt hat und die niemand „bestätigen" kann, weil sie
+maschinell entstehen. Der Takt versendet je Eintrag eine Meldung (`capacity.stale`), und
+der Empfänger ist ein **echter Mensch**: `supplier_company_id` hält eine Nutzer-Kennung
+(`AGENTUR_NUTZER_SQL` wählt owner/admin der Agentur). Täglich, unbefristet.
+
+> **Was NICHT passiert:** die Eskalationsstufe (`processConfirmationReminders`, pausiert
+> nach 14 Tagen) hat **keinen Takt** — sie hängt allein an
+> `POST /capacity-exchange/admin/process-reminders`. Die Auto-Angebote werden also nicht
+> stillgelegt; es bleibt bei der täglichen Meldung. Das ist ein Glücksfall, kein Entwurf:
+> läuft dieser Takt eines Tages mit, pausiert er genau die Einträge, die den Marktplatz
+> füllen sollen.
+
+Die Frage bleibt dieselbe wie im Bericht — Filter auf `quelle` oder
+`last_confirmed_at` bei der Materialisierung setzen —, aber sie ist **dringlich statt
+vorsorglich**, und der Sofort-Weg (`last_confirmed_at` beim Anlegen setzen) hat den
+Vorteil, dass er auch die sechs bestehenden Zeilen sofort heilt.
+
 ### F1 und F2 — beide ruhten auf einer falschen Annahme
 
 Beide Fragen gehen davon aus, `data-sla-guard` sei **tot**: *„damit kein Wächter
