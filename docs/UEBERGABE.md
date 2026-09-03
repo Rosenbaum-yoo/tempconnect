@@ -840,6 +840,49 @@ benannten Ausnahmeliste, fail-closed für jede künftige Route — ist genau M2.
 Owner-Entscheidung. Das Register ist die Vorarbeit dazu: es ist die Ausnahmeliste, nur
 noch nicht scharf geschaltet.
 
+### Zwei Entscheidungen sofort gebaut *(2026-09-03)*
+
+Von den vier Entscheidungen des Tages waren zwei eine Zeile groß. Die habe ich nicht
+liegen lassen — eine entschiedene Ein-Zeilen-Änderung, die auf die nächste Welle wartet,
+ist eine Entscheidung, die niemand mehr findet.
+
+**Der Arbeiter tritt nicht im Namen seiner Firma auf.** `POST`/`DELETE` auf
+`/profile-visibility/:orgId/like` und `…/favorite` schrieben `likerOrgId: req.orgId`: ein
+Arbeiter, der ein fremdes Firmenprofil befürwortet oder merkt, tat das als **seine
+Zeitarbeitsfirma** — und die hätte nie davon erfahren. Kein Datenabfluss, deshalb hat die
+Messung aus M2.5 (GET-only, rumpfbasiert) diese vier Wege nicht gesehen; sie stand als
+benannte Owner-Frage in der Übergabe. Vier Wege tragen jetzt `verweigereArbeiter`, mit
+Gegenprobe für `dispatcher` und `owner`.
+
+**„Umsatz" ist nur Geld, das an TempConnect geht.** In `queryInvoiceTruth` trugen die
+beiden **Zählungen** den Typfilter, die vier **Geldsummen** nicht — die Trennung war also
+bekannt und wurde auf die Zählung angewendet, auf die Beträge nicht. Alle vier tragen ihn
+jetzt, und das Kundengeld verschwindet nicht: es steht als **`vermitteltes_volumen_cents`**
+daneben, eine Zahl, die die Größe des Marktplatzes zeigt und deshalb für sich steht.
+
+> **Folgenlos war der Befund nur, solange der Takt still steht.**
+> `POST /internal/invoice-overdue-scan` ist in der Registratur *Aufgabe 2, Zustand still*,
+> mit `intervall_min: 1440`. Sobald er läuft, wären fremde Rückstände als eigener Umsatz
+> und eigene Forderung erschienen.
+
+**Geprüft wird die FORM der Abfrage, nicht ihr Ergebnis.** Der Muster-Pool führt kein SQL
+aus, er antwortet — eine Probe auf die *Zahl* hätte nur den Mock geprüft und nichts über
+die Trennung gesagt. Die Form ist der Vertrag. Fünf Rückmutationen, alle rot: Typfilter
+weg an einer Summe, vermitteltes Volumen gelöscht, vermitteltes Volumen zählt den falschen
+Typ, Befürworten ohne Riegel, Merkung-Entfernen ohne Riegel (die letzte eigens, damit die
+Probe nicht nur den ersten der vier Wege sieht).
+
+> **Beim Schreiben in eine Falle getreten und wieder heraus:** der erklärende Kommentar
+> stand *innerhalb* eines Template-Literals und enthielt Backticks um `invoice_type` — das
+> beendet die Zeichenkette. `node --check` hat es gefangen; ohne den Syntax-Check wäre eine
+> kaputte Abfrage in den Lauf gegangen.
+
+**Noch offen aus derselben Fundstelle:** die zwei Stellen in `staffBillingOverviewService.js`
+(`loadAttention`, `loadInvoiceTotals`) tragen weiterhin keinen Typfilter. Sie hängen an der
+**zweiten** Hälfte der F30-Frage — *soll das Team fremde Rückstände überhaupt sehen?* —,
+und die ist nicht entschieden. Als Abwanderungssignal wäre es nützlich, aber dann in einer
+**eigenen** Sicht, nicht in der Mahnliste, aus der heraus gemahnt wird.
+
 ### M2.7 ist gebaut *(2026-09-03)* — Mutationsprüfung auf der Trennwand
 
 Vierter Mutations-Bereich neben `subscription`, `rbac` und `monatsplan`:
@@ -2425,6 +2468,38 @@ Doku-Waechter P2-W1).
 ## Offene Owner-Entscheidungen
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
+
+### Vier Entscheidungen getroffen *(2026-09-03)*
+
+- **M2.6 ✅ ENTSCHIEDEN: ein Riegel auf `/api/v1`, fail-closed.** Nicht Route für Route,
+  nicht eigenes Cookie. Eine neue Route ist für Arbeiter **zu, bis jemand sie einträgt**;
+  das Register aus M2.5 (`api/test/fixtures/arbeiterSitzung.json`, 49 Einträge) ist die
+  Ausnahmeliste, es muss nur scharf geschaltet werden.
+  *Begründung des Owners folgt der Messung: neun geschlossene Befunde trugen ALLE dieselbe
+  Namensfalle — `mine`/`me` im Pfad meinte die Org. Eine Konvention, die neunmal in
+  dieselbe Richtung täuscht, täuscht auch beim zehnten Mal.*
+  **Noch zu bauen.** Umfang: Riegel als Middleware vor `v1`, Register als Datei gelesen,
+  Wächter, der eine neue erreichbare Route rot färbt. Der Fehlerfall ist bewusst der
+  umgekehrte von heute: eine vergessene Route **blockiert** statt zu lecken — das fällt
+  sofort auf, statt still zu bleiben.
+
+- **✅ ENTSCHIEDEN: der Arbeiter tritt NICHT im Namen seiner Firma auf.**
+  `POST`/`DELETE /profile-visibility/:orgId/like` und `…/favorite` schreiben
+  `likerOrgId: req.orgId` — eine öffentliche Befürwortung eines fremden Firmenprofils
+  erschien damit als die der Agentur, die davon nie erfährt. Vier Wege bekommen
+  `verweigereArbeiter`.
+
+- **✅ ENTSCHIEDEN: „Umsatz" ist nur Geld, das an TempConnect geht.** Die Summe filtert
+  auf den Abo-/Plattform-Rechnungstyp. Das Geld zwischen zwei Kunden (Einsatzrechnung
+  Agentur→Unternehmen) bleibt sichtbar, aber **getrennt** als *vermitteltes Volumen* —
+  eine Zahl, die die Marktplatz-Größe zeigt und deshalb für sich steht.
+  *Die zweite Hälfte der F30-Anschlussfrage — ob das Team fremde Rückstände sehen soll —
+  ist damit NICHT beantwortet und bleibt offen.*
+
+- **✅ ENTSCHIEDEN: nächste Welle sind die 29 offenen Fragen aus dem M0-Bericht.**
+  Nicht M2.3 (569 Routen-Urteile), nicht M3. Breite vor Tiefe: erst wissen, wo es überall
+  klemmt, dann bauen.
+
 
 ### Welle M — Marktplatz-Flow: **alle sechs entschieden (2026-09-01)**
 

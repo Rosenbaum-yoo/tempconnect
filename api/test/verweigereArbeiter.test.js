@@ -178,6 +178,36 @@ describe("verweigereArbeiter", () => {
     }
   });
 
+  it("er handelt nicht im Namen seiner Firma — Befürworten und Merken sind zu", async () => {
+    /*
+     * Owner-Entscheid 2026-09-03. `like`/`favorite` schreiben `likerOrgId: req.orgId`:
+     * ein Arbeiter haette ein fremdes Firmenprofil im Namen SEINER Agentur oeffentlich
+     * befuerwortet, und die haette nie davon erfahren. Kein Datenabfluss — deshalb hat
+     * die Messung aus M2.5 (GET-only) diese vier Wege nicht gesehen, und deshalb
+     * braucht es hier eine eigene Probe.
+     */
+    const wege = [
+      ["post", "/profile-visibility/" + ORG + "/like"],
+      ["delete", "/profile-visibility/" + ORG + "/like"],
+      ["post", "/profile-visibility/" + ORG + "/favorite"],
+      ["delete", "/profile-visibility/" + ORG + "/favorite"]
+    ];
+    for (const [verb, pfad] of wege) {
+      const res = await request(flaeche("worker"))[verb]("/api/v1" + pfad).send({});
+      assert.equal(res.status, 403,
+        `${verb.toUpperCase()} ${pfad}: der Arbeiter handelt weiter im Namen der Firma (${res.status})`);
+      assert.equal(res.body?.error, "WORKER_NOT_ALLOWED",
+        `${verb.toUpperCase()} ${pfad}: abgewiesen, aber aus dem falschen Grund `
+        + `(${JSON.stringify(res.body)})`);
+    }
+    /* Und die Gegenprobe: wer die Firma vertritt, darf es weiterhin. */
+    for (const rolle of ["dispatcher", "owner"]) {
+      const res = await request(flaeche(rolle)).post("/api/v1/profile-visibility/" + ORG + "/like").send({});
+      assert.notEqual(res.status, 403,
+        `Rolle '${rolle}' wird abgewiesen — der Riegel greift zu weit (${JSON.stringify(res.body)})`);
+    }
+  });
+
   it("erkennt den Arbeiter an BEIDEN Merkmalen, einzeln", async () => {
     /* Zwei Quellen, weil zwei Wege dorthin fuehren: die Mitgliedschaft
        (org_memberships.role_key) und die Sitzung (users.role). Faellt eine aus,

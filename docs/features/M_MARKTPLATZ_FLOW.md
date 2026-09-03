@@ -321,7 +321,10 @@ Messung wertlos.
 >    diese Liste, nur noch nicht scharf geschaltet. Entspricht dem Muster `/staff` und
 >    dem Grundsatz der strukturellen Absicherung aus `CLAUDE.md`.
 >
-> Empfehlung weiterhin **(2)**, und die Messung stützt sie jetzt besser als vorher: von
+> **✅ OWNER-ENTSCHEID 2026-09-03: Weg (2)** — ein Riegel auf `/api/v1` mit der
+> benannten Ausnahmeliste, fail-closed. Das Register aus M2.5 ist diese Liste.
+>
+> Die Messung stützt den Entscheid: von
 > sechs in dieser Welle geschlossenen Befunden trugen **alle sechs** dieselbe Falle —
 > `mine`/`me` im Pfad, gemeint war die **Org**: `/subscription-requests/mine`,
 > `/subscription-documents/mine`, `/profile-bounties/me`, dazu `/org/departments`,

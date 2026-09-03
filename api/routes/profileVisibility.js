@@ -181,7 +181,20 @@ export function createProfileVisibilityRouter(deps) {
 
   /* ── Like / Unlike ─────────────────────────────────────── */
 
-  router.post("/profile-visibility/:orgId/like", requireAuth, basic, async (req, res) => {
+  /*
+   * Owner-Entscheid 2026-09-03: der Arbeiter tritt NICHT im Namen seiner Firma auf.
+   *
+   * Diese vier Wege schreiben `likerOrgId: req.orgId` bzw. binden die Merkung an die
+   * Org. Ein Arbeiter, der ein fremdes Firmenprofil befuerwortet oder merkt, tat das
+   * damit als SEINE ZEITARBEITSFIRMA — und fuer eine Agentur ist eine oeffentliche
+   * Befuerwortung eines Marktteilnehmers kommerziell nicht bedeutungslos. Sie haette
+   * nie davon erfahren.
+   *
+   * Kein Datenabfluss, deshalb hat die Messung aus M2.5 (GET-only, Rumpf-basiert) sie
+   * nicht gefunden. Sie stand als benannte Owner-Frage in der Uebergabe und ist
+   * entschieden worden.
+   */
+  router.post("/profile-visibility/:orgId/like", requireAuth, basic, keinArbeiter, async (req, res) => {
     try {
       const likedOrgId = String(req.params.orgId);
       if (!req.orgId) return fail(res, 403, "NO_ORG", "Keine aktive Organisation.");
@@ -201,7 +214,7 @@ export function createProfileVisibilityRouter(deps) {
     }
   });
 
-  router.delete("/profile-visibility/:orgId/like", requireAuth, basic, async (req, res) => {
+  router.delete("/profile-visibility/:orgId/like", requireAuth, basic, keinArbeiter, async (req, res) => {
     try {
       const likedOrgId = String(req.params.orgId);
       if (!req.orgId) return fail(res, 403, "NO_ORG", "Keine aktive Organisation.");
@@ -220,7 +233,7 @@ export function createProfileVisibilityRouter(deps) {
     note: z.string().max(200).optional().nullable()
   });
 
-  router.post("/profile-visibility/:orgId/favorite", requireAuth, basic, async (req, res) => {
+  router.post("/profile-visibility/:orgId/favorite", requireAuth, basic, keinArbeiter, async (req, res) => {
     const parsed = favoriteSchema.safeParse(req.body);
     const note = parsed.success ? (parsed.data.note || null) : null;
     try {
@@ -239,7 +252,7 @@ export function createProfileVisibilityRouter(deps) {
     }
   });
 
-  router.delete("/profile-visibility/:orgId/favorite", requireAuth, basic, async (req, res) => {
+  router.delete("/profile-visibility/:orgId/favorite", requireAuth, basic, keinArbeiter, async (req, res) => {
     try {
       const favOrgId = String(req.params.orgId);
       await analyticsSvc.removeFavorite(pool, uid(req), favOrgId);
