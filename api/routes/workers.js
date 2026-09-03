@@ -445,23 +445,32 @@ export function normalisiereZeile(roh) {
 
 const importItemSchema = z.object({
   /*
-   * P10/D4 — D-E1 ("Import ohne E-Mail, wenn Personalnummer vorhanden") ist vom
-   * Owner ENTSCHIEDEN, aber hier BEWUSST NOCH NICHT umgesetzt.
+   * D-E1 — "Import ohne E-Mail, wenn Personalnummer vorhanden".
    *
-   * Das Datenmodell laesst es nicht zu: `users.email` ist NOT NULL,
-   * `users.password_hash` ist NOT NULL, und `worker_profiles.user_id` ist NOT
-   * NULL — ein Mitarbeiterprofil braucht zwingend ein Benutzerkonto, und ein
-   * Benutzerkonto zwingend eine E-Mail. Zusaetzlich lehnt
-   * `workerService.bulkImportWorkers` Zeilen ohne E-Mail selbst ab.
+   * BIS ZUM 2026-09-03 STAND HIER `z.string().email()` MIT DER BEGRUENDUNG, das
+   * Datenmodell lasse es nicht zu: `worker_profiles.user_id` sei NOT NULL und
+   * `bulkImportWorkers` lehne Zeilen ohne E-Mail selbst ab. Beides stimmte
+   * einmal. Beides stimmt nicht mehr:
    *
-   * Das Schema hier zu oeffnen wuerde die Zeile annehmen und eine Ebene tiefer
-   * scheitern lassen — ein Versprechen, das die Datenbank bricht. Schlimmer als
-   * eine klare Ablehnung.
+   *   Migration 175          ALTER TABLE worker_profiles
+   *                            ALTER COLUMN user_id DROP NOT NULL
+   *   workerService.js:3244  "P10/D5 — kein E-Mail-Zwang mehr, aber auch kein
+   *                           Datensatz ohne Identitaet" — die Personalnummer
+   *                           traegt die Wiedererkennung, Zeilen ohne beides
+   *                           erhalten MISSING_IDENTITY
    *
-   * Was D-E1 wirklich kostet, steht in docs/features/P10_IMPORT_LIVE_ZEIT.md
-   * (Welle D5). Es ist eine Datenmodell-Entscheidung, keine Feldregel.
+   * Die Entscheidung war getroffen, die Datenbank war offen, der Dienst war
+   * gebaut — und der Eingang blieb zu. Ein Schema, dessen Begruendung abgelaufen
+   * ist, sieht aus wie eine Regel und ist ein Ueberbleibsel. Gefunden beim
+   * Abgleich der M0-Frage F7, die genau diesen Widerspruch benannt hat.
+   *
+   * Die Pflicht verschwindet nicht, sie wandert: `email` ODER
+   * `personnel_number`. Erzwungen wird sie dort, wo beide Felder zusammen
+   * sichtbar sind — im Dienst, je Zeile, mit einem Bericht statt eines
+   * Abbruchs (P10/D1). Ein Schema kann "eines von beiden" nicht ausdruecken,
+   * ohne die zweite Regel zu verdoppeln.
    */
-  email:            z.string().email().max(254),
+  email:            z.string().email().max(254).optional().nullable(),
   first_name:       z.string().min(1).max(100),
   last_name:        z.string().min(1).max(100),
   personnel_number: z.string().max(50).optional().nullable(),

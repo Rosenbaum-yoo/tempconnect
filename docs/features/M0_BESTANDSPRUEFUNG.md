@@ -440,6 +440,53 @@ nachgemessen, nicht aus der Übergabe abgeschrieben.
 | **F16** | E-Mail-Identität plattformweit case-unempfindlich? | **Gebaut (M2.2).** Migration `215_email_ohne_schreibweise.sql` legt `UNIQUE (LOWER(email))` an, mit vorgeschaltetem `RAISE EXCEPTION`, das bestehende Doppel benennt. `LOWER(email)` in `authService`, `ssoService`, `scimService`. |
 | **F29** | Crontab aus `SCHEDULER.md:55` einrichten? | **Überholt in der Form, offen in der Sache** — siehe unten. Der Mechanismus ist entschieden und fünfmal gebaut: `upsertJobScheduler` in `workers/index.js`, kein Host-Crontab. |
 
+### F7 war kein Widerspruch — es war eine abgelaufene Begründung
+
+Die Frage lautete: *„Es liegen zwei einander widersprechende Entscheidungen im Repo;
+eine davon muss zurückgezogen werden, bevor irgendjemand baut."* Nachgemessen stimmt
+das nicht. Es gab **eine** Entscheidung, und drei von vier Schichten hatten sie längst
+umgesetzt:
+
+| Schicht | Stand am 2026-09-03 |
+|---|---|
+| Datenbank | **offen** — Migration 175: `ALTER TABLE worker_profiles ALTER COLUMN user_id DROP NOT NULL` |
+| Dienst | **gebaut** — `workerService.js:3244`: *„P10/D5 — kein E-Mail-Zwang mehr, aber auch kein Datensatz ohne Identitaet"*; die Personalnummer trägt die Wiedererkennung, `MISSING_IDENTITY` wenn beides fehlt |
+| Routen-Schema | **zu** — `email: z.string().email().max(254)` |
+| Wirklichkeit | **0 von 33** Profilen ohne Konto |
+
+Und der Kommentar, der die Sperre begründete, berief sich auf genau die Dinge, die
+nicht mehr galten: auf ein `NOT NULL`, das die Migration aufgehoben hatte, und auf eine
+Ablehnung im Dienst, die es nicht mehr gab. **Ein Schema, dessen Begründung abgelaufen
+ist, sieht aus wie eine Regel und ist ein Überbleibsel.** Die Entscheidung war
+getroffen, die Datenbank war offen, der Dienst war gebaut — und der Eingang blieb zu.
+
+**Geöffnet.** `email` ist im Import-Schema jetzt `optional().nullable()`. Die Pflicht
+verschwindet dabei nicht, sie wandert: **`email` ODER `personnel_number`**, erzwungen
+dort, wo beide Felder zusammen sichtbar sind — im Dienst, je Zeile, mit einem Bericht
+statt eines Abbruchs (P10/D1). Ein Zod-Schema kann „eines von beiden" nicht ausdrücken,
+ohne die zweite Regel zu verdoppeln; zwei Wahrheiten über dieselbe Frage sind der
+Fehler, nicht ihre Formulierung.
+
+**Belegt, dass dabei kein Loch entstanden ist:**
+
+| Zeile | Ergebnis |
+|---|---|
+| mit E-Mail | angenommen |
+| nur Personalnummer | angenommen — und der Mensch wird **angelegt** (Ende zu Ende geprüft) |
+| kaputte E-Mail | abgelehnt, `VALIDATION` |
+| weder noch | abgelehnt, `MISSING_IDENTITY`, **null Schreibabfragen** |
+
+Die letzte Zeile ist die wichtigste: eine Ablehnung *nach* dem Schreiben wäre keine.
+
+> **Ein Test war der Stolperdraht — und er hat gehalten.** `csvFeldregeln.test.js`
+> prüfte *„E-Mail bleibt Pflicht, solange das Datenmodell sie verlangt"* und sagte in
+> seinem eigenen Kommentar an, er werde rot, *„sobald jemand das Schema öffnet, ohne
+> die Datenbank mitzuziehen. Genau dann muss man hinschauen."* Er ist rot geworden, und
+> beim Hinschauen war es **umgekehrt**: die Datenbank war zuerst dran. Der Draht bleibt,
+> er zeigt nur nicht mehr auf eine Momentaufnahme — geprüft wird jetzt die BEZIEHUNG
+> zwischen Migration und Schema, und er fällt in **beide** Richtungen. Dazu eine neue
+> Gegenprobe, die es vorher nicht gab: eine unbrauchbare Adresse bleibt ein Fehler.
+
 ### F15 und F17 — erledigt
 
 **F15 ist faktisch beantwortet: null betroffene Konten.** Die Frage war, ob im

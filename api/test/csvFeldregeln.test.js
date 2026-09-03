@@ -20,6 +20,13 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+/* Pfade IMMER relativ zur Testdatei — sonst haengt das Ergebnis am
+   Startverzeichnis und der Test ueberspringt sich je nach cwd lautlos. */
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 import {
   normalisiereDatum, normalisiereLand, normalisiereEmail,
@@ -189,16 +196,45 @@ describe("P10/D4 · Zusammenspiel", () => {
     assert.equal(r.hinweise.length, 2);
   });
 
-  it("E-Mail bleibt Pflicht, solange das Datenmodell sie verlangt", () => {
+  it("Schema und Datenmodell bleiben im Gleichschritt", () => {
     /*
-     * Owner-Entscheidung D-E1 ("Import ohne E-Mail bei vorhandener
-     * Personalnummer") ist getroffen, aber NICHT umsetzbar, solange
-     * `users.email` NOT NULL, `users.password_hash` NOT NULL und
-     * `worker_profiles.user_id` NOT NULL sind. Dieser Test haelt den heutigen,
-     * ehrlichen Zustand fest — und wird rot, sobald jemand das Schema oeffnet,
-     * ohne die Datenbank mitzuziehen. Genau dann muss man hinschauen.
+     * VORHER stand hier: "E-Mail bleibt Pflicht, solange das Datenmodell sie
+     * verlangt" — mit der ausdruecklichen Ansage, der Test werde rot, "sobald
+     * jemand das Schema oeffnet, OHNE die Datenbank mitzuziehen. Genau dann muss
+     * man hinschauen."
+     *
+     * Am 2026-09-03 ist er rot geworden, und beim Hinschauen war es umgekehrt:
+     * die Datenbank war ZUERST dran. `Migration 175` hebt
+     * `worker_profiles.user_id NOT NULL` auf, und `bulkImportWorkers` setzt die
+     * Regel seit Welle D5 um ("kein E-Mail-Zwang mehr, aber auch kein Datensatz
+     * ohne Identitaet"). Nur `importItemSchema` war stehen geblieben — mit einer
+     * Begruendung, die genau dieses NOT NULL zitierte.
+     *
+     * Der Stolperdraht bleibt, er zeigt nur nicht mehr auf eine Momentaufnahme:
+     * geprueft wird jetzt die BEZIEHUNG zwischen Migration und Schema. Faellt
+     * eines von beiden zurueck, faellt dieser Test — in beide Richtungen.
      */
+    const mig = [process.cwd(), path.resolve(__dirname, "..", "..")]
+      .map((w) => path.join(w, "sql/migrations/175_mitarbeiter_ohne_konto.sql"))
+      .find((p) => fs.existsSync(p));
+    assert.ok(mig, "Migration 175 nicht gefunden — der Vergleich liefe ins Leere");
+    const kontoOptional = /ALTER TABLE worker_profiles ALTER COLUMN user_id DROP NOT NULL/
+      .test(fs.readFileSync(mig, "utf8"));
+    assert.ok(kontoOptional,
+      "Migration 175 haelt das Konto nicht mehr offen — dann gehoert die "
+      + "E-Mail-Pflicht ins Schema zurueck");
+
     const r = pruefe({ first_name: "Anna", last_name: "Beck", personnel_number: "P-1" });
+    assert.equal(r.gueltig.length, 1,
+      `das Datenmodell laesst den Menschen ohne Konto zu, das Schema nicht: `
+      + JSON.stringify(r.fehler));
+    assert.equal(r.fehler.length, 0);
+  });
+
+  it("eine kaputte Adresse bleibt ein Fehler — das Tor ist offen, nicht weg", () => {
+    /* Die Gegenprobe zur Oeffnung: `optional()` darf nicht heissen "beliebig". */
+    const r = pruefe({ first_name: "Anna", last_name: "Beck",
+      personnel_number: "P-1", email: "keine-adresse" });
     assert.equal(r.gueltig.length, 0);
     assert.equal(r.fehler[0].field, "email");
   });
