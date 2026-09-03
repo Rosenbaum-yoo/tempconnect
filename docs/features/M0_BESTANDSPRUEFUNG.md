@@ -421,6 +421,78 @@ eine Produkt-, Vertrags- oder Rechtsfolge hat.
 
 ---
 
+## 5c. Abgleich 2026-09-03 — zehn der 33 Fragen sind beantwortet
+
+Die Liste stand zwei Tage. In der Zwischenzeit sind M1 und M2 gebaut und vier
+Entscheidungen gefallen — **zehn Fragen brauchen den Owner nicht mehr**, und drei
+weitere sehen anders aus als bei der Aufnahme. Jede Zeile ist am heutigen Stand
+nachgemessen, nicht aus der Übergabe abgeschrieben.
+
+### Erledigt — nicht mehr vorlegen
+
+| | Frage | Stand am 2026-09-03 |
+|---|---|---|
+| **F3** | PRO/INDIVIDUELL: 50/999 oder unbegrenzt? | **Gebaut.** `userService.js:169-170` — `requests_send`, `requests_receive` und `listings` stehen für PRO **und** INDIVIDUELL auf `-1`. Die zweite Wahrheit ist weg, nicht angeglichen (M-E3, gebaut in M1.7). |
+| **F6** | Mailtransport hart, und Fehlschlag durchreichen? | **Gebaut, beide Hälften.** Startriegel: `config/index.js` bricht in Produktion mit `fatal(mailFehler)` ab. Laufzeit: `app.js` wirft `KeinVersandweg` statt `return true` — vorher meldete eine Einladung Zustellung, ohne dass etwas das Haus verließ, und 36 von 42 Aufrufern prüfen die Rückgabe gar nicht. |
+| **F10** | Eigene Sitzungswelt fürs Einsatzportal? | **Entschieden 2026-09-03: nein.** Stattdessen ein Riegel auf `/api/v1` mit benannter Ausnahmeliste (M2.6). |
+| **F11** | Welcher Riegel schließt die `requireAuth`-only-Klasse? | **Entschieden 2026-09-03: das entdeckende Register**, genau die dritte der drei genannten Varianten. Und die Warnung der Frage — *ein Teil davon (`me.js`) muss für Arbeiter offen BLEIBEN* — ist bereits kodiert: 48 der 49 Registereinträge sind „eigene Daten". |
+| **F13** | Torwächter auf ALLE Routen erweitern? | **Gebaut (M2.4).** Der Filter `path.includes(':')` ist aus der Torwächter-Prüfung entfernt; beim Entfernen fiel genau eine Route auf, und die ist eine begründete Ausnahme (RFC 7644 §3.2). Die zweite Variante der Frage (workerPortal auf Präfix-Bauart) ist damit gegenstandslos. |
+| **F16** | E-Mail-Identität plattformweit case-unempfindlich? | **Gebaut (M2.2).** Migration `215_email_ohne_schreibweise.sql` legt `UNIQUE (LOWER(email))` an, mit vorgeschaltetem `RAISE EXCEPTION`, das bestehende Doppel benennt. `LOWER(email)` in `authService`, `ssoService`, `scimService`. |
+| **F29** | Crontab aus `SCHEDULER.md:55` einrichten? | **Überholt in der Form, offen in der Sache** — siehe unten. Der Mechanismus ist entschieden und fünfmal gebaut: `upsertJobScheduler` in `workers/index.js`, kein Host-Crontab. |
+
+### Anders als aufgenommen — mit dem Owner vorlegen, aber schärfer
+
+**F5 + F29 sind dieselbe Frage, und sie ist messbar geworden.**
+Von den **zehn** Aufgaben in der Takt-Registratur (`betriebsTaktService.TAKTE`) sind
+**fünf eingeplant** und **fünf nicht** — und die fünf stillen sind Geld und Lebenszyklus:
+
+| Aufgabe | Soll | Was ausbleibt |
+|---|---|---|
+| `recurring-billing` | täglich | die wiederkehrenden Abo-Rechnungen entstehen nicht |
+| `dunning-sweep` | täglich | keine Mahnstufen, kein Hard-Lock bei Zahlungsausfall |
+| `invoice-overdue-scan` | täglich | `overdue` ist ein gültiger Zustand, den nichts je setzt |
+| `subscription-lifecycle-tick` | stündlich | ein Abo mit zukünftigem Beginn wird nie von selbst wirksam |
+| `expire-reservations` | stündlich | abgelaufene Reservierungen binden weiter Kapazität |
+
+Der Mechanismus steht **direkt daneben**: fünf `upsertJobScheduler`-Aufrufe im selben
+File, idempotent, neustartfest. Einschalten wäre fünf Zeilen. Genau deshalb ist es eine
+Owner-Entscheidung und kein Patch: ab dem ersten Lauf erzeugt `recurring-billing`
+Rechnungen und `dunning-sweep` verschickt Mahnungen an echte Kunden.
+
+> **Gebaut, ohne etwas einzuschalten:** die Lücke steht jetzt in der Registratur selbst
+> (`ohne_einplanung` je Aufgabe, mit Grund) und wird von
+> [`takteEingeplant.test.js`](../../api/test/takteEingeplant.test.js) erzwungen — in
+> **beide** Richtungen: eine Aufgabe ohne Takt und ohne Begründung färbt rot, und eine
+> Begründung, die stehen bleibt, nachdem der Takt läuft, ebenfalls. Vorher war die
+> Lücke nur im Betrieb sichtbar (Kachel `still`) — und nur dem, der hinsieht.
+
+**F18 ist größer als „Einladungslinks".**
+`BASE_URL` hat im ganzen `config/index.js` **eine** Referenz: den Rückfall auf
+`http://localhost:8080` (Zeile 44). Es gibt **keine** Produktionsprüfung, während
+`SESSION_SECRET`, `JWT_SECRET`, `INTERNAL_CRON_SECRET`, `ADMIN_SECRET`, die Datenbank
+und (seit M1.3) der Mailweg alle `fatal` sind. Daraus bauen **25 Stellen** in zehn
+Dateien Adressen — darunter `routes/auth.js` (Passwort zurücksetzen),
+`routes/payment.js` (Stripe-Rückkehradressen) und die Einladungen. Eine
+Stripe-Rückkehradresse auf `localhost` bricht den Kauf, nicht nur einen Link.
+
+**F30 ist kleiner als aufgenommen.**
+Beim Nachmessen für die Umsatz-Entscheidung: die **Mahnstrecke** filtert bereits auf
+`i.invoice_type = 'subscription'` (`recurringBillingService.js`). Es gehen also **keine
+Mahnmails an Schulden zwischen zwei Kunden**. Offen ist allein die **Sichtbarkeit** in
+der Arbeitsliste des Operators (`staffBillingOverviewService.js`, `loadAttention` und
+`loadInvoiceTotals` ohne Typfilter) — und das ist die zweite Hälfte der F30-Frage, die
+am 2026-09-03 **nicht** mitentschieden wurde.
+
+**F14 ist keine Frage mehr, sondern eine Korrektur.**
+`docs/PLATTFORM_REGISTER.md:185-187` und `J_LIVE_BELEGSCHAFT_MARKTPLATZ.md:212`
+behaupten „kein Frontend-Aufrufer von `/invoices/operational/*`". Belegt falsch:
+`companyTimesheets.js:537` und `workerSubmissionsReview.js:5892` rufen es. Und in
+M2.5 kam heraus, dass die Route zu dem Zeitpunkt **gar nicht erreichbar** war —
+`/invoices/:id` stand davor und fing sie ab, `WHERE i.id = 'operational'` warf gegen
+die echte Datenbank. Beides ist repariert; die Doku-Zeilen bleiben zu korrigieren.
+
+---
+
 ## 5b. Nachtrag 2026-09-02 — drei Korrekturen aus der Gegenprüfung
 
 Die Parallelsitzung hat die vier Korrekturen aus diesem Bericht unabhängig

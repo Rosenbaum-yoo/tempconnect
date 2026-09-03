@@ -42,6 +42,23 @@ import { logger } from "../config/index.js";
  * an, wenn eine Aufgabe laenger schweigt als **das Dreifache** davon — ein
  * einzelner verpasster Lauf (Neustart, Redis kurz weg) ist kein Alarm, drei
  * hintereinander sind einer.
+ *
+ * `ohne_einplanung` (M0-Abgleich 2026-09-03): diese Aufgabe hat KEINEN
+ * `upsertJobScheduler`-Aufruf in api/workers/index.js. Sie steht hier als Soll,
+ * aber nichts loest sie aus — der Zustand ist dauerhaft `still`, bis jemand sie
+ * einplant oder von Hand anstoesst.
+ *
+ * Gemessen: von zehn erwarteten Takten sind FUENF eingeplant. Die anderen fuenf
+ * sind Geld und Lebenszyklus. Das ist kein Versehen im Code, sondern eine offene
+ * BETRIEBSENTSCHEIDUNG (F5/F29 im M0-Bericht): `recurring-billing` wuerde
+ * anfangen, Rechnungen zu erzeugen, und `dunning-sweep`, Mahnungen zu
+ * verschicken. Beides schaltet man nicht nebenbei ein.
+ *
+ * Das Feld ist deshalb keine Entschuldigung, sondern eine Zusicherung:
+ * `takteEingeplant.test.js` verlangt, dass jede Aufgabe entweder eingeplant ist
+ * ODER hier einen Grund traegt — und faerbt rot, wenn ein Grund stehen bleibt,
+ * nachdem die Aufgabe eingeplant wurde. Eine Luecke, die man beschreibt, kann
+ * nicht mehr unbemerkt bleiben; eine, die man nur kennt, schon.
  */
 export const TAKTE = Object.freeze({
   /* Die Marktplatz-Automatik. Der Grund fuer diese ganze Phase: Skills werden
@@ -51,18 +68,23 @@ export const TAKTE = Object.freeze({
 
   /* Faelligkeit der Rechnungen. Haengt an derselben nie eingerichteten Zeile —
    * `overdue` ist ein gueltiger Zustand, den heute nichts je setzt. */
-  "invoice-overdue-scan": { intervall_min: 1440, zweck: "Rechnungen auf faellig setzen" },
+  "invoice-overdue-scan": { intervall_min: 1440, zweck: "Rechnungen auf faellig setzen" ,
+    ohne_einplanung: "Nicht eingeplant. Setzt Rechnungen auf 'overdue' — der Zustand ist gueltig und wird heute von nichts gesetzt. Haengt an derselben Betriebsentscheidung wie die Mahnstrecke: sobald er laeuft, fuellt sich die Arbeitsliste des Operators, und solange loadAttention keinen Typfilter traegt, mit Rueckstaenden, die Kunden EINANDER schulden (offene Frage F30)." },
 
   /* Mahnstrecke und wiederkehrende Abrechnung. */
-  "dunning-sweep": { intervall_min: 1440, zweck: "Mahnstufen und Hard-Lock bei Zahlungsausfall" },
-  "recurring-billing": { intervall_min: 1440, zweck: "Wiederkehrende Abo-Rechnungen erzeugen" },
+  "dunning-sweep": { intervall_min: 1440, zweck: "Mahnstufen und Hard-Lock bei Zahlungsausfall" ,
+    ohne_einplanung: "Nicht eingeplant. Verschickt Mahnungen und setzt den Hard-Lock bei Zahlungsausfall — die folgenreichste der fuenf. Einschalten heisst: ab dem ersten Lauf gehen Zahlungserinnerungen an echte Kunden. Owner-Entscheidung." },
+  "recurring-billing": { intervall_min: 1440, zweck: "Wiederkehrende Abo-Rechnungen erzeugen" ,
+    ohne_einplanung: "Nicht eingeplant. Erzeugt die wiederkehrenden Abo-Rechnungen. Ohne Takt entsteht keine Folgerechnung — die Einnahmenseite laeuft heute nur, soweit jemand von Hand ausloest. Owner-Entscheidung, weil der erste Lauf einen Nachlauf fuer alle faelligen Zeitraeume erzeugt." },
 
   /* Abo-Wirksamkeit zum Stichtag. Ohne Takt wird ein Abo mit zukuenftigem
    * Beginn nie von selbst wirksam. */
-  "subscription-lifecycle-tick": { intervall_min: 60, zweck: "Abo-Aktivierung zum Stichtag" },
+  "subscription-lifecycle-tick": { intervall_min: 60, zweck: "Abo-Aktivierung zum Stichtag" ,
+    ohne_einplanung: "Nicht eingeplant. Ohne ihn wird ein Abo mit zukuenftigem Beginn nie von selbst wirksam; der Kunde hat gekauft und wartet. Fachlich die harmloseste der fuenf und der naheliegendste erste Schritt." },
 
   /* Reservierungen und Fristen. */
-  "expire-reservations": { intervall_min: 60, zweck: "Abgelaufene Reservierungen freigeben" },
+  "expire-reservations": { intervall_min: 60, zweck: "Abgelaufene Reservierungen freigeben" ,
+    ohne_einplanung: "Nicht eingeplant. Gibt abgelaufene Reservierungen frei. Ohne Takt bleibt Kapazitaet gebunden, die niemand mehr braucht — kein Schaden nach aussen, aber der Marktplatz wirkt voller als er ist." },
 
   /* Die vier BullMQ-Takte, die es bereits gibt (api/workers/index.js:24-47).
    * Sie laufen — aber niemand konnte es bisher nachweisen. */
