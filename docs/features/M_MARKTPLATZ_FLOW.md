@@ -287,6 +287,34 @@ Messung wertlos.
 | M2.6 | **Eigenes Cookie und eigener Store für die Arbeiterwelt** — das Muster `/staff` existiert. *Alternative: harter Riegel gegen Rollenkollision auf der E-Mail* | Owner-Entscheidung, wenn M2.1 nicht genügt |
 | M2.7 | **Mutationsprüfung** auf der Entscheidungslogik, Schwelle 90 % | Bericht, **null Überlebende** in `if`/`&&`/Vergleich |
 
+> **Grundlage für die Owner-Entscheidung M2.6, gemessen in M2.5 (2026-09-03).**
+>
+> Die Vorfrage von M2.6 lautet „genügt M2.1?“. Die Antwort ist **nein**, und zwar aus einem
+> anderen Grund als vermutet: das Problem ist keine Rollenkollision auf der E-Mail, die man
+> verriegeln könnte. Der Arbeiter ist **völlig regulär** Mitglied in der Org seiner
+> Zeitarbeitsfirma — `acceptInvite` macht ihn dazu (`role_key='worker'` auf die
+> `supplier_org_id`), einen Org-Typ `worker` gibt es nicht. Seine Sitzung trägt damit
+> zwangsläufig `req.orgId` = die Kennung seines Arbeitgebers. Jede Route, die nur
+> `requireAuth` trägt und über `req.orgId` liest, gibt ihm Firmendaten. Kein Riegel auf der
+> E-Mail ändert daran etwas.
+>
+> **Der gemessene Umfang:** von 300 aufrufbaren GET-Routen reichen **82** einer
+> Arbeitersitzung Daten der Trägerorg durch — 25 davon zu Recht (seine eigenen), 9 sind
+> Katalog/Schaufenster, **45 sind Befunde**. Vollständig mit Begründung je Eintrag:
+> `api/test/fixtures/arbeiterSitzung.json`, erzwungen von `api/test/arbeiterSitzung.test.js`.
+>
+> **Die beiden Wege stehen damit konkret zur Wahl:**
+>
+> 1. **45 Urteile, Route für Route** — jede Frage einzeln: braucht ein Arbeiter das?
+>    (`/support-requests` womöglich schon, `/credits/balance` sicher nicht.) Ehrlich, aber
+>    jede künftige Route stellt die Frage neu, und irgendwann beantwortet sie niemand.
+> 2. **Ein Riegel auf `/api/v1` mit benannter Ausnahmeliste** — fail-closed: eine neue
+>    Route ist für Arbeiter zu, bis jemand sie einträgt. Das Register aus M2.5 **ist**
+>    diese Liste, nur noch nicht scharf geschaltet. Entspricht dem Muster `/staff` und dem
+>    Grundsatz „Missbrauchsschutz durch STRUKTUR“ aus `CLAUDE.md`.
+>
+> Empfehlung: **(2)**. (1) ist kein Ziel, sondern ein Zustand, den man nicht halten kann.
+
 ---
 
 ### M3 · Der Kettenanfang

@@ -160,6 +160,32 @@ export function createTimesheetsRouter(deps) {
     } catch (err) { next(err); }
   });
 
+  /*
+   * Bewusst VOR `/timesheets/:id` registriert. Express nimmt die ERSTE passende
+   * Schicht: standen diese beiden dahinter, fing die Detailroute den Pfad mit
+   * id="status-meta" bzw. id="worker-summary" ab — beide waren unerreichbar,
+   * obwohl `timesheets.scope.test.js` sie prueft: der Test greift den Handler
+   * direkt am Pfad, statt eine Anfrage leiten zu lassen, und war deshalb gruen.
+   * Erzwungen von test/routenSchatten.test.js.
+   */
+  /* GET /timesheets/status-meta – UI-Labels, Farben, Icons fuer alle Status */
+  router.get("/timesheets/status-meta", (_req, res) => {
+    res.json(timesheetService.getTimesheetStatusMeta());
+  });
+
+  /* GET /timesheets/worker-summary – KPIs fuer Worker-Dashboard */
+  router.get("/timesheets/worker-summary", ...base, requireScope("read:timesheets"), rperm("timesheet.view"), async (req, res, next) => {
+    try {
+      const result = await timesheetService.getWorkerTimesheetSummary(pool, {
+        workerName:    req.query.worker_name     || null,
+        orgId:         req.orgId                 || null,
+        supplierOrgId: req.query.supplier_org_id || null
+      });
+      if (result.error) return res.status(400).json(result);
+      res.json(result);
+    } catch (err) { next(err); }
+  });
+
   /* GET /timesheets/:id – Einzelner Stundenzettel mit Eintraegen */
   router.get("/timesheets/:id", ...base, requireScope("read:timesheets"), rperm("timesheet.view"), async (req, res, next) => {
     try {
@@ -421,24 +447,6 @@ export function createTimesheetsRouter(deps) {
       const result = await timesheetService.batchReject(pool, parsed.data.ids, req.session.userId, parsed.data.reason);
       if (result.error) return res.status(400).json(result);
       res.locals.audit = { action: "timesheet.batch_reject", entity_type: "timesheet", entity_id: null, details: { count: result.rejected.length, reason: parsed.data.reason } };
-      res.json(result);
-    } catch (err) { next(err); }
-  });
-
-  /* GET /timesheets/status-meta – UI-Labels, Farben, Icons fuer alle Status */
-  router.get("/timesheets/status-meta", (_req, res) => {
-    res.json(timesheetService.getTimesheetStatusMeta());
-  });
-
-  /* GET /timesheets/worker-summary – KPIs fuer Worker-Dashboard */
-  router.get("/timesheets/worker-summary", ...base, requireScope("read:timesheets"), rperm("timesheet.view"), async (req, res, next) => {
-    try {
-      const result = await timesheetService.getWorkerTimesheetSummary(pool, {
-        workerName:    req.query.worker_name     || null,
-        orgId:         req.orgId                 || null,
-        supplierOrgId: req.query.supplier_org_id || null
-      });
-      if (result.error) return res.status(400).json(result);
       res.json(result);
     } catch (err) { next(err); }
   });

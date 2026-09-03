@@ -130,8 +130,20 @@ describe("Scope enforcement: GET /invoices", () => {
       apiKeyScopes: ["read:invoices"],
       orgId: "org-1"
     });
-    // Scope-Check passiert; DB-Aufruf liefert leere Liste → 200 mit {items:[]}
-    assert.notEqual(res._status, 403, "read:invoices muss den Scope-Check bestehen");
+    /*
+     * `equal(200)` statt `notEqual(403)`.
+     *
+     * Der alte Stellvertreter haette einen echten Rueckschritt durchgelassen: als
+     * `GET /invoices` in M2.5 zusaetzlich `rperm("org.billing")` bekam, antwortete
+     * die Route einem API-Schluessel mit **401** — `requirePermission` verlangt eine
+     * Sitzung, die ein Schluessel nicht hat. Der Zugang war damit abgeschnitten, und
+     * diese Probe blieb gruen, weil 401 nun einmal nicht 403 ist.
+     *
+     * Der Scope-Check bestanden heisst: die Antwort kommt. Genau das wird gefragt.
+     */
+    assert.equal(res._status, 200,
+      "read:invoices muss den Scope-Check bestehen UND die Route erreichen "
+      + `(bekommen: ${res._status} ${JSON.stringify(res._body)})`);
   });
 
   it("Session-User umgeht Scope-Check vollstaendig", async () => {
@@ -144,7 +156,19 @@ describe("Scope enforcement: GET /invoices", () => {
       session: { userId: "user-session-1" },
       orgId: "org-1"
     });
-    assert.notEqual(res._status, 403, "Session-User darf nicht am Scope-Check scheitern");
+    /*
+     * Geprueft wird der GRUND, nicht die Zahl.
+     *
+     * Bis M2.5 stand hier `notEqual(res._status, 403)`. Das war ein Stellvertreter:
+     * "kein 403" sollte "nicht am Scope gescheitert" heissen. Seit `GET /invoices`
+     * zusaetzlich `rperm("org.billing")` traegt, gibt es aber ZWEI Gruende fuer ein
+     * 403, und der Stellvertreter kann sie nicht auseinanderhalten — der Muster-Pool
+     * kennt fuer diesen Nutzer keine Berechtigung, also faellt er jetzt am zweiten
+     * Tor. Der Gegenstand dieser Probe ist unveraendert: `requireScope` laesst eine
+     * Sitzung durch. Genau das steht jetzt da.
+     */
+    assert.notEqual(res._body?.error?.code, "SCOPE_INSUFFICIENT",
+      "Session-User darf nicht am Scope-Check scheitern");
   });
 });
 

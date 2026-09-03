@@ -700,6 +700,143 @@ ihr eigenes Beispiel kannte nur Platzhalter, sie hätte die Reparatur also gar n
 > welche Routen ein Org-Grenzen-**Urteil** brauchen. Sie zu entfernen verlangt Urteile für
 > **569** Routen; das ist M2.3 und eine eigene Welle, keine Nebenwirkung dieser hier.
 
+### M2.5 ist gebaut *(2026-09-03)* — die Sitzung ist gefahren, und sie kam weit
+
+M2.5 verlangte, was es nicht gab: **eine echte Arbeitersitzung gegen echte Routen.** Es
+gab Einheitstests für einzelne Guards und einen Wächter, der Middleware-Namen liest —
+aber nichts, was eine Sitzung mit der Rolle `worker` durch die Router schickt und nachsieht,
+was zurückkommt.
+
+**Wer da anfragt — und warum die erste Annahme falsch war.** Ich bin zuerst von einer
+eigenen Arbeiter-Org ausgegangen. Falsch: `acceptInvite` macht den Menschen zum Mitglied
+in der Org **seiner Zeitarbeitsfirma** (`role_key='worker'` auf die `supplier_org_id`).
+Den Org-Typ `worker` gibt es gar nicht — die Datenbank kennt nur `company` (1872) und
+`agency` (694). Gemessen: **31** Arbeiter sitzen in einer Agentur-Org, **3** in einer
+Unternehmens-Org. Seine Sitzung trägt also `req.orgId` = die Kennung seines Arbeitgebers.
+
+**Der Statuscode taugt nicht als Urteil.** Ein 200 kann eine leere Liste sein. Deshalb
+entscheidet der **Antwortrumpf**: der Muster-Pool beantwortet jede Abfrage mit einer Zeile,
+deren Textspalten ein Erkennungswort tragen. Steht das Wort in der Antwort, hat der Handler
+Mandantendaten durchgereicht. Das Verfahren kann **unter-, aber nie über**berichten — ein
+Handler ohne Mandantendaten kann das Wort nicht erfinden. Jeder Befund ist damit echt.
+
+> Der erste Anlauf urteilte am Quelltext („fasst der Handler `req.orgId` an?“) und lag bei
+> zwei von vier Verdächtigen **falsch**: `/org/api-keys/scopes` und `/org/roles-permissions`
+> liefern statische Konstanten — mein Muster hatte die Middleware-Kette getroffen, nicht
+> den Handler. Deshalb der Wechsel auf den Rumpf.
+
+**Das Ergebnis: von 300 aufrufbaren GET-Routen reichen 82 einer Arbeitersitzung Daten
+ihrer Trägerorg durch.** 25 davon sind seine eigenen (Portal, Konto, Profil,
+Benachrichtigungen), 9 sind Katalog oder Schaufenster. Bleiben **45 Befunde** — vom
+Guthabenstand über die Zahlungshistorie und die Merkliste bis zur Ansprechpartnerliste.
+
+**Was in dieser Welle geschlossen wurde — und warum genau das.**
+
+*Rechnungen.* `GET /invoices` gab dem Arbeiter die Rechnung der Firma mit 200: Nummer,
+14.999,00 €, Kundenname. `GET /invoices/export`, **eine Zeile darunter**, verweigerte
+dieselben Zeilen mit 403. Elf Nachbarrouten derselben Datei tragen `rperm("org.billing")` —
+jeder Schreibweg, jeder Export. Der Guard stand längst fest; er fehlte nur dort, wo die
+Daten am billigsten herauskommen. `requireScope("read:invoices")` sah aus wie eine Wache und
+war keine: es kehrt bei Sitzungs-Auth sofort zurück und verweist auf RBAC — das an diesen
+Routen nicht stand.
+
+> **Nicht einfach `rperm` davor.** Es gibt Rechnungen **ohne** Org: zwei Aufrufer legen sie
+> so an (`orgId: … || null`), und der Handler bedient diesen Menschen eigens.
+> `requirePermission` hätte ihn mit `NO_ORG_MEMBERSHIP` abgewiesen — seine **eigene**
+> Rechnung. Der Riegel gilt deshalb dem **Org-Kontext**, nicht dem Lesen. Ausweichen bringt
+> nichts: ohne Org-Kontext liefert der Handler nur die Rechnungen des Anfragenden selbst.
+> Bei `GET /invoices/:id` steht die Prüfung aus demselben Grund **im Handler**, nicht davor.
+
+Vier Richtungen belegt: Arbeiter 403 auf allen sechs Wegen, `finance` 200, `owner` 200,
+Solo-Käufer ohne Org sieht weiterhin seine eigene Rechnung.
+
+*Die öffentliche Darstellung der Firma.* Diesen Befund hat nicht die Messung geliefert,
+sondern ein **Gegenpruef-Panel, das meine eigene Einstufung widerlegen sollte** — und es
+hat sie widerlegt. Ich hatte `GET /profile-visibility/settings` als „eigene Daten“ geführt.
+An der laufenden Datenbank nachgesehen: die Tabelle hat **keine einzige Nutzerspalte**, nur
+`org_id UNIQUE`. `SELECT *` gab dem Arbeiter den **Moderationsdatensatz seines Arbeitgebers**:
+`status`, `rejection_reason`, `suspended_reason` — und mit `reviewed_by` die Kennung des
+TempConnect-Mitarbeiters, der über die Firma geurteilt hat. Der Lesepfad **schreibt**
+außerdem (`INSERT … ON CONFLICT DO UPDATE`). Und die drei Schreibwege daneben trugen
+dieselbe Kette: **`/settings/pause` hätte einem Arbeiter erlaubt, das öffentliche Profil
+seiner Firma abzuschalten.** `basic`/`visible` sahen aus wie Wachen und prüfen den **Plan** —
+den sie aus der **Firma** holen. Je besser der Tarif des Arbeitgebers, desto weiter kam er.
+
+Riegel: `verweigereArbeiter` in `middleware/orgAccess.js`, bewusst **nicht**
+`requirePermission` — das verlangte owner/admin und nähme den Zugang auch
+`program_manager`, `recruiter` und `dispatcher` weg. Welche Rollen die öffentliche
+Darstellung führen dürfen, ist eine Produktfrage und gehört dem Owner.
+
+**Ein Nebenbefund, der schwerer wiegt als er klingt: drei Routen lagen im Schatten.**
+Express nimmt die erste passende Schicht. Stand `/x/:id` vor `/x/liste`, ist die Liste
+**unerreichbar**:
+
+| verdeckt | durch |
+|---|---|
+| `GET /invoices/operational` | `/invoices/:id` |
+| `GET /timesheets/status-meta` | `/timesheets/:id` |
+| `GET /timesheets/worker-summary` | `/timesheets/:id` |
+
+`/invoices/operational` wird von **zwei Seiten** aufgerufen (`companyTimesheets.js`,
+`workerSubmissionsReview.js`) und antwortete jedes Mal mit **500**: der Handler von
+`/invoices/:id` reichte den Text `"operational"` als Kennung an Postgres, und
+`WHERE i.id = 'operational'` wirft — gegen die echte Datenbank nachgestellt. Die beiden
+Stundenzettel-Routen hatten sogar **Tests**, grün, weil `timesheets.scope.test.js` den
+Handler direkt am Pfad greift, statt eine Anfrage leiten zu lassen.
+
+> Und die Regel stand bereits **als Kommentar im Quelltext** (`invoices.js`: „Bewusst VOR
+> `/invoices/:id` registriert“). Sie war bekannt und wurde dreimal übersehen. Genau deshalb
+> ist daraus jetzt ein Wächter geworden (`test/routenSchatten.test.js`) und keine Konvention.
+
+**Eine Formatbedingung am Platzhalter (`:id([0-9a-fA-F-]{36})`) würde das an der Wurzel
+lösen** — in Express 4 geprüft, sie funktioniert und macht aus dem 500 ein 404. Sie
+benennt aber den registrierten Pfad um, und darauf keyen die Wächter-Register: **97**
+Stellen würden churnen (69 im Code, 28 in Registern). Deshalb umgeordnet statt umbenannt —
+die Wiederkehr verhindert der Wächter, nicht die Schreibweise.
+
+**Der eigene Fehler war der lehrreichste.** Der erste Riegel schnitt den **API-Schlüssel**
+ab: `requirePermission` verlangt eine Sitzung, ein Schlüssel hat keine — also `401` statt
+Zugriff. Aufgefallen ist das nur, weil die *Nachbar*probe in `apiKeyScopes.test.js` rot
+wurde. **Die Probe für den Schlüssel selbst blieb grün**, denn sie fragt
+`notEqual(res._status, 403)` — und 401 ist nun einmal nicht 403. Ein Stellvertreter, der
+genau den Rückschritt durchlässt, den er verhindern soll.
+
+Beide Proben sind jetzt genau: der Schlüssel muss **200** bekommen, nicht bloß „nicht
+403“; und die Sitzungs-Probe fragt den **Grund** (`SCOPE_INSUFFICIENT`) statt der Zahl —
+seit dieser Welle gibt es zwei Gründe für ein 403, und die Zahl konnte sie nicht
+auseinanderhalten. Der Gegenstand beider Proben ist unverändert. Fachlich bleibt der
+Schlüssel an beiden Stellen außen vor: für ihn gilt der Scope, das ist der dafür gebaute
+Weg.
+
+**Und eine Lücke in der eigenen Arbeit, nachgeholt:** die Messung war GET-only, drei der
+vier verriegelten Wege sind **Schreib**wege. `/settings/pause` wäre also verriegelt
+gewesen, ohne dass irgendetwas es bezeugt. `test/verweigereArbeiter.test.js` schließt das:
+alle vier Wege, beide Richtungen, und die Probe prüft nicht nur den Statuscode, sondern
+dass `reviewed_by` und `rejection_reason` **nicht im Rumpf stehen**. Dazu die Gegenprobe,
+dass `dispatcher`, `recruiter`, `program_manager` und `owner` weiterarbeiten — der Riegel
+gilt der Rolle `worker`, nicht „allen außer owner/admin“.
+
+**Dreizehn Rückmutationen, alle rot.** Kern (6): Geld-Riegel weg, Arbeiter-Riegel weg, neue
+undichte Route ohne Registereintrag, Muster-Pool ohne Zeilen (die Leerlauf-Probe muss
+anschlagen — sonst sähe *nichts gefunden* aus wie *nichts zu finden*), Befund ohne
+Beschreibung, verdeckte Route wiederhergestellt. Schlüssel/Scope (2): `requireScope` blockt
+Sitzungen, Riegel schneidet den Schlüssel ab. Arbeiter-Riegel (5): `pause` ohne Riegel,
+`settings` ohne Riegel, Mitgliedschaft nicht mehr erkannt, Sitzung nicht mehr erkannt,
+Riegel greift zu weit.
+
+> **Ehrlich zum Prüfstand:** das Gegenpruef-Panel brach am Nutzungslimit ab — von 64
+> Prüfern kamen 14 durch. Der eine gehaltene Widerspruch ist von Hand nachgeprüft. Die
+> **übrigen 33 Einstufungen als „eigenes“/„öffentlich“ sind damit nicht unabhängig
+> gegengeprüft.** Der Hinweis steht auch im Register selbst; wer hier weiterarbeitet,
+> fängt am besten dort an.
+
+**Was offen bleibt — und warum es nicht in diese Welle gehört.** Die 45 Befunde einzeln zu
+verriegeln hieße 45 Urteile darüber, was ein Arbeiter braucht (`/support-requests`
+womöglich schon). Die strukturelle Antwort — **ein** Riegel auf `/api/v1` mit einer
+benannten Ausnahmeliste, fail-closed für jede künftige Route — ist genau M2.6 und eine
+Owner-Entscheidung. Das Register ist die Vorarbeit dazu: es ist die Ausnahmeliste, nur
+noch nicht scharf geschaltet.
+
 ### M2.2 ist gebaut *(2026-09-02)* — drei Konventionen, drei Symptome
 
 `users_email_key` ist ein gewöhnlicher `UNIQUE`-Index auf `email`, also

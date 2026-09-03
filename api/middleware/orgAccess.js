@@ -76,3 +76,45 @@ export function requireOrgNotSuspended(deps, options = {}) {
     }
   };
 }
+
+/**
+ * Verweigert eine Sitzung, die als ARBEITER in der Org sitzt.
+ *
+ * Ein Arbeiter entsteht in `workerService.acceptInvite` als Mitglied in der Org
+ * SEINER ZEITARBEITSFIRMA (`INSERT INTO org_memberships … role_key='worker'` mit
+ * der `supplier_org_id` der Einladung). Er bekommt keine eigene Org — seine
+ * Sitzung traegt `req.orgId` = die Kennung der Firma. Gemessen in der Datenbank
+ * am 2026-09-02: 31 Menschen in einer Agentur-Org, 3 in einer Unternehmens-Org.
+ *
+ * Fuer jede Route, die den ORG-Kontext verwaltet, heisst das: der Arbeiter steht
+ * ohne weiteres Zutun im Kontext seines Arbeitgebers. Wo eine Route nur `requireAuth`
+ * und ein PLAN-Tor traegt — und das Tor prueft den Plan der FIRMA, nicht den
+ * Menschen —, wirkt er auf die Firma.
+ *
+ * Bewusst nicht `requirePermission(...)`: das verlangte owner/admin und naehme den
+ * Zugang auch program_manager, recruiter und dispatcher weg. Welche Rollen die
+ * oeffentliche Darstellung fuehren duerfen, ist eine Produktfrage und gehoert dem
+ * Owner (M2.6 in docs/features/M_MARKTPLATZ_FLOW.md). Dieser Riegel schliesst
+ * genau das Gemessene und sonst nichts.
+ *
+ * Fail-closed nach beiden Seiten: keine Mitgliedschaft = kein Org-Kontext = 403.
+ */
+export function verweigereArbeiter(deps = {}, options = {}) {
+  const { logger } = deps;
+  const errorCode = options.errorCode || "WORKER_NOT_ALLOWED";
+  const errorMessage = options.errorMessage
+    || "Dieser Bereich gehoert zur Verwaltung der Organisation und steht Arbeitskraeften nicht offen.";
+
+  return function verweigereArbeiterMiddleware(req, res, next) {
+    const rolle = String(req.orgMembership?.role_key || req.orgRole || "").trim().toLowerCase();
+    const sitzungsRolle = String(req.session?.userRole || "").trim().toLowerCase();
+    if (rolle === "worker" || sitzungsRolle === "worker") {
+      logger?.warn?.(
+        { orgId: req.orgId || null, userId: req.session?.userId || null, rolle, sitzungsRolle },
+        "Worker guard denied access"
+      );
+      return res.status(403).json({ error: errorCode, message: errorMessage });
+    }
+    return next();
+  };
+}

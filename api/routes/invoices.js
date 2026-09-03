@@ -30,8 +30,46 @@ export function createInvoicesRouter(deps) {
   const router = Router();
   const rperm = (p) => requirePermission(p, { pool, logger });
 
+  /*
+   * M2.5 — Rechnungen sind Geld, und die LESEWEGE trugen als einzige nichts.
+   *
+   * Gemessen am 2026-09-02 mit einer echten Arbeitersitzung (users.role="worker",
+   * Mitglied der Org seiner Zeitarbeitsfirma — so entsteht er in
+   * workerService.acceptInvite; 31 solche Menschen existieren real):
+   * GET /invoices lieferte ihm die Rechnungen der Firma mit 200, Nummer,
+   * Gesamtbetrag und Kundenname. GET /invoices/export — eine Zeile darunter —
+   * verweigerte dieselben Zeilen mit 403. Elf Nachbarrouten dieser Datei tragen
+   * rperm("org.billing"): jeder Schreibweg und jeder Export. Der Guard stand also
+   * laengst fest, er fehlte nur auf dem Weg, der die Daten am billigsten hergibt.
+   *
+   * requireScope("read:invoices") sah aus wie eine Wache und war keine: es kehrt
+   * bei Sitzungs-Auth sofort zurueck (middleware/apiKeyAuth.js:153) und verweist
+   * auf RBAC — das an diesen Routen nicht stand.
+   *
+   * Warum nicht einfach rperm davor: es gibt Rechnungen OHNE Org. Zwei Aufrufer
+   * legen sie so an (routes/payment.js, `orgId: … || null`), und der Handler
+   * bedient diesen Menschen eigens ueber `userId = !orgId ? session.userId : null`.
+   * requirePermission wuerde ihn mit NO_ORG_MEMBERSHIP abweisen — seine EIGENE
+   * Rechnung. Der Riegel gilt deshalb dem ORG-KONTEXT, nicht dem Lesen.
+   *
+   * Ausweichen bringt nichts: ohne Org-Kontext liefert der Handler ausschliesslich
+   * die Rechnungen des Anfragenden selbst.
+   *
+   * Und der API-Schluessel bleibt aussen vor: fuer ihn gilt der Scope, das ist der
+   * dafuer gebaute Weg (`requireScope` oben). `requirePermission` verlangt eine
+   * Sitzung und antwortete einem Schluessel mit 401 NOT_AUTHENTICATED — der Riegel
+   * haette also nicht schaerfer geprueft, sondern eine ganze Zugangsart abgeschnitten.
+   * Aufgefallen ist das in `test/security/apiKeyScopes.test.js`: die Probe dort blieb
+   * gruen, weil sie `notEqual(403)` fragt und 401 nun einmal nicht 403 ist.
+   */
+  function nurMitGeldberechtigung(req, res, next) {
+    if (req.isApiKeyAuth) return next();
+    if (!req.orgId) return next();
+    return rperm("org.billing")(req, res, next);
+  }
+
   /* GET /invoices — list for current user / org */
-  router.get("/invoices", requireAuth, requireScope("read:invoices"), async (req, res, next) => {
+  router.get("/invoices", requireAuth, requireScope("read:invoices"), nurMitGeldberechtigung, async (req, res, next) => {
     try {
       // F-010 fix: use only server-resolved orgId, never trust query param
       const orgId = req.orgId || null;
@@ -142,6 +180,28 @@ export function createInvoicesRouter(deps) {
     } catch (err) { next(err); }
   });
 
+  /*
+   * Bewusst VOR `/invoices/:id` registriert. Express nimmt die ERSTE passende
+   * Schicht: stand diese Route dahinter, fing die Detailroute den Pfad mit
+   * id="operational" ab und sie war unerreichbar. Erzwungen von
+   * test/routenSchatten.test.js.
+   */
+  router.get("/invoices/operational", requireAuth, nurMitGeldberechtigung, async (req, res, next) => {
+    try {
+      const orgId = req.orgId || null;
+      const invoices = await opInvoice.listOperationalInvoices(pool, {
+        orgId,
+        status: req.query.status || null,
+        assignmentId: req.query.assignment_id || null,
+        dateFrom: req.query.date_from || null,
+        dateTo: req.query.date_to || null,
+        search: req.query.search || null,
+        limit: parseInt(req.query.limit, 10) || 100
+      });
+      res.json({ items: invoices, total: invoices.length });
+    } catch (err) { next(err); }
+  });
+
   /* GET /invoices/:id — detail with line items */
   router.get("/invoices/:id", requireAuth, requireScope("read:invoices"), async (req, res, next) => {
     try {
@@ -155,6 +215,25 @@ export function createInvoicesRouter(deps) {
       const belongsToOrg = orgId && invoice.org_id === orgId;
       if (!belongsToUser && !belongsToOrg) {
         return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+      }
+      /*
+       * M2.5: die Org-Grenze stand hier schon — die ROLLE fehlte. Ein Arbeiter ist
+       * Mitglied der Org seiner Zeitarbeitsfirma, `belongsToOrg` traf also zu und er
+       * las deren Rechnung im Detail. Kein Riegel als Middleware, weil dieselbe Route
+       * dem Menschen seine EIGENE Rechnung zeigen muss (invoice.user_id === userId),
+       * auch wenn er in einer Org ohne Geld-Berechtigung sitzt.
+       *
+       * `req.isApiKeyAuth` bleibt aussen vor, aus demselben Grund wie bei
+       * `nurMitGeldberechtigung`: ein Schluessel hat keine Org-Rolle, `req.orgRole`
+       * waere undefined und `hasPermission` faellt darauf fail-closed — der Riegel
+       * haette den Schluesselzugang abgeschnitten statt ihn zu pruefen. Fuer ihn gilt
+       * der Scope oben.
+       */
+      if (!req.isApiKeyAuth && !belongsToUser && !hasPermission(req.orgRole, "org.billing")) {
+        return res.status(403).json({
+          error: "PERMISSION_DENIED",
+          message: "Keine Berechtigung fuer diese Aktion."
+        });
       }
 
       // Format: ?format=pdf|html|text (default: json)
@@ -235,25 +314,8 @@ export function createInvoicesRouter(deps) {
      Operational Invoice Endpoints (B2B Einsatz-Abrechnung)
      ═══════════════════════════════════════════════════════ */
 
-  /* GET /invoices/operational — Operative Rechnungsliste */
-  router.get("/invoices/operational", requireAuth, async (req, res, next) => {
-    try {
-      const orgId = req.orgId || null;
-      const invoices = await opInvoice.listOperationalInvoices(pool, {
-        orgId,
-        status: req.query.status || null,
-        assignmentId: req.query.assignment_id || null,
-        dateFrom: req.query.date_from || null,
-        dateTo: req.query.date_to || null,
-        search: req.query.search || null,
-        limit: parseInt(req.query.limit, 10) || 100
-      });
-      res.json({ items: invoices, total: invoices.length });
-    } catch (err) { next(err); }
-  });
-
   /* GET /invoices/operational/kpis — Dashboard-KPIs */
-  router.get("/invoices/operational/kpis", requireAuth, async (req, res, next) => {
+  router.get("/invoices/operational/kpis", requireAuth, nurMitGeldberechtigung, async (req, res, next) => {
     try {
       const orgId = req.orgId;
       if (!orgId) return res.status(400).json({ error: "ORG_REQUIRED" });
@@ -263,7 +325,7 @@ export function createInvoicesRouter(deps) {
   });
 
   /* GET /invoices/operational/billable — Abrechenbare Timesheets */
-  router.get("/invoices/operational/billable", requireAuth, async (req, res, next) => {
+  router.get("/invoices/operational/billable", requireAuth, nurMitGeldberechtigung, async (req, res, next) => {
     try {
       const orgId = req.orgId;
       if (!orgId) return res.status(400).json({ error: "ORG_REQUIRED" });
@@ -315,7 +377,7 @@ export function createInvoicesRouter(deps) {
   });
 
   /* GET /invoices/operational/:id — Operative Rechnung Detail */
-  router.get("/invoices/operational/:id", requireAuth, async (req, res, next) => {
+  router.get("/invoices/operational/:id", requireAuth, nurMitGeldberechtigung, async (req, res, next) => {
     try {
       const result = await opInvoice.getOperationalInvoice(pool, req.params.id, req.orgId);
       if (!result) return res.status(404).json({ error: "NOT_FOUND" });

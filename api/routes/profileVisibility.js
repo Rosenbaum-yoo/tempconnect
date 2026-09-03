@@ -29,6 +29,7 @@ import { swallow } from "../utils/logger.js";
  * zwei Kopien einer Sichtbarkeitsregel driften, und die Kopie in der
  * Meldefunktion wuerde als letzte auffallen. */
 import { canAccessAsOwner } from "../utils/ownerCheck.js";
+import { verweigereArbeiter } from "../middleware/orgAccess.js";
 
 export function createProfileVisibilityRouter(deps) {
   const { pool, requireAuth, requireFeature, logger } = deps;
@@ -67,7 +68,29 @@ export function createProfileVisibilityRouter(deps) {
 
   /* ── Eigene Einstellungen lesen ────────────────────────── */
 
-  router.get("/profile-visibility/settings", requireAuth, basic, async (req, res) => {
+  /*
+   * M2.5 — diese vier Wege verwalten die OEFFENTLICHE DARSTELLUNG DER FIRMA.
+   *
+   * Gemessen am 2026-09-02: `profile_visibility_settings` hat keine einzige
+   * Nutzerspalte, nur `org_id UNIQUE` (an der laufenden Datenbank nachgesehen).
+   * `SELECT * … WHERE org_id = $1` gab einer Arbeitersitzung damit den
+   * MODERATIONSDATENSATZ SEINES ARBEITGEBERS: `status`, `rejection_reason`,
+   * `suspended_reason` — und mit `reviewed_by` die Kennung des TempConnect-
+   * Mitarbeiters, der ueber die Firma geurteilt hat.
+   *
+   * Der Lesepfad SCHREIBT ausserdem: `initVisibilitySettings` setzt ein
+   * `INSERT … ON CONFLICT (org_id) DO UPDATE` ab.
+   *
+   * Die drei Schreibwege daneben trugen dieselbe Kette. `/settings/pause` haette
+   * einem Arbeiter erlaubt, das oeffentliche Profil seiner Firma abzuschalten.
+   *
+   * `basic`/`visible` sahen aus wie Wachen und waren keine: sie pruefen den PLAN,
+   * und den holen sie aus der FIRMA (featureGate.js reicht `req.orgId` weiter).
+   * Je besser der Tarif des Arbeitgebers, desto weiter kam der Arbeiter.
+   */
+  const keinArbeiter = verweigereArbeiter({ logger });
+
+  router.get("/profile-visibility/settings", requireAuth, basic, keinArbeiter, async (req, res) => {
     try {
       if (!req.orgId) return fail(res, 403, "NO_ORG", "Keine aktive Organisation.");
       await visSvc.initVisibilitySettings(pool, req.orgId);
@@ -83,7 +106,7 @@ export function createProfileVisibilityRouter(deps) {
 
   const optInSchema = z.object({ is_public: z.boolean() });
 
-  router.post("/profile-visibility/settings/opt-in", requireAuth, basic, async (req, res) => {
+  router.post("/profile-visibility/settings/opt-in", requireAuth, basic, keinArbeiter, async (req, res) => {
     const parsed = optInSchema.safeParse(req.body);
     if (!parsed.success) return fail(res, 400, "VALIDATION", "is_public (boolean) erforderlich.");
     try {
@@ -101,7 +124,7 @@ export function createProfileVisibilityRouter(deps) {
 
   /* ── Zur Staff-Prüfung einreichen (PRO+) ──────────────── */
 
-  router.post("/profile-visibility/settings/submit", requireAuth, visible, async (req, res) => {
+  router.post("/profile-visibility/settings/submit", requireAuth, visible, keinArbeiter, async (req, res) => {
     try {
       if (!req.orgId) return fail(res, 403, "NO_ORG", "Keine aktive Organisation.");
       const result = await visSvc.submitForReview(pool, req.orgId);
@@ -116,7 +139,7 @@ export function createProfileVisibilityRouter(deps) {
 
   /* ── Profil pausieren (Org-initiiert) ─────────────────── */
 
-  router.post("/profile-visibility/settings/pause", requireAuth, visible, async (req, res) => {
+  router.post("/profile-visibility/settings/pause", requireAuth, visible, keinArbeiter, async (req, res) => {
     try {
       if (!req.orgId) return fail(res, 403, "NO_ORG", "Keine aktive Organisation.");
       const result = await visSvc.pauseVisibility(pool, req.orgId);
