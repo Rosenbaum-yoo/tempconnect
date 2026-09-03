@@ -548,6 +548,38 @@ describe("getAllowedLocationsForMembership", () => {
   const ORG_ID = "org-1";
   const LOC_ROW = { id: "loc-a", name: "HQ", city: "München", is_hq: true };
 
+  it("der Arbeiter bekommt KEINE Standortliste — und die Abfrage bleibt aus", async () => {
+    /*
+     * M2.7. Ohne `location_id` liefert diese Funktion sonst ALLE Standorte der Org,
+     * und genau ohne Standortbindung legt `workerService.acceptInvite` den Arbeiter
+     * an. Ueber `GET /me` bekam er damit die vollstaendige Standortliste seiner
+     * Zeitarbeitsfirma — dieselben Daten, die `/org/locations` und
+     * `/me/active-location` seit dieser Welle verweigern.
+     *
+     * Geprueft wird beides: die leere Antwort UND dass gar nicht erst gefragt wird.
+     * Nur die Antwort zu pruefen liesse einen Riegel durch, der zuerst liest und
+     * dann verwirft — die Daten waeren dann schon aus der Datenbank heraus.
+     */
+    const pool = mockPool({ rows: [LOC_ROW, { ...LOC_ROW, id: "loc-b", name: "Werk 2" }] });
+    for (const rolle of ["worker", "WORKER", " worker "]) {
+      const result = await getAllowedLocationsForMembership(pool, { org_id: ORG_ID, role_key: rolle });
+      assert.deepStrictEqual(result, [],
+        `role_key '${rolle}': der Arbeiter bekommt die Standorte seiner Firma`);
+    }
+    assert.strictEqual(pool.queries.length, 0,
+      "es wurde nachgeschlagen, obwohl das Ergebnis verworfen wird");
+  });
+
+  it("eine gebundene Arbeiter-Mitgliedschaft bekommt ebenfalls nichts", async () => {
+    /* Der Riegel steht VOR der Standortbindung — sonst haette ein an einen Standort
+       gebundener Arbeiter diesen einen Standort weiterhin bekommen, und die Regel
+       haette ein Loch, das genau bei den gebundenen Menschen aufgeht. */
+    const pool = mockPool({ rows: [LOC_ROW] });
+    const result = await getAllowedLocationsForMembership(pool,
+      { org_id: ORG_ID, location_id: "loc-a", role_key: "worker" });
+    assert.deepStrictEqual(result, []);
+  });
+
   it("bound membership returns only the bound location", async () => {
     const pool = mockPool({ rows: [LOC_ROW] }); // getLocation query
     const membership = { org_id: ORG_ID, location_id: "loc-a" };

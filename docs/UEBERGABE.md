@@ -725,10 +725,13 @@ Handler ohne Mandantendaten kann das Wort nicht erfinden. Jeder Befund ist damit
 > liefern statische Konstanten — mein Muster hatte die Middleware-Kette getroffen, nicht
 > den Handler. Deshalb der Wechsel auf den Rumpf.
 
-**Das Ergebnis: von 300 aufrufbaren GET-Routen reichen 82 einer Arbeitersitzung Daten
-ihrer Trägerorg durch.** 25 davon sind seine eigenen (Portal, Konto, Profil,
-Benachrichtigungen), 9 sind Katalog oder Schaufenster. Bleiben **45 Befunde** — vom
-Guthabenstand über die Zahlungshistorie und die Merkliste bis zur Ansprechpartnerliste.
+**Das Ergebnis dieser ersten Fassung: von 300 aufrufbaren GET-Routen reichen 82 einer
+Arbeitersitzung eine Datenbankzeile durch**, davon 45 als Befund eingestuft.
+
+> ⚠ **Diese Zahlen waren falsch und sind korrigiert** — siehe den Nachtrag unten
+> („Die 45 Befunde waren größtenteils Phantome"). Es sind **elf** Routen, die
+> org-geschlüsselte Daten herausgeben, und sie sind inzwischen alle geschlossen. Der
+> Fehler lag nicht in der Messung, sondern in der Einstufung *danach*.
 
 **Was in dieser Welle geschlossen wurde — und warum genau das.**
 
@@ -836,6 +839,160 @@ womöglich schon). Die strukturelle Antwort — **ein** Riegel auf `/api/v1` mit
 benannten Ausnahmeliste, fail-closed für jede künftige Route — ist genau M2.6 und eine
 Owner-Entscheidung. Das Register ist die Vorarbeit dazu: es ist die Ausnahmeliste, nur
 noch nicht scharf geschaltet.
+
+### M2.7 ist gebaut *(2026-09-03)* — Mutationsprüfung auf der Trennwand
+
+Vierter Mutations-Bereich neben `subscription`, `rbac` und `monatsplan`:
+**`trennwand`** — `middleware/orgAccess.js` und `middleware/apiKeyAuth.js`. Das sind die
+Wachen, die entscheiden, **wer hereinkommt**: der Unternehmens-Filter, der Notschalter des
+Betreibers, der neue Arbeiter-Riegel und die Schlüssel-Authentifizierung.
+
+Konfiguration: `api/stryker.trennwand.conf.json`, Schwelle **90** wie vorgeschrieben,
+`incremental: false`, aufrufbar über `npm run test:mutation:trennwand`. Der
+Schwellen-Wächter (`mutationsSchwelle.test.js`) nimmt sie ohne Ausnahme an.
+
+**Die Erstmessung war ernüchternd: 61,74 %** — `orgAccess.js` **50,00 %**,
+`apiKeyAuth.js` 75,00 %, **101 überlebende Mutanten**. Sie lagen in vier Nestern:
+
+| Nest | Warum |
+|---|---|
+| `requireOrgNotSuspended` (Z. 54–75) | **kein einziger Test.** Der Notschalter des Betreibers war eine Behauptung |
+| M2M/JWT-Pfad in `apiKeyAuth.js` | der Weg, auf dem eine fremde **Maschine** hereinkommt — fast blind |
+| Protokoll-Nutzlasten | `{orgId, userId, orgType}` — kein Format, sondern der Auditvertrag |
+| Fehlerschlüssel und -texte | `SERVER_ERROR`, `ACCESS_SUSPENDED` |
+
+Zwei neue Probendateien mit zusammen 43 Proben schließen das: `orgAccessMutanten.test.js`
+und `apiKeyAuthMutanten.test.js`. **Der Weg zur Latte: 61,74 % → 87,88 % → 90,84 % → 92,37 %.** `orgAccess.js` steht bei **95,65 %**, `apiKeyAuth.js` bei **88,71 %**, 20 Überlebende von 262 Mutanten. Die vorgeschriebene Schwelle von 90 % gilt je Bereich — der Bereich `trennwand` erfüllt sie.
+
+**Was die Messung gefunden hat, nicht nur gezählt.** Drei Befunde, die ohne sie nicht
+aufgefallen wären:
+
+1. **`requireOrgNotSuspended` hatte null Tests.** Der Kill-Switch, mit dem der Betreiber
+   den Zugang einer Organisation sperrt, war nirgends geprüft — weder das Sperren noch
+   das Durchlassen noch der Fehlerfall. Jetzt sieben Proben, darunter: ein **Lesefehler
+   blockiert** (fail-closed), und die Abfrage geht gegen **die Org der Anfrage**, nicht
+   gegen irgendeine.
+
+2. **Ein echter Fail-open in `requireCompanyOrg`.** Dort stand
+   `if (orgType && orgType !== "company")` — eine Mitgliedschaft **ohne** Org-Typ kam
+   durch. Heute unerreichbar (`organizations.type` ist `NOT NULL`, null leere Werte, und
+   jede Stelle, die `req.orgMembership` setzt, holt die Zeile ueber `getMembership`/`getPrimaryOrg`, und beide lesen `o.type AS org_type` mit; der Zwischenspeicher-Pfad in `orgContext` setzt das Feld ausdruecklich NICHT, dort schlaegt die Wache selbst nach) — aber der
+   Zweig hing damit an einer *Datenbankbedingung* und an *drei gleichlautenden
+   SELECT-Listen*, nicht an dieser Wache. Fällt eine davon, geht die Tür auf, ohne dass
+   jemand hier etwas ändert. Jetzt fail-closed, mit Probe.
+
+3. **Beide Wachen waren anonym.** `middleware/rbac.js` trägt die Lehre seit einem
+   früheren Befund im Kommentar: eine anonyme Middleware ist in Stapelspuren unsichtbar,
+   und **kein Wächter kann fragen „trägt DIESE Route eine Prüfung?“** — er kann nur
+   zählen, und dabei sieht eine Route ohne Prüfung aus wie eine mit. `requireCompanyOrg`
+   und `requireOrgNotSuspended` hatten diesen Namen nie. Jetzt heißen sie
+   `requireCompanyOrgMiddleware` und `requireOrgNotSuspendedMiddleware`, und eine Probe
+   hält das fest.
+
+> **Zum Protokoll als Zusicherung, weil es wie Übergriff aussieht:** die Direktive sagt
+> „reines Logging nicht mutieren“. Hier ist es kein Logging im Sinne von Formatierung,
+> sondern der **Auditvertrag**: wer eine Sperre untersucht, braucht *welche Org*,
+> *welcher Mensch*, *warum*. Fehlt ein Feld, beginnt die Suche bei null — und das fällt
+> erst im Ernstfall auf. Geprüft wird die **Nutzlast**, nicht die Formulierung; von den
+> Meldetexten nur, dass sie den Vorgang überhaupt benennen.
+
+> **Und was NICHT geprüft wird, ist ebenfalls eine Entscheidung.** Ein Teil der
+> verbliebenen Überlebenden ist **gleichwertig**, nicht ungeprüft: in `extractBearerJwt`
+> führen mehrere Mutationen zu genau demselben Ergebnis, weil der Fallback sie
+> verschluckt — wird ein Nicht-Token fälschlich als Token behandelt, scheitert es eine
+> Zeile später an der Signatur, und der Kontext bleibt so leer wie vorher. Solche
+> Mutanten lassen sich nur durch eine Probe töten, die etwas Unwahres behauptet. Sie
+> bleiben stehen und sind hier benannt — das ist der Unterschied zwischen einer Lücke
+> und einer bekannten Grenze.
+
+> **Eine offene Frage, die diese Welle bewusst NICHT entschieden hat.** Vier Schreibwege
+> lassen einen Arbeiter **im Namen seiner Firma handeln**, ohne dass Daten abfließen:
+> `POST`/`DELETE /profile-visibility/:orgId/like` und `…/favorite` schreiben
+> `likerOrgId: req.orgId`. Ein Arbeiter, der ein fremdes Firmenprofil befürwortet oder
+> merkt, tut das damit als **seine Zeitarbeitsfirma** — und für eine Agentur ist eine
+> öffentliche Befürwortung eines Marktteilnehmers kommerziell nicht bedeutungslos.
+>
+> Das ist kein Leck, sondern eine **Produktfrage**: darf ein Arbeiter im Namen seines
+> Arbeitgebers auftreten? Sie gehört zu M2.6 und nicht in eine Welle, die Datenabflüsse
+> schließt. Der Riegel dafuer liegt bereit (`verweigereArbeiter`, eine Zeile je Route);
+> was fehlt, ist die Entscheidung.
+
+### M2.5, Nachtrag *(2026-09-03)* — die 45 Befunde waren größtenteils Phantome
+
+Der eigene Fehler, gefunden beim Weiterarbeiten und derselbe wie beim API-Schlüssel: eine
+Messung belegte das eine, und ich behauptete daraus das andere.
+
+**Was die Messung konnte, und was nicht.** Der Muster-Pool antwortete auf *jede* Abfrage
+mit derselben markierten Zeile. Das beweist sauber, **dass** eine Route eine Datenbankzeile
+durchreicht. **Wem** die Zeile gehört, hat es nie entschieden — das habe ich danach von
+Hand eingestuft, nach Pfadnamen und Gefühl. Bei mindestens vier Routen lag ich daneben:
+
+| Route | Register sagte | tatsächlich |
+|---|---|---|
+| `/credits/balance` | Befund | `credit_accounts WHERE user_id = $1` |
+| `/credits/transactions` | Befund | ebenso |
+| `/payment/history` | Befund | `payment_sessions WHERE user_id = $1` |
+| `/support-requests` | Befund | `WHERE sc.reporter_user_id = $1` |
+
+Ein Register, das falschen Alarm schlägt, verliert seinen Wert genauso wie eines, das
+schweigt — und es hätte die Owner-Entscheidung M2.6 in die falsche Richtung gefärbt
+(„45 Lecks" liest sich anders als „elf").
+
+**Die Reparatur ersetzt das Urteil durch eine Messung.** Der Pool trägt jetzt **zwei**
+Erkennungswörter und entscheidet an den **Parametern** der Abfrage: Org-Kennung →
+Firmenzeile, nur Nutzer-Kennung → eigene Zeile, keine von beiden → kein Mandantenbezug.
+
+**Zwei Ebenen, dauerhaft getrennt.** `gemessen` ist eine **Tatsache** — dagegen ist kein
+Einspruch möglich. `art` ist ein **Urteil** und darf ihr widersprechen, aber nur mit
+geschriebener Begründung (mindestens 60 Zeichen, vom Wächter erzwungen). Fünf Routen nutzten
+das zunächst — und **vier davon hielten der Nachprüfung nicht stand**. Geblieben ist
+`/me/entitlements`, ein bewusster Grenzfall: der Rumpf nennt Tarif, Zusatzpakete und
+Standortzahl der Trägerorg, und das Arbeiter-Portal braucht es, um zu entscheiden, welche
+Funktionen es überhaupt anbietet. Ein Portal, das den Tarif nicht kennt, zeigt tote
+Schaltflächen. Wird die Trennwand aus M2.6 strukturell gezogen, gehört diese Route auf
+eine verkleinerte Antwort — nicht auf 403.
+
+> **Die Begründungspflicht hat sofort einen echten Befund gefangen — meinen eigenen.**
+> `/profile-bounties/me` stand als „eigene Daten" im Register, mit dem Halbsatz „seine
+> eigenen Prämien". Beim Aufschreiben einer *tragfähigen* Begründung fiel auf, dass es
+> keine gibt: `getOrgBountyHistory(pool, req.orgId)` liefert die Prämienhistorie der
+> **Org**. Dieselbe Namensfalle wie bei `/subscription-requests/mine`. Und die drei
+> Schreibwege daneben wiegen schwerer als der Leseweg: `POST /profile-bounties/me` legt
+> einen Antrag `{ orgId: req.orgId }` an — ein Arbeiter hätte **im Namen seines
+> Arbeitgebers eine Prämie beantragen** können, `DELETE` eine bestehende stornieren.
+
+**Das korrigierte Bild:**
+
+| | vorher (Handeinstufung) | jetzt (gemessen) |
+|---|---|---|
+| Routen mit Mandantenbezug | 82 | 64 |
+| davon **eigene Daten** | 25 | 48 |
+| davon **org-geschlüsselt** | — | 16 |
+| **offene Befunde** | 45 | **0** |
+| geschlossen | 5 | **15** (plus 6 Schreibwege) |
+
+Von fünf Einträgen, die der Messung mit Begründung widersprachen, hat **einer** die
+Nachprüfung überlebt (`/me/entitlements`). Drei stellten sich als dieselbe Namensfalle
+heraus und sind geschlossen; einer (`GET /me`) gibt nach der Reparatur an
+`getAllowedLocationsForMembership` gar nichts Mandantengebundenes mehr heraus und steht
+deshalb nicht mehr im Register.
+
+**Die übrig gebliebenen Befunde waren alle dieselbe Falle.** `/org/departments`,
+`/org/locations`, `/subscription-requests/`**`mine`**, `/subscription-documents/`**`mine`**,
+`/deal-feedback/pending` und `/profile-bounties/`**`me`** — Pfade, bei denen „mine"/„me"
+die **Org** meint, nicht den Menschen. Alle geschlossen mit `verweigereArbeiter`, bewusst
+nicht mit `rperm`: welche Rollen das lesen dürfen, bleibt die Owner-Frage M2.6; einem
+Disponenten wollte diese Welle nichts nehmen.
+
+> **Noch ein Fund, den `node --check` nicht sieht:** `subscriptionDocuments.js` benennt
+> `logger` beim Auspacken zu `_logger` um. `verweigereArbeiter({ logger })` wäre dort beim
+> **Bauen des Routers** abgestürzt — syntaktisch einwandfrei, zur Laufzeit tot.
+
+Acht Rückmutationen, alle rot: drei geschlossene Lesewege wieder auf, der Prämienantrag
+und die Stornierung wieder auf (beides **Schreib**wege, die die GET-Messung gar nicht
+sieht — deshalb hat `verweigereArbeiter.test.js` sie eigens), das Register behauptet
+„org" statt „eigen", ein Widerspruch ohne tragfähige Begründung, und der Muster-Pool
+unterscheidet nicht mehr nach Parametern.
 
 ### M2.2 ist gebaut *(2026-09-02)* — drei Konventionen, drei Symptome
 

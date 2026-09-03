@@ -23,6 +23,7 @@ import express from "express";
 import request from "supertest";
 import { verweigereArbeiter } from "../middleware/orgAccess.js";
 import { createProfileVisibilityRouter } from "../routes/profileVisibility.js";
+import { createProfileBountiesRouter } from "../routes/profileBounties.js";
 
 const UID = "11111111-1111-1111-1111-111111111111";
 const ORG = "22222222-2222-2222-2222-222222222222";
@@ -107,6 +108,72 @@ describe("verweigereArbeiter", () => {
       const res = await request(flaeche(rolle)).get("/api/v1/profile-visibility/settings");
       assert.notEqual(res.status, 403,
         `Rolle '${rolle}' wird abgewiesen — der Riegel greift zu weit `
+        + `(${JSON.stringify(res.body)})`);
+    }
+  });
+
+  it("… und er kommt auch an die Praemien, lesend wie schreibend", async () => {
+    /* Die Gegenprobe muss ALLE verriegelten Flaechen abdecken. Sonst beweist sie
+       nur, dass EINE davon nicht zu weit greift. */
+    for (const rolle of ["dispatcher", "owner"]) {
+      const app = express();
+      app.use(express.json());
+      app.use((req, _r, n) => {
+        req.session = { userId: UID, userRole: "company" };
+        req.orgId = ORG;
+        req.orgRole = rolle;
+        req.orgMembership = { role_key: rolle, org_id: ORG, org_type: "agency" };
+        n();
+      });
+      app.use("/api/v1", createProfileBountiesRouter({
+        pool: pool(), logger, requireAuth: durch, requireFeature: () => durch
+      }));
+      app.use((err, _q, res, _n) => res.status(500).json({ fehler: String(err.message).slice(0, 60) }));
+
+      for (const [verb, pfad] of [["get", "/profile-bounties/me"], ["post", "/profile-bounties/me"]]) {
+        const res = await request(app)[verb]("/api/v1" + pfad).send({ bounty_type: "empfehlung" });
+        assert.notEqual(res.status, 403,
+          `${verb.toUpperCase()} ${pfad} als '${rolle}': abgewiesen — der Riegel greift `
+          + `zu weit (${JSON.stringify(res.body)})`);
+      }
+    }
+  });
+
+  it("die Praemien der Firma sind ebenfalls zu — auch die Schreibwege", async () => {
+    /*
+     * `/profile-bounties/me` heisst "me" und meint die ORG
+     * (`getOrgBountyHistory(pool, req.orgId)`). Die Schreibwege wiegen schwerer
+     * als der Leseweg: POST legt einen Antrag mit der orgId der FIRMA an, DELETE
+     * storniert einen bestehenden. Ohne diese Probe waeren drei der vier Wege
+     * verriegelt, ohne dass irgendetwas es bezeugt — die Messung aus M2.5 sieht
+     * nur GET-Routen.
+     */
+    const app = express();
+    app.use(express.json());
+    app.use((req, _r, n) => {
+      req.session = { userId: UID, userRole: "worker" };
+      req.orgId = ORG;
+      req.orgRole = "worker";
+      req.orgMembership = { role_key: "worker", org_id: ORG, org_type: "agency" };
+      n();
+    });
+    app.use("/api/v1", createProfileBountiesRouter({
+      pool: pool(), logger, requireAuth: durch, requireFeature: () => durch
+    }));
+    app.use((err, _q, res, _n) => res.status(500).json({ fehler: String(err.message).slice(0, 60) }));
+
+    const wege = [
+      ["get", "/profile-bounties/me"],
+      ["post", "/profile-bounties/me"],
+      ["post", "/profile-bounties/b1/submit"],
+      ["delete", "/profile-bounties/b1"]
+    ];
+    for (const [verb, pfad] of wege) {
+      const res = await request(app)[verb]("/api/v1" + pfad).send({ bounty_type: "empfehlung" });
+      assert.equal(res.status, 403,
+        `${verb.toUpperCase()} ${pfad}: der Arbeiter kommt durch (${res.status})`);
+      assert.equal(res.body?.error, "WORKER_NOT_ALLOWED",
+        `${verb.toUpperCase()} ${pfad}: abgewiesen, aber aus dem falschen Grund `
         + `(${JSON.stringify(res.body)})`);
     }
   });

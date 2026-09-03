@@ -6,7 +6,15 @@ export function requireCompanyOrg(deps, options = {}) {
   const errorCode = options.errorCode || "BUYER_ORG_REQUIRED";
   const errorMessage = options.errorMessage || "Dieser Bereich steht nur fuer Unternehmensorganisationen zur Verfuegung.";
 
-  return async (req, res, next) => {
+  /*
+   * BENANNT statt anonym — dieselbe Lehre wie bei `requirePermissionMiddleware`
+   * in middleware/rbac.js, die dort seit einem Befund im Kommentar steht und hier
+   * nie angewandt wurde (bis M2.7). Eine anonyme Middleware ist in Stapelspuren
+   * unsichtbar, und kein Waechter kann fragen "traegt DIESE Route die
+   * Unternehmens-Pruefung?" — er kann nur Middleware ZAEHLEN, und dabei sieht
+   * eine Route ohne Pruefung aus wie eine mit.
+   */
+  return async function requireCompanyOrgMiddleware(req, res, next) {
     try {
       if (!req.orgId) {
         return res.status(400).json({ error: "ORG_CONTEXT_REQUIRED" });
@@ -26,7 +34,24 @@ export function requireCompanyOrg(deps, options = {}) {
       }
 
       const orgType = String(membership.org_type || "").trim().toLowerCase();
-      if (orgType && orgType !== "company") {
+      /*
+       * M2.7 — bis hierher stand hier `if (orgType && orgType !== "company")`.
+       * Eine Mitgliedschaft OHNE Org-Typ kam damit durch: fail-OPEN an der Wache,
+       * die entscheidet, wer Unternehmensflaechen sieht.
+       *
+       * Erreichbar war das heute nicht — `organizations.type` ist NOT NULL (an der
+       * laufenden Datenbank nachgesehen, null leere Werte), und jede Stelle, die
+       * `req.orgMembership` setzt, holt die Zeile ueber `getMembership` bzw.
+       * `getPrimaryOrg` — beide lesen `o.type AS org_type` mit. Der
+       * Zwischenspeicher-Pfad in `orgContext` setzt das Feld ausdruecklich NICHT
+       * ("avoid stale data"), dort schlaegt diese Wache selbst nach. Der Zweig hing
+       * also an einer Datenbankbedingung und an gleichlautenden SELECT-Listen.
+       * Faellt eine davon, geht die Tuer auf, ohne dass jemand hier etwas aendert.
+       *
+       * Deshalb fail-closed: was kein `company` ist, kommt nicht durch — auch
+       * nicht, wenn es gar nichts ist.
+       */
+      if (orgType !== "company") {
         logger.warn(
           { orgId: req.orgId, orgType, userId: req.session?.userId || null },
           "Company-org guard denied access"
@@ -57,7 +82,8 @@ export function requireOrgNotSuspended(deps, options = {}) {
   const errorMessage = options.errorMessage ||
     "Der Zugang dieser Organisation wurde vom Betreiber gesperrt. Bitte den Support kontaktieren.";
 
-  return async (req, res, next) => {
+  /* Benannt, siehe requireCompanyOrg oben. */
+  return async function requireOrgNotSuspendedMiddleware(req, res, next) {
     try {
       if (!req.orgId) {
         return res.status(400).json({ error: "ORG_CONTEXT_REQUIRED" });

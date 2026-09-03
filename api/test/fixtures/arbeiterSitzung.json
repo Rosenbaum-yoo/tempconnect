@@ -1,9 +1,8 @@
 {
-  "zweck": "M2.5 — was eine ARBEITERSITZUNG von der Plattform-API zu sehen bekommt. Gemessen, nicht geschaetzt: der Waechter faehrt eine echte Sitzung (Rolle 'worker', Mitgliedschaft in der Traegerorg mit role_key='worker' — so entsteht sie in workerService.acceptInvite) gegen JEDE aufrufbare GET-Route und liest den ANTWORTRUMPF. Der Pool beantwortet jede Abfrage mit einer Zeile, deren Textspalten ein Erkennungswort tragen. Steht das Wort in der Antwort, hat der Handler Daten der Traegerorg durchgereicht. Das Verfahren kann UNTER-, aber nie ueberberichten: ein Handler ohne Mandantendaten kann das Wort nicht erfinden.",
+  "zweck": "M2.5 — was eine ARBEITERSITZUNG von der Plattform-API zu sehen bekommt. Gemessen, nicht geschaetzt: der Waechter faehrt eine echte Sitzung (Rolle 'worker', Mitgliedschaft in der Traegerorg mit role_key='worker' — so entsteht sie in workerService.acceptInvite) gegen JEDE aufrufbare GET-Route und liest den ANTWORTRUMPF. Der Muster-Pool entscheidet an den PARAMETERN der Abfrage, welche Zeile er liefert: Org-Kennung -> Zeile der Traegerorg, nur Nutzer-Kennung -> Zeile des Menschen, keine von beiden -> kein Mandantenbezug. `gemessen` ist damit eine Tatsache; `art` ist ein Urteil und darf ihr nur mit geschriebener Begruendung widersprechen.",
   "arten": {
-    "eigenes": "Die Daten des Arbeiters selbst — sein Konto, sein Portal, sein Profil, seine Benachrichtigungen. Er soll sie sehen; genau dafuer hat er ein Konto.",
-    "oeffentlich": "Kataloge und das oeffentliche Schaufenster. Ohne Anmeldung erreichbar oder ohne Mandantenbezug — eine Arbeitersitzung erfaehrt hier nichts, was ihr verwehrt waere.",
-    "befund": "GEMESSENER BEFUND, NOCH NICHT GESCHLOSSEN. Die Route reicht dem Arbeiter Daten seiner Traegerorg durch — der Zeitarbeitsfirma, in deren Org er als Mitglied gefuehrt wird. Der Zaehler unten darf nur FALLEN. Ob das strukturell (ein Riegel auf /api/v1) oder Route fuer Route geschlossen wird, ist eine Owner-Entscheidung; sie steht in docs/features/M_MARKTPLATZ_FLOW.md als M2.6."
+    "eigenes": "Der Arbeiter sieht Daten, die ihm gehoeren — sein Konto, sein Portal, sein Profil. Steht daneben `gemessen: \"org\"`, gehen zusaetzlich org-geschluesselte Felder heraus; dann MUSS `warum_unbedenklich` erklaeren, warum das in Ordnung ist.",
+    "befund": "GEMESSENER BEFUND, NOCH NICHT GESCHLOSSEN. Die Route reicht dem Arbeiter org-geschluesselte Daten seiner Traegerorg durch — der Zeitarbeitsfirma, in deren Org er als Mitglied gefuehrt wird. Ob das strukturell (ein Riegel auf /api/v1) oder Route fuer Route geschlossen wird, ist eine Owner-Entscheidung: M2.6 in docs/features/M_MARKTPLATZ_FLOW.md."
   },
   "hinweis_geschlossen": "Hier stehen die Routen, die in dieser Welle GESCHLOSSEN wurden. Der Waechter verlangt fuer sie 4xx. Nimmt jemand den Guard wieder heraus, wird er rot — eine geschlossene Luecke, die niemand bewacht, geht wieder auf.",
   "geschlossen": [
@@ -26,444 +25,346 @@
     {
       "route": "GET /profile-visibility/settings",
       "grund": "Zuerst falsch als 'eigene Daten' eingestuft — ein Gegenpruef-Panel hat das widerlegt, und die Widerlegung haelt: die Tabelle profile_visibility_settings hat KEINE Nutzerspalte, nur org_id UNIQUE (an der laufenden Datenbank nachgesehen). SELECT * WHERE org_id = $1 gab der Arbeitersitzung den Moderationsdatensatz ihres ARBEITGEBERS: status, rejection_reason, suspended_reason und mit reviewed_by die Kennung des TempConnect-Mitarbeiters, der ueber die Firma geurteilt hat. Der Lesepfad schreibt ausserdem (initVisibilitySettings, INSERT ... ON CONFLICT DO UPDATE). Die drei Schreibwege daneben trugen dieselbe Kette und sind mit verriegelt — /settings/pause haette einem Arbeiter erlaubt, das oeffentliche Profil seiner Firma abzuschalten. Riegel: verweigereArbeiter (middleware/orgAccess.js)."
+    },
+    {
+      "route": "GET /org/departments",
+      "grund": "Die Abteilungen der Traegerorg. Gemessen: der Handler gibt org-geschluesselte Zeilen heraus. Das schreibende Gegenstueck POST /org/departments traegt rperm('org.departments') — die Absicht stand also fest, nur der Leseweg trug nichts. Riegel: verweigereArbeiter, NICHT rperm: welche Rollen die Abteilungen lesen duerfen, ist eine Produktfrage (M2.6); ein Arbeiter verwaltet die Firma nicht."
+    },
+    {
+      "route": "GET /org/locations",
+      "grund": "Die Standorte der Traegerorg. Dieselbe Lage wie bei den Abteilungen: POST /org/locations traegt rperm('org.locations'), der Leseweg trug nichts. Bewusst verweigereArbeiter statt rperm — ein Standort-Auswahlfeld braucht auch der Disponent, und ihm wollte diese Welle nichts nehmen."
+    },
+    {
+      "route": "GET /subscription-requests/mine",
+      "grund": "Die Tarifanfragen der Traegerorg. 'mine' meint hier die ORG, nicht den Menschen — genau die Namensfalle, die die Handeinstufung zuvor in beide Richtungen verwechselt hat. Ein Arbeiter erfuhr damit, welchen Tarif seine Zeitarbeitsfirma anfragt und mit welcher Begruendung."
+    },
+    {
+      "route": "GET /subscription-documents/mine",
+      "grund": "Die Vertragsunterlagen der Traegerorg. Wie bei den Tarifanfragen meint 'mine' die ORG. Vertragsunterlagen zwischen TempConnect und der Zeitarbeitsfirma gehen den Arbeiter nichts an."
+    },
+    {
+      "route": "GET /deal-feedback/pending",
+      "grund": "Offene Rueckmeldungen zu Geschaeften der Traegerorg — also zu Vorgaengen zwischen zwei Firmen, an denen der Arbeiter keine Partei ist. Gemessen org-geschluesselt; kein Aufrufer im Arbeiter-Portal (geprueft: nur dealFeedbackModal.js auf der Firmenflaeche)."
+    },
+    {
+      "route": "GET /profile-bounties/me",
+      "grund": "'me' im Pfad, und gemeint ist die ORG: getOrgBountyHistory(pool, req.orgId) liefert die Praemienhistorie der Traegerorg. Die Route stand zuerst als 'eigene Daten' im Register — bis der Waechter eine Begruendung verlangte und beim Aufschreiben auffiel, dass es keine gibt. Genau dafuer ist die Pflicht zur Begruendung da. Die drei Schreibwege daneben wiegen schwerer als der Leseweg: POST /profile-bounties/me legt einen Antrag mit orgId der Firma an — ein Arbeiter haette im Namen seines Arbeitgebers eine Praemie beantragen koennen, DELETE /profile-bounties/:id eine bestehende stornieren. Alle vier sind mit verweigereArbeiter verriegelt. `bountyAccess` prueft nur den PLAN, und den holt es aus der Firma."
+    },
+    {
+      "route": "GET /profile-analytics/me",
+      "grund": "'me' im Pfad, gemeint ist die ORG: getProfileAnalyticsSummary(pool, req.orgId) liefert die Zahlen zum oeffentlichen Profil DER FIRMA — Aufrufe, Merkungen, Reichweite. Zusammen mit /profile-analytics/me/advanced geschlossen."
+    },
+    {
+      "route": "GET /profile-analytics/me/advanced",
+      "grund": "Dieselbe Route eine Stufe tiefer. Stand zuerst als 'eigene Daten' im Register mit der Begruendung 'die Zahlen zu SEINEM eigenen Profil'. Das war falsch und ist beim Aufschreiben einer tragfaehigen Begruendung aufgefallen — genau dafuer ist die Begruendungspflicht da. Die Plan-Tore analyticsBasic/analyticsAdvanced sehen aus wie Wachen und pruefen den Tarif, den sie aus der FIRMA holen."
+    },
+    {
+      "route": "GET /profile-rankings/me",
+      "grund": "'me' im Pfad, gemeint ist die ORG: getOrgRankInfo(pool, req.orgId) liefert die Platzierung DER FIRMA im Anbietervergleich, samt Punktzahl und Segment. Auch diese Begruendung ('SEINE eigene Platzierung') hielt der Nachpruefung nicht stand. /profile-rankings ohne '/me' bleibt offen — die Rangliste ist die oeffentliche Seite derselben Sache und traegt bewusst kein requireAuth."
+    },
+    {
+      "route": "GET /me/active-location",
+      "grund": "Liefert nicht nur den GEWAEHLTEN Standort, sondern die vollstaendige Standortliste der Traegerorg (SELECT ... FROM org_locations WHERE org_id = $1) — dieselben Daten wie GET /org/locations, das in derselben Welle geschlossen wurde. Eine Tuer zuzumachen und die daneben offen zu lassen, ist keine Trennwand. Der Schreibweg POST /me/active-location ist mit verriegelt. pageShell.js prueft r.ok und laesst die Standort-Auswahl bei Ablehnung weg — fuer einen Arbeiter genau richtig."
     }
   ],
   "erlaubt": [
     {
       "route": "GET /activity-feed",
       "datei": "activityFeed.js",
-      "art": "befund",
-      "was": "Der Taetigkeitsstrom der Traegerorg — wer was wann getan hat."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /approvals/my-pending",
       "datei": "approvals.js",
-      "art": "befund",
-      "was": "Offene Freigaben der Traegerorg."
-    },
-    {
-      "route": "GET /capacities",
-      "datei": "capacities.js",
-      "art": "befund",
-      "was": "Die Kapazitaetsmeldungen der Traegerorg."
-    },
-    {
-      "route": "GET /capacity-discovery/by-category",
-      "datei": "capacityDiscovery.js",
-      "art": "befund",
-      "was": "Nachfrage-/Angebotslage, nach Kategorie aufgeschluesselt."
-    },
-    {
-      "route": "GET /capacity-discovery/by-region",
-      "datei": "capacityDiscovery.js",
-      "art": "befund",
-      "was": "Nachfrage-/Angebotslage, nach Region aufgeschluesselt."
-    },
-    {
-      "route": "GET /capacity-discovery/by-role",
-      "datei": "capacityDiscovery.js",
-      "art": "befund",
-      "was": "Nachfrage-/Angebotslage, nach Rolle aufgeschluesselt."
-    },
-    {
-      "route": "GET /capacity-discovery/summary",
-      "datei": "capacityDiscovery.js",
-      "art": "befund",
-      "was": "Die verdichtete Marktlage der Traegerorg."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /capacity-exchange/entries",
       "datei": "capacityExchange.js",
-      "art": "befund",
-      "was": "Die Boerseneintraege der Traegerorg."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /capacity-exchange/feed",
       "datei": "capacityExchange.js",
-      "art": "befund",
-      "was": "Der Boersenstrom, den die Traegerorg sieht."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /capacity-exchange/my-analytics",
       "datei": "capacityExchange.js",
-      "art": "befund",
-      "was": "Auswertung der eigenen Boersenaktivitaet — 'my' meint die ORG, nicht den Menschen."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /capacity-exchange/stats",
       "datei": "capacityExchange.js",
-      "art": "befund",
-      "was": "Kennzahlen der Boerse fuer die Traegerorg."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /company-profile",
       "datei": "companyProfile.js",
-      "art": "befund",
-      "was": "Das Firmenprofil der Traegerorg."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /company-profile/certifications",
       "datei": "companyProfile.js",
-      "art": "befund",
-      "was": "Zertifikate der Traegerorg."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /company-profile/contacts",
       "datei": "companyProfile.js",
-      "art": "befund",
-      "was": "Ansprechpartner samt Kontaktdaten — personenbezogen."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /company-profile/locations",
       "datei": "companyProfile.js",
-      "art": "befund",
-      "was": "Standorte der Traegerorg."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /credits/balance",
       "datei": "credits.js",
-      "art": "befund",
-      "was": "Der Guthabenstand der Traegerorg. Geld."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /credits/transactions",
       "datei": "credits.js",
-      "art": "befund",
-      "was": "Die Guthabenbewegungen der Traegerorg. Geld."
-    },
-    {
-      "route": "GET /deal-feedback/pending",
-      "datei": "dealFeedback.js",
-      "art": "befund",
-      "was": "Offene Rueckmeldungen zu Geschaeften der Traegerorg."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /emergency/active",
       "datei": "emergency.js",
-      "art": "befund",
-      "was": "Laufende Notfaelle der Traegerorg."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /emergency/history",
       "datei": "emergency.js",
-      "art": "befund",
-      "was": "Notfallhistorie der Traegerorg."
-    },
-    {
-      "route": "GET /listings",
-      "datei": "listings.js",
-      "art": "befund",
-      "was": "Die Angebote der Traegerorg."
-    },
-    {
-      "route": "GET /marketplace/capacity-posts",
-      "datei": "marketplace.js",
-      "art": "befund",
-      "was": "Kapazitaetsanzeigen im angemeldeten Marktplatz — mit Kontaktbezug."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /marketplace/demand-requests",
       "datei": "marketplace.js",
-      "art": "befund",
-      "was": "Bedarfsanfragen im angemeldeten Marktplatz."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /marketplace/my-deals",
       "datei": "marketplace.js",
-      "art": "befund",
-      "was": "Die Geschaefte der Traegerorg. Konditionen."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /marketplace/my-offers",
       "datei": "marketplace.js",
-      "art": "befund",
-      "was": "Die Angebote der Traegerorg. Preise."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /marketplace/received-offers",
       "datei": "marketplace.js",
-      "art": "befund",
-      "was": "Eingegangene Angebote Dritter — fremde Preise."
+      "gemessen": "eigen",
+      "art": "eigenes"
     },
     {
       "route": "GET /marketplace/watchlist",
       "datei": "marketplace.js",
-      "art": "befund",
-      "was": "Die Merkliste der Traegerorg — verraet ihre Absichten."
-    },
-    {
-      "route": "GET /mentoring/sessions",
-      "datei": "mentoring.js",
-      "art": "befund",
-      "was": "Mentoring-Termine der Traegerorg."
-    },
-    {
-      "route": "GET /my/listings",
-      "datei": "listings.js",
-      "art": "befund",
-      "was": "Die Angebote der Traegerorg. 'my' meint die ORG."
-    },
-    {
-      "route": "GET /my/requests/received",
-      "datei": "requests.js",
-      "art": "befund",
-      "was": "Eingegangene Anfragen der Traegerorg."
-    },
-    {
-      "route": "GET /my/requests/sent",
-      "datei": "requests.js",
-      "art": "befund",
-      "was": "Gesendete Anfragen der Traegerorg."
-    },
-    {
-      "route": "GET /org/departments",
-      "datei": "orgControlCenter.js",
-      "art": "befund",
-      "was": "Die Abteilungen der Traegerorg. Das schreibende Gegenstueck POST /org/departments traegt rperm('org.departments')."
-    },
-    {
-      "route": "GET /org/locations",
-      "datei": "orgControlCenter.js",
-      "art": "befund",
-      "was": "Die Standorte der Traegerorg. Das schreibende Gegenstueck POST /org/locations traegt rperm('org.locations')."
-    },
-    {
-      "route": "GET /payment/history",
-      "datei": "payment.js",
-      "art": "befund",
-      "was": "Zahlungshistorie der Traegerorg. Geld."
-    },
-    {
-      "route": "GET /ratings/pending",
-      "datei": "ratings.js",
-      "art": "befund",
-      "was": "Offene Bewertungen der Traegerorg."
-    },
-    {
-      "route": "GET /requests/export/csv",
-      "datei": "requests.js",
-      "art": "befund",
-      "was": "Anfragen der Traegerorg als Datei — ein Export, kein Blick."
-    },
-    {
-      "route": "GET /search/recent",
-      "datei": "search.js",
-      "art": "befund",
-      "was": "Die letzten Suchen der Traegerorg — verraet ihre Absichten."
-    },
-    {
-      "route": "GET /sla/match-alerts",
-      "datei": "slaSearchJobs.js",
-      "art": "befund",
-      "was": "Treffermeldungen der Suchauftraege der Traegerorg."
-    },
-    {
-      "route": "GET /sla/search-jobs",
-      "datei": "slaSearchJobs.js",
-      "art": "befund",
-      "was": "Die Suchauftraege der Traegerorg."
-    },
-    {
-      "route": "GET /subscription-documents/mine",
-      "datei": "subscriptionDocuments.js",
-      "art": "befund",
-      "was": "Vertragsunterlagen der Traegerorg. 'mine' meint die ORG."
-    },
-    {
-      "route": "GET /subscription-requests/mine",
-      "datei": "subscriptionRequests.js",
-      "art": "befund",
-      "was": "Tarifanfragen der Traegerorg. 'mine' meint die ORG."
-    },
-    {
-      "route": "GET /support-requests",
-      "datei": "supportIntake.js",
-      "art": "befund",
-      "was": "Die Supportanfragen der Traegerorg."
-    },
-    {
-      "route": "GET /support/bootstrap",
-      "datei": "support.js",
-      "art": "befund",
-      "was": "Der Supportzustand der Traegerorg."
-    },
-    {
-      "route": "GET /support/escalations",
-      "datei": "support.js",
-      "art": "befund",
-      "was": "Eskalationen der Traegerorg."
-    },
-    {
-      "route": "GET /value-report",
-      "datei": "bounties.js",
-      "art": "befund",
-      "was": "Der Wertbericht der Traegerorg — verdichtete Geschaeftszahlen."
-    },
-    {
-      "route": "GET /bounties/me",
-      "datei": "bounties.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
       "route": "GET /match-alerts",
       "datei": "notifications.js",
-      "art": "eigenes"
-    },
-    {
-      "route": "GET /me",
-      "datei": "me.js",
-      "art": "eigenes"
-    },
-    {
-      "route": "GET /me/active-location",
-      "datei": "me.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
       "route": "GET /me/entitlements",
       "datei": "me.js",
-      "art": "eigenes"
+      "gemessen": "org",
+      "art": "eigenes",
+      "warum_unbedenklich": "GRENZFALL, bewusst so entschieden: der Rumpf nennt Tarif, Zusatzpakete und Standortzahl der Traegerorg. Das ist Firmenwissen — aber die Oberflaeche des Arbeiter-Portals braucht es, um zu entscheiden, welche Funktionen sie ihm ueberhaupt anbietet. Ein Arbeiter, der den Tarif seines Arbeitgebers erfaehrt, verliert niemandem etwas; ein Portal, das ihn nicht kennt, zeigt tote Schaltflaechen. Wird die Trennwand aus M2.6 strukturell gezogen, gehoert diese Route auf eine verkleinerte Antwort — nicht auf 403."
     },
     {
       "route": "GET /me/export",
       "datei": "me.js",
+      "gemessen": "eigen",
+      "art": "eigenes"
+    },
+    {
+      "route": "GET /mentoring/sessions",
+      "datei": "mentoring.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
       "route": "GET /milestones/me",
       "datei": "bounties.js",
+      "gemessen": "eigen",
+      "art": "eigenes"
+    },
+    {
+      "route": "GET /my/listings",
+      "datei": "listings.js",
+      "gemessen": "eigen",
+      "art": "eigenes"
+    },
+    {
+      "route": "GET /my/requests/received",
+      "datei": "requests.js",
+      "gemessen": "eigen",
+      "art": "eigenes"
+    },
+    {
+      "route": "GET /my/requests/sent",
+      "datei": "requests.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
       "route": "GET /notification-preferences",
       "datei": "notifications.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
       "route": "GET /notifications",
       "datei": "notifications.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
-      "route": "GET /profile-analytics/me/advanced",
-      "datei": "profileAnalytics.js",
+      "route": "GET /payment/history",
+      "datei": "payment.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
-      "route": "GET /profile-bounties/me",
-      "datei": "profileBounties.js",
-      "art": "eigenes"
-    },
-    {
-      "route": "GET /profile-rankings/me",
-      "datei": "profileRankings.js",
+      "route": "GET /product-releases",
+      "datei": "productReleases.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
       "route": "GET /profile-visibility/favorites",
       "datei": "profileVisibility.js",
+      "gemessen": "eigen",
+      "art": "eigenes"
+    },
+    {
+      "route": "GET /ratings/pending",
+      "datei": "ratings.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
       "route": "GET /referral/code",
       "datei": "referralProgram.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
       "route": "GET /referral/status",
       "datei": "referralProgram.js",
+      "gemessen": "eigen",
+      "art": "eigenes"
+    },
+    {
+      "route": "GET /requests/export/csv",
+      "datei": "requests.js",
+      "gemessen": "eigen",
+      "art": "eigenes"
+    },
+    {
+      "route": "GET /search/recent",
+      "datei": "search.js",
+      "gemessen": "eigen",
+      "art": "eigenes"
+    },
+    {
+      "route": "GET /sla/match-alerts",
+      "datei": "slaSearchJobs.js",
+      "gemessen": "eigen",
+      "art": "eigenes"
+    },
+    {
+      "route": "GET /sla/search-jobs",
+      "datei": "slaSearchJobs.js",
+      "gemessen": "eigen",
+      "art": "eigenes"
+    },
+    {
+      "route": "GET /support-requests",
+      "datei": "supportIntake.js",
+      "gemessen": "eigen",
+      "art": "eigenes"
+    },
+    {
+      "route": "GET /value-report",
+      "datei": "bounties.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
       "route": "GET /worker/assignments",
       "datei": "workerPortal.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
       "route": "GET /worker/dashboard",
       "datei": "workerPortal.js",
-      "art": "eigenes"
+      "gemessen": "eigen",
+      "art": "eigenes",
+      "warum_unbedenklich": "Das Arbeiter-Portal selbst. Genau dafuer hat er ein Konto."
     },
     {
       "route": "GET /worker/documents",
       "datei": "workerPortal.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
       "route": "GET /worker/me",
       "datei": "workerPortal.js",
-      "art": "eigenes"
-    },
-    {
-      "route": "GET /worker/me/skills",
-      "datei": "workerPortal.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
       "route": "GET /worker/notifications",
       "datei": "workerPortal.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
       "route": "GET /worker/schedule",
       "datei": "workerPortal.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
       "route": "GET /worker/staffing-requests",
       "datei": "workerPortal.js",
+      "gemessen": "eigen",
       "art": "eigenes"
     },
     {
       "route": "GET /worker/submissions",
       "datei": "workerPortal.js",
+      "gemessen": "eigen",
       "art": "eigenes"
-    },
-    {
-      "route": "GET /bounties/catalog",
-      "datei": "bounties.js",
-      "art": "oeffentlich"
-    },
-    {
-      "route": "GET /credits/packages",
-      "datei": "credits.js",
-      "art": "oeffentlich"
-    },
-    {
-      "route": "GET /marketplace/public/capacity-posts",
-      "datei": "marketplace.js",
-      "art": "oeffentlich"
-    },
-    {
-      "route": "GET /marketplace/public/demand-requests",
-      "datei": "marketplace.js",
-      "art": "oeffentlich"
-    },
-    {
-      "route": "GET /product-releases",
-      "datei": "productReleases.js",
-      "art": "oeffentlich"
-    },
-    {
-      "route": "GET /skills/catalog",
-      "datei": "skills.js",
-      "art": "oeffentlich"
-    },
-    {
-      "route": "GET /skills/categories",
-      "datei": "skills.js",
-      "art": "oeffentlich"
-    },
-    {
-      "route": "GET /support/knowledge",
-      "datei": "support.js",
-      "art": "oeffentlich"
-    },
-    {
-      "route": "GET /support/knowledge/categories",
-      "datei": "support.js",
-      "art": "oeffentlich"
     }
   ],
-  "hinweis_pruefstand": "Die Einstufungen 'eigenes' und 'oeffentlich' wurden am 2026-09-03 einem Gegenpruef-Panel vorgelegt, das sie WIDERLEGEN sollte. Der Lauf brach am Nutzungslimit ab: von 64 Pruefern kamen 14 durch, 50 nicht. Ein Widerspruch hielt der Nachpruefung von Hand stand (GET /profile-visibility/settings, siehe 'geschlossen'). Die uebrigen Einstufungen sind damit NICHT unabhaengig gegengeprueft — wer hier weiterarbeitet, faengt am besten dort an."
+  "hinweis_pruefstand": "Die erste Fassung stufte von Hand ein und lag bei mindestens vier Routen daneben (/credits/balance, /credits/transactions, /payment/history, /support-requests lesen mit WHERE user_id = $1). Seit dem 2026-09-03 entscheidet die Messung, nicht die Meinung. Ein Gegenpruef-Panel vom selben Tag brach am Nutzungslimit ab (14 von 64 Pruefern); sein einziger gehaltener Widerspruch steht unter 'geschlossen'.",
+  "grenzen_der_messung": "Zwei bewusste Untererfassungen, damit die Messung nicht jede Route zum Befund macht: (1) Die Antwort auf `FROM org_memberships` traegt KEIN Erkennungswort — sonst meldete jede Route, die nur die Sitzung aufloest, einen Befund. Deshalb steht `GET /me` seit dem 2026-09-03 NICHT mehr im Register: es liefert die eigene Mitgliedschaft (die naturgemaess den Namen des Arbeitgebers nennt) und seit der Reparatur an getAllowedLocationsForMembership nichts weiter. (2) Gemessen wird das PRAEDIKAT der Abfrage, nicht die Semantik: ein `WHERE user_id = $1`, das ueber einen JOIN doch org-weit wird, zaehlt als 'eigen'. Beides kann einen Befund verstecken, aber keinen erfinden."
 }

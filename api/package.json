@@ -26,6 +26,7 @@
     "test:coverage:critical": "node scripts/coverage-critical-check.js",
     "test:coverage:report": "c8 report",
     "test:mutation:subscription": "node -e \"require('fs').rmSync('reports/mutation/subscription/stryker-incremental.json',{force:true})\" && stryker run stryker.subscription.conf.json",
+    "test:mutation:trennwand": "node -e \"require('fs').rmSync('reports/mutation/trennwand/stryker-incremental.json',{force:true})\" && stryker run stryker.trennwand.conf.json",
     "test:mutation:rbac": "node -e \"require('fs').rmSync('reports/mutation/rbac/stryker-incremental.json',{force:true})\" && stryker run stryker.rbac.conf.json",
     "test:mutation:monatsplan": "node -e \"require('fs').rmSync('reports/mutation/monatsplan/stryker-incremental.json',{force:true})\" && stryker run stryker.monatsplan.conf.json",
     "perf:smoke": "node scripts/perf-smoke.js",

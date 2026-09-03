@@ -7,22 +7,31 @@
  * Genau diese Luecke ist M2.5 in docs/features/M_MARKTPLATZ_FLOW.md.
  *
  * WER HIER ANFRAGT
- * Ein Arbeiter entsteht in workerService.acceptInvite. Dabei wird er Mitglied in
- * der Org SEINER ZEITARBEITSFIRMA — `INSERT INTO org_memberships … role_key='worker'`
- * mit der `supplier_org_id` der Einladung. Er bekommt also KEINE eigene Org:
- * seine Sitzung traegt req.orgId = die Kennung der Zeitarbeitsfirma. Gemessen in
- * der Datenbank am 2026-09-02: 31 Menschen in einer Agentur-Org, 3 in einer
- * Unternehmens-Org. Der Org-Typ 'worker' existiert nicht.
+ * Ein Arbeiter entsteht in `workerService.acceptInvite`. Dabei wird er Mitglied
+ * in der Org SEINER ZEITARBEITSFIRMA — `INSERT INTO org_memberships …
+ * role_key='worker'` mit der `supplier_org_id` der Einladung. Er bekommt KEINE
+ * eigene Org: seine Sitzung traegt req.orgId = die Kennung der Zeitarbeitsfirma.
+ * Gemessen in der Datenbank am 2026-09-02: 31 Menschen in einer Agentur-Org,
+ * 3 in einer Unternehmens-Org. Den Org-Typ 'worker' gibt es nicht.
  *
- * WORAN GEMESSEN WIRD — NICHT AM STATUSCODE
- * Ein 200 sagt nur, dass der Guard durchgelassen hat; es kann eine leere Liste
- * sein. Deshalb entscheidet der ANTWORTRUMPF: der Muster-Pool beantwortet jede
- * Abfrage mit einer Zeile, deren Textspalten ein Erkennungswort tragen. Steht das
- * Wort in der Antwort, hat der Handler Daten der Traegerorg durchgereicht.
+ * ZWEI EBENEN, BEWUSST GETRENNT
+ *   `gemessen` ist eine TATSACHE. Der Muster-Pool entscheidet an den Parametern
+ *   der Abfrage, welche Zeile er zurueckgibt (siehe helpers/arbeiterSitzungMessung.js);
+ *   steht das Org-Erkennungswort im Antwortrumpf, hat der Handler
+ *   org-geschluesselte Daten herausgegeben. Dagegen ist kein Einspruch moeglich.
  *
- * Das Verfahren kann UNTER-, aber nie ueberberichten: ein Handler, der Felder
- * umbenennt, faellt durch (Untererfassung); ein Handler ohne Mandantendaten kann
- * das Wort nicht erfinden. Ein Befund ist damit immer echt.
+ *   `art` ist ein URTEIL. Es darf der Messung widersprechen — aber nur mit
+ *   geschriebener Begruendung. Beispiel: `GET /me` gibt org-geschluesselte Daten
+ *   heraus (seine Mitgliedschaft nennt den Namen des Arbeitgebers), und das ist
+ *   trotzdem in Ordnung: er arbeitet dort.
+ *
+ * WARUM DIESE TRENNUNG NOETIG WURDE
+ * Die erste Fassung stufte von Hand ein — nach Pfadnamen und Gefuehl — und lag
+ * bei mindestens vier Routen daneben: /credits/balance, /credits/transactions,
+ * /payment/history und /support-requests lesen mit `WHERE user_id = $1` bzw.
+ * `WHERE sc.reporter_user_id = $1`. Das sind SEINE Daten. Ein Register, das
+ * falschen Alarm schlaegt, verliert seinen Wert genauso wie eines, das schweigt —
+ * und es haette die Owner-Entscheidung M2.6 in die falsche Richtung gefaerbt.
  *
  * Lauf: node --test --test-force-exit test/arbeiterSitzung.test.js
  */
@@ -34,120 +43,22 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import request from "supertest";
+import { messe, baueDeps, API, WORT_ORG, WORT_ICH, WORT_FREI, UID, OID }
+  from "./helpers/arbeiterSitzungMessung.js";
 
-/* Pfade IMMER relativ zur Testdatei — sonst haengt das Ergebnis am Startverzeichnis
-   und der Test ueberspringt sich je nach cwd lautlos. */
+/* Pfade IMMER relativ zur Testdatei — sonst haengt das Ergebnis am
+   Startverzeichnis und der Test ueberspringt sich je nach cwd lautlos. */
 const HIER = path.dirname(fileURLToPath(import.meta.url));
-const API = path.resolve(HIER, "..");
 const REGISTER = JSON.parse(
   fs.readFileSync(path.join(HIER, "fixtures", "arbeiterSitzung.json"), "utf8")
 );
-
-const WORT = "GEHEIMTRAEGERORG";
-const UID = "11111111-1111-1111-1111-111111111111";
-const OID = "22222222-2222-2222-2222-222222222222";
 
 /* Untergrenzen. Ein Waechter, der nichts mehr prueft, sieht sonst gruen aus —
    das ist der haeufigste Weg zu einer Zusicherung, die nie zuschlagen kann. */
 const MINDESTENS_ROUTER = 70;
 const MINDESTENS_ROUTEN = 250;
 
-/* ── Der Muster-Pool: jede Zeile traegt das Erkennungswort ─────────────────── */
-const TEXTSPALTEN = ["name", "title", "titel", "description", "beschreibung", "customer_name",
-  "invoice_number", "status", "email", "city", "role_key", "label", "code", "type",
-  "company_name", "org_name", "note", "message", "kind", "category", "slug", "reason"];
-const ZEILE = {
-  id: "99999999-9999-9999-9999-999999999999", org_id: OID, user_id: UID,
-  created_at: "2026-09-02T00:00:00.000Z", total_cents: 1499900, amount_cents: 1499900,
-  balance_cents: 1499900, count: 7, total: 7, is_active: true
-};
-for (const s of TEXTSPALTEN) ZEILE[s] = WORT;
-
-function antwort(sql) {
-  const s = String(sql);
-  /* Die Mitgliedschaft OHNE Erkennungswort — sonst meldete jede Route, die nur
-     die Sitzung aufloest, faelschlich einen Befund. */
-  if (/FROM\s+org_memberships/i.test(s)) {
-    return { rows: [{ user_id: UID, org_id: OID, role_key: "worker", is_active: true,
-      org_name: "Traeger", org_type: "agency", org_plan: "PRO" }] };
-  }
-  if (/^\s*(BEGIN|COMMIT|ROLLBACK)/i.test(s)) return { rows: [] };
-  return { rows: [ZEILE] };
-}
-
-const still = () => {};
-const logger = { info: still, warn: still, error: still, debug: still, child: () => logger };
-const durchreiche = (_q, _r, n) => n();
-
-function baueDeps() {
-  const pool = {
-    query: async (s) => antwort(s),
-    connect: async () => ({ query: async (s) => antwort(s), release() {} }),
-    on() {}
-  };
-  const bekannt = {
-    pool, logger, stripe: null,
-    config: { NODE_ENV: "test", SCIM_ENABLED: false },
-    sendMail: async () => ({ ok: true }),
-    requireAuth: (req, _r, n) => { req.session = { userId: UID, userRole: "worker" }; req.orgId = OID; n(); },
-    getUserAndPlan: async () => ({ user: { id: UID, role: "worker" }, plan: "PRO" }),
-    requireFeature: () => durchreiche,
-    cronRateLimit: durchreiche
-  };
-  /* Unbekannte Begrenzer sind Middleware — alles andere bleibt undefined, damit
-     eine echte fehlende Abhaengigkeit auffaellt statt still ueberdeckt zu werden. */
-  return new Proxy(bekannt, {
-    get: (z, k) => (k in z ? z[k]
-      : (typeof k === "string" && /[Ll]imiter$/.test(k) ? durchreiche : undefined))
-  });
-}
-
-/* ── Alle Router aus app.js montieren ─────────────────────────────────────── */
-const appQuelle = fs.readFileSync(path.join(API, "app.js"), "utf8");
-const fabriken = [...appQuelle.matchAll(/v1\.use\((create\w+Router)\(deps\)\)/g)].map((m) => m[1]);
-const wo = new Map();
-for (const d of fs.readdirSync(path.join(API, "routes")).filter((f) => f.endsWith(".js"))) {
-  const s = fs.readFileSync(path.join(API, "routes", d), "utf8");
-  for (const m of s.matchAll(/export\s+(?:async\s+)?function\s+(create\w+Router)/g)) wo.set(m[1], d);
-}
-
-const deps = baueDeps();
-const app = express();
-app.use(express.json());
-app.use((req, _r, n) => { req.session = { userId: UID, userRole: "worker" }; req.orgId = OID; n(); });
-const v1 = express.Router();
-const ungebaut = [];
-const ziele = [];
-for (const name of fabriken) {
-  const datei = wo.get(name);
-  if (!datei) { ungebaut.push(`${name}: keine Datei gefunden`); continue; }
-  try {
-    const r = await (await import(`../routes/${datei}`))[name](deps);
-    if (!r) { ungebaut.push(`${name}: liefert keinen Router`); continue; }
-    v1.use(r);
-    for (const l of r.stack) {
-      if (!l.route || !l.route.methods.get) continue;
-      if (l.route.path.includes(":") || l.route.path.includes("*")) continue;
-      ziele.push({ datei, route: `GET ${l.route.path}` });
-    }
-  } catch (e) { ungebaut.push(`${name} (${datei}): ${e.message}`); }
-}
-app.use("/api/v1", v1);
-app.use((err, _q, res, _n) => res.status(err.status || 500).json({ fehler: String(err.message).slice(0, 40) }));
-
-/* ── Die Sitzung faehrt ───────────────────────────────────────────────────── */
-const durchgereicht = [];   // Route gab Daten der Traegerorg heraus
-const abgewiesen = new Map();
-for (const z of ziele) {
-  const pfad = z.route.slice(4);
-  try {
-    const res = await request(app).get("/api/v1" + pfad).timeout({ deadline: 5000 });
-    abgewiesen.set(pfad, res.status);
-    const rumpf = typeof res.text === "string" ? res.text : "";
-    if (res.status < 400 && rumpf.includes(WORT)) durchgereicht.push(z);
-  } catch { abgewiesen.set(pfad, 0); }
-}
-
+const { ungebaut, fabriken, ziele, gemessen, code } = await messe();
 const erlaubt = new Map(REGISTER.erlaubt.map((e) => [e.route, e]));
 
 describe("M2.5 · Eine Arbeitersitzung gegen die Plattform-API", () => {
@@ -168,37 +79,105 @@ describe("M2.5 · Eine Arbeitersitzung gegen die Plattform-API", () => {
       + `${MINDESTENS_ROUTEN}) — ein Waechter, der nichts prueft, sieht gruen aus.`);
   });
 
-  it("das Erkennungswort erreicht die Antwort ueberhaupt", () => {
+  it("BEIDE Erkennungswoerter erreichen die Antwort", () => {
     /* Ohne diese Probe waere ein kaputter Muster-Pool ununterscheidbar von einer
-       makellosen Plattform: NICHTS gefunden saehe aus wie NICHTS zu finden. */
-    assert.ok(durchgereicht.length > 0,
-      "keine einzige Route hat das Erkennungswort durchgereicht. Entweder ist der "
-      + "Muster-Pool kaputt oder die Antwort wird nicht mehr als Text gelesen — "
-      + "in beiden Faellen misst dieser Test nichts.");
+       makellosen Plattform: NICHTS gefunden saehe aus wie NICHTS zu finden.
+       Beide Woerter, weil die UNTERSCHEIDUNG der ganze Punkt ist — findet nur
+       eines den Weg, ist die Einstufung wieder blind. */
+    const org = [...gemessen.values()].filter((x) => x === "org").length;
+    const eigen = [...gemessen.values()].filter((x) => x === "eigen").length;
+    assert.ok(org > 0,
+      "keine einzige Route hat das ORG-Erkennungswort durchgereicht. Entweder ist "
+      + "der Muster-Pool kaputt oder die Antwort wird nicht mehr als Text gelesen.");
+    assert.ok(eigen > 0,
+      "keine einzige Route hat das EIGEN-Erkennungswort durchgereicht — dann "
+      + "unterscheidet der Pool nicht mehr nach Parametern, und jede Route saehe "
+      + "wieder wie ein Befund aus.");
   });
 
-  it("jede Route, die dem Arbeiter Daten der Traegerorg gibt, steht im Register", () => {
-    const unbekannt = durchgereicht.filter((d) => !erlaubt.has(d.route));
-    assert.deepStrictEqual(unbekannt.map((u) => `${u.route}  (${u.datei})`), [],
-      "Diese Routen reichen einer Arbeitersitzung Daten ihrer Zeitarbeitsfirma durch "
-      + "und stehen in keinem Register.\n\n"
+  it("jede erreichbare Route mit Mandantenbezug steht im Register", () => {
+    const unbekannt = [...gemessen.keys()].filter((r) => !erlaubt.has(r));
+    assert.deepStrictEqual(unbekannt, [],
+      "Diese Routen antworten einer Arbeitersitzung mit Daten und stehen in keinem "
+      + "Register.\n\n"
       + "Neu gebaute Route? Dann ist das hier die Frage, die vor dem Ausliefern zu "
       + "beantworten ist: darf ein Arbeiter das sehen?\n"
-      + "  - Es sind SEINE Daten          -> art 'eigenes' in test/fixtures/arbeiterSitzung.json\n"
-      + "  - Es ist ohnehin oeffentlich   -> art 'oeffentlich'\n"
-      + "  - Es gehoert der Firma         -> Guard einbauen, NICHT eintragen\n"
-      + "Eintragen ohne Urteil macht aus einer Luecke eine genehmigte Luecke.");
+      + "  - Es sind SEINE Daten   -> art 'eigenes'\n"
+      + "  - Es gehoert der Firma  -> Guard einbauen; nur wenn er ausbleibt, art 'befund'\n"
+      + "Eintragen ohne Urteil macht aus einer Luecke eine genehmigte Luecke.\n  "
+      + unbekannt.join("\n  "));
+  });
+
+  it("das Feld `gemessen` ist eine Tatsache — es muss stimmen", () => {
+    const falsch = [];
+    for (const [route, art] of gemessen) {
+      const e = erlaubt.get(route);
+      if (!e) continue;                       // deckt die Probe darueber ab
+      if (e.gemessen !== art) {
+        falsch.push(`${route}: Register sagt '${e.gemessen}', gemessen '${art}'`);
+      }
+    }
+    /*
+     * Und die andere Richtung, die zuerst gefehlt hat: ein Eintrag, dessen Route
+     * GAR NICHTS Mandantengebundenes mehr herausgibt.
+     *
+     * Gefunden am eigenen Werk. `GET /me` lieferte die Standortliste der Traegerorg
+     * (ueber getAllowedLocationsForMembership); nachdem die fuer Arbeiter leer
+     * bleibt, gibt die Route nichts Org-Gebundenes mehr heraus — und der Eintrag
+     * behauptete weiter `gemessen: "org"`. Die Schleife oben laeuft nur ueber
+     * GEMESSENE Routen und schaut an so einem Eintrag vorbei. Ein Register, das
+     * geschlossene Luecken weiter als offen fuehrt, ist genauso irrefuehrend wie
+     * eines, das offene verschweigt.
+     */
+    for (const e of REGISTER.erlaubt) {
+      if (!gemessen.has(e.route) && ziele.some((z) => z.route === e.route)) {
+        falsch.push(`${e.route}: Register sagt '${e.gemessen}', gemessen: NICHTS — `
+          + "die Route gibt keine mandantengebundenen Daten mehr heraus. Eintrag entfernen.");
+      }
+    }
+    assert.deepStrictEqual(falsch, [],
+      "Gemessen wird am PRAEDIKAT der Abfrage: steht die Org-Kennung in den "
+      + "Parametern, gehoert die Zeile der Traegerorg; steht nur die Nutzer-Kennung "
+      + "darin, dem Menschen. Das Register wird angepasst, nicht die Messung.\n  "
+      + falsch.join("\n  "));
+  });
+
+  it("wer der Messung widerspricht, begruendet es", () => {
+    /*
+     * Der einzige erlaubte Weg, eine org-geschluesselte Route als unbedenklich
+     * zu fuehren. Ohne Begruendung waere `art` wieder eine Meinung, die sich
+     * still von der Messung entfernt — genau der Fehler, den diese Fassung
+     * behebt.
+     */
+    const ohne = [];
+    for (const e of REGISTER.erlaubt) {
+      if (e.gemessen === "org" && e.art === "eigenes") {
+        const g = e.warum_unbedenklich;
+        if (typeof g !== "string" || g.length < 60) {
+          ohne.push(`${e.route}: fuehrt org-geschluesselte Daten als 'eigenes', ohne `
+            + "tragfaehige Begruendung (Feld warum_unbedenklich, mind. 60 Zeichen)");
+        }
+      }
+      if (e.gemessen === "eigen" && e.art === "befund") {
+        ohne.push(`${e.route}: als 'befund' gefuehrt, obwohl KEINE org-geschluesselten `
+          + "Daten herausgehen — ein Befund, den es nicht gibt, entwertet die Liste");
+      }
+      if (e.art === "befund" && (typeof e.was !== "string" || e.was.length < 20)) {
+        ohne.push(`${e.route}: ein Befund ohne Beschreibung ist keiner. Benennen, WAS herausgeht.`);
+      }
+    }
+    assert.deepStrictEqual(ohne, [], ohne.join("\n  "));
   });
 
   it("die geschlossenen Wege bleiben geschlossen", () => {
     const wiederOffen = [];
     for (const g of REGISTER.geschlossen) {
       const pfad = g.route.slice(4);
-      const code = abgewiesen.get(pfad);
-      if (code === undefined) {
+      const c = code.get(pfad);
+      if (c === undefined) {
         wiederOffen.push(`${g.route}: gibt es nicht mehr — Eintrag entfernen oder Route pruefen`);
-      } else if (code < 400) {
-        wiederOffen.push(`${g.route}: antwortet ${code} statt 4xx`);
+      } else if (c < 400) {
+        wiederOffen.push(`${g.route}: antwortet ${c} statt 4xx`);
       }
     }
     assert.deepStrictEqual(wiederOffen, [],
@@ -214,22 +193,14 @@ describe("M2.5 · Eine Arbeitersitzung gegen die Plattform-API", () => {
     }
   });
 
-  it("die Zahl der offenen Befunde faellt, sie steigt nie", () => {
-    const befunde = REGISTER.erlaubt.filter((e) => e.art === "befund");
-    const offen = befunde.filter((b) => durchgereicht.some((d) => d.route === b.route));
-    assert.ok(offen.length <= befunde.length,
-      "mehr offene Befunde als im Register — der Zaehler darf nur fallen.");
-    for (const b of befunde) {
-      assert.ok(typeof b.was === "string" && b.was.length >= 20,
-        `${b.route}: ein Befund ohne Beschreibung ist keiner. Benennen, WAS herausgeht.`);
-    }
-    /* Geschlossene Befunde gehoeren aus dem Register entfernt — sonst waechst eine
-       Liste mit, die nur noch behauptet, es gaebe ein Problem. */
-    const erledigt = befunde.filter((b) => !durchgereicht.some((d) => d.route === b.route));
-    assert.deepStrictEqual(erledigt.map((e) => e.route), [],
-      "Diese Befunde treffen nicht mehr zu — die Route gibt nichts mehr heraus. "
-      + "Eintrag nach 'geschlossen' verschieben (mit Grund) oder loeschen.\n  "
-      + erledigt.map((e) => e.route).join("\n  "));
+  it("erledigte Befunde bleiben nicht als Behauptung stehen", () => {
+    const erledigt = REGISTER.erlaubt
+      .filter((e) => e.art === "befund" && gemessen.get(e.route) !== "org")
+      .map((e) => e.route);
+    assert.deepStrictEqual(erledigt, [],
+      "Diese Befunde treffen nicht mehr zu — die Route gibt nichts Org-Gebundenes "
+      + "mehr heraus. Eintrag nach 'geschlossen' verschieben (mit Grund) oder auf "
+      + "'eigenes' setzen.\n  " + erledigt.join("\n  "));
   });
 
   it("das Register beschreibt die Wirklichkeit, nicht die Vergangenheit", () => {
@@ -240,23 +211,42 @@ describe("M2.5 · Eine Arbeitersitzung gegen die Plattform-API", () => {
       + "geprueft hat.\n  " + verwaist.map((v) => v.route).join("\n  "));
   });
 
-  it("Selbstprobe: eine neue undichte Route faellt auf", async () => {
-    /* Ohne diese Probe koennte die Erkennung leise aufhoeren zu greifen und alles
-       saehe weiter gruen aus. */
+  it("Selbstprobe: die Erkennung unterscheidet Firma, Mensch und keins von beidem", async () => {
+    /* Drei Faelle, weil die UNTERSCHEIDUNG der Punkt ist: eine Erkennung, die
+       alles als Befund meldet, ist genauso wertlos wie eine, die nichts meldet. */
+    const deps = baueDeps();
     const prueflauf = express();
     const r = express.Router();
-    r.get("/frisch/undicht", async (_q, res) => res.json((await deps.pool.query("SELECT * FROM listings")).rows));
+    const hol = async (sql, params) => (await deps.pool.query(sql, params)).rows;
+    r.get("/frisch/firma", async (_q, res) =>
+      res.json(await hol("SELECT * FROM listings WHERE org_id = $1", [OID])));
+    r.get("/frisch/ich", async (_q, res) =>
+      res.json(await hol("SELECT * FROM listings WHERE user_id = $1", [UID])));
+    r.get("/frisch/katalog", async (_q, res) =>
+      res.json(await hol("SELECT * FROM skills", [])));
     r.get("/frisch/dicht", (_q, res) => res.json({ ok: true }));
     prueflauf.use("/api/v1", r);
 
-    const undicht = await request(prueflauf).get("/api/v1/frisch/undicht");
-    const dicht = await request(prueflauf).get("/api/v1/frisch/dicht");
+    const hole = (p) => request(prueflauf).get("/api/v1/frisch/" + p);
+    const firma = await hole("firma");
+    const ich = await hole("ich");
+    const katalog = await hole("katalog");
+    const dicht = await hole("dicht");
 
-    assert.ok(undicht.status < 400 && undicht.text.includes(WORT),
-      "die undichte Probe-Route wurde nicht erkannt — die Erkennung greift nicht mehr");
-    assert.ok(!dicht.text.includes(WORT),
-      "die dichte Probe-Route wurde faelschlich als undicht erkannt");
-    assert.ok(!erlaubt.has("GET /frisch/undicht"),
+    assert.ok(firma.text.includes(WORT_ORG) && !firma.text.includes(WORT_ICH),
+      "eine org-gebundene Abfrage wird nicht als Firmendatum erkannt");
+    assert.ok(ich.text.includes(WORT_ICH) && !ich.text.includes(WORT_ORG),
+      "eine nutzergebundene Abfrage wird als Firmendatum gemeldet — genau der "
+      + "Fehler, den diese Fassung beheben soll");
+    assert.ok(katalog.text.includes(WORT_FREI)
+      && !katalog.text.includes(WORT_ORG) && !katalog.text.includes(WORT_ICH),
+      "eine Abfrage ohne Mandantenbezug wird einer Seite zugeschlagen");
+    for (const w of [WORT_ORG, WORT_ICH, WORT_FREI]) {
+      assert.ok(!dicht.text.includes(w),
+        "die dichte Probe-Route wurde faelschlich als undicht erkannt");
+    }
+    assert.ok(!erlaubt.has("GET /frisch/firma"),
       "eine unbekannte undichte Route darf nicht im Register stehen");
+    assert.ok(fs.existsSync(path.join(API, "app.js")), "API-Wurzel nicht aufloesbar");
   });
 });

@@ -440,6 +440,21 @@ export async function canAccessLocation(pool, membership, locationId) {
  */
 export async function getAllowedLocationsForMembership(pool, membership) {
   if (!membership) return [];
+  /*
+   * M2.7 — der Arbeiter bekommt keine Standortliste.
+   *
+   * Ohne `location_id` liefert diese Funktion ALLE aktiven Standorte der Org. Genau
+   * so legt `workerService.acceptInvite` den Arbeiter an: `INSERT INTO org_memberships
+   * (user_id, org_id, role_key, is_active)` — ohne Standortbindung. Ueber
+   * `GET /me` (routes/me.js) bekam er damit die vollstaendige Standortliste seiner
+   * Zeitarbeitsfirma; dieselben Daten, die `GET /org/locations` und
+   * `GET /me/active-location` in dieser Welle verweigern. Zwei Tueren zuzumachen
+   * und die dritte offen zu lassen, ist keine Trennwand.
+   *
+   * Er verliert dabei nichts: die Standortauswahl ist ein Verwaltungswerkzeug der
+   * Organisation. Sein Einsatzort steht am Einsatz, nicht in dieser Liste.
+   */
+  if (String(membership.role_key || "").trim().toLowerCase() === "worker") return [];
   if (membership.location_id) {
     const loc = await getLocation(pool, membership.location_id);
     return loc ? [loc] : [];

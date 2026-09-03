@@ -298,22 +298,48 @@ Messung wertlos.
 > `requireAuth` trägt und über `req.orgId` liest, gibt ihm Firmendaten. Kein Riegel auf der
 > E-Mail ändert daran etwas.
 >
-> **Der gemessene Umfang:** von 300 aufrufbaren GET-Routen reichen **82** einer
-> Arbeitersitzung Daten der Trägerorg durch — 25 davon zu Recht (seine eigenen), 9 sind
-> Katalog/Schaufenster, **45 sind Befunde**. Vollständig mit Begründung je Eintrag:
-> `api/test/fixtures/arbeiterSitzung.json`, erzwungen von `api/test/arbeiterSitzung.test.js`.
+> **Der gemessene Umfang** *(korrigiert am 2026-09-03 — die erste Zahl war zu hoch)*:
+> von 300 aufrufbaren GET-Routen antworten **64** einer Arbeitersitzung mit
+> mandantengebundenen Daten. Davon sind **48 seine eigenen** (Konto, Portal, Profil,
+> Benachrichtigungen — gelesen mit `WHERE user_id = $1`) und **16 org-geschlüsselt**.
+> Von diesen 16 sind **15 geschlossen**; **eine** ist begründet unbedenklich
+> (`/me/entitlements` — das Arbeiter-Portal braucht den Tarif der Firma, um zu
+> wissen, welche Funktionen es anbieten darf). **Offene Befunde: 0.**
 >
-> **Die beiden Wege stehen damit konkret zur Wahl:**
+> Vollständig mit Begründung je Eintrag: `api/test/fixtures/arbeiterSitzung.json`,
+> erzwungen von `api/test/arbeiterSitzung.test.js`. Dort ist `gemessen` eine Tatsache
+> und `art` ein Urteil, das ihr nur mit geschriebener Begründung widersprechen darf.
 >
-> 1. **45 Urteile, Route für Route** — jede Frage einzeln: braucht ein Arbeiter das?
->    (`/support-requests` womöglich schon, `/credits/balance` sicher nicht.) Ehrlich, aber
->    jede künftige Route stellt die Frage neu, und irgendwann beantwortet sie niemand.
+> **Die Entscheidung ist damit eine andere geworden — kleiner, aber nicht weniger nötig.**
+> Es geht nicht mehr um 45 offene Löcher, sondern um die **Bauart**:
+>
+> 1. **Route für Route, wie in M2.5 geschehen.** Funktioniert und ist heute erledigt —
+>    aber jede künftige Route stellt die Frage neu. Der Wächter zwingt zur Antwort;
+>    er kann sie nicht geben.
 > 2. **Ein Riegel auf `/api/v1` mit benannter Ausnahmeliste** — fail-closed: eine neue
 >    Route ist für Arbeiter zu, bis jemand sie einträgt. Das Register aus M2.5 **ist**
->    diese Liste, nur noch nicht scharf geschaltet. Entspricht dem Muster `/staff` und dem
->    Grundsatz „Missbrauchsschutz durch STRUKTUR“ aus `CLAUDE.md`.
+>    diese Liste, nur noch nicht scharf geschaltet. Entspricht dem Muster `/staff` und
+>    dem Grundsatz der strukturellen Absicherung aus `CLAUDE.md`.
 >
-> Empfehlung: **(2)**. (1) ist kein Ziel, sondern ein Zustand, den man nicht halten kann.
+> Empfehlung weiterhin **(2)**, und die Messung stützt sie jetzt besser als vorher: von
+> sechs in dieser Welle geschlossenen Befunden trugen **alle sechs** dieselbe Falle —
+> `mine`/`me` im Pfad, gemeint war die **Org**: `/subscription-requests/mine`,
+> `/subscription-documents/mine`, `/profile-bounties/me`, dazu `/org/departments`,
+> `/org/locations`, `/deal-feedback/pending`. Eine Namenskonvention, die sechsmal in
+> dieselbe Richtung täuscht, täuscht auch beim siebten Mal — und sie hat beim Einstufen
+> auch mich getäuscht. Genau davor schützt fail-closed und kein Urteil.
+
+> **Eine offene Frage, die diese Welle bewusst NICHT entschieden hat.** Vier Schreibwege
+> lassen einen Arbeiter **im Namen seiner Firma handeln**, ohne dass Daten abfließen:
+> `POST`/`DELETE /profile-visibility/:orgId/like` und `…/favorite` schreiben
+> `likerOrgId: req.orgId`. Ein Arbeiter, der ein fremdes Firmenprofil befürwortet oder
+> merkt, tut das damit als **seine Zeitarbeitsfirma** — und für eine Agentur ist eine
+> öffentliche Befürwortung eines Marktteilnehmers kommerziell nicht bedeutungslos.
+>
+> Das ist kein Leck, sondern eine **Produktfrage**: darf ein Arbeiter im Namen seines
+> Arbeitgebers auftreten? Sie gehört zu M2.6 und nicht in eine Welle, die Datenabflüsse
+> schließt. Der Riegel dafuer liegt bereit (`verweigereArbeiter`, eine Zeile je Route);
+> was fehlt, ist die Entscheidung.
 
 ---
 
