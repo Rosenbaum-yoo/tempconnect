@@ -13,16 +13,26 @@ eingetragen ist. Ein neues Modul zwingt damit zu einer bewussten Zuordnung statt
 
 ---
 
-## Unverrückbar: das Staff Control Center ist von der Plattform aus NICHT erreichbar
+## Unverrückbar: die internen Flächen sind von der Plattform aus NICHT erreichbar
 
 > **Owner-Vorgabe 2026-09-01, wörtlich:** *„staff darf doch nicht aus der plattform erreichbar
 > sein, keine kachel dafür. das ist nur für mich ein kontrollcentrum, kein kundenzugang.
 > niemals. festschreiben, niemals wieder aufwühlen, darf nie wieder passieren."*
 
 **Die Regel:** Aus der Kundenplattform — Unternehmen, Zeitarbeitsfirmen **und** dem
-Einsatzportal der Mitarbeiter — führt **kein** Weg ins Staff Control Center. Keine Hub-Karte,
-kein Menüpunkt, kein Link, keine Weiterleitung, **auch kein toter.** Das Staff Center ist das
-Kontrollzentrum des Betreibers, kein Kundenzugang. Wer dort hin will, kennt die Adresse.
+Einsatzportal der Mitarbeiter — führt **kein** Weg in eine der drei internen Flächen. Keine
+Hub-Karte, kein Menüpunkt, kein Link, keine Weiterleitung, **auch kein toter.** Sie sind
+Kontrollzentren des Betreibers, kein Kundenzugang. Wer dort hin will, kennt die Adresse.
+
+**Sie gilt für alle drei, nicht nur für das Staff Center.** Die Vorgabe des Owners galt dem
+Kundenzugang, nicht einem einzelnen Namen — und eine Regel, die nur für eine von drei
+gleichartigen Flächen gilt, ist eine Einladung, es bei der nächsten anders zu machen:
+
+| Fläche | Pfad | Stand 2026-09-01 |
+|---|---|---|
+| Staff Control Center | `/staff` | kein Weg von der Plattform |
+| Owner Control Center | `/owner-control` | kein Weg von der Plattform |
+| Support Center | `/support-ops` | kein Weg von der Plattform |
 
 **Das gilt in beide Richtungen der Verwechslung.** Eine Kachel *innerhalb* des Staff Centers
 (etwa der Betriebszustand der Takte) ist selbstverständlich erlaubt und oft nötig — sie ist
@@ -31,14 +41,15 @@ Genau diese beiden Sätze wurden am 2026-09-01 einmal verwechselt; deshalb stehe
 nebeneinander.
 
 **Erzwungen, nicht nur aufgeschrieben:** `api/test/staffNieAusDerPlattform.test.js`
-durchsucht **alle** Dateien unter `frontend/public/` und wird rot bei jedem Vorkommen von
-`/staff`, dem kein Wortzeichen folgt.
+durchsucht **alle** Dateien unter `frontend/public/` und wird rot, sobald einer der drei
+Pfade dort als **Ziel** auftaucht.
 
 | Was der Wächter prüft | Warum |
 |---|---|
-| Kein `/staff`-Ziel in der Plattform | Der sichtbare Weg |
+| Kein Ziel auf `/staff`, `/owner-control` oder `/support-ops` in der Plattform | Der sichtbare Weg — je eine eigene Probe, damit die Fehlermeldung die Fläche benennt |
 | `/staff` hat eine **eigene Sitzung mit eigenem Cookie** (`tc.staff.sid`, `api/app.js`) | Das Tragende. Teilte sich das Staff Center das Plattform-Cookie, wäre jede angemeldete Kundensitzung eine halbe Staff-Sitzung — und es bräuchte gar keinen Link |
-| Selbstprobe **und** Gegenprobe | `/staff` ist Teilzeichenkette von `/staffing-assignments`, `/staffing-requests`, `/staffing-choice-sets` — die stehen dutzendfach in der Plattform und sind völlig in Ordnung. Ein Wächter, der sie anklagt, wird abgeschaltet; einer, der zu grob sucht, meldet 18 Fehlalarme und keinen echten Fund |
+| Selbstprobe **und zwei** Gegenproben | `/staff` ist Teilzeichenkette von `/staffing-assignments`, `/staffing-requests`, `/staffing-choice-sets` — die stehen dutzendfach in der Plattform und sind völlig in Ordnung. Ein Wächter, der sie anklagt, wird abgeschaltet; einer, der zu grob sucht, meldet 18 Fehlalarme und keinen echten Fund |
+| **Ein Weg, keine Erwähnung** | Der Pfad zählt nur als Wert eines Ziels (`href=`, `src=`, `action=`, oder in Anführungszeichen). Prosa ist kein Weg. Der erste Entwurf ließ jedes `=` gelten — und klagte prompt `?return=/owner-control/` an, also **eine Abfragezeichenfolge in einem Kommentar, der die Gegenrichtung beschreibt**: die Fläche schickt zur Anmeldung und zurück. Die Gegenprobe hat das gefangen, bevor es Regel wurde |
 
 **Die einzige Ausnahme** ist die Staff-Anwendung selbst: sie wird nach `frontend/public/staff/`
 gebaut und lädt von dort ihr eigenes Bündel. Sie liegt damit im **selben** Dokumentenwurzel-
@@ -46,9 +57,10 @@ verzeichnis wie die Plattform — getrennt sind die beiden Welten also nicht dur
 sondern durch Sitzung und Zugangsprüfung. *Wer die Ablage für die Trennung hält, sichert das
 Falsche.*
 
-**Stand 2026-09-01, gemessen:** null Wege von der Plattform ins Staff Center. Nachgewiesen
-durch Rückmutation — eine eingebaute Hub-Karte lässt den Wächter mit Nennung von Datei und
-Zeile rot werden.
+**Stand 2026-09-01, gemessen:** null Wege von der Plattform in eine der drei Flächen.
+Nachgewiesen durch Rückmutation an einer echten Plattformseite — je eine eingebaute
+Hub-Karte für `/staff`, `/owner-control` und `/support-ops` (auch in unquotierter Form)
+lässt den Wächter mit Nennung von Datei und Zeile rot werden; ohne sie ist er grün.
 
 ---
 

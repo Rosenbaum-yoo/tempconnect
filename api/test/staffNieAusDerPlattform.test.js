@@ -76,12 +76,50 @@ const ROOT = findeWurzel(PLATTFORM_REL);
 const suite = ROOT ? describe : describe.skip;
 
 /**
- * `/staff`, aber NICHT `/staffing-...`.
- *
- * Der negative Lookahead ist der ganze Wert dieses Ausdrucks: ohne ihn traefe
- * er jede Besetzungs-Route der Plattform und waere unbrauchbar.
+ * Die drei internen Flaechen. Fuer alle gilt dieselbe Regel — die Vorgabe des
+ * Owners gilt dem Kundenzugang, nicht einem einzelnen Namen.
  */
-const STAFF_WEG = /\/staff(?![A-Za-z0-9_-])/;
+const FLAECHEN = [
+  { pfad: "staff",         name: "Staff Control Center" },
+  { pfad: "owner-control", name: "Owner Control Center" },
+  { pfad: "support-ops",   name: "Support Center" }
+];
+
+/**
+ * Ein WEG in eine interne Flaeche — und ausdruecklich keine Erwaehnung.
+ *
+ * ZWEI PRAEZISIONEN, und beide sind der ganze Wert dieses Ausdrucks:
+ *
+ * 1. NEGATIVER LOOKAHEAD. `/staff` steckt in `/staffing-assignments`,
+ *    `/staffing-requests`, `/staffing-choice-sets` — die stehen dutzendfach in
+ *    der Plattform und sind voellig in Ordnung. Ohne den Lookahead meldet der
+ *    Waechter 18 Fehlalarme und keinen echten Fund; er waere nach einer Woche
+ *    abgeschaltet.
+ *
+ * 2. LOOKBEHIND AUF ANFUEHRUNGSZEICHEN ODER EIN ZIEL-ATTRIBUT. Erreichbarkeit
+ *    heisst: der Pfad steht als WERT eines Ziels — `href="/staff/"`,
+ *    `location.href = '/owner-control/'`. Steht er im Fliesstext, ist er Prosa.
+ *
+ *    Der erste Entwurf liess hier JEDES `=` gelten, um auch unquotierte
+ *    HTML-Attribute (`<a href=/staff/>`) zu fangen. Die Gegenprobe hat das
+ *    sofort widerlegt: `?return=/owner-control/` ist eine ABFRAGEZEICHENFOLGE,
+ *    kein Linkziel — der Waechter klagte den Kommentar an, der die
+ *    Gegenrichtung beschreibt. Deshalb stehen jetzt nur die drei Attribute da,
+ *    die wirklich ein Ziel benennen.
+ *    Gemessen am 2026-09-01: `js/pages/landing.js` erwaehnt `/owner-control/`
+ *    zweimal in Kommentaren ueber das Ruecksprungziel nach der Anmeldung
+ *    (`?return=`, gegen offene Umleitung geprueft mit `/^\/(?![/\\])/`). Das ist
+ *    kein Weg von der Plattform, sondern die Gegenrichtung — die Flaeche schickt
+ *    zur Anmeldung und zurueck. Ein Waechter, der das anklagt, zwingt zu einer
+ *    Ausnahmeliste, und eine Ausnahmeliste verwaesert die Regel.
+ *
+ * Umgekehrt gilt: eine externe Adresse wie `"https://fremd.de/staff/"` faellt
+ * durch, weil dem Pfad dort ein Buchstabe vorausgeht — richtig so, sie fuehrt
+ * nicht in unsere Flaeche.
+ */
+function wegNach(pfad) {
+  return new RegExp('(?<=["\'`]|href=|src=|action=)\\/' + pfad + '(?![A-Za-z0-9_-])');
+}
 
 /**
  * Die EINZIGE erlaubte Ausnahme: die Staff-Anwendung selbst.
@@ -98,7 +136,9 @@ const STAFF_WEG = /\/staff(?![A-Za-z0-9_-])/;
  * zweite Probe unten. Wer die Ablage fuer die Trennung haelt, sichert das
  * Falsche.
  */
-const STAFF_ANWENDUNG = path.join("frontend", "public", "staff");
+const EIGENE_ANWENDUNGEN = FLAECHEN
+  .map((f) => path.join("frontend", "public", f.pfad))
+  .filter((rel) => fs.existsSync(path.join(ROOT || ".", rel)));
 
 /** Alle Dateien der Kundenplattform, in denen ein Weg stehen koennte. */
 function plattformDateien() {
@@ -110,7 +150,7 @@ function plattformDateien() {
       const p = path.join(dir, eintrag.name);
       if (eintrag.isDirectory()) {
         if (auslassen.has(eintrag.name)) continue;
-        if (path.relative(ROOT, p) === STAFF_ANWENDUNG) continue;
+        if (EIGENE_ANWENDUNGEN.includes(path.relative(ROOT, p))) continue;
         lauf(p);
       } else if (/\.(html|js)$/.test(eintrag.name)) {
         treffer.push(p);
@@ -122,31 +162,33 @@ function plattformDateien() {
 
 suite("Das Staff Control Center ist von der Plattform aus nicht erreichbar", () => {
 
-  it("kein Weg von der Kundenplattform nach /staff", () => {
-    const dateien = plattformDateien();
-
+  it("die Suche liest die Plattform wirklich", () => {
     /* Ein Pruefer, der nichts liest, ist still gruen. Diese Zusicherung ist
      * nicht Deko: faellt die Verzeichnissuche um, faellt der Waechter mit. */
+    const dateien = plattformDateien();
     assert.ok(dateien.length > 50,
       `nur ${dateien.length} Plattformdateien gefunden — die Suche greift nicht mehr`);
-
-    const funde = [];
-    for (const datei of dateien) {
-      const zeilen = fs.readFileSync(datei, "utf8").split("\n");
-      zeilen.forEach((zeile, i) => {
-        if (STAFF_WEG.test(zeile)) {
-          funde.push(`${path.relative(ROOT, datei)}:${i + 1}  ${zeile.trim().slice(0, 120)}`);
-        }
-      });
-    }
-
-    assert.deepEqual(funde, [],
-      "Die Kundenplattform darf keinen Weg ins Staff Control Center anbieten — "
-      + "keine Kachel, keinen Link, keine Weiterleitung, auch keinen toten. "
-      + "Das Staff Center ist das Kontrollzentrum des Betreibers, kein Kundenzugang "
-      + "(Owner-Vorgabe 2026-09-01, docs/FLAECHEN.md).\n  "
-      + funde.join("\n  "));
   });
+
+  for (const flaeche of FLAECHEN) {
+    it(`kein Weg von der Kundenplattform nach /${flaeche.pfad}`, () => {
+      const muster = wegNach(flaeche.pfad);
+      const funde = [];
+      for (const datei of plattformDateien()) {
+        fs.readFileSync(datei, "utf8").split("\n").forEach((zeile, i) => {
+          if (muster.test(zeile)) {
+            funde.push(`${path.relative(ROOT, datei)}:${i + 1}  ${zeile.trim().slice(0, 120)}`);
+          }
+        });
+      }
+      assert.deepEqual(funde, [],
+        `Die Kundenplattform darf keinen Weg in das ${flaeche.name} anbieten — `
+        + "keine Kachel, keinen Link, keine Weiterleitung, auch keinen toten. "
+        + "Die internen Flaechen sind Kontrollzentren des Betreibers, kein Kundenzugang "
+        + "(Owner-Vorgabe 2026-09-01, docs/FLAECHEN.md).\n  "
+        + funde.join("\n  "));
+    });
+  }
 
   it("die Staff-Sitzung ist eine eigene Welt — eigener Pfad, eigenes Cookie", () => {
     /* Der Link ist das Sichtbare. Die Sitzung ist das Tragende: teilte sich das
@@ -159,27 +201,46 @@ suite("Das Staff Control Center ist von der Plattform aus nicht erreichbar", () 
       "das eigene Staff-Cookie ist weg");
   });
 
-  it("S: der Waechter erkennt einen echten Staff-Weg", () => {
+  it("S: der Waechter erkennt einen echten Weg in jede der drei Flaechen", () => {
     /* Selbstprobe. Genau die Kachel, vor der die Owner-Vorgabe warnt. */
-    for (const zeile of [
-      '<a href="/staff/" class="hub-card">Staff Control Center</a>',
-      "window.location.href = '/staff';",
-      '<a href="/staff/dashboard">Betrieb</a>'
+    for (const [pfad, zeile] of [
+      ["staff",         '<a href="/staff/" class="hub-card">Staff Control Center</a>'],
+      ["staff",         "window.location.href = '/staff';"],
+      ["staff",         "<a href=/staff/>Betrieb</a>"],
+      ["owner-control", "location.assign('/owner-control/')"],
+      ["support-ops",   '<a href="/support-ops/tickets">Support</a>']
     ]) {
-      assert.ok(STAFF_WEG.test(zeile), `haette anschlagen muessen: ${zeile}`);
+      assert.ok(wegNach(pfad).test(zeile), `haette anschlagen muessen: ${zeile}`);
     }
   });
 
   it("S: der Waechter verwechselt Besetzung nicht mit Staff", () => {
-    /* Gegenprobe. Diese Aufrufe stehen dutzendfach in der Plattform und sind
-     * voellig in Ordnung — ein Waechter, der sie anklagt, wird abgeschaltet. */
+    /* Gegenprobe eins. Diese Aufrufe stehen dutzendfach in der Plattform und
+     * sind voellig in Ordnung — ein Waechter, der sie anklagt, wird
+     * abgeschaltet. */
     for (const zeile of [
       "PortalApi.get('/worker/staffing-requests')",
       "fetch(`${API}/staffing-assignments/${id}/suggestions`)",
       "await fetch(API + '/marketplace/offers/' + id + '/staffing-context')",
       "api('/staffing-choice-sets')"
     ]) {
-      assert.ok(!STAFF_WEG.test(zeile), `haette schweigen muessen: ${zeile}`);
+      assert.ok(!wegNach("staff").test(zeile), `haette schweigen muessen: ${zeile}`);
+    }
+  });
+
+  it("S: der Waechter haelt Prosa nicht fuer einen Weg", () => {
+    /* Gegenprobe zwei — der Fall, der ihn beinahe zu einer Ausnahmeliste
+     * gezwungen haette. Beide Zeilen stehen so in `js/pages/landing.js` und
+     * beschreiben die GEGENRICHTUNG: die Flaeche schickt zur Anmeldung und
+     * zurueck. Eine externe Adresse faellt aus demselben Grund durch. */
+    for (const zeile of [
+      "var _returnUrl   = null;   // open-redirect-sicheres Ziel nach Login (?return=, z.B. /owner-control/)",
+      "  // Open-redirect-sicheres Rueck-Ziel nach Login (z.B. aus dem OCC: ?return=/owner-control/).",
+      'fetch("https://fremd.example/staff/")'
+    ]) {
+      for (const f of FLAECHEN) {
+        assert.ok(!wegNach(f.pfad).test(zeile), `haette schweigen muessen: ${zeile}`);
+      }
     }
   });
 });
