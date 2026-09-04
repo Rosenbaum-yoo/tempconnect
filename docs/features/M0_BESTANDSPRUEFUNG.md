@@ -440,6 +440,50 @@ nachgemessen, nicht aus der Übergabe abgeschrieben.
 | **F16** | E-Mail-Identität plattformweit case-unempfindlich? | **Gebaut (M2.2).** Migration `215_email_ohne_schreibweise.sql` legt `UNIQUE (LOWER(email))` an, mit vorgeschaltetem `RAISE EXCEPTION`, das bestehende Doppel benennt. `LOWER(email)` in `authService`, `ssoService`, `scimService`. |
 | **F29** | Crontab aus `SCHEDULER.md:55` einrichten? | **Überholt in der Form, offen in der Sache** — siehe unten. Der Mechanismus ist entschieden und fünfmal gebaut: `upsertJobScheduler` in `workers/index.js`, kein Host-Crontab. |
 
+### F9 — die Sorge löst sich in Arithmetik auf
+
+Die Frage: Stapel-Identität (neue Spalte/Tabelle) oder genügt die Liste im Rumpf?
+Mit der Sorge: *„der billigere Weg hält bei 1000 Zeilen möglicherweise nicht."*
+
+Nachgemessen hält er mit großem Abstand:
+
+| | Wert | Fundstelle |
+|---|---|---|
+| Obergrenze des Imports | **1000 Zeilen** | `importEnvelopeSchema`, `routes/workers.js:504` |
+| Grenze für den Anfragekörper | **1 MB** | `express.json({ limit: "1mb" })`, `app.js:226` |
+| 1000 UUIDs in JSON | ~39 KB | 36 Zeichen + zwei Anführungszeichen + Komma |
+
+**Rund vier Prozent der Grenze.** Und der Weg ist bereits gewählt: **M3.2** im
+Marktplatz-Plan sagt *„`created`-IDs im Rumpf statt org-weit"*. F9 fragt damit nach einer
+Entscheidung, die getroffen ist, mit einer Sorge, die die Zahlen nicht tragen. Es braucht
+weder Spalte noch Tabelle.
+
+### F8 — die Praxis, nach der gefragt wird, gibt es bereits
+
+Die Frage: soll der Import einen `org_type`-Riegel bekommen, oder ist es gewollt, dass
+eine **Unternehmens-Org mit eigenem Stammpersonal** denselben Weg nutzt?
+
+Gemessen an der laufenden Datenbank:
+
+| Org-Typ des Traegers | Mitarbeiterprofile | Orgs |
+|---|---|---|
+| `agency` | 31 | 11 |
+| **`company`** | **2** | **1** |
+
+**Es gibt sie schon** — eine Unternehmens-Org führt zwei eigene Mitarbeiter. Ein Riegel
+wäre also keine Härtung, sondern eine Rücknahme: er bräche einen bestehenden Fall und
+bräuchte einen Weg für diese eine Org. Das kippt die Frage nicht, aber es benennt ihren
+Preis.
+
+Zur zweiten Hälfte (*„dann fehlt auch der Eintrag für `mitarbeiter.html` in
+`visibilityMatrix.js`"*): die Matrix führt **14** Seiten und ist ausdrücklich ein
+kuratierter Satz für die Drift-Erkennung, kein Vollanspruch über alle 30+ Seiten. Der
+fehlende Eintrag ist also erst dann eine Lücke, wenn die Antwort auf die erste Hälfte
+„ja, Riegel" lautet — vorher nicht.
+
+**Bleibt eine echte Produktfrage**, jetzt mit Preis: wer stellt eigenes Stammpersonal ein
+und darf es über diesen Weg erfassen?
+
 ### F4 — die Abo-Wirksamkeit braucht keine Regel, sondern einen Takt
 
 Die Frage bat um eine **Owner-Regel**, welche Marktplatz-Routen lesend offen bleiben und
