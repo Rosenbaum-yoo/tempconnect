@@ -120,6 +120,7 @@ import { createScimRouter } from "./routes/scim.js";
 import { correlationMiddleware } from "./utils/logger.js";
 import { metricsMiddleware, metricsEndpoint, registerDbPoolMetrics, wrapPoolWithMetrics } from "./utils/metrics.js";
 import { orgContextMiddleware } from "./middleware/orgContext.js";
+import { arbeiterRiegel } from "./middleware/arbeiterRiegel.js";
 import { auditWriteMiddleware } from "./middleware/auditWrite.js";
 import { demoGuard } from "./middleware/demoGuard.js";
 
@@ -443,6 +444,25 @@ export async function createApp() {
   // Register DB pool gauges + query instrumentation for Prometheus
   registerDbPoolMetrics(pool);
   wrapPoolWithMetrics(pool);
+
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * M2.6 — DER ARBEITERRIEGEL STEHT VOR ALLEM ANDEREN
+   * ═══════════════════════════════════════════════════════════════════════
+   * Owner-Entscheid 2026-09-03: fail-closed. Eine Arbeitersitzung erreicht nur
+   * die Wege aus `config/arbeiterRiegel.js`; jede neue Route ist fuer sie zu,
+   * bis jemand sie eintraegt.
+   *
+   * DIE ZEILE MUSS DIE ERSTE BLEIBEN. Jeder Router darunter ist damit gedeckt —
+   * auch die, die es morgen gibt. Rutscht sie nach unten, sind genau die Router
+   * darueber ungeschuetzt, und zwar lautlos: sie funktionieren ja weiter.
+   * `arbeiterRiegel.test.js` haelt die Position fest.
+   *
+   * Und sie haengt am ROUTER, nicht am Mount: `v1` ist zweimal montiert
+   * (`/api/v1` und `/api`). Am Mount haette man den Riegel mit dem Weglassen
+   * von "/v1" umgangen.
+   */
+  v1.use(arbeiterRiegel({ logger }));
 
   v1.use(createCsrfRouter(deps));
   v1.use(createOAuthRouter(deps));

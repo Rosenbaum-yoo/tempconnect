@@ -960,6 +960,55 @@ aufgefallen wären:
 > schließt. Der Riegel dafuer liegt bereit (`verweigereArbeiter`, eine Zeile je Route);
 > was fehlt, ist die Entscheidung.
 
+### M2.6 ist gebaut *(2026-09-04)* — der Fehlerfall ist jetzt umgekehrt
+
+Owner-Entscheid vom 2026-09-03: **ein Riegel auf dem v1-Router, fail-closed.** Eine
+Arbeitersitzung erreicht nur noch, was in `api/config/arbeiterRiegel.js` steht.
+
+**Was sich dadurch ändert, ist nicht der Umfang, sondern die Richtung des Vergessens.**
+Bisher war eine neue Route für Arbeiter **offen**, bis jemand sie schloss — und Vergessen
+hieß: Firmendaten an einen Menschen, der sie nicht sehen sollte, **still**, denn über zu
+viele Daten beschwert sich niemand. Ab jetzt heißt Vergessen: eine Portalfunktion
+antwortet 403. Das fällt beim ersten Klick auf.
+
+**Drei Funde beim Bauen, und der erste ändert die Bauart.**
+
+1. **Das M2.5-Register kann die Ausnahmeliste nicht allein sein.** Der Entscheid sagt
+   „das Register ist diese Liste". Sein eigener Kopf sagt aber, dass **nur Routen
+   gemessen wurden, die Mandantendaten zurückgaben** — alles ohne Mandantenbezug fehlt
+   darin: `GET /csrf`, `GET /skills/catalog`, `GET /auth/sessions`,
+   `GET /notifications/stream`. Genau die ruft das Einsatzportal. Wäre das Register
+   allein die Liste gewesen, hätte der Riegel am ersten Tag das Portal ausgesperrt.
+   Deshalb jetzt **zwei Verzeichnisse, die einander prüfen**: die Messung
+   (`arbeiterSitzung.json`, Tatsache) und die Erlaubnis (`config/arbeiterRiegel.js`,
+   Entscheidung). Jeder `erlaubt`-Eintrag der Messung muss durchkommen, jeder
+   `geschlossen`-Eintrag muss scheitern — beides als Probe.
+
+2. **Der v1-Router hängt an ZWEI Adressen.** `app.use("/api/v1", v1)` **und**
+   `app.use("/api", v1)`; die bestehende Oberfläche benutzt die kurze. Ein Riegel am
+   Mount `/api/v1` wäre vollständig zu umgehen gewesen, indem man `/v1` weglässt — und
+   zwar unauffällig, denn beide Wege hätten funktioniert. Er hängt deshalb am **Router**,
+   als dessen erste Schicht. Ein echter Express-Server in der Probe fährt beide Adressen
+   und belegt es, statt es aus dem Quelltext zu schließen.
+
+3. **`me` im Pfad heißt wieder nicht „mir".** `POST /me/plan` kauft der **Organisation**
+   einen Tarif, `POST /me/active-org` wechselt den Mandanten, `/me/active-location` ist
+   ein Org-Begriff. Alle drei stehen in `GESPERRT_MIT_ABSICHT` — dokumentarisch, denn
+   fail-closed sperrt sie ohnehin; eine Probe hält fest, dass sie nie auf die Liste
+   rutschen. Dieselbe Falle wie die sechs aus M2.5, und genau der Grund für den Entscheid.
+
+**Was der Riegel bewusst NICHT tut:** enger ziehen als der Entscheid. 41 der 49
+gemessenen Wege liegen außerhalb des Portal-Namensraums (`/marketplace/my-offers`,
+`/credits/balance`, `/company-profile` …) und werden vom Portal gar nicht gerufen — enger
+wäre möglich. Sie stehen trotzdem drauf: sie wegzunehmen wäre eine Verhaltensänderung an
+etwas, das heute nachweislich funktioniert, und damit eine eigene Entscheidung. Wer
+später enger ziehen will, streicht sie und sieht sofort im Test, was das kostet.
+
+*Verifikation: 23 Proben in `arbeiterRiegel.test.js` (davon 3 durch echtes Express über
+beide Adressen), **neun Rückmutationen** — Präfix `/worker/`→`/worker`, Abfrageteil,
+Schlussschrägstrich, Methodenprüfung, Parameterbreite, `||`→`&&`, Riegel öffnen, Riegel
+auf Nicht-Arbeiter ausweiten, Riegel unter den ersten Router schieben — jede gefangen.*
+
 ### M1.9 ist gebaut *(2026-09-04)* — fünf Automatismen hatten keinen Auslöser
 
 Der Owner-Entscheid: **alle fünf verbliebenen Takte werden eingeplant.** Gemessen am
@@ -2633,10 +2682,12 @@ gemacht.
   *Begründung des Owners folgt der Messung: neun geschlossene Befunde trugen ALLE dieselbe
   Namensfalle — `mine`/`me` im Pfad meinte die Org. Eine Konvention, die neunmal in
   dieselbe Richtung täuscht, täuscht auch beim zehnten Mal.*
-  **Noch zu bauen.** Umfang: Riegel als Middleware vor `v1`, Register als Datei gelesen,
-  Wächter, der eine neue erreichbare Route rot färbt. Der Fehlerfall ist bewusst der
-  umgekehrte von heute: eine vergessene Route **blockiert** statt zu lecken — das fällt
-  sofort auf, statt still zu bleiben.
+  **✅ GEBAUT am 2026-09-04** — siehe Abschnitt „M2.6 ist gebaut". Der Fehlerfall ist
+  jetzt der umgekehrte von vorher: eine vergessene Route **blockiert** statt zu lecken.
+  Beim Bauen kam heraus, dass das M2.5-Register die Ausnahmeliste **nicht allein** sein
+  kann — es enthält nur Routen, die Mandantendaten zurückgaben, und das Portal ruft auch
+  mandantenfreie (`/csrf`, `/skills/catalog`). Jetzt zwei Verzeichnisse, die einander
+  prüfen.
 
 - **✅ ENTSCHIEDEN: der Arbeiter tritt NICHT im Namen seiner Firma auf.**
   `POST`/`DELETE /profile-visibility/:orgId/like` und `…/favorite` schreiben

@@ -324,6 +324,29 @@ Messung wertlos.
 > **✅ OWNER-ENTSCHEID 2026-09-03: Weg (2)** — ein Riegel auf `/api/v1` mit der
 > benannten Ausnahmeliste, fail-closed. Das Register aus M2.5 ist diese Liste.
 >
+> **✅ GEBAUT am 2026-09-04.** `api/middleware/arbeiterRiegel.js` als erste Schicht des
+> v1-Routers, Wegliste in `api/config/arbeiterRiegel.js`, 23 Proben und neun
+> Rückmutationen in `api/test/arbeiterRiegel.test.js`.
+>
+> **Zwei Dinge sind beim Bauen anders gekommen als im Entscheid formuliert, und beide
+> gehören benannt:**
+>
+> 1. **Das Register kann die Liste nicht ALLEIN sein.** Sein eigener Kopf sagt, dass nur
+>    Routen gemessen wurden, die **Mandantendaten** zurückgaben. Alles ohne
+>    Mandantenbezug fehlt darin — `GET /csrf`, `GET /skills/catalog`,
+>    `GET /auth/sessions`, `GET /notifications/stream`. Genau die ruft das Einsatzportal.
+>    Das Register allein als Ausnahmeliste hätte das Portal am ersten Tag ausgesperrt.
+>    Jetzt zwei Verzeichnisse, die einander prüfen: die **Messung**
+>    (`test/fixtures/arbeiterSitzung.json`) und die **Erlaubnis**
+>    (`config/arbeiterRiegel.js`). Jeder `erlaubt`-Eintrag muss durchkommen, jeder
+>    `geschlossen`-Eintrag muss scheitern.
+>
+> 2. **Nicht auf `/api/v1`, sondern auf dem ROUTER.** Der v1-Router ist zweimal montiert
+>    (`app.use("/api/v1", v1)` und `app.use("/api", v1)`), und die bestehende Oberfläche
+>    benutzt die kurze Adresse. Ein Riegel auf dem Mount `/api/v1` — so wie der Entscheid
+>    ihn wörtlich beschreibt — wäre durch Weglassen von `/v1` vollständig zu umgehen
+>    gewesen, unauffällig, weil beide Wege funktioniert hätten.
+>
 > Die Messung stützt den Entscheid: von
 > sechs in dieser Welle geschlossenen Befunden trugen **alle sechs** dieselbe Falle —
 > `mine`/`me` im Pfad, gemeint war die **Org**: `/subscription-requests/mine`,

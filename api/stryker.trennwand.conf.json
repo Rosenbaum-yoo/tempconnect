@@ -8,7 +8,7 @@
     "middleware/apiKeyAuth.js"
   ],
   "commandRunner": {
-    "command": "node --test --test-force-exit test/orgAccess.test.js test/verweigereArbeiter.test.js test/apiKeyAuth.test.js test/m2mAuth.test.js test/security/apiKeyScopes.test.js test/assignments.scope.test.js test/capacity.scope.test.js test/timesheets.scope.test.js test/workers.scope.test.js test/requisitions.scope.test.js test/scim.test.js test/orgAccessMutanten.test.js test/apiKeyAuthMutanten.test.js"
+    "command": "node --test --test-force-exit test/orgAccess.test.js test/verweigereArbeiter.test.js test/apiKeyAuth.test.js test/m2mAuth.test.js test/security/apiKeyScopes.test.js test/assignments.scope.test.js test/capacity.scope.test.js test/timesheets.scope.test.js test/workers.scope.test.js test/requisitions.scope.test.js test/scim.test.js test/orgAccessMutanten.test.js test/apiKeyAuthMutanten.test.js test/arbeiterRiegel.test.js"
   },
   "reporters": [
     "clear-text",

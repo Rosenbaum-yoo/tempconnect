@@ -104,6 +104,29 @@ export function requireOrgNotSuspended(deps, options = {}) {
 }
 
 /**
+ * IST DAS EINE ARBEITERSITZUNG? — EINE Wahrheit fuer beide Riegel.
+ *
+ * `verweigereArbeiter` (einzelne Wege) und `arbeiterRiegel` (der ganze
+ * v1-Router, M2.6) muessen sich EXAKT gleich entscheiden. Zwei Kopien dieser
+ * drei Zeilen waeren ein Riegel, der an einer Stelle greift und an der anderen
+ * nicht — und man saehe es nicht, weil beide fuer sich richtig aussehen.
+ *
+ * Gelesen werden ZWEI Quellen, und beide zaehlen:
+ *   `orgMembership.role_key` / `orgRole`  die Rolle IN DER ORG. Der Normalfall:
+ *       `acceptInvite` setzt `role_key='worker'` auf die Org der Zeitarbeitsfirma.
+ *   `session.userRole`                    die Rolle des KONTOS. Sie greift auch
+ *       dort, wo noch keine Mitgliedschaft aufgeloest ist.
+ *
+ * Ein `||` und kein `&&`: wer nach EINER der beiden Quellen Arbeiter ist, ist
+ * Arbeiter. Die andere Richtung waere ein Riegel, den ein fehlendes Feld oeffnet.
+ */
+export function arbeiterSitzung(req) {
+  const rolle = String(req?.orgMembership?.role_key || req?.orgRole || "").trim().toLowerCase();
+  const sitzungsRolle = String(req?.session?.userRole || "").trim().toLowerCase();
+  return { rolle, sitzungsRolle, istArbeiter: rolle === "worker" || sitzungsRolle === "worker" };
+}
+
+/**
  * Verweigert eine Sitzung, die als ARBEITER in der Org sitzt.
  *
  * Ein Arbeiter entsteht in `workerService.acceptInvite` als Mitglied in der Org
@@ -132,9 +155,8 @@ export function verweigereArbeiter(deps = {}, options = {}) {
     || "Dieser Bereich gehoert zur Verwaltung der Organisation und steht Arbeitskraeften nicht offen.";
 
   return function verweigereArbeiterMiddleware(req, res, next) {
-    const rolle = String(req.orgMembership?.role_key || req.orgRole || "").trim().toLowerCase();
-    const sitzungsRolle = String(req.session?.userRole || "").trim().toLowerCase();
-    if (rolle === "worker" || sitzungsRolle === "worker") {
+    const { rolle, sitzungsRolle, istArbeiter } = arbeiterSitzung(req);
+    if (istArbeiter) {
       logger?.warn?.(
         { orgId: req.orgId || null, userId: req.session?.userId || null, rolle, sitzungsRolle },
         "Worker guard denied access"
