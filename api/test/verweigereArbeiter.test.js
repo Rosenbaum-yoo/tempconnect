@@ -245,3 +245,41 @@ describe("verweigereArbeiter", () => {
     }
   });
 });
+
+describe("verweigereArbeiter · der Riegel braucht kein Protokoll, um zu greifen", () => {
+  /*
+   * Aus der Mutationspruefung: `logger?.warn?.(` liess sich zu `logger.warn(`
+   * machen, ohne dass etwas rot wurde — jede Vorrichtung reichte ein
+   * Protokoll-Objekt herein.
+   *
+   * Der Riegel haengt vor Schreibwegen. Wird er je ohne `logger` gebaut — in
+   * einem Test, einem Skript, einer neuen Einbaustelle —, waere der Wurf ein
+   * 500 statt einer Sperre. Ein Riegel, der am Beobachter scheitert, ist keiner:
+   * die Sperre ist die Aufgabe, das Protokoll die Begleitung.
+   */
+  it("ohne logger sperrt er trotzdem, statt zu werfen", () => {
+    const res = { _status: 200, _json: null,
+      status(c) { this._status = c; return this; },
+      json(b) { this._json = b; return this; } };
+    let weiter = false;
+
+    assert.doesNotThrow(() => {
+      verweigereArbeiter({})(
+        { orgMembership: { role_key: "worker" } }, res, () => { weiter = true; });
+    }, "der Riegel wirft, wenn kein Protokoll-Objekt da ist");
+
+    assert.equal(weiter, false, "der Arbeiter kam durch");
+    assert.equal(res._status, 403);
+  });
+
+  it("ein logger OHNE warn-Funktion bringt ihn ebenfalls nicht zu Fall", () => {
+    const res = { _status: 200, _json: null,
+      status(c) { this._status = c; return this; },
+      json(b) { this._json = b; return this; } };
+    assert.doesNotThrow(() => {
+      verweigereArbeiter({ logger: {} })(
+        { orgMembership: { role_key: "worker" } }, res, () => {});
+    });
+    assert.equal(res._status, 403);
+  });
+});

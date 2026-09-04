@@ -139,6 +139,32 @@ describe("requireCompanyOrg", () => {
   });
 });
 
+describe("requireCompanyOrg · der Zwischenspeicher darf die Anfrage nicht vergiften", () => {
+  /*
+   * Aus der Mutationspruefung: `if (membership) req.orgMembership = membership;`
+   * liess sich zu `if (true)` machen, ohne dass etwas rot wurde. Fuer DIESE
+   * Wache ist das folgenlos — die naechste Zeile antwortet ohnehin mit 403.
+   *
+   * Folgenlos ist es aber nur HIER. `req.orgMembership` ist ein gemeinsames
+   * Feld: `arbeiterSitzung` liest es, `requireAgencyOrg` nimmt es als
+   * Abkuerzung. Eine Wache, die es im Ablehnungsfall auf `null` setzt, hat der
+   * Anfrage etwas hinzugefuegt, das vorher nicht dastand — und die naechste
+   * Schicht kann das nicht von "geladen und leer" unterscheiden.
+   */
+  it("bei fehlender Mitgliedschaft bleibt das Feld unberuehrt", async () => {
+    const pool = { query: async () => ({ rows: [] }) };
+    const req = { orgId: "org-1", session: { userId: "u-1" } };
+    const res = mockRes();
+    await requireCompanyOrg({ pool, logger: mockLogger() })(req, res, () => {});
+
+    assert.equal(res._status, 403);
+    assert.equal(res._json.error, "NO_ORG_MEMBERSHIP");
+    assert.ok(!("orgMembership" in req),
+      "die Wache hat `req.orgMembership` gesetzt, obwohl sie keine gefunden hat — "
+      + "die naechste Schicht sieht dann ein leeres Feld statt gar keines");
+  });
+});
+
 describe("M3.7 · requireAgencyOrg — das Arbeitskraefte-Modul gehoert der Zeitarbeitsfirma", () => {
   /*
    * ═══════════════════════════════════════════════════════════════════════════
@@ -273,6 +299,142 @@ describe("M3.7 · requireAgencyOrg — das Arbeitskraefte-Modul gehoert der Zeit
     assert.equal(e.weiter, false, "ein Datenbankfehler hat die Tuer geoeffnet");
     assert.equal(e.res._status, 500);
     assert.equal(logger.errorCalls.length, 1, "der Fehlschlag wurde nicht protokolliert");
+  });
+
+  it("die Abfrage fragt WIRKLICH nach der Org-Art dieser Org", async () => {
+    /*
+     * FORM- UND BINDUNGSPROBE, und sie ist noetig, weil der Muster-Pool auf
+     * JEDE Abfrage dasselbe antwortet. Ohne sie steht der Abfragetext nirgends
+     * fest: man koennte `organizations` durch `users` ersetzen, `type` durch
+     * irgendetwas, und alle anderen Proben blieben gruen.
+     *
+     * Genau dafuer sieht die Mutations-Direktive die Form-Probe vor: eine
+     * DB-freie Suite kann den Mutanten in einem SQL-Text nicht toeten, weil sie
+     * die Abfrage nie ausfuehrt — also wird ihr Vertrag Bestandteil fuer
+     * Bestandteil festgenagelt.
+     */
+    const pool = orgPool("agency");
+    await fahren(requireAgencyOrg({ pool, logger: mockLogger() }),
+      { orgId: "org-42", session: { userId: "u-1" } });
+
+    const { sql, params } = pool.abfragen[0];
+    assert.match(sql, /FROM\s+organizations/i, "es wird eine andere Tabelle gefragt");
+    assert.match(sql, /SELECT\s+type\s+AS\s+org_type/i,
+      "die Spalte heisst anders — dann ist `rows[0].org_type` immer undefined und "
+      + "der Riegel sperrt jeden");
+    assert.match(sql, /WHERE\s+id = \$1/i, "es wird nicht nach der Kennung gefiltert");
+    assert.deepEqual(params, ["org-42"],
+      "gefragt wurde nach einer anderen Org als der der Anfrage");
+  });
+
+  it("die Abkuerzung ueber die Mitgliedschaft haengt nicht an der Schreibweise", async () => {
+    /*
+     * Dieselbe Luecke wie in `arbeiterSitzung`, nur auf dem anderen Pfad:
+     * `org_type` kommt aus der Datenbank. Ein " Agency " oder "AGENCY" aus einem
+     * Import oder einer Migration darf den Riegel nicht schliessen — sonst
+     * sperrt er eine Agentur aus, und der Fehler sieht aus wie eine Rechtefrage.
+     */
+    for (const typ of ["AGENCY", " agency ", "\tAgency\n"]) {
+      const pool = orgPool(null);   // wuerde fail-closed antworten
+      const e = await fahren(requireAgencyOrg({ pool, logger: mockLogger() }),
+        { orgId: "org-1", orgMembership: { org_type: typ } });
+      assert.equal(e.weiter, true, `Mitgliedschaft mit ${JSON.stringify(typ)} wurde gesperrt`);
+      assert.equal(pool.abfragen.length, 0, "die Abkuerzung hat trotzdem abgefragt");
+    }
+  });
+
+  it("die Meldung an den Aufrufer ist ein Vertrag, kein Text", async () => {
+    /* Der Fehlercode wird von Oberflaechen ausgewertet (die Einsatzportal-Seite
+     * unterscheidet ihn von RATE_LIMIT und WORKER_LIMIT_EXCEEDED). Und die
+     * Meldung muss dem Menschen sagen, WARUM — "verboten" allein schickt ihn in
+     * den Support. */
+    const e = await fahren(requireAgencyOrg({ pool: orgPool("company"), logger: mockLogger() }),
+      { orgId: "org-1", session: { userId: "u-1" } });
+    assert.equal(e.res._json.error, "AGENCY_ORG_REQUIRED");
+    assert.match(e.res._json.message, /Zeitarbeitsfirma/,
+      "die Meldung nennt nicht, wem der Bereich gehoert");
+    assert.match(e.res._json.message, /Unternehmenskonto/,
+      "die Meldung nennt nicht, wer hier steht");
+  });
+
+  it("Code und Meldung lassen sich je Einsatzort ueberschreiben", async () => {
+    /* Sonst waere die Schnittstelle eine Behauptung: `options` steht in der
+     * Signatur, und niemand haette gemerkt, dass sie ignoriert wird. */
+    const e = await fahren(
+      requireAgencyOrg({ pool: orgPool("company"), logger: mockLogger() },
+        { errorCode: "NUR_AGENTUR", errorMessage: "Eigener Text." }),
+      { orgId: "org-1", session: { userId: "u-1" } });
+    assert.equal(e.res._json.error, "NUR_AGENTUR");
+    assert.equal(e.res._json.message, "Eigener Text.");
+  });
+
+  it("die Sperre wird protokolliert — mit Org, Art und Mensch", async () => {
+    /*
+     * Kein Formatierungs-Logging, sondern der AUDITVERTRAG. Wer eine Sperre
+     * untersucht, braucht drei Angaben: WELCHE Org, WELCHE Art, WELCHER Mensch.
+     * Fehlt eine, beginnt die Suche bei null — und das faellt erst im Ernstfall
+     * auf. Dieselbe Begruendung wie bei `requireCompanyOrg` in M2.7.
+     */
+    const logger = mockLogger();
+    await fahren(requireAgencyOrg({ pool: orgPool("company"), logger }),
+      { orgId: "org-7", session: { userId: "u-9" } });
+
+    assert.equal(logger.warnCalls.length, 1, "die Sperre wurde nicht protokolliert");
+    const { payload, message } = logger.warnCalls[0];
+    assert.equal(payload.orgId, "org-7");
+    assert.equal(payload.orgType, "company");
+    assert.equal(payload.userId, "u-9");
+    assert.match(String(message), /denied/i, "der Eintrag benennt den Vorgang nicht");
+  });
+
+  it("ohne Sitzung steht `null` im Protokoll, nicht `undefined`", async () => {
+    /* Ein Maschinenschluessel hat keinen Menschen. `null` ist die Aussage
+     * "niemand", `undefined` faellt beim Serialisieren still heraus — und dann
+     * sieht der Eintrag aus, als haette jemand das Feld vergessen. */
+    const logger = mockLogger();
+    await fahren(requireAgencyOrg({ pool: orgPool("company"), logger }),
+      { orgId: "org-7", isApiKeyAuth: true });
+    assert.strictEqual(logger.warnCalls[0].payload.userId, null);
+  });
+
+  it("der Fehlerzweig meldet SERVER_ERROR und protokolliert den Grund", async () => {
+    /* Der Zweig, den niemand freiwillig betritt — und deshalb der, in dem ein
+     * falscher Rumpf am laengsten unbemerkt bleibt. */
+    const logger = mockLogger();
+    const pool = { query: async () => { throw new Error("Datenbank weg"); } };
+    const e = await fahren(requireAgencyOrg({ pool, logger }),
+      { orgId: "org-1", session: { userId: "u-1" } });
+
+    assert.equal(e.res._status, 500);
+    assert.deepEqual(e.res._json, { error: "SERVER_ERROR" },
+      "der Rumpf des Fehlerfalls hat sich geaendert — Oberflaechen werten ihn aus");
+    assert.equal(logger.errorCalls.length, 1);
+    assert.ok(logger.errorCalls[0].payload.err, "der Grund fehlt im Protokoll");
+    assert.match(String(logger.errorCalls[0].message), /Agency-org guard/i,
+      "der Eintrag benennt die Wache nicht — in einem Protokoll voller Fehler ist "
+      + "das der Unterschied zwischen Fund und Rauschen");
+  });
+
+  it("die volle Meldung steht fest, nicht nur ihr Anfang", async () => {
+    /* Aus der Mutationspruefung: die zweite Zeile der Meldung liess sich
+     * ersetzen, weil beide bisherigen Zusicherungen auf die ERSTE zielten. Eine
+     * Meldung, von der nur der Anfang festgenagelt ist, kann in der Haelfte
+     * etwas anderes sagen. */
+    const e = await fahren(requireAgencyOrg({ pool: orgPool("company"), logger: mockLogger() }),
+      { orgId: "org-1", session: { userId: "u-1" } });
+    assert.match(e.res._json.message, /keine eigenen Arbeitskraefte/,
+      "die Meldung sagt nicht mehr, was ein Unternehmenskonto hier NICHT tut");
+  });
+
+  it("eine unbekannte Org wird als leere Art protokolliert, nicht als Erfindung", async () => {
+    /* Der Unterschied zwischen "nachgesehen und nichts gefunden" und "hier stand
+     * irgendetwas". Im Protokoll ist das die Frage, ob jemand die Org sucht oder
+     * den Code. */
+    const logger = mockLogger();
+    await fahren(requireAgencyOrg({ pool: orgPool(null), logger }),
+      { orgId: "org-unbekannt", session: { userId: "u-1" } });
+    assert.strictEqual(logger.warnCalls[0].payload.orgType, "",
+      "eine Org ohne Zeile muss als leere Art erscheinen");
   });
 
   it("die Middleware traegt einen Namen", async () => {

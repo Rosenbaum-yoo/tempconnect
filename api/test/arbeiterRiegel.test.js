@@ -151,6 +151,26 @@ describe("M2.6 · der Riegel laesst durch, was eingetragen ist — und sonst nic
     }
   });
 
+  it("eine leere oder fehlende Anfrage wirft nicht — sie ist nur kein Arbeiter", () => {
+    /*
+     * Aus der Mutationspruefung: die optionalen Zugriffe (`req?.orgMembership`,
+     * `req?.session`) liessen sich entfernen, ohne dass eine Probe rot wurde —
+     * alle Vorrichtungen reichten ein vollstaendiges Objekt herein.
+     *
+     * Der Riegel steht als ERSTE Schicht des Routers. Bekaeme er je eine
+     * Anfrage ohne diese Felder, waere ein Wurf dort ein 500 auf JEDEM Weg der
+     * Plattform — aus einer Wache wuerde ein Totalausfall. Die Antwort auf
+     * "nichts da" muss "kein Arbeiter" sein, nicht "Absturz".
+     */
+    for (const nichts of [undefined, null, {}, { session: null }, { orgMembership: null }]) {
+      assert.doesNotThrow(() => arbeiterSitzung(nichts),
+        `arbeiterSitzung(${JSON.stringify(nichts)}) hat geworfen`);
+      assert.equal(arbeiterSitzung(nichts).istArbeiter, false);
+    }
+    assert.equal(fahren({ method: "GET", path: "/invoices" }).weiter, true,
+      "eine Anfrage ohne Sitzung wurde als Arbeiter behandelt");
+  });
+
   it("EINE der beiden Quellen genuegt, um Arbeiter zu sein", () => {
     /* `||`, nicht `&&`. Ein Riegel, den ein fehlendes Feld oeffnet, ist keiner. */
     const nurSitzung = { method: "GET", path: "/invoices", session: { userRole: "worker" } };

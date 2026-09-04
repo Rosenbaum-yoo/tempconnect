@@ -960,6 +960,54 @@ aufgefallen wären:
 > schließt. Der Riegel dafuer liegt bereit (`verweigereArbeiter`, eine Zeile je Route);
 > was fehlt, ist die Entscheidung.
 
+### Nachtrag zu M3.7 *(2026-09-04)* — die Mutationsprüfung fiel unter die Schwelle
+
+**M3.7 war verhaltensgeprüft und trotzdem nicht dicht.** Der Lauf nach dem Bau:
+
+| | gesamt | `orgAccess.js` | Überlebende dort |
+|---|---|---|---|
+| vor M3.7 | 91,45 % | 93,79 % | 9 |
+| nach M3.7, ungeprüft | **87,96 %** ✗ | 87,50 % | 25 |
+| nach 11 Proben | 93,52 % | 96,50 % | 7 |
+| nach 5 weiteren | **94,75 %** ✓ | **98,50 %** | **3** |
+
+Die Schwelle ist 90 je Bereich. Wichtiger als die Zahl: **null Überlebende im
+Entscheidungs-Branch** — die drei verbliebenen sind ausschließlich `|| ""`-Rückfälle, bei
+denen jeder Ersatzwert dasselbe Verhalten erzeugt (er ist so wenig `"agency"` wie die leere
+Zeichenkette). Sie stehen hier benannt, statt mit einer Probe erschlagen zu werden, die
+etwas Unwahres behauptet.
+
+**Was die 16 neuen Überlebenden gezeigt haben — vier davon waren echte Verträge:**
+
+1. **Der Abfragetext stand nirgends fest.** Der Muster-Pool antwortet auf jede Abfrage
+   gleich; man hätte `organizations` durch `users` ersetzen können und alles wäre grün
+   geblieben. Eine DB-freie Suite kann so einen Mutanten nicht töten — sie führt die
+   Abfrage nie aus. Die Antwort darauf ist die **Form-Probe**: Tabelle, Spalte und
+   `WHERE id = $1` einzeln festgenagelt, plus die **Bindungs-Probe** über `params`.
+2. **`.trim()` auf dem Abkürzungspfad** war entfernbar — dieselbe Lücke wie in
+   `arbeiterSitzung`, nur an der anderen Stelle. Ein `" Agency "` aus einer Migration hätte
+   eine Agentur **ausgesperrt**, und der Fehler hätte wie eine Rechtefrage ausgesehen.
+3. **Der Protokolleintrag war ungeprüft.** Das ist kein Formatierungs-Logging, sondern der
+   Auditvertrag: welche Org, welche Art, welcher Mensch. Fehlt eins, beginnt die Suche im
+   Ernstfall bei null. Dazu: ohne Sitzung muss `null` dastehen, nicht `undefined` — sonst
+   sieht der Eintrag aus, als hätte jemand das Feld vergessen.
+4. **`logger?.warn?.`** ließ sich zu `logger.warn(` machen. Wird `verweigereArbeiter` je
+   ohne Protokoll-Objekt gebaut, wäre aus einer Sperre ein 500 geworden. Ein Riegel, der am
+   Beobachter scheitert, ist keiner: die Sperre ist die Aufgabe, das Protokoll die
+   Begleitung.
+
+**Und einer, der für seine eigene Wache folgenlos ist und für die nächste nicht.**
+`if (membership) req.orgMembership = membership;` ließ sich zu `if (true)` machen — für
+`requireCompanyOrg` gleichgültig, weil die nächste Zeile ohnehin mit 403 antwortet. Aber
+`req.orgMembership` ist ein **gemeinsames** Feld: `arbeiterSitzung` liest es,
+`requireAgencyOrg` nimmt es als Abkürzung. Eine Wache, die es im Ablehnungsfall auf `null`
+setzt, fügt der Anfrage etwas hinzu, das vorher nicht dastand — und die nächste Schicht
+kann „geladen und leer" nicht von „gar nicht geladen" unterscheiden.
+
+> **Die Lehre, und sie wiederholt sich in dieser Spur:** eine Wache zu prüfen ist nicht
+> dasselbe wie zu prüfen, dass sie steht (M3.7), und *Verhalten* zu prüfen ist nicht
+> dasselbe wie den *Vertrag* zu prüfen, den sie nach außen und nach innen hält.
+
 ### M3.2 ist gebaut *(2026-09-04)* — der Knopf tat mehr, als er sagte
 
 Nach einem CSV-Import bietet die Oberfläche an, die frisch importierten Kräfte
