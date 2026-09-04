@@ -87,8 +87,14 @@ export async function getUserCredentials(pool, email) {
 export async function getUserByEmail(pool, email) {
   /* M2.2: dasselbe beim Zuruecksetzen — der Fehlschlag war dort still,
    weil die Antwort aus Datenschutzgruenden ohnehin nichts verraet. */
+  /*
+   * M3.4: `role` kommt mit, weil das Zuruecksetzen rollenabhaengig zurueckfuehren
+   * muss. Ein Arbeiter, der sein Passwort neu setzt, gehoert ins Einsatzportal —
+   * nicht auf die Unternehmens-Landeseite, auf der er seit F12 nichts mehr sieht.
+   * Die Spalte verlaesst den Dienst nicht weiter als bis zur Wahl der Adresse.
+   */
   const r = await pool.query(
-    "SELECT id, email FROM users WHERE LOWER(email) = LOWER($1)", [email]);
+    "SELECT id, email, role FROM users WHERE LOWER(email) = LOWER($1)", [email]);
   return r.rows[0] || null;
 }
 

@@ -418,7 +418,24 @@ export function createAuthRouter(deps) {
     const resetToken = crypto.randomBytes(32).toString("hex");
     const expires = new Date(Date.now() + 60 * 60 * 1000);
     await authService.setResetToken(pool, u.id, resetToken, expires);
-    const resetUrl = `${BASE_URL}?reset=${resetToken}`;
+    /*
+     * ═════════════════════════════════════════════════════════════════════
+     * M3.4 — DER LINK FUEHRT DORTHIN, WO DER MENSCH HINGEHOERT
+     * ═════════════════════════════════════════════════════════════════════
+     * Hier stand `${BASE_URL}?reset=...` fuer JEDEN. Das Zuruecksetzen selbst
+     * lebt in `js/pages/landing.js` — der Unternehmens-Landeseite. Ein
+     * Arbeiter kam also nach dem Neusetzen genau dort an, und seit F12
+     * (Arbeiter-Sichtbarkeit) sieht er dort nichts mehr: kein Hub, keine
+     * Karten, kein Weg ins Einsatzportal. Der Weg funktionierte und endete im
+     * Nichts.
+     *
+     * Das Portal traegt seinen eigenen Zuruecksetzen-Bereich (worker-login.html,
+     * Phase 4) — dieselbe Route, dieselbe Frist, andere Tuer.
+     */
+    const istArbeiter = String(u.role || "").trim().toLowerCase() === "worker";
+    const resetUrl = istArbeiter
+      ? `${BASE_URL}/worker-login.html?reset=${resetToken}`
+      : `${BASE_URL}?reset=${resetToken}`;
     await sendMail(
       u.email,
       "TempConnect: Passwort zurücksetzen",

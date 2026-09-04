@@ -421,7 +421,7 @@ describe("POST /auth/forgot-password", () => {
 
   it("returns generic ok (no enumeration) when user does not exist", async () => {
     const pool = trackingPool([
-      { match: (s) => s.includes("SELECT id, email FROM users WHERE"), respond: { rows: [], rowCount: 0 } }
+      { match: (s) => s.includes("SELECT id, email, role FROM users WHERE"), respond: { rows: [], rowCount: 0 } }
     ]);
     const handler = getHandler(createAuthRouter(makeDeps(pool)), "post", "/auth/forgot-password");
     const res = mockRes();
@@ -434,8 +434,8 @@ describe("POST /auth/forgot-password", () => {
 
   it("sets reset token + sends mail + audit when user exists", async () => {
     const pool = trackingPool([
-      { match: (s) => s.includes("SELECT id, email FROM users WHERE"),
-        respond: { rows: [{ id: "u7", email: "real@b.de" }], rowCount: 1 } }
+      { match: (s) => s.includes("SELECT id, email, role FROM users WHERE"),
+        respond: { rows: [{ id: "u7", email: "real@b.de", role: "company" }], rowCount: 1 } }
     ]);
     const handler = getHandler(createAuthRouter(makeDeps(pool)), "post", "/auth/forgot-password");
     const res = mockRes();

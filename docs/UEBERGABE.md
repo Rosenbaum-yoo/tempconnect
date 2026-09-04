@@ -960,6 +960,44 @@ aufgefallen wären:
 > schließt. Der Riegel dafuer liegt bereit (`verweigereArbeiter`, eine Zeile je Route);
 > was fehlt, ist die Entscheidung.
 
+### M3.4 ist gebaut *(2026-09-04)* — zwei Hälften desselben Weges endeten im Nichts
+
+**Der abgelaufene Einladungslink.** `worker-login.html` zeigte einen roten Kasten und sonst
+nichts. Dabei *hat* der Mensch ein Konto — `acceptInvite` hat es angelegt, sonst hätte er
+die Mail nie bekommen. Der Weg nach vorn stand zwei Abschnitte tiefer auf derselben Seite
+(„Passwort vergessen") und war nur nicht verlinkt.
+
+Er erscheint jetzt bei **abgelaufen** und **widerrufen** — bewusst *nicht* bei „nicht
+gefunden": dort ist unklar, ob es das Konto gibt, und „Ihr Konto besteht bereits" wäre eine
+Auskunft über ein fremdes Konto. Bei „schon benutzt" führt der Weg weiter zum Login: wer
+die Einladung angenommen hat, **kennt** sein Passwort.
+
+**Die Reset-Mail führte Arbeiter ins Leere.** `resetUrl` war `${BASE_URL}?reset=…` für
+jeden. Das Zurücksetzen selbst lebt in `js/pages/landing.js` — der Unternehmens-Landeseite.
+Ein Arbeiter kam nach dem Neusetzen genau dort an, und seit F12 sieht er dort nichts mehr.
+**Der Weg funktionierte und endete im Leeren** — die unangenehmste Sorte Fehler, weil
+nichts kaputt aussieht. Dieselbe Klasse wie der Knopf aus M3.2, der mehr tat als er sagte.
+
+Das Portal hat jetzt einen eigenen Zurücksetzen-Bereich: dieselbe Route, dieselbe Frist,
+dieselbe Mindestlänge — andere Tür. Und er endet **im Portal**, nicht in einer
+Erfolgsmeldung; ein gelungenes Zurücksetzen, das den Menschen stehen lässt, wäre derselbe
+Fehler eine Seite später.
+
+> **Was beim Schreiben der Probe passierte, und warum es jetzt im Test steht.**
+> `await handler(...)` kehrte **sofort** zurück: `catchAsync` gibt das Versprechen des
+> Handlers nicht weiter, es hängt nur ein `.catch(next)` daran. Die erste Abfrage war
+> abgesetzt, die zweite noch nicht, und `res` war leer — der Test meldete „Cannot read
+> properties of null" und zeigte dabei auf eine Zeile, die nichts damit zu tun hatte. Die
+> Nachbardatei `auth.route.coverage.test.js` hat dafür längst einen Warte-Helfer; diese
+> jetzt auch, mit der Begründung im Kommentar statt im Gedächtnis.
+
+*Verifikation: 14 Proben in `api/test/passwortWegRaus.test.js`, **dreizehn Rückmutationen**
+— darunter beide Richtungen der Rollenweiche (alle auf die Landeseite / alle ins Portal),
+die Schreibweise der Rolle, das fehlende `return` bei „schon benutzt", das Durchreichen von
+„nicht gefunden" in den Ausweg, das fehlende CSRF-Merkmal und der fehlende Weg ins Portal
+— jede gefangen. Vorrichtungspflege in `auth.route.coverage.test.js` (die Abfrage trägt
+jetzt `role`); keine Zusicherung angefasst.*
+
 ### M3.3 ist gebaut *(2026-09-04)* — ein Deckel, den niemand sieht, sieht aus wie Vollständigkeit
 
 Die Sammel-Einladung liefert seit jeher drei Felder, die die Oberfläche nie zeigte:
