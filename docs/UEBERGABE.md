@@ -960,6 +960,46 @@ aufgefallen wären:
 > schließt. Der Riegel dafuer liegt bereit (`verweigereArbeiter`, eine Zeile je Route);
 > was fehlt, ist die Entscheidung.
 
+### M3.5 ist gebaut *(2026-09-04)* — an die Frist gebunden, nicht ans Alter
+
+Eine Einladung, die niemand annimmt, verfiel nach sieben Tagen — **still**. Der Mensch hat
+die Mail vielleicht übersehen, die Zeitarbeitsfirma erfährt es nicht, und der Einsatz
+beginnt ohne Portalkonto.
+
+**Die Entscheidung, die diesen Lauf ungefährlich macht:** erinnert wird, was in den nächsten
+**48 Stunden abläuft** — nicht, was alt ist. Der naheliegende Bau („erinnere alles älter als
+N Tage") hat zwei Fehler:
+
+1. Er nennt dem Menschen keinen Grund, *jetzt* zu handeln.
+2. Beim ersten Lauf in einer bestehenden Installation erzeugt er einen **Schwall** — jede
+   vergessene Einladung der letzten Monate auf einmal. Genau der Nachlauf, der bei M1.9 beim
+   Mahnlauf zur Owner-Frage wurde.
+
+An die Frist gebunden begrenzt er sich von selbst: ältere Einladungen sind bereits abgelaufen
+und fallen aus der Menge. Dazu **genau einmal** je Einladung (`resend_count = 0`) — und wer
+schon von Hand erinnert hat, unterbricht die Automatik, weil ein Mensch den Fall bereits
+angefasst hat.
+
+| Entscheidung | warum |
+|---|---|
+| markiert wird **erst nach** dem Versand | sonst gilt eine gescheiterte Mail als erinnert — und weil `resend_count` zugleich die Einmal-Sperre ist, bekäme der Mensch **nie wieder** eine |
+| **keine** Fristverlängerung, **kein** neuer Token | `resendInvite` erneuert beides, weil dort ein Mensch entscheidet. Eine Automatik, die Fristen verlängert, schafft die Frist ab |
+| ohne Versandweg **wirft** der Takt | derselbe stille Ausfall wie beim Mahnlauf: `NO_MAILER` wäre für den Takt ein gelungener Lauf — Herzschlag grün, Kachel „läuft", keine Erinnerung unterwegs |
+| täglich **09:00**, nicht nachts | der Lauf hat genau **einen** Versuch je Einladung; eine Erinnerung um 02:40 geht zwischen der Nachtpost unter |
+
+**Keine Migration nötig** — `resend_count` und `last_sent_at` gab es seit Migration 029. Und
+das Ablaufdatum kommt aus `fristLabelDE` statt aus `toLocaleDateString`: sonst nennt jeder
+Container je nach Zeitzone ein anderes Datum.
+
+Der Lauf hängt in der Maschinerie aus M1.9 — Registratur, Auslösung und Verarbeitung. Das
+Dreieck-Wächter hat die Ergänzung selbst eingefordert, und die eingefrorene Laufliste ist
+dabei von fünf auf sechs gewachsen: *dass sie rot wurde, ist ihre Aufgabe*.
+
+*Verifikation: 13 Proben in `api/test/einladungWiedervorlage.test.js`, **dreizehn
+Rückmutationen** — darunter der Wegfall der Frist-Bedingung („alles Offene auf einmal"), das
+Markieren vor dem Versand, die Fristverlängerung durch die Markierung, der unbegrenzte
+Deckel und der geschluckte fehlende Versandweg — jede gefangen.*
+
 ### M3.4 ist gebaut *(2026-09-04)* — zwei Hälften desselben Weges endeten im Nichts
 
 **Der abgelaufene Einladungslink.** `worker-login.html` zeigte einen roten Kasten und sonst

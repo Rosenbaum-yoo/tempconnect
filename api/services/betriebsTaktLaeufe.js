@@ -35,6 +35,7 @@ import * as capacityService from "./capacityService.js";
 import * as invoiceService from "./invoiceService.js";
 import * as recurringBillingService from "./recurringBillingService.js";
 import * as subscriptionLifecycle from "./subscriptionLifecycleService.js";
+import * as workerService from "./workerService.js";
 import * as auditLog from "./auditLog.js";
 import * as stateMachine from "./stateMachine.js";
 
@@ -165,6 +166,43 @@ export async function subscriptionLifecycleTick(pool, { logger, sendMail, batchS
 }
 
 /**
+ * Wiedervorlage fuer nicht angenommene Portal-Einladungen (M3.5).
+ *
+ * Erinnert wird, was in den naechsten 48 Stunden ABLAEUFT — nicht, was alt ist.
+ * Das nennt dem Menschen einen Grund, jetzt zu handeln, und verhindert beim
+ * ersten Lauf einen Schwall aus vergessenen Einladungen. Genau EINMAL je
+ * Einladung; wer schon von Hand erinnert hat, unterbricht die Automatik.
+ *
+ * OHNE VERSANDWEG WIRD GEWORFEN, nicht still nichts getan — dieselbe
+ * Entscheidung wie beim Mahnlauf. `sendeEinladungsErinnerungen` markiert dann
+ * zwar nichts (sie gibt `NO_MAILER` zurueck), aber fuer den TAKT waere das ein
+ * gelungener Lauf: Herzschlag gruen, Kachel "laeuft", und keine einzige
+ * Erinnerung geht hinaus.
+ */
+export async function einladungErinnerung(pool, { config, logger, sendMail } = {}) {
+  if (typeof sendMail !== "function") {
+    throw new Error(
+      "Der Erinnerungslauf hat keinen Versandweg bekommen. Er wuerde ohne Wirkung "
+      + "als gelungen gelten. Siehe startWorkers({ sendMail }) in api/server.js."
+    );
+  }
+  const ergebnis = await workerService.sendeEinladungsErinnerungen(pool, {
+    sendMail, logger, baseUrl: config?.BASE_URL || ""
+  });
+  if (ergebnis.erinnert > 0) {
+    await auditLog.writeAudit(pool, {
+      action: "worker.invite_reminder_batch", entity_type: "worker_invite",
+      details: {
+        erinnert: ergebnis.erinnert,
+        geprueft: ergebnis.geprueft,
+        fehlgeschlagen: ergebnis.fehlgeschlagen
+      }
+    });
+  }
+  return ergebnis;
+}
+
+/**
  * Der Auftragsname aus `betriebsTaktService.TAKTE` auf den Lauf abbilden.
  *
  * Bewusst hier und nicht im Arbeiter: so gibt es EINEN Ort, an dem sichtbar ist,
@@ -176,5 +214,6 @@ export const LAEUFE = Object.freeze({
   "invoice-overdue-scan": invoiceOverdueScan,
   "recurring-billing": recurringBilling,
   "dunning-sweep": dunningSweep,
-  "subscription-lifecycle-tick": subscriptionLifecycleTick
+  "subscription-lifecycle-tick": subscriptionLifecycleTick,
+  "einladung-erinnerung": einladungErinnerung
 });

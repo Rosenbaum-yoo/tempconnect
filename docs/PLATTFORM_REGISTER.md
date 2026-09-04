@@ -578,6 +578,7 @@ Abschnitts.
 | **Mahnstrecke** (`dunning-sweep`) | täglich 02:40 | Überfällige Rechnungen werden nicht angemahnt, der Hard-Lock bei Zahlungsausfall greift nie. **Steht zusätzlich unter `DUNNING_ENABLED` (Vorgabe AUS)** — die folgenreichste der fünf, jeder Lauf kann Post an einen zahlenden Kunden auslösen. Beleg: `api/workers/betriebsWorker.js` |
 | **Abo-Wirksamkeit zum Stichtag** (`subscription-lifecycle-tick`) | stündlich :05 | Ein Abo mit zukünftigem Beginn wird nie von selbst wirksam, eine Kündigung nie vollzogen — der Kunde hat bezahlt und wartet. Beleg: `api/workers/betriebsWorker.js` |
 | **Verfall von Reservierungen** (`expire-reservations`) | stündlich :35 | Abgelaufene Reservierungen bleiben `active`; Kapazität bleibt gebunden, die niemand mehr braucht. Beleg: `api/workers/betriebsWorker.js` |
+| **Wiedervorlage Einladungen** (`einladung-erinnerung`) | täglich 09:00 | Eine nicht angenommene Portal-Einladung verfällt nach sieben Tagen, ohne dass jemand davon erfährt. Erinnert wird, was in 48 h abläuft — genau einmal je Einladung. Beleg: `api/workers/betriebsWorker.js` → `workerService.sendeEinladungsErinnerungen` |
 
 **Einplanung ist neustartfest.** Alle wiederkehrenden Läufe werden über `upsertJobScheduler`
 mit fester Kennung eingeplant und verdoppeln sich bei einem Neustart nicht. Der Kommentar an
@@ -665,7 +666,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | davon reine Weiterleitungen | 9 | je 14 nicht-leere Zeilen, reiner Meta-Refresh |
 | davon Attrappen | 3 | `sla_nachweise.html`, `impressum.html`, `datenschutz.html` (Wurzel) |
 | davon für keinen Nutzer erreichbar | **0** | war 1 (timesheet-templates.html); am 26.08. entfernt — siehe Liste A, A1 |
-| Backend-Testdateien | <!--zahl:backend-testdateien-->450<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
+| Backend-Testdateien | <!--zahl:backend-testdateien-->452<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
 | E2E-Testdateien | <!--zahl:e2e-testdateien-->17<!--/zahl--> | `ls e2e/tests/ \| wc -l` |
 | Rollen im Rechtemodell | 12 | `ROLE_HIERARCHY` in `api/services/rbacService.js:9-22` |
 | Benannte Berechtigungen | 63 | `PERMISSIONS` in `api/services/rbacService.js:25 ff.` |
@@ -683,7 +684,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 >
 > **Eine Zahl, die hier bewusst fehlt:** die Gesamtzahl grüner Tests. Sie steht in mehreren
 > Projektdokumenten (3979+), wurde für dieses Register aber **nicht** nachgerechnet, weil das
-> einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die <!--zahl:backend-testdateien-->450<!--/zahl--> Testdateien und
+> einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die <!--zahl:backend-testdateien-->452<!--/zahl--> Testdateien und
 > <!--zahl:e2e-testdateien-->17<!--/zahl--> E2E-Dateien. Wer die Testzahl in ein Investorendokument schreibt, muss sie vorher unter
 > `api/scripts/run-tests.js` real erzeugen.
 
@@ -890,7 +891,7 @@ Ehrlichkeit über die eigenen Grenzen gehört in ein Dokument, das später an In
    `docs-consistency`-Test existiert, der tote Verweise und verwaiste Dateien rot werden lässt,
    veraltet diese Datei still. Vorbild für die Mechanik: `api/test/flaechenZuordnung.test.js`.
 
-2. **Die Testzahl ist nicht nachgerechnet.** Belegt sind <!--zahl:backend-testdateien-->450<!--/zahl--> Backend-Testdateien und <!--zahl:e2e-testdateien-->17<!--/zahl-->
+2. **Die Testzahl ist nicht nachgerechnet.** Belegt sind <!--zahl:backend-testdateien-->452<!--/zahl--> Backend-Testdateien und <!--zahl:e2e-testdateien-->17<!--/zahl-->
    E2E-Dateien. Die in mehreren Projektdokumenten genannte Gesamtzahl grüner Tests (3979+)
    wurde für dieses Register **nicht** verifiziert — dazu wäre ein vollständiger Suite-Lauf
    unter `api/scripts/run-tests.js` nötig gewesen. Wer sie in eine Investorendarstellung

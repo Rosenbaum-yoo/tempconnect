@@ -1181,6 +1181,113 @@ export async function resendInvite(pool, inviteId, supplierOrgId) {
   return { invite: rows[0], token };
 }
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DIE WIEDERVORLAGE (M3.5, 2026-09-04)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Eine Einladung, die niemand annimmt, verfaellt nach sieben Tagen — still. Der
+ * Mensch hat die Mail vielleicht uebersehen, die Zeitarbeitsfirma erfaehrt es
+ * nicht, und der Einsatz beginnt ohne Portalkonto.
+ *
+ * WARUM AN DER FRIST UND NICHT AM ALTER
+ * Der naheliegende Bau waere "erinnere, was aelter als N Tage ist". Der hat zwei
+ * Fehler: er nennt dem Menschen keinen Grund, JETZT zu handeln, und er erzeugt
+ * beim ersten Lauf in einer bestehenden Installation einen Schwall — jede
+ * vergessene Einladung der letzten Monate auf einmal.
+ *
+ * Erinnert wird deshalb, was in den naechsten 48 Stunden ABLAEUFT. Das ist eine
+ * echte Information ("Ihr Link laeuft uebermorgen ab"), und es begrenzt sich von
+ * selbst: aeltere Einladungen sind bereits abgelaufen und fallen heraus.
+ *
+ * GENAU EINMAL, und das steht in `resend_count = 0`. Wer schon von Hand
+ * erinnert hat (`resendInvite` zaehlt hoch), bekommt keine zweite Erinnerung
+ * hinterhergeschickt — ein Mensch hat den Fall bereits angefasst.
+ *
+ * KEIN NEUER TOKEN, KEINE NEUE FRIST. `resendInvite` erneuert beides; das ist
+ * dort richtig, weil ein Mensch bewusst entscheidet. Hier waere es falsch: eine
+ * Automatik, die Fristen verlaengert, schafft die Frist ab.
+ *
+ * @param {import('pg').Pool} pool
+ * @param {{sendMail: Function, baseUrl?: string, logger?: object, limit?: number,
+ *          vorlaufStunden?: number}} deps
+ * @returns {Promise<{geprueft:number, erinnert:number, fehlgeschlagen:number}>}
+ */
+export const EINLADUNG_ERINNERUNG_VORLAUF_STUNDEN = 48;
+export const EINLADUNG_ERINNERUNG_MAX = 200;
+
+export async function sendeEinladungsErinnerungen(pool, deps = {}) {
+  const { sendMail, logger } = deps;
+  const baseUrl = String(deps.baseUrl || "").replace(/\/+$/, "");
+  const vorlauf = Number(deps.vorlaufStunden) > 0
+    ? Number(deps.vorlaufStunden) : EINLADUNG_ERINNERUNG_VORLAUF_STUNDEN;
+  const limit = Math.min(EINLADUNG_ERINNERUNG_MAX, Math.max(1, Number(deps.limit) || EINLADUNG_ERINNERUNG_MAX));
+
+  /*
+   * OHNE VERSANDWEG WIRD NICHTS MARKIERT UND NICHTS BEHAUPTET. Dieselbe
+   * Entscheidung wie im Mahnlauf (M1.9): eine Erinnerung, die als verschickt
+   * gilt, ohne es zu sein, waere schlimmer als keine — sie kommt nie wieder.
+   */
+  if (typeof sendMail !== "function") {
+    return { geprueft: 0, erinnert: 0, fehlgeschlagen: 0, note: "NO_MAILER" };
+  }
+
+  const { rows } = await pool.query(
+    `SELECT wi.id, wi.email, wi.first_name, wi.token, wi.expires_at,
+            o.name AS org_name
+       FROM worker_invites wi
+       JOIN organizations o ON o.id = wi.supplier_org_id
+      WHERE wi.status = 'pending'
+        AND wi.accepted_at IS NULL
+        AND wi.expires_at > NOW()
+        AND wi.expires_at <= NOW() + ($1 || ' hours')::interval
+        AND wi.resend_count = 0
+      ORDER BY wi.expires_at ASC
+      LIMIT $2`,
+    [String(vorlauf), limit]
+  );
+
+  let erinnert = 0;
+  let fehlgeschlagen = 0;
+
+  for (const einladung of rows) {
+    const url = `${baseUrl}/worker-login.html?invite=${einladung.token}`;
+    try {
+      await sendMail(
+        einladung.email,
+        "Erinnerung: Ihre Einladung laeuft bald ab",
+        `<h2>Ihre Einladung laeuft bald ab</h2>
+         <p>Hallo ${einladung.first_name},</p>
+         <p>${einladung.org_name || "Ihre Zeitarbeitsfirma"} hat Sie ins
+            TempConnect-Einsatzportal eingeladen. Der Link ist noch bis zum
+            ${fristLabelDE(einladung.expires_at)} gueltig.</p>
+         <p><a href="${url}" style="background:#0070f3;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">Konto jetzt einrichten</a></p>
+         <p style="color:#666;font-size:14px">Danach koennen Sie Ihre Einsaetze sehen und
+            Stundenzettel einreichen.</p>`,
+        { zweck: "worker-einladung-erinnerung" }
+      );
+      /*
+       * ERST NACH dem Versand markieren. Andersherum waere eine gescheiterte
+       * Mail als erinnert gezaehlt — und der Mensch bekaeme nie wieder eine.
+       * `resend_count` ist zugleich die Sperre gegen eine zweite Erinnerung.
+       */
+      await pool.query(
+        `UPDATE worker_invites
+            SET resend_count = resend_count + 1, last_sent_at = NOW()
+          WHERE id = $1 AND resend_count = 0`,
+        [einladung.id]
+      );
+      erinnert += 1;
+    } catch (e) {
+      fehlgeschlagen += 1;
+      logger?.warn?.({ err: e?.message, inviteId: einladung.id },
+        "Einladungs-Erinnerung konnte nicht gesendet werden");
+    }
+  }
+
+  return { geprueft: rows.length, erinnert, fehlgeschlagen };
+}
+
 export async function listInvites(pool, optsOrSupplierOrgId, legacyStatus = null) {
   const options = typeof optsOrSupplierOrgId === "string"
     ? { supplierOrgId: optsOrSupplierOrgId, status: legacyStatus }

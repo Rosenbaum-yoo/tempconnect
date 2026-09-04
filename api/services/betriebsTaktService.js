@@ -94,6 +94,11 @@ export const TAKTE = Object.freeze({
   /* Reservierungen und Fristen. Seit M1.9 stuendlich (:35). */
   "expire-reservations": { intervall_min: 60, zweck: "Abgelaufene Reservierungen freigeben" },
 
+  /* Wiedervorlage fuer nicht angenommene Portal-Einladungen (M3.5). Taeglich
+   * 09:00 — eine Erinnerung gehoert in den Morgen, nicht in die Nacht. Erinnert
+   * wird, was in 48 Stunden ablaeuft, und genau einmal. */
+  "einladung-erinnerung": { intervall_min: 1440, zweck: "Nicht angenommene Einladungen erinnern" },
+
   /* Die vier BullMQ-Takte, die es schon vor dieser Phase gab. Sie laufen — aber
    * niemand konnte es bisher nachweisen. Sie stehen als EINZIGE mit Praefix in
    * dieser Registratur, weil es fuer sie keinen internen Endpunkt gibt; die

@@ -152,10 +152,16 @@ describe("M1.9 · ein Lauf ohne Wirkung schreibt keinen Audit-Eintrag", () => {
 });
 
 describe("M1.9 · die Laufliste ist vollstaendig und aufrufbar", () => {
-  it("alle fuenf Namen zeigen auf Funktionen", () => {
+  it("jeder Name zeigt auf eine Funktion — und die Liste ist eingefroren benannt", () => {
+    /*
+     * Die Liste steht hier WOERTLICH, damit eine Ergaenzung auffaellt. Sie ist
+     * am 2026-09-04 von fuenf auf sechs gewachsen (M3.5, die Wiedervorlage) —
+     * und dass dieser Test dabei rot wurde, ist seine Aufgabe, nicht sein
+     * Fehler: ein neuer Lauf soll nicht unbemerkt in die Maschinerie rutschen.
+     */
     assert.deepStrictEqual(Object.keys(LAEUFE).sort(), [
-      "dunning-sweep", "expire-reservations", "invoice-overdue-scan",
-      "recurring-billing", "subscription-lifecycle-tick"
+      "dunning-sweep", "einladung-erinnerung", "expire-reservations",
+      "invoice-overdue-scan", "recurring-billing", "subscription-lifecycle-tick"
     ]);
     for (const [name, fn] of Object.entries(LAEUFE)) {
       assert.equal(typeof fn, "function", `${name} ist keine Funktion`);

@@ -125,6 +125,13 @@ function scheduleBetriebsWirtschaft() {
     .catch((e) => logger.warn({ err: e.message }, "Could not schedule subscription-lifecycle-tick"));
   q.upsertJobScheduler("expire-reservations-hourly", { pattern: "35 * * * *" }, { name: "expire-reservations" })
     .catch((e) => logger.warn({ err: e.message }, "Could not schedule expire-reservations"));
+
+  /* M3.5 — die Wiedervorlage. Taeglich 09:00: eine Erinnerung, die um 02:40
+   * ankommt, wird morgens zwischen der Nachtpost uebersehen. Erinnert wird, was
+   * in 48 Stunden ablaeuft — der Takt darf also ruhig einen Tag ausfallen, ohne
+   * dass jemand seine Frist verpasst. */
+  q.upsertJobScheduler("einladung-erinnerung-daily", { pattern: "0 9 * * *" }, { name: "einladung-erinnerung" })
+    .catch((e) => logger.warn({ err: e.message }, "Could not schedule einladung-erinnerung"));
 }
 
 export function startWorkers(deps = {}) {
