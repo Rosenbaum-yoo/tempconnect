@@ -31,7 +31,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  TAKTE, TOLERANZ, taktNotieren, bewerteAufgabe, taktStand
+  TAKTE, TOLERANZ, taktNotieren, bewerteAufgabe, taktStand, zuTaktSchluessel
 } from "../services/betriebsTaktService.js";
 import { loadOperationsSnapshot } from "../services/staffControlService.js";
 
@@ -306,6 +306,92 @@ describe("M1.1 · der Stand geht von der ERWARTUNG aus, nicht von der Tabelle", 
 });
 
 /* ── Die Struktur ─────────────────────────────────────────────────────── */
+
+describe("M1.9 · derselbe Takt, zwei Namen — der Herzschlag muss trotzdem ankommen", () => {
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * GEMESSEN AM 2026-09-04, UND ES WAR DER FEHLER DIESER PHASE SELBST
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * `staffing-maintenance` wurde in M1.2 eingeplant und lief. Trotzdem meldete
+   * die Kachel unveraendert "Diese Aufgabe ist noch nie gelaufen." — weil die
+   * beiden Ausloeser ihren Herzschlag unter verschiedenen Namen schreiben:
+   *
+   *   Handlauf (interner Endpunkt) -> "staffing-maintenance"      (req.path)
+   *   Einplanung (BullMQ)          -> "staffing:staffing-maintenance"  (queue:job)
+   *
+   * Die Registratur kennt nur den kurzen. Der lange landete unter "laeuft, aber
+   * unbeobachtet" — direkt neben der Meldung, die Gegenteiliges behauptete.
+   *
+   * Diese Phase ist angetreten, das Schweigen eines Automatismus sichtbar zu
+   * machen. Sie hatte gerade das Gegenteil gebaut: LAERM ueber einen Takt, der
+   * laeuft. Ein Waechter, der Falschalarm gibt, wird abgeschaltet — und nimmt
+   * die echten Befunde mit.
+   */
+
+  it("der eingeplante Takt fuettert den ueberwachten Namen", async () => {
+    const p = musterPool(() => ({ rows: [
+      { aufgabe: "staffing:staffing-maintenance", zuletzt_um: vorMinuten(1), ergebnis: "ok",
+        laeufe: 99, fehler_in_folge: 0, dauer_ms: 12, quelle: "takt" }
+    ] }));
+    const stand = await taktStand(p, { jetzt: JETZT });
+    const sm = stand.ueberwacht.find((a) => a.aufgabe === "staffing-maintenance");
+
+    assert.equal(sm.zustand, "ok",
+      "der Takt lief vor einer Minute — 'still' waere ein Falschalarm ueber eine "
+      + "Aufgabe, die tut, was sie soll");
+    assert.equal(sm.minuten_her, 1);
+    assert.deepStrictEqual(stand.beobachtet.map((b) => b.aufgabe), [],
+      "der lange Name gehoert NICHT zusaetzlich unter 'unbeobachtet' — sonst steht "
+      + "dieselbe Aufgabe zweimal da, einmal als Problem und einmal als nicht");
+  });
+
+  it("beide Ausloeser zaehlen auf dieselbe Aufgabe — juengster Lauf, summierte Laeufe", async () => {
+    /* Der Handlauf ist aelter, der Takt juenger. Die Frage der Kachel lautet
+     * "wie lange ist es her?" — darauf antwortet der letzte Lauf, egal wer ihn
+     * ausgeloest hat. Die LAUFZAHL dagegen zaehlt die Aufgabe, nicht den
+     * Ausloeser, und wird deshalb addiert. */
+    const p = musterPool(() => ({ rows: [
+      { aufgabe: "staffing-maintenance", zuletzt_um: vorMinuten(480), ergebnis: "ok",
+        laeufe: 4, fehler_in_folge: 0, dauer_ms: 30, quelle: "intern" },
+      { aufgabe: "staffing:staffing-maintenance", zuletzt_um: vorMinuten(2), ergebnis: "ok",
+        laeufe: 99, fehler_in_folge: 0, dauer_ms: 12, quelle: "takt" }
+    ] }));
+    const sm = (await taktStand(p, { jetzt: JETZT }))
+      .ueberwacht.find((a) => a.aufgabe === "staffing-maintenance");
+
+    assert.equal(sm.minuten_her, 2, "der juengere Lauf entscheidet den Zustand");
+    assert.equal(sm.quelle, "takt", "und mit ihm die angezeigte Herkunft");
+    assert.equal(sm.laeufe, 103, "die Laufzahl zaehlt die Aufgabe, nicht den Ausloeser");
+  });
+
+  it("die Aufloesung erfindet nichts — fremde Praefix-Namen bleiben unbeobachtet", async () => {
+    /* Die Gegenrichtung. Wuerde hier jedes `x:y` auf `y` abgebildet, koennte ein
+     * beliebiger Auftrag einen ueberwachten Takt gruen faerben, den es gar nicht
+     * gibt. Geprueft wird deshalb gegen die Registratur, nicht gegen das Muster. */
+    assert.equal(zuTaktSchluessel("email:willkommen"), null);
+    assert.equal(zuTaktSchluessel("staffing:etwas-anderes"), null);
+    assert.equal(zuTaktSchluessel(""), null);
+    assert.equal(zuTaktSchluessel(null), null);
+
+    /* Und was sie treffen MUSS: kurzer Name, praefigierter Name, und die
+     * `capacity:`-Eintraege, die in der Registratur selbst ein Praefix tragen. */
+    assert.equal(zuTaktSchluessel("staffing-maintenance"), "staffing-maintenance");
+    assert.equal(zuTaktSchluessel("staffing:staffing-maintenance"), "staffing-maintenance");
+    assert.equal(zuTaktSchluessel("capacity:ersatz-frist"), "capacity:ersatz-frist",
+      "der exakte Treffer geht vor — sonst wuerde daraus 'ersatz-frist', und das "
+      + "steht in keiner Registratur");
+
+    const p = musterPool(() => ({ rows: [
+      { aufgabe: "email:willkommen", zuletzt_um: vorMinuten(1), ergebnis: "ok",
+        laeufe: 500, fehler_in_folge: 0, dauer_ms: 3, quelle: "takt" }
+    ] }));
+    const stand = await taktStand(p, { jetzt: JETZT });
+    assert.deepStrictEqual(stand.beobachtet.map((b) => b.aufgabe), ["email:willkommen"]);
+    assert.equal(stand.zusammenfassung.still, Object.keys(TAKTE).length,
+      "ein fremder Auftrag darf keinen einzigen ueberwachten Takt gruen faerben");
+  });
+});
 
 describe("M1.1 · der Herzschlag haengt VOR den Routen, nicht in ihnen", () => {
   /*

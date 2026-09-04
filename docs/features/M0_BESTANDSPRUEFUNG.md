@@ -770,6 +770,38 @@ Rechnungen und `dunning-sweep` verschickt Mahnungen an echte Kunden.
 > Begründung, die stehen bleibt, nachdem der Takt läuft, ebenfalls. Vorher war die
 > Lücke nur im Betrieb sichtbar (Kachel `still`) — und nur dem, der hinsieht.
 
+> ### ✅ ENTSCHIEDEN UND GEBAUT AM 2026-09-04 (M1.9)
+>
+> **Alle fünf sind eingeplant.** Die `ohne_einplanung`-Gründe sind damit weg — der
+> Wächter oben hätte sie sonst als veraltete Behauptung rot gefärbt, und genau dafür
+> war seine zweite Richtung da.
+>
+> **Die notierte Betriebsfolge war zu pessimistisch, und das ist beim Bauen
+> herausgekommen.** Notiert war *„ab dem ersten Lauf entstehen echte Rechnungen und
+> gehen echte Mahnungen"*. Nachgemessen gilt das für **drei** der fünf:
+> `invoice-overdue-scan`, `subscription-lifecycle-tick` und `expire-reservations`
+> wirken sofort. `recurring-billing` und `dunning-sweep` — die beiden folgenreichsten —
+> bleiben durch ihre eigenen Schalter gehalten (`RECURRING_BILLING_ENABLED`,
+> `DUNNING_ENABLED`, beide per Vorgabe AUS).
+>
+> Damit das so bleibt, wurde der Ablauf **umgebaut statt verdoppelt**: die fünf Läufe
+> stehen jetzt einmal in [`betriebsTaktLaeufe.js`](../../api/services/betriebsTaktLaeufe.js),
+> den Endpunkt und Takt teilen. Vorher saß der Kill-Switch am Endpunkt — ein Takt
+> daneben hätte ihn ab Tag eins umgangen. Eine Probe fährt beide Läufe mit einem
+> Datenbankzugang, der bei jeder Benutzung wirft: ein `disabled`, das trotzdem eine
+> Abfrage abgesetzt hat, wäre keine Sperre, sondern eine Beschriftung.
+>
+> **Und ein Fund, der schwerer wog als die Entscheidung.** `staffing-maintenance` läuft
+> seit M1.2 — die Überwachung meldete trotzdem *„Diese Aufgabe ist noch nie gelaufen."*
+> Die beiden Auslöser schreiben ihren Herzschlag unter verschiedenen Namen
+> (`staffing-maintenance` vom Handlauf über `req.path`, `staffing:staffing-maintenance`
+> vom Takt über `${queue}:${job}`), und die Registratur kennt nur den kurzen. Der lange
+> stand daneben unter *„läuft, aber unbeobachtet"* — zwei Zeilen über dieselbe Aufgabe,
+> die sich widersprachen. Eine Phase gegen stille Automatismen hatte gerade **Lärm über
+> einen erzeugt, der läuft**; und ein Wächter, der falsch warnt, wird abgeschaltet und
+> nimmt die echten Befunde mit. Aufgelöst auf der Leseseite (`zuTaktSchluessel`), drei
+> Proben, Rückmutation belegt.
+
 **F18 ist größer als „Einladungslinks".**
 `BASE_URL` hat im ganzen `config/index.js` **eine** Referenz: den Rückfall auf
 `http://localhost:8080` (Zeile 44). Es gibt **keine** Produktionsprüfung, während
@@ -778,6 +810,31 @@ und (seit M1.3) der Mailweg alle `fatal` sind. Daraus bauen **25 Stellen** in ze
 Dateien Adressen — darunter `routes/auth.js` (Passwort zurücksetzen),
 `routes/payment.js` (Stripe-Rückkehradressen) und die Einladungen. Eine
 Stripe-Rückkehradresse auf `localhost` bricht den Kauf, nicht nur einen Link.
+
+> ### ✅ ENTSCHIEDEN UND GEBAUT AM 2026-09-04
+>
+> `BASE_URL` ist in Produktion `fatal` — fehlend, Platzhalter **oder auf `localhost`
+> zeigend**. Die zweite Bedingung ist die eigentliche: eine leere Variable fällt beim
+> Aufsetzen auf, eine durchgereichte `http://localhost:8080` sieht aus wie eine
+> Einstellung.
+>
+> **Der Wächter, der das absichern sollte, war für zwei seiner zwölf Fälle blind.**
+> `prodEnvTemplate.test.js` prüft seit dem 2026-07-26, dass jede erzwungene Variable in
+> `.env.prod.example` steht. Nach dem Einbau war er grün — und die Rückmutation zeigte,
+> dass das nichts hieß: `BASE_URL` aus der Vorlage gelöscht, weiter grün, weil
+> `"DATABASE_URL".includes("BASE_URL")` **wahr** ist. Dasselbe für `SESSION_SECRET` in
+> `STAFF_SESSION_SECRET`.
+>
+> Zweiter blinder Fleck: der Test las die Pflichtvariablen aus den
+> `if (…) { fatal(`-Bedingungen — `INTERNAL_CRON_SECRET` wird vorher in eine lokale
+> Variable gelesen und war damit unsichtbar. In Produktion Pflicht, ohne dass die
+> Vorlage sie hätte nennen müssen.
+>
+> Beides repariert (Zuweisungszeile statt Vorkommen; eine Ebene lokaler Umbenennung
+> wird aufgelöst), beide Rückmutationen färben rot. **Der Fund ist nicht die Variable,
+> sondern dass ein sechs Wochen grüner Wächter zwei seiner Fälle nie hätte melden
+> können** — dieselbe Klasse wie alles andere in diesem Bericht: eine Prüfung, die
+> einen Stellvertreter für die Sache hält.
 
 **F30 ist kleiner als aufgenommen.**
 Beim Nachmessen für die Umsatz-Entscheidung: die **Mahnstrecke** filtert bereits auf

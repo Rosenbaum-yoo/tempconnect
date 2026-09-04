@@ -1,5 +1,36 @@
 # TempConnect – Externer Scheduler (HA-Safe)
 
+## Achtung — fünf dieser Endpunkte haben seit dem 2026-09-04 einen ZWEITEN Auslöser
+
+Die Anwendung plant sie seit M1.9 selbst ein (BullMQ, `api/workers/index.js`,
+`scheduleBetriebsWirtschaft`). **Wer sie zusätzlich in einen Host-Crontab schreibt, löst
+sie doppelt aus:**
+
+| Endpunkt | in der Anwendung eingeplant |
+|---|---|
+| `/api/internal/recurring-billing` | täglich 02:10 |
+| `/api/internal/invoice-overdue-scan` | täglich 02:20 |
+| `/api/internal/dunning-sweep` | täglich 02:40 |
+| `/api/internal/subscription-lifecycle-tick` | stündlich :05 |
+| `/api/internal/expire-reservations` | stündlich :35 |
+
+Die Läufe sind idempotent — ein zweiter Aufruf findet die Zeilen des ersten nicht mehr im
+Filter. Der Schaden wäre also nicht Doppelbuchung, sondern **Unklarheit**: zwei Auslöser
+für dieselbe Geldstrecke, und im Zweifel weiß niemand, welcher gelaufen ist. Der
+Herzschlag unterscheidet beide (`quelle`: `takt` gegen `intern`), aber das ist eine
+Diagnose im Nachhinein, kein Betriebsplan.
+
+**Regel:** läuft Redis, sind diese fünf abgedeckt — die Crontab-Zeilen dafür gehören
+dann NICHT eingetragen. Der interne Endpunkt bleibt als **Handkurbel** bestehen (einen
+Lauf sofort anstoßen) und als Rückfall für ein Deployment ohne Redis. Alle übrigen
+Endpunkte auf dieser Seite haben weiterhin **nur** den externen Weg.
+
+> **Warum überhaupt in der Anwendung, wo diese Seite doch „extern" heißt?** Der Grund
+> oben (bei 2+ App-Servern darf ein Cron nicht auf jedem laufen) gilt für Cron. BullMQ
+> löst genau dieses Problem anders: `upsertJobScheduler` legt den Auftrag unter fester
+> Kennung in Redis ab, und **ein** Arbeiter greift ihn — egal wie viele App-Server
+> laufen. Der Grund, der den externen Weg nötig machte, entfällt damit für diese fünf.
+
 ## Warum extern?
 
 Bei 2+ App-Servern hinter einem Load Balancer dürfen Cron-Jobs nicht auf jedem Server laufen – sonst werden SLA-Scans, Expirations etc. doppelt ausgeführt. Lösung: **ein externer Scheduler** ruft die internen API-Endpoints auf.
@@ -93,12 +124,18 @@ im Runbook-Appendix `docs/enterprise-readiness/PILOT_CUSTOMER_RUNBOOK.md`).
 | `POST /api/internal/recurring-billing` | täglich | `RECURRING_BILLING_ENABLED` | Folge-Rechnung am Periodenende für aktive bezahlte Subs + `active→past_due` (No-Op bis Flag AN) |
 | `POST /api/internal/dunning-sweep` | täglich | `DUNNING_ENABLED` | Gestaffelte Zahlungserinnerungen (Mahnstufe 1/2/3) für überfällige Rechnungen (No-Op bis Flag AN) |
 
-Crontab (zusätzlich zu Option A unten):
+Crontab — **nur noch für `pilot-expiry`**, wenn Redis läuft:
 ```bash
+45 6 * * *  curl -sf -X POST "$LB_URL/api/internal/pilot-expiry"                -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
+```
+
+Die vier anderen dieser Tabelle plant die Anwendung seit dem 2026-09-04 selbst ein (siehe
+Warnung ganz oben). **Nur** für ein Deployment ohne Redis gehören sie in den Crontab —
+dann diese Zeilen, und dann laufen sie sonst gar nicht:
+```bash
+# NUR OHNE REDIS. Mit Redis waeren das doppelte Ausloeser.
 */5 * * * * curl -sf -X POST "$LB_URL/api/internal/subscription-lifecycle-tick" -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
 30 6 * * *  curl -sf -X POST "$LB_URL/api/internal/invoice-overdue-scan"        -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
-45 6 * * *  curl -sf -X POST "$LB_URL/api/internal/pilot-expiry"                -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
-# Erst nach UG-Gründung + Flag-Aktivierung wirksam (vorher No-Op, schadlos bereits jetzt eintragbar):
 0 7 * * *   curl -sf -X POST "$LB_URL/api/internal/recurring-billing"           -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
 30 7 * * *  curl -sf -X POST "$LB_URL/api/internal/dunning-sweep"               -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
 ```
@@ -112,6 +149,7 @@ CRON_SECRET="dein_cron_secret"
 LB_URL="https://tempconnect.de"
 
 */5 * * * * curl -sf -X POST "$LB_URL/api/internal/sla-scan" -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
+# NUR OHNE REDIS (mit Redis: stuendlich :35 in der Anwendung eingeplant):
 */5 * * * * curl -sf -X POST "$LB_URL/api/internal/expire-reservations" -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
 */15 * * * * curl -sf -X POST "$LB_URL/api/internal/sla-search-scan" -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
 */5 * * * * HOST_NAME="$(hostname -s)" INTERNAL_CRON_SECRET="$CRON_SECRET" BASE_URL="$LB_URL" ./scripts/collect-infrastructure-snapshot.sh > /dev/null

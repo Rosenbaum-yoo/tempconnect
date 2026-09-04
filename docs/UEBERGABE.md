@@ -960,6 +960,74 @@ aufgefallen wären:
 > schließt. Der Riegel dafuer liegt bereit (`verweigereArbeiter`, eine Zeile je Route);
 > was fehlt, ist die Entscheidung.
 
+### M1.9 ist gebaut *(2026-09-04)* — fünf Automatismen hatten keinen Auslöser
+
+Der Owner-Entscheid: **alle fünf verbliebenen Takte werden eingeplant.** Gemessen am
+2026-09-03 waren von zehn Aufgaben in der Registratur fünf eingeplant; die anderen fünf
+waren Geld und Lebenszyklus, hatten einen internen HTTP-Endpunkt — und niemand rief ihn.
+
+**Nicht fünf Zeilen, sondern ein Umbau.** Jeder der fünf Endpunkte macht mehr als einen
+Dienstaufruf: Dienst rufen, bei Wirkung Audit schreiben, und zwei prüfen vorher einen
+Kill-Switch. Hätte der Takt das nachgebaut, stünden zwei Fassungen desselben Ablaufs
+nebeneinander — und die zweite wäre genau dort abgewichen, wo es teuer wird. Deshalb
+steht der Ablauf jetzt **einmal** in `api/services/betriebsTaktLaeufe.js`; der Endpunkt
+ist die Handkurbel, der Takt der Motor, beide drehen dieselbe Welle. Eigene
+Warteschlange `betrieb` mit eigenem Arbeiter — nicht in `staffing` mitlaufend, sonst
+hieße der Herzschlag der Mahnstrecke `staffing:dunning-sweep`.
+
+| Takt | wann | wirkt sofort? |
+|---|---|---|
+| `recurring-billing` | täglich 02:10 | nein — `RECURRING_BILLING_ENABLED` (Vorgabe AUS) |
+| `invoice-overdue-scan` | täglich 02:20 | **ja** |
+| `dunning-sweep` | täglich 02:40 | nein — `DUNNING_ENABLED` (Vorgabe AUS) |
+| `subscription-lifecycle-tick` | stündlich :05 | **ja** |
+| `expire-reservations` | stündlich :35 | **ja** |
+
+Die Nachtreihenfolge ist kein Zufall: erzeugen → fällig setzen → mahnen. Umgekehrt
+gereiht bräuchte jede Stufe einen Tag Vorlauf.
+
+**Die notierte Betriebsfolge war zu pessimistisch — korrigiert.** Notiert stand *„ab dem
+ersten Lauf entstehen echte Rechnungen und gehen echte Mahnungen"*. Das gilt für **drei**
+der fünf. Die beiden folgenreichsten bleiben durch ihre Schalter gehalten, und weil der
+Schalter jetzt im gemeinsamen Ablauf sitzt statt am Endpunkt, kann der Takt ihn nicht
+umgehen. Eine Probe fährt beide Läufe mit einem Datenbankzugang, der bei **jeder**
+Benutzung wirft: ein `disabled`, das trotzdem eine Abfrage abgesetzt hat, wäre keine
+Sperre, sondern eine Beschriftung.
+
+**Der Fund, der schwerer wog als die Entscheidung.** `staffing-maintenance` läuft seit
+M1.2 — und die Überwachung meldete unverändert *„Diese Aufgabe ist noch nie gelaufen."*
+Die beiden Auslöser schreiben ihren Herzschlag unter **verschiedenen Namen**:
+
+```
+Handlauf (interner Endpunkt)  ->  "staffing-maintenance"            (req.path)
+Einplanung (BullMQ)           ->  "staffing:staffing-maintenance"   (queue:job)
+```
+
+Die Registratur kennt nur den kurzen. Der lange stand daneben unter *„läuft, aber
+unbeobachtet"* — zwei Zeilen über dieselbe Aufgabe, die einander widersprachen. Eine
+Phase, die gegen **stille** Automatismen gebaut wurde, hatte gerade **Lärm über einen
+erzeugt, der läuft**; und ein Wächter, der falsch warnt, wird abgeschaltet und nimmt die
+echten Befunde mit. Aufgelöst auf der Leseseite (`zuTaktSchluessel`): beide Schreibweisen
+zählen auf dieselbe Aufgabe, der jüngere Lauf entscheidet den Zustand, die Laufzahlen
+werden addiert.
+
+**Ein stiller Ausfall wurde zusätzlich laut gemacht.** `runDunningSweep` gibt ohne Mailer
+`{ note: "NO_MAILER" }` zurück und markiert bewusst nichts — richtig, damit keine
+Erinnerung als verschickt gilt, die es nicht ist. Für den *Takt* wäre das aber ein
+**gelungener** Lauf: Job `completed`, Herzschlag grün, Kachel „läuft". Die Mahnstrecke
+wäre eingeschaltet und stumm. Ist der Schalter an und kein Versandweg gereicht, wirft der
+Lauf jetzt.
+
+**Drei Verzeichnisse hängen ab jetzt aneinander** — Soll (`TAKTE`), Auslösung
+(`upsertJobScheduler`) und Verarbeitung (`LAEUFE`). `takteEingeplant.test.js` prüft alle
+drei Kanten in beide Richtungen: ein eingeplanter Auftrag ohne Lauf färbt rot (er würfe
+sonst jede Nacht), ein Lauf ohne Einplanung ebenfalls (er wäre gebaut und stumm), und
+ein Lauf ohne Soll auch (sein Schweigen löste keinen Alarm aus).
+
+*Verifikation: 9 neue Proben in `betriebsTaktLaeufe.test.js`, 3 in `betriebsTakt.test.js`,
+3 in `takteEingeplant.test.js`; sechs Rückmutationen — Kill-Switch, Audit-Bedingung,
+Präfix-Auflösung, Versandweg-Prüfung, `LAEUFE`-Eintrag, Einplanung — jede gefangen.*
+
 ### M2.5, Nachtrag *(2026-09-03)* — die 45 Befunde waren größtenteils Phantome
 
 Der eigene Fehler, gefunden beim Weiterarbeiten und derselbe wie beim API-Schlüssel: eine
@@ -2468,6 +2536,93 @@ Doku-Waechter P2-W1).
 ## Offene Owner-Entscheidungen
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
+
+### Vier weitere Entscheidungen getroffen *(2026-09-04)*
+
+Alle vier stammen aus der M0-Nacharbeit — drei davon hat erst die Messung sichtbar
+gemacht.
+
+- **✅ ALLE FÜNF TAKTE werden eingeplant.** Nicht nur die zwei harmlosen:
+  `recurring-billing`, `dunning-sweep`, `invoice-overdue-scan`,
+  `subscription-lifecycle-tick` und `expire-reservations`.
+  **GEBAUT am 2026-09-04 (M1.9).**
+  > **Betriebliche Folge — beim Bauen KORRIGIERT, und die Korrektur entlastet.**
+  > Notiert war: *„ab dem ersten Lauf entstehen echte Rechnungen und gehen echte
+  > Mahnungen an echte Kunden."* Beim Bauen nachgemessen: das gilt für **drei** der
+  > fünf, nicht für fünf.
+  >
+  > | Takt | wirkt ab dem ersten Lauf | gehalten durch |
+  > |---|---|---|
+  > | `invoice-overdue-scan` | **ja** — setzt fällige Rechnungen auf `overdue` | — |
+  > | `subscription-lifecycle-tick` | **ja** — aktiviert/beendet Abos zum Stichtag | — |
+  > | `expire-reservations` | **ja** — gibt gebundene Kapazität frei | — |
+  > | `recurring-billing` | nein | `RECURRING_BILLING_ENABLED` (Vorgabe AUS) |
+  > | `dunning-sweep` | nein | `DUNNING_ENABLED` (Vorgabe AUS) |
+  >
+  > Die **beiden folgenreichsten** — Folgerechnungen und Mahnpost an zahlende Kunden —
+  > entstehen also nicht durch die Einplanung, sondern erst durch das bewusste Umlegen
+  > ihres Schalters. Damit das auch so bleibt, sitzt der Schalter jetzt im **gemeinsamen
+  > Ablauf** (`api/services/betriebsTaktLaeufe.js`), den Endpunkt und Takt teilen — nicht
+  > mehr am Endpunkt. Ein Takt kann ihn nicht umgehen; eine Probe fährt beide Läufe mit
+  > einem Datenbankzugang, der bei jeder Benutzung wirft.
+  >
+  > In der Entwicklungsumgebung passiert weiterhin nichts (kein Redis, `startWorkers`
+  > steigt vorher aus). Der erste Produktionslauf gehört trotzdem begleitet — für die
+  > drei, die sofort wirken.
+  >
+  > **Nachtreihenfolge, und sie ist kein Zufall:** 02:10 `recurring-billing` erzeugt →
+  > 02:20 `invoice-overdue-scan` setzt fällig → 02:40 `dunning-sweep` mahnt. Umgekehrt
+  > gereiht bräuchte jede Stufe einen Tag Vorlauf. `subscription-lifecycle-tick` (:05)
+  > und `expire-reservations` (:35) laufen stündlich — täglich wäre bei einer
+  > Stundenfrist eine Attrappe.
+  >
+  > **Nebenbefund beim Bauen, und er war schwerer als die Entscheidung selbst:** der
+  > Takt `staffing-maintenance` lief seit M1.2 — und die Überwachung meldete
+  > unverändert *„Diese Aufgabe ist noch nie gelaufen."* Die beiden Auslöser schreiben
+  > ihren Herzschlag unter verschiedenen Namen (`staffing-maintenance` vom Handlauf,
+  > `staffing:staffing-maintenance` vom Takt), und die Registratur kennt nur den kurzen.
+  > Der lange stand daneben unter *„läuft, aber unbeobachtet"*. Eine Phase, die gegen
+  > stille Automatismen gebaut wurde, hatte gerade Lärm über einen erzeugt, der läuft.
+  > Aufgelöst auf der Leseseite (`zuTaktSchluessel`), drei Proben, Rückmutation belegt.
+
+- **✅ `BASE_URL` wird in Produktion `fatal`** — wie `SESSION_SECRET`, `JWT_SECRET`,
+  `INTERNAL_CRON_SECRET`, `ADMIN_SECRET`, die Datenbank und der Mailweg. Fehlt sie oder
+  zeigt sie auf `localhost`, startet die Anwendung nicht. Ein Deployment ohne gesetzte
+  Variable schlägt damit **laut und sofort** fehl statt still beim ersten Kunden — 25
+  Stellen bauen daraus Adressen, darunter Passwort-Zurücksetzen und
+  Stripe-Rückkehradressen. **GEBAUT am 2026-09-04.**
+  > **Der Wächter, der das absichern sollte, konnte es nicht — zweimal.**
+  > `prodEnvTemplate.test.js` hält seit 2026-07-26 fest, dass jede in Produktion
+  > erzwungene Variable auch in `.env.prod.example` steht. Sonst setzt jemand die
+  > Produktion nach der Vorlage auf und bekommt eine API, die nicht startet.
+  >
+  > Nach dem Einbau war er grün. **Die Rückmutation zeigte, warum das nichts hieß:**
+  > `BASE_URL` aus der Vorlage gelöscht — weiter grün. Der Test suchte die Zeichenkette
+  > *irgendwo* in der Datei, und `"DATABASE_URL".includes("BASE_URL")` ist **wahr**.
+  > Dasselbe für `SESSION_SECRET` in `STAFF_SESSION_SECRET`: zwei der zwölf Variablen
+  > konnten strukturell nie als fehlend gemeldet werden.
+  >
+  > Zweiter blinder Fleck derselben Art: der Test las die Pflichtvariablen aus den
+  > `if (…) { fatal(`-Bedingungen. `INTERNAL_CRON_SECRET` wird vorher in eine lokale
+  > Variable gelesen — und war deshalb unsichtbar. In Produktion Pflicht, ohne dass die
+  > Vorlage sie hätte nennen müssen.
+  >
+  > Beides repariert: geprüft wird die **Zuweisungszeile**, und eine Ebene lokaler
+  > Umbenennung wird aufgelöst. Beide Rückmutationen färben jetzt rot. Der eigentliche
+  > Fund dieser Entscheidung ist nicht die Variable, sondern dass ein seit sechs Wochen
+  > grüner Wächter für zwei seiner zwölf Fälle blind war.
+
+- **✅ F27: die Materialisierung setzt `last_confirmed_at`.** Nicht ein Filter auf
+  `quelle`. Heilt die sechs bestehenden Zeilen sofort, wirkt für manuelle und
+  automatische Einträge gleichermaßen, und ein Auto-Angebot wird nach sieben Tagen
+  wieder bestätigungsbedürftig — was fachlich stimmt, weil die Automatik es ohnehin
+  alle 15 Minuten erneuert.
+
+- **✅ F12: der Guard fragt `me.org_role`, nicht `orgType`.** Eine Bedingung in
+  `hubVisibility.js`. Die *Wurzel* wird ausdrücklich **nicht** angefasst: `org_type =
+  'agency'` ist für einen Arbeiter richtig, er gehört zu dieser Org. Wirkung: sieben
+  Hub-Karten verschwinden aus seiner Ansicht, und der Zustand `hidden_worker` wird zum
+  ersten Mal lebendig.
 
 ### Vier Entscheidungen getroffen *(2026-09-03)*
 

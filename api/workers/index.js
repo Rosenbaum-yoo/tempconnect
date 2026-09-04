@@ -8,8 +8,9 @@ import { startEmailWorker } from "./emailWorker.js";
 import { startMatchWorker } from "./matchWorker.js";
 import { startCapacityWorker } from "./capacityWorker.js";
 import { startStaffingWorker } from "./staffingWorker.js";
+import { startBetriebsWorker } from "./betriebsWorker.js";
 import { instrumentWorker, registerQueueMetrics } from "../utils/metrics.js";
-import { emailQueue, matchQueue, capacityQueue, staffingQueue } from "../queue/queues.js";
+import { emailQueue, matchQueue, capacityQueue, staffingQueue, betriebQueue } from "../queue/queues.js";
 import { logger } from "../config/index.js";
 import { pool } from "../db/pool.js";
 
@@ -70,7 +71,63 @@ function scheduleBetriebsTakte() {
     .catch((e) => logger.warn({ err: e.message }, "Could not schedule staffing-maintenance"));
 }
 
-export function startWorkers() {
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DIE FUENF, DIE NIE LIEFEN (M1.9, Owner-Entscheid 2026-09-04)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Gemessen am 2026-09-03: von zehn erwarteten Takten waren fuenf eingeplant.
+ * Die anderen fuenf hatten einen internen Endpunkt und keinen Ausloeser —
+ * Geld und Lebenszyklus. Der Owner hat entschieden, ALLE fuenf einzuplanen.
+ *
+ * WAS DAS IM BETRIEB HEISST — DREI WIRKEN SOFORT, ZWEI NICHT:
+ *
+ *   sofort wirksam, sobald Redis da ist:
+ *     invoice-overdue-scan         setzt faellige Rechnungen auf 'overdue'
+ *     subscription-lifecycle-tick  aktiviert/beendet Abos zum Stichtag
+ *     expire-reservations          gibt gebundene Kapazitaet frei
+ *
+ *   weiterhin durch ihren Schalter gehalten (beide per Vorgabe AUS):
+ *     recurring-billing            RECURRING_BILLING_ENABLED
+ *     dunning-sweep                DUNNING_ENABLED
+ *
+ * Die beiden folgenreichsten — Folgerechnungen und Mahnpost an echte Kunden —
+ * entstehen also NICHT durch diese Einplanung, sondern erst durch das bewusste
+ * Umlegen ihres Schalters. Der Schalter wird im gemeinsamen Ablauf geprueft
+ * (`services/betriebsTaktLaeufe.js`), nicht am Endpunkt; ein Takt kann ihn
+ * damit nicht umgehen.
+ *
+ * REIHENFOLGE IN DER NACHT, und sie ist kein Zufall:
+ *   02:10 recurring-billing   erzeugt die Folgerechnungen
+ *   02:20 invoice-overdue-scan  setzt faellige davon auf 'overdue'
+ *   02:40 dunning-sweep       mahnt, was 'overdue' ist
+ * Umgekehrt gereiht braeuchte jede Stufe einen Tag Vorlauf.
+ *
+ * Ohne Redis passiert nichts: `startWorkers` steigt vorher aus, und die
+ * internen Endpunkte bleiben der Handlauf.
+ */
+function scheduleBetriebsWirtschaft() {
+  const q = betriebQueue();
+  if (!q || typeof q.upsertJobScheduler !== "function") return;
+
+  q.upsertJobScheduler("recurring-billing-daily", { pattern: "10 2 * * *" }, { name: "recurring-billing" })
+    .catch((e) => logger.warn({ err: e.message }, "Could not schedule recurring-billing"));
+  q.upsertJobScheduler("invoice-overdue-scan-daily", { pattern: "20 2 * * *" }, { name: "invoice-overdue-scan" })
+    .catch((e) => logger.warn({ err: e.message }, "Could not schedule invoice-overdue-scan"));
+  q.upsertJobScheduler("dunning-sweep-daily", { pattern: "40 2 * * *" }, { name: "dunning-sweep" })
+    .catch((e) => logger.warn({ err: e.message }, "Could not schedule dunning-sweep"));
+
+  /* Stuendlich, nicht taeglich: ein Abo mit Beginn 09:00 soll um 09:05 wirksam
+   * sein, nicht am naechsten Morgen — der Kunde hat bezahlt und wartet. Dasselbe
+   * fuer Reservierungen: eine Frist im Stundenbereich mit Tagestakt waere eine
+   * Attrappe. */
+  q.upsertJobScheduler("subscription-lifecycle-hourly", { pattern: "5 * * * *" }, { name: "subscription-lifecycle-tick" })
+    .catch((e) => logger.warn({ err: e.message }, "Could not schedule subscription-lifecycle-tick"));
+  q.upsertJobScheduler("expire-reservations-hourly", { pattern: "35 * * * *" }, { name: "expire-reservations" })
+    .catch((e) => logger.warn({ err: e.message }, "Could not schedule expire-reservations"));
+}
+
+export function startWorkers(deps = {}) {
   if (!isQueueAvailable()) {
     logger.info("Redis not configured — background workers disabled");
     return;
@@ -99,12 +156,24 @@ export function startWorkers() {
     scheduleBetriebsTakte();
   }
 
+  const betrieb = startBetriebsWorker({ sendMail: deps.sendMail });
+  if (betrieb) {
+    instrumentWorker(betrieb, "betrieb", { pool });
+    _workers.push(betrieb);
+    /* Wie bei den anderen: der Takt gehoert an den Arbeiter, der ihn
+     * verarbeitet. Ohne laufenden Arbeiter waere die Einplanung eine Zeile in
+     * Redis, die niemand abholt — und der Herzschlag bliebe still, obwohl
+     * "eingeplant" in der Registratur steht. */
+    scheduleBetriebsWirtschaft();
+  }
+
   // Register queue gauges (waiting/active counts) for Prometheus scraping
   const queues = [
     { name: "email", queue: emailQueue() },
     { name: "match", queue: matchQueue() },
     { name: "capacity", queue: capacityQueue() },
-    { name: "staffing", queue: staffingQueue() }
+    { name: "staffing", queue: staffingQueue() },
+    { name: "betrieb", queue: betriebQueue() }
   ].filter(q => q.queue);
   registerQueueMetrics(queues);
 

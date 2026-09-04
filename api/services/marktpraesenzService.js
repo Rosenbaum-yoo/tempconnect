@@ -61,19 +61,45 @@ const AGENTUR_NUTZER_SQL = `
  * location_city ist NOT NULL, und ein erfundener Ort waere eine Luege im
  * Marktplatz. ON CONFLICT gegen den Dedup-Index (Mig 145): ein bereits
  * vorhandenes Angebot (egal welcher quelle) hat Vorrang. */
+/*
+ * F27 (Owner-Entscheid 2026-09-04) — `last_confirmed_at` gehoert an die Quelle.
+ *
+ * `findStaleEntries` prueft `last_confirmed_at IS NULL OR ... < NOW() - 7 Tage`.
+ * Die erste Haelfte trifft SOFORT: ein Eintrag ohne Bestaetigung ist ueberfaellig,
+ * nicht erst nach sieben Tagen. Gemessen am 2026-09-03 waren dadurch zwoelf von
+ * dreizehn aktiven Eintraegen dauerhaft ueberfaellig — darunter alle sechs, die
+ * diese Automatik erzeugt hat und die NIEMAND bestaetigen kann, weil sie
+ * maschinell entstehen. Der taegliche Sweep verschickte je Eintrag eine Meldung
+ * an einen echten Menschen (den owner/admin der Agentur), unbefristet.
+ *
+ * Gewaehlt wurde nicht der Filter auf `quelle`, sondern die Bestaetigung an der
+ * Quelle: was die Automatik gerade nachgeprueft hat, IST bestaetigt — und zwar
+ * frischer als jede Bestaetigung von Hand. Sie prueft bei jedem Lauf, dass die
+ * Kraft aktiv ist, die Faehigkeit noch traegt, nicht abwesend ist und einen Ort
+ * hat.
+ *
+ * DAS ERNEUERN IST DER TEIL, DER DIE BESTANDSZEILEN HEILT. `DO NOTHING` liesse
+ * die sechs vorhandenen fuer immer leer; `DO UPDATE` schreibt beim naechsten
+ * Lauf die Bestaetigung nach. Die Bedingung `quelle = 'live_belegschaft'` haelt
+ * dabei die Zusage der Zeile darueber ein: ein von Hand angelegtes Angebot hat
+ * Vorrang und wird von der Maschine NICHT bestaetigt — dort ist die
+ * Bestaetigungspflicht gewollt.
+ */
 const MATERIALISIEREN_SQL = `
   INSERT INTO capacity_posts (
     supplier_company_id, title, role, skill_tags, headcount,
     availability_from, availability_to, location_city, location_postal, worker_category,
     status, is_active, org_id, worker_profile_id, primary_skill_id,
-    offer_kind, priority_level, placement_boost_level, is_anonymous, quelle
+    offer_kind, priority_level, placement_boost_level, is_anonymous, quelle,
+    last_confirmed_at
   )
   SELECT
     (${AGENTUR_NUTZER_SQL}),
     ps.name, ps.name, ARRAY[ps.name], 1,
     CURRENT_DATE, wp.einsetzbar_bis, wp.city, wp.postal_code, ps.category,
     'active', TRUE, wp.supplier_org_id, wp.id, ps.id,
-    'single_skill', 'normal', 0, TRUE, 'live_belegschaft'
+    'single_skill', 'normal', 0, TRUE, 'live_belegschaft',
+    NOW()
     FROM worker_profiles wp
     JOIN worker_profile_skills wps ON wps.worker_profile_id = wp.id
     JOIN platform_skills ps ON ps.id = wps.skill_id AND ps.is_active = TRUE
@@ -94,7 +120,8 @@ const MATERIALISIEREN_SQL = `
       AND worker_profile_id IS NOT NULL
       AND primary_skill_id IS NOT NULL
       AND status IN ('draft', 'active', 'paused')
-  DO NOTHING`;
+  DO UPDATE SET last_confirmed_at = NOW()
+    WHERE capacity_posts.quelle = 'live_belegschaft'`;
 
 /* Eine WIRKSAME Abwesenheit, die HEUTE gilt (Owner 2026-08-26: das Unternehmen
  * muss erkennen, "ob er wirklich verfuegbar ist"). Dieselben Bedingungen wie
@@ -368,14 +395,16 @@ export async function setzeMarktpraesenz(pool, supplierOrgId, workerProfileId, d
        supplier_company_id, title, role, skill_tags, headcount,
        availability_from, availability_to, location_city, location_postal, worker_category,
        status, is_active, org_id, worker_profile_id, primary_skill_id,
-       offer_kind, priority_level, placement_boost_level, is_anonymous, quelle
+       offer_kind, priority_level, placement_boost_level, is_anonymous, quelle,
+       last_confirmed_at
      )
      SELECT
        (${AGENTUR_NUTZER_SQL}),
        ps.name, ps.name, ARRAY[ps.name], 1,
        CURRENT_DATE, wp.einsetzbar_bis, wp.city, wp.postal_code, ps.category,
        'active', TRUE, wp.supplier_org_id, wp.id, ps.id,
-       'single_skill', 'normal', 0, TRUE, 'live_belegschaft'
+       'single_skill', 'normal', 0, TRUE, 'live_belegschaft',
+       NOW()
        FROM worker_profiles wp
        JOIN worker_profile_skills wps ON wps.worker_profile_id = wp.id
        JOIN platform_skills ps ON ps.id = wps.skill_id AND ps.is_active = TRUE
@@ -397,7 +426,8 @@ export async function setzeMarktpraesenz(pool, supplierOrgId, workerProfileId, d
          AND worker_profile_id IS NOT NULL
          AND primary_skill_id IS NOT NULL
          AND status IN ('draft', 'active', 'paused')
-     DO NOTHING
+     DO UPDATE SET last_confirmed_at = NOW()
+       WHERE capacity_posts.quelle = 'live_belegschaft'
      RETURNING id`,
     kennung
   );

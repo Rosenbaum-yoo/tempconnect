@@ -558,7 +558,7 @@ Alle neun bestehen aus 14 nicht-leeren Zeilen mit einem `<meta http-equiv="refre
 > Zustandsprotokolls 04:00).
 
 
-Hintergrundarbeit läuft über vier BullMQ-Warteschlangen mit Redis. **Ohne Redis startet die
+Hintergrundarbeit läuft über fünf BullMQ-Warteschlangen mit Redis. **Ohne Redis startet die
 Anwendung weiterhin, aber es läuft nichts von allein** — die Warteschlangen werden dann gar
 nicht erst erzeugt (`api/queue/queues.js`, `getOrCreate` gibt `null` zurück;
 `api/workers/index.js:41-44` protokolliert „Redis not configured — background workers disabled").
@@ -573,11 +573,30 @@ Abschnitts.
 | **Verfallslauf Marktplatz** (`capacity-expiry`) | täglich 03:00 | Abgelaufene Angebote und Bedarfe bleiben auf `active`. Der Marktplatz zeigt Personal an, das es nicht mehr gibt — der direkteste Weg, das Vertrauen in die Liste zu verlieren. Beleg: `api/workers/index.js:28` |
 | **Überfälligkeitsprüfung** (`capacity-stale-check`) | täglich 03:30 | Einträge, die zur Bestätigung anstehen, werden nicht gemeldet; die Liste veraltet unbemerkt. Beleg: `api/workers/index.js:29-30` |
 | **Aufbewahrung Zustandsprotokoll** (`worker-status-events-retention`) | täglich 04:00, Frist 24 Monate | Die Ereignistabelle wächst unbegrenzt. Abgesichert: die Frist steht zusätzlich als Datenbankfunktion (`SELECT worker_status_events_aufraeumen();`, Migration 179) und ist jederzeit von Hand auslösbar. Beleg: `api/workers/index.js:32-38` |
+| **Wiederkehrende Abo-Rechnungen** (`betrieb`-Queue, `recurring-billing`) | täglich 02:10 | Es entsteht keine Folgerechnung; die Einnahmenseite läuft nur, soweit jemand von Hand auslöst. **Steht zusätzlich unter `RECURRING_BILLING_ENABLED` (Vorgabe AUS)** — der Takt läuft dann, meldet `disabled` und erzeugt nichts. Beleg: `api/workers/betriebsWorker.js` → `api/services/betriebsTaktLaeufe.js` |
+| **Fälligkeit der Rechnungen** (`invoice-overdue-scan`) | täglich 02:20 | Fällige Rechnungen bleiben auf `issued`. `overdue` ist ein gültiger Zustand, den sonst nichts je setzt — und daran hängt die gesamte Mahnstrecke. Beleg: `api/workers/betriebsWorker.js` |
+| **Mahnstrecke** (`dunning-sweep`) | täglich 02:40 | Überfällige Rechnungen werden nicht angemahnt, der Hard-Lock bei Zahlungsausfall greift nie. **Steht zusätzlich unter `DUNNING_ENABLED` (Vorgabe AUS)** — die folgenreichste der fünf, jeder Lauf kann Post an einen zahlenden Kunden auslösen. Beleg: `api/workers/betriebsWorker.js` |
+| **Abo-Wirksamkeit zum Stichtag** (`subscription-lifecycle-tick`) | stündlich :05 | Ein Abo mit zukünftigem Beginn wird nie von selbst wirksam, eine Kündigung nie vollzogen — der Kunde hat bezahlt und wartet. Beleg: `api/workers/betriebsWorker.js` |
+| **Verfall von Reservierungen** (`expire-reservations`) | stündlich :35 | Abgelaufene Reservierungen bleiben `active`; Kapazität bleibt gebunden, die niemand mehr braucht. Beleg: `api/workers/betriebsWorker.js` |
 
-**Einplanung ist neustartfest.** Die drei Tagesläufe werden über `upsertJobScheduler` mit fester
-Kennung eingeplant und verdoppeln sich bei einem Neustart nicht (`api/workers/index.js:24-38`).
-Der Kommentar an dieser Stelle hält fest, dass es den Capacity-Worker vorher schon gab, aber
-nichts die Jobs eingeplant hat — der Verfallslauf lief nie.
+**Einplanung ist neustartfest.** Alle wiederkehrenden Läufe werden über `upsertJobScheduler`
+mit fester Kennung eingeplant und verdoppeln sich bei einem Neustart nicht. Der Kommentar an
+dieser Stelle hält fest, dass es den Capacity-Worker vorher schon gab, aber nichts die Jobs
+eingeplant hat — der Verfallslauf lief nie.
+
+**Die fünf Läufe der `betrieb`-Queue sind seit dem 2026-09-04 eingeplant** (Owner-Entscheid,
+M1.9). Vorher hatten sie nur einen internen HTTP-Endpunkt, den niemand rief. Der Ablauf steht
+**einmal** in `api/services/betriebsTaktLaeufe.js` — Endpunkt und Takt teilen ihn, damit der
+Takt die beiden Kill-Switches nicht umgehen kann. Die Nachtreihenfolge ist bewusst gewählt:
+erzeugen (02:10) → fällig setzen (02:20) → mahnen (02:40); umgekehrt bräuchte jede Stufe einen
+Tag Vorlauf.
+
+**Ob ein Lauf wirklich läuft, ist ablesbar.** Jeder Arbeiter schreibt einen Herzschlag in
+`betriebs_takt` (`api/utils/metrics.js`, `instrumentWorker`), das Soll steht in
+`betriebsTaktService.TAKTE`, und die Kachel im Staff Control Center zeigt jede Aufgabe, die
+länger schweigt als das Dreifache ihres Intervalls — **auch die, die noch nie lief**, denn die
+hat keine Zeile und wird von jeder Auswertung übersehen, die von der Tabelle statt von der
+Erwartung ausgeht.
 
 **Kein zweiter Taktgeber.** Es gibt keine `setInterval`-basierte Hintergrundarbeit in
 `api/server.js`, `api/app.js` oder `api/services/*.js` (geprüft, null Treffer). Alles
@@ -639,14 +658,14 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | davon Owner Control Center | 31 | dieselbe Zählung, beschränkt auf `api/routes/occ/` (13 Modul-Router) |
 | davon Staff Control Center | 104 | `api/routes/staffControlCenter.js` — größte Einzeldatei |
 | Router-Dateien | 83 | `ls api/routes/ \| wc -l` (inkl. Verzeichnis `api/routes/occ/`) |
-| Service-Dateien | 192 | `ls api/services/ \| wc -l` |
+| Service-Dateien | 193 | `ls api/services/ \| wc -l` |
 | Datenbanktabellen | **180** | eindeutige `CREATE TABLE`-Namen in `sql/init.sql` + `sql/migrations/*.sql`, bereinigt um einen Treffer aus einem deutschen Kommentar. Davon 4 aus dem Grundschema (`users`, `listings`, `requests`, `subscriptions`), 176 aus Migrationen |
 | Migrationsdateien | **219** | `ls sql/migrations/*.sql \| wc -l` — nummeriert `001_ratings.sql` bis `215_email_ohne_schreibweise.sql`; neun Nummern sind doppelt belegt (`027`/`027b`, `045`/`045b`, `064`, `070`, `074`, `075`, `086`, `130`, `140`). `NUMBERING.md` ist keine Migration |
 | Nutzerflächen | **90** | 78 in `frontend/public/*.html` + 6 `legal/` + 4 `trust/` + `frontend/landing.html` + `frontend/demo.html`. Am 26.08. nachgezählt: die vorherige **89** hinkte der eigenen Liste nach (A1 des Wächters bestand, nur die Summe war alt) — die Korrektur ist größer als der Abzug für die gelöschte Vorlagenseite |
 | davon reine Weiterleitungen | 9 | je 14 nicht-leere Zeilen, reiner Meta-Refresh |
 | davon Attrappen | 3 | `sla_nachweise.html`, `impressum.html`, `datenschutz.html` (Wurzel) |
 | davon für keinen Nutzer erreichbar | **0** | war 1 (timesheet-templates.html); am 26.08. entfernt — siehe Liste A, A1 |
-| Backend-Testdateien | <!--zahl:backend-testdateien-->446<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
+| Backend-Testdateien | <!--zahl:backend-testdateien-->447<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
 | E2E-Testdateien | <!--zahl:e2e-testdateien-->17<!--/zahl--> | `ls e2e/tests/ \| wc -l` |
 | Rollen im Rechtemodell | 12 | `ROLE_HIERARCHY` in `api/services/rbacService.js:9-22` |
 | Benannte Berechtigungen | 63 | `PERMISSIONS` in `api/services/rbacService.js:25 ff.` |
@@ -664,7 +683,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 >
 > **Eine Zahl, die hier bewusst fehlt:** die Gesamtzahl grüner Tests. Sie steht in mehreren
 > Projektdokumenten (3979+), wurde für dieses Register aber **nicht** nachgerechnet, weil das
-> einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die <!--zahl:backend-testdateien-->446<!--/zahl--> Testdateien und
+> einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die <!--zahl:backend-testdateien-->447<!--/zahl--> Testdateien und
 > <!--zahl:e2e-testdateien-->17<!--/zahl--> E2E-Dateien. Wer die Testzahl in ein Investorendokument schreibt, muss sie vorher unter
 > `api/scripts/run-tests.js` real erzeugen.
 
@@ -871,7 +890,7 @@ Ehrlichkeit über die eigenen Grenzen gehört in ein Dokument, das später an In
    `docs-consistency`-Test existiert, der tote Verweise und verwaiste Dateien rot werden lässt,
    veraltet diese Datei still. Vorbild für die Mechanik: `api/test/flaechenZuordnung.test.js`.
 
-2. **Die Testzahl ist nicht nachgerechnet.** Belegt sind <!--zahl:backend-testdateien-->446<!--/zahl--> Backend-Testdateien und <!--zahl:e2e-testdateien-->17<!--/zahl-->
+2. **Die Testzahl ist nicht nachgerechnet.** Belegt sind <!--zahl:backend-testdateien-->447<!--/zahl--> Backend-Testdateien und <!--zahl:e2e-testdateien-->17<!--/zahl-->
    E2E-Dateien. Die in mehreren Projektdokumenten genannte Gesamtzahl grüner Tests (3979+)
    wurde für dieses Register **nicht** verifiziert — dazu wäre ein vollständiger Suite-Lauf
    unter `api/scripts/run-tests.js` nötig gewesen. Wer sie in eine Investorendarstellung

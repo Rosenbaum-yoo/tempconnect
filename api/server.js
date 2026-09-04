@@ -35,7 +35,8 @@ const app = await createApp();
 const PORT = config.PORT || 3000;
 const server = app.listen(PORT, () => {
   logger.info({ port: PORT }, "TempConnect API gestartet");
-  startWorkers();
+  /* Der Mahnlauf braucht den echten Versandweg aus `createApp` — siehe dort. */
+  startWorkers({ sendMail: app.locals.sendMail });
 });
 
 // Graceful Shutdown – offene Connections sauber schliessen

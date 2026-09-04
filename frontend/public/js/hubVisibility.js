@@ -127,6 +127,40 @@
     return "";
   }
 
+  /**
+   * Ist der Mensch eine Arbeitskraft?
+   *
+   * EINE Wahrheit fuer beide Wege — `resolve` (Hub-Karten) UND `resolveNav`
+   * (Topbar). Bis zum 2026-09-04 fragten beide den ORG-TYP `worker`, und den
+   * gibt es nicht: die Datenbank kennt `company` (1872 Orgs) und `agency` (694).
+   * Ein Arbeiter ist regulaer Mitglied in der Org SEINER Zeitarbeitsfirma
+   * (`workerService.acceptInvite`), sein org_type ist `agency`.
+   *
+   * Beide Guards waren dadurch tot. Gemessen mit der echten /me-Nutzlast: sieben
+   * von zwoelf Hub-Flaechen auf `full`, und die vollstaendige Enterprise-Nav
+   * sichtbar. Kein Datenabfluss (die Routen weisen ihn seit M2.5 ab), aber eine
+   * Oberflaeche, die auf Klick ins Leere fuehrt.
+   *
+   * Massgeblich ist die ROLLE. `org_role` traegt `org_memberships.role_key` und
+   * steht bereits in der /me-Antwort. Die uebrigen drei Merkmale bleiben als
+   * Rueckfall daneben stehen: ein Arbeiter ohne aufgeloeste Mitgliedschaft, ein
+   * Altbestand ohne `org_role`, und der Org-Typ fuer den Fall, dass es ihn eines
+   * Tages doch gibt. Ein Riegel, der an EINEM Feld haengt, faellt mit ihm.
+   */
+  function istArbeiter(me) {
+    if (!me) return false;
+    var kandidaten = [
+      me.org_role,
+      me.role,
+      me.user && me.user.role,
+      me.org_type
+    ];
+    for (var i = 0; i < kandidaten.length; i++) {
+      if (String(kandidaten[i] || "").trim().toLowerCase() === "worker") return true;
+    }
+    return false;
+  }
+
   function normalizeOrgRole(me) {
     return String(me && me.org_role || "").trim();
   }
@@ -165,8 +199,37 @@
     var orgRole = normalizeOrgRole(me);
     var legacyRole = normalizeLegacyRole(me);
 
-    // Worker bekommen den Enterprise-Hub grundsaetzlich nicht zu sehen.
-    if (orgType === "worker") {
+    /*
+     * Worker bekommen den Enterprise-Hub grundsaetzlich nicht zu sehen.
+     *
+     * BIS ZUM 2026-09-04 STAND HIER NUR `orgType === "worker"` — und dieser
+     * Zustand konnte nie eintreten. Den Org-Typ `worker` gibt es nicht: die
+     * Datenbank kennt `company` (1872 Orgs) und `agency` (694), sonst nichts.
+     * Ein Arbeiter ist regulaer Mitglied in der Org SEINER Zeitarbeitsfirma
+     * (workerService.acceptInvite), sein org_type ist also `agency`.
+     *
+     * Der Rueckfall in normalizeOrgType() half nicht, aus ZWEI unabhaengigen
+     * Gruenden — jeder genuegt fuer sich:
+     *   1. Er laeuft nur bei LEEREM me.org_type. Gemessen an der echten Antwort
+     *      von GET /me: "agency", nie leer.
+     *   2. Er liest me.role — das gibt es auf oberster Ebene nicht. Die Rolle
+     *      liegt in me.user.role.
+     *
+     * Gemessen mit der echten Funktion und der echten /me-Nutzlast standen einem
+     * Arbeiter dadurch SIEBEN von zwoelf Flaechen auf `full` offen: marketplace,
+     * deals, assignments, my_company, activity, bounties, trust_center. Kein
+     * Datenabfluss — die Routen weisen ihn seit M2.5 ab —, aber sieben Karten,
+     * die auf Klick ins Leere fuehren.
+     *
+     * Massgeblich ist die ROLLE, nicht der Org-Typ: `org_role` traegt
+     * org_memberships.role_key und steht bereits in der /me-Antwort. Der Org-Typ
+     * bleibt unangetastet: `agency` ist fuer einen Arbeiter RICHTIG, und die
+     * Ableitung zu aendern braeche jede andere Org-Typ-Pruefung.
+     *
+     * me.user.role bleibt als zweites Merkmal daneben stehen: ein Arbeiter ohne
+     * aufgeloeste Mitgliedschaft haette sonst wieder keinen Riegel.
+     */
+    if (istArbeiter(me)) {
       return { visible: false, state: "hidden_worker", reason: "Worker werden ueber das Einsatzportal gefuehrt." };
     }
 
@@ -217,6 +280,18 @@
       // fuer Public-Seiten sichtbar, damit der Login-Pfad erreichbar ist.
       return { visible: true };
     }
+    /*
+     * Derselbe Riegel wie in resolve(), aus derselben Funktion. `hideForOrgTypes`
+     * unten nennt zwar "worker" — aber als ORG-TYP, und den gibt es nicht. Ohne
+     * diese Zeile stand einem Arbeiter die vollstaendige Enterprise-Navigation
+     * offen, obwohl der Kommentar ueber NAV_RULES das Gegenteil zusagt.
+     *
+     * `help` bleibt: wer nicht weiterweiss, muss fragen koennen.
+     */
+    if (navKey !== "help" && istArbeiter(me)) {
+      return { visible: false, reason: "Worker werden ueber das Einsatzportal gefuehrt." };
+    }
+
     var orgType = normalizeOrgType(me);
     if (rule.hideForOrgTypes && orgType && rule.hideForOrgTypes.indexOf(orgType) !== -1) {
       return { visible: false, reason: "Nav fuer diese Rolle nicht vorgesehen." };

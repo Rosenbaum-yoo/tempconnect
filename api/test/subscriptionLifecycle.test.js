@@ -748,14 +748,35 @@ const migration104 = SQL_104_AVAILABLE
 const migSuite104 = SQL_104_AVAILABLE ? describe : describe.skip;
 
 describe("Hook-Verdrahtung in Routes (Welle 8 Schritt 16)", () => {
-  it("internal.js mountet POST /internal/subscription-lifecycle-tick + nutzt runLifecycleTick", () => {
-    const src = readFile("api/routes/internal.js");
-    assert.match(src, /from\s+["']\.\.\/services\/subscriptionLifecycleService\.js["']/);
-    assert.match(src, /\/internal\/subscription-lifecycle-tick/);
-    assert.match(src, /runLifecycleTick/);
-    assert.match(src, /cronRateLimit, checkCronAuth/);
+  it("POST /internal/subscription-lifecycle-tick fuehrt zu runLifecycleTick + Audit", () => {
+    /*
+     * ANGEPASST 2026-09-04 (M1.9) — die Zusicherungen sind dieselben, der Weg ist
+     * laenger geworden.
+     *
+     * Vorher stand hier fuenfmal `assert.match(routes/internal.js, ...)`: Import,
+     * Pfad, runLifecycleTick, Cron-Schutz, Audit-Aktion — alles in EINER Datei.
+     * Seit dem Owner-Entscheid vom 2026-09-04 laeuft derselbe Ablauf auch als
+     * eingeplanter Takt, und beide Ausloeser teilen ihn: er steht in
+     * `services/betriebsTaktLaeufe.js`. Die Route ist nur noch die Handkurbel.
+     *
+     * Damit prueft dieser Test NICHT weniger, sondern mehr: vorher konnte er die
+     * Kette nur bis zum Dateirand verfolgen, jetzt geht er ueber die Naht hinweg.
+     * Keine Zusicherung ist entfallen — die drei fachlichen (Lebenszyklus wird
+     * wirklich gefahren, Audit wird geschrieben, Cron-Schutz haengt davor) sind
+     * nur dort verankert, wo sie inzwischen stehen.
+     */
+    const route = readFile("api/routes/internal.js");
+    assert.match(route, /\/internal\/subscription-lifecycle-tick/);
+    assert.match(route, /cronRateLimit, checkCronAuth/);
+    // Die Route ruft den gemeinsamen Lauf — und baut ihn nicht selbst nach.
+    assert.match(route, /from\s+["']\.\.\/services\/betriebsTaktLaeufe\.js["']/);
+    assert.match(route, /taktLaeufe\.subscriptionLifecycleTick\(/);
+
+    const lauf = readFile("api/services/betriebsTaktLaeufe.js");
+    assert.match(lauf, /from\s+["']\.\/subscriptionLifecycleService\.js["']/);
+    assert.match(lauf, /runLifecycleTick/);
     // Audit-Eintrag bei processed > 0
-    assert.match(src, /subscription_request\.lifecycle_tick/);
+    assert.match(lauf, /subscription_request\.lifecycle_tick/);
   });
 
   it("staffControlCenter.js: convert-to-subscription Endpoint + Quote-Snapshot-Freeze", () => {

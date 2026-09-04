@@ -43,16 +43,23 @@ import { logger } from "../config/index.js";
  * einzelner verpasster Lauf (Neustart, Redis kurz weg) ist kein Alarm, drei
  * hintereinander sind einer.
  *
- * `ohne_einplanung` (M0-Abgleich 2026-09-03): diese Aufgabe hat KEINEN
- * `upsertJobScheduler`-Aufruf in api/workers/index.js. Sie steht hier als Soll,
- * aber nichts loest sie aus — der Zustand ist dauerhaft `still`, bis jemand sie
- * einplant oder von Hand anstoesst.
+ * `ohne_einplanung`: das Feld gibt es weiterhin, und es ist heute LEER — das ist
+ * der Punkt. Es benennt eine Aufgabe, die hier als Soll steht, aber keinen
+ * `upsertJobScheduler`-Aufruf in api/workers/index.js hat: dauerhaft `still`,
+ * bis jemand sie einplant oder von Hand anstoesst.
  *
- * Gemessen: von zehn erwarteten Takten sind FUENF eingeplant. Die anderen fuenf
- * sind Geld und Lebenszyklus. Das ist kein Versehen im Code, sondern eine offene
- * BETRIEBSENTSCHEIDUNG (F5/F29 im M0-Bericht): `recurring-billing` wuerde
- * anfangen, Rechnungen zu erzeugen, und `dunning-sweep`, Mahnungen zu
- * verschicken. Beides schaltet man nicht nebenbei ein.
+ * WAS DA STAND, UND WAS DARAUS WURDE
+ * Am 2026-09-03 gemessen: von zehn erwarteten Takten waren FUENF eingeplant. Die
+ * anderen fuenf — Geld und Lebenszyklus — trugen hier je einen Grund. Das war
+ * kein Versehen im Code, sondern eine offene Betriebsentscheidung (F5/F29 im
+ * M0-Bericht).
+ *
+ * Der Owner hat sie am 2026-09-04 getroffen: ALLE FUENF werden eingeplant
+ * (M1.9). Die Gruende sind damit weg, weil die Luecke weg ist. Die beiden
+ * folgenreichsten bleiben durch ihren eigenen Schalter gehalten
+ * (RECURRING_BILLING_ENABLED, DUNNING_ENABLED — beide per Vorgabe AUS), und der
+ * Schalter sitzt im gemeinsamen Ablauf `services/betriebsTaktLaeufe.js`, den
+ * Endpunkt und Takt teilen. Ein Takt kann ihn nicht umgehen.
  *
  * Das Feld ist deshalb keine Entschuldigung, sondern eine Zusicherung:
  * `takteEingeplant.test.js` verlangt, dass jede Aufgabe entweder eingeplant ist
@@ -66,28 +73,32 @@ export const TAKTE = Object.freeze({
    * Marktplatz leer, egal wie viele Menschen Faehigkeiten eintragen. */
   "staffing-maintenance": { intervall_min: 15, zweck: "Marktbefuellung, Nachruecken, Verfall von Einladungen" },
 
-  /* Faelligkeit der Rechnungen. Haengt an derselben nie eingerichteten Zeile —
-   * `overdue` ist ein gueltiger Zustand, den heute nichts je setzt. */
-  "invoice-overdue-scan": { intervall_min: 1440, zweck: "Rechnungen auf faellig setzen" ,
-    ohne_einplanung: "Nicht eingeplant. Setzt Rechnungen auf 'overdue' — der Zustand ist gueltig und wird heute von nichts gesetzt. Haengt an derselben Betriebsentscheidung wie die Mahnstrecke: sobald er laeuft, fuellt sich die Arbeitsliste des Operators, und solange loadAttention keinen Typfilter traegt, mit Rueckstaenden, die Kunden EINANDER schulden (offene Frage F30)." },
+  /* Faelligkeit der Rechnungen. Seit M1.9 taeglich 02:20 — nach der
+   * Rechnungserzeugung, vor der Mahnstrecke. Vorher war `overdue` ein gueltiger
+   * Zustand, den nichts je setzte. */
+  "invoice-overdue-scan": { intervall_min: 1440, zweck: "Rechnungen auf faellig setzen" },
 
-  /* Mahnstrecke und wiederkehrende Abrechnung. */
-  "dunning-sweep": { intervall_min: 1440, zweck: "Mahnstufen und Hard-Lock bei Zahlungsausfall" ,
-    ohne_einplanung: "Nicht eingeplant. Verschickt Mahnungen und setzt den Hard-Lock bei Zahlungsausfall — die folgenreichste der fuenf. Einschalten heisst: ab dem ersten Lauf gehen Zahlungserinnerungen an echte Kunden. Owner-Entscheidung." },
-  "recurring-billing": { intervall_min: 1440, zweck: "Wiederkehrende Abo-Rechnungen erzeugen" ,
-    ohne_einplanung: "Nicht eingeplant. Erzeugt die wiederkehrenden Abo-Rechnungen. Ohne Takt entsteht keine Folgerechnung — die Einnahmenseite laeuft heute nur, soweit jemand von Hand ausloest. Owner-Entscheidung, weil der erste Lauf einen Nachlauf fuer alle faelligen Zeitraeume erzeugt." },
+  /* Mahnstrecke und wiederkehrende Abrechnung. Seit M1.9 eingeplant (02:40
+   * bzw. 02:10) — wirken aber erst, wenn DUNNING_ENABLED bzw.
+   * RECURRING_BILLING_ENABLED gesetzt sind. Bis dahin laeuft der Takt, meldet
+   * `disabled` und faerbt den Herzschlag gruen: er ist da, er tut nur nichts.
+   * Das ist der ehrliche Zustand — nicht "nie gelaufen". */
+  "dunning-sweep": { intervall_min: 1440, zweck: "Mahnstufen und Hard-Lock bei Zahlungsausfall" },
+  "recurring-billing": { intervall_min: 1440, zweck: "Wiederkehrende Abo-Rechnungen erzeugen" },
 
-  /* Abo-Wirksamkeit zum Stichtag. Ohne Takt wird ein Abo mit zukuenftigem
-   * Beginn nie von selbst wirksam. */
-  "subscription-lifecycle-tick": { intervall_min: 60, zweck: "Abo-Aktivierung zum Stichtag" ,
-    ohne_einplanung: "Nicht eingeplant. Ohne ihn wird ein Abo mit zukuenftigem Beginn nie von selbst wirksam; der Kunde hat gekauft und wartet. Fachlich die harmloseste der fuenf und der naheliegendste erste Schritt." },
+  /* Abo-Wirksamkeit zum Stichtag. Seit M1.9 stuendlich (:05) — taeglich waere
+   * hier eine Attrappe: der Kunde hat bezahlt und wartet auf sein Abo, nicht auf
+   * den naechsten Morgen. */
+  "subscription-lifecycle-tick": { intervall_min: 60, zweck: "Abo-Aktivierung zum Stichtag" },
 
-  /* Reservierungen und Fristen. */
-  "expire-reservations": { intervall_min: 60, zweck: "Abgelaufene Reservierungen freigeben" ,
-    ohne_einplanung: "Nicht eingeplant. Gibt abgelaufene Reservierungen frei. Ohne Takt bleibt Kapazitaet gebunden, die niemand mehr braucht — kein Schaden nach aussen, aber der Marktplatz wirkt voller als er ist." },
+  /* Reservierungen und Fristen. Seit M1.9 stuendlich (:35). */
+  "expire-reservations": { intervall_min: 60, zweck: "Abgelaufene Reservierungen freigeben" },
 
-  /* Die vier BullMQ-Takte, die es bereits gibt (api/workers/index.js:24-47).
-   * Sie laufen — aber niemand konnte es bisher nachweisen. */
+  /* Die vier BullMQ-Takte, die es schon vor dieser Phase gab. Sie laufen — aber
+   * niemand konnte es bisher nachweisen. Sie stehen als EINZIGE mit Praefix in
+   * dieser Registratur, weil es fuer sie keinen internen Endpunkt gibt; die
+   * uebrigen tragen den kurzen Namen, unter dem der Handlauf sie schreibt.
+   * `zuTaktSchluessel` bringt beide Schreibweisen zusammen. */
   "capacity:capacity-expiry": { intervall_min: 1440, zweck: "Abgelaufene Angebote schliessen" },
   "capacity:capacity-stale-check": { intervall_min: 1440, zweck: "Ueberfaellige Eintraege melden" },
   "capacity:worker-status-events-retention": { intervall_min: 1440, zweck: "Zustandsprotokoll aufraeumen" },
@@ -206,6 +217,69 @@ export function bewerteAufgabe(aufgabe, zeile, jetzt = Date.now()) {
 }
 
 /**
+ * WELCHEN UEBERWACHTEN TAKT FUETTERT DIESE HERZSCHLAG-ZEILE? (gefunden 2026-09-04)
+ *
+ * Dieselbe Aufgabe schreibt ihren Herzschlag unter ZWEI Namen, je nachdem, wer
+ * sie ausgeloest hat:
+ *
+ *   von Hand ueber den internen Endpunkt  ->  "staffing-maintenance"
+ *       (`routes/internal.js` nimmt `req.path`)
+ *   als eingeplanter Auftrag              ->  "staffing:staffing-maintenance"
+ *       (`utils/metrics.js` nimmt `${queue}:${job.name}`)
+ *
+ * Die Registratur kennt nur den kurzen Namen. GEMESSEN: eine Zeile
+ * "staffing:staffing-maintenance" mit 99 Laeufen von vor einer Minute, und die
+ * Kachel meldete fuer "staffing-maintenance" unveraendert *"Diese Aufgabe ist
+ * noch nie gelaufen."* — waehrend der lange Name daneben unter "laeuft, aber
+ * unbeobachtet" stand. Der Takt lief. Die Ueberwachung sah einen anderen Namen.
+ *
+ * Das ist genau der Zustand, den diese Phase abschaffen sollte, nur eine Ebene
+ * hoeher: nicht der Automatismus fehlte, sondern sein Nachweis.
+ *
+ * Aufgeloest wird auf der LESESEITE, nicht beim Schreiben. Der lange Name traegt
+ * die Warteschlange und ist beim Suchen im Protokoll wertvoll; und der kurze
+ * muss weiter der Registratur-Schluessel bleiben, sonst verloere der Handlauf
+ * (der interne Endpunkt) seine Anbindung an die Ueberwachung.
+ *
+ * Die `capacity:`-Eintraege stehen bewusst MIT Praefix in der Registratur — fuer
+ * sie greift der exakte Treffer zuerst. Beide Schreibweisen funktionieren also.
+ */
+export function zuTaktSchluessel(zeilenName) {
+  const n = String(zeilenName || "").trim();
+  if (!n) return null;
+  if (TAKTE[n]) return n;
+  const doppelpunkt = n.indexOf(":");
+  if (doppelpunkt > 0) {
+    const ohnePraefix = n.slice(doppelpunkt + 1);
+    if (TAKTE[ohnePraefix]) return ohnePraefix;
+  }
+  return null;
+}
+
+/**
+ * Herzschlag-Zeilen auf Registratur-Schluessel abbilden.
+ *
+ * Treffen ZWEI Zeilen denselben Takt (Handlauf und Einplanung), gilt fuer den
+ * Zustand die JUENGERE — die Frage der Kachel lautet "wie lange ist es her?",
+ * und darauf ist der letzte Lauf die Antwort, egal wer ihn ausgeloest hat. Die
+ * Laufzahl wird dagegen ADDIERT: sie zaehlt, wie oft die Aufgabe lief, nicht wie
+ * oft ein bestimmter Ausloeser sie anstiess.
+ */
+function zeilenZuTakten(zeilen) {
+  const nachName = new Map();
+  for (const z of zeilen) {
+    const schluessel = zuTaktSchluessel(z.aufgabe);
+    if (!schluessel) continue;
+    const bisher = nachName.get(schluessel);
+    const laeufe = (Number(bisher?.laeufe) || 0) + (Number(z.laeufe) || 0);
+    const juenger = !bisher
+      || new Date(z.zuletzt_um || 0).getTime() >= new Date(bisher.zuletzt_um || 0).getTime();
+    nachName.set(schluessel, { ...(juenger ? z : bisher), laeufe });
+  }
+  return nachName;
+}
+
+/**
  * Der Stand aller ueberwachten Aufgaben — die Grundlage der Kachel im Staff CC.
  *
  * EINE Abfrage, nicht eine je Aufgabe. Und sie geht von der REGISTRATUR aus,
@@ -227,7 +301,7 @@ export async function taktStand(pool, { jetzt = Date.now() } = {}) {
     /* Ohne Tabelle ist der ehrliche Befund "alles still", nicht "alles gut". */
   }
 
-  const nachName = new Map(zeilen.map((z) => [z.aufgabe, z]));
+  const nachName = zeilenZuTakten(zeilen);
   const ueberwacht = Object.keys(TAKTE)
     .map((a) => bewerteAufgabe(a, nachName.get(a), jetzt))
     .sort((a, b) => {
@@ -240,7 +314,7 @@ export async function taktStand(pool, { jetzt = Date.now() } = {}) {
   /* Was laeuft, ohne ueberwacht zu sein. Kein Alarm — aber es gehoert in die
    * Kachel, sonst sieht ein Mensch nur die halbe Wirklichkeit. */
   const beobachtet = zeilen
-    .filter((z) => !TAKTE[z.aufgabe])
+    .filter((z) => !zuTaktSchluessel(z.aufgabe))
     .map((z) => ({
       aufgabe: z.aufgabe,
       minuten_her: minutenHer(z.zuletzt_um, jetzt),

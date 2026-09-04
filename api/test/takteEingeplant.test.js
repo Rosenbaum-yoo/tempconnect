@@ -35,6 +35,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { TAKTE } from "../services/betriebsTaktService.js";
+import { LAEUFE } from "../services/betriebsTaktLaeufe.js";
 
 /* Pfade IMMER relativ zur Testdatei — sonst haengt das Ergebnis am
    Startverzeichnis und der Test ueberspringt sich je nach cwd lautlos. */
@@ -158,5 +159,71 @@ describe("Betriebstakte — Soll und Einplanung", () => {
     assert.equal(gefunden.get("abc").muster, "*/15 * * * *");
     assert.deepStrictEqual([...findeEingeplant("nichts hier").keys()], [],
       "die Erkennung meldet Treffer, wo keine sind");
+  });
+});
+
+describe("M1.9 · eingeplant, verarbeitbar, benannt — die drei muessen dasselbe meinen", () => {
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * DIE NEUE FEHLERMOEGLICHKEIT, DIE M1.9 UEBERHAUPT ERST SCHAFFT
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Ab jetzt haengen DREI Verzeichnisse aneinander:
+   *
+   *   TAKTE                     was laufen muss        (betriebsTaktService.js)
+   *   upsertJobScheduler(...)   was ausgeloest wird    (workers/index.js)
+   *   LAEUFE                    was verarbeitet wird   (betriebsTaktLaeufe.js)
+   *
+   * Der Waechter darueber prueft die ersten beiden. Das dritte ist neu — und die
+   * Luecke dazwischen waere besonders unangenehm, weil sie erst NACHTS auffaellt
+   * und dann als Fehlermeldung, nicht als Ausfall: ein eingeplanter Auftrag
+   * ohne Lauf wirft im Arbeiter ("Unbekannter Betriebstakt"), scheitert bei
+   * jedem Versuch neu und faerbt den Herzschlag auf `fehler`.
+   *
+   * Die Gegenrichtung ist stiller und deshalb schlimmer: ein Lauf, den niemand
+   * einplant, ist eine fertig gebaute Funktion, die nie aufgerufen wird — genau
+   * der Befund, mit dem diese ganze Phase angefangen hat.
+   */
+
+  /** Nur die Auftraege, die der Betriebs-Arbeiter verarbeitet. */
+  function betriebsAuftraege(quelle) {
+    const von = quelle.indexOf("function scheduleBetriebsWirtschaft");
+    assert.notEqual(von, -1,
+      "scheduleBetriebsWirtschaft nicht gefunden — wurde die Einplanung umbenannt? "
+      + "Dieser Waechter laese sonst ins Leere und waere lautlos gruen");
+    const bis = quelle.indexOf("\nexport function startWorkers", von);
+    assert.notEqual(bis, -1, "Ende der Einplanungsfunktion nicht gefunden");
+    return findeEingeplant(quelle.slice(von, bis));
+  }
+
+  it("jeder eingeplante Betriebstakt hat einen Lauf, der ihn verarbeitet", () => {
+    const auftraege = [...betriebsAuftraege(quelle).keys()].sort();
+    assert.ok(auftraege.length >= 5,
+      `nur ${auftraege.length} Betriebstakte gefunden — erwartet werden mindestens die `
+      + "fuenf aus dem Owner-Entscheid 2026-09-04");
+    const ohneLauf = auftraege.filter((a) => typeof LAEUFE[a] !== "function");
+    assert.deepStrictEqual(ohneLauf, [],
+      "Diese Auftraege werden eingeplant, aber der Arbeiter kennt sie nicht. Jeder "
+      + "Lauf wirft 'Unbekannter Betriebstakt', scheitert, wird wiederholt — und "
+      + "faerbt den Herzschlag dauerhaft rot:\n  " + ohneLauf.join("\n  "));
+  });
+
+  it("jeder Lauf wird auch eingeplant — sonst ist er gebaut und stumm", () => {
+    const auftraege = betriebsAuftraege(quelle);
+    const nichtGeplant = Object.keys(LAEUFE).filter((n) => !auftraege.has(n)).sort();
+    assert.deepStrictEqual(nichtGeplant, [],
+      "Diese Laeufe existieren, werden aber von nichts ausgeloest — die stille "
+      + "Variante des Fehlers, mit dem diese Phase angefangen hat:\n  "
+      + nichtGeplant.join("\n  "));
+  });
+
+  it("jeder Lauf steht auch in der Registratur — sonst ueberwacht ihn niemand", () => {
+    /* Die dritte Kante. Ein Lauf, der laeuft und eingeplant ist, aber nicht in
+     * TAKTE steht, erscheint in der Kachel nur unter "laeuft, aber unbeobachtet"
+     * — ohne Soll-Intervall faellt sein Ausfall nirgends auf. */
+    const ohneSoll = Object.keys(LAEUFE).filter((n) => !TAKTE[n]).sort();
+    assert.deepStrictEqual(ohneSoll, [],
+      "Diese Laeufe haben kein Soll in TAKTE — ihr Schweigen loest keinen Alarm "
+      + "aus:\n  " + ohneSoll.join("\n  "));
   });
 });

@@ -289,3 +289,82 @@ describe("M-Nachtrag · die Zahl ist erreichbar, nicht nur berechnet", () => {
       "nicht lesbar muss anders aussehen als 'alles sichtbar'");
   });
 });
+
+/* ══════════════════════════════════════════════════════════════════════════
+   M0/F27 · Was die Automatik erzeugt, hat sie auch bestaetigt
+   ══════════════════════════════════════════════════════════════════════════ */
+
+describe("M0/F27 · die Materialisierung setzt last_confirmed_at", () => {
+  /*
+   * `findStaleEntries` prueft `last_confirmed_at IS NULL OR ... < NOW() - 7 Tage`.
+   * Die erste Haelfte trifft SOFORT — ein Eintrag ohne Bestaetigung ist
+   * ueberfaellig, nicht erst nach sieben Tagen.
+   *
+   * Gemessen am 2026-09-03: zwoelf von dreizehn aktiven Eintraegen dauerhaft
+   * ueberfaellig, darunter alle sechs, die diese Automatik erzeugt hat und die
+   * niemand bestaetigen KANN, weil sie maschinell entstehen. Der taegliche Sweep
+   * verschickte je Eintrag eine Meldung an einen echten Menschen (owner/admin der
+   * Agentur), unbefristet.
+   *
+   * GEPRUEFT WIRD DIE FORM DER ABFRAGE, nicht ihr Ergebnis: die Suite laeuft ohne
+   * Datenbank, ein Muster-Pool fuehrt kein SQL aus. Die Form ist der Vertrag.
+   * Gegengeprueft wurde die Abfrage ausserdem von Postgres selbst — `EXPLAIN`
+   * gegen die laufende Datenbank meldet "Insert on capacity_posts / Conflict
+   * Resolution: UPDATE".
+   */
+  const HIER = path.dirname(fileURLToPath(import.meta.url));
+  const dienst = quelle("services/marktpraesenzService.js");
+
+  /** Beide Einfuegewege: der Sweep und das einzelne Nachziehen je Profil. */
+  const einfuegen = [...dienst.matchAll(/INSERT INTO capacity_posts \(([\s\S]*?)DO (NOTHING|UPDATE[\s\S]*?)`/g)];
+
+  it("es gibt ueberhaupt zwei Einfuegewege — sonst prueft der Rest nichts", () => {
+    assert.equal(einfuegen.length, 2,
+      `${einfuegen.length} INSERT INTO capacity_posts gefunden, erwartet 2 `
+      + "(Sweep und Einzelnachzug). Aendert sich die Zahl, gehoert diese Probe mit.");
+  });
+
+  it("beide setzen die Bestaetigung beim Anlegen", () => {
+    einfuegen.forEach((m, i) => {
+      assert.ok(/last_confirmed_at/.test(m[0]),
+        `Einfuegeweg ${i + 1}: die Spalte last_confirmed_at fehlt — der Eintrag `
+        + "waere ab der ersten Sekunde ueberfaellig");
+      assert.ok(/NOW\(\)/.test(m[0]),
+        `Einfuegeweg ${i + 1}: kein NOW() — die Spalte bliebe leer`);
+    });
+  });
+
+  it("beide erneuern sie im Konfliktfall — sonst heilt kein Bestand", () => {
+    /*
+     * Der Teil, der die sechs vorhandenen Zeilen heilt. `DO NOTHING` liesse sie
+     * fuer immer leer: der Dedup-Index verhindert das Neuanlegen, und niemand
+     * ruehrt die alte Zeile an.
+     */
+    einfuegen.forEach((m, i) => {
+      assert.ok(/DO UPDATE SET last_confirmed_at = NOW\(\)/.test(m[0]),
+        `Einfuegeweg ${i + 1}: DO NOTHING statt DO UPDATE — die bestehenden `
+        + "Zeilen blieben ohne Bestaetigung und melden weiter taeglich");
+    });
+    /*
+     * OHNE KOMMENTARE. Der erste Anlauf pruefte den rohen Text und traf den
+     * ERKLAERENDEN KOMMENTAR ueber der Aenderung, in dem "DO NOTHING" als das
+     * beschrieben steht, was dort NICHT mehr stehen soll. Eine Probe, die ihre
+     * eigene Begruendung liest, misst sich selbst.
+     */
+    assert.ok(!/DO NOTHING/.test(ohneKommentare(quelle("services/marktpraesenzService.js"))),
+      "irgendwo steht noch DO NOTHING — dann heilt dieser Weg nichts");
+  });
+
+  it("aber NUR die eigenen Zeilen — ein Angebot von Hand bleibt bestaetigungspflichtig", () => {
+    /*
+     * Die Zusage im Quelltext lautet: "ein bereits vorhandenes Angebot (egal
+     * welcher quelle) hat Vorrang". Ohne diese Bedingung wuerde die Maschine ein
+     * von Hand angelegtes Angebot mitbestaetigen — und genau dort ist die
+     * Bestaetigung durch einen Menschen gewollt.
+     */
+    einfuegen.forEach((m, i) => {
+      assert.ok(/WHERE capacity_posts\.quelle = 'live_belegschaft'/.test(m[0]),
+        `Einfuegeweg ${i + 1}: das Erneuern trifft auch manuelle Angebote`);
+    });
+  });
+});

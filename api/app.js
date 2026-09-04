@@ -413,6 +413,22 @@ export async function createApp() {
   const getUserAndPlan = (userId, opts) => userService.getUserAndPlan(pool, userId, opts);
   const requireFeatureGate = (featureKey) => requireFeature(featureKey, { getUserAndPlan, logger });
   const deps = { pool, logger, config, sendMail, requireAuth, getUserAndPlan, requireFeature: requireFeatureGate, stripe, ...limiters };
+  /*
+   * M1.9 — DERSELBE VERSANDWEG FUER DIE HINTERGRUNDTAKTE.
+   *
+   * `sendMail` ist eine Schliessung ueber `config`, `mailTransport` und
+   * `mailNotieren`: sie unterdrueckt Demo-Adressen, haelt den M1.3-Riegel
+   * (kein stiller Erfolg ohne Versandweg), setzt den HGB-Absenderfuss und
+   * schreibt das Versandprotokoll. Der Mahnlauf laeuft ab jetzt auch als
+   * eingeplanter Takt, und der startet in `server.js` — ausserhalb dieser
+   * Schliessung.
+   *
+   * Er bekommt deshalb GENAU DIESE Funktion gereicht, nicht `emailService`
+   * direkt. Ein zweiter Versandweg fuer Mahnungen waere ein Weg ohne Riegel,
+   * ohne Protokoll und ohne Pflichtangaben — bei der einen Mailsorte, die
+   * sicher an einen echten zahlenden Kunden geht.
+   */
+  app.locals.sendMail = sendMail;
   app.get("/health", simpleHealthHandler);
 
   // ── Prometheus metrics endpoint (Admin-Secret protected) ──────────────

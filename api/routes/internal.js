@@ -1,22 +1,17 @@
 import { Router } from "express";
-import * as capacityService from "../services/capacityService.js";
 import * as slaService from "../services/slaService.js";
 import * as supplierMetricsService from "../services/supplierMetricsService.js";
 import * as complianceService from "../services/complianceService.js";
 import * as auditLog from "../services/auditLog.js";
-import * as stateMachine from "../services/stateMachine.js";
 import * as idempotencyService from "../services/idempotencyService.js";
 import * as marketplaceService from "../services/marketplaceService.js";
 import * as slaSearchService from "../services/slaSearchService.js";
 import * as productAnalyticsService from "../services/productAnalyticsService.js";
 import * as workerService from "../services/workerService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
-import * as invoiceService from "../services/invoiceService.js";
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
 import * as workerOfferReservationService from "../services/workerOfferReservationService.js";
 import * as marktpraesenzService from "../services/marktpraesenzService.js";
-import * as subscriptionLifecycle from "../services/subscriptionLifecycleService.js";
-import * as recurringBillingService from "../services/recurringBillingService.js";
 import * as infrastructureSnapshotService from "../services/infrastructureSnapshotService.js";
 import * as documentCenterService from "../services/documentCenterService.js";
 import * as dealFeedbackService from "../services/dealFeedbackService.js";
@@ -24,6 +19,9 @@ import * as dealReliabilityService from "../services/dealReliabilityService.js";
 import fs from "node:fs";
 import path from "node:path";
 import { taktNotieren } from "../services/betriebsTaktService.js";
+/* M1.9 — die fuenf Laeufe stehen EINMAL, nicht je einmal hier und im Takt.
+ * Siehe Kopf von services/betriebsTaktLaeufe.js. */
+import * as taktLaeufe from "../services/betriebsTaktLaeufe.js";
 
 /**
  * @param {{ pool, config, cronRateLimit, logger, sendMail }} deps
@@ -110,11 +108,7 @@ export function createInternalRouter(deps) {
     const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
     try {
       const batchSize = Math.min(500, parseInt(req.body?.batch_size, 10) || 100);
-      const { expired } = await capacityService.expireReservationsBatch(pool, batchSize);
-      if (expired > 0) {
-        await stateMachine.logTransition(pool, { entityType: "RESERVATION", from: "active", to: "expired", details: { count: expired, batchSize } });
-        await auditLog.writeAudit(pool, { action: "reservation.expiry_batch", entity_type: "capacity_reservation", details: { expired, batchSize } });
-      }
+      const { expired } = await taktLaeufe.expireReservations(pool, { batchSize });
       logger.info({ path: "expire-reservations", clientIp, expired, batchSize }, "Cron expire-reservations completed");
       res.json({ ok: true, expired });
     } catch (e) {
@@ -156,14 +150,7 @@ export function createInternalRouter(deps) {
   router.post("/internal/invoice-overdue-scan", cronRateLimit, checkCronAuth, async (req, res) => {
     const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
     try {
-      const overdueMarked = await invoiceService.markOverdueInvoices(pool);
-      if (overdueMarked > 0) {
-        await auditLog.writeAudit(pool, {
-          action: "invoice.overdue_batch",
-          entity_type: "invoice",
-          details: { overdue_marked: overdueMarked }
-        });
-      }
+      const { overdue_marked: overdueMarked } = await taktLaeufe.invoiceOverdueScan(pool);
       logger.info({ path: "invoice-overdue-scan", clientIp, overdueMarked }, "Cron invoice-overdue-scan completed");
       res.json({ ok: true, overdue_marked: overdueMarked });
     } catch (e) {
@@ -205,22 +192,8 @@ export function createInternalRouter(deps) {
   router.post("/internal/recurring-billing", cronRateLimit, checkCronAuth, async (req, res) => {
     const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
     try {
-      if (!config.RECURRING_BILLING_ENABLED) {
-        return res.json({ ok: true, disabled: true, reason: "RECURRING_BILLING_ENABLED=false" });
-      }
-      const result = await recurringBillingService.generateRecurringInvoices(pool, { logger });
-      if (result.invoiced > 0 || result.skipped > 0) {
-        await auditLog.writeAudit(pool, {
-          action: "subscription.recurring_billing_batch",
-          entity_type: "subscription",
-          details: {
-            invoiced: result.invoiced,
-            skipped: result.skipped,
-            processed: result.processed,
-            failed: result.failed.length
-          }
-        });
-      }
+      const result = await taktLaeufe.recurringBilling(pool, { config, logger });
+      if (result.disabled) return res.json({ ok: true, ...result });
       logger.info({ path: "recurring-billing", clientIp, ...result, failed: result.failed.length }, "Cron recurring-billing completed");
       res.json({ ok: true, ...result });
     } catch (e) {
@@ -235,17 +208,8 @@ export function createInternalRouter(deps) {
   router.post("/internal/dunning-sweep", cronRateLimit, checkCronAuth, async (req, res) => {
     const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
     try {
-      if (!config.DUNNING_ENABLED) {
-        return res.json({ ok: true, disabled: true, reason: "DUNNING_ENABLED=false" });
-      }
-      const result = await recurringBillingService.runDunningSweep(pool, { sendMail, logger, baseUrl: config.BASE_URL || "" });
-      if (result.reminded > 0) {
-        await auditLog.writeAudit(pool, {
-          action: "invoice.dunning_batch",
-          entity_type: "invoice",
-          details: { reminded: result.reminded, processed: result.processed, failed: result.failed.length }
-        });
-      }
+      const result = await taktLaeufe.dunningSweep(pool, { config, logger, sendMail });
+      if (result.disabled) return res.json({ ok: true, ...result });
       logger.info({ path: "dunning-sweep", clientIp, ...result, failed: result.failed.length }, "Cron dunning-sweep completed");
       res.json({ ok: true, ...result });
     } catch (e) {
@@ -548,30 +512,7 @@ export function createInternalRouter(deps) {
     const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
     try {
       const batchSize = Math.min(500, Math.max(1, parseInt(req.body?.batch_size, 10) || 100));
-      const result = await subscriptionLifecycle.runLifecycleTick(pool, {
-        batchSize,
-        deps: { sendMail, logger }
-      });
-      const totalProcessed =
-        (result.expiry?.processed || 0) +
-        (result.activation?.processed || 0) +
-        (result.cancellation?.processed || 0);
-      if (totalProcessed > 0) {
-        await auditLog.writeAudit(pool, {
-          action: "subscription_request.lifecycle_tick",
-          entity_type: "subscription_request",
-          details: {
-            expired: result.expiry?.expired || 0,
-            activated: result.activation?.activated || 0,
-            cancellations_applied: result.cancellation?.revoked || 0,
-            failed_total:
-              (result.expiry?.failed?.length || 0) +
-              (result.activation?.failed?.length || 0) +
-              (result.cancellation?.failed?.length || 0),
-            batch_size: batchSize
-          }
-        });
-      }
+      const result = await taktLaeufe.subscriptionLifecycleTick(pool, { logger, sendMail, batchSize });
       logger.info({ path: "subscription-lifecycle-tick", clientIp, batchSize, ...result }, "Cron subscription-lifecycle-tick completed");
       res.json({ ok: true, ...result });
     } catch (e) {

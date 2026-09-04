@@ -22,18 +22,29 @@ function looksLikePlaceholder(val) {
   return PLACEHOLDER_PATTERNS.some((p) => String(val).trim().includes(p));
 }
 
-export function validateProductionSecrets(log) {
-  if (process.env.NODE_ENV !== "production") return;
-  const logFn = log || { fatal: () => {} };
-  if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === "dev_secret_change_me" || looksLikePlaceholder(process.env.SESSION_SECRET)) {
-    logFn.fatal("In Produktion muss SESSION_SECRET gesetzt und sicher sein.");
-    process.exit(1);
-  }
-  if (!process.env.JWT_SECRET || looksLikePlaceholder(process.env.JWT_SECRET)) {
-    logFn.fatal("In Produktion muss JWT_SECRET gesetzt sein.");
-    process.exit(1);
-  }
-}
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * HIER STAND EIN ZWEITES PRODUKTIONS-TOR. ES HATTE NULL AUFRUFER. (2026-09-04)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * `validateProductionSecrets(log)` prueft SESSION_SECRET und JWT_SECRET und
+ * beendet den Prozess, wenn sie fehlen. Es war exportiert — und im ganzen Repo
+ * rief es niemand. Gemessen: ein Treffer im Quelltext (die Definition selbst),
+ * ein Treffer in der Doku, die es bereits als "entlastet" fuehrte.
+ *
+ * Warum das mehr ist als toter Code: es sah aus wie eine Absicherung. Wer die
+ * Datei liest, sieht ZWEI Tore und nimmt an, beide halten. Wer eine Pruefung
+ * ergaenzen will, ergaenzt sie womoeglich im falschen — und die neue Pruefung
+ * laeuft nie. Genau diese Verwechslung ist in dieser Welle schon zweimal
+ * aufgetreten (der Vorlagen-Waechter, der Herzschlag-Name): eine Pruefung, die
+ * einen Stellvertreter fuer die Sache haelt.
+ *
+ * Beide Zusicherungen stehen in `runProductionValidation()` weiter unten, und
+ * dort STRENGER (Platzhalter-Erkennung fuer beide, plus Cron-Geheimnis,
+ * Admin-Geheimnis, Datenbank, BASE_URL, Mailweg, Stripe, Staff-Sitzung). Das
+ * ist das Tor, das `app.js` wirklich ruft. `prodEnvTemplate.test.js` haelt fest,
+ * dass es genau EINES bleibt.
+ */
 
 export const config = {
   NODE_ENV: process.env.NODE_ENV || "development",
@@ -293,6 +304,47 @@ export function runProductionValidation() {
   // Datenbank: mindestens DATABASE_URL oder (DB_HOST + POSTGRES_PASSWORD) erforderlich
   if (!process.env.DATABASE_URL && !(process.env.DB_HOST && process.env.POSTGRES_PASSWORD)) {
     fatal("In Produktion muss DATABASE_URL oder (DB_HOST + POSTGRES_PASSWORD) gesetzt sein");
+  }
+
+  /*
+   * ═════════════════════════════════════════════════════════════════════════
+   * BASE_URL: DIE ADRESSE, DIE NACH AUSSEN GEHT (M0/F18, Owner 2026-09-04)
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * `BASE_URL` hatte im ganzen Modul EINE Referenz: den Rueckfall auf
+   * `http://localhost:8080` (Zeile 44). Keine Produktionspruefung — waehrend
+   * SESSION_SECRET, JWT_SECRET, INTERNAL_CRON_SECRET, ADMIN_SECRET, die
+   * Datenbank und (seit M1.3) der Mailweg alle `fatal` sind.
+   *
+   * Aus dieser Variable bauen 25 Stellen in zehn Dateien Adressen, darunter
+   * `routes/auth.js` (Passwort zuruecksetzen), die Einladungen und
+   * `routes/payment.js` (Stripe-Rueckkehradressen). Eine Rueckkehradresse auf
+   * localhost bricht den KAUF, nicht nur einen Link — und zwar still: der Kunde
+   * landet im Nichts, die Anwendung meldet nichts.
+   *
+   * Deshalb hart. Ein Deployment ohne gesetzte Variable schlaegt jetzt sofort
+   * und laut fehl, statt beim ersten Kunden. Geprueft wird nicht nur
+   * "gesetzt", sondern auch "zeigt nach aussen": ein durchgereichtes
+   * `localhost` ist derselbe Fehler wie eine leere Variable, nur schwerer zu
+   * sehen.
+   */
+  /*
+   * `process.env.BASE_URL` steht bewusst IN der Bedingung, nicht in einer
+   * Variablen davor: `prodEnvTemplate.test.js` liest die Pflichtvariablen aus
+   * den `if (...) { fatal(`-Bedingungen dieser Funktion. Ein Zwischenschritt
+   * waere fuer ihn unsichtbar — die Vorlage `.env.prod.example` muesste
+   * BASE_URL dann nicht nennen, und wer die Produktion nach der Vorlage
+   * aufsetzt, liefe genau in den Startabbruch, den diese Zeilen erzeugen.
+   */
+  if (!String(process.env.BASE_URL || "").trim() || looksLikePlaceholder(process.env.BASE_URL)) {
+    fatal("In Produktion muss BASE_URL gesetzt sein — 25 Stellen bauen daraus Adressen "
+      + "(Einladungen, Passwort zuruecksetzen, Stripe-Rueckkehradressen)");
+  }
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:|\/|$)/i
+    .test(String(process.env.BASE_URL || "").trim())) {
+    fatal("In Produktion darf BASE_URL nicht auf localhost zeigen (aktuell: "
+      + String(process.env.BASE_URL || "").trim()
+      + ") — Einladungslinks und Stripe-Rueckkehradressen waeren fuer den Kunden unerreichbar");
   }
 
   /*
