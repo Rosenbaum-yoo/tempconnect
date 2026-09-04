@@ -32,10 +32,30 @@ function mockLogger() {
   return { info() {}, warn() {}, error() {}, debug() {}, trace() {}, fatal() {} };
 }
 
-// Pool whose queries all resolve empty; the chain never reaches a real handler
-// in these tests (it is short-circuited by requireScope or stopped right after).
+/*
+ * Pool whose queries all resolve empty — MIT EINER AUSNAHME (2026-09-04, M3.7).
+ *
+ * Seit M3.7 traegt `...base` zusaetzlich `requireAgencyOrg`: das Modul gehoert
+ * der Zeitarbeitsfirma, nicht dem Unternehmen. Dieser Riegel fragt die ART DER
+ * ORGANISATION — bewusst die Org und nicht die Mitgliedschaft, weil hinter
+ * einem API-Schluessel kein Mensch steht und `apiKeyAuth` deshalb nie
+ * `req.orgMembership` setzt.
+ *
+ * Ein Pool, der auf ALLES leer antwortet, laesst die Org damit nicht
+ * existieren, und der Riegel schliesst (fail-closed, richtig so). Die Proben
+ * hier haetten dann ein 403 gesehen und es fuer ihr eigenes gehalten — genau
+ * die Sorte gruener Test, der seinen Gegenstand nicht mehr beruehrt.
+ *
+ * Geaendert wurde deshalb NUR die Vorrichtung: die Org existiert und ist eine
+ * Agentur. Keine einzige Zusicherung dieser Datei ist angefasst.
+ */
 function noopPool() {
-  const query = async () => ({ rows: [], rowCount: 0 });
+  const query = async (sql) => {
+    if (/FROM\s+organizations/i.test(String(sql))) {
+      return { rows: [{ org_type: "agency" }], rowCount: 1 };
+    }
+    return { rows: [], rowCount: 0 };
+  };
   return { query, connect: async () => ({ query, release() {} }) };
 }
 
@@ -104,7 +124,10 @@ function getLayerStack(router, method, path) {
  * next(err). Returns { res, stoppedLayer, err }. We cap iterations defensively;
  * for our purposes the chain is short-circuited well before any real handler.
  */
-async function runChain(stack, req, res, { maxLayers = 4 } = {}) {
+async function runChain(stack, req, res, { maxLayers = 5 } = {}) {
+  /* 4 -> 5 (M3.7): der gemeinsame Stapel traegt eine Schicht mehr
+     (requireAgencyOrg). Ohne diese Anhebung endete der Lauf VOR requireScope,
+     und die Proben unten wuerden nichts mehr pruefen. */
   let idx = 0;
   let err = null;
   const limit = Math.min(stack.length, maxLayers);
@@ -260,5 +283,76 @@ describe("POST /workers — requireScope('write:workers')", () => {
     const res = mockRes();
     await runChain(stack, req, res);
     assert.notStrictEqual(res._json?.error?.code, "SCOPE_INSUFFICIENT");
+  });
+});
+
+describe("M3.7 · der Agentur-Riegel haengt an JEDEM Weg dieses Moduls", () => {
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * DIESE PROBE FEHLTE, UND EINE RUECKMUTATION HAT ES GEZEIGT
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Nach dem Bau von M3.7 wurde `requireAgencyOrg` aus `base` ENTFERNT — und
+   * keine einzige Probe wurde rot. Der Riegel war vollstaendig geprueft (was er
+   * tut, wen er sperrt, wie er bei Fehlern faellt) und trotzdem haette ihn
+   * niemand vermisst, waere er nicht montiert gewesen.
+   *
+   * Dieselbe Luecke wie bei der Position des Arbeiterriegels in M2.6: eine
+   * Wache zu pruefen ist nicht dasselbe wie zu pruefen, dass sie STEHT.
+   *
+   * Geprueft wird deshalb der echte Stapel jedes Weges — nicht der Quelltext.
+   * Deshalb traegt die Middleware einen Namen: eine anonyme waere hier
+   * unsichtbar, und die Probe koennte nur Schichten ZAEHLEN, wobei ein Weg
+   * ohne Riegel aussieht wie einer mit.
+   */
+
+  /*
+   * Die einzige Ausnahme, benannt statt gezaehlt: das oeffentliche
+   * Arbeitskraft-Profil. Es wird ueber einen geteilten Link geoeffnet, von
+   * jemandem ohne Konto und ohne Organisation — ein Org-Typ-Riegel davor waere
+   * kein Schutz, sondern die Abschaffung der Funktion.
+   */
+  const OHNE_RIEGEL = new Map([
+    ["GET /public/worker-profiles/:slug",
+     "Oeffentliches Profil ueber geteilten Link. Der Aufrufer hat weder Konto noch Org."]
+  ]);
+
+  it("jeder Weg traegt den Riegel — bis auf die benannten Ausnahmen", () => {
+    const router = createWorkersRouter(makeDeps());
+    const ohne = [];
+    let mit = 0;
+    for (const layer of router.stack) {
+      if (!layer.route) continue;
+      const methode = Object.keys(layer.route.methods)[0].toUpperCase();
+      const name = `${methode} ${layer.route.path}`;
+      const traegt = layer.route.stack.some((l) => l.handle.name === "requireAgencyOrgMiddleware");
+      if (traegt) { mit++; continue; }
+      if (OHNE_RIEGEL.has(name)) continue;
+      ohne.push(name);
+    }
+
+    assert.ok(mit >= 60,
+      `nur ${mit} Wege tragen den Riegel — entweder ist er aus dem gemeinsamen Stapel `
+      + "gefallen, oder diese Probe findet ihn nicht mehr (Middleware umbenannt?)");
+    assert.deepStrictEqual(ohne, [],
+      "Diese Wege des Arbeitskraefte-Moduls tragen den Agentur-Riegel nicht. Ein "
+      + "Unternehmenskonto erreicht sie damit weiterhin — und das Modul schreibt "
+      + "`supplier_org_id` aus `req.orgId`:\n  " + ohne.join("\n  "));
+  });
+
+  it("die benannten Ausnahmen existieren noch", () => {
+    /* Sonst warnt die Liste vor einem Weg, den es nicht mehr gibt — und
+       verliert die Glaubwuerdigkeit, die sie tragen soll. */
+    const router = createWorkersRouter(makeDeps());
+    const vorhanden = new Set();
+    for (const layer of router.stack) {
+      if (!layer.route) continue;
+      for (const m of Object.keys(layer.route.methods)) {
+        vorhanden.add(`${m.toUpperCase()} ${layer.route.path}`);
+      }
+    }
+    const verwaist = [...OHNE_RIEGEL.keys()].filter((n) => !vorhanden.has(n));
+    assert.deepStrictEqual(verwaist, [],
+      "Diese Ausnahmen zeigen auf Wege, die es nicht mehr gibt:\n  " + verwaist.join("\n  "));
   });
 });

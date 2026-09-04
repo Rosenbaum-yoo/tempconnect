@@ -379,7 +379,7 @@ Messung wertlos.
 | M3.4 | **Vom abgelaufenen Link auf „Passwort vergessen" verlinken** (`H6`) — der Weg **funktioniert bereits**, er ist nur nicht verlinkt. Und die Reset-Mail rollenabhängig ins Portal zeigen lassen | Abgelaufener Link → der Mensch kommt allein weiter |
 | M3.5 | **Wiedervorlage** für nicht angenommene Einladungen | Rückmutation: Erinnerung entfernen → Probe rot |
 | M3.6 | **Zeilen ohne E-Mail freischalten** (`H3`) — vier Stellen, kein Neubau. **Nur mit Owner-Freigabe:** `csvFeldregeln.test.js:191` nagelt die Pflicht absichtlich fest | Der Test wird mit dokumentierter Begründung geändert, nicht abgeschwächt |
-| M3.7 | **`org_type`-Riegel für den Import** — „nur die Zeitarbeitsfirma" ist heute nicht erzwungen | Unternehmens-Org → 403 |
+| M3.7 | **`org_type`-Riegel für den Import** — „nur die Zeitarbeitsfirma" ist heute nicht erzwungen | ✅ **gebaut 2026-09-04** — Unternehmens-Org → 403 (`AGENCY_ORG_REQUIRED`). Nicht nur der Import: gemessen sind von 65 Wegen dieses Moduls 36 belegbar agenturseitig und **null** kundenseitig, deshalb steht der Riegel im gemeinsamen Wachstapel. Siehe `docs/UEBERGABE.md`, Abschnitt „M3.7 ist gebaut“. |
 
 ---
 

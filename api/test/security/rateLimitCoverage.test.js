@@ -241,7 +241,16 @@ describe("G3.4: SSO-Callback hat authLimiter verdrahtet", () => {
 describe("G3.4: Worker-Invite-Endpunkte haben requestLimiter (Email-Bomb-Schutz)", () => {
   function makeWorkersRouter(limiter) {
     return createWorkersRouter({
-      pool: makePool([]),
+      /*
+       * Die Org muss eine AGENTUR sein — seit M3.7 (2026-09-04) traegt der
+       * gemeinsame Wachstapel dieses Moduls `requireAgencyOrg`: es gehoert der
+       * Zeitarbeitsfirma, nicht dem Unternehmen. Ein Pool, der auf alles leer
+       * antwortet, laesst die Org nicht existieren; der Riegel schliesst dann
+       * (fail-closed, richtig so) und die Probe unten saehe ein 403 statt des
+       * 429, um das es ihr geht — ein gruener Test, der seinen Gegenstand nicht
+       * mehr beruehrt. Geaendert ist NUR die Vorrichtung.
+       */
+      pool: makePool([{ org_type: "agency" }]),
       requireAuth: makeRequireAuth(),
       logger: makeLogger(),
       config: { BASE_URL: "http://localhost:8080" },

@@ -960,6 +960,71 @@ aufgefallen wären:
 > schließt. Der Riegel dafuer liegt bereit (`verweigereArbeiter`, eine Zeile je Route);
 > was fehlt, ist die Entscheidung.
 
+### M3.7 ist gebaut *(2026-09-04)* — das Tor prüfte den Tarif und nicht die Seite
+
+Das Arbeitskräfte-Modul (`api/routes/workers.js`) hing an `requireWorkerFeature` — einem
+**Plan**-Tor. `worker_module` tragen PLUS, PRO, INDIVIDUELL und ENTERPRISE, gleich ob
+Zeitarbeitsfirma oder Unternehmen. Ein Unternehmen auf PRO konnte damit Arbeitskräfte
+importieren, einladen und verwalten.
+
+**Die Messung entscheidet den Umfang, nicht das Gefühl.** Von 65 Wegen mit diesem
+Wachstapel sind **36 belegbar agenturseitig** (`supplierOrgId` im Rumpf) und **null**
+kundenseitig; `workerService` schreibt 87-mal `supplier_org_id` und einmal
+`client_org_id`. Ein Unternehmen, das hier importiert, erzeugt also Arbeitskräfte, deren
+**Lieferant ein Unternehmen** ist — ein Widerspruch im Datenmodell, nicht bloß eine
+Rechtefrage. Der Riegel nimmt keine gültige Nutzung weg; er beendet eine ungültige.
+
+Er steht deshalb im **gemeinsamen** Stapel und nicht nur vor dem Import, wie der Plan es
+wörtlich vorsah: eine halb geschlossene Tür sieht aus wie eine geschlossene. Das
+Einsatzportal liegt in `routes/workerPortal.js` mit eigenem Stapel und ist nicht betroffen.
+
+> **Betriebliche Folge:** ein **Unternehmens**-Konto auf PLUS/PRO/INDIVIDUELL, das diese
+> Wege heute benutzt, bekommt ab jetzt 403 (`AGENCY_ORG_REQUIRED`).
+
+**Der Fehler, den die erste Fassung hatte.** Sie holte die Org-Art über
+`getMembership(pool, req.session.userId, …)`. `middleware/apiKeyAuth.js` setzt aber **nur**
+`req.orgId` und nie `req.orgMembership` — hinter einem Schlüssel steht kein Mensch, also
+gibt es keine Mitgliedschaft. **Jeder Maschinenschlüssel** hätte ab dem Deploy 403
+bekommen. Gefunden hat es nicht die neue Probe, sondern `workers.scope.test.js`: dort bekam
+eine *Nachbar*zusicherung plötzlich einen anderen Fehlercode. Die Art einer Organisation
+hängt an der **Organisation** — jetzt wird sie dort erfragt.
+
+**Eine Rückmutation hat anfangs überlebt, und sie war die lehrreichste.** Den Riegel aus
+dem gemeinsamen Stapel zu entfernen färbte **keine** Probe rot. Er war vollständig geprüft
+— was er tut, wen er sperrt, wie er bei Fehlern fällt — und trotzdem hätte ihn niemand
+vermisst, wäre er nicht montiert gewesen. Dieselbe Lücke wie bei der Position des
+Arbeiterriegels in M2.6: *eine Wache zu prüfen ist nicht dasselbe wie zu prüfen, dass sie
+steht.* Geschlossen mit einer Probe über den **echten** Stapel jedes Weges: 66 tragen
+`requireAgencyOrgMiddleware`, genau einer nicht — `GET /public/worker-profiles/:slug`, das
+öffentliche Profil über einen geteilten Link, dessen Aufrufer weder Konto noch Org hat.
+
+**Zwei Folgefunde:**
+
+1. **`arbeiterSitzung` (M2.6) hing an der Schreibweise.** Die Mutationsprüfung der
+   Trennwand zeigte, dass sich `.trim()` und `.toLowerCase()` entfernen lassen, ohne dass
+   eine Probe rot wird — alle Vorrichtungen schrieben `"worker"` klein und ohne
+   Leerzeichen. Ein `role_key` `"Worker"` aus einem Import oder einer Migration wäre damit
+   **kein** Arbeiter mehr, und der Riegel öffnete sich für genau die Sitzung, die er
+   schließen soll.
+
+2. **Die Rückfallebene der Einstiegs-Checkliste widersprach dem Server-Katalog** an zwei
+   von acht Stellen. Die gefährlichere: `team_invited` zeigte im Browser auf die
+   Arbeitskräfte-Seite, im Katalog auf das Org-Profil. Der Schritt heißt „Teammitglied
+   einladen" und zählt `org_memberships` — gemeint ist ein **Kollege**, keine Arbeitskraft.
+   Seit M3.7 gehört jene Seite der Zeitarbeitsfirma; ein Unternehmen wäre dort auf 403
+   gelandet. Angeglichen und in beide Richtungen per Probe erzwungen.
+
+*Verifikation: 14 neue Proben (8 Abnahme + Maschinenschlüssel + fail-closed + Schreibweise
++ Lesefehler + Benennung, 2 Montage, 1 Schreibweise im Arbeiterriegel, 3
+Katalog-Abgleich), vier Rückmutationen — die vierte überlebte zunächst und ist der Grund
+für die Montage-Probe. Vorrichtungspflege in `workers.scope.test.js` und
+`security/rateLimitCoverage.test.js`: der Muster-Pool lässt die Org existieren. Keine
+einzige Zusicherung angefasst.*
+
+**Mutationsprüfung Trennwand** (Stand vor dieser Welle): 91,45 % gesamt, `orgAccess.js`
+93,79 %, `apiKeyAuth.js` 88,71 % — Schwelle 90 gehalten. Der neue `requireAgencyOrg` ist
+darin **noch nicht** enthalten; der nächste Lauf deckt ihn ab.
+
 ### M2.6 ist gebaut *(2026-09-04)* — der Fehlerfall ist jetzt umgekehrt
 
 Owner-Entscheid vom 2026-09-03: **ein Riegel auf dem v1-Router, fail-closed.** Eine

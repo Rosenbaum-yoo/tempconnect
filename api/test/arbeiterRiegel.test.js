@@ -120,6 +120,37 @@ describe("M2.6 · der Riegel laesst durch, was eingetragen ist — und sonst nic
     assert.equal(e.weiter, true);
   });
 
+  it("Grossschreibung und Leerzeichen aendern nichts an der Erkennung", () => {
+    /*
+     * GEFUNDEN DURCH DIE MUTATIONSPRUEFUNG (Trennwand, 2026-09-04): `.trim()`
+     * und `.toLowerCase()` in `arbeiterSitzung` liessen sich ENTFERNEN, ohne
+     * dass eine Probe rot wurde. Alle Vorrichtungen schrieben "worker" schon
+     * klein und ohne Leerzeichen.
+     *
+     * Das ist kein Schoenheitsfehler. `role_key` kommt aus der Datenbank; ein
+     * "Worker" oder ein " worker " — aus einem Import, einer Migration, einer
+     * Hand — waere dann KEIN Arbeiter mehr, und der Riegel oeffnete sich fuer
+     * genau die Sitzung, die er schliessen soll. Ein Riegel, der an der
+     * Schreibweise haengt, ist keiner.
+     */
+    for (const schreibweise of ["worker", "Worker", "WORKER", "  worker  ", "\tWorker\n"]) {
+      const ueberOrg = { orgMembership: { role_key: schreibweise } };
+      const ueberSitzung = { session: { userRole: schreibweise } };
+      assert.equal(arbeiterSitzung(ueberOrg).istArbeiter, true,
+        `role_key ${JSON.stringify(schreibweise)} wurde nicht als Arbeiter erkannt`);
+      assert.equal(arbeiterSitzung(ueberSitzung).istArbeiter, true,
+        `userRole ${JSON.stringify(schreibweise)} wurde nicht als Arbeiter erkannt`);
+      assert.equal(fahren({ ...ueberOrg, method: "GET", path: "/invoices" }).status, 403,
+        `der Riegel liess ${JSON.stringify(schreibweise)} durch`);
+    }
+
+    /* Und die Gegenrichtung: was nur AEHNLICH heisst, ist kein Arbeiter. */
+    for (const fremd of ["workers", "coworker", "work", "owner", ""]) {
+      assert.equal(arbeiterSitzung({ orgMembership: { role_key: fremd } }).istArbeiter, false,
+        `${JSON.stringify(fremd)} wurde faelschlich als Arbeiter erkannt`);
+    }
+  });
+
   it("EINE der beiden Quellen genuegt, um Arbeiter zu sein", () => {
     /* `||`, nicht `&&`. Ein Riegel, den ein fehlendes Feld oeffnet, ist keiner. */
     const nurSitzung = { method: "GET", path: "/invoices", session: { userRole: "worker" } };
@@ -441,5 +472,104 @@ describe("M2.6 · derselbe Router haengt an zwei Adressen — der Riegel muss an
       assert.equal((await ruf("GET", "/api/invoices")).status, 200);
       assert.equal((await ruf("GET", "/api/v1/invoices")).status, 200);
     });
+  });
+});
+
+/* ── 7. Keine Ausnahme fuer eine Route, die es nicht gibt ────────────── */
+
+describe("M2.6 · eine leergelaufene Ausnahme ist schlimmer als keine", () => {
+  /*
+   * DIE GEGENRICHTUNG, und sie ist die unauffaelligere.
+   *
+   * Der Riegel faengt eine VERGESSENE Route: sie ist zu, und das faellt beim
+   * ersten Klick auf. Er faengt nicht die umgekehrte Drift — einen Eintrag, der
+   * auf eine Route zeigt, die inzwischen umbenannt oder geloescht wurde. So ein
+   * Eintrag tut nichts und sieht aus wie eine Regel. Er kostet nichts, bis
+   * jemand ihn zum Anlass nimmt, eine gleichnamige neue Route fuer erlaubt zu
+   * halten.
+   *
+   * Dieselbe Lehre wie bei `ohne_einplanung` in der Takt-Registratur (M1.9): ein
+   * Register, das geschlossene Luecken weiter als offen fuehrt, ist genauso
+   * irrefuehrend wie eines, das offene verschweigt.
+   */
+
+  /** Alle im Quelltext angelegten Routen, roh — Methode + Pfadmuster. */
+  function alleRouten() {
+    const gefunden = new Set();
+    const verz = path.join(API, "routes");
+    for (const datei of fs.readdirSync(verz).filter((n) => n.endsWith(".js"))) {
+      const quelle = fs.readFileSync(path.join(verz, datei), "utf8");
+      for (const m of quelle.matchAll(/router\.(get|post|put|patch|delete)\(\s*"([^"]+)"/g)) {
+        gefunden.add(m[1].toUpperCase() + " " + m[2]);
+      }
+    }
+    return gefunden;
+  }
+
+  /* Ein Abschnitt trifft, wenn er woertlich gleich ist ODER eine der beiden
+     Seiten dort einen Parameter fuehrt (`:id` gegen `abc`). */
+  function trifftRoute(routenPfad, listenPfad) {
+    const a = routenPfad.split("/");
+    const b = listenPfad.split("/");
+    if (a.length !== b.length) return false;
+    return a.every((seg, i) => seg === b[i] || seg.startsWith(":") || b[i].startsWith(":"));
+  }
+
+  const ROUTEN = alleRouten();
+
+  it("die Routensuche findet ueberhaupt etwas", () => {
+    /* Ohne diese Probe waere der Abgleich unten lautlos gruen, sobald sich die
+       Schreibweise der Routen aendert: eine leere Menge besteht jede Schleife. */
+    assert.ok(ROUTEN.size >= 400,
+      `nur ${ROUTEN.size} Routen gefunden — entweder ist das Verzeichnis leer, oder `
+      + "das Muster passt nicht mehr und dieser Abgleich liest ins Leere");
+  });
+
+  it("jeder Eintrag zeigt auf eine Route, die es wirklich gibt", () => {
+    const leer = [];
+    for (const e of ERLAUBT) {
+      if (e.pfad.endsWith("/")) continue;   // Praefixe unten getrennt
+      const methoden = e.methoden === "*"
+        ? ["GET", "POST", "PUT", "PATCH", "DELETE"] : e.methoden;
+      const trifft = methoden.some((m) =>
+        [...ROUTEN].some((r) => {
+          const [rm, rp] = r.split(" ");
+          return rm === m && trifftRoute(rp, e.pfad);
+        }));
+      if (!trifft) leer.push(`${methoden.join("/")} ${e.pfad} — ${e.grund}`);
+    }
+    assert.deepStrictEqual(leer, [],
+      "Diese Ausnahmen zeigen auf keine existierende Route. Sie tun nichts und sehen "
+      + "aus wie eine Regel — bis jemand sie zum Anlass nimmt, eine gleichnamige neue "
+      + "Route fuer erlaubt zu halten:\n  " + leer.join("\n  "));
+  });
+
+  it("das Portal-Praefix deckt wirklich Routen ab", () => {
+    /* Ein Praefix ist die weitreichendste Form einer Ausnahme. Deckt es nichts
+       mehr ab, ist der Namensraum umgezogen — und dann ist das Portal entweder
+       ausgesperrt oder laeuft ueber Wege, die niemand geprueft hat. */
+    for (const e of ERLAUBT.filter((x) => x.pfad.endsWith("/"))) {
+      const treffer = [...ROUTEN].filter((r) => r.split(" ")[1].startsWith(e.pfad));
+      assert.ok(treffer.length >= 5,
+        `Das Praefix ${e.pfad} deckt nur ${treffer.length} Routen ab — ist der `
+        + "Namensraum umgezogen?");
+    }
+  });
+
+  it("auch die absichtlich gesperrten Wege existieren noch", () => {
+    /* Sonst warnt die Liste vor einer Gefahr, die es nicht mehr gibt — und
+       verliert damit genau die Glaubwuerdigkeit, die sie tragen soll. */
+    const weg = [];
+    for (const g of GESPERRT_MIT_ABSICHT) {
+      const trifft = g.methoden.some((m) =>
+        [...ROUTEN].some((r) => {
+          const [rm, rp] = r.split(" ");
+          return rm === m && trifftRoute(rp, g.pfad);
+        }));
+      if (!trifft) weg.push(`${g.methoden.join("/")} ${g.pfad}`);
+    }
+    assert.deepStrictEqual(weg, [],
+      "Diese Wege stehen als 'absichtlich gesperrt', existieren aber nicht mehr:\n  "
+      + weg.join("\n  "));
   });
 });

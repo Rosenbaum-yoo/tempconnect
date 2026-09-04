@@ -11,6 +11,7 @@ import path from "path";
 import multer from "multer";
 import { requirePermission } from "../middleware/rbac.js";
 import { requireScope } from "../middleware/apiKeyAuth.js";
+import { requireAgencyOrg } from "../middleware/orgAccess.js";
 import { hasFeature } from "../config/planFeatures.js";
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
 import * as dealStaffingFastTrackService from "../services/dealStaffingFastTrackService.js";
@@ -568,7 +569,37 @@ export function createWorkersRouter(deps) {
   const router = Router();
   const rperm = (p) => requirePermission(p, { pool, logger });
   const gate  = requireWorkerFeature(getUserAndPlan);
-  const base  = [requireAuth, gate];
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * M3.7 — DAS TOR PRUEFTE DEN TARIF UND NICHT DIE SEITE
+   * ═══════════════════════════════════════════════════════════════════════
+   * `requireWorkerFeature` fragt `hasFeature(plan, "worker_module")`. Dieses
+   * Merkmal tragen PLUS, PRO, INDIVIDUELL und ENTERPRISE — unabhaengig davon,
+   * ob die Organisation eine Zeitarbeitsfirma oder ein Unternehmen ist. Ein
+   * Unternehmen auf PRO konnte damit Arbeitskraefte importieren, einladen und
+   * verwalten.
+   *
+   * GEMESSEN AM 2026-09-04: von 65 Wegen mit diesem Stapel sind 36 belegbar
+   * agenturseitig (`supplierOrgId` im Rumpf) und NULL kundenseitig.
+   * `workerService` schreibt 87-mal `supplier_org_id` und einmal
+   * `client_org_id`. Es gibt in dieser Datei keine Unternehmensseite, die der
+   * Riegel wegnehmen koennte.
+   *
+   * Der Riegel steht deshalb im gemeinsamen Stapel und nicht nur vor dem
+   * Import: eine halb geschlossene Tuer sieht aus wie eine geschlossene.
+   *
+   * BETRIEBLICHE FOLGE, ausdruecklich benannt: ein UNTERNEHMENS-Konto auf
+   * PLUS/PRO/INDIVIDUELL, das diese Wege heute benutzt, bekommt ab jetzt 403
+   * (`AGENCY_ORG_REQUIRED`). Es hat dabei allerdings Arbeitskraefte erzeugt,
+   * deren `supplier_org_id` auf ein Unternehmen zeigt — ein Widerspruch im
+   * Datenmodell. Der Riegel nimmt keine gueltige Nutzung weg; er beendet eine
+   * ungueltige.
+   *
+   * Das Einsatzportal liegt in `routes/workerPortal.js` mit eigenem Stapel und
+   * ist nicht betroffen. Ein Arbeiter sitzt ohnehin in einer Agentur-Org.
+   */
+  const nurAgentur = requireAgencyOrg({ pool, logger });
+  const base  = [requireAuth, gate, nurAgentur];
   const workerDocumentUpload = createWorkerDocumentUpload();
   const buildPublicProfileLinks = (worker) => {
     if (!worker?.public_profile_slug) {
