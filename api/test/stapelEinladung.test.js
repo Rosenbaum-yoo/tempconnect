@@ -31,7 +31,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { listInvitableWorkers } from "../services/workerService.js";
+import { listInvitableWorkers, BULK_INVITE_MAX } from "../services/workerService.js";
 
 /* Pfade IMMER relativ zur Testdatei — sonst haengt das Ergebnis am
    Startverzeichnis und der Test ueberspringt sich je nach cwd lautlos. */
@@ -185,5 +185,127 @@ describe("M3.2 · die Oberflaeche schickt, was sie verspricht", () => {
       + "die gesamte Belegschaft einzuladen");
     assert.match(block[0], /body: \{\}/,
       "der org-weite Knopf schickt keinen leeren Rumpf mehr");
+  });
+});
+
+describe("M3.3 · was der Lauf NICHT getan hat, muss dastehen", () => {
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * DREI FELDER STANDEN SEIT JEHER IN DER ANTWORT UND WURDEN NIE ANGEZEIGT
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   *   truncated         wie viele der Lauf gar nicht angefasst hat, weil die
+   *                     Obergrenze erreicht war
+   *   skipped_pending   wie viele schon eine offene Einladung hatten
+   *   skipped_accepted  wie viele sich schon registriert haben
+   *
+   * Die Meldung nannte nur `invited_count` — und die Zahl stimmte sogar. Sie
+   * sagte nur nicht, dass bei 500 Kandidaten 300 Menschen uebrig blieben. Ein
+   * Deckel, den niemand sieht, sieht aus wie Vollstaendigkeit: der Disponent
+   * klickt einmal, liest "200 eingeladen" und haelt die Liste fuer abgearbeitet.
+   *
+   * Abnahme aus dem Plan (M3.3): **500 importiert → die Oberflaeche nennt die
+   * 300, die nicht gingen.**
+   */
+
+  const SEITE = fs.readFileSync(
+    path.join(API, "..", "frontend", "public", "js", "pages", "mitarbeiter.js"), "utf8");
+
+  it("die ANTWORT traegt die drei Felder — nicht bloss der Audit-Eintrag", () => {
+    /*
+     * GESCHAERFT NACH EINER UEBERLEBENDEN RUECKMUTATION (2026-09-04).
+     *
+     * Hier stand `route.includes("truncated: bulk.truncated")`. Das Feld wird in
+     * DIESER Route zweimal geschrieben: einmal in den Audit-Eintrag, einmal in
+     * die Antwort an den Browser. Nahm man es aus der ANTWORT heraus, blieb die
+     * Probe gruen — sie fand es noch im Audit-Eintrag.
+     *
+     * Ein Audit-Eintrag hilft der Oberflaeche nicht: er liegt in der Datenbank.
+     * Geprueft wird deshalb der `res.json`-Block selbst.
+     *
+     * Dieselbe Falle wie beim Vorlagen-Waechter heute frueh
+     * ("DATABASE_URL".includes("BASE_URL")): eine Zeichenkette IRGENDWO im Text
+     * ist kein Beleg dafuer, dass sie an der richtigen Stelle steht.
+     */
+    const route = fs.readFileSync(path.join(API, "routes", "workers.js"), "utf8");
+    const bulk = route.indexOf('router.post("/worker-invites/bulk"');
+    assert.notEqual(bulk, -1, "die Sammel-Route wurde nicht gefunden");
+    const ende = route.indexOf('router.post("/worker-invites/:id/resend"', bulk);
+    assert.notEqual(ende, -1, "das Ende der Sammel-Route wurde nicht gefunden");
+
+    const rumpf = route.slice(bulk, ende);
+    /*
+     * Den Erfolgs-Antwortblock ueber seinen ANFANG suchen, nicht ueber ein
+     * Muster: die Route enthaelt mehrere `res.status(...).json(...)` — 400 fuer
+     * den ungueltigen Rumpf, 402 fuer das Planlimit. Ein nicht-gieriges Muster
+     * greift den erstbesten und liest damit den falschen Block; genau das ist
+     * beim Schaerfen dieser Probe passiert.
+     */
+    const start = rumpf.indexOf("res.status(201).json({");
+    assert.notEqual(start, -1, "der Erfolgs-Antwortblock (201) wurde nicht gefunden");
+    const schluss = rumpf.indexOf("\n      });", start);
+    assert.notEqual(schluss, -1, "das Ende des Antwort-Blocks wurde nicht gefunden");
+    const antwort = rumpf.slice(start, schluss);
+
+    for (const feld of ["skipped_pending", "skipped_accepted", "truncated"]) {
+      assert.ok(antwort.includes(`${feld}: bulk.${feld}`),
+        `die ANTWORT traegt ${feld} nicht mehr — die Oberflaeche kann es dann nicht `
+        + "zeigen, auch wenn es weiterhin im Audit-Eintrag steht");
+    }
+  });
+
+  it("die Meldung nennt jedes der drei Felder", () => {
+    const block = /function bulkMeldung\(r\)\s*\{[\s\S]*?\n\}/.exec(SEITE);
+    assert.ok(block, "bulkMeldung nicht gefunden — liest diese Probe ins Leere?");
+    for (const feld of ["skipped_pending", "skipped_accepted", "truncated"]) {
+      assert.ok(block[0].includes(`r.${feld}`),
+        `die Meldung verschweigt ${feld} — genau der stille Deckel, den M3.3 abschafft`);
+    }
+    assert.ok(block[0].includes("r.invited_count"), "die eingeladenen fehlen");
+    assert.ok(block[0].includes("r.failed_count"), "die Fehlschlaege fehlen");
+  });
+
+  it("BEIDE Knoepfe benutzen dieselbe Meldung", () => {
+    /* Vorher stand die Zusammensetzung zweimal da — und die beiden Fassungen
+       waren schon auseinander: die eine nannte `failed_count` "Mail-Fehler", die
+       andere "uebersprungen". Dieselbe Zahl, zwei Bedeutungen. */
+    const treffer = SEITE.match(/toast\(bulkMeldung\(r\)\)/g) || [];
+    assert.equal(treffer.length, 2,
+      `${treffer.length} Aufrufstellen benutzen die gemeinsame Meldung, erwartet 2 — `
+      + "eine eigene Zusammensetzung driftet von der anderen weg");
+  });
+
+  it("der Deckel im Browser stimmt mit dem des Servers ueberein", () => {
+    /*
+     * ZWEITE WAHRHEIT, und heute schon zweimal abgedriftet (die
+     * Onboarding-Rueckfallebene, die Frontend-Linkkarte). Die Meldung nennt die
+     * Obergrenze im Klartext ("Obergrenze 200 je Lauf"); steht dort eine andere
+     * Zahl als im Dienst, belehrt die Oberflaeche den Menschen falsch — und
+     * zwar genau in dem Moment, in dem er wissen muss, wie oft er noch klicken
+     * soll.
+     */
+    const m = /var BULK_INVITE_MAX = (\d+);/.exec(SEITE);
+    assert.ok(m, "der gespiegelte Deckel steht nicht mehr in der Seite");
+    assert.equal(Number(m[1]), BULK_INVITE_MAX,
+      `Browser sagt ${m[1]}, der Dienst sagt ${BULK_INVITE_MAX}`);
+  });
+
+  it("die Wortmarken existieren in BEIDEN Sprachen", () => {
+    /* Eine Meldung, deren Wortmarke fehlt, zeigt dem Menschen den Schluessel
+       statt des Satzes — und der i18n-Waechter faengt nur unbekannte, nicht
+       einseitig gepflegte. */
+    const de = /TCi18n\.register\('de',([\s\S]*?)\n\}\);/.exec(SEITE);
+    const en = /TCi18n\.register\('en',([\s\S]*?)\n\}\);/.exec(SEITE);
+    assert.ok(de && en, "die Woerterbuecher wurden nicht gefunden");
+    for (const key of ["mit.ok.bulkTruncated", "mit.ok.bulkPending", "mit.ok.bulkAccepted"]) {
+      assert.ok(de[1].includes(key), `${key} fehlt im deutschen Woerterbuch`);
+      assert.ok(en[1].includes(key), `${key} fehlt im englischen Woerterbuch`);
+    }
+    /* Und der Deckel muss in der Meldung auch WIRKLICH vorkommen — sonst steht
+       die Zahl im Aufruf und nicht im Satz. */
+    assert.match(de[1], /bulkTruncated.*\{max\}/,
+      "die deutsche Meldung nennt die Obergrenze nicht");
+    assert.match(en[1], /bulkTruncated.*\{max\}/,
+      "die englische Meldung nennt die Obergrenze nicht");
   });
 });

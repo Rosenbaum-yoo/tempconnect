@@ -615,6 +615,15 @@ TCi18n.register('de', {
      wieder eine Zustellung, die noch gar nicht stattgefunden hat. */
   'mit.ok.bulkQueued': 'Versand laeuft im Hintergrund ({count} eingereiht)',
   'mit.ok.bulkSkipped': '{count} übersprungen',
+  /* M3.3 — DIE DREI FELDER, DIE DER SERVER SCHON IMMER SCHICKTE.
+     `truncated`, `skipped_pending` und `skipped_accepted` stehen seit jeher in
+     der Antwort und wurden nie angezeigt. Bei 500 Kandidaten und einer
+     Obergrenze von 200 verschwanden 300 Menschen lautlos — die Meldung sagte
+     "200 eingeladen", und das stimmte sogar. Sie sagte nur nicht, dass 300
+     uebrig blieben. */
+  'mit.ok.bulkTruncated': '{count} nicht angefasst (Obergrenze {max} je Lauf) — erneut klicken',
+  'mit.ok.bulkPending': '{count} bereits eingeladen',
+  'mit.ok.bulkAccepted': '{count} bereits registriert',
   'mit.confirm.inviteImported': '{count} importierte Mitarbeiter jetzt ins Einsatzportal einladen? Bereits Eingeladene/Registrierte werden übersprungen.',
   'mit.confirm.inviteUnregistered': '{count} noch nicht registrierte Mitarbeiter einladen? Bereits Registrierte werden übersprungen.',
   'mit.confirm.revokeInvite': 'Einladung wirklich widerrufen?',
@@ -1236,6 +1245,9 @@ TCi18n.register('en', {
   'mit.ok.bulkMailErrors': '{count} mail errors',
   'mit.ok.bulkQueued': 'Sending in the background ({count} queued)',
   'mit.ok.bulkSkipped': '{count} skipped',
+  'mit.ok.bulkTruncated': '{count} not processed (limit {max} per run) — click again',
+  'mit.ok.bulkPending': '{count} already invited',
+  'mit.ok.bulkAccepted': '{count} already registered',
   'mit.confirm.inviteImported': 'Invite {count} imported workers to the worker portal now? Anyone already invited or registered is skipped.',
   'mit.confirm.inviteUnregistered': 'Invite {count} workers who are not registered yet? Anyone already registered is skipped.',
   'mit.confirm.revokeInvite': 'Really revoke this invitation?',
@@ -2479,6 +2491,42 @@ function inviteOhneKonto(profileId) {
   });
 }
 
+/* ── Was aus einem Sammel-Lauf wirklich wurde ──────────────────────────────
+ *
+ * M3.3 (2026-09-04): DREI FELDER STANDEN SEIT JEHER IN DER ANTWORT UND WURDEN
+ * NIE ANGEZEIGT.
+ *
+ *   truncated         wie viele der Lauf gar nicht angefasst hat, weil die
+ *                     Obergrenze (BULK_INVITE_MAX = 200) erreicht war
+ *   skipped_pending   wie viele schon eine offene Einladung hatten
+ *   skipped_accepted  wie viele sich schon registriert haben
+ *
+ * Die Meldung nannte nur `invited_count` — und die Zahl stimmte sogar. Sie sagte
+ * nur nicht, dass bei 500 Kandidaten 300 Menschen uebrig blieben. Ein Deckel,
+ * den niemand sieht, sieht aus wie Vollstaendigkeit; der Disponent klickt
+ * einmal, liest "200 eingeladen" und haelt die Liste fuer abgearbeitet.
+ *
+ * `truncated` traegt deshalb ausdruecklich die Aufforderung, erneut zu klicken:
+ * der Lauf ist wiederholbar und ueberspringt beim zweiten Mal die schon
+ * Eingeladenen von selbst.
+ *
+ * Die beiden `skipped_*` sind keine Fehler und werden auch nicht so gefaerbt —
+ * sie erklaeren die Luecke zwischen "so viele wollte ich einladen" und "so viele
+ * gingen raus". Ohne sie sieht ein erfolgreicher Lauf nach einem halben aus.
+ */
+var BULK_INVITE_MAX = 200;   /* Spiegel von workerService.BULK_INVITE_MAX */
+
+function bulkMeldung(r) {
+  var teile = [TCi18n.t("mit.ok.bulkInvited", { count: r.invited_count || 0 })];
+  if (r.queued_count)      teile.push(TCi18n.t("mit.ok.bulkQueued",    { count: r.queued_count }));
+  if (r.skipped_pending)   teile.push(TCi18n.t("mit.ok.bulkPending",   { count: r.skipped_pending }));
+  if (r.skipped_accepted)  teile.push(TCi18n.t("mit.ok.bulkAccepted",  { count: r.skipped_accepted }));
+  if (r.failed_count)      teile.push(TCi18n.t("mit.ok.bulkMailErrors",{ count: r.failed_count }));
+  if (r.truncated)         teile.push(TCi18n.t("mit.ok.bulkTruncated",
+                                        { count: r.truncated, max: BULK_INVITE_MAX }));
+  return teile.join(" · ") + ".";
+}
+
 /* ── CSV-Ergebnis → direkt einladen ────────────────────────────────────────
  *
  * M3.2 (2026-09-04): DIESER KNOPF HAT MEHR GETAN, ALS ER SAGTE.
@@ -2501,9 +2549,7 @@ function csvInviteImported(createdCount) {
   if (!window.confirm(TCi18n.t("mit.confirm.inviteImported", { count: createdCount }))) return;
   var rumpf = _csvImportierteProfilIds.length ? { profile_ids: _csvImportierteProfilIds } : {};
   api("/worker-invites/bulk", { method: "POST", body: rumpf }).then(function(r) {
-    toast(TCi18n.t("mit.ok.bulkInvited", { count: r.invited_count || 0 }) +
-      (r.queued_count ? " · " + TCi18n.t("mit.ok.bulkQueued", { count: r.queued_count }) : "") +
-      (r.failed_count ? " · " + TCi18n.t("mit.ok.bulkMailErrors", { count: r.failed_count }) : "") + ".");
+    toast(bulkMeldung(r));
     showTab("invites");
     loadWorkers();
     loadInvites();
@@ -2518,9 +2564,7 @@ function inviteAllUnregistered() {
   if (!count) { toast(TCi18n.t("mit.ok.allAlreadyInvited")); return; }
   if (!window.confirm(TCi18n.t("mit.confirm.inviteUnregistered", { count: count }))) return;
   api("/worker-invites/bulk", { method: "POST", body: {} }).then(function(r) {
-    toast(TCi18n.t("mit.ok.bulkInvited", { count: r.invited_count || 0 }) +
-      (r.queued_count ? " · " + TCi18n.t("mit.ok.bulkQueued", { count: r.queued_count }) : "") +
-      (r.failed_count ? " · " + TCi18n.t("mit.ok.bulkSkipped", { count: r.failed_count }) : "") + ".");
+    toast(bulkMeldung(r));
     loadWorkers();
     loadInvites();
   }).catch(function(e) {

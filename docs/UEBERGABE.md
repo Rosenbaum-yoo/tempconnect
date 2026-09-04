@@ -960,6 +960,49 @@ aufgefallen wären:
 > schließt. Der Riegel dafuer liegt bereit (`verweigereArbeiter`, eine Zeile je Route);
 > was fehlt, ist die Entscheidung.
 
+### M3.3 ist gebaut *(2026-09-04)* — ein Deckel, den niemand sieht, sieht aus wie Vollständigkeit
+
+Die Sammel-Einladung liefert seit jeher drei Felder, die die Oberfläche nie zeigte:
+
+| Feld | was es sagt |
+|---|---|
+| `truncated` | wie viele der Lauf gar nicht angefasst hat (Obergrenze 200 je Lauf) |
+| `skipped_pending` | wie viele schon eine offene Einladung hatten |
+| `skipped_accepted` | wie viele sich schon registriert haben |
+
+Die Meldung nannte nur `invited_count` — und die Zahl stimmte sogar. Sie sagte nur nicht,
+dass bei 500 Kandidaten **300 Menschen übrig blieben**. Der Disponent klickt einmal, liest
+„200 eingeladen" und hält die Liste für abgearbeitet. `truncated` trägt deshalb
+ausdrücklich die Aufforderung, erneut zu klicken; der Lauf ist wiederholbar und überspringt
+beim zweiten Mal die schon Eingeladenen von selbst.
+
+Die beiden `skipped_*` sind keine Fehler und werden auch nicht so gefärbt — sie erklären
+die Lücke zwischen „so viele wollte ich einladen" und „so viele gingen raus". Ohne sie
+sieht ein erfolgreicher Lauf nach einem halben aus.
+
+**Eine Meldung statt zweier, und sie waren schon auseinander.** Die Zusammensetzung stand
+an beiden Knöpfen getrennt da — dieselbe Zahl `failed_count` hieß an der einen Stelle
+„Mail-Fehler" und an der anderen „übersprungen". Jetzt eine Funktion, und eine Probe hält
+fest, dass beide Knöpfe sie benutzen.
+
+**Der gespiegelte Deckel wird erzwungen.** Die Meldung nennt die Obergrenze im Klartext,
+also steht die Zahl auch im Browser — eine zweite Wahrheit, und zwei davon sind an diesem
+Tag bereits abgedriftet (die Onboarding-Rückfallebene, die Frontend-Linkkarte). Eine Probe
+hält `var BULK_INVITE_MAX` gegen `workerService.BULK_INVITE_MAX`.
+
+> **Eine Rückmutation hat überlebt, und sie war dieselbe Falle wie am Morgen.**
+> `truncated` aus der *Antwort* zu entfernen färbte nichts rot: die Probe suchte
+> `truncated: bulk.truncated` **irgendwo** in der Route — und fand es weiter im
+> Audit-Eintrag, wo es ein zweites Mal steht. Ein Audit-Eintrag hilft der Oberfläche nicht;
+> er liegt in der Datenbank. Exakt der Fehler des Vorlagen-Wächters
+> (`"DATABASE_URL".includes("BASE_URL")`): eine Zeichenkette irgendwo im Text ist kein
+> Beleg dafür, dass sie an der richtigen Stelle steht. Die Probe liest jetzt den
+> `res.status(201).json`-Block selbst — gesucht über seinen **Anfang**, nicht über ein
+> nicht-gieriges Muster, das sonst den 400er- oder 402er-Block erwischt.
+
+*Verifikation: 5 Proben in `api/test/stapelEinladung.test.js`, sieben Rückmutationen, jede
+gefangen. Sechs neue Wortmarken in beiden Sprachen; der i18n-Wächter ist grün.*
+
 ### Nachtrag zu M3.7 *(2026-09-04)* — die Mutationsprüfung fiel unter die Schwelle
 
 **M3.7 war verhaltensgeprüft und trotzdem nicht dicht.** Der Lauf nach dem Bau:
