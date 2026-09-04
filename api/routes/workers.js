@@ -271,6 +271,21 @@ function createWorkerDocumentUpload() {
   });
 }
 
+/*
+ * M3.2 — der Rumpf der Sammel-Einladung.
+ *
+ * `profile_ids` ist OPTIONAL und beschraenkt den Lauf auf einen Stapel. Fehlt
+ * das Feld, bleibt es beim org-weiten Verhalten; steht es als LEERE Liste da,
+ * heisst das "keine" und nicht "alle" — sonst waere ein Import, aus dem nichts
+ * Einladbares hervorging, ploetzlich wieder die ganze Belegschaft.
+ *
+ * Die Obergrenze entspricht der des Imports: mehr Kennungen als importierbare
+ * Zeilen kann ein ehrlicher Aufrufer nicht haben.
+ */
+const bulkInviteSchema = z.object({
+  profile_ids: z.array(z.string().uuid()).max(1000).optional()
+}).strip();
+
 /* ── Feature-Gate ────────────────────────────────────────────────────────────── */
 
 function requireWorkerFeature(getUserAndPlan) {
@@ -1609,7 +1624,31 @@ export function createWorkersRouter(deps) {
       if (limits.hard_blocked) {
         return res.status(402).json({ error: "WORKER_LIMIT_EXCEEDED", plan_limits: limits });
       }
-      const candidates = await workerService.listInvitableWorkers(pool, req.orgId);
+      /*
+       * M3.2 — DER STAPEL, NICHT DIE GANZE BELEGSCHAFT.
+       *
+       * Ohne `profile_ids` bleibt es beim bisherigen Verhalten: alle noch
+       * nicht bestaetigten Kraefte der Organisation. Genau das will der Knopf
+       * "alle noch nicht Registrierten einladen".
+       *
+       * Der Knopf NACH EINEM IMPORT reicht jetzt die Kennungen aus seinem
+       * eigenen Bericht mit (`created[].profile_id`). Vorher rief er denselben
+       * org-weiten Weg — die Oberflaeche fragte "die 3 gerade importierten
+       * einladen?", und bei 200 unbestaetigten Kraeften gingen 200 Mails
+       * hinaus. Der Dialog nannte eine Zahl, der Server tat etwas anderes.
+       *
+       * Die Kennungen werden NICHT geglaubt: der Dienst filtert sie gegen
+       * `wp.supplier_org_id = $1`, eine fremde Kennung faellt damit heraus
+       * statt zu wirken.
+       */
+      const parsedBulk = bulkInviteSchema.safeParse(req.body || {});
+      if (!parsedBulk.success) {
+        return res.status(400).json({ error: "VALIDATION", details: parsedBulk.error.issues });
+      }
+      const profileIds = parsedBulk.data.profile_ids ?? null;
+
+      const candidates = await workerService.listInvitableWorkers(pool, req.orgId,
+        profileIds ? { profileIds } : {});
       // Set-based statt N x (SELECT + INSERT): EINE Dedup-Query + EIN UNNEST-Insert
       // (bulkCreateWorkerInvites); der partielle Unique-Index aus Mig 159 macht
       // parallele Bulk-Klicks race-sicher (ON CONFLICT DO NOTHING). Die Kandidaten-

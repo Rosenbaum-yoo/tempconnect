@@ -374,7 +374,7 @@ Messung wertlos.
 | Phase | Inhalt | Nachweis |
 |---|---|---|
 | M3.1 | **Der Import endet mit dem Angebot einzuladen** — Vorschau plus ein Klick (M-L4) | Import mit 3 Zeilen → Zahl stimmt, Klick sendet |
-| M3.2 | **Auf den Stapel begrenzen** (`H4`): `created`-IDs im Rumpf statt org-weit | 10 importiert → höchstens 10 eingeladen |
+| M3.2 | **Auf den Stapel begrenzen** (`H4`): `created`-IDs im Rumpf statt org-weit | ✅ **gebaut 2026-09-04** — 10 importiert → höchstens 10 eingeladen. `profile_ids` aus dem Import-Bericht begrenzen `listInvitableWorkers`; die Org-Bedingung bleibt die äußere Klammer, eine leere Liste heißt „keine“. Siehe `docs/UEBERGABE.md`, Abschnitt „M3.2 ist gebaut“. |
 | M3.3 | **Die drei verschwiegenen Felder anzeigen**: `truncated`, `skipped_pending`, `skipped_accepted` | 500 importiert → die Oberfläche nennt die 300, die nicht gingen |
 | M3.4 | **Vom abgelaufenen Link auf „Passwort vergessen" verlinken** (`H6`) — der Weg **funktioniert bereits**, er ist nur nicht verlinkt. Und die Reset-Mail rollenabhängig ins Portal zeigen lassen | Abgelaufener Link → der Mensch kommt allein weiter |
 | M3.5 | **Wiedervorlage** für nicht angenommene Einladungen | Rückmutation: Erinnerung entfernen → Probe rot |

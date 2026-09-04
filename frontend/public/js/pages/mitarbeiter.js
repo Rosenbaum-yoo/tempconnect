@@ -2479,13 +2479,28 @@ function inviteOhneKonto(profileId) {
   });
 }
 
-/* ── CSV-Ergebnis → direkt einladen (7c-Bonus) ─────────────────────────────
-   Ruft die Bulk-Route direkt: die lokale _workers-Liste ist nach dem Import
-   noch stale — der Server kennt die frischen Kandidaten (is_verified=false)
-   und dedupliziert ohnehin serverseitig. */
+/* ── CSV-Ergebnis → direkt einladen ────────────────────────────────────────
+ *
+ * M3.2 (2026-09-04): DIESER KNOPF HAT MEHR GETAN, ALS ER SAGTE.
+ *
+ * Hier stand: "Ruft die Bulk-Route direkt — der Server kennt die frischen
+ * Kandidaten und dedupliziert ohnehin serverseitig." Das stimmte, beantwortete
+ * aber die falsche Frage. Der Server kannte ALLE noch nicht bestaetigten
+ * Kraefte der Organisation, nicht die gerade importierten. Der Dialog fragte
+ * "die 3 gerade importierten einladen?" — bei einer Belegschaft von 200
+ * unbestaetigten gingen 200 Mails hinaus, und an der Antwort war es nicht zu
+ * erkennen.
+ *
+ * Der Bericht des Imports traegt die Kennungen laengst mit
+ * (`created[].profile_id`); sie wurden nur weggeworfen. Jetzt gehen sie mit,
+ * und der Server filtert sie zusaetzlich gegen die eigene Organisation.
+ */
+var _csvImportierteProfilIds = [];
+
 function csvInviteImported(createdCount) {
   if (!window.confirm(TCi18n.t("mit.confirm.inviteImported", { count: createdCount }))) return;
-  api("/worker-invites/bulk", { method: "POST", body: {} }).then(function(r) {
+  var rumpf = _csvImportierteProfilIds.length ? { profile_ids: _csvImportierteProfilIds } : {};
+  api("/worker-invites/bulk", { method: "POST", body: rumpf }).then(function(r) {
     toast(TCi18n.t("mit.ok.bulkInvited", { count: r.invited_count || 0 }) +
       (r.queued_count ? " · " + TCi18n.t("mit.ok.bulkQueued", { count: r.queued_count }) : "") +
       (r.failed_count ? " · " + TCi18n.t("mit.ok.bulkMailErrors", { count: r.failed_count }) : "") + ".");
@@ -4314,6 +4329,11 @@ function csvExecuteImport() {
 
 function csvShowResult(res) {
   var summary = document.getElementById("csv-result-summary");
+  /* M3.2: die Kennungen des Stapels festhalten — der Einladen-Knopf unten
+     schickt sie mit, damit er genau die einlaedt, die er nennt. */
+  _csvImportierteProfilIds = (res.created || [])
+    .map(function(e) { return e && e.profile_id; })
+    .filter(Boolean);
   var created = (res.created || []).length;
   var updated = (res.updated || []).length;
   var skipped = (res.skipped || []).length;

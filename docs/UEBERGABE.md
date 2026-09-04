@@ -960,6 +960,45 @@ aufgefallen wären:
 > schließt. Der Riegel dafuer liegt bereit (`verweigereArbeiter`, eine Zeile je Route);
 > was fehlt, ist die Entscheidung.
 
+### M3.2 ist gebaut *(2026-09-04)* — der Knopf tat mehr, als er sagte
+
+Nach einem CSV-Import bietet die Oberfläche an, die frisch importierten Kräfte
+einzuladen. Der Dialog nennt eine **Zahl**: „die 3 gerade importierten einladen?".
+Gerufen wurde dafür `POST /worker-invites/bulk` mit **leerem Rumpf** — und dieser Weg lädt
+jede noch nicht bestätigte Kraft der **ganzen Organisation** ein. Bei 200 unbestätigten
+gingen 200 Mails hinaus, während der Dialog von 3 sprach.
+
+**Der Kommentar an der Aufrufstelle begründete es sogar:** *„Ruft die Bulk-Route direkt:
+die lokale `_workers`-Liste ist nach dem Import noch stale — der Server kennt die frischen
+Kandidaten und dedupliziert ohnehin serverseitig."* Beides stimmte. Beides beantwortete die
+falsche Frage: der Server kannte **alle** Kandidaten, nicht die des Stapels.
+
+Der Import-Bericht trägt die Kennungen längst mit (`created[].profile_id`) — sie wurden nur
+weggeworfen. Jetzt gehen sie mit, und `listInvitableWorkers` nimmt sie als **zusätzliche**
+Bedingung neben `supplier_org_id`, nie als Ersatz: eine fremde Kennung fällt damit heraus,
+statt zu wirken.
+
+**Drei Entscheidungen, die den Unterschied machen:**
+
+- **Eine leere Liste heißt „keine", nicht „alle".** Der Fall, in dem ein Versehen am
+  teuersten wäre: ein Import, aus dem nichts Einladbares hervorging. Würde `[]` wie „kein
+  Filter" behandelt, ginge genau dann eine Sammel-Mail an die ganze Belegschaft — ausgelöst
+  von einem Klick, der nichts einladen sollte. Im Code steht deshalb `?? null` und nicht
+  `|| null`.
+- **Ohne Feld bleibt es org-weit.** Der Knopf „alle noch nicht Registrierten einladen" soll
+  die ganze Organisation treffen, und sein Dialog sagt das auch. Eine Probe hält fest, dass
+  er *keine* Kennungen mitschickt — wer hier versehentlich begrenzt, nimmt eine gewollte
+  Funktion weg.
+- **Begrenzt wird über Profil-Kennungen, nicht über E-Mail-Adressen.** Eine Adresse kann
+  sich zwischen Import und Klick geändert haben, eine Kennung nicht.
+
+*Verifikation: 11 Proben in `api/test/stapelEinladung.test.js` (Form **und** Bindung der
+Abfrage, die Org-Bedingung als äußere Klammer, die leere Liste, die Plan-Abnahme „10
+importiert → höchstens 10", plus die Verdrahtung von Route und Oberfläche), **sechs
+Rückmutationen** — leere Liste als Nicht-Filter, Begrenzung aus der Abfrage, Kennung statt
+Org, Route reicht nicht durch, `??` zu `||`, Oberfläche wirft die Kennungen weg — jede
+gefangen.*
+
 ### M3.7 ist gebaut *(2026-09-04)* — das Tor prüfte den Tarif und nicht die Seite
 
 Das Arbeitskräfte-Modul (`api/routes/workers.js`) hing an `requireWorkerFeature` — einem

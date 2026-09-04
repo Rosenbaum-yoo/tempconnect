@@ -629,7 +629,43 @@ export async function listWorkers(pool, { supplierOrgId, isActive = null, search
  * deren Account noch nicht verifiziert ist (nie registriert) UND für die keine offene
  * Einladung existiert. Basis für "Alle einladen" ohne Kollision mit bereits Registrierten.
  */
-export async function listInvitableWorkers(pool, supplierOrgId) {
+/**
+ * Wen kann diese Organisation noch einladen?
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * M3.2 — `profileIds` BEGRENZT AUF EINEN STAPEL, UND DAS IST DER PUNKT
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Ohne Begrenzung liefert diese Abfrage JEDE noch nicht bestaetigte Kraft der
+ * Organisation. Fuer den Knopf "alle noch nicht Registrierten einladen" ist das
+ * genau richtig.
+ *
+ * Fuer den Knopf NACH EINEM IMPORT war es falsch, und zwar sichtbar falsch: die
+ * Oberflaeche fragt "die 3 gerade importierten einladen?" und rief denselben
+ * Weg — bei einer Belegschaft von 200 unbestaetigten gingen 200 Mails hinaus.
+ * Der Dialog nannte eine Zahl, der Server tat etwas anderes, und niemand konnte
+ * es an der Antwort erkennen.
+ *
+ * Die Begrenzung geht ueber die PROFIL-Kennungen aus dem Import-Bericht
+ * (`created[].profile_id`), nicht ueber E-Mail-Adressen: eine Adresse kann sich
+ * zwischen Import und Klick geaendert haben, eine Kennung nicht.
+ *
+ * Eine LEERE Liste ist keine fehlende Liste. `profileIds: []` heisst "keine" und
+ * liefert nichts — sonst waere ein Stapel, aus dem nichts Einladbares
+ * hervorging, plotzlich wieder die ganze Belegschaft.
+ *
+ * @param {import('pg').Pool} pool
+ * @param {string} supplierOrgId
+ * @param {{profileIds?: string[]|null}} [opts]
+ */
+export async function listInvitableWorkers(pool, supplierOrgId, opts = {}) {
+  const profileIds = opts.profileIds;
+  const begrenzt = Array.isArray(profileIds);
+  if (begrenzt && profileIds.length === 0) return [];
+
+  const params = [supplierOrgId];
+  if (begrenzt) params.push(profileIds);
+
   const { rows } = await pool.query(
     `SELECT u.email, wp.first_name, wp.last_name, wp.personnel_number
        FROM worker_profiles wp
@@ -637,13 +673,14 @@ export async function listInvitableWorkers(pool, supplierOrgId) {
       WHERE wp.supplier_org_id = $1
         AND wp.is_active = TRUE
         AND u.is_verified = FALSE
+        ${begrenzt ? "AND wp.id = ANY($2::uuid[])" : ""}
         AND NOT EXISTS (
           SELECT 1 FROM worker_invites wi
            WHERE wi.supplier_org_id = wp.supplier_org_id
              AND LOWER(wi.email) = LOWER(u.email)
              AND wi.status = 'pending' AND wi.expires_at > NOW())
       ORDER BY wp.last_name, wp.first_name`,
-    [supplierOrgId]
+    params
   );
   return rows;
 }
