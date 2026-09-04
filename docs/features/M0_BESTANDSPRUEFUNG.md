@@ -440,6 +440,46 @@ nachgemessen, nicht aus der Übergabe abgeschrieben.
 | **F16** | E-Mail-Identität plattformweit case-unempfindlich? | **Gebaut (M2.2).** Migration `215_email_ohne_schreibweise.sql` legt `UNIQUE (LOWER(email))` an, mit vorgeschaltetem `RAISE EXCEPTION`, das bestehende Doppel benennt. `LOWER(email)` in `authService`, `ssoService`, `scimService`. |
 | **F29** | Crontab aus `SCHEDULER.md:55` einrichten? | **Überholt in der Form, offen in der Sache** — siehe unten. Der Mechanismus ist entschieden und fünfmal gebaut: `upsertJobScheduler` in `workers/index.js`, kein Host-Crontab. |
 
+### F4 — die Abo-Wirksamkeit braucht keine Regel, sondern einen Takt
+
+Die Frage bat um eine **Owner-Regel**, welche Marktplatz-Routen lesend offen bleiben und
+welche ein aktives Abo verlangen. Gemessen ist die Regel bereits da — sie läuft nur
+nicht.
+
+**Kein neuer Riegel.** `requireActiveSubscription` existiert in
+`middleware/entitlementGuard.js:23` und hat **null Aufrufer**. Ihn zu montieren träfe
+genau die Falle, vor der der Code selbst warnt (`orgAccess.js:76`): *„Bewusst NICHT
+requireActiveSubscription — das würde Erstkäufer OHNE Abo blocken."*
+
+**Die Wirksamkeit hängt schon am Plan, und die Kette ist vollständig gebaut:**
+
+```
+Kündigung wird wirksam
+  -> applyDueCancellations()            subscriptionLifecycleService.js:427
+  -> UPDATE organizations SET plan = 'DEMO'
+  -> alle Plan-Tore greifen ab sofort   (u. a. die Erstellen-Schluessel aus M1.5
+                                         fuer Marktplatz und Kapazitaetsboerse)
+```
+
+Damit ist F4s Kernfrage — *welche Routen lesend offen, welche gesperrt* — bereits
+beantwortet, und zwar von M-E2 und M1.5: Browsen bleibt ab Konto frei, **Erstellen**
+hängt am Plan. Fällt der Plan auf DEMO, fällt das Erstellen mit.
+
+**Was fehlt, ist der Auslöser.** `applyDueCancellations` hängt an
+`POST /internal/subscription-lifecycle-tick` — und der ist **einer der fünf Takte, die
+nicht eingeplant sind** (siehe oben, F5/F29). Ohne ihn wird eine Kündigung nie wirksam:
+der Plan bleibt PRO, jedes Tor gewährt weiter, und der Kunde behält nach der Kündigung
+vollen Zugang.
+
+> **Heute folgenlos, und das ist nachgemessen:** `subscription_requests` enthält
+> **0** offene Kündigungen mit erreichtem Stichtag. Es liegt also nichts fest — die
+> erste echte Kündigung wäre die erste, die liegen bleibt.
+
+**F4 löst sich damit in die Takt-Entscheidung auf.** Und `subscription-lifecycle-tick`
+ist unter den fünf der **harmloseste erste Schritt**: er verschickt nichts und erzeugt
+nichts, er vollzieht einen Termin, den der Kunde selbst gesetzt hat. Zugleich ist er der
+einzige, dessen Ausbleiben **bezahlten Zugang verschenkt**.
+
 ### F12 — `hidden_worker` kann gar nicht eintreten
 
 Die Frage bot zwei Reparaturen an: *die Wurzel* (org_type für `role='worker'` nicht aus
