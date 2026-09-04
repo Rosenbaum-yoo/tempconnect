@@ -592,6 +592,11 @@ TCi18n.register('de', {
   'mit.csv.errRowUnknown': 'Zeile unbekannt',
   'mit.csv.errMore': '… und {count} weitere',
   'mit.csv.inviteImportedCta': 'Jetzt alle {count} importierten Mitarbeiter einladen',
+  /* M3.1 — die Zahl auf dem Knopf war die Zahl der ANGELEGTEN, nicht die der
+     einladbaren. Wer ohne E-Mail importiert wurde, hat kein Nutzerkonto und faellt
+     aus `listInvitableWorkers` heraus (JOIN users). Der Knopf versprach also
+     zehn und lieferte sieben — ohne zu sagen, warum. */
+  'mit.csv.inviteOhneMail': '{count} ohne E-Mail-Adresse — für sie ist noch keine Einladung möglich.',
   'mit.csv.rowLabel': 'Zeile {row}:',
   'mit.csv.unknownError': 'Unbekannter Fehler',
   'mit.csv.headCreated': 'Erstellt ({count})',
@@ -1226,6 +1231,7 @@ TCi18n.register('en', {
   'mit.csv.errRowUnknown': 'Unknown row',
   'mit.csv.errMore': '… and {count} more',
   'mit.csv.inviteImportedCta': 'Invite all {count} imported workers now',
+  'mit.csv.inviteOhneMail': '{count} without an email address — they cannot be invited yet.',
   'mit.csv.rowLabel': 'Row {row}:',
   'mit.csv.unknownError': 'Unknown error',
   'mit.csv.headCreated': 'Created ({count})',
@@ -4374,11 +4380,21 @@ function csvExecuteImport() {
 function csvShowResult(res) {
   var summary = document.getElementById("csv-result-summary");
   /* M3.2: die Kennungen des Stapels festhalten — der Einladen-Knopf unten
-     schickt sie mit, damit er genau die einlaedt, die er nennt. */
-  _csvImportierteProfilIds = (res.created || [])
-    .map(function(e) { return e && e.profile_id; })
-    .filter(Boolean);
+     schickt sie mit, damit er genau die einlaedt, die er nennt.
+   *
+   * M3.1 (2026-09-04): und zwar NUR die einladbaren. Ein ohne E-Mail
+   * importierter Mensch bekommt kein Nutzerkonto (`user_id: null`), und
+   * `listInvitableWorkers` verbindet ueber `JOIN users` — er kann also gar nicht
+   * eingeladen werden. Gezaehlt wurde trotzdem er mit: der Knopf versprach
+   * "alle 10 einladen" und lud sieben ein.
+   *
+   * Das ist dieselbe Klasse wie der Knopf aus M3.2, eine Ebene hoeher — eine
+   * Zahl, die etwas anderes meint als der Satz daneben. Sie steht jetzt auf dem,
+   * was wirklich geht, und die Luecke wird BENANNT statt verschwiegen. */
+  var einladbar = (res.created || []).filter(function(e) { return e && e.profile_id && e.email; });
+  _csvImportierteProfilIds = einladbar.map(function(e) { return e.profile_id; });
   var created = (res.created || []).length;
+  var ohneMail = created - einladbar.length;
   var updated = (res.updated || []).length;
   var skipped = (res.skipped || []).length;
   var errors  = (res.errors  || []).length;
@@ -4389,9 +4405,15 @@ function csvShowResult(res) {
     (errors > 0 ? '<div class="csv-kpi err"><span class="num">' + errors + '</span> ' + esc(TCi18n.t("mit.csv.kpiErrors")) + '</div>' : '') +
     // 7c-Bonus: Import endet nicht in der Sackgasse \u2014 die frisch importierten
     // Kraefte (is_verified=false) sind jetzt Einladungs-Kandidaten.
-    (created > 0
-      ? '<div style="flex-basis:100%;margin-top:10px"><button class="btn primary" onclick="csvInviteImported(' + created + ')" title="' + esc(TCi18n.t("mit.list.inviteAllTitle")) + '">' +
-        esc(TCi18n.t("mit.csv.inviteImportedCta", { count: created })) + '</button></div>'
+    (einladbar.length > 0
+      ? '<div style="flex-basis:100%;margin-top:10px"><button class="btn primary" onclick="csvInviteImported(' + einladbar.length + ')" title="' + esc(TCi18n.t("mit.list.inviteAllTitle")) + '">' +
+        esc(TCi18n.t("mit.csv.inviteImportedCta", { count: einladbar.length })) + '</button></div>'
+      : '') +
+    /* Die Luecke wird genannt, nicht verschwiegen — sonst fragt sich der
+       Disponent, wo die anderen drei geblieben sind, und findet es nirgends. */
+    (ohneMail > 0
+      ? '<div style="flex-basis:100%;margin-top:6px;color:var(--tc-text-muted);font-size:13px">' +
+        esc(TCi18n.t("mit.csv.inviteOhneMail", { count: ohneMail })) + '</div>'
       : '');
 
   var details = document.getElementById("csv-result-details");

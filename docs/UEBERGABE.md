@@ -960,6 +960,38 @@ aufgefallen wären:
 > schließt. Der Riegel dafuer liegt bereit (`verweigereArbeiter`, eine Zeile je Route);
 > was fehlt, ist die Entscheidung.
 
+### M3.1 ist gebaut *(2026-09-04)* — der Knopf versprach zehn und lud sieben ein
+
+M3.1 sah erledigt aus: Vorschau da, Ein-Klick-Knopf da, und M3.2 hatte den Versand bereits
+auf den Stapel begrenzt. Die geforderte Abnahme lautet aber *„Zahl stimmt"* — und die stimmte
+nicht.
+
+**Ein ohne E-Mail importierter Mensch bekommt kein Nutzerkonto** (`created[].user_id: null`).
+`listInvitableWorkers` verbindet über `JOIN users u ON u.id = wp.user_id` — er fällt also
+**zwangsläufig** heraus und kann nie eingeladen werden. Gezählt wurde er trotzdem: der Knopf
+versprach „alle 10 einladen" und lud sieben ein. Seit M3.3 sagt die Meldung danach immerhin
+ehrlich *„7 eingeladen"* — aber niemand erklärte die Differenz.
+
+Die Zahl steht jetzt auf dem, was wirklich geht, und die Lücke wird **benannt**:
+*„3 ohne E-Mail-Adresse — für sie ist noch keine Einladung möglich."* Das greift der
+Owner-Entscheidung zu **M3.6** (ob solche Zeilen überhaupt einladbar werden sollen) nicht vor;
+es hört nur auf, Unmögliches zu versprechen.
+
+> **Eine Rückmutation hat überlebt, und sie zeigte auf die eigentliche Zusicherung.**
+> Meine Proben sicherten zu, dass die einladbare Menge *gebildet* wird und dass der Knopf
+> *seine* Zahl nennt. Beides blieb wahr, als ich versuchsweise wieder die volle Liste
+> verschickte — genannte Zahl und gesendete Kennungen wären dann erneut zwei verschiedene
+> Mengen gewesen, also der Fehler aus M3.2 in klein. Der Kern von M3.1 ist die **Gleichheit**
+> der beiden: was der Knopf nennt, muss er auch schicken. Die wird jetzt direkt geprüft,
+> nicht ihre Bestandteile.
+
+*Nachgezogen: eine M3.2-Probe nagelte den wörtlichen Ausdruck `(res.created || []).map(…)`
+fest statt der Aussage. Die Zusicherung ist unverändert erhalten und um die Auswahl
+erweitert — strenger, nicht schwächer.*
+
+*Verifikation: 2 Proben in `api/test/stapelEinladung.test.js`, sechs Rückmutationen, jede
+gefangen. Zwei Wortmarken in beiden Sprachen.*
+
 ### M3.5 ist gebaut *(2026-09-04)* — an die Frist gebunden, nicht ans Alter
 
 Eine Einladung, die niemand annimmt, verfiel nach sieben Tagen — **still**. Der Mensch hat

@@ -162,10 +162,73 @@ describe("M3.2 · die Oberflaeche schickt, was sie verspricht", () => {
     path.join(API, "..", "frontend", "public", "js", "pages", "mitarbeiter.js"), "utf8");
 
   it("der Import-Bericht wird nach seinen Kennungen ausgelesen", () => {
-    assert.match(SEITE, /_csvImportierteProfilIds = \(res\.created \|\| \[\]\)/,
-      "die Kennungen des Stapels werden nicht mehr festgehalten");
-    assert.match(SEITE, /\.map\(function\(e\) \{ return e && e\.profile_id; \}\)/,
+    /*
+     * ANGEPASST 2026-09-04 (M3.1) — dieselbe Zusicherung, anderer Ausdruck.
+     *
+     * Vorher stand hier der WOERTLICHE Ausdruck `(res.created || []).map(...)`.
+     * Das nagelte die Schreibweise fest, nicht die Aussage: dass die Kennungen
+     * des Stapels aus dem Import-Bericht kommen und `profile_id` heissen. M3.1
+     * hat den Ausdruck umgebaut (es werden nur noch die EINLADBAREN gesammelt),
+     * und die alte Fassung waere rot geworden, ohne dass etwas kaputt ist.
+     *
+     * Geprueft wird jetzt die Aussage — und zwar strenger als vorher, weil auch
+     * die Auswahl dazugehoert.
+     */
+    const block = /var einladbar = [\s\S]*?_csvImportierteProfilIds = [^;]+;/.exec(SEITE);
+    assert.ok(block, "die Sammlung der Stapel-Kennungen wurde nicht gefunden");
+    assert.ok(block[0].includes("res.created"),
+      "die Kennungen kommen nicht mehr aus dem Import-Bericht");
+    assert.ok(block[0].includes("e.profile_id"),
       "es wird ein anderes Feld gelesen als `profile_id`");
+  });
+
+  it("gesammelt werden NUR die einladbaren — und die Luecke steht daneben", () => {
+    /*
+     * M3.1, und es ist dieselbe Klasse wie M3.2 eine Ebene hoeher.
+     *
+     * Ein ohne E-Mail importierter Mensch bekommt KEIN Nutzerkonto
+     * (`created[].user_id: null`, workerService.js Zeile ~3456), und
+     * `listInvitableWorkers` verbindet ueber `JOIN users u ON u.id = wp.user_id`
+     * — er faellt also zwangslaeufig heraus. Der Knopf zaehlte ihn trotzdem mit:
+     * er versprach "alle 10 einladen" und lud sieben ein.
+     *
+     * Die Zahl steht jetzt auf dem, was wirklich geht. Und die Luecke wird
+     * BENANNT — sonst fragt sich der Disponent, wo die anderen drei geblieben
+     * sind, und findet es nirgends.
+     */
+    assert.match(SEITE, /var einladbar = \(res\.created \|\| \[\]\)\.filter\(/,
+      "es wird nicht mehr nach einladbaren gefiltert");
+    assert.match(SEITE, /e\.profile_id && e\.email/,
+      "die E-Mail ist keine Bedingung mehr — dann zaehlt der Knopf wieder Menschen "
+      + "mit, die gar kein Konto haben");
+    assert.match(SEITE, /var ohneMail = created - einladbar\.length;/,
+      "die Luecke wird nicht mehr berechnet");
+    assert.match(SEITE, /mit\.csv\.inviteImportedCta", \{ count: einladbar\.length \}/,
+      "der Knopf nennt wieder die Zahl der ANGELEGTEN statt der einladbaren");
+
+    /*
+     * DIE ZUSICHERUNG, DIE EINE RUECKMUTATION UEBERLEBT HAT (2026-09-04).
+     *
+     * Die Proben oben halten fest, dass `einladbar` GEBILDET wird und dass der
+     * Knopf SEINE Zahl nennt. Beides blieb wahr, als ich versuchsweise wieder
+     * die volle Liste verschickte — die genannte Zahl und die gesendeten
+     * Kennungen waeren dann erneut zwei verschiedene Mengen gewesen, also genau
+     * der Fehler aus M3.2 in klein.
+     *
+     * Der Kern von M3.1 ist die GLEICHHEIT der beiden: was der Knopf nennt,
+     * muss er auch schicken. Also wird sie geprueft, nicht ihre Bestandteile.
+     */
+    assert.match(SEITE, /_csvImportierteProfilIds = einladbar\.map\(/,
+      "die gesendeten Kennungen kommen nicht aus derselben Menge wie die genannte "
+      + "Zahl — der Knopf verspricht dann wieder etwas anderes, als er tut");
+    assert.match(SEITE, /ohneMail > 0/,
+      "die Luecke wird nicht angezeigt — sie waere wieder unerklaerlich");
+
+    /* Und in beiden Sprachen erklaert. */
+    const de = /TCi18n\.register\('de',([\s\S]*?)\n\}\);/.exec(SEITE);
+    const en = /TCi18n\.register\('en',([\s\S]*?)\n\}\);/.exec(SEITE);
+    assert.ok(de[1].includes("mit.csv.inviteOhneMail"), "die Erklaerung fehlt auf Deutsch");
+    assert.ok(en[1].includes("mit.csv.inviteOhneMail"), "die Erklaerung fehlt auf Englisch");
   });
 
   it("der Einladen-Knopf schickt sie mit", () => {
