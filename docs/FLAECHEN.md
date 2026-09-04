@@ -13,6 +13,45 @@ eingetragen ist. Ein neues Modul zwingt damit zu einer bewussten Zuordnung statt
 
 ---
 
+## Unverrückbar: das Staff Control Center ist von der Plattform aus NICHT erreichbar
+
+> **Owner-Vorgabe 2026-09-01, wörtlich:** *„staff darf doch nicht aus der plattform erreichbar
+> sein, keine kachel dafür. das ist nur für mich ein kontrollcentrum, kein kundenzugang.
+> niemals. festschreiben, niemals wieder aufwühlen, darf nie wieder passieren."*
+
+**Die Regel:** Aus der Kundenplattform — Unternehmen, Zeitarbeitsfirmen **und** dem
+Einsatzportal der Mitarbeiter — führt **kein** Weg ins Staff Control Center. Keine Hub-Karte,
+kein Menüpunkt, kein Link, keine Weiterleitung, **auch kein toter.** Das Staff Center ist das
+Kontrollzentrum des Betreibers, kein Kundenzugang. Wer dort hin will, kennt die Adresse.
+
+**Das gilt in beide Richtungen der Verwechslung.** Eine Kachel *innerhalb* des Staff Centers
+(etwa der Betriebszustand der Takte) ist selbstverständlich erlaubt und oft nötig — sie ist
+Teil der Fläche. Eine Kachel *auf der Plattform*, die ins Staff Center führt, ist es nie.
+Genau diese beiden Sätze wurden am 2026-09-01 einmal verwechselt; deshalb stehen sie hier
+nebeneinander.
+
+**Erzwungen, nicht nur aufgeschrieben:** `api/test/staffNieAusDerPlattform.test.js`
+durchsucht **alle** Dateien unter `frontend/public/` und wird rot bei jedem Vorkommen von
+`/staff`, dem kein Wortzeichen folgt.
+
+| Was der Wächter prüft | Warum |
+|---|---|
+| Kein `/staff`-Ziel in der Plattform | Der sichtbare Weg |
+| `/staff` hat eine **eigene Sitzung mit eigenem Cookie** (`tc.staff.sid`, `api/app.js`) | Das Tragende. Teilte sich das Staff Center das Plattform-Cookie, wäre jede angemeldete Kundensitzung eine halbe Staff-Sitzung — und es bräuchte gar keinen Link |
+| Selbstprobe **und** Gegenprobe | `/staff` ist Teilzeichenkette von `/staffing-assignments`, `/staffing-requests`, `/staffing-choice-sets` — die stehen dutzendfach in der Plattform und sind völlig in Ordnung. Ein Wächter, der sie anklagt, wird abgeschaltet; einer, der zu grob sucht, meldet 18 Fehlalarme und keinen echten Fund |
+
+**Die einzige Ausnahme** ist die Staff-Anwendung selbst: sie wird nach `frontend/public/staff/`
+gebaut und lädt von dort ihr eigenes Bündel. Sie liegt damit im **selben** Dokumentenwurzel-
+verzeichnis wie die Plattform — getrennt sind die beiden Welten also nicht durch die Ablage,
+sondern durch Sitzung und Zugangsprüfung. *Wer die Ablage für die Trennung hält, sichert das
+Falsche.*
+
+**Stand 2026-09-01, gemessen:** null Wege von der Plattform ins Staff Center. Nachgewiesen
+durch Rückmutation — eine eingebaute Hub-Karte lässt den Wächter mit Nennung von Datei und
+Zeile rot werden.
+
+---
+
 ## Die drei internen Flächen
 
 | Fläche | Für wen | Wofür |
