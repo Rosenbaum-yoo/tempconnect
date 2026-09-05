@@ -394,11 +394,27 @@ Messung wertlos.
 | M4.5 | **Einsatzradius statt Wohnort** (M-E4, siehe 8.3): 10 / 50 / 100 km um einen Anker, Vorgabe 50. Ausgeliefert werden **Radius plus grobe Raumangabe**, nie der Anker; gesucht wird per Abstandsrechnung serverseitig | Eine Kraft erscheint bei jedem Bedarf im Radius, und die exakte PLZ verlässt den Server nicht. **Rückmutation:** Anker in die Antwort legen → Feld-Wächter rot |
 | M4.5b | **Der Radius ist zugleich der Widerspruchshebel** (verbindet M4.3): Radius auf null heißt „nicht im Markt", vom Menschen selbst im Portal setzbar | Radius null → die Person verschwindet aus dem Feed, sofort |
 | M4.6 | **`markt_merkmale` und `quelle` auch im allgemeinen Feed rendern** (`H5`) — die API liefert sie an jeden, gerendert werden sie auf **einer** Fläche | Herkunft ist überall sichtbar |
-| M4.8 | **Der OK-Klick der Firma** (M-E10, Zusatz): speichert der Mensch seine Fähigkeiten, entsteht ein Eintrag „wartet auf Freigabe“ bei der Zeitarbeitsfirma; ein Klick veröffentlicht ihn **sofort**. Der Sofort-Weg existiert (`setzeMarktpraesenz` legt synchron je Katalog-Fähigkeit einen anonymen Eintrag an) — **es fehlt nur der Anstoß** | Fertigkeit speichern → Firma sieht die Freigabe → Klick → Eintrag steht im Feed, ohne auf den 15-Minuten-Takt zu warten. **Rückmutation:** Anstoß entfernen → Probe rot |
-| M4.9 | **Warum jemand NICHT erscheint, wird gesagt.** Der Eintrag entsteht nur mit Wohnort, mit einer **freigegebenen Katalog**-Fähigkeit, bei aktivem Profil, ohne Abwesenheit heute und mit einem Agentur-Nutzer. Fehlt eines, bleibt der Mensch unsichtbar — heute wortlos | Je Bedingung ein lesbarer Grund in der Freigabe-Ansicht. Ausgangsbefund: **30 von 33 Kräften unsichtbar** |
+| M4.8 | **Der OK-Klick der Firma** (M-E10): speichert der Mensch seine Fähigkeiten, entsteht ein Eintrag „wartet auf Freigabe“ bei der Zeitarbeitsfirma; ein Klick veröffentlicht ihn **sofort**. Der Sofort-Weg existiert (`setzeMarktpraesenz` legt synchron je Katalog-Fähigkeit einen anonymen Eintrag an) — **es fehlt nur der Anstoß** | Fähigkeit speichern → Firma sieht die Freigabe → Klick → Eintrag steht im Feed, ohne auf den 15-Minuten-Takt zu warten. **Rückmutation:** Anstoß entfernen → Probe rot |
+| M4.9 | **Pflichtfelder schließen den Kreis** (Owner-Vorgabe 2026-09-05). Von den fünf Bedingungen, unter denen ein Eintrag entsteht, sind **zwei Feld-Material und drei Zustände** — siehe die Aufschlüsselung unter der Tabelle. Gebaut wird beides: die zwei als Pflicht, die drei als lesbarer Grund | Kein Mensch fällt mehr **wortlos** aus dem Markt. Ausgangsbefund: **30 von 33 Kräften unsichtbar** |
 | M4.7 | **Der Trichter** (`D3`): sechs Zahlen je Org und Woche — importiert / eingeladen / angenommen / Skills gesetzt / im Markt sichtbar / gebucht | **Wirtschaftlich der beste Nicht-Feature-Bau: er priorisiert alles andere.** Ausgangsbefund im Quelltext: 30 von 33 Kräften unsichtbar |
 
 ---
+
+> **Die fünf Bedingungen aus M4.9, ehrlich getrennt.** Der Eintrag im Marktplatz entsteht
+> heute nur, wenn alle fünf erfüllt sind. Sie sind aber nicht gleichartig, und wer sie
+> gleich behandelt, baut Unsinn — „heute nicht krank“ ist kein Pflichtfeld.
+>
+> | Bedingung | Pflichtfeld? | Warum |
+> |---|---|---|
+> | **Wohnort** (`city`) | **ja** | Gemessen: heute weder beim CSV-Import Pflicht (`is_required = FALSE`) noch im Portal (`optional().nullable()`). Ohne Wohnort **kein Eintrag** — die häufigste stille Ursache. Pflicht **im Portal**, wo der Mensch es selbst weiß; beim Import bleibt es freiwillig, weil die Firma es oft noch nicht hat |
+> | **Mindestens eine freigegebene Katalog-Fähigkeit** | **ja** | Ein *Vorschlag* zählt nicht — er wartet auf Kuratierung. Das muss die Oberfläche **sagen**, sonst hält der Mensch sich für fertig. Heute verspricht ihm das Portal sogar das Gegenteil |
+> | Profil aktiv | **nein** | Ein Zustand, den die Firma bewusst setzt. Deaktivierung ist gewollt, kein Versehen |
+> | Heute nicht abwesend | **nein** | Zeitlich und gewollt: wer krank ist, soll nicht angeboten werden. Als Pflichtfeld wäre es sinnlos |
+> | Ein Agentur-Nutzer existiert | **nein** | Ein Datenproblem der Organisation, nicht der Person. Gehört als Warnung in die Firmen-Ansicht, nicht in das Formular des Menschen |
+>
+> **Die Regel dahinter:** Was der Mensch selbst wissen und ausfüllen kann, wird Pflicht.
+> Was ein Zustand ist, wird **erklärt**. Ein Pflichtfeld für etwas, das man nicht ausfüllen
+> kann, ist eine Sackgasse mit Sternchen.
 
 ### M5 · Der Korb — ein Akt, N Verträge
 
