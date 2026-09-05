@@ -71,9 +71,24 @@ const capacityMatch = () => {
 };
 
 suite("matching_results.html — Server-Erklaerung landet im DOM", () => {
+  /*
+   * Die Zusicherungen unten pruefen, was der MENSCH liest — nicht, wie es
+   * kodiert ist. Seit dem 2026-09-05 escapt `esc()` auch Anfuehrungszeichen
+   * (Attributposition, siehe `escZitatSicher.test.js`), und aus `"` wurde
+   * `&quot;`. Fuer den Menschen ist das dasselbe Zeichen; fuer ein Muster auf
+   * dem Rohtext nicht.
+   *
+   * Statt die Erwartung auf `&quot;` umzuschreiben — was sie an die naechste
+   * Kodierungsaenderung binden wuerde — wird hier ENTSCHLUESSELT. Die Aussage
+   * bleibt dieselbe und ueberlebt beide Schreibweisen.
+   */
+  const alsText = (html) => String(html)
+    .replace(/&quot;/g, '"').replace(/&#0*39;/g, "'")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+
   it("rendert die Klartext-Begruendung in der Karte", () => {
     const page = runPageScript();
-    const html = page.renderMatchCard(capacityMatch(), "demand");
+    const html = alsText(page.renderMatchCard(capacityMatch(), "demand"));
     assert.match(html, /Rolle „Pflegekraft" passt genau/);
     assert.match(html, /3 von 4 geforderten Skills/);
     assert.match(html, /18 km entfernt/);

@@ -786,7 +786,7 @@
       );
       return false;
     }
-    function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
     function centsToEur(c) { return c != null ? (c / 100).toFixed(2) : '–'; }
     function formatDate(value) {
       if (!value) return '';

@@ -34,7 +34,7 @@
   ];
   var state = { assignmentId: null, direction: null, onDone: null, sentiment: null, dims: {} };
 
-  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
   function toast(kind, title, msg) { if (global.TC && global.TC.toast && global.TC.toast[kind]) global.TC.toast[kind](title, msg); }
   function sentimentLabel(k) {
     if (k === "positive") return '<span style="color:var(--ds-success,#34d399);font-weight:700">Positiv</span>';

@@ -1453,7 +1453,7 @@ function toast(msg, type) {
   el._t = setTimeout(function() { el.className = "toast"; }, 4000);
 }
 
-function esc(s) { return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function esc(s) { return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g, "&#39;"); }
 function normalizePlan(plan) {
   var p = String(plan || "").toUpperCase();
   if (p === "FREE") p = "DEMO";

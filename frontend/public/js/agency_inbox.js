@@ -1,5 +1,5 @@
 var API = "/api";
-function esc(s){var d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML;}
+function esc(s){var d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");}
 function getCsrf() {
   return fetch(API + "/csrf", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : null; });
 }

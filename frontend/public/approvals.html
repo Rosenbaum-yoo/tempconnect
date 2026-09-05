@@ -212,7 +212,7 @@
     /* ── Helpers ──────────────────────────────────────────── */
     function t(key, params) { return (window.TCi18n ? TCi18n.t(key, params) : "") || ""; }
     function dateLocale() { return window.TCi18n ? TCi18n.dateLocale() : "de-DE"; }
-    function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+    function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
     function relTime(iso) {
       var s = (Date.now() - new Date(iso).getTime()) / 1000;
       if (s < 60) return t("apv.time.now");

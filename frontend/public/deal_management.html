@@ -420,7 +420,7 @@
     var searchClearBtn = document.getElementById('dm-search-clear');
     var defaultLoadingMarkup = loadingEl.innerHTML;
 
-    function esc(s) { return s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); }
+    function esc(s) { return s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;'); }
     function fmtDate(d) { return d ? String(d).substring(0,10) : '\u2014'; }
     function fmtMoney(v) { return v == null ? '\u2014' : Number(v).toFixed(2) + ' EUR/h'; }
     function toInt(value, fallback) {

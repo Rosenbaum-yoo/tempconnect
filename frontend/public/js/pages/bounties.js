@@ -390,7 +390,7 @@ TCi18n.register('en', {
     var userPlan = 'DEMO';
 
     function t(key, params) { return TCi18n.t(key, params); }
-    function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function fmtPrice(n) { return n.toLocaleString(TCi18n.dateLocale()) + ' EUR'; }
     function fmtDate(d) { if (!d) return ''; return new Date(d).toLocaleDateString(TCi18n.dateLocale(), { day: '2-digit', month: 'short', year: 'numeric' }); }
 
@@ -590,7 +590,7 @@ TCi18n.register('en', {
   function refT(key, params) { return TCi18n.t(key, params); }
   var REF_STATUS_KEYS = ['active', 'registered', 'pending'];
   function loadReferralStatus() {
-    function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     fetch('/api/referral/status', { credentials: 'include' }).then(function(r) { return r.ok ? r.json() : null; }).then(function(d) {
       if (!d) return;
       document.getElementById('refCode').textContent = d.referral_code || '---';

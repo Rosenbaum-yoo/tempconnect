@@ -428,7 +428,7 @@ TCi18n.register('en', {
     var csrfToken = "";
 
     function tr(key, params){ return TCi18n.t(key, params); }
-    function esc(s){ var d=document.createElement("div"); d.textContent=s||""; return d.innerHTML; }
+    function esc(s){ var d=document.createElement("div"); d.textContent=s||""; return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
     function $(id){ return document.getElementById(id); }
     function toast(msg, ok){
       var t=$("ep-toast"); t.textContent=msg;

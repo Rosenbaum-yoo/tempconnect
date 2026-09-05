@@ -399,7 +399,7 @@
     var currentEntries = [];
     var FILTER_STORAGE_KEY = "tc.capacityManage.filters.v1";
 
-    function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+    function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g, "&#39;"); }
 
     function readStoredFilters() {
       try {

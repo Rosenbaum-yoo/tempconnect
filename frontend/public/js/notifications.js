@@ -23,7 +23,7 @@
       .then(function (d) { _csrf = d.csrfToken || d.token || null; return _csrf; });
   }
 
-  function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+  function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
 
   function relTime(iso) {
     var diff = (Date.now() - new Date(iso).getTime()) / 1000;

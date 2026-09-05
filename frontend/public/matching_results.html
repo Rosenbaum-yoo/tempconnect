@@ -220,7 +220,7 @@
     });
 
     var API = "/api";
-    function esc(s){return s==null?"":String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+    function esc(s){return s==null?"":String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")}
     function fmtDate(d){return d?String(d).substring(0,10):"–"}
 
     // Fallback-Beschriftung nur noch fuer Altdaten ohne Server-Erklaerung (P4.2:

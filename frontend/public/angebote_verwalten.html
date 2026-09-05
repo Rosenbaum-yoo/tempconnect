@@ -224,7 +224,7 @@
     var API="/api";
     var _csrf=null;
     function t(k,p){return TCi18n.t(k,p)}
-    function esc(s){return s==null?"":String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+    function esc(s){return s==null?"":String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")}
     function fmtDate(d){return d?new Date(d).toLocaleDateString(TCi18n.dateLocale()):"–"}
     function fmtEur(v){return v!=null?(Number(v).toFixed(2)+" EUR"):"–"}
 

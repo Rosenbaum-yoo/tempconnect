@@ -288,7 +288,7 @@
   if (!grid) return;
 
   /* ── Helpers ──────────────────────────────────────────────────── */
-  function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+  function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
   function $(id) { return document.getElementById(id); }
   function t(key, params) { return TCi18n.t(key, params); }
 

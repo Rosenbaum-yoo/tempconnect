@@ -465,7 +465,7 @@ function vpSetHtml(el,html){
   el.removeAttribute('data-i18n');
   el.innerHTML=html;
 }
-function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");}
 function pct(v){return v==null||v===''?'–':Number(v).toFixed(1)+'%';}
 function fmtDate(v){if(!v)return '–';try{return new Date(v).toLocaleDateString(vpLocale());}catch(e){return v;}}
 function renderPageState(id,tone,title,text){

@@ -849,7 +849,7 @@ function capmSetPlain(el, text) {
 
     if (!entryId) { window.location.href = "/public/capacity_exchange_feed.html"; return; }
 
-    function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+    function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g, "&#39;"); }
 
     /*
      * INHALT MELDEN (Plan I, Abschnitt 10).

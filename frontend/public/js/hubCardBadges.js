@@ -39,7 +39,7 @@
     TYPES_BY_SURFACE[surf].forEach(function (t) { SURFACE_FOR_TYPE[t] = surf; });
   });
 
-  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
 
   function ensureBadge(card) {
     var badge = card.querySelector(".ds-hub-card__badge");

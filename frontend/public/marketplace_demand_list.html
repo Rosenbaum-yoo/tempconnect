@@ -226,7 +226,7 @@
     /* Zuletzt gerenderte Liste: beim Sprachwechsel werden die per innerHTML
        gebauten Karten daraus neu aufgebaut — ohne erneuten Netzabruf. */
     var lastDemands = null;
-    function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+    function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g, "&#39;"); }
     function fmtDate(d) { return d ? String(d).substring(0,10) : "–"; }
     function readStoredFilters() {
       try {

@@ -327,7 +327,7 @@
   var PAGE_SIZE = 25;
   var currentPage = 1;
 
-  function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g, "&#39;"); }
   function fmtDate(d) { return d ? String(d).substring(0,10) : "?"; }
   function todayDateString() {
     var now = new Date();

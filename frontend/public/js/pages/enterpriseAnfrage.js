@@ -996,7 +996,7 @@ TCi18n.register('en', {
     }
 
     /* ── Helpers ──────────────────────────────────────────── */
-    function esc(s) { return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+    function esc(s) { return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g, "&#39;"); }
     function fmtPrice(n) { return n.toLocaleString(TCi18n.dateLocale()); }
 
     /* ── Self-Service Direktbuchung (Phase 2, Slice E) ──────────

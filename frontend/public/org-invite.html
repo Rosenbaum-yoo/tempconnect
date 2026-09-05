@@ -27,7 +27,7 @@
     <div id="body"><p class="inv-sub">Einladung wird geladen …</p></div>
   </div>
   <script>
-    function esc(s){return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+    function esc(s){return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g, '&#39;');}
     var token=new URLSearchParams(location.search).get('token')||'';
     var _csrf='';
     async function getCSRF(){if(_csrf)return _csrf;try{var r=await fetch('/api/csrf',{credentials:'include'});var d=await r.json();_csrf=d.token||'';return _csrf;}catch(e){return'';}}
