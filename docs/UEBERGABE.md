@@ -1783,6 +1783,44 @@ Vorschau die eigene Firma als Gegenseite erscheint. Der Konflikt stimmt trotzdem
 
 ---
 
+## Wer baut, wer prüft — die Arbeitsteilung *(Owner-Vorgabe 2026-09-05)*
+
+Es arbeiten **zwei Sitzungen auf derselben Linie**, mit getrennten Rollen:
+
+| Rolle | Aufgabe |
+|---|---|
+| **Die bauende Sitzung** | setzt die Wellen um, misst vorher selbst nach (M0-Muster), meldet, was den Plan widerlegt |
+| **Die planende und prüfende Sitzung** | arbeitet die Wellen aus, verriegelt Owner-Regeln als Wächter, und **prüft jede Lieferung gegen** |
+
+**Der Owner hat das ausdrücklich so bestellt:** *„schreibe alles so, dass Welle K1 es
+ausbaut und du wieder gegenprüfst."* („Welle K1“ ist der Name der bauenden Sitzung, nicht
+der Welle.)
+
+### Was daraus für jedes Wellen-Dokument folgt
+
+Ein Plan, der gebaut werden soll, ist **eine Bauanweisung, kein Aufsatz**. Er trägt deshalb
+immer dieselben fünf Dinge:
+
+1. **Die Owner-Vorgabe im Wortlaut** — damit niemand sie nacherzählt und dabei verändert.
+2. **Den gemessenen Ist-Stand mit Beleg** (`datei:zeile`) — und die ausdrückliche Warnung,
+   dass er ein **Vorbefund** ist: die bauende Sitzung misst selbst nach.
+3. **Phasen mit Nachweis**, und wo etwas geschützt wird, eine **Rückmutation** — die Regel
+   von Hand kaputtmachen und prüfen, dass die Suite dabei wirklich rot wird.
+4. **Einen Abschnitt „Woran gegengeprüft wird“** — *vor* dem Bau. Wer die Liste vorher
+   kennt, baut anders; das ist der Zweck.
+5. **Einen Abschnitt „Was diese Welle NICHT tut“** — mit den Bausteinen, die es schon gibt.
+   Wer eines davon neu baut, hat nicht gemessen.
+
+### Die zwei Regeln, die diese Teilung tragen
+
+- **Fehlt etwas wirklich, wird gefragt — nicht erfunden.** Eine Rückfrage kostet zehn
+  Minuten; ein Parallelbau kostet eine Woche und hinterlässt zwei Wahrheiten.
+- **Was den Plan widerlegt, gehört in den Bericht.** Das war bisher jedes Mal wertvoller als
+  ein Plan, der recht behält: in K4 war die geplante Meldung nicht baubar, in M0 gingen drei
+  Urteile von *fehlt* auf *unerreichbar* — und das ändert den Aufwand, nicht nur das Etikett.
+
+---
+
 ## Eiserne Regeln (Verstoß = echter Schaden)
 
 | Regel | Warum |
