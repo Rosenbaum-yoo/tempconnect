@@ -65,6 +65,112 @@ export async function aggregateByRole(pool, filters = {}) {
   return rows;
 }
 
+/* ── Das Nachfragesignal (N7.1) ────────────────────────── */
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WAS DER PLAN ANNAHM, UND WAS GEMESSEN DASTAND (2026-09-05)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * N7.1 verspricht der Zeitarbeitsfirma einen Satz wie
+ *
+ *     "Im Raum Muenster werden 34 Pflegekraefte gesucht, verfuegbar sind 6."
+ *
+ * und der Plan sagt dazu: "Aus `capacity-discovery`, von der anderen Seite
+ * gelesen". Das trifft nicht zu. Der Dienst liest ausschliesslich
+ * `capacity_posts` — das ist die ANGEBOTSSEITE. Die Nachfrage liegt in einer
+ * eigenen Tabelle, `demand_requests` (Mig 014). Aus einer Tabelle laesst sich
+ * die andere Zahl nicht lesen, egal von welcher Seite.
+ *
+ * Die zweite Haelfte steht deshalb hier. Sie spiegelt `aggregateByRole` Zeile
+ * fuer Zeile — gleiche Filter, gleiche Form, gleicher Deckel —, damit die
+ * beiden Zahlen im Satz oben ueberhaupt vergleichbar sind. Zwei Aggregate mit
+ * verschiedenen Filtern waeren ein Vergleich, der keiner ist.
+ *
+ * NUR OFFENE BEDARFE. `status = 'open'` — ein erfuellter oder geschlossener
+ * Bedarf ist keine Nachfrage mehr, und ihn mitzuzaehlen hiesse, der Firma eine
+ * Luecke zu zeigen, die es nicht gibt.
+ *
+ * @param {import('pg').Pool} pool
+ * @param {{city?: string, role?: string, limit?: number}} filters
+ * @returns {Promise<Array<{role: string, request_count: number, total_headcount: number, cities: string[]}>>}
+ */
+export async function aggregateDemandByRole(pool, filters = {}) {
+  const params = [];
+  const where = ["dr.status = 'open'"];
+  let idx = 1;
+
+  if (filters.city) {
+    where.push(`LOWER(dr.location_city) = LOWER($${idx})`); params.push(filters.city); idx++;
+  }
+  if (filters.role) {
+    where.push(`LOWER(dr.role) = LOWER($${idx})`); params.push(filters.role); idx++;
+  }
+
+  const limit = Math.min(100, filters.limit || 50);
+  params.push(limit);
+
+  const { rows } = await pool.query(
+    `SELECT
+       dr.role,
+       COUNT(*)::int AS request_count,
+       SUM(dr.headcount)::int AS total_headcount,
+       ARRAY_AGG(DISTINCT dr.location_city) FILTER (WHERE dr.location_city IS NOT NULL) AS cities
+     FROM demand_requests dr
+     WHERE ${where.join(' AND ')}
+     GROUP BY dr.role
+     ORDER BY total_headcount DESC
+     LIMIT $${idx}`,
+    params
+  );
+  return rows;
+}
+
+/**
+ * Nachfrage und Angebot je Rolle nebeneinander — die Zahl, die N7.1 zeigt.
+ *
+ * BEIDE SEITEN IN EINEM AUFRUF, und zwar aus einem Grund: wer sie getrennt
+ * holt, filtert sie zwangslaeufig irgendwann verschieden — und dann steht in
+ * der Oberflaeche ein Vergleich, der keiner ist. Der Ort wird EINMAL
+ * uebergeben und gilt fuer beide Haelften.
+ *
+ * Eine Rolle erscheint, wenn sie auf EINER Seite vorkommt. Gerade die Rollen
+ * mit `verfuegbar: 0` sind die interessanten — sie sind die Antwort auf die
+ * teuerste Frage der Firma: wen stelle ich als Naechstes ein.
+ */
+export async function getMarktLuecke(pool, filters = {}) {
+  const [nachfrage, angebot] = await Promise.all([
+    aggregateDemandByRole(pool, filters),
+    aggregateByRole(pool, filters)
+  ]);
+
+  const nachRolle = new Map();
+  for (const n of nachfrage) {
+    nachRolle.set(String(n.role).toLowerCase(), {
+      role: n.role,
+      gesucht: Number(n.total_headcount) || 0,
+      anfragen: Number(n.request_count) || 0,
+      verfuegbar: 0,
+      angebote: 0
+    });
+  }
+  for (const a of angebot) {
+    const schluessel = String(a.role).toLowerCase();
+    const vorhanden = nachRolle.get(schluessel) || {
+      role: a.role, gesucht: 0, anfragen: 0, verfuegbar: 0, angebote: 0
+    };
+    vorhanden.verfuegbar = Number(a.total_headcount) || 0;
+    vorhanden.angebote = Number(a.entry_count) || 0;
+    nachRolle.set(schluessel, vorhanden);
+  }
+
+  /* Die groesste Luecke zuerst: das ist die Zeile, wegen der die Firma
+     hinsieht. Bei Gleichstand die groessere Nachfrage. */
+  return [...nachRolle.values()]
+    .map((z) => ({ ...z, luecke: z.gesucht - z.verfuegbar }))
+    .sort((a, b) => (b.luecke - a.luecke) || (b.gesucht - a.gesucht));
+}
+
 /* ── Aggregate by Region ──────────────────────────────── */
 
 /**
