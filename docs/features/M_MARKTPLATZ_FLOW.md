@@ -416,6 +416,48 @@ Messung wertlos.
 > Was ein Zustand ist, wird **erklärt**. Ein Pflichtfeld für etwas, das man nicht ausfüllen
 > kann, ist eine Sackgasse mit Sternchen.
 
+### M4b · Der Selbstlauf — damit die Pflichtfelder tragen können
+
+> **Owner-Vorgabe 2026-09-05:** *„lass uns alles so zusätzlich anpassen, dass diese
+> Pflichtfelder auch Pflichtfelder werden können — weil ich denke, dass es auf diese Art
+> viel Arbeit der Zeitarbeitsfirma spart. Wenn TempConnect automatisch alles selbst auslöst
+> durch den CSV-Import oder die Neueinstellung mit Einsatzportal-Einladung in den Marktplatz,
+> könnte es für die Firmen Gold wert werden.“*
+
+**Das ist der Verkaufsgrund, nicht eine Bequemlichkeit.** Die Zeitarbeitsfirma soll gar keine
+Marktplatz-Arbeit haben: sie lädt eine Liste hoch, bestätigt zwei Mal, und ihre Leute stehen
+im Markt. Alles dazwischen macht die Plattform.
+
+**Ein Pflichtfeld ist aber nur dann eines, wenn man es erfüllen KANN.** Gemessen — heute
+kann man das zweite nicht:
+
+| Blocker | Befund | Folge |
+|---|---|---|
+| **Es gibt keine Freigabe-Fläche für vorgeschlagene Fähigkeiten** | `POST /skills/propose` legt einen Vorschlag an; im Staff Control Center existiert **kein** Kuratier-Modul (gemessen: null Treffer). Ein Vorschlag liegt **für immer** | Wäre „mindestens eine freigegebene Katalog-Fähigkeit“ heute Pflicht, säße jeder mit einem neuen Gewerk in einer **Falle ohne Ausgang** |
+| **Die beiden Katalog-Tore sind disjunkt** | Die Automatik nimmt jede Fähigkeit mit `is_active = TRUE` — auch einen **unkuratierten** Vorschlag. Der manuelle Erzeuger verlangt `status = 'approved'` und ignoriert `is_active` | Ein ungeprüfter Vorschlag steht **heute schon** öffentlich im Marktplatz, während das Portal dem Menschen sagt: „Wir prüfen sie, danach zählt sie“. Beides gleichzeitig ist unwahr |
+
+**Die gute Nachricht:** Die Zuordnung greift bereits. `proposeSkill` sucht erst den exakten
+Katalognamen, dann die bekannten Schreibvarianten (`aliases[]`) — die meisten Eingaben landen
+auf einem bestehenden Eintrag. Ein echter Vorschlag entsteht nur bei einem wirklich neuen
+Gewerk. Der Ausnahmefall ist also selten; er ist nur heute ausweglos.
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| M4b.1 | **Ein gemeinsames Katalog-Tor.** Beide Wege prüfen dieselben zwei Spalten. Ein unkuratierter Vorschlag erreicht den öffentlichen Markt **nicht** mehr | Vorschlag anlegen → er steht nicht im Feed. **Rückmutation je Spalte** |
+| M4b.2 | **Die Kuratier-Fläche im Staff CC** — offene Vorschläge, mit Zuordnungsvorschlag aus `aliases[]`. Gehört dorthin, weil der Katalog die **Plattform als Ganzes** betrifft (`FLAECHEN.md`, Entscheidungsfrage 3) | Ein Vorschlag ist in unter einer Minute entschieden. Ohne diese Fläche ist M4b.3 eine Sackgasse |
+| M4b.3 | **Pflichtfeld ohne Falle:** Pflicht ist **mindestens eine Fähigkeit** — ein Vorschlag zählt dafür. **Veröffentlicht** wird nur mit einer freigegebenen. Der Mensch sieht den Unterschied in Worten, nicht als stille Abwesenheit | Wer nur einen Vorschlag hat, kann sein Profil **abschließen** und liest: „wird geprüft — danach erscheinst du im Markt“ |
+| M4b.4 | **Die Firma kann sofort auflösen.** In der Freigabe-Ansicht (M4.8) wählt sie für einen Vorschlag die passende Katalog-Fähigkeit — sie kennt das Gewerk | Kein Warten auf Kuratierung im Normalfall. **Das ist der Griff, der die Kette wirklich schließt** |
+| M4b.5 | **Der Wohnort kommt aus dem Ablauf, nicht aus einer Mahnung.** Fehlt er nach dem Import, fragt ihn die Registrierung ab — dort, wo der Mensch ihn ohnehin eintippt | Ein Import ohne Adresse führt trotzdem zu einem vollständigen Profil |
+| M4b.6 | **Jeder Schritt bietet sich selbst an.** Nach dem Import: „47 angelegt → einladen?“ Nach der Registrierung: „Skills eingetragen → freigeben?“ Niemand muss sich an den nächsten Schritt **erinnern** | Ein Durchlauf ohne Vorwissen: Datei hoch, zweimal bestätigen, Leute stehen im Markt |
+
+> **Zwei Hände bleiben am Hebel, und nur zwei** — das ist kein Widerspruch zur Automatik,
+> sondern ihre Bedingung. **Einladungen senden** (M-L4: eine Mail an die halbe Belegschaft
+> ist nicht zurückholbar) und **Marktpräsenz freigeben** (M-E10: der OK-Klick, den der Owner
+> ausdrücklich will). Alles andere läuft von selbst. Wer eine dritte Bestätigung einbaut,
+> nimmt der Welle ihren Zweck.
+
+---
+
 ### M5 · Der Korb — ein Akt, N Verträge
 
 **Kein Gate mehr — M-E1 ist entschieden: schaltbar bauen** (siehe 8.1). Die Rechtsauskunft
