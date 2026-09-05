@@ -3037,7 +3037,19 @@ Vollständig in [features/M_MARKTPLATZ_FLOW.md](features/M_MARKTPLATZ_FLOW.md), 
 - ~~**M-E6**~~ ✅ **Automatisch, wenn eindeutig — sonst Aufgabe mit Frist.** Genau eine
   passende freie Kraft → zugeordnet; mehrere → Aufgabe. Das System wählt nie willkürlich.
 
-- **M-E10 (neu, offen)** — **Was heißt „im Marktplatz verzeichnet"?** Owner-Vorgabe
+- ~~**M-E10**~~ ✅ **entschieden 2026-09-05: Lesart (a)** — gemeint ist **von einer
+  Zeitarbeitsfirma eingetragen**, nicht „mit aktiver Marktpräsenz“. Die Portaltür hängt
+  damit an der Einladung, nicht an der Sichtbarkeit im Feed.
+
+  **Zusatz-Vorgabe desselben Entscheids:** Nach der Registrierung soll der Mensch mit seinen
+  Fähigkeiten **direkt** im Marktplatz erscheinen — **freigegeben durch einen OK-Klick der
+  Zeitarbeitsfirma**. Gemessen: der Sofort-Weg **existiert bereits**
+  (`POST /workers/:id/marktpraesenz` → `setzeMarktpraesenz` legt **synchron im Aufruf** je
+  Katalog-Fähigkeit einen anonymen Eintrag an, `quelle='live_belegschaft'`, `is_anonymous`).
+  Es fehlt **nur der Anstoß**: das Speichern der Fähigkeiten meldet der Firma heute nichts.
+  Aufgenommen als **M4.8**.
+
+  *Ursprüngliche Frage (zur Nachvollziehbarkeit):* — **Was heißt „im Marktplatz verzeichnet"?** Owner-Vorgabe
   2026-09-01: *„das einsatzportal soll nur workern die im marktplatz verzeichnet sind
   verfügbar sein."* Zwei Lesarten, und die Wahl hat Folgen:
   - **(a) Von einer Zeitarbeitsfirma eingetragen** — das ist **heute schon so** und seit
