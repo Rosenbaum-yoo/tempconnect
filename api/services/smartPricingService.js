@@ -338,7 +338,63 @@ export function buildExplanation(stages, urgency, confidence) {
  * @param {{ role?: string, region?: string, skillTags?: string[], urgency?: string, context?: string }} params
  * @returns {Promise<Object>} Pricing suggestion
  */
-export async function getSuggestion(pool, { role, region, _skillTags, urgency, context } = {}) {
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DIE EINORDNUNG (N7.2, 2026-09-05)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Der Motor lieferte bisher eine SPANNE. Die Abnahme aus dem Plan verlangt
+ * mehr: "Die Firma sieht, ob sie ueber oder unter Markt liegt." Eine Spanne
+ * neben einem eigenen Satz zu legen ist Kopfrechnen — und Kopfrechnen tut
+ * niemand bei jedem Angebot.
+ *
+ * DREI LAGEN, UND DIE MITTLERE IST DIE HAEUFIGSTE:
+ *   unter       unterhalb der Spanne — moeglicherweise unter Wert verkauft
+ *   im_rahmen   innerhalb, einschliesslich der Raender
+ *   ueber       oberhalb — die Anfrage bleibt womoeglich unbeantwortet
+ *
+ * DIE RAENDER GEHOEREN DAZU. Wer genau auf dem Minimum liegt, liegt IM Rahmen,
+ * nicht darunter. Eine Einordnung, die den Grenzfall zum Problem erklaert,
+ * erzeugt Alarm ohne Anlass — und wird nach dem dritten Mal ignoriert.
+ *
+ * KEIN URTEIL, EINE BEOBACHTUNG. "ueber Markt" heisst nicht "zu teuer": eine
+ * Firma mit Fahrdienst und Nachtzuschlag DARF darueber liegen. Der Text sagt
+ * deshalb, WO sie steht, und nicht, was sie tun soll.
+ *
+ * WAS HIER BEWUSST NICHT ENTSTEHT: keine Untergrenze, keine Empfehlung "auf X
+ * senken". Die Zahlen sind beobachtete Plattformdaten zwischen je zwei Parteien
+ * — daraus eine plattformweite Vorgabe zu machen waere Preisabstimmung
+ * (Welle O, O-L1). Der `disclaimer` unten sagt dasselbe und bleibt stehen.
+ *
+ * @param {number|null} eigenerPreis Cents. Fehlt er, gibt es keine Einordnung.
+ * @param {{min: number, max: number, mid: number}} spanne
+ */
+function ordneEin(eigenerPreis, spanne) {
+  const p = Number(eigenerPreis);
+  if (!Number.isFinite(p) || p <= 0) return null;
+  if (!Number.isFinite(spanne.min) || !Number.isFinite(spanne.max)) return null;
+
+  const lage = p < spanne.min ? "unter" : (p > spanne.max ? "ueber" : "im_rahmen");
+  /* Der Abstand wird zur naechsten GRENZE gemessen, nicht zur Mitte: die Frage
+     lautet "wie weit bin ich draussen", nicht "wie weit vom Durchschnitt". */
+  const grenze = lage === "unter" ? spanne.min : (lage === "ueber" ? spanne.max : p);
+  const abstand = p - grenze;
+
+  return {
+    own_price_cents: p,
+    lage,
+    abstand_cents: abstand,
+    abstand_pct: grenze > 0 ? Math.round((abstand / grenze) * 1000) / 10 : null,
+    text: lage === "im_rahmen"
+      ? "Der Satz liegt im ueblichen Rahmen."
+      : (lage === "unter"
+        ? "Der Satz liegt unter dem ueblichen Rahmen — moeglicherweise unter Wert."
+        : "Der Satz liegt ueber dem ueblichen Rahmen. Das kann berechtigt sein; "
+          + "eine Anfrage bleibt dann haeufiger unbeantwortet.")
+  };
+}
+
+export async function getSuggestion(pool, { role, region, _skillTags, urgency, context, ownPriceCents } = {}) {
   if (!role && !region) {
     return { error: 'FILTER_REQUIRED', message: 'Mindestens role oder region angeben.' };
   }
@@ -395,6 +451,12 @@ export async function getSuggestion(pool, { role, region, _skillTags, urgency, c
       supply: { sample_count: supply.sample_count, median_cents: supply.median, p25_cents: supply.p25, p75_cents: supply.p75 },
       demand: { sample_count: demand.sample_count, median_cents: demand.median, p25_cents: demand.p25, p75_cents: demand.p75 }
     },
+    /* N7.2 — `null`, wenn kein eigener Satz uebergeben wurde. Ein leeres Feld
+       ist ehrlicher als eine erfundene Null: "0 Cent unter Markt" waere eine
+       Aussage, und zwar eine falsche. */
+    einordnung: ordneEin(ownPriceCents, {
+      min: adjusted.suggested_min, max: adjusted.suggested_max, mid: adjusted.suggested_mid
+    }),
     explanation,
     query: { role: role || null, region: region || null, urgency: urgency || null, context: context || null },
     disclaimer: 'Unverbindliche Preisorientierung auf Basis historischer Plattformdaten. Kein Preisversprechen.'
