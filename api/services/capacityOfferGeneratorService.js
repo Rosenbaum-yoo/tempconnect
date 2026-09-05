@@ -16,6 +16,9 @@
  */
 import * as capacityExchangeService from "./capacityExchangeService.js";
 import { todayDE } from "../utils/dateDE.js";
+/* M4b.1 — das gemeinsame Katalog-Tor. Vorher stand hier nur `status`,
+   und eine deaktivierte Faehigkeit erzeugte weiterhin Angebote. */
+import { katalogTorSql } from "./skillCatalogService.js";
 
 // Kostenlose Premium-Sichtbarkeit (Welle 5b-Teil-1): moderate Boost-Stufe unter dem
 // bezahlten Max (3 via premiumListingService) — erhält den Upsell-Hebel.
@@ -51,7 +54,7 @@ async function loadWorkerSkills(pool, workerProfileId) {
        FROM worker_profile_skills wps
        JOIN platform_skills ps ON ps.id = wps.skill_id
       WHERE wps.worker_profile_id = $1
-        AND ps.status = 'approved'
+        AND ${katalogTorSql('ps')}
       ORDER BY wps.is_primary DESC, ps.name`,
     [workerProfileId]
   );
@@ -236,7 +239,7 @@ export async function buildPoolSuggestion(pool, { orgId, skillIds }) {
   if (!ids.length) throw Object.assign(new Error("SKILL_REQUIRED"), { code: "SKILL_REQUIRED" });
 
   const skillRes = await pool.query(
-    `SELECT id, name, category FROM platform_skills WHERE id = ANY($1::uuid[]) AND is_active = TRUE`,
+    `SELECT id, name, category FROM platform_skills ps\n        WHERE ps.id = ANY($1::uuid[]) AND ${katalogTorSql('ps')}`,
     [ids]
   );
   if (skillRes.rows.length !== ids.length) {
@@ -287,7 +290,7 @@ export async function createPoolOffer(
   if (!ids.length) throw Object.assign(new Error("SKILL_REQUIRED"), { code: "SKILL_REQUIRED" });
 
   const skillRes = await pool.query(
-    `SELECT id, name, category FROM platform_skills WHERE id = ANY($1::uuid[]) AND is_active = TRUE`,
+    `SELECT id, name, category FROM platform_skills ps\n        WHERE ps.id = ANY($1::uuid[]) AND ${katalogTorSql('ps')}`,
     [ids]
   );
   if (skillRes.rows.length !== ids.length) {

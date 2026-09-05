@@ -1,4 +1,7 @@
 import { createServiceLogger } from "../utils/logger.js";
+/* M4b.1 — das gemeinsame Katalog-Tor. Vorher stand hier nur `is_active`,
+   und die Automatik nahm damit unkuratierte Vorschlaege mit in den Markt. */
+import { katalogTorSql } from "./skillCatalogService.js";
 
 const logger = createServiceLogger("marktpraesenz");
 
@@ -102,7 +105,7 @@ const MATERIALISIEREN_SQL = `
     NOW()
     FROM worker_profiles wp
     JOIN worker_profile_skills wps ON wps.worker_profile_id = wp.id
-    JOIN platform_skills ps ON ps.id = wps.skill_id AND ps.is_active = TRUE
+    JOIN platform_skills ps ON ps.id = wps.skill_id AND ${katalogTorSql('ps')}
    WHERE wp.is_active = TRUE
      AND wp.marktpraesenz_deaktiviert = FALSE
      AND wp.city IS NOT NULL AND wp.city <> ''
@@ -407,7 +410,7 @@ export async function setzeMarktpraesenz(pool, supplierOrgId, workerProfileId, d
        NOW()
        FROM worker_profiles wp
        JOIN worker_profile_skills wps ON wps.worker_profile_id = wp.id
-       JOIN platform_skills ps ON ps.id = wps.skill_id AND ps.is_active = TRUE
+       JOIN platform_skills ps ON ps.id = wps.skill_id AND ${katalogTorSql('ps')}
       WHERE wp.id = $1 AND wp.supplier_org_id = $2
         AND wp.is_active = TRUE
         AND wp.marktpraesenz_deaktiviert = FALSE

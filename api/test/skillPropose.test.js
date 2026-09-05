@@ -99,14 +99,45 @@ describe("Ein Vorschlag beruehrt die Plattform nicht", () => {
     assert.match(q, /status = 'approved'/,
       "sonst waehlen andere Arbeiter ungeprueffte Schreibvarianten aus");
   });
+  it("aus einem Vorschlag entsteht KEIN automatisches Marktplatz-Angebot", async () => {
+    /*
+     * ANGEPASST 2026-09-05 (M4b.1) — dieselbe Zusicherung, staerker geprueft.
+     *
+     * Vorher stand hier der WOERTLICHE Ausdruck `ps.status = 'approved'` im
+     * Quelltext von `loadWorkerSkills`. Das nagelte die Schreibweise fest, nicht
+     * die Aussage — und es deckte nur EINEN der beiden Wege in den Marktplatz.
+     *
+     * Gemessen am 2026-09-05: die AUTOMATIK (`marktpraesenzService`) prueft eine
+     * andere Spalte (`is_active`) und nahm den unkuratierten Vorschlag deshalb
+     * MIT. Sie ist der Weg, der laeuft. Dieser Test war gruen, und der Markt war
+     * trotzdem voll mit Ungeprueftem — ein Wachposten an der einen Tuer, waehrend
+     * die andere offen stand.
+     *
+     * Beide Wege gehen jetzt durch `katalogTorSql`. Geprueft wird das ERZEUGTE
+     * SQL: stuende die Einsetzung in einer normalen Zeichenkette, bekaeme
+     * Postgres woertlichen Unsinn, und ein Quelltext-Muster saehe es nicht.
+     */
+    const gesehen = [];
+    const antworte = async (sql) => { gesehen.push(String(sql)); return { rows: [], rowCount: 0 }; };
+    const pool = { query: antworte, connect: async () => ({ query: antworte, release() {} }) };
 
-  it("aus einem Vorschlag entsteht KEIN automatisches Marktplatz-Angebot", () => {
-    // Der Generator liest die Skills eines Arbeiters selbst — die Regel muss
-    // dort in der Abfrage stehen, sonst landet Ungeprueftes im Marktplatz.
-    const src = fs.readFileSync(path.join(API_ROOT, "services/capacityOfferGeneratorService.js"), "utf8");
-    const block = src.match(/async function loadWorkerSkills[\s\S]*?\n}/);
-    assert.ok(block, "loadWorkerSkills nicht gefunden");
-    assert.match(block[0], /ps\.status = 'approved'/);
+    const { buildPoolSuggestion } = await import("../services/capacityOfferGeneratorService.js");
+    const { sweepMarktpraesenz } = await import("../services/marktpraesenzService.js");
+    await buildPoolSuggestion(pool, {
+      orgId: "11111111-1111-4111-8111-111111111111",
+      skillIds: ["22222222-2222-4222-8222-222222222222"]
+    }).catch(() => {});
+    await sweepMarktpraesenz(pool).catch(() => {});
+
+    const katalogAbfragen = gesehen.filter((q) => /platform_skills/.test(q));
+    assert.ok(katalogAbfragen.length >= 2,
+      `nur ${katalogAbfragen.length} Katalog-Abfragen gesehen — BEIDE Wege muessen fragen`);
+    for (const q of katalogAbfragen) {
+      assert.match(q, /status = 'approved'/,
+        `ein Weg in den Markt nimmt Unkuratiertes mit: ${q.slice(0, 120)}`);
+      assert.match(q, /is_active = TRUE/,
+        `ein Weg in den Markt nimmt Deaktiviertes mit: ${q.slice(0, 120)}`);
+    }
   });
 
   it("das Arbeiterprofil zeigt den Pruefstatus, statt ihn zu verschweigen", () => {

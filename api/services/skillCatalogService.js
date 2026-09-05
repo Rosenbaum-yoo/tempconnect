@@ -130,6 +130,51 @@ function normalizeName(value) {
 }
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DAS GEMEINSAME KATALOG-TOR (M4b.1, 2026-09-05)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * WAS HIER FALSCH WAR, GEMESSEN AN DREI STELLEN:
+ *
+ *   `proposeSkill` legt an mit   status = 'proposed'   (Zeile weiter unten)
+ *   `platform_skills.is_active`  NOT NULL DEFAULT TRUE (Mig 023)
+ *
+ * Ein frischer Vorschlag ist damit `is_active = TRUE, status = 'proposed'` —
+ * und die beiden Wege in den Marktplatz pruefen VERSCHIEDENE Spalten:
+ *
+ *   marktpraesenzService (Automatik)      JOIN ... AND ps.is_active = TRUE
+ *   capacityOfferGeneratorService (Hand)  AND ps.status = 'approved'
+ *
+ * Die Automatik nahm den unkuratierten Vorschlag also MIT. Der manuelle Weg
+ * lehnte ihn ab — und sein Kommentar begruendet ausdruecklich, warum das nicht
+ * passieren darf ("sonst stuende im Marktplatz eine Faehigkeit, nach der
+ * niemand sucht"). Beides gleichzeitig ist unwahr, und der Weg, der laeuft, ist
+ * der falsche: waehrend das Portal dem Menschen sagt "wir pruefen sie, danach
+ * zaehlt sie", stand sie laengst oeffentlich im Markt.
+ *
+ * Die Gegenrichtung war genauso offen: der manuelle Weg nahm eine
+ * `approved`-Faehigkeit auch dann, wenn sie inzwischen DEAKTIVIERT wurde.
+ *
+ * BEIDE SPALTEN, EIN ORT. Nicht zwei Zeilen, die zufaellig dasselbe sagen —
+ * die sind heute schon auseinandergelaufen. Wer eine Bedingung aendert, aendert
+ * sie fuer jeden Veroeffentlichungsweg.
+ *
+ * WAS HIER BEWUSST NICHT DURCHGESETZT WIRD: das Tor gilt fuer die
+ * VEROEFFENTLICHUNG, nicht fuer das Zuordnen. Ein Mensch darf einen Vorschlag
+ * an sein Profil haengen (M4b.3: "Pflicht ist mindestens eine Faehigkeit — ein
+ * Vorschlag zaehlt dafuer"), und die Namensaufloesung muss Vorschlaege sehen,
+ * sonst entstuende bei jeder Schreibweise ein neuer. Oeffentlich wird er erst
+ * nach der Kuratierung.
+ *
+ * @param {string} alias Der Tabellen-Alias von `platform_skills` in der Abfrage.
+ * @returns {string} Eine SQL-Bedingung fuer die WHERE- oder JOIN-Klausel.
+ */
+export function katalogTorSql(alias = "ps") {
+  const a = String(alias || "ps").trim();
+  return `${a}.is_active = TRUE AND ${a}.status = 'approved'`;
+}
+
+/**
  * Eigene Faehigkeit eintragen (Mig 160).
  *
  * Erst suchen, dann anlegen — und zwar in dieser Reihenfolge, weil der haeufigste
