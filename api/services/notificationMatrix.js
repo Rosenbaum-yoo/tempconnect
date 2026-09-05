@@ -38,6 +38,31 @@ const logger = createServiceLogger("notificationMatrix");
 export const ERLAUBTE_SEVERITY = Object.freeze(["info", "warning", "error", "success"]);
 
 const MATRIX = {
+  /*
+   * M4.8 (Owner-Vorgabe 2026-09-05) — DER ANSTOSS, DER FEHLTE.
+   *
+   * Der Veroeffentlichungsweg ist fertig: `setzeMarktpraesenz` legt SYNCHRON je
+   * Katalog-Faehigkeit einen anonymen Marktplatz-Eintrag an, und der Endpunkt
+   * `POST /workers/:id/marktpraesenz` ist org-gebunden, rechte-geprueft und
+   * auditiert. Der OK-Klick der Firma existiert also.
+   *
+   * Was fehlte: die Firma ERFUHR NICHT, dass etwas zur Freigabe liegt. Ein
+   * Mensch trug im Portal seine Faehigkeiten ein, und danach passierte —
+   * nichts. Kein Eintrag, keine Meldung, kein Hinweis. Gemessen: 30 von 33
+   * Kraeften unsichtbar.
+   *
+   * `dispatch` entdoppelt eine Stunde lang ueber
+   * (user_id, type, entity_type, entity_id). Wer seine Faehigkeiten dreimal
+   * hintereinander speichert, erzeugt deshalb EINE Meldung, nicht drei — ohne
+   * dass hier etwas dafuer getan werden muss.
+   */
+  'worker.skills_awaiting_release': {
+    type: 'worker_marktpraesenz',
+    severity: 'info',
+    title: 'Faehigkeiten eingetragen — Freigabe fuer den Marktplatz offen',
+    recipientStrategy: 'org_worker_managers',
+    linkPath: '/public/mitarbeiter.html?freigabe=offen'
+  },
   'requisition.submitted_for_approval': {
     type: 'requisition_approval',
     severity: 'info',
