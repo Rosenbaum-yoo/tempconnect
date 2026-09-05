@@ -248,6 +248,91 @@ describe("apiKeyAuthMiddleware — was als Bearer-Token gilt", () => {
 
 /* ══ Der tc_live_-Pfad ════════════════════════════════════════════════════ */
 
+describe("apiKeyAuthMiddleware — das SCHEMA entscheidet, nicht der Praefix", () => {
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * DREI UEBERLEBENDE MUTANTEN, EIN VERTRAG (gefunden 2026-09-04)
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Die Mutationsmessung meldete an `extractApiKey` (Zeile 117) drei
+   * Ueberlebende. Aus dem JSON-Bericht gelesen, weil die Zeilennummer allein
+   * nichts sagt:
+   *
+   *   ConditionalExpression -> true   (der linke Teil `laenge===2 && schema`)
+   *   ConditionalExpression -> true   (nur `schema === "bearer"`)
+   *   LogicalOperator       -> `laenge === 2 || schema === "bearer"`
+   *
+   * Alle drei bewirken DASSELBE: die Kopfzeile wird angenommen, sobald ihr
+   * zweiter Teil mit `tc_live_` beginnt — egal unter welchem Schema. `Basic
+   * tc_live_...` waere damit ein gueltiger Zugang.
+   *
+   * WARUM DIE VORHANDENE PROBE SIE NICHT FAENGT: sie prueft `Basic abc.def.ghi`
+   * — ohne den Praefix. Fuer diese Mutanten macht das keinen Unterschied, weil
+   * die letzte Bedingung (`startsWith`) ohnehin falsch ist. Sichtbar wird der
+   * Kipper erst, wenn der zweite Teil WIE EIN SCHLUESSEL AUSSIEHT.
+   *
+   * Der Vertrag dahinter ist keine Formsache: HTTP-Zwischenstationen,
+   * Protokolle und Fehlersuchwerkzeuge behandeln `Basic` anders als `Bearer`
+   * (etwa beim Ausblenden von Geheimnissen). Ein Schluessel, der unter dem
+   * falschen Schema funktioniert, landet an Stellen, an denen ihn niemand
+   * erwartet.
+   */
+  const SCHLUESSEL = { id: KEY_ID, org_id: ORG, scopes: ["read:invoices"], created_by: "u-1" };
+  const mw = () => apiKeyAuthMiddleware(poolMit(SCHLUESSEL), { logger: protokoll(), config: AN });
+
+  it("ein Schluessel unter fremdem Schema authentifiziert NICHT", async () => {
+    /* Der Pool wuerde den Schluessel finden — das ist Absicht: nur so ist der
+       Unterschied sichtbar. Faellt die Schema-Pruefung, entsteht ein VOLLER
+       Auth-Kontext. */
+    for (const schema of ["Basic", "Digest", "Token", "ApiKey", "Negotiate"]) {
+      const r = await lauf(mw(), { headers: { authorization: schema + " tc_live_abcdef123456" } });
+      const kontext = { api: r.req.isApiKeyAuth, org: r.req.orgId, key: r.req.apiKeyId };
+      assert.deepEqual(kontext, { api: undefined, org: undefined, key: undefined },
+        `'${schema} tc_live_...' hat authentifiziert — das Schema entscheidet nicht mehr, `
+        + `sondern nur noch der Praefix: ${JSON.stringify(kontext)}`);
+      assert.equal(r.weiter, true, "der Schluessel-Pfad antwortet bei fremdem Schema selbst");
+    }
+  });
+
+  it("eine Kopfzeile ohne Schema authentifiziert NICHT", async () => {
+    /* `tc_live_x tc_live_y`: zwei Teile, der zweite mit Praefix — die
+       Laengenpruefung allein liesse das durch. */
+    for (const auth of ["tc_live_abcdef123456 tc_live_abcdef123456",
+                        "tc_live_abcdef123456"]) {
+      const r = await lauf(mw(), { headers: { authorization: auth } });
+      assert.equal(r.req.isApiKeyAuth, undefined,
+        `'${auth}' hat authentifiziert, obwohl kein Bearer-Schema dasteht`);
+    }
+  });
+
+  it("und Bearer mit Praefix authentifiziert weiterhin", async () => {
+    /*
+     * Die Gegenprobe. Ohne sie koennte man die Bedingung einfach auf `false`
+     * setzen und alle Proben oben blieben gruen — der Schluessel-Zugang waere
+     * tot, und niemand saehe es hier.
+     */
+    const r = await lauf(mw(), { headers: { authorization: "Bearer tc_live_abcdef123456" } });
+    assert.equal(r.req.isApiKeyAuth, true,
+      "der regulaere Schluessel-Zugang ist zu — die Bedingung sperrt jetzt alles");
+    assert.equal(r.req.orgId, ORG);
+    assert.equal(r.req.apiKeyId, KEY_ID);
+  });
+
+  it("ein Token ohne Rechte gewaehrt nichts", async () => {
+    /*
+     * Aus derselben Messung (Zeile 53): `.filter(Boolean)` liess sich entfernen.
+     * Bei leerem Rechte-Feld entsteht dann `[""]` statt `[]` — und ob daraus
+     * etwas folgt, haengt allein daran, wie `hasScope` mit der leeren
+     * Zeichenkette umgeht. Das ist zu viel Zufall fuer einen Zugangsweg.
+     */
+    const r = await lauf(
+      apiKeyAuthMiddleware(poolMit(SCHLUESSEL), { logger: protokoll(), config: AN }),
+      bearer(token({ scopes: [] })));
+    assert.deepEqual(r.req.apiKeyScopes, [],
+      "ein Token ohne Rechte hat trotzdem etwas gewaehrt");
+  });
+});
+
 describe("apiKeyAuthMiddleware — Schluessel-Pfad", () => {
   const SCHLUESSEL = { id: KEY_ID, org_id: ORG, scopes: ["read:invoices"], created_by: "u-9" };
 
