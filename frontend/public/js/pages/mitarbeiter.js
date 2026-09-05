@@ -3520,7 +3520,12 @@ function renderWorkerLinkage(worker) {
   var rows = [
     { label: TCi18n.t("mit.linkage.account"), value: linkage.email || worker.email || "–", meta: linkage.is_verified ? TCi18n.t("mit.linkage.verified") : TCi18n.t("mit.linkage.notVerified") },
     { label: TCi18n.t("mit.linkage.createdAt"), value: formatDateLabel(linkage.account_created_at), meta: worker.supplier_org_name || "–" },
-    { label: TCi18n.t("mit.linkage.portal"), value: linkage.worker_portal_path || "/public/einsatzportal-profil.html", meta: linkage.org_membership_active === false ? TCi18n.t("mit.linkage.membershipInactive") : TCi18n.t("mit.linkage.portalActive") },
+    /* Kein hartkodierter Portalpfad als Ersatzwert (Owner-Vorgabe 2026-09-01):
+     * die Plattform nennt den Weg ins Einsatzportal nicht von sich aus. Liefert
+     * das Backend keinen, zeigt der Renderer unten ohnehin "–". Nebenbei war der
+     * feste Pfad eine Altlast: er waere stehen geblieben, wenn das Portal je
+     * umzieht. */
+    { label: TCi18n.t("mit.linkage.portal"), value: linkage.worker_portal_path, meta: linkage.org_membership_active === false ? TCi18n.t("mit.linkage.membershipInactive") : TCi18n.t("mit.linkage.portalActive") },
     { label: TCi18n.t("mit.linkage.sharing"), value: worker.profile_public ? TCi18n.t("mit.linkage.sharedExternally") : TCi18n.t("mit.linkage.internalOnly"), meta: (worker.public_profile_preview && worker.public_profile_preview.public_fields || []).map(publicFieldLabel).join(", ") || TCi18n.t("mit.linkage.noFields") }
   ];
   el.innerHTML = rows.map(function(row) {

@@ -244,3 +244,149 @@ suite("Das Staff Control Center ist von der Plattform aus nicht erreichbar", () 
     }
   });
 });
+
+/* ═════════════════════════════════════════════════════════════════════════════
+ * DAS EINSATZPORTAL — derselbe Satz, ein anderer Fall
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Owner-Vorgabe 2026-09-01, Nachtrag:
+ *
+ *   „das einsatzportal darf auch aus der plattform nicht erreichbar sein.
+ *    das einsatzportal soll nur workern die im marktplatz verzeichnet sind
+ *    verfuegbar sein."
+ *
+ * WARUM DIESER FALL ANDERS IST ALS DIE DREI INTERNEN FLAECHEN
+ * Die liegen unter eigenen Pfaden (/staff, /owner-control, /support-ops) und
+ * haben eigene Sitzungen. Das Einsatzportal liegt im SELBEN Verzeichnis wie die
+ * Plattform — `einsatzportal-*.html` steht neben `enterprise.html`. Ein Waechter,
+ * der schlicht `frontend/public/` durchsucht, faende deshalb vor allem das Portal,
+ * das auf sich selbst verweist.
+ *
+ * Also wird hier die andere Richtung gebraucht: NUR Plattformdateien werden
+ * gelesen, und in denen darf kein Ziel auf eine Portalseite stehen.
+ *
+ * DREI FUNDSTELLEN, DREI VERSCHIEDENE DINGE (gemessen 2026-09-01)
+ * Der erste Entwurf haette alle drei angeklagt. Nur eine war ein Verstoss:
+ *
+ *   1. `sla_hilfe.html` verlinkte aus einer FAQ-Antwort ins Portal. ECHTER
+ *      VERSTOSS — Verweis entfernt, Wortlaut und beide Sprachfassungen blieben.
+ *   2. `pageShell.js` schickt einen Worker, der auf einer Plattformseite landet,
+ *      ins Portal zurueck. Das ist die DURCHSETZUNG dieser Regel, nicht ihr
+ *      Bruch — der Kommentar dort sagt es woertlich: „Worker gehoeren ins
+ *      Einsatzportal, nicht in Enterprise-Seiten."
+ *   3. `onboardingWizard.js` fuehrt den Worker in seiner EIGENEN Einfuehrung zu
+ *      seinen Einsaetzen. Auch kein Weg fuer einen Plattformnutzer.
+ *
+ * Deshalb steht unten eine kurze, BEGRUENDETE Ausnahmeliste statt eines
+ * weicheren Musters. Eine Ausnahme mit Grund ist sichtbar; ein aufgeweichtes
+ * Muster ist es nicht.
+ *
+ * NICHT GEPRUEFT, WEIL ES HIER NICHT HINGEHOERT
+ * Der zweite Satz der Vorgabe — wem das Portal offensteht — ist eine
+ * Zugangsregel, keine Verlinkungsregel. Heute gilt: ein Arbeiterkonto kann NUR
+ * durch die Einladung einer Zeitarbeitsfirma entstehen (`/auth/register` laesst
+ * ausschliesslich `company` und `agency` zu), und `requireWorkerRole` sperrt
+ * jede andere Rolle aus dem Portal. Ob darueber hinaus eine Marktpraesenz
+ * verlangt werden soll, ist eine offene Owner-Frage — siehe docs/FLAECHEN.md.
+ */
+
+/** Seiten, DIE das Portal sind — sie verweisen zwangslaeufig auf sich selbst. */
+const PORTALSEITE = /^(einsatzportal-|worker-login\.html|worker-portal\.html|worker-timesheet\.html)/;
+
+/** Ein Ziel, das auf eine Portalseite fuehrt. */
+const PORTAL_ZIEL =
+  /(?<=["'`]|href=|src=|action=)(?:\/public\/)?(?:einsatzportal-[a-z0-9-]*\.html|worker-login\.html|worker-portal\.html|worker-timesheet\.html)/;
+
+/**
+ * Begruendete Ausnahmen. Der Text muss WOERTLICH in der Zeile stehen — aendert
+ * jemand die Zeile, greift der Waechter wieder. Das ist Absicht.
+ */
+const ERLAUBT = [
+  {
+    datei: path.join("frontend", "public", "js", "pageShell.js"),
+    grund: "Worker-Guard: schickt einen Worker von der Plattform INS Portal zurueck — die Durchsetzung der Regel, nicht ihr Bruch"
+  },
+  {
+    datei: path.join("frontend", "public", "js", "onboardingWizard.js"),
+    grund: "die eigene Einfuehrung des Workers fuehrt ihn zu seinen Einsaetzen — kein Weg fuer einen Plattformnutzer"
+  }
+];
+
+suite("Das Einsatzportal ist von der Plattform aus nicht erreichbar", () => {
+
+  /** Plattformdateien = alles unter frontend/public AUSSER den Portalseiten. */
+  function nurPlattform() {
+    return plattformDateien().filter((p) => {
+      const rel = path.relative(path.join(ROOT, PLATTFORM_REL), p);
+      if (PORTALSEITE.test(rel)) return false;
+      if (rel.startsWith(path.join("js", "workerPortal"))) return false;
+      return true;
+    });
+  }
+
+  it("kein Ziel auf eine Portalseite in der Kundenplattform", () => {
+    const dateien = nurPlattform();
+    assert.ok(dateien.length > 40,
+      `nur ${dateien.length} Plattformdateien uebrig — die Trennung greift nicht mehr`);
+
+    const funde = [];
+    for (const datei of dateien) {
+      const rel = path.relative(ROOT, datei);
+      const ausnahme = ERLAUBT.find((a) => a.datei === rel);
+      fs.readFileSync(datei, "utf8").split("\n").forEach((zeile, i) => {
+        if (!PORTAL_ZIEL.test(zeile)) return;
+        if (ausnahme) return;
+        funde.push(`${rel}:${i + 1}  ${zeile.trim().slice(0, 120)}`);
+      });
+    }
+
+    assert.deepEqual(funde, [],
+      "Die Kundenplattform darf keinen Weg ins Einsatzportal anbieten. Das Portal "
+      + "steht nur den Arbeitern offen, die eine Zeitarbeitsfirma eingeladen hat "
+      + "(Owner-Vorgabe 2026-09-01, docs/FLAECHEN.md).\n  "
+      + funde.join("\n  "));
+  });
+
+  it("die Ausnahmen sind noch die, die sie zu sein behaupten", () => {
+    /* Eine Ausnahmeliste, die auf verschwundene Dateien zeigt, waescht sich
+     * selbst weiss: sie erlaubt etwas, das es nicht mehr gibt, und niemand
+     * merkt, wenn der Grund entfaellt. */
+    for (const a of ERLAUBT) {
+      const voll = path.join(ROOT, a.datei);
+      assert.ok(fs.existsSync(voll), `Ausnahme zeigt ins Leere: ${a.datei}`);
+      assert.ok(PORTAL_ZIEL.test(fs.readFileSync(voll, "utf8")),
+        `Ausnahme fuer ${a.datei} wird nicht mehr gebraucht — Eintrag entfernen`);
+    }
+  });
+
+  it("nur die Einladung schafft ein Arbeiterkonto — Selbstanmeldung ist ausgeschlossen", () => {
+    /* Der zweite Satz der Owner-Vorgabe, soweit er heute schon gilt: wer nicht
+     * eingeladen wurde, kann kein Arbeiterkonto bekommen. Faellt diese
+     * Einschraenkung, steht das Portal jedem offen, der sich anmeldet. */
+    const auth = fs.readFileSync(path.join(ROOT, "api", "routes", "auth.js"), "utf8");
+    assert.match(auth, /role:\s*z\.enum\(\[\s*["']company["']\s*,\s*["']agency["']\s*\]\)/,
+      "die Selbstanmeldung laesst ploetzlich mehr Rollen zu als company und agency");
+    assert.ok(!/z\.enum\(\[[^\]]*["']worker["'][^\]]*\]\)/.test(auth),
+      "worker steht in einer Rollen-Aufzaehlung der Anmeldung — das Portal waere frei zugaenglich");
+  });
+
+  it("S: der Waechter erkennt einen echten Weg ins Portal", () => {
+    for (const zeile of [
+      '<a href="/public/einsatzportal-dashboard.html">Portal</a>',
+      "location.href = 'einsatzportal-stundenzettel.html';",
+      '<a href=/public/worker-login.html>Anmelden</a>'
+    ]) {
+      assert.ok(PORTAL_ZIEL.test(zeile), `haette anschlagen muessen: ${zeile}`);
+    }
+  });
+
+  it("S: der Waechter haelt Prosa und fremde Namen nicht fuer einen Weg", () => {
+    for (const zeile of [
+      "// der Worker landet danach im Einsatzportal",
+      "text: 'Ihre Einsaetze sehen Sie im Einsatzportal'",
+      'fetch("/api/worker/assignments")'
+    ]) {
+      assert.ok(!PORTAL_ZIEL.test(zeile), `haette schweigen muessen: ${zeile}`);
+    }
+  });
+});

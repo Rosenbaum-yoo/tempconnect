@@ -3037,6 +3037,24 @@ Vollständig in [features/M_MARKTPLATZ_FLOW.md](features/M_MARKTPLATZ_FLOW.md), 
 - ~~**M-E6**~~ ✅ **Automatisch, wenn eindeutig — sonst Aufgabe mit Frist.** Genau eine
   passende freie Kraft → zugeordnet; mehrere → Aufgabe. Das System wählt nie willkürlich.
 
+- **M-E10 (neu, offen)** — **Was heißt „im Marktplatz verzeichnet"?** Owner-Vorgabe
+  2026-09-01: *„das einsatzportal soll nur workern die im marktplatz verzeichnet sind
+  verfügbar sein."* Zwei Lesarten, und die Wahl hat Folgen:
+  - **(a) Von einer Zeitarbeitsfirma eingetragen** — das ist **heute schon so** und seit
+    2026-09-01 per Wächter festgenagelt: `POST /auth/register` lässt nur `company` und
+    `agency` zu, ein Arbeiterkonto entsteht ausschließlich durch Einladung.
+  - **(b) Mit aktiver Marktpräsenz** — also nur, wer gerade als Angebot im Marktplatz
+    steht. **Diese Lesart würde den eigenen Ablauf brechen:** ein frisch registrierter
+    Arbeiter hat *noch keine* Marktpräsenz, denn die entsteht erst aus seinen Fähigkeiten
+    (Welle M, Schritt 9→11) — und die trägt er **im Portal** ein. Er käme nie hinein.
+    Dieselbe Sperre träfe jeden, der seinen Einsatzradius auf null setzt — also genau den
+    Widerspruch, den **M-E4** ihm ausdrücklich zugesteht. Er verlöre damit den Zugang zu
+    seinen eigenen Einsätzen, Stundenzetteln, Abwesenheiten und Dokumenten.
+
+  *Empfehlung: (a) — sie ist gemeint, gebaut und erzwungen. Wenn zusätzlich gewünscht ist,
+  dass ein Arbeiter ohne Marktpräsenz nicht im Marktplatz auftaucht, ist das eine Regel für
+  den Feed, nicht für die Portaltür.*
+
 **Rest-Aufgabe mit Auslöser (nicht mit Datum):** Ob **Textform** für den
 Überlassungsvertrag genügt, ist **nicht anwaltlich bestätigt** — der Owner hat das benannt
 und die Lage angenommen. Der Schalter macht die Korrektur billig (eine Konfigurationszeile

@@ -64,6 +64,54 @@ lässt den Wächter mit Nennung von Datei und Zeile rot werden; ohne sie ist er 
 
 ---
 
+## Das Einsatzportal: derselbe Satz, ein anderer Fall
+
+> **Owner-Vorgabe 2026-09-01, Nachtrag, wörtlich:** *„das einsatzportal darf auch aus der
+> plattform nicht erreichbar sein. das einsatzportal soll nur workern die im marktplatz
+> verzeichnet sind verfügbar sein."*
+
+**Warum das nicht dieselbe Prüfung sein kann.** Die drei internen Flächen liegen unter
+eigenen Pfaden und haben eigene Sitzungen. Das Einsatzportal liegt im **selben
+Verzeichnis** wie die Plattform — `einsatzportal-dashboard.html` steht neben
+`enterprise.html`. Ein Wächter, der schlicht `frontend/public/` durchsucht, fände vor allem
+das Portal, das auf sich selbst verweist. Deshalb wird hier die andere Richtung geprüft:
+**nur Plattformdateien** werden gelesen, und in denen darf kein Ziel auf eine Portalseite
+stehen.
+
+**Drei Fundstellen, drei verschiedene Dinge** — der erste Entwurf hätte alle drei angeklagt,
+nur eine war ein Verstoß:
+
+| Fundstelle | Urteil |
+|---|---|
+| `sla_hilfe.html` verlinkte aus einer FAQ-Antwort ins Portal | **echter Verstoß** — Verweis entfernt, Wortlaut und beide Sprachfassungen blieben |
+| `pageShell.js` schickt einen Worker, der auf einer Plattformseite landet, ins Portal zurück | **Durchsetzung der Regel, nicht ihr Bruch.** Der Kommentar dort sagt es wörtlich: „Worker gehören ins Einsatzportal, nicht in Enterprise-Seiten" |
+| `onboardingWizard.js` führt den Worker in seiner **eigenen** Einführung zu seinen Einsätzen | kein Weg für einen Plattformnutzer |
+
+Dazu eine vierte, die der Wächter fand und die Handsuche übersah: `mitarbeiter.js` trug
+einen **hartkodierten Portalpfad** als Ersatzwert in der Verknüpfungs-Ansicht. Kein Link (er
+wurde über `esc()` als Text ausgegeben), aber überflüssig — das Backend liefert den Pfad
+ohnehin, und der Renderer kennt bereits einen Ersatz. Entfernt; nebenbei war es eine
+Altlast, die stehen geblieben wäre, wenn das Portal je umzieht.
+
+**Die zwei begründeten Ausnahmen stehen als Liste im Wächter**, nicht als aufgeweichtes
+Muster. Eine Ausnahme mit Grund ist sichtbar; ein weicheres Muster ist es nicht. Und der
+Wächter prüft die Ausnahmen mit: zeigt eine ins Leere oder wird sie nicht mehr gebraucht,
+wird er rot — sonst wäscht sich eine Ausnahmeliste mit der Zeit selbst weiß.
+
+### Wem das Portal offensteht — was heute schon gilt
+
+Der zweite Satz der Vorgabe ist eine **Zugangsregel**, keine Verlinkungsregel. Gemessen:
+
+- **Ein Arbeiterkonto kann nur durch die Einladung einer Zeitarbeitsfirma entstehen.**
+  `POST /auth/register` lässt ausschließlich `company` und `agency` zu — eine
+  Selbstanmeldung als Worker ist ausgeschlossen. Der Wächter nagelt das fest.
+- **`requireWorkerRole` sperrt jede andere Rolle aus dem Portal**, auf allen 44 Wegen.
+
+Damit ist „nur Arbeiter, die eine Zeitarbeitsfirma eingetragen hat" **bereits erzwungen**.
+Offen ist, ob darüber hinaus eine **Marktpräsenz** verlangt werden soll — siehe **M-E10**.
+
+---
+
 ## Die drei internen Flächen
 
 | Fläche | Für wen | Wofür |
