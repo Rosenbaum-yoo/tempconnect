@@ -171,6 +171,183 @@ describe("Wach-Waechter (A) — das Bestandsbuch der schreibenden Wege", () => {
 });
 
 /* ═════════════════════════════════════════════════════════════════════════
+   (A2) DIE LESENDE SEITE — abgeleitet, nicht abgeschrieben (M2.3)
+   ═════════════════════════════════════════════════════════════════════════
+
+   WARUM HIER NICHT JEDER WEG EINZELN STEHT
+
+   Von 471 lesenden Wegen tragen 457 eine Wache, die man SEHEN kann: sie steht
+   benannt in der montierten Kette. Ein Register, das diese 457 Zeilen
+   abschreibt, wiederholt nur, was ohnehin im Code steht — und die 14 echten
+   Urteile gehen darin unter. Es wuerde ausserdem bei jeder neuen Route einen
+   Eintrag verlangen, der nichts entscheidet.
+
+   Abgeleitet wird deshalb aus der Kette, und eingetragen ist, was die Ableitung
+   NICHT entscheiden kann. Das ist dieselbe Bauart wie beim Arbeiter-Riegel:
+   fail-closed, mit benannter Ausnahmeliste.
+
+   WAS DIE ABLEITUNG UEBERHAUPT MOEGLICH MACHT
+
+   Namen. Eine namenlose Middleware ist unsichtbar — ein Waechter kann sie nur
+   ZAEHLEN, und dabei sieht eine Route ohne Pruefung aus wie eine mit (Befund
+   P1-20). `requireScope` war bis zum 2026-09-05 namenlos: 61 lesende Wege
+   trugen sie, und in der montierten Kette hiessen alle "(anonym)". Die
+   Ableitung haette sie als "gar keine Wache" eingestuft.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+const LESEN = register.lesen;
+
+/** Traegt der Handler ueberhaupt eine Mandantenkennung? (Quelltext, nicht Kette) */
+function mandantenkennung(quelle, pfad) {
+  const start = quelle.indexOf(`router.get("${pfad}"`);
+  if (start === -1) return { org: false, user: false };
+  let tiefe = 0, i = quelle.indexOf("{", start);
+  if (i === -1) return { org: false, user: false };
+  const von = i;
+  for (; i < quelle.length && i < von + 20000; i++) {
+    if (quelle[i] === "{") tiefe++;
+    else if (quelle[i] === "}") { tiefe--; if (tiefe === 0) break; }
+  }
+  const rumpf = quelle.slice(von, i + 1);
+  return {
+    org: /req\.orgId/.test(rumpf),
+    user: /req\.session(?:\?\.)?\.userId|req\.user(?:\?\.)?\.id/.test(rumpf)
+  };
+}
+
+/* `berechtigung` schlaegt `besitz` schlaegt `flaechentor`: traegt ein Weg
+   mehrere Wachen, zaehlt die staerkste. */
+const RANG = ["berechtigung", "besitz", "flaechentor"];
+
+function leiteAb(kette, kennung) {
+  const arten = kette.map((n) => LESEN.wachen[n]).filter(Boolean);
+  const stark = RANG.find((r) => arten.includes(r));
+  if (stark) return stark;
+  if (!kennung.org && !kennung.user) return "oeffentlich";
+  if (kennung.user && !kennung.org) return "eigene-daten";
+  return null;                        // die Ableitung entscheidet nicht
+}
+
+describe("Wach-Waechter (A2) — die lesenden Wege", () => {
+  let lesend;
+
+  before(async () => {
+    lesend = [];
+    for (const datei of alleRouteDateien(path.join(API, "routes")).sort()) {
+      let routerListe;
+      try { routerListe = await montiere(datei, spionPool({ zeile: null })); } catch { continue; }
+      const quelle = fs.readFileSync(path.join(API, "routes", datei), "utf8");
+      for (const router of routerListe) {
+        for (const layer of router.stack) {
+          if (!layer.route) continue;
+          if (Object.keys(layer.route.methods)[0] !== "get") continue;
+          lesend.push({
+            datei, pfad: layer.route.path,
+            kette: layer.route.stack.map((x) => x.handle.name || "(anonym)"),
+            kennung: mandantenkennung(quelle, layer.route.path)
+          });
+        }
+      }
+    }
+  });
+
+  it("die Erhebung findet ueberhaupt lesende Wege", () => {
+    /* Ohne diese Probe waere der ganze Abschnitt lautlos gruen, sobald das
+       Montieren scheitert: eine leere Menge besteht jede Schleife. */
+    assert.ok(lesend.length >= 400,
+      `nur ${lesend.length} lesende Wege montiert — erwartet werden ueber 400. ` +
+      "Entweder ist das Montieren kaputt, oder dieser Waechter liest ins Leere.");
+  });
+
+  it("jeder lesende Weg hat eine Wachart — abgeleitet oder eingetragen", () => {
+    const ausnahme = new Set(LESEN.ausnahmen.map((a) => `${a.datei} ${a.pfad}`));
+    const stumm = [];
+    for (const w of lesend) {
+      if (leiteAb(w.kette, w.kennung)) continue;
+      if (ausnahme.has(`${w.datei} ${w.pfad}`)) continue;
+      stumm.push(`${w.datei} GET ${w.pfad}  (Kette: ${w.kette.join(", ")})`);
+    }
+    assert.deepStrictEqual(stumm, [],
+      "Diese lesenden Wege geben eine Mandantenkennung in eine Abfrage, tragen aber " +
+      "keine erkennbare Wache und stehen in keiner Ausnahme. Das ist die Absicht: " +
+      "fail-closed. Entweder eine benannte Wache davorsetzen ODER in " +
+      "`wachen.json` -> `lesen.ausnahmen` eintragen, mit Begruendung:\n  " +
+      stumm.join("\n  "));
+  });
+
+  it("jede Ausnahme ist bekannt, begruendet — und noch noetig", () => {
+    const vorhanden = new Set(lesend.map((w) => `${w.datei} ${w.pfad}`));
+    const nachKette = new Map(lesend.map((w) => [`${w.datei} ${w.pfad}`, w]));
+    const maengel = [];
+    for (const a of LESEN.ausnahmen) {
+      const schluessel = `${a.datei} ${a.pfad}`;
+      if (!vorhanden.has(schluessel)) {
+        maengel.push(`${schluessel}: Karteileiche — den Weg gibt es nicht mehr`);
+        continue;
+      }
+      if (!ARTEN.has(a.wachart)) maengel.push(`${schluessel}: unbekannte Wachart '${a.wachart}'`);
+      if ((a.begruendung || "").trim().length < 40) {
+        maengel.push(`${schluessel}: Begruendung fehlt oder ist zu duenn`);
+      }
+      /*
+       * DIE WICHTIGERE RICHTUNG. Eine Ausnahme, die stehen bleibt, nachdem der
+       * Weg eine erkennbare Wache bekommen hat, behauptet dauerhaft ein Urteil,
+       * das niemand mehr faellen muss — und verdeckt, dass die Ableitung
+       * inzwischen greift. Dasselbe Muster wie `ohne_einplanung` bei den Takten.
+       */
+      const w = nachKette.get(schluessel);
+      const abgeleitet = leiteAb(w.kette, w.kennung);
+      if (abgeleitet) {
+        maengel.push(
+          `${schluessel}: steht als Ausnahme, wird aber inzwischen abgeleitet ` +
+          `('${abgeleitet}'). Den Eintrag entfernen.`);
+      }
+    }
+    assert.deepStrictEqual(maengel, []);
+  });
+
+  it("die Ausnahmeliste waechst nicht unbemerkt (Sperrklinke)", () => {
+    assert.ok(
+      LESEN.ausnahmen.length <= LESEN.grundlinie.ausnahmen,
+      `${LESEN.ausnahmen.length} Ausnahmen, Grundlinie ist ${LESEN.grundlinie.ausnahmen}. ` +
+      "Sie darf FALLEN — ein Weg bekommt eine erkennbare Wache — aber nicht steigen, " +
+      "ohne dass jemand die Grundlinie bewusst anhebt."
+    );
+  });
+
+  it("Selbstprobe: die Ableitung erkennt eine Wache und erfindet keine", () => {
+    /* Ohne sie koennte `leiteAb` immer `flaechentor` liefern und alles waere
+       gruen — der Waechter haette dann nichts geprueft. */
+    const mitKennung = { org: true, user: true };
+    assert.equal(leiteAb(["requirePermissionMiddleware", "(anonym)"], mitKennung), "berechtigung");
+    assert.equal(leiteAb(["requireScopeMiddleware", "(anonym)"], mitKennung), "berechtigung");
+    assert.equal(leiteAb(["sameOrgParam", "(anonym)"], mitKennung), "besitz");
+    assert.equal(leiteAb(["staffControlAccess", "(anonym)"], mitKennung), "flaechentor");
+    assert.equal(leiteAb(["(anonym)"], mitKennung), null,
+      "die Ableitung erfindet eine Wache, wo keine steht");
+    assert.equal(leiteAb(["(anonym)"], { org: false, user: false }), "oeffentlich");
+    assert.equal(leiteAb(["(anonym)"], { org: false, user: true }), "eigene-daten");
+    /* Die staerkste zaehlt, nicht die erste. */
+    assert.equal(leiteAb(["staffControlAccess", "requirePermissionMiddleware"], mitKennung),
+      "berechtigung");
+  });
+
+  it("die Wach-Namen der Ableitung existieren wirklich", () => {
+    /*
+     * Ein Name, den keine Kette traegt, ist entweder ein Tippfehler oder eine
+     * Wache, die es nicht mehr gibt — beides macht die Ableitung schwaecher,
+     * ohne dass etwas rot wird. (`_zweck` ist die Beschriftung, kein Name.)
+     */
+    const gesehen = new Set(lesend.flatMap((w) => w.kette));
+    const tot = Object.keys(LESEN.wachen)
+      .filter((n) => n !== "_zweck" && !gesehen.has(n));
+    assert.deepStrictEqual(tot, [],
+      "Diese Wach-Namen stehen in der Ableitung, aber keine lesende Kette traegt sie. " +
+      "Umbenannt oder entfernt? Dann leitet die Zeile nichts mehr ab.");
+  });
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
    (B) VERHALTENSPROBE — eine Rolle ohne Rechte kommt nirgends durch
    ═════════════════════════════════════════════════════════════════════════
 

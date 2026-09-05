@@ -960,6 +960,52 @@ aufgefallen wären:
 > schließt. Der Riegel dafuer liegt bereit (`verweigereArbeiter`, eine Zeile je Route);
 > was fehlt, ist die Entscheidung.
 
+### M2.3 ist gebaut *(2026-09-05)* — die lesende Seite ist bewacht
+
+`wachen.json` führte 468 **schreibende** Wege mit je einem Urteil. Die lesenden standen
+nirgends: jede GET-Route, die `req.orgId` oder die Nutzerkennung in eine Abfrage gibt, war
+ungeprüft.
+
+> **Der Fund kam vor dem Bauen: `requireScope` war namenlos.** 61 lesende Wege tragen sie —
+> in der *montierten* Kette hießen alle „(anonym)". Jede Ableitung hätte sie als „gar keine
+> Wache" eingestuft und **61 Falschmeldungen** erzeugt; ein Wächter, der so oft falsch warnt,
+> wird abgeschaltet und nimmt die echten Befunde mit. Wörtlich die Lehre aus Befund P1-20
+> und M2.7, zum **dritten** Mal: ein Wächter kann namenlose Middleware nur *zählen*, und
+> dabei sieht eine Route ohne Prüfung aus wie eine mit.
+
+**Die Bauart (Owner-Entscheid):** Ableitung aus der montierten Kette, plus Ausnahmeliste.
+
+| | Wege |
+|---|---|
+| lesende Wege gesamt | 471 |
+| aus der Kette **ableitbar** | 457 |
+| **Urteil nötig** | **14** |
+
+Ein Register, das 457 Zeilen abschreibt, wiederholt nur, was ohnehin im Code steht — und die
+14 echten Urteile gehen darin unter. **Fail-closed:** eine neue GET-Route ohne erkennbare
+Wache färbt rot, bis jemand sie einträgt.
+
+**Die vierzehn Urteile — an der WHERE-Klausel, nicht am Pfadnamen** (die Falle, die in M2.5
+sechsmal in dieselbe Richtung täuschte):
+
+| Wachart | Wege | Bindung |
+|---|---|---|
+| `besitz` | 8 | `row.org_id !== req.orgId` → 403 `FORBIDDEN_CROSS_ORG`; `JOIN … AND r.org_id = $2`; bei `/search` der org-private Teil, der **ohne** Org ganz übersprungen wird |
+| `inline-rolle` | 3 | Rechte-/Rollenprüfung im Handler, mit Rückfall auf die eigenen Daten |
+| `eigene-daten` | 3 | Schlüssel ist der Mensch, die Org ist Kontext |
+
+**Kein Eintrag ist ein BEFUND geworden** — jeder der vierzehn trägt eine Bindung, die auch
+bei *fehlender* Org sperrt statt durchzulassen.
+
+**Die Gegenrichtung ist mitgeprüft.** Eine Ausnahme, die stehen bleibt, nachdem der Weg eine
+erkennbare Wache bekommen hat, färbt ebenfalls rot — sie behauptete sonst dauerhaft ein
+Urteil, das niemand mehr fällen muss. Dasselbe Muster wie `ohne_einplanung` bei den Takten
+(M1.9). Ebenso rot: ein Wach-Name in der Ableitung, den keine Kette mehr trägt.
+
+*Verifikation: 6 Proben in `api/test/wachenWaechter.test.js` (Abschnitt A2), darunter eine
+Selbstprobe, dass die Ableitung eine Wache **erkennt** und keine **erfindet**; acht
+Rückmutationen, jede gefangen.*
+
 ### M3.1 ist gebaut *(2026-09-04)* — der Knopf versprach zehn und lud sieben ein
 
 M3.1 sah erledigt aus: Vorschau da, Ein-Klick-Knopf da, und M3.2 hatte den Versand bereits

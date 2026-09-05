@@ -3303,5 +3303,120 @@
     "wege": 468,
     "berechtigung": 164,
     "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-22 von 415 auf 416 erhoeht: Abschnitt 10 hat mit `POST /support-requests` den Weg eines Kunden INS Support Center angelegt — vorher hatte `support_cases` im gesamten Repo kein einziges INSERT, das Support Center war ein Lesesaal ueber einer Tabelle, die niemand fuellen konnte. Die Wachart bleibt `eigene-daten`: der Melder kommt aus der Sitzung, nicht aus dem Anfragekoerper. Am 2026-08-22 weiter auf 417: `POST /offers/:id/report` (Abschnitt 10, Inhalte melden). `berechtigung` unveraendert bei 161. Am 2026-08-23 von 418 auf 417 GESENKT: `POST /reports` wurde nach Owner-Entscheid ENTFERNT (0 Aufrufer, 0 Zeilen; Migration 191). Eine Route, die es nicht mehr gibt, kann nicht bewacht werden — stattdessen haelt eine Probe fest, dass sie nicht zurueckkehrt. Am 2026-08-24 weiter auf 419: `PATCH /staff-access/:userId/role` (Rollen vergeben, Owner-Entscheid). `berechtigung` unveraendert bei 161. Am 2026-08-24 sprunghaft auf 456: der Waechter montierte pro Datei nur die ERSTE `create*Router`-Fabrik. `staffControlCenter.js` exportiert zwei — die Auth-Fabrik (1 Weg) steht vor der Center-Fabrik (50 Wege). Die gesamte schreibende Flaeche des Staff Control Center war damit fuer das Bestandsbuch blind. Der Waechter montiert jetzt alle Fabriken. Am 2026-08-26 von 470 auf 465 GESENKT: die fünf Wege von timesheetTemplates.js wurden nach Owner-Entscheid ENTFERNT, zusammen mit Route, Dienst und Oberfläche. Grund war kein Aufräumen, sondern ein Totalausfall: der Dienst fragte timesheet_templates.is_default ab — eine Spalte, die dort nicht existiert (sie liegt auf timesheet_template_assignments, Migration 033). Auflisten UND Anlegen warfen, die Tabelle hatte deshalb dauerhaft 0 Zeilen, und ein blosses catch in timesheetService.js verschluckte den SQL-Fehler. Die drei Tabellen bleiben stehen. `berechtigung` unverändert bei 162 — die fünf Wege waren `flaechentor`, kein einziger war per Berechtigung bewacht. Am 2026-08-31 von 467 auf 468 erhoeht: Welle K1 hat mit `POST /rabatt-eingriff` den Eingriffspunkt in die Rabatt-Automatik angelegt — der einzige Weg, auf dem ein Mensch den automatisch ermittelten Rabatt eines Kunden veraendern kann. Er traegt dieselbe Kette wie der Rabatt-Katalog (Staff-Tor, Step-up HOCH, Bestaetigung mit Pflichtbegruendung) und zusaetzlich die strukturellen Riegel aus Plan-Abschnitt 3a, weil es keine zweite Staff-Rolle gibt und ein Vier-Augen-Prinzip damit dauerhaft blockiert waere."
+  },
+  "lesen": {
+    "zweck": "M2.3 — die LESENDEN Wege. Anders als bei den schreibenden steht hier NICHT jeder Weg einzeln: 457 von 471 lassen sich aus der montierten Middleware-Kette ableiten (`wachen` unten). Ein Register, das 457 Zeilen wiederholt, was ohnehin im Code steht, wird nicht gepflegt — und die 14 echten Urteile verschwinden darin. Eingetragen ist deshalb, was die Ableitung NICHT entscheiden kann.",
+    "wachen": {
+      "_zweck": "Wach-Name (wie er in der MONTIERTEN Kette heisst) -> Wachart. Jede Zeile ist ein Urteil, aber ein einmaliges: es gilt fuer alle Wege, die diese Wache tragen. Eine Wache ohne Namen kann hier nicht stehen — genau deshalb tragen seit M2.7 und M2.3 alle einen (`requirePermissionMiddleware`, `requireScopeMiddleware`, …).",
+      "requirePermissionMiddleware": "berechtigung",
+      "requireInternalPermissionMiddleware": "berechtigung",
+      "requireScopeMiddleware": "berechtigung",
+      "nurMitGeldberechtigung": "berechtigung",
+      "staffControlAccess": "flaechentor",
+      "requireCompanyOrgMiddleware": "flaechentor",
+      "requireAgencyOrgMiddleware": "flaechentor",
+      "verweigereArbeiterMiddleware": "flaechentor",
+      "requireAdmin": "flaechentor",
+      "requireWorkerRole": "flaechentor",
+      "requireAgencyRole": "flaechentor",
+      "requireRoleMiddleware": "flaechentor",
+      "requireSsoAdminAccess": "flaechentor",
+      "scimGate": "flaechentor",
+      "requireCompanySubmission": "flaechentor",
+      "ensureOrg": "flaechentor",
+      "sameOrgParam": "besitz"
+    },
+    "ausnahmen": [
+      {
+        "datei": "activityFeed.js",
+        "pfad": "/activity-feed",
+        "wachart": "inline-rolle",
+        "begruendung": "Der Handler ruft `checkPermission(pool, userId, orgId, ORG_FEED_PERMISSION)` selbst. OHNE dieses Recht faellt die Abfrage auf `{ actor_id: eigene Kennung }` zurueck — es gibt keinen Zweig, der ohne Pruefung org-weit liest."
+      },
+      {
+        "datei": "approvals.js",
+        "pfad": "/approvals/my-pending",
+        "wachart": "inline-rolle",
+        "begruendung": "Jede org-gebundene Teilabfrage steht hinter `approvalRoles.includes(req.orgRole)` bzw. `submissionRoles.includes(...)`; ohne die Rolle wird der Block uebersprungen. Die uebrigen Teilabfragen filtern auf `worker_user_id = eigene Kennung`."
+      },
+      {
+        "datei": "me.js",
+        "pfad": "/me/memberships",
+        "wachart": "eigene-daten",
+        "begruendung": "`getUserMemberships(pool, req.session.userId)` — der Schluessel ist der Mensch. `req.orgId` wird nur als `active_org_id` ZURUECKGEGEBEN und ist kein Filter."
+      },
+      {
+        "datei": "me.js",
+        "pfad": "/me/onboarding-status",
+        "wachart": "eigene-daten",
+        "begruendung": "Schluessel ist `req.session.userId`; die Org dient nur der Tarif-Ermittlung."
+      },
+      {
+        "datei": "onboarding.js",
+        "pfad": "/onboarding/status",
+        "wachart": "eigene-daten",
+        "begruendung": "`getOnboardingStatus(pool, userId, { orgId })` — der Schluessel ist der Mensch, die Org ist Kontext."
+      },
+      {
+        "datei": "search.js",
+        "pfad": "/search",
+        "wachart": "besitz",
+        "begruendung": "Gemischt, und das ist Absicht: der Marktplatz-Teil ist org-uebergreifend (dafuer gibt es ihn). Der ORG-PRIVATE Teil — `requisitions` — haengt an `org_id = viewerOrgId` und wird OHNE Org ganz uebersprungen (`!viewerOrgId ? null : {...}`, danach `if (!d) continue`). Fail-closed."
+      },
+      {
+        "datei": "strategicCollaboration.js",
+        "pfad": "/strategic-collaboration/eligibility",
+        "wachart": "eigene-daten",
+        "begruendung": "Berechnet die Eignung der EIGENEN Org aus `me` und `req.orgId`. Es gibt keinen Weg, eine fremde Org zu benennen."
+      },
+      {
+        "datei": "strategicCollaboration.js",
+        "pfad": "/strategic-collaboration/requests",
+        "wachart": "inline-rolle",
+        "begruendung": "`if (!isOrgBackofficeRole(req.orgRole)) return 403` steht vor der Abfrage, und die filtert auf `org_id: req.orgId`. Ohne Org: 400 ORG_REQUIRED."
+      },
+      {
+        "datei": "subscriptionDocuments.js",
+        "pfad": "/subscription-documents/:id",
+        "wachart": "besitz",
+        "begruendung": "Der Handler laedt die Zeile und vergleicht `row.org_id` mit `req.orgId`; Abweichung oder fehlende Org -> 403 FORBIDDEN_CROSS_ORG. Fail-closed."
+      },
+      {
+        "datei": "subscriptionDocuments.js",
+        "pfad": "/subscription-documents/:id/download",
+        "wachart": "besitz",
+        "begruendung": "Wie `/subscription-documents/:id`: `row.org_id !== req.orgId` -> 403 FORBIDDEN_CROSS_ORG, vor dem Ausliefern der Datei."
+      },
+      {
+        "datei": "subscriptionRequests.js",
+        "pfad": "/subscription-requests/:id",
+        "wachart": "besitz",
+        "begruendung": "`if (!orgId || String(row.org_id) !== String(orgId)) return 403 FORBIDDEN_CROSS_ORG` — die fehlende Org sperrt mit, nicht durch."
+      },
+      {
+        "datei": "subscriptionRequests.js",
+        "pfad": "/subscription-requests/:id/history",
+        "wachart": "besitz",
+        "begruendung": "Derselbe Vergleich wie bei `/subscription-requests/:id`, vor dem Verlauf."
+      },
+      {
+        "datei": "supplierPools.js",
+        "pfad": "/supplier-pools/distribution/:requisitionId",
+        "wachart": "besitz",
+        "begruendung": "`getDistributionPlan` verbindet ueber `JOIN requisitions r ON r.id = ds.requisition_id AND r.org_id = $2` — eine fremde Anforderung liefert leer. Ohne Org kehrt der Dienst vorher um (`if (!orgId) return { stages: [] }`)."
+      },
+      {
+        "datei": "supplierPools.js",
+        "pfad": "/supplier-pools/distribution/:requisitionId/eligible",
+        "wachart": "besitz",
+        "begruendung": "Ruft denselben `getDistributionPlan` mit `req.orgId` — dieselbe Bindung an die Anforderung der eigenen Org."
+      }
+    ],
+    "grundlinie": {
+      "wege": 471,
+      "abgeleitet": 457,
+      "ausnahmen": 14,
+      "hinweis": "Sperrklinke fuer die lesende Seite. `ausnahmen` darf FALLEN (eine Route bekommt eine erkennbare Wache), nicht steigen ohne Eintrag: jeder lesende Weg, den die Ableitung nicht entscheiden kann und der nicht hier steht, faerbt den Waechter rot. Gemessen am 2026-09-05."
+    }
   }
 }
