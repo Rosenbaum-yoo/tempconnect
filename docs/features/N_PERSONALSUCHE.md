@@ -88,7 +88,7 @@ Zeitarbeitsfirma: **wen soll ich als Nächstes einstellen?**
 |---|---|---|---|
 | 1 | **Was suchst du?** | `skill_tags` | **Anklickbar aus dem Katalog** (`GET /skills/catalog`), Mehrfachauswahl, Suchfeld mit Vorschlägen. **Kein Freitext.** Findet der Kunde seinen Begriff nicht, wird er auf den nächstliegenden Katalogeintrag geführt — nicht abgewiesen |
 | 2 | **Wie viele?** | `headcount` | Zahl. Ab 2 wird gebündelt (4.2) |
-| 3 | **Von wann bis wann?** | `start_date`, `end_date` | Bei kurzem Vorlauf erscheint der **Notdienst-Hinweis** (4.4) |
+| 3 | **Von wann bis wann?** | `start_date`, `end_date` | **Dieses Feld entscheidet den Notdienst — es gibt keine fünfte Frage.** Owner-Vorgabe 2026-09-05: tagesgenau, Beginn in **höchstens zwei Tagen** = Notdienst, alles andere nicht (4.4) |
 | 4 | **Wie teuer einzeln?** | `budget_min`, `budget_max` | **Mit Preisvorschlag aus `smartPricing`**, abhängig von Rolle, Region und Dringlichkeit. Der Vorschlag ist ein Vorschlag, keine Vorgabe |
 
 **Ort:** kommt aus dem Standortkontext des Unternehmens, wird nicht erneut gefragt — er
@@ -101,8 +101,23 @@ steht bereits fest, wenn jemand sucht. Abweichender Einsatzort ist eine Option, 
 | **Mehrere** (`headcount > 1`) | **Ein Bündel**, das die gesuchte Menge deckt — quer über Zeitarbeitsfirmen. Mit Preis je Firma und Gesamtpreis. *(Das ist der Korb aus M5)* |
 | **Einzelne** (`headcount = 1`) | **Profile einzeln**, mit Merkmalen und Herkunftskennzeichnung |
 
-**In beiden Fällen ausgeschlossen: die bei diesem Unternehmen gesperrten Kräfte.** Heute
-greift die Sperre **erst beim Buchen** — der Kunde sieht also Menschen, die er gar nicht
+**In beiden Fällen ausgeschlossen: die bei DIESEM Unternehmen gesperrten Kräfte.**
+
+> **Owner-Vorgabe 2026-09-05, und sie ist eine Bauvorgabe:** *„gesperrt unsichtbar bei der
+> zutreffenden Firma — nur weil eine Firma sich beschwert hat, kann er ja trotzdem in einer
+> anderen Firma eingesetzt werden."*
+>
+> Die Unsichtbarkeit ist **kundenbezogen, nie global.** Wer bei einem Kunden gesperrt ist,
+> steht bei jedem anderen unverändert im Markt. Eine Sperre ist kein Urteil über den
+> Menschen.
+>
+> **Die Falle dabei:** der Feed hat seit Welle K4 eine **Kopie der letzten guten Liste**, und
+> die ist ausdrücklich die **ungefilterte** erste Seite. Wird der Filter in die Kopie
+> hineingebaut, trägt ein Kunde seine Sperren in die Ansicht aller anderen. **Der Filter
+> gehört hinter die Kopie, nicht davor.** Rückmutation: Sperre bei Kunde A setzen → Kunde B
+> sieht die Kraft unverändert.
+
+**Heute greift die Sperre erst beim Buchen** — der Kunde sieht also Menschen, die er gar nicht
 buchen kann. Das dreht N4 um: **gesperrt heißt unsichtbar**, nicht „abgewiesen beim Klick".
 
 ### 4.3 Die Bestätigung
@@ -117,14 +132,26 @@ Der Server prüft die Wünsche bereits gegen das Angebot (`marktplatzBuchungServ
 Zeitraum in der Vergangenheit, Zeitraum außerhalb des Angebots, Preis außerhalb des
 Rahmens). **Was fehlt, ist der Schritt davor** — der Mensch sieht, was er gleich auslöst.
 
-### 4.4 Der Notdienst-Hinweis
+### 4.4 Der Notdienst wird abgeleitet, nicht gefragt
 
-Die Stufe existiert (`urgency: 'notdienst'`), und der Notdienst-Weg ist der **einzige** im
-System, der Teilzusagen und Überfüllungsschutz bereits richtig kann. Er hat nur keine
-Oberfläche — **sieben auditierte Endpunkte ohne einen einzigen Aufrufer.**
+> **Owner-Vorgabe 2026-09-05:** *„taggenau ist besser, dann braucht der Notdienst nicht extra
+> angegeben werden. Wenn er sagt Einsatz ab morgen, ist es Notdienst; wenn er sagt Einsatz in
+> 2 Tagen, ist es auch Notdienst; alles andere nicht Notdienst."* Und: *„ganz einfach mit der
+> Abfrage ab wann in den Suchfeldern kann das passieren."*
 
-Der Hinweis erscheint **nicht als Werbebanner**, sondern wenn der Zeitraum ihn nahelegt:
-*„Beginn in 18 Stunden — als Notdienst suchen? Dann werden Teilzusagen sofort sichtbar."*
+**Die Regel:** `start_date` minus heute **≤ 2 Tage** → Notdienst. Sonst nicht.
+Keine fünfte Frage, kein Häkchen, keine Möglichkeit, es falsch zu setzen.
+
+**Tagesgenau heisst `Europe/Berlin`.** Kein roher UTC-Schnitt — `todayDE()`, wie die
+Systemzeit-Regel aus Welle F es verlangt. Ein Off-by-one entscheidet hier ueber die
+Einstufung eines Auftrags, nicht ueber eine Anzeige.
+
+**Sichtbar im Feld, nicht in einem Banner.** Wer ein Datum in Reichweite einträgt, sieht
+sofort: „Beginn in 18 Stunden — das ist ein Notdienst. Teilzusagen werden sofort sichtbar."
+
+Der Notdienst-Weg ist der **einzige** im System, der Teilzusagen und Überfüllungsschutz
+bereits richtig kann. Er hat nur keine Oberfläche — **sieben auditierte Endpunkte ohne einen
+einzigen Aufrufer.**
 
 ### 4.5 Nach dem verbindlichen Abschluss
 
@@ -215,7 +242,12 @@ N1  Katalog beidseitig     ← ohne das findet nichts zueinander
  └── N7  Der Wow für die Firma ← unabhängig, jederzeit vorziehbar
 ```
 
-**Empfohlen: N1 → N4 → N2 → N3 → N5 → N6, N7 begleitend.**
+**Empfohlen — geändert durch Owner-Vorgabe 2026-09-05: N7 ZUERST.**
+`N7 → N1 → N4 → N2 → N3 → N5 → N6`
+
+> **Warum N7 vorne steht:** es hängt an nichts, und es macht **zwei fertige Motoren**
+> sichtbar, die heute niemandem etwas sagen. Der schnellste sichtbare Fortschritt im ganzen
+> Plan — und der einzige Teil, der **beiden Seiten sofort** etwas gibt.
 
 > **N7 darf vorgezogen werden, sobald es hakt.** Es hängt an nichts und liefert zwei
 > Motoren, die schon fertig sind — der schnellste sichtbare Fortschritt im ganzen Plan.
