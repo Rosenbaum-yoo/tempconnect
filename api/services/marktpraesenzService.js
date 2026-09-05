@@ -88,6 +88,155 @@ const AGENTUR_NUTZER_SQL = `
  * Vorrang und wird von der Maschine NICHT bestaetigt — dort ist die
  * Bestaetigungspflicht gewollt.
  */
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DIE BEDINGUNGEN, UNTER DENEN JEMAND IM MARKT ERSCHEINT (N7.3, 2026-09-05)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Sie standen bisher nur in der WHERE-Klausel der Materialisierung. Damit gab
+ * es KEINE Moeglichkeit zu sagen, WARUM jemand fehlt — und gemessen fehlten 30
+ * von 33 Kraeften. Die Firma sah eine leere Liste und keinen Grund.
+ *
+ * DER GRUND, WARUM SIE HIER STEHEN UND NICHT IN EINER ZWEITEN ABFRAGE:
+ * Eine Diagnose, die ihre Bedingungen selbst formuliert, laeuft von der
+ * Materialisierung weg — und dann sagt sie "alles in Ordnung", waehrend der
+ * Mensch unsichtbar bleibt. Das waere derselbe Fehler wie die beiden
+ * Katalog-Tore aus M4b.1, nur eine Ebene hoeher und schwerer zu bemerken:
+ * hier wuerde die Abweichung niemandem auffallen, weil beide Seiten fuer sich
+ * plausibel aussehen.
+ *
+ * Beides — die WHERE-Klausel und die Diagnose — wird deshalb AUS DIESER LISTE
+ * gebaut. Ein neuer Eintrag wirkt sofort auf beiden Seiten; einer, der nur auf
+ * einer wirkt, ist nicht moeglich.
+ *
+ * `wer` sagt, WEN es betrifft — das entscheidet, wo der Hinweis erscheint und
+ * wer ihn beheben kann (M4.9: was der Mensch selbst ausfuellen kann, wird
+ * Pflicht; was ein Zustand ist, wird erklaert).
+ */
+export const PRAESENZ_BEDINGUNGEN = Object.freeze([
+  {
+    schluessel: "profil_inaktiv",
+    sql: "wp.is_active = TRUE",
+    wer: "firma",
+    grund: "Das Profil ist nicht aktiv.",
+    hinweis: "Ein bewusst gesetzter Zustand — kein Versehen, solange es so gewollt ist."
+  },
+  {
+    schluessel: "marktpraesenz_aus",
+    sql: "wp.marktpraesenz_deaktiviert = FALSE",
+    wer: "firma",
+    grund: "Die Marktpraesenz ist abgeschaltet.",
+    hinweis: "Ein Klick auf \u201eIm Marktplatz zeigen\u201c schaltet sie wieder ein."
+  },
+  {
+    schluessel: "kein_wohnort",
+    sql: "wp.city IS NOT NULL AND wp.city <> ''",
+    wer: "mensch",
+    grund: "Es ist kein Wohnort hinterlegt.",
+    hinweis: "Ohne Ort gibt es nichts zu rechnen — die haeufigste stille Ursache."
+  },
+  {
+    schluessel: "heute_abwesend",
+    sql: `NOT ${abwesendHeuteSql("wp.id")}`,
+    wer: "zeitlich",
+    grund: "Heute abwesend.",
+    hinweis: "Gewollt: wer krank ist, soll nicht angeboten werden. Loest sich von selbst."
+  },
+  {
+    schluessel: "kein_agentur_nutzer",
+    sql: `(${AGENTUR_NUTZER_SQL}) IS NOT NULL`,
+    wer: "organisation",
+    grund: "Die Organisation hat kein nicht-arbeitendes Mitglied.",
+    hinweis: "Ein Datenproblem der Firma, nicht der Person: dem Angebot fehlt der Absender."
+  },
+  {
+    schluessel: "keine_freigegebene_faehigkeit",
+    sql: `EXISTS (
+       SELECT 1 FROM worker_profile_skills wps2
+        JOIN platform_skills ps2 ON ps2.id = wps2.skill_id AND ${katalogTorSql("ps2")}
+       WHERE wps2.worker_profile_id = wp.id
+     )`,
+    wer: "mensch",
+    grund: "Keine freigegebene Katalog-Faehigkeit.",
+    hinweis: "Ein Vorschlag zaehlt nicht — er wartet auf Kuratierung (M4b.3)."
+  }
+]);
+
+/** Die WHERE-Klausel der Materialisierung, aus derselben Liste. */
+function praesenzWhereSql() {
+  return PRAESENZ_BEDINGUNGEN.map((b) => `(${b.sql})`).join("\n     AND ");
+}
+
+/**
+ * "Deine Kraefte, die niemand findet" (N7.3).
+ *
+ * Je Mensch der Organisation: welche der sechs Bedingungen ist NICHT erfuellt.
+ * Gemessen am 2026-08-26 waren 30 von 33 Kraeften unsichtbar — die Firma sah
+ * eine leere Liste und keinen Grund.
+ *
+ * DIE ABFRAGE WIRD AUS `PRAESENZ_BEDINGUNGEN` GEBAUT, Bedingung fuer Bedingung.
+ * Sie kann deshalb nicht von der Materialisierung abweichen: beide lesen
+ * dieselbe Liste. Eine handgeschriebene zweite Fassung waere hier besonders
+ * gefaehrlich, weil eine Abweichung niemandem auffiele — die Diagnose saehe
+ * plausibel aus und waere falsch.
+ *
+ * GEZEIGT WIRD, WER FEHLT — nicht, wer da ist. Wer alle sechs erfuellt, steht
+ * im Markt und braucht keine Zeile. Die Liste ist damit von selbst kurz und
+ * wird auch bei 300 Kraeften gelesen.
+ *
+ * @param {import('pg').Pool} pool
+ * @param {string} supplierOrgId
+ * @param {{limit?: number}} [opts]
+ * @returns {Promise<Array<{worker_profile_id, name, gruende: Array<{schluessel, grund, hinweis, wer}>}>>}
+ */
+export async function unsichtbareKraefte(pool, supplierOrgId, opts = {}) {
+  if (!supplierOrgId) return [];
+  const limit = Math.min(500, Math.max(1, Number(opts.limit) || 200));
+
+  /* Je Bedingung eine Spalte: TRUE heisst erfuellt. Die Auswertung erfolgt
+     danach in JavaScript — so steht die Bedeutung an EINER Stelle (der Liste)
+     und nicht verteilt ueber SQL-Ausdruecke und Anzeigetexte. */
+  const spalten = PRAESENZ_BEDINGUNGEN
+    .map((b, i) => `(${b.sql}) AS b${i}`)
+    .join(",\n           ");
+
+  const { rows } = await pool.query(
+    `SELECT wp.id AS worker_profile_id,
+            TRIM(COALESCE(wp.first_name, '') || ' ' || COALESCE(wp.last_name, '')) AS name,
+            ${spalten}
+       FROM worker_profiles wp
+      WHERE wp.supplier_org_id = $1
+      ORDER BY wp.last_name NULLS LAST, wp.first_name NULLS LAST
+      LIMIT $2`,
+    [supplierOrgId, limit]
+  );
+
+  const offen = [];
+  for (const zeile of rows) {
+    const gruende = PRAESENZ_BEDINGUNGEN
+      .map((b, i) => (zeile[`b${i}`] === true ? null : {
+        schluessel: b.schluessel, grund: b.grund, hinweis: b.hinweis, wer: b.wer
+      }))
+      .filter(Boolean);
+    if (!gruende.length) continue;      // steht im Markt — keine Zeile noetig
+    offen.push({
+      worker_profile_id: zeile.worker_profile_id,
+      name: zeile.name || null,
+      gruende
+    });
+  }
+
+  /*
+   * Was der Mensch oder die Firma BEHEBEN kann, steht oben — vor dem, was sich
+   * von selbst loest (Abwesenheit) oder bewusst so gesetzt ist. Sonst liest die
+   * Firma zuerst drei Krankmeldungen und hoert auf zu scrollen, bevor sie den
+   * fehlenden Wohnort sieht.
+   */
+  const RANG = { mensch: 0, organisation: 1, firma: 2, zeitlich: 3 };
+  const gewicht = (e) => Math.min(...e.gruende.map((g) => RANG[g.wer] ?? 9));
+  return offen.sort((a, b) => gewicht(a) - gewicht(b) || b.gruende.length - a.gruende.length);
+}
+
 const MATERIALISIEREN_SQL = `
   INSERT INTO capacity_posts (
     supplier_company_id, title, role, skill_tags, headcount,
@@ -106,11 +255,7 @@ const MATERIALISIEREN_SQL = `
     FROM worker_profiles wp
     JOIN worker_profile_skills wps ON wps.worker_profile_id = wp.id
     JOIN platform_skills ps ON ps.id = wps.skill_id AND ${katalogTorSql('ps')}
-   WHERE wp.is_active = TRUE
-     AND wp.marktpraesenz_deaktiviert = FALSE
-     AND wp.city IS NOT NULL AND wp.city <> ''
-     AND NOT ${abwesendHeuteSql("wp.id")}
-     AND (${AGENTUR_NUTZER_SQL}) IS NOT NULL
+   WHERE ${praesenzWhereSql()}
      AND NOT EXISTS (
        SELECT 1 FROM capacity_posts cp
         WHERE cp.worker_profile_id = wp.id

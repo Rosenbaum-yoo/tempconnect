@@ -924,6 +924,27 @@ export function createWorkersRouter(deps) {
    * (Ruecknahme bzw. Wiederkehr der eigenen Angebote) — wer abschaltet, wartet
    * nicht auf den Cron-Takt. Org-gebunden im Schreibvorgang selbst
    * (supplier_org_id in der WHERE-Klausel), fremdes Profil = 404. */
+  /**
+   * GET /workers/marktpraesenz/unsichtbar — "deine Kraefte, die niemand findet" (N7.3)
+   *
+   * Je Mensch der eigenen Organisation: welche der sechs Bedingungen fehlt.
+   * Gemessen am 2026-08-26 waren 30 von 33 Kraeften unsichtbar — die Firma sah
+   * eine leere Liste und keinen Grund.
+   *
+   * `worker.view` genuegt: die Antwort nennt ausschliesslich Menschen der
+   * EIGENEN Org (der Dienst bindet auf `wp.supplier_org_id = $1`) und enthaelt
+   * keine Marktdaten Dritter. Wer die Belegschaft sehen darf, darf auch sehen,
+   * warum jemand aus ihr nicht im Markt steht.
+   */
+  router.get("/workers/marktpraesenz/unsichtbar", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
+    try {
+      const items = await marktpraesenzService.unsichtbareKraefte(pool, req.orgId, {
+        limit: parseInt(req.query.limit, 10) || 200
+      });
+      res.json({ items, total: items.length });
+    } catch (err) { next(err); }
+  });
+
   router.post("/workers/:profileId([0-9a-fA-F-]{36})/marktpraesenz", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       const deaktiviert = req.body?.deaktiviert === true;
