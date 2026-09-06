@@ -134,6 +134,11 @@ vorsieht. Wer hier aufräumt, löscht geplante Fähigkeiten.
 | Der Notdienst-Router (7 Endpunkte) | `routes/emergency.js` | kein Frontend-Aufrufer | **N7.4** / **M10.7** — der Leitstand |
 | `negotiate-deal` auf der Buchungsfläche | `marketplace.js:769` | Aufrufer nur auf anderer Seite | **N5.3** — „Anfrage senden" als dritter Ausgang |
 
+| Der tote Paywall-Schlüssel `sla_access` | ~20 Seiten | ist für **jeden** Plan wahr — der fertige, übersetzte Paywall-Block kann **nie** erscheinen | **M1.5** / **M-E2** — je Seite ein eigener Erstellungs-Schlüssel. **Vorsicht:** der naheliegende Ersatz `capacity_exchange_basic` ist ebenfalls für alle Pläne offen — ein Ein-Wort-Fix wäre ein No-op |
+| `compliance_documents` mit `doc_type = 'aueg_erlaubnis'` | Mig 019:245 | wird von **keinem** Marktplatz-, Kapazitäts- oder Vertragspfad gelesen | **M9.1** / **O1.4** — die Verleiherlaubnis als harte Bedingung |
+| `notifyWorkerDocumentExpiring` / `...Expired` | `workerNotificationService.js:346/361` | verdrahtet ab `internal.js:481` — aber der Takt lief nie | **M1** — der Herzschlag; die Aufgabe ist eine der zehn stillen |
+| `temp_to_perm` | `capacityExchange.js:50`, `marketplace.js:65` | existiert nur als Aufzählungswert und Beschriftung; „Übernahmegebühr“ hat **null** Treffer | **M8.3** — die Übernahme durch den Kunden |
+
 > **Merksatz für diese Klasse:** *Ein Endpunkt ohne Aufrufer ist kein Müll, solange ein Plan
 > ihn vorsieht. Er ist eine halbe Lieferung.*
 
