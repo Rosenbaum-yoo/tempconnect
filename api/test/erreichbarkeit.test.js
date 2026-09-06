@@ -90,8 +90,24 @@ function liesRegister(text) {
     const spalten = zeile.split("|").map((z) => z.trim());
     // ["", Seite, …, Zustand, ""]
     if (spalten.length < 4) continue;
-    const name = (spalten[1].match(/^`([a-zA-Z0-9_.-]+\.html)`$/) || [])[1];
-    if (!name) continue;
+    /*
+     * BEFUND 2026-09-06: dieses Muster liess KEINEN Schraegstrich zu. Die
+     * Tabellen nennen die Seite aber mal blank (`about.html`), mal mit Pfad
+     * (`frontend/public/about.html`) - beides liest sich gleich gut, und beides
+     * kommt vor. Gezaehlt wurden 84 blanke und 17 mit Pfad; die 17 hat dieser
+     * Waechter uebersprungen, darunter fuenf LEBENDE Seiten direkt unter
+     * `frontend/public/`: pricing, about, onepager, onboarding, whats-new.
+     *
+     * Fuer die Zusage "kein Feature, das nur seine URL kennt" gab es diese fuenf
+     * schlicht nicht. Und das Uebersehen war lautlos: die Probe unten prueft
+     * `register.size >= 50`, und 84 erreichen die Schwelle muehelos.
+     *
+     * Aufgeschluesselt wird jetzt nach DATEINAME, gleich welche Schreibweise die
+     * Zeile waehlt.
+     */
+    const roh = (spalten[1].match(/^`([a-zA-Z0-9_.\-/]+\.html)`$/) || [])[1];
+    if (!roh) continue;
+    const name = roh.slice(roh.lastIndexOf("/") + 1);
     const zustand = spalten[spalten.length - 2].toLowerCase();
     karte.set(name, { zustand, zeile });
   }
@@ -165,6 +181,39 @@ describe("Erreichbarkeit — keine Seite, die nur ihre URL kennt",
       + "\n\nEntweder in die Navigation (frontend/public/js/pageShell.js) eintragen, "
       + "von einer Seite aus verlinken, oder im Register begruenden "
       + "(\"bewusst ohne Navigation\").");
+  });
+
+  it("er liest AUCH Zeilen, die den Pfad mitschreiben", () => {
+    /*
+     * SELBSTTEST zum Befund vom 2026-09-06. Ohne ihn faellt ein Rueckbau des
+     * Musters nicht auf: die Karte bliebe gross genug, um die Schwelle oben zu
+     * nehmen, und die uebersprungenen Seiten waeren wieder unsichtbar.
+     *
+     * Geprueft wird an echten Zeilen des Registers, nicht an erfundenen - eine
+     * erfundene Zeile beweist nur, dass die Zerlegung funktioniert, nicht dass
+     * sie auf das PASST, was wirklich dort steht.
+     */
+    const { register } = lage();
+    for (const seite of ["about.html", "onepager.html", "whats-new.html",
+                         "pricing.html", "onboarding.html"]) {
+      assert.ok(register.has(seite),
+        `${seite} steht im Register (mit Pfad geschrieben), der Waechter sieht sie aber nicht`);
+    }
+  });
+
+  it("jede lebende Seite unter frontend/public taucht im Register auf", () => {
+    /*
+     * Die Gegenrichtung zur Kernpruefung: `unerreichbare()` ueberspringt eine
+     * Seite, die das Register gar nicht kennt (dafuer ist `dokuWaechter` da).
+     * Diese Probe haelt fest, dass es solche Seiten nicht gibt - sonst waere die
+     * Zusage dieses Waechters an eine Buchfuehrung geknuepft, die er selbst nicht
+     * prueft.
+     */
+    const { register, seiten } = lage();
+    const unbekannt = seiten.filter((s) => !register.has(s));
+    assert.deepEqual(unbekannt, [],
+      "Diese Seiten gibt es, aber keine Registerzeile nennt sie — fuer die "
+      + "Erreichbarkeitspruefung existieren sie damit nicht: " + unbekannt.join(", "));
   });
 
   it("die Monatsplanung steht in der Navigation — nicht nur in einem Verweis", () => {

@@ -2,6 +2,184 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-05 — Der Notdienst: neun fertige Endpunkte ohne Aufrufer, zwei Befunde dahinter (N7.4)
+
+**Status:** erledigt (ein Punkt bleibt Owner-Entscheidung, siehe Offene Blocker) ·
+**Kategorie:** Rollen-Logik + Produktausbau
+
+**Fakt.** `api/routes/emergency.js` trägt elf fertige, auditierte Endpunkte. Gemessen am
+2026-09-05 riefen die Oberflächen davon **zwei** auf — beide `:id/commitments`, einmal
+lesend, einmal schreibend. (Der Plan sprach von sieben; die erste Messung sagte elf. Beide
+Zahlen waren falsch: die zwei echten Aufrufe setzen ihren Pfad aus Teilen zusammen und
+fielen durch ein Muster, das den ganzen Pfad suchte.)
+
+Neun waren gebaut, geprüft und unerreichbar — darunter **der einzige Weg, eine Teilzusage
+zurückzunehmen**. Eine Agentur, die drei Leute zugesagt und sie verloren hatte, konnte das
+nirgends sagen; das Unternehmen rechnete weiter mit dreien und merkte es am Einsatztag.
+
+**Zwei Befunde, die nur deshalb so lange standen, weil niemand die Endpunkte benutzte:**
+
+* **`POST /emergency/:id/escalate` hatte keine Eigentumsprüfung** — weder in der Route noch
+  im Dienst. `escalateEmergency` nimmt `actorId` entgegen, protokolliert sie und vergleicht
+  sie nie mit `requester_company_id`. Jeder Angemeldete mit `emergency_staffing` im Tarif
+  konnte jede fremde Notlage dreimal hochstufen; jede Stufe löst einen Rundruf an bis zu 50
+  Anbieter aus, **auch per E-Mail**, mit Titel, Rolle und Ort der fremden Notlage im Text.
+  Ein Schreibzugriff in einen fremden Vorgang, der zugleich ein Versandverstärker ist.
+  Dass es ein Versehen war, sagen die Nachbarn in derselben Datei: `/respond` prüft die
+  Rolle, `GET /:id/commitments` prüft `isRequester || isMatchedAgency`,
+  `dealAgreementService.js` schreibt den Grund sogar ausdrücklich hin. **Geschlossen** über
+  `canAccessAsOwner` (Organisations-Kolleginnen eingeschlossen, sonst wäre die Reparatur
+  bei Urlaub eine Verschlechterung).
+* **`?all=1` hebt die Org-Grenze auf** — offen, siehe Offene Blocker.
+
+**Sechs der neun verdrahtet.** `/active`, `/dashboard`, `/history`, `/:id/escalate`,
+`PATCH /commitments/:id`, `/:id/commitments/:cid/create-agreement`. Drei bleiben bewusst
+ohne Aufrufer: `POST /emergency/request` wäre ein **zweiter** Anlegeweg neben
+`marketplace_demand_create.html` (Parallelstruktur, von der Hausregel verboten);
+`GET /emergency/config` liefert die Dringlichkeitsstufen für genau dieses Formular und hat
+ohne es keinen Leser; `POST /:id/respond` wird heute schon **intern** von
+`POST /:id/commitments` gerufen und bräuchte als eigener Knopf eine Agentur-Fläche, auf der
+eine fremde offene Notlage sichtbar ist — die hängt an der `?all=1`-Entscheidung.
+
+**Geliefert.** `notdienst_leitstand.html` (Kennzahlen, offene Notlagen mit Alter, SLA-Stand
+und Deckung, Eskalation mit Wirkungsvorschau, Verlauf; Eingang aus
+`marketplace_demand_list.html`, im Register geführt) und die vollständigen Handlungen an der
+Teilzusage in `marketplace_demand_detail.html`: zurücknehmen, ablehnen, verbindlich machen —
+mit Pflichtbegründung, weil die Gegenseite genau diesen Satz liest.
+
+**Nebenbefund, mitgeschlossen:** `marketplace_demand_detail.html` hatte **kein `esc()`**.
+Anbietername und Freitext-Notizen (bis 1000 Zeichen, von der Gegenseite) gingen ungeprüft in
+`innerHTML`.
+
+**Dritter Befund, beim Eintragen ins Register gefunden:** der Erreichbarkeits-Wächter
+`api/test/erreichbarkeit.test.js` erkannte im Register nur Zeilen mit **blankem** Dateinamen.
+Die Tabellen schreiben die Seite aber mal blank, mal mit Pfad — 84 zu 17. Die 17 hat er
+übersprungen, darunter **fünf lebende Seiten** direkt unter `frontend/public/` (`pricing`,
+`about`, `onepager`, `onboarding`, `whats-new`). Für seine Zusage „kein Feature, das nur seine
+URL kennt" gab es diese fünf nicht, und es fiel nicht auf, weil seine Selbstprüfung
+`register.size >= 50` lautet. Behoben; zwei neue Proben. Keine der fünf war unerreichbar —
+der Wächter hatte nur nicht hingesehen.
+
+**Verifikation.** 31 Proben in `api/test/notdienstLeitstand.test.js` plus 2 in
+`api/test/erreichbarkeit.test.js`, **47 Rückmutationen, keine Überlebende**. Darunter eine Laufzeitprobe, die das Seitenskript wirklich ausführt
+(vm-Kontext, DOM-Attrappe, echte Antwortform) — sie hat eine Unsauberkeit gefunden, die
+keine Textprüfung sieht: der Code prüfte `window.TCDate` und rief danach das blanke
+`TCDate`. Im Browser gleichwertig, überall sonst nicht; vereinheitlicht.
+
+Drei Wächter-Proben mussten nach einer überlebenden Rückmutation **geschärft** werden — alle
+drei suchten ein Wort statt der Sache (`zeigeLaedtNichtMehr` enthält `zeigeLaedt`;
+`document.hidden` steht zweimal in der Datei).
+
+---
+
+### 2026-08-31 — Die Werbeprämie wurde gebucht und nie angewandt (K2.4–K2.7)
+
+**Status:** erledigt · **Kategorie:** Bug (Geld) · **Owner-Abschnitt 12.**
+
+**Fakt:** Die Werbe-Mechanik war seit jeher verdrahtet — `qualifyReferralReward`
+schreibt beim Zahlungseingang des Geworbenen eine `referral_rewards`-Zeile. Aber
+**keine einzige Datei des Geldpfads** (invoiceService, recurringBillingService,
+paymentService, planCatalog) erwähnte `referral` überhaupt. Der Kunde sah eine
+Gutschrift und zahlte den vollen Preis — dieselbe Fehlerklasse wie der
+Treue-Rabatt vor Migration 170: ein Preisversprechen ohne Wirkung.
+
+Dazu zwei Stellen, an denen der Code dem Owner-Entscheid vom 2026-08-27
+widersprach: `MAX_REFERRAL_REWARDS = 6` (entschieden: **3**) und die
+Qualifikation feuerte **sofort** statt nach **30 Tagen** Bestand.
+
+**Aktion:** Migration 209 (Katalogeintrag `werbe_cashback`, 100 %, deckel-frei)
+und `api/services/werbepraemieService.js`. Die Prämie fährt auf **derselben
+Schiene wie der Eingriff aus K1.4**: vor der Transaktion gelesen, darin
+verbraucht (mit Parallellauf-Riegel im WHERE), danach belegt. Karenz und Bestand
+des Geworbenen stehen **im WHERE** der einen Abfrage — kein Widerrufs-Job, der
+irgendwann nicht mehr läuft.
+
+**Verify:** `api/test/werbepraemie.test.js` (26 Proben), **16 Rückmutationen** an
+der Produktionsquelle — jede gefangen; `test/integration/rabattWirdSichtbar.flow.test.js`
+34/34 im Container. Die Rückmutationen aus K1 (14) und dem Gate (9) halten
+unverändert.
+
+**Aufwand:** halbe Sitzung.
+
+**Fund beim Bauen der eigenen Probe:** die erste Fassung von
+`praemienKonfiguration` fing den Datenbankfehler ab und meldete „Programm aus" —
+**ein Ausfall war nicht von einer Owner-Entscheidung zu unterscheiden.** Genau
+der Defekt, den K1.1 bei `getUserTier` gefunden hat, in neuem Code reproduziert
+und von der eigenen Probe gefangen.
+
+### 2026-08-31 — Der Freimonat haette den Kunden ausgesperrt (Gate K2.2)
+
+**Status:** erledigt · **Kategorie:** Bug (Geld/Lebenszyklus) · **Owner-Abschnitt 12.**
+
+**Fakt:** Welle K2 verspricht einen Werbe-Cashback (100 %, naechste Rechnung frei).
+Der Arbeitsplan macht daraus ein **Gate** — gemessen, bevor gebaut wird. Die
+Rechenkette trug die 0 EUR auf Anhieb; **drei andere Schichten nicht**:
+
+| Schicht | Befund |
+|---|---|
+| Tier-Deckelung | Diamant-Kunde bekam **25 % statt 100 %** (im Plan vorhergesagt) |
+| Katalog-Grenze | `discount_pct <= 20` — ein 100-%-Eintrag war **nicht anlegbar** |
+| **Lebenszyklus** | **Abo auf `past_due` → niemand zahlt 0 EUR → `applyRenewalPayment` hat KEINEN Aufrufer → nach 14 Tagen Hard-Lock auf DEMO** |
+| Mahnlauf | haette eine Zahlungserinnerung ueber **0,00 EUR** verschickt |
+
+Die letzten beiden treffen **jede** Rechnung, die auf null faellt — auch einen
+Eingriff nach K1.4, der die 100 % erreicht. Nicht nur den Cashback.
+
+**Aktion:** Migration 208 (`bounties.deckel_frei` + praezisere 20-%-Regel;
+`referral_rewards.faellig_ab/angewandt_am/rechnung_id`). Im Lauf: eine 0-EUR-
+Rechnung wird sofort als bezahlt gebucht und die Periode weitergerollt — **in
+derselben Transaktion** wie der Status-Flip. Der Mahnlauf filtert auf den Betrag.
+
+**Verify:** `api/test/nullEuroRechnung.test.js` (15 Proben), **9 Rueckmutationen**
+an der Produktionsquelle — jede gefangen; `test/integration/rabattWirdSichtbar.flow.test.js`
+26/26 im Container. K1s 14 Rueckmutationen halten unveraendert.
+
+**Aufwand:** halbe Sitzung.
+
+**Offen:** K2.4–K2.7. Dabei zwei Stellen, an denen der Bestandscode dem
+Owner-Entscheid widerspricht: `MAX_REFERRAL_REWARDS = 6` (Owner: hoechstens 3)
+und die Qualifikation feuert sofort beim Zahlungseingang (Owner: 30 Tage
+Bestand). Ausserdem: die Werbepraemie wird seit jeher **gebucht und nie
+angewandt** — keine Datei des Geldpfads erwaehnt `referral` ueberhaupt.
+
+### 2026-08-29 — Der stille Rabatt-Ausfall: zwei Pfade, keiner sichtbar (Welle K1)
+
+**Status:** erledigt (`a8b722d`) · **Kategorie:** Bug (Geld) · **Owner-Abschnitt 12.**
+
+Der Treue-Rabatt laeuft automatisch und traegt echtes Geld — gemessen am 2026-08-29
+gegen die laufende Datenbank: **55 Kunden mit aktivem Abo**, Ø 3,09 %, rund **670 EUR
+je Monatslauf** (43 × PLUS, 5 × BASIS, 7 × INDIVIDUELL). **273 der 312 aktiven Abos
+sind bereits faellig**, Rechnungen gibt es bisher null.
+
+**Fakt:** Faellt die Ermittlung aus, passierte nichts Sichtbares — an **zwei** Stellen:
+
+| | Ausfall | Folge | Sichtbar |
+|---|---|---|---|
+| (a) | Summen-Abfrage wirft | Rechnung **ohne Rabatt** | nur `logger.warn` |
+| (b) | Stufen-Abfrage wirft | Deckel faellt still auf **8 %** | **gar nicht** |
+
+(b) war vorher unbekannt: `getUserTier` faengt seinen eigenen Datenbankfehler ab und
+liefert `null`, ununterscheidbar von „hat noch keine Stufe". Ein Diamant-Kunde
+(Deckel 25 %) wird dabei auf 8 % gestutzt. Weil `getUserTier` nie wirft, ist der
+Sicherheitsnetz-Wert `FALLBACK_MAX_DISCOUNT_PCT = 25` **unerreichbar** — ein
+bestehender Test hielt das seit jeher fest, ohne dass jemand die Folge gezogen hat.
+
+**Aktion:** Migration 206 (`rabatt_ausfaelle`, `rabatt_eingriffe`), drei Dienste,
+Staff-CC-Modul `rabatt-faelle` mit Einzelfall, Vorschau auf den naechsten Lauf,
+Eingriffspunkt nach Plan-Abschnitt 3a und Monatsuebersicht. **Die Rechenkette wurde
+nicht angefasst** — jede Zahl bleibt, was sie war; neu ist nur der Befund.
+
+**Verify:** `api/test/rabattWirdSichtbar.test.js` (75 Proben, 11 am echten Handler),
+**14 Rueckmutationen** an der Produktionsquelle — jede gefangen;
+`test/integration/rabattWirdSichtbar.flow.test.js` 18/18 im Container gegen das echte
+Schema. Eigener Lauf ueber alle beruehrten Dateien und Waechter: **903/903**.
+
+**Aufwand:** eine Sitzung.
+
+**Offen geblieben:** `K4-B1` — es gibt weiterhin **keinen Kanal, der das Team
+erreicht**. Der Ausfall wird deshalb festgehalten und in der Staff-Flaeche gezeigt,
+statt eine Meldung zu behaupten, die nirgends ankommt.
+
 ### 2026-08-29 — Die drei XML-Defekte: abgelehnt statt geglättet
 
 **Status:** erledigt · **Kategorie:** Normkonformität (Steuerbeleg) · **Owner-Auftrag.**
@@ -471,6 +649,29 @@ Letzte Aktualisierung: 2026-08-22 — **E-Rechnung nach EN 16931 geliefert**: XR
     spätestens 01.01.2028. **Owner-Entscheidung**, weil es die eigene Rechnungsstellung
     betrifft.
 
+- **N7.4 — `GET /api/emergency/active?all=1` liefert die ganze Zeile, quer über alle Kunden.**
+  - *Status:* offen, **Owner-Entscheidung**, weil es eine Sicherheits- **und** Produktfrage zugleich ist.
+  - *Fakt:* `/emergency/active` und `/emergency/dashboard` kennen `?all=1`; der Schalter setzt
+    den Org-Filter auf `NULL` (`AND ($1::text IS NULL OR dr.requester_company_id = $1)`). Er ist
+    beabsichtigt und in `api/test/emergency.route.coverage.test.js` festgeschrieben. Die Kette
+    davor ist `arbeiterRiegel → requireAuth → requireFeature("emergency_staffing")` — und
+    `requireFeature` prüft **nur den Tarif, keine Rolle**. Ein *Unternehmen* auf PLUS liest damit
+    dieselben Daten wie eine Agentur.
+  - *Was dabei mitgeht:* `getActiveEmergencies` liefert `SELECT dr.*` — die ganze Zeile, also auch
+    `contact_name` und `contact_phone`: die Durchwahl der Ansprechperson des fremden Unternehmens
+    (Migration 192, ausdrücklich für „wer morgens um sechs vor einer leeren Schicht steht").
+    Dazu `budget_min`/`budget_max`, `requirements`, `location_lat`/`lng`.
+  - *Warum das nicht gemeint sein kann:* der ausdrücklich öffentliche Nachbarpfad
+    `GET /api/marketplace/public/demand-requests` wählt **16 Felder von Hand** aus und lässt genau
+    diese beiden weg. Die Auswahl dort ist die Absicht; `dr.*` hier ist die Nachlässigkeit.
+  - *Kein Produktionsrisiko heute:* keine Oberfläche benutzt den Schalter, und
+    `api/test/notdienstLeitstand.test.js` färbt rot, sobald eine es tut.
+  - *Zu entscheiden:* (a) Wer darf plattformweit sehen — nur Agenturen (Marktplatz-Logik) oder
+    auch Unternehmen? (b) Bekommt der Schalter eine Feldauswahl wie der öffentliche Pfad?
+    Beides ist Produkt-Taxonomie und steht nicht im Code.
+  - *Aufwand:* ~1 h nach der Entscheidung. *Verify:* Probe „ein fremdes Unternehmen sieht keine
+    Durchwahl" neben der bestehenden `all=1`-Probe.
+
 - **P2-W1 — Die beiden Doku-Waechter leiten aus einem FEHLENDEN Pfad einen Befund ab.**
   - *Status:* offen, **kein Produktionsrisiko**, aber eine Falle, in die inzwischen **zwei Sitzungen unabhaengig voneinander** getappt sind.
   - *Fakt:* `api/test/docsConsistency.test.js` und `api/test/dokuWaechter.test.js` scannen `.agents/`, `frontend/support-ops/` und `docs/launch/`. Alle drei sind gitignored und fehlen in einem frischen `git worktree`. Folge: `SKILL.md` und `support-ops` gelten als "belegter Pfad existiert nicht", acht `docs/launch/`-Eintraege der Bestandsliste als "erledigt", und vier Dokumente als neu verwaist — sie werden ausschliesslich aus den fehlenden Dateien verlinkt. Im Hauptbaum gruen (13/13 am 2026-08-19 und erneut am 2026-08-20 gemessen).
@@ -481,7 +682,7 @@ Letzte Aktualisierung: 2026-08-22 — **E-Rechnung nach EN 16931 geliefert**: XR
 ---
 
 
-Letzte Aktualisierung: 2026-08-21 — **8.1.1 (a)–(e) abgeschlossen. Beim Bauen von (d) zwei aktive Cross-Org-Lecks gefunden: 201 Kundenkonten konnten das plattformweite Audit-Log lesen und exportieren — und jeden Nutzer der Plattform ändern oder sperren.** Beides geschlossen. Zwei neue P1-Punkte offen (admin.js als Kundenfläche mit Plattformdaten; fünf Routen mit selbstabschaltender Org-Grenze). Vorher: **8.1.1 abgeschlossen: das Audit-Log trennt die Mandanten, Abnahme `fremde_org` 139 → 0.** Die Ursache war ein Demo-Login ohne `session.regenerate()`, der die Organisation des Vorgängers erbte — das betraf die Mandantengrenze von 45 Routen, nicht nur das Audit. Vorher: **Vorlauf V-2 zu Welle I erledigt: drei Wächter prüfen jetzt den git-Index statt des Dateibaums (P2-W1)** — sie waren in jedem Worktree/Klon/CI dauerhaft rot, ohne dass etwas kaputt war, und im Hauptbaum gleichzeitig falsch grün. Voller Lauf erstmals 9524/0. Vorher: 2026-08-19 — **Welle H2 (Mandantengrenzen) abgeschlossen: zehn Cross-Org-Lücken geschlossen, Wächter gebaut.** Neuer P1-Eintrag: Migration 117 existiert nicht, obwohl 28 Tabellen in `TENANT_ISOLATION_MODEL.md` auf sie verweisen. Vorher: 2026-08-07 — **P8 Deal-Verbindlichkeit (Wellen A-E) abgeschlossen und committet** (`4220693`..`67b0282`). Vier geerbte Defekte dabei gefunden und geschlossen, darunter eine Kennzahl, die das Feed-Ranking steuerte und in Produktion durchgehend NULL war, und ein Bounty, das notorische Kurzfrist-Stornierer mit 3 % Rabatt belohnte. **Neue Betriebs-Pflicht vor Go-Live: Cron `recompute-deal-reliability` einrichten + Migrationen 164/165 einspielen** (siehe Done-Eintrag). Vorher: 2026-07-26 — **P1.0 Schritt (d) erledigt**: `.env.prod.example` kannte `STAFF_SESSION_SECRET` nicht, obwohl die Variable in Produktion ein `fatal()` ausloest — ein Deploy nach dieser Vorlage waere nicht gestartet. Ergaenzt + Waechter `api/test/prodEnvTemplate.test.js`, der Pflichtvariablen aus dem Code gegen die Vorlage prueft. Ebenfalls am 2026-07-26: `docs/AUDIT_BACKLOG.md` vollstaendig abgearbeitet (u. a. ein ausnutzbares Cross-Org-Leck geschlossen). Vorher: 2026-06-13 — **Welle F1 (Code-Schlussarbeiten) abgeschlossen + committet** (`9f37250`/`1044343`/`878b022`/`845b6c9`): Prod-Härtung, Security-Quick-Wins, Hygiene-Sweep, Test-Harness-Folge inkl. eines gefundenen+gefixten requireMfa-SCC-Betriebsblockers; volle Suite 4508/0, Lint 0/0, Builds grün — siehe Abschlussbericht im Worklog. Marktstart-Ziel auf **01.09.2026** aktualisiert (UG-Gründung = kritischer Pfad). Vorher: 2026-06-11 — **Der konsolidierte Vorwaerts-Plan bis zur finalen Abnahme (Wellen F0-F6) liegt in `docs/finalization/FINALISIERUNGSPLAN_ABNAHME.md`** und mappt ALLE offenen Punkte dieses Files (P0.4, P1.0, P1.4, E-01, P2.x) + Gap-Register O-01-O-11 + Audit-Funde 2026-06-11 auf Wellen/Phasen mit Abnahmekriterien. Vorher: 2026-06-05 (Go-Live-Haertung abgeschlossen, „drei wie empfohlen" Owner-approved: P0.6 [052-Demo-Seed-Backdoor] via Env-Flag-Gate `SEED_DEMO_WORLD` [migrate.sh PGOPTIONS-GUC + 052 DO-Guard + Compose-Split base/prod=false, override=true] + Remediation-Migration 125 [Hash-Neutralisierung der 6 Demo-Konten, gegated+idempotent]; P0.7 Tier-2 [Bestands-DB-116-Backstop] via Forward-Repair-Migration 126 [nicht-transaktional, per-Tabelle-to_regclass-guarded, idempotent]; subscriptions-RLS-Exclusion bestaetigt. Verifiziert auf zwei Wegwerf-DBs [beide Flag-Pfade + Nicht-Superuser-Deny-by-Default-Laufzeitbeweis], realer Stack unberuehrt. AKTIVIERUNG: 126 schaltet Deny-by-Default+FORCE RLS beim naechsten migrate-Lauf gegen Bestands-/Managed-DB scharf. Alle Diffs uncommitted = Owner-Commit-Gate. Vorherige offene Owner-Tasks bleiben: P0.4, P1.4-Live-Run, E-01, R2/R9 extern).
+Letzte Aktualisierung: 2026-09-06 — **Welle N7.4 (Notdienst) abgeschlossen: von elf fertigen, auditierten Endpunkten riefen die Oberflächen zwei auf.** Sechs davon verdrahtet, darunter der einzige Weg, eine Teilzusage zurückzunehmen. Drei Befunde dabei: `POST /emergency/:id/escalate` hatte **keine Eigentumsprüfung** (jeder Tarif-Berechtigte konnte fremde Notlagen hochstufen und damit einen E-Mail-Rundruf an bis zu 50 Anbieter auslösen) — geschlossen; `?all=1` liefert `dr.*` inkl. fremder Kontakt-Durchwahl — **offen, Owner-Entscheidung**; der Erreichbarkeits-Wächter übersah 17 Registerzeilen und damit fünf lebende Seiten — geschlossen. Vorher: 2026-08-21 — **8.1.1 (a)–(e) abgeschlossen. Beim Bauen von (d) zwei aktive Cross-Org-Lecks gefunden: 201 Kundenkonten konnten das plattformweite Audit-Log lesen und exportieren — und jeden Nutzer der Plattform ändern oder sperren.** Beides geschlossen. Zwei neue P1-Punkte offen (admin.js als Kundenfläche mit Plattformdaten; fünf Routen mit selbstabschaltender Org-Grenze). Vorher: **8.1.1 abgeschlossen: das Audit-Log trennt die Mandanten, Abnahme `fremde_org` 139 → 0.** Die Ursache war ein Demo-Login ohne `session.regenerate()`, der die Organisation des Vorgängers erbte — das betraf die Mandantengrenze von 45 Routen, nicht nur das Audit. Vorher: **Vorlauf V-2 zu Welle I erledigt: drei Wächter prüfen jetzt den git-Index statt des Dateibaums (P2-W1)** — sie waren in jedem Worktree/Klon/CI dauerhaft rot, ohne dass etwas kaputt war, und im Hauptbaum gleichzeitig falsch grün. Voller Lauf erstmals 9524/0. Vorher: 2026-08-19 — **Welle H2 (Mandantengrenzen) abgeschlossen: zehn Cross-Org-Lücken geschlossen, Wächter gebaut.** Neuer P1-Eintrag: Migration 117 existiert nicht, obwohl 28 Tabellen in `TENANT_ISOLATION_MODEL.md` auf sie verweisen. Vorher: 2026-08-07 — **P8 Deal-Verbindlichkeit (Wellen A-E) abgeschlossen und committet** (`4220693`..`67b0282`). Vier geerbte Defekte dabei gefunden und geschlossen, darunter eine Kennzahl, die das Feed-Ranking steuerte und in Produktion durchgehend NULL war, und ein Bounty, das notorische Kurzfrist-Stornierer mit 3 % Rabatt belohnte. **Neue Betriebs-Pflicht vor Go-Live: Cron `recompute-deal-reliability` einrichten + Migrationen 164/165 einspielen** (siehe Done-Eintrag). Vorher: 2026-07-26 — **P1.0 Schritt (d) erledigt**: `.env.prod.example` kannte `STAFF_SESSION_SECRET` nicht, obwohl die Variable in Produktion ein `fatal()` ausloest — ein Deploy nach dieser Vorlage waere nicht gestartet. Ergaenzt + Waechter `api/test/prodEnvTemplate.test.js`, der Pflichtvariablen aus dem Code gegen die Vorlage prueft. Ebenfalls am 2026-07-26: `docs/AUDIT_BACKLOG.md` vollstaendig abgearbeitet (u. a. ein ausnutzbares Cross-Org-Leck geschlossen). Vorher: 2026-06-13 — **Welle F1 (Code-Schlussarbeiten) abgeschlossen + committet** (`9f37250`/`1044343`/`878b022`/`845b6c9`): Prod-Härtung, Security-Quick-Wins, Hygiene-Sweep, Test-Harness-Folge inkl. eines gefundenen+gefixten requireMfa-SCC-Betriebsblockers; volle Suite 4508/0, Lint 0/0, Builds grün — siehe Abschlussbericht im Worklog. Marktstart-Ziel auf **01.09.2026** aktualisiert (UG-Gründung = kritischer Pfad). Vorher: 2026-06-11 — **Der konsolidierte Vorwaerts-Plan bis zur finalen Abnahme (Wellen F0-F6) liegt in `docs/finalization/FINALISIERUNGSPLAN_ABNAHME.md`** und mappt ALLE offenen Punkte dieses Files (P0.4, P1.0, P1.4, E-01, P2.x) + Gap-Register O-01-O-11 + Audit-Funde 2026-06-11 auf Wellen/Phasen mit Abnahmekriterien. Vorher: 2026-06-05 (Go-Live-Haertung abgeschlossen, „drei wie empfohlen" Owner-approved: P0.6 [052-Demo-Seed-Backdoor] via Env-Flag-Gate `SEED_DEMO_WORLD` [migrate.sh PGOPTIONS-GUC + 052 DO-Guard + Compose-Split base/prod=false, override=true] + Remediation-Migration 125 [Hash-Neutralisierung der 6 Demo-Konten, gegated+idempotent]; P0.7 Tier-2 [Bestands-DB-116-Backstop] via Forward-Repair-Migration 126 [nicht-transaktional, per-Tabelle-to_regclass-guarded, idempotent]; subscriptions-RLS-Exclusion bestaetigt. Verifiziert auf zwei Wegwerf-DBs [beide Flag-Pfade + Nicht-Superuser-Deny-by-Default-Laufzeitbeweis], realer Stack unberuehrt. AKTIVIERUNG: 126 schaltet Deny-by-Default+FORCE RLS beim naechsten migrate-Lauf gegen Bestands-/Managed-DB scharf. Alle Diffs uncommitted = Owner-Commit-Gate. Vorherige offene Owner-Tasks bleiben: P0.4, P1.4-Live-Run, E-01, R2/R9 extern).
 ## Owner-Aufgaben im Klartext (Stand 2026-07-26)
 
 > **Warum dieser Abschnitt existiert:** die Punkte unten stehen weiter unten schon als P0.4 /

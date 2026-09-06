@@ -56,7 +56,12 @@
         <h1 style="margin:0 0 4px" data-i18n="dem.list.title">Meine Nachfragen</h1>
         <p style="margin:0;color:var(--muted,#8d9bba);font-size:14px" data-i18n="dem.list.subtitle">Uebersicht Ihrer Arbeitsplatzangebote im Marketplace.</p>
       </div>
-      <a href="/public/marketplace_demand_create.html" class="btn primary" data-i18n="dem.list.create">+ Neue Nachfrage</a>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <!-- N7.4: der Eingang zum Notdienst-Leitstand. Ohne ihn waere die Seite
+             nur ueber ihre URL erreichbar - siehe api/test/erreichbarkeit.js -->
+        <a href="/public/notdienst_leitstand.html" class="btn" data-i18n="dem.list.emergencyBoard">Notdienst-Leitstand</a>
+        <a href="/public/marketplace_demand_create.html" class="btn primary" data-i18n="dem.list.create">+ Neue Nachfrage</a>
+      </div>
     </div>
 
     <div class="stats-row" id="stats-row">
@@ -125,6 +130,7 @@
         'dem.list.paywallCta': 'Abo ansehen',
         'dem.list.title': 'Meine Nachfragen',
         'dem.list.subtitle': 'Uebersicht Ihrer Arbeitsplatzangebote im Marketplace.',
+        'dem.list.emergencyBoard': 'Notdienst-Leitstand',
         'dem.list.create': '+ Neue Nachfrage',
         'dem.list.statTotal': 'Gesamt',
         'dem.list.statOpen': 'Offen',
@@ -172,6 +178,7 @@
         'dem.list.paywallCta': 'View subscription',
         'dem.list.title': 'My job postings',
         'dem.list.subtitle': 'Overview of your job postings in the Marketplace.',
+        'dem.list.emergencyBoard': 'Emergency control room',
         'dem.list.create': '+ New job posting',
         'dem.list.statTotal': 'Total',
         'dem.list.statOpen': 'Open',

@@ -226,7 +226,32 @@ Zusagen, Eskalationsstufen greifen, aus einer Zusage wird direkt eine Vereinbaru
 Im Katalog „Notdienst / Emergency Staffing" (`api/config/planCatalog.js:322`), ab PLUS.
 *Beleg:* `api/routes/emergency.js` (11 Endpunkte, inkl. `/emergency/:id/escalate` und
 `/emergency/:id/commitments/:cid/create-agreement`). Oberflächen:
-`capacity_exchange_notdienst.html`, Eingang in `marketplace_demand_detail.html`.
+`capacity_exchange_notdienst.html`, Eingang in `marketplace_demand_detail.html`,
+`notdienst_leitstand.html` (Eingang aus `marketplace_demand_list.html`).
+
+> **Gemessen am 2026-09-05, und die Zahl im Register war zu freundlich.** Von den elf
+> Endpunkten riefen die Oberflächen genau **zwei** auf — beide `:id/commitments`, einmal
+> lesend, einmal schreibend. Neun waren gebaut, geprüft und unerreichbar: die gesamte
+> Übersicht über die eigenen Notlagen, die Kennzahlen, der Verlauf, die Eskalation, die
+> Sofortvereinbarung — und der einzige Weg, eine Teilzusage zurückzunehmen. Eine Agentur,
+> die drei Leute zugesagt und sie verloren hatte, konnte das nirgends sagen; das
+> Unternehmen rechnete weiter mit dreien und merkte es am Einsatztag.
+>
+> Welle N7.4 hat sie verdrahtet und dabei zwei Befunde geschlossen, die nur deshalb so
+> lange stehen konnten, weil niemand die Endpunkte benutzte:
+>
+> * **`POST /emergency/:id/escalate` hatte keine Eigentumsprüfung** — weder in der Route
+>   noch im Dienst. Jeder Angemeldete mit `emergency_staffing` im Tarif konnte jede fremde
+>   Notlage dreimal hochstufen; jede Stufe löst einen E-Mail-Rundruf an bis zu 50 Anbieter
+>   aus. Geschlossen über `canAccessAsOwner`, bewacht von `api/test/notdienstLeitstand.test.js`.
+> * **`GET /emergency/active?all=1` und `/dashboard?all=1` heben die Org-Grenze auf.** Der
+>   Schalter ist beabsichtigt und getestet; unbeabsichtigt ist, was dabei mitgeht:
+>   `getActiveEmergencies` liefert `dr.*`, also auch `contact_name`/`contact_phone` — die
+>   Durchwahl der Ansprechperson des fremden Unternehmens (Migration 192). Der ausdrücklich
+>   öffentliche Nachbarpfad `/marketplace/public/demand-requests` wählt 16 Felder von Hand
+>   aus und lässt genau diese beiden weg. **Offen, Owner-Entscheidung** (Zielgruppe des
+>   Schalters und Feldauswahl); der Leitstand benutzt ihn nicht, und ein Wächter hält das
+>   fest.
 
 ### 13. Auswertung und Steuerung
 
@@ -434,6 +459,7 @@ Weiterleitung oder für keinen Nutzer erreichbar.
 | `marketplace_demand_create.html` | Unternehmen | Personalbedarf ausschreiben | aktiv |
 | `marketplace_demand_list.html` | Unternehmen | eigene Ausschreibungen mit Status und Reaktionen | aktiv |
 | `marketplace_demand_detail.html` | Unternehmen, Zeitarbeitsfirma | Ausschreibung mit allen eingegangenen Angeboten; hier wird entschieden | aktiv |
+| `notdienst_leitstand.html` | Unternehmen | Leitstand der eigenen Notlagen: offene Faelle mit Alter, SLA-Zustand und Deckung, Eskalation mit Wirkungsvorschau, Verlauf der letzten 30 Tage | aktiv |
 
 ### Anfragen, Angebote, Deals
 
@@ -511,6 +537,25 @@ Weiterleitung oder für keinen Nutzer erreichbar.
 | `activity.html` | beide | Posteingang der Plattform; von der Glocke jeder Seite erreichbar (`js/pageShell.js:444`) | aktiv |
 
 ### Hilfe, Vertrauen, Recht
+
+> **Gemessen am 2026-09-06 — eine Schreibweise, die einen Wächter blind machte.**
+> Zeilen dieser Tabellen nennen die Seite mal blank (`` `about.html` ``), mal mit
+> Pfad (`` `frontend/public/about.html` ``). Beides liest sich gleich gut. Aber
+> `api/test/erreichbarkeit.test.js` erkannte nur die blanke Form — sein Muster
+> lässt keinen Schrägstrich zu — und übersprang **17 Zeilen**, darunter fünf
+> lebende Seiten direkt unter `frontend/public/`: `pricing.html`, `about.html`,
+> `onepager.html`, `onboarding.html`, `whats-new.html`. Für die Prüfung „kein
+> Feature, das nur seine URL kennt" gab es diese fünf nicht.
+>
+> Aufgefallen beim Eintragen von `notdienst_leitstand.html` — und zwar erst im
+> zweiten Anlauf: die erste Messung suchte selbst nach der blanken Form und
+> „fand" drei fehlende Seiten, die längst eingetragen waren. Derselbe Denkfehler
+> zweimal hintereinander, einmal im Wächter und einmal in der Messung.
+>
+> Der Wächter schlüsselt jetzt nach Dateinamen auf, gleich welche Schreibweise
+> die Zeile wählt, und eine eigene Probe hält fest, dass er die Form mit Pfad
+> wirklich sieht.
+
 
 | Seite | Für wen | Wozu | Zustand |
 |---|---|---|---|
@@ -666,7 +711,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | davon reine Weiterleitungen | 9 | je 14 nicht-leere Zeilen, reiner Meta-Refresh |
 | davon Attrappen | 3 | `sla_nachweise.html`, `impressum.html`, `datenschutz.html` (Wurzel) |
 | davon für keinen Nutzer erreichbar | **0** | war 1 (timesheet-templates.html); am 26.08. entfernt — siehe Liste A, A1 |
-| Backend-Testdateien | <!--zahl:backend-testdateien-->458<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
+| Backend-Testdateien | <!--zahl:backend-testdateien-->459<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
 | E2E-Testdateien | <!--zahl:e2e-testdateien-->17<!--/zahl--> | `ls e2e/tests/ \| wc -l` |
 | Rollen im Rechtemodell | 12 | `ROLE_HIERARCHY` in `api/services/rbacService.js:9-22` |
 | Benannte Berechtigungen | 63 | `PERMISSIONS` in `api/services/rbacService.js:25 ff.` |
@@ -684,7 +729,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 >
 > **Eine Zahl, die hier bewusst fehlt:** die Gesamtzahl grüner Tests. Sie steht in mehreren
 > Projektdokumenten (3979+), wurde für dieses Register aber **nicht** nachgerechnet, weil das
-> einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die <!--zahl:backend-testdateien-->458<!--/zahl--> Testdateien und
+> einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die <!--zahl:backend-testdateien-->459<!--/zahl--> Testdateien und
 > <!--zahl:e2e-testdateien-->17<!--/zahl--> E2E-Dateien. Wer die Testzahl in ein Investorendokument schreibt, muss sie vorher unter
 > `api/scripts/run-tests.js` real erzeugen.
 
@@ -891,7 +936,7 @@ Ehrlichkeit über die eigenen Grenzen gehört in ein Dokument, das später an In
    `docs-consistency`-Test existiert, der tote Verweise und verwaiste Dateien rot werden lässt,
    veraltet diese Datei still. Vorbild für die Mechanik: `api/test/flaechenZuordnung.test.js`.
 
-2. **Die Testzahl ist nicht nachgerechnet.** Belegt sind <!--zahl:backend-testdateien-->458<!--/zahl--> Backend-Testdateien und <!--zahl:e2e-testdateien-->17<!--/zahl-->
+2. **Die Testzahl ist nicht nachgerechnet.** Belegt sind <!--zahl:backend-testdateien-->459<!--/zahl--> Backend-Testdateien und <!--zahl:e2e-testdateien-->17<!--/zahl-->
    E2E-Dateien. Die in mehreren Projektdokumenten genannte Gesamtzahl grüner Tests (3979+)
    wurde für dieses Register **nicht** verifiziert — dazu wäre ein vollständiger Suite-Lauf
    unter `api/scripts/run-tests.js` nötig gewesen. Wer sie in eine Investorendarstellung

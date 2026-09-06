@@ -163,6 +163,41 @@ export function createEmergencyRouter(deps) {
 
   router.post("/emergency/:id/escalate", requireAuth, emergencyAccess, async (req, res) => {
     try {
+      /*
+       * BEFUND N7.4 (geschlossen 2026-09-05): dieser Endpunkt hatte KEINE
+       * Eigentumspruefung - weder hier noch im Dienst. `escalateEmergency`
+       * nimmt `actorId` entgegen, schreibt sie ins SLA-Ereignis und ins
+       * Protokoll, vergleicht sie aber nie mit `requester_company_id`.
+       *
+       * Wirkung: jeder Angemeldete mit `emergency_staffing` im Tarif konnte
+       * JEDE offene Notlage JEDES Unternehmens dreimal hochstufen. Jede Stufe
+       * loest einen Rundruf an bis zu 50 Anbieter aus - mit E-Mail
+       * (`emailQueue: true`) und mit Titel, Rolle und Ort der fremden Notlage
+       * im Text. Ein Schreibzugriff in einen fremden Vorgang, der zugleich ein
+       * Versandverstaerker ist.
+       *
+       * Dass es ein Versehen war und keine Absicht, sagen die Nachbarn in
+       * derselben Datei: `/respond` prueft die Rolle, `GET /:id/commitments`
+       * prueft `isRequester || isMatchedAgency`, `POST /:id/commitments` prueft
+       * die Zuordnung. `dealAgreementService.js` schreibt den Grund sogar
+       * ausdruecklich hin - "emergencyAccess ist nur ein Feature-Gate, KEIN
+       * Ownership-Check". Genau diese eine Route hat niemand nachgezogen.
+       *
+       * Zur Reihenfolge 404-dann-403, damit sie niemand fuer mehr haelt, als
+       * sie ist: sie VERRAET, ob eine Kennung existiert. Das ist hier
+       * hinnehmbar und bewusst - die Kennungen sind UUIDs, die Existenz
+       * schuetzt ihre Entropie und nicht der Statuscode -, und sie folgt dem
+       * Nachbarn `GET /:id/commitments`, der ebenso antwortet. Eine
+       * abweichende Reihenfolge nur an dieser einen Route waere eine
+       * Ungleichheit ohne Gewinn.
+       */
+      const demand = await getDemandById(req.params.id);
+      if (!demand) return res.status(404).json({ error: "NOT_FOUND" });
+      const darfEskalieren = await canAccessAsOwner(
+        pool, demand.requester_company_id, req.session.userId
+      );
+      if (!darfEskalieren) return res.status(403).json({ error: "FORBIDDEN" });
+
       const result = await emergencyService.escalateEmergency(
         pool, req.params.id, req.session.userId
       );
@@ -231,13 +266,67 @@ export function createEmergencyRouter(deps) {
       if (!isRequester && !isMatchedAgency) return res.status(403).json({ error: "FORBIDDEN" });
 
       const commitments = await emergencyCommitmentService.listCommitments(pool, req.params.id);
+
+      /*
+       * N7.4 - WER DARF WAS, entschieden im Backend.
+       *
+       * Bis hierher lieferte diese Antwort eine reine Liste. Die Oberflaeche
+       * haette daraus selbst ableiten muessen, wer zuruecknehmen darf - also
+       * die eigene Kennung mit `supplier_company_id` vergleichen. Genau das
+       * verbietet die Hausregel ("Berechtigungsentscheidung kommt immer aus
+       * dem Backend; Frontend zeigt nur an"), und zwar aus einem praktischen
+       * Grund: eine Ableitung im Browser ist eine ZWEITE Wahrheit, die von der
+       * ersten abweichen kann, ohne dass es jemand merkt.
+       *
+       * Die Regeln spiegeln, was die Dienste wirklich zulassen:
+       *   zuruecknehmen  die zusagende Agentur nimmt ihre eigene Zusage zurueck
+       *   ablehnen       das anfragende Unternehmen weist sie zurueck
+       *   vereinbarung   beide Parteien duerfen daraus eine bindende
+       *                  Vereinbarung machen (dealAgreementService)
+       *
+       * `status === "committed"` steht ueberall dabei, weil beide Dienste eine
+       * bereits beendete Zusage mit INVALID_TRANSITION bzw.
+       * COMMITMENT_NOT_ACTIVE abweisen. Ein Knopf, der verlaesslich einen
+       * Fehler erzeugt, ist schlimmer als kein Knopf.
+       */
+      /* Je ANBIETER einmal fragen, nicht je Zusage: dieselbe Agentur kann
+         mehrfach zugesagt haben (Nachschlag, nachdem sich Kapazitaet ergeben
+         hat), und `canAccessAsOwner` schlaegt bei einer Kollegin in der
+         Datenbank nach. Die Menge ist zwar klein — sie waechst mit den
+         zugeordneten Agenturen, nicht mit der Plattform —, aber dieselbe
+         Antwort zweimal zu holen ist auch bei kleiner Menge falsch. */
+      const binAnbieterBei = new Map();
+      for (const c of commitments) {
+        const anbieter = c.supplier_company_id;
+        if (binAnbieterBei.has(anbieter)) continue;
+        binAnbieterBei.set(
+          anbieter,
+          isRequester ? false : await canAccessAsOwner(pool, anbieter, req.session.userId)
+        );
+      }
+      const mitRechten = commitments.map((c) => {
+        const offen = c.status === "committed";
+        const binAnbieter = binAnbieterBei.get(c.supplier_company_id) === true;
+        return {
+          ...c,
+          darf: {
+            zuruecknehmen: offen && binAnbieter,
+            ablehnen: offen && isRequester,
+            vereinbarung: offen && (isRequester || binAnbieter)
+          }
+        };
+      });
+
       res.json({
         demand_id: demand.id,
         status: demand.status,
         required_total_count: demand.required_total_count,
         currently_committed_count: demand.currently_committed_count,
         remaining_open_count: demand.remaining_open_count,
-        commitments
+        /* Die Sicht des Abrufenden auf DIESE Notlage - die Oberflaeche
+           braucht sie fuer die Ueberschrift, nicht fuer die Berechtigung. */
+        viewer: { is_requester: isRequester, is_matched_agency: isMatchedAgency },
+        commitments: mitRechten
       });
     } catch (e) {
       logger.error({ err: e.message }, "GET /emergency/:id/commitments");
