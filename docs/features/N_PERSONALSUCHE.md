@@ -55,7 +55,7 @@ Gemessen am 2026-09-05: **zwei vollständige Motoren mit null Frontend-Aufrufern
 
 | Motor | Was er kann | Aufrufer heute |
 |---|---|---|
-| **`smartPricingService`** (`/api/pricing/suggest`) | Datengestützter Preisvorschlag je **Rolle, Region und Dringlichkeit** — inklusive der Stufe `notdienst`. Plan-gegated auf PLUS/PRO | **null** |
+| **`smartPricingService`** (`/api/pricing/suggest`) | Datengestützter Preisvorschlag je **Rolle, Region und Dringlichkeit** — inklusive der Stufe `notdienst`. Plan-gegated auf PLUS/PRO | ~~null~~ → **einer** (2026-09-06, N2.2: die Bedarfsanlage) |
 | **`capacityDiscoveryService`** (`/capacity-discovery/by-role`, `/by-region`, `/by-category`, `/summary`) | Verfügbare Kapazität, aggregiert nach Rolle, Region und Kategorie | **null** |
 | `profileRankings` | Kuratiertes Ranking, Segmente (z. B. GOLD) | einer (der eigene Rang der Agentur) |
 
@@ -91,8 +91,21 @@ Zeitarbeitsfirma: **wen soll ich als Nächstes einstellen?**
 | 3 | **Von wann bis wann?** | `start_date`, `end_date` | **Dieses Feld entscheidet den Notdienst — es gibt keine fünfte Frage.** Owner-Vorgabe 2026-09-05: tagesgenau, Beginn in **höchstens zwei Tagen** = Notdienst, alles andere nicht (4.4) |
 | 4 | **Wie teuer einzeln?** | `budget_min`, `budget_max` | **Mit Preisvorschlag aus `smartPricing`**, abhängig von Rolle, Region und Dringlichkeit. Der Vorschlag ist ein Vorschlag, keine Vorgabe |
 
-**Ort:** kommt aus dem Standortkontext des Unternehmens, wird nicht erneut gefragt — er
-steht bereits fest, wenn jemand sucht. Abweichender Einsatzort ist eine Option, keine Pflicht.
+> **Korrektur meines ersten Entwurfs (Owner-Vorgabe 2026-09-06).** Dort stand, der Ort komme
+> aus dem Standortkontext und werde nicht gefragt. **Das ist falsch.** Der Owner will ihn
+> ausdruecklich als **erste** Frage, mit dem Hinweis *„genauere Angaben erhoehen die
+> Matching-Qualitaet"*.
+>
+> Und er hat recht: der Standortkontext ist die **Rechnungsadresse oder Niederlassung**, nicht
+> der **Einsatzort**. Eine Pflegeeinrichtung mit vier Haeusern sucht fuer *ein* Haus. Wer den
+> Kontext ungefragt als Einsatzort nimmt, rechnet die Entfernung gegen den falschen Punkt —
+> und die ganze Radius-Logik aus M-E4 rechnet mit.
+>
+> **Also fünf Schritte, nicht vier**, und der Ort steht vorn:
+
+| # | Frage | Feld | Bauvorgabe |
+|---|---|---|---|
+| **0** | **An welchen Ort sollen die Arbeiter?** | `location_city`, `location_postal` | **Erste Seite des Modals.** Vorbelegt aus dem Standortkontext, aber änderbar — und der Hinweis steht dabei: *„genauere Angaben erhöhen die Trefferqualität"*. Er ist wahr, nicht Zierde: gegen diesen Punkt rechnet der Einsatzradius |
 
 ### 4.2 Das Ergebnis: gebündelt oder einzeln
 
@@ -291,14 +304,38 @@ einzigen Aufrufer.**
 
 ### N2 · Die vier Fragen als Assistent
 
+> **Zur Nummerierung, damit niemand zweimal dasselbe sucht.** Die Welle, die am
+> 2026-09-06 als **„N2.1" committet** wurde (`e4fd049`), ist inhaltlich **N2.3** dieser
+> Tabelle plus Abschnitt 4.4 — die Ableitung des Notdienstes aus dem Einsatzbeginn. Der
+> Commit-Titel bleibt stehen, wie er ist; die Zeile N2.3 unten trägt den Verweis. Das
+> eigentliche **N2.1 (vier Schritte als Assistent) ist offen.**
+>
+> **Beim Bauen von N2.2 gemessen:** die vier Fragen stehen bereits **alle** auf
+> `marketplace_demand_create.html` — Katalogwähler (N1), Anzahl, Zeitraum mit abgeleiteter
+> Dringlichkeit, Budget. Was fehlt, ist nicht das Datenmodell und nicht das Feld, sondern
+> die **Schrittform**. Ein zweiter Anlagepfad wäre eine Parallelstruktur; der Assistent
+> gehört deshalb auf diese Seite, nicht neben sie.
+
 | Phase | Inhalt | Nachweis |
 |---|---|---|
 | N2.1 | **Vier Schritte**, die den **bestehenden** Bedarf erzeugen (M-L6: kein zweites Datenmodell) | Der Datensatz ist identisch mit dem der Formularseite |
-| N2.2 | **Preisvorschlag aus `smartPricing`** bei Frage 4, abhängig von Rolle, Region, Dringlichkeit | Andere Rolle → anderer Vorschlag. **Ohne Plan: kein Vorschlag, aber auch keine Sperre** |
-| N2.3 | **Notdienst-Hinweis**, wenn der Vorlauf ihn nahelegt | Beginn in 18 h → Hinweis; in drei Wochen → keiner |
-| N2.4 | **Treffer-Vorschau live**: „mit diesen Angaben: 23 Kräfte" — ändert sich mit jedem Schritt | Radius vergrößern → Zahl steigt |
+| N2.2 | **Preisvorschlag aus `smartPricing`** bei Frage 4, abhängig von Rolle, Region, Dringlichkeit | ✅ 2026-09-06 — in der Bedarfsanlage, entprellt; 403 verbirgt still und fragt nicht wieder |
+| N2.3 | **Notdienst-Hinweis**, wenn der Vorlauf ihn nahelegt | ✅ 2026-09-06 — **committet als „N2.1"** (`e4fd049`), siehe Hinweis oben; die Stufe wird abgeleitet statt gefragt (4.4) |
+| N2.4 | **Treffer-Vorschau live**: „mit diesen Angaben: 23 Kräfte" — ändert sich mit jedem Schritt | ⏳ **Nachweis muss angepasst werden**, siehe Hinweis unter der Tabelle |
 | N2.5 | **Abbrechen verliert nichts** — der halbfertige Bedarf bleibt Entwurf | Modal schließen, wiederkommen, Stand ist da |
-| N2.6 | **Erreichbar aus der Personalsuche**, nicht von einer eigenen Seite | Klickpfad vom Hub bis zum Assistenten |
+| N2.6 | **Erreichbar aus der Personalsuche**, nicht von einer eigenen Seite | Klickpfad vom Hub bis zum Assistenten. Die Fläche ist `capacity_search.html` („Personal finden"); sie verlinkt die Bedarfsanlage heute **gar nicht** |
+
+> **N2.4: der Nachweis „Radius vergrößern → Zahl steigt" ist so nicht erreichbar** (gemessen
+> 2026-09-06). Der Radiusfilter des Feeds rechnet mit `haversineKm` und braucht **Koordinaten**
+> (`capacityExchangeService.js:828`) — die Bedarfsanlage erfasst aber nur Ort, PLZ und Radius,
+> nie `location_lat`/`location_lng`. Ohne Geokodierung, die es im Repo nicht gibt, kann keine
+> Vorschau auf den Radius reagieren.
+>
+> Ebenfalls gemessen: `aggregateBySkill` liefert eine Zahl **je Fähigkeit**, nicht eine
+> Gesamtzahl — Summieren würde jedes Angebot doppelt zählen, das zwei gewählte Fähigkeiten
+> trägt. Für „mit diesen Angaben: 23 Kräfte" braucht es also eine eigene, entdoppelte
+> Aggregation. Vorschlag: Zahl über **Ort + Fähigkeiten**, Nachweis „eine Fähigkeit mehr
+> wählen → Zahl sinkt". Der Radius bleibt draußen, bis Koordinaten erfasst werden.
 
 ### N3 · Das Ergebnis
 
@@ -306,6 +343,9 @@ einzigen Aufrufer.**
 |---|---|---|
 | N3.1 | **Gebündelt bei mehreren**, einzeln bei einem | 14 gesucht → ein Bündel über 3 Firmen; 1 gesucht → Profile |
 | N3.2 | **Merkmale und Herkunft werden gezeigt** — die API liefert sie heute an jeden, gerendert werden sie auf **einer** Fläche | „aus Live-Belegschaft" steht überall |
+| N3.4 | **Die Sortierung speist sich aus mehr als der Passung** (Owner-Vorgabe 2026-09-06): **Sperrliste** (N4), **Verfügbarkeit aus der Live-Belegschaft**, **interne Bewertung** (Q1). Vorhandene Regeln zuerst prüfen — `profileRankingService` führt bereits `ranking_score`, `reputation_score`, `activity_score`, `premium_boost`, `effective_rank_score` und `rank_segment` | Je Bestandteil ein belegtes Gewicht. **Kein Bestandteil ohne Begründung im Code** |
+| N3.5 | **„Hart und unzerstörbar"** — die Reihenfolge ist **stabil** (gleiche Eingaben, gleicher Rang), **erklärbar** (jede Position nennt ihren Grund) und **nicht kaufbar**: bezahlte Hebung bricht höchstens Gleichstand (**O-L1**) | **Rückmutation:** `premium_boost` über eine bessere Passung stellen → Probe rot |
+| N3.6 | **Verfügbarkeit zählt, Krankheit nicht.** Wer heute abwesend ist, steht nicht oben — aber die **Zahl** der Abwesenheiten fließt **nirgends** in den Rang ein (Q1.1: Gesundheitsdaten werden nicht bewertet) | Abwesenheitstabelle in die Rangabfrage aufnehmen → **Probe rot** |
 | N3.3 | **Kein Bündel, das die Menge nicht deckt**, ohne es zu sagen: „12 von 14 gedeckt — 2 offen" | Teildeckung ist sichtbar, nicht geschönt |
 
 ### N4 · Gesperrt heißt unsichtbar
