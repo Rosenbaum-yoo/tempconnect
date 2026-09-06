@@ -8,6 +8,11 @@
   <title data-i18n="dem.create.docTitle">Nachfrage erstellen – TempConnect Marketplace</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
+    .urgency-anzeige{display:flex;align-items:center;gap:8px;min-height:38px;padding:8px 11px;
+      border:1px solid var(--line,#2a3550);border-radius:8px;font-size:13px;line-height:1.4}
+    .urgency-anzeige--notdienst{border-color:var(--danger,#f87171);color:var(--danger,#f87171)}
+    .urgency-anzeige b{font-weight:800}
+    .urgency-anzeige small{display:block;font-weight:400;color:var(--muted,#8d9bba);font-size:12px}
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .form-grid .full { grid-column: 1 / -1; }
     label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
@@ -86,12 +91,16 @@
           <input id="radius_km" name="radius_km" type="number" min="1" max="500" value="25"/>
         </div>
         <div>
-          <label for="urgency" data-i18n="dem.create.label.urgency">Dringlichkeit</label>
-          <select id="urgency" name="urgency">
-            <option value="normal" data-i18n="dem.create.urgency.normal">Normal (Pulse 120 Min)</option>
-            <option value="plus" data-i18n="dem.create.urgency.plus">Plus (Pulse 120 Min)</option>
-            <option value="notdienst" data-i18n="dem.create.urgency.notdienst">Notdienst (Pulse 30 Min)</option>
-          </select>
+          <!-- N2.1: Hier stand ein Auswahlfeld "Dringlichkeit". Es liess sich in
+               beide Richtungen falsch setzen - ein Einsatz morgen als "normal"
+               (die 30-Minuten-Uhr laeuft nie an), ein Einsatz in drei Wochen als
+               "Notdienst" (50 Anbieter werden ohne Anlass alarmiert).
+
+               Die Stufe steht im Startdatum, das ohnehin ausgefuellt wird. Sie
+               wird deshalb GEZEIGT, nicht gefragt - im Feld, nicht in einem
+               Banner, damit sie beim Tippen des Datums sichtbar wird. -->
+          <label data-i18n="dem.create.label.urgency">Dringlichkeit</label>
+          <div id="urgencyAnzeige" class="urgency-anzeige" aria-live="polite"></div>
           <p class="urgency-hint" data-i18n="dem.create.urgencyHint">Notdienst erfordert PRO-Plan. Pulse = Prozessnachweis, kein Erfolgsversprechen.</p>
         </div>
         <div>
@@ -168,6 +177,12 @@
         'dem.create.ph.postal': 'z.B. 80331',
         'dem.create.label.radius': 'Radius (km)',
         'dem.create.label.urgency': 'Dringlichkeit',
+        'dem.create.urgency.derivedNotdienst': 'Notdienst',
+        'dem.create.urgency.derivedNormal': 'Regul\u00e4re Suche',
+        'dem.create.urgency.hintNotdienst': 'Beginn in Reichweite \u2014 Anbieter werden sofort alarmiert, Teilzusagen sind m\u00f6glich.',
+        'dem.create.urgency.hintNormal': 'Genug Vorlauf f\u00fcr die regul\u00e4re Suche.',
+        'dem.create.urgency.hintEmpty': 'Ergibt sich aus dem Einsatzbeginn.',
+        'dem.create.urgency.noPlan': 'Ihr Tarif enth\u00e4lt den Notdienst nicht \u2014 die Ausschreibung l\u00e4uft als regul\u00e4re Suche.',
         'dem.create.urgency.normal': 'Normal (Pulse 120 Min)',
         'dem.create.urgency.plus': 'Plus (Pulse 120 Min)',
         'dem.create.urgency.notdienst': 'Notdienst (Pulse 30 Min)',
@@ -226,6 +241,12 @@
         'dem.create.ph.postal': 'e.g. 80331',
         'dem.create.label.radius': 'Radius (km)',
         'dem.create.label.urgency': 'Urgency',
+        'dem.create.urgency.derivedNotdienst': 'Emergency',
+        'dem.create.urgency.derivedNormal': 'Regular search',
+        'dem.create.urgency.hintNotdienst': 'Start is close \u2014 suppliers are alerted immediately, partial commitments are possible.',
+        'dem.create.urgency.hintNormal': 'Enough lead time for the regular search.',
+        'dem.create.urgency.hintEmpty': 'Derived from the start date.',
+        'dem.create.urgency.noPlan': 'Your plan does not include emergency staffing \u2014 this runs as a regular search.',
         'dem.create.urgency.normal': 'Normal (Pulse 120 min)',
         'dem.create.urgency.plus': 'Plus (Pulse 120 min)',
         'dem.create.urgency.notdienst': 'Emergency cover (Pulse 30 min)',
@@ -394,7 +415,9 @@
         location_city: document.getElementById("location_city").value.trim(),
         location_postal: document.getElementById("location_postal").value.trim() || null,
         radius_km: parseInt(document.getElementById("radius_km").value, 10) || 25,
-        urgency: document.getElementById("urgency").value,
+        /* N2.1: Die Dringlichkeit wird SERVERSEITIG aus `start_date`
+           abgeleitet. Sie hier mitzuschicken waere eine zweite Wahrheit -
+           der Server ignoriert den Wert ohnehin. */
         budget_min: parseFloat(document.getElementById("budget_min").value) || null,
         budget_max: parseFloat(document.getElementById("budget_max").value) || null,
         /* Leer = weglassen, damit der Rueckfall aufs Profil im Backend greift
@@ -466,6 +489,79 @@
         }
       });
     });
+  })();
+  </script>
+  <script>
+  /*
+   * N2.1 — DIE STUFE STEHT IM DATUM UND WIRD DORT GEZEIGT.
+   *
+   * Dieselbe Regel wie im Backend (`notdienstAusStartdatum`): Vorlauf <= 2
+   * Kalendertage in Europe/Berlin. Sie steht hier ein zweites Mal, und das ist
+   * eine bewusste Doppelung: der Server ENTSCHEIDET, der Browser ZEIGT nur an.
+   * Eine Anzeige, die auf eine Serverantwort wartet, kaeme zu spaet — sie soll
+   * beim Tippen des Datums erscheinen, nicht nach dem Absenden.
+   *
+   * Damit die Doppelung nicht auseinanderlaeuft, haelt eine Probe beide Zahlen
+   * zusammen (`api/test/notdienstAbleitung.test.js`).
+   */
+  (function () {
+    var VORLAUF_TAGE = 2;
+
+    function heuteDE() {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit"
+      }).format(new Date());
+    }
+
+    function tageBis(iso) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(iso || "").slice(0, 10))) return null;
+      var an = (x) => Date.UTC(+x.slice(0, 4), +x.slice(5, 7) - 1, +x.slice(8, 10), 12);
+      return Math.round((an(iso.slice(0, 10)) - an(heuteDE())) / 86400000);
+    }
+
+    function t(k, ersatz) {
+      var v = (window.TCi18n && TCi18n.t) ? TCi18n.t(k) : "";
+      return v || ersatz;
+    }
+
+    function zeigeDringlichkeit() {
+      var ziel = document.getElementById("urgencyAnzeige");
+      var feld = document.getElementById("start_date");
+      if (!ziel || !feld) return;
+
+      var tage = tageBis(feld.value);
+      if (tage === null) {
+        ziel.className = "urgency-anzeige";
+        ziel.innerHTML = "<span><small>"
+          + t("dem.create.urgency.hintEmpty", "Ergibt sich aus dem Einsatzbeginn.")
+          + "</small></span>";
+        return;
+      }
+
+      var istNotdienst = tage <= VORLAUF_TAGE;
+      ziel.className = "urgency-anzeige" + (istNotdienst ? " urgency-anzeige--notdienst" : "");
+      ziel.innerHTML = "<span><b>"
+        + (istNotdienst
+            ? t("dem.create.urgency.derivedNotdienst", "Notdienst")
+            : t("dem.create.urgency.derivedNormal", "Regul\u00e4re Suche"))
+        + "</b><small>"
+        + (istNotdienst
+            ? t("dem.create.urgency.hintNotdienst", "Beginn in Reichweite \u2014 Anbieter werden sofort alarmiert.")
+            : t("dem.create.urgency.hintNormal", "Genug Vorlauf f\u00fcr die regul\u00e4re Suche."))
+        + "</small></span>";
+    }
+
+    function start() {
+      var feld = document.getElementById("start_date");
+      if (!feld) return;
+      feld.addEventListener("input", zeigeDringlichkeit);
+      feld.addEventListener("change", zeigeDringlichkeit);
+      document.addEventListener("tc:langchange", zeigeDringlichkeit);
+      zeigeDringlichkeit();
+    }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
   })();
   </script>
   <script src="/public/js/skillPicker.js"></script>

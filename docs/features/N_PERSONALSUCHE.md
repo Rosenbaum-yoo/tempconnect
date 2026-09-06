@@ -153,6 +153,34 @@ Der Notdienst-Weg ist der **einzige** im System, der Teilzusagen und Überfüllu
 bereits richtig kann. Er hat nur keine Oberfläche — **sieben auditierte Endpunkte ohne einen
 einzigen Aufrufer.**
 
+> **Gebaut am 2026-09-06 (Welle N2.1).** `notdienstAusStartdatum()` im Notdienst-Dienst;
+> `POST /marketplace/demand-requests` leitet daraus ab, das Auswahlfeld im Formular ist
+> entfernt und durch die **Anzeige** der abgeleiteten Stufe ersetzt (sichtbar beim Tippen des
+> Datums, nicht nach dem Absenden). Bewacht von `api/test/notdienstAbleitung.test.js` —
+> inklusive einer Probe, die die Browser-Anzeige ausführt und gegen den Dienst hält, damit
+> die beiden Kopien der Regel nicht auseinanderlaufen.
+>
+> **Zwei Entscheidungen dabei, beide vom Owner bestätigt:**
+> * **Ohne Notdienst-Tarif kein 403**, sondern der normale Weg plus Hinweis. Eine Sperre
+>   träfe genau den dringendsten Fall — und brächte nichts ein, weil derselbe Kunde heute
+>   einfach „normal" wählt.
+> * **`requisitions.urgency` bleibt Handeingabe.** Es ist ein internes Triage-Etikett mit
+>   eigener Skala, löst keine SLA-Uhr aus und fließt in keine Ausschreibung.
+>
+> **Beim Bauen gefunden:** `createEmergencyRequest` liest `payload.urgency` — im geparsten
+> Rumpf stand aber der Schema-Standardwert. Die Notdienst-Maschinerie wäre mit **normaler**
+> SLA angelaufen (120 statt 30 Minuten, keine Eskalation). Gefangen von einer Probe, die den
+> gespeicherten Wert prüft statt die Antwort; die Antwort sah richtig aus.
+
+> **Zum zweiten Auslöser (Dealabschluss), gemessen am 2026-09-06.** Die *operative* Wirkung
+> gibt es bereits: `anfrageFristSql` deckelt die Antwortfrist auf Mitternacht des Starttags
+> (`LEAST(NOW() + 72 h, start_date)`), mit vier Stunden Untergrenze. Ein Einsatz, der morgen
+> beginnt, erzeugt heute schon die kurze Frist — und `fristLabelDE` nennt sie dem Menschen.
+> Was fehlt, ist nicht die Wirkung, sondern die **Benennung**: niemand sagt an dieser Stelle
+> „Notdienst", und die Zuweisung trägt keine Dringlichkeit (`assignments` hat keine solche
+> Spalte). Das ist eine eigene, kleinere Welle — und sie sollte die Stufe **ableiten**, nicht
+> speichern: ein gespeicherter Wert veraltet, ein abgeleiteter nie.
+
 ### 4.5 Nach dem verbindlichen Abschluss
 
 | Was passieren soll | Stand |

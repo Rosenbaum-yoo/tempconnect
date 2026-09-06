@@ -11,6 +11,7 @@
  */
 
 import { createServiceLogger } from "../utils/logger.js";
+import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
 
 const logger = createServiceLogger("emergencyStaffing");
 
@@ -27,6 +28,101 @@ export const URGENCY_CONFIG = {
 };
 
 const EMERGENCY_LEVELS = new Set(["URGENT", "CRITICAL", "NOTDIENST"]);
+
+/* ═══════════════════════════════════════════════════════
+   Der Notdienst wird ABGELEITET, nicht gefragt
+   ═══════════════════════════════════════════════════════ */
+
+/**
+ * Wie viele Tage Vorlauf ein Bedarf haben muss, um KEIN Notdienst zu sein.
+ *
+ * Owner-Vorgabe 2026-09-05: "Wenn er sagt Einsatz ab morgen, ist es Notdienst;
+ * wenn er sagt Einsatz in 2 Tagen, ist es auch Notdienst; alles andere nicht
+ * Notdienst." Also: Vorlauf <= 2 Tage.
+ */
+export const NOTDIENST_VORLAUF_TAGE = 2;
+
+/** Ganze Kalendertage zwischen zwei JJJJ-MM-TT, negativ wenn `bis` frueher liegt. */
+function tageZwischen(von, bis) {
+  const a = String(von || "").slice(0, 10);
+  const b = String(bis || "").slice(0, 10);
+  const muster = /^\d\d\d\d-\d\d-\d\d$/;
+  if (!muster.test(a) || !muster.test(b)) return null;
+  /* Mittags-UTC als Anker: so kippt keine Zeitzonenverschiebung den Tag. */
+  const t = (x) => Date.UTC(+x.slice(0, 4), +x.slice(5, 7) - 1, +x.slice(8, 10), 12);
+  return Math.round((t(b) - t(a)) / 86400000);
+}
+
+/**
+ * Leitet die Dringlichkeit aus dem Einsatzbeginn ab.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WARUM ABGELEITET UND NICHT GEFRAGT
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Die Dringlichkeit war bis hierher ein Feld im Formular - an VIER Stellen, mit
+ * VIER verschiedenen Wertelisten (`marketplace.js`, `requisitions.js`,
+ * `slaSearchJobs.js`, `emergency.js`). Sie liess sich in BEIDE Richtungen
+ * falsch setzen:
+ *
+ *   Einsatz morgen als "normal"      Die 30-Minuten-Uhr laeuft nie an, niemand
+ *                                    wird alarmiert, die Schicht bleibt leer.
+ *   Einsatz in drei Wochen als       Es klingelt bei 50 Anbietern ohne Anlass -
+ *   "notdienst"                      und beim naechsten Mal sieht keiner mehr hin.
+ *
+ * Der Einsatzbeginn steht ohnehin im Formular. Aus zwei Angaben eine zu machen,
+ * die einander widersprechen koennen, ist die Fehlerquelle - nicht die
+ * Bequemlichkeit.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * TAGESGENAU HEISST EUROPE/BERLIN
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * `todayDE()`, nicht `new Date().toISOString().slice(0,10)`. Zwischen 23:00 und
+ * 01:00 unterscheiden sich die beiden um einen Tag - und dieser eine Tag
+ * entscheidet hier ueber die Einstufung eines Auftrags, nicht ueber eine
+ * Anzeige. Ein Bedarf, der um 23:30 fuer uebermorgen angelegt wird, waere unter
+ * UTC-Rechnung faelschlich ein Notdienst.
+ *
+ * Gerechnet wird auf KALENDERTAGEN, nicht auf Stunden: "Einsatz ab morgen" ist
+ * ein Notdienst, gleich ob er um 06:00 oder um 22:00 beginnt.
+ *
+ * @param {string|Date|null} startDatum Einsatzbeginn (Kalendertag).
+ * @param {{heute?: string}} [opt] `heute` nur fuer Proben - sonst todayDE().
+ * @returns {"notdienst"|"normal"} `normal`, wenn kein gueltiges Datum vorliegt:
+ *          eine Einstufung aus dem Nichts waere schlimmer als keine.
+ */
+export function notdienstAusStartdatum(startDatum, opt = {}) {
+  /*
+   * NUR Zeichenkette oder Datum. `new Date(42)` ergibt den 01.01.1970 - also
+   * "laengst ueberfaellig" und damit einen Notdienst. Das ist folgerichtig und
+   * trotzdem falsch: eine Zahl an dieser Stelle ist ein Fehler des Aufrufers,
+   * und ihn stillschweigend als Zeitstempel zu deuten verbirgt ihn. Aufgefallen
+   * durch eine Probe, die genau das durchgehen liess.
+   */
+  if (typeof startDatum !== "string" && !(startDatum instanceof Date)) return "normal";
+  const roh = typeof startDatum === "string" ? startDatum.trim() : startDatum;
+  /*
+   * Ein reiner Kalendertag braucht KEINEN Sonderweg. Hier stand einer - eine
+   * Rueckmutation hat gezeigt, dass er nichts bewirkt: `new Date("2026-09-08")`
+   * ist Mitternacht UTC, und Berlin liegt ganzjaehrig davor (UTC+1 bzw. +2).
+   * Aus 00:00 UTC wird 01:00 oder 02:00 Berliner Zeit - derselbe Tag.
+   *
+   * Der Zweig war also ein Pfad, den keine Probe rechtfertigen konnte. Weg
+   * damit: weniger Code, ein Weg statt zwei, und die Zeitzonenrechnung an
+   * genau einer Stelle. (Fuer eine Zone WESTLICH von UTC waere er noetig -
+   * dann aber gehoerte er in `dateOnlyDE`, nicht hierher.)
+   */
+  const start = dateOnlyDE(roh);
+  if (!start) return "normal";
+
+  const tage = tageZwischen(opt.heute || todayDE(), start);
+  if (tage === null) return "normal";
+
+  /* Ein Beginn in der VERGANGENHEIT ist erst recht dringend - er ist schon da.
+     Ohne diesen Fall waere ein nachgetragener Bedarf fuer gestern "normal". */
+  return tage <= NOTDIENST_VORLAUF_TAGE ? "notdienst" : "normal";
+}
 
 /* ── Urgency-Normalisierung ──────────────────────────── */
 

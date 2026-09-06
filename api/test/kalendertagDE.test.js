@@ -152,14 +152,31 @@ function fundstellen() {
     const rel = path.relative(ROOT, datei).replace(/\\/g, "/");
     if (istAusgenommen(rel)) continue;
 
-    const zeilen = fs.readFileSync(datei, "utf8").split("\n");
-    zeilen.forEach((zeile, i) => {
-      // Kommentare erklaeren das Problem oft — sie sind kein Fehler.
+    /*
+     * MEHRZEILIGE Kommentare zuerst, auf dem GANZEN Text - und das ist eine
+     * Nachbesserung vom 2026-09-06.
+     *
+     * Vorher wurde zeilenweise gestreift, und `/\*[\s\S]*?\*\//` greift dabei nur,
+     * wenn Anfang UND Ende auf derselben Zeile stehen. Ein JSDoc-Block, der das
+     * Anti-Muster ERKLAERT ("todayDE(), nicht new Date().toISOString()...")
+     * wurde deshalb als Fund gezaehlt. Die Sperrklinke klagte damit genau die
+     * Stelle an, die es richtig macht - und zwang dazu, die Begruendung
+     * wegzulassen, also das Wissen zu loeschen, das den naechsten davon abhaelt.
+     *
+     * Ersetzt wird durch LEERZEICHEN, Zeilenumbrueche bleiben stehen: sonst
+     * verschieben sich alle Zeilennummern und die Fundstellen zeigen ins Leere.
+     */
+    const roh = fs.readFileSync(datei, "utf8");
+    const ohneBloecke = roh.replace(/\/\*[\s\S]*?\*\//g,
+      (m) => m.replace(/[^\n]/g, " "));
+
+    ohneBloecke.split("\n").forEach((zeile, i) => {
+      // Einzeilige Kommentare erklaeren das Problem ebenso — kein Fehler.
       // \r entfernen: CRLF-Repos liefern nach split('\n') ein \r am Zeilenende,
       // das `$` in `/\/\/.*$/` nicht ansteuern kann (`.` matcht kein \r) —
       // der Kommentarstreifen schlaegt lautlos fehl und Muster in Kommentaren
       // werden faelschlich als Treffer gewertet.
-      const ohneKommentar = zeile.replace(/\r$/, "").replace(/\/\/.*$/, "").replace(/\/\*[\s\S]*?\*\//g, "");
+      const ohneKommentar = zeile.replace(/\r$/, "").replace(/\/\/.*$/, "");
       if (MUSTER.some((m) => m.test(ohneKommentar))) {
         treffer.push(rel + ":" + (i + 1));
       }

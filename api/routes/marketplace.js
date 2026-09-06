@@ -954,10 +954,39 @@ export function createMarketplaceRouter(deps) {
     try {
       const me = await getUserAndPlan(req.session.userId);
       if (me?.role !== "company") return res.status(403).json({ error: "COMPANY_ONLY" });
-      const urgency = (req.body?.urgency || "normal").toLowerCase();
-      if (urgency === "notdienst" && !me?.limits?.notdienst) return res.status(403).json({ error: "PLAN_REQUIRED_NOTDIENST" });
       const parsed = demandRequestSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+
+      /*
+       * ═══════════════════════════════════════════════════════════════════════
+       * DIE DRINGLICHKEIT WIRD ABGELEITET (N2.1, Owner-Vorgabe 2026-09-05)
+       * ═══════════════════════════════════════════════════════════════════════
+       *
+       * Hier stand `req.body.urgency`. Ein Feld im Formular, das sich in beide
+       * Richtungen falsch setzen liess: ein Einsatz morgen als "normal" (die
+       * 30-Minuten-Uhr laeuft nie an), ein Einsatz in drei Wochen als
+       * "notdienst" (50 Anbieter werden ohne Anlass alarmiert).
+       *
+       * Der Einsatzbeginn steht ohnehin im Formular. Jetzt entscheidet er:
+       * Vorlauf <= 2 Kalendertage in Europe/Berlin -> Notdienst.
+       *
+       * DER WERT AUS DEM RUMPF WIRD IGNORIERT, nicht abgewiesen. Das Schema ist
+       * nicht `strict`, und die oeffentliche Schnittstelle fuehrt `urgency` seit
+       * jeher — ein Altclient, der ihn noch schickt, soll nicht plötzlich 400
+       * bekommen. Was er schickt, spielt nur keine Rolle mehr.
+       *
+       * OHNE TARIF KEIN 403, SONDERN DER NORMALE WEG. Bisher wies die Route
+       * einen Kunden ohne Notdienst-Berechtigung ab, wenn er das Haekchen
+       * setzte. Abgeleitet waere daraus eine Sperre fuer JEDEN kurzfristigen
+       * Bedarf — ausgerechnet dann, wenn er am dringendsten ist. Und sie waere
+       * nicht einmal eine neue Einnahme: heute setzt derselbe Kunde einfach
+       * "normal" und schreibt aus. Er bekommt also, was er ohnehin bekaeme,
+       * plus den Hinweis, was ihm entgeht.
+       */
+      const abgeleitet = emergencyService.notdienstAusStartdatum(parsed.data.start_date);
+      const notdienstErlaubt = !!me?.limits?.notdienst;
+      const urgency = (abgeleitet === "notdienst" && notdienstErlaubt) ? "notdienst" : "normal";
+      const notdienstOhneTarif = abgeleitet === "notdienst" && !notdienstErlaubt;
       // Worker-Limit pro Vermittlung
       const wLimit = me?.limits?.max_workers_per_request;
       if (wLimit !== undefined && wLimit !== -1 && (parsed.data.headcount || 1) > wLimit) {
@@ -966,17 +995,26 @@ export function createMarketplaceRouter(deps) {
 
       const plan = me?.plan ?? "FREE";
       if (urgency === "notdienst") {
+        /*
+         * Die ABGELEITETE Dringlichkeit muss mit - `createEmergencyRequest`
+         * liest `payload.urgency`, und im geparsten Rumpf steht noch der
+         * Standardwert des Schemas ("normal"). Ohne diese Zeile liefe die
+         * Notdienst-Maschinerie mit NORMALER SLA-Einstellung an: 120 Minuten
+         * statt 30, kein Antwortfenster, keine Eskalation. Gefunden hat das
+         * eine Probe, die den gespeicherten Wert prueft statt die Antwort.
+         */
         const emergencyResult = await emergencyService.createEmergencyRequest(
-          pool, req.session.userId, plan, parsed.data
+          pool, req.session.userId, plan, { ...parsed.data, urgency }
         );
         const demand = emergencyResult.demand;
         const events = await marketplaceService.getDemandSlaEvents(pool, demand.id);
         const matchList = await marketplaceService.getDemandMatches(pool, demand.id);
-        res.locals.audit = { action: "marketplace.demand_request.create", entity_type: "demand_request", entity_id: demand.id, details: { role: parsed.data.role, urgency: parsed.data.urgency, city: parsed.data.location_city } };
+        res.locals.audit = { action: "marketplace.demand_request.create", entity_type: "demand_request", entity_id: demand.id, details: { role: parsed.data.role, urgency, urgency_source: "start_date", city: parsed.data.location_city } };
         res.status(201).json({
           ...demand,
           sla_events: events,
           matches: matchList,
+          urgency_source: "start_date",
           emergency: {
             urgency_level: emergencyResult.urgency_level,
             urgency_config: emergencyResult.urgency_config,
@@ -1011,6 +1049,8 @@ export function createMarketplaceRouter(deps) {
 
       const demand = await marketplaceService.createDemandRequest(pool, req.session.userId, plan, {
         ...parsed.data,
+        /* Nach dem Spread, damit die Ableitung den Schema-Standardwert schlaegt. */
+        urgency,
         contact_name: kontakt.name,
         contact_phone: kontakt.telefon
       });
@@ -1063,8 +1103,21 @@ export function createMarketplaceRouter(deps) {
 
       const events = await marketplaceService.getDemandSlaEvents(pool, demand.id);
       const matchList = await marketplaceService.getDemandMatches(pool, demand.id);
-      res.locals.audit = { action: "marketplace.demand_request.create", entity_type: "demand_request", entity_id: demand.id, details: { role: parsed.data.role, urgency: parsed.data.urgency, city: parsed.data.location_city } };
-      res.status(201).json({ ...demand, sla_events: events, matches: matchList });
+      res.locals.audit = { action: "marketplace.demand_request.create", entity_type: "demand_request", entity_id: demand.id, details: { role: parsed.data.role, urgency, urgency_source: "start_date", notdienst_ohne_tarif: notdienstOhneTarif, city: parsed.data.location_city } };
+      res.status(201).json({
+        ...demand,
+        sla_events: events,
+        matches: matchList,
+        urgency_source: "start_date",
+        /*
+         * Der Aufstiegs-Moment, nicht die Sperre. Wer kurzfristig sucht und den
+         * Notdienst nicht im Tarif hat, bekommt seine Ausschreibung — und
+         * erfaehrt, was ihm entgeht. Ein 403 haette ihn ausgesperrt und nichts
+         * eingebracht; er haette einfach ein spaeteres Datum eingetragen.
+         */
+        notdienst_verfuegbar: !notdienstOhneTarif,
+        ...(notdienstOhneTarif ? { notdienst_hinweis: "PLAN_REQUIRED_NOTDIENST" } : {})
+      });
     } catch (e) {
       logger.error({ err: e }, "POST /marketplace/demand-requests");
       res.status(500).json({ error: "SERVER_ERROR" });
