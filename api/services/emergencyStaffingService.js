@@ -206,6 +206,55 @@ export async function createEmergencyRequest(pool, userId, plan, payload) {
    getActiveEmergencies
    ═══════════════════════════════════════════════════════ */
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DIE FELDER, DIE EINE FREMDE ORGANISATION SEHEN DARF (N7.5, 2026-09-06)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * `demand_requests` hat 44 Spalten. Der ausdruecklich oeffentliche Nachbarpfad
+ * `GET /marketplace/public/demand-requests` waehlt davon **14 von Hand** aus -
+ * und laesst `contact_name`, `contact_phone`, `budget_min`, `budget_max`,
+ * `requirements`, `shifts`, `location_lat/lng` und `location_postal`
+ * ausdruecklich weg. Diese Auswahl IST die Aussage; `SELECT dr.*` ist keine
+ * Entscheidung, sondern deren Abwesenheit.
+ *
+ * Bis zum 2026-09-06 lieferte `?all=1` die ganze Zeile. Die Durchwahl der
+ * Ansprechperson gehoert aber NACH die Besetzung, nicht in eine
+ * Entdeckungsliste - `assignmentStaffingService.js` liest sie mit genau dieser
+ * Begruendung ("Wer besetzt, braucht die Nummer der Gegenseite").
+ *
+ * Dazu die Notdienst-eigenen Kennzahlen, die den Leitstand ausmachen und im
+ * oeffentlichen Pfad fehlen: Alter, SLA-Stand, Eskalationsstufe.
+ *
+ * DIE EIGENE ORGANISATION SIEHT WEITERHIN ALLES. Die Einschraenkung greift nur
+ * fuer den plattformweiten Blick - wer die eigene Notlage ansieht, hat auf jedes
+ * Feld ohnehin Anspruch.
+ *
+ * Die Auswahl steht ALS LISTE hier und nicht als Streichung in der Route: eine
+ * Erlaubnisliste laesst ein NEUES Feld standardmaessig draussen. Eine
+ * Streichliste wuerde es standardmaessig durchlassen - und niemand denkt beim
+ * Anlegen einer Spalte an diesen Endpunkt.
+ */
+const FREMDE_SICHT = Object.freeze([
+  /* dieselben 14 wie der oeffentliche Nachbarpfad */
+  "id", "title", "role", "skill_tags", "headcount", "required_total_count",
+  "remaining_open_count", "currently_committed_count", "status",
+  "start_date", "end_date", "location_city", "urgency", "created_at",
+  "requester_company_name",
+  /* was den Leitstand ausmacht */
+  "urgency_level", "urgency_label", "age_minutes", "sla_overdue",
+  "sla_due_at", "escalation_level", "supplier_response_count"
+]);
+
+/** Reduziert eine Zeile auf die Felder, die eine fremde Organisation sehen darf. */
+function nurFremdeSicht(zeile) {
+  const raus = {};
+  for (const feld of FREMDE_SICHT) {
+    if (Object.prototype.hasOwnProperty.call(zeile, feld)) raus[feld] = zeile[feld];
+  }
+  return raus;
+}
+
 export async function getActiveEmergencies(pool, orgId) {
   const { rows } = await pool.query(
     `SELECT dr.*, u.company_name AS requester_company_name,
@@ -226,13 +275,18 @@ export async function getActiveEmergencies(pool, orgId) {
        dr.created_at ASC`,
     [orgId || null]
   );
-  return rows.map(r => ({
+  const angereichert = rows.map(r => ({
     ...r,
     urgency_level: classifyUrgency(r.urgency),
     urgency_label: getUrgencyConfig(r.urgency).label,
     age_minutes: Math.round(Number(r.age_minutes) || 0),
     sla_overdue: r.sla_overdue ?? false
   }));
+
+  /* Ohne `orgId` ist dies der PLATTFORMWEITE Blick: fremde Notlagen, also
+     reduzierte Sicht. Mit `orgId` sind es die eigenen - dort aendert sich
+     nichts. */
+  return orgId ? angereichert : angereichert.map(nurFremdeSicht);
 }
 
 /* ═══════════════════════════════════════════════════════

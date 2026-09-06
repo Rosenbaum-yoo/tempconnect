@@ -532,50 +532,33 @@ describe("N7.4 · die Oberflaeche ist verdrahtet", { skip: oberflaecheDa ? false
 
   /* ── Die Grenze, die diese Seite nicht ueberschreitet ──────────────── */
 
-  it("KEIN `all=1` — nirgends im Frontend", () => {
+  it("die alte Wache gegen `all=1` ist bewusst ENTFALLEN", () => {
     /*
-     * `GET /emergency/active?all=1` und `/dashboard?all=1` heben die
-     * Org-Grenze auf. Der Schalter ist beabsichtigt und getestet; unbeabsichtigt
-     * ist, was dabei mitgeht: `getActiveEmergencies` liefert `dr.*`, also die
-     * ganze Zeile — samt `contact_name`/`contact_phone`, der Durchwahl der
-     * Ansprechperson des FREMDEN Unternehmens (Migration 192).
+     * ═══════════════════════════════════════════════════════════════════════
+     * WARUM HIER EINE PROBE VERSCHWUNDEN IST (N7.5, 2026-09-06)
+     * ═══════════════════════════════════════════════════════════════════════
      *
-     * Dass das nicht gemeint ist, zeigt der ausdruecklich oeffentliche
-     * Nachbarpfad `/marketplace/public/demand-requests`: er waehlt 16 Felder von
-     * Hand aus und laesst genau diese beiden weg. Die Auswahl ist die Absicht,
-     * `dr.*` ist die Nachlaessigkeit.
+     * An dieser Stelle stand eine Wache, die JEDE Benutzung von `?all=1` im
+     * Frontend rot faerbte. Ihre Praemisse war: der Schalter liefert `dr.*`
+     * quer ueber alle Kunden, also darf ihn keine Oberflaeche anfassen.
      *
-     * Solange das nicht entschieden ist, faerbt diese Probe rot, sobald eine
-     * Oberflaeche den Schalter benutzt.
+     * Diese Praemisse gilt nicht mehr. Der Schalter hat jetzt eine Zielgruppe
+     * (nur Agenturen) und eine Feldauswahl (`FREMDE_SICHT`, 22 Felder statt 44
+     * Spalten). Eine Agentur-Oberflaeche DARF ihn kuenftig benutzen - eine
+     * Wache, die das verboehte, waere ab sofort eine Bremse ohne Grund.
+     *
+     * Ersatzlos gestrichen wird sie trotzdem nicht: an ihre Stelle treten die
+     * Proben in Abschnitt 6, und die sind staerker. Sie pruefen nicht mehr, ob
+     * jemand den Schalter ANFASST, sondern was er HERGIBT - am Dienst, nicht am
+     * Aufrufer. Eine Zusicherung am Ursprung gilt fuer jeden kuenftigen
+     * Aufrufer; eine am Aufrufer gilt nur fuer die, die es schon gibt.
+     *
+     * Diese Probe bleibt als Merkzettel stehen, damit die Streichung eine
+     * Entscheidung bleibt und nicht als Versehen gelesen wird.
      */
-    const treffer = [];
-    const suche = (verzeichnis) => {
-      for (const eintrag of fs.readdirSync(verzeichnis, { withFileTypes: true })) {
-        const p = path.join(verzeichnis, eintrag.name);
-        if (eintrag.isDirectory()) { suche(p); continue; }
-        if (!/\.(js|html)$/.test(eintrag.name)) continue;
-        const roh = fs.readFileSync(p, "utf8");
-        if (!roh.includes("emergency")) continue;
-        /*
-         * NUR CODE, KEINE PROSA. Beim ersten Lauf hat diese Wache ihre eigene
-         * Begruendung angeklagt: der Kommentar in notdienstLeitstand.js NENNT
-         * den Schalter, um zu erklaeren, warum die Seite ihn nicht benutzt.
-         * Eine Wache, die Benutzen und Erwaehnen nicht unterscheidet, zwingt
-         * dazu, die Begruendung wegzulassen - und loescht damit genau das
-         * Wissen, das den naechsten davon abhaelt.
-         */
-        const inhalt = roh
-          .replace(/\/\*[\s\S]*?\*\//g, " ")
-          .replace(/^[ \t]*\/\/.*$/gm, " ")
-          .replace(/<!--[\s\S]*?-->/g, " ");
-        if (/all=1|all:\s*["']1["']|all=\$\{/.test(inhalt)) {
-          treffer.push(path.relative(OEFFENTLICH, p).replace(/\\/g, "/"));
-        }
-      }
-    };
-    suche(OEFFENTLICH);
-    assert.deepEqual(treffer, [],
-      "eine Oberflaeche benutzt den org-uebergreifenden Schalter des Notdienstes: " + treffer.join(", "));
+    const dieser = fs.readFileSync(path.join(API, "test", "notdienstLeitstand.test.js"), "utf8");
+    assert.match(dieser, /FREMDE_SICHT/,
+      "Abschnitt 6 fehlt — dann ist die alte Wache ersatzlos weg");
   });
 });
 
@@ -831,5 +814,194 @@ describe("N7.4 · das Skript laeuft, und die Zahlen landen im DOM", { skip: ober
     await new Promise((f) => setTimeout(f, 30));
     assert.match(knoten.get("lst-stand").textContent, /Stand \d{2}:\d{2}/,
       "der Leitstand sagt nicht, wie alt seine Zahlen sind");
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════
+   6. Der plattformweite Blick: Zielgruppe und Feldauswahl (N7.5)
+   ═══════════════════════════════════════════════════════════════════════
+
+   `?all=1` hebt den Org-Filter auf. Bis zum 2026-09-06 stand davor nur
+   `requireFeature("emergency_staffing")` — ein TARIF-Tor, keine Rolle — und
+   dahinter `SELECT dr.*`, also alle 44 Spalten von `demand_requests`.
+
+   Owner-Entscheidung vom 2026-09-06: der Schalter bleibt (eine Agentur muss
+   sehen, wo Not herrscht), bekommt aber die Zielgruppe, die handeln kann, und
+   dieselbe Feldauswahl-Disziplin wie der oeffentliche Nachbarpfad.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/** Eine Notlage mit ALLEN heiklen Feldern — so wie sie aus `dr.*` kaeme. */
+function fremdeNotlage(overrides = {}) {
+  return {
+    id: "d-fremd", title: "Nachtschicht", role: "Pflegekraft", skill_tags: ["Stapler"],
+    headcount: 4, required_total_count: 4, remaining_open_count: 3,
+    currently_committed_count: 1, status: "open", start_date: "2026-09-10",
+    end_date: null, location_city: "Muenster", urgency: "notdienst",
+    created_at: "2026-09-06T04:00:00.000Z", escalation_level: 1,
+    supplier_response_count: 2, sla_due_at: "2026-09-06T06:00:00.000Z",
+    age_minutes: 120, sla_overdue: false, requester_company_name: "Fremde GmbH",
+    /* Was NICHT hinausgehen darf: */
+    requester_company_id: "company-fremd",
+    contact_name: "Frau Ansprechpartner", contact_phone: "+49 251 1234567",
+    budget_min: 2800, budget_max: 3400,
+    requirements: { fuehrerschein: true }, shifts: { nacht: true },
+    location_lat: 51.96, location_lng: 7.62, location_postal: "48143",
+    sla_status: "RUNNING", first_notification_sent_at: "2026-09-06T04:05:00.000Z",
+    ...overrides
+  };
+}
+
+const HEIKEL = ["contact_name", "contact_phone", "budget_min", "budget_max",
+                "requirements", "shifts", "location_lat", "location_lng",
+                "location_postal", "requester_company_id"];
+
+describe("N7.5 · wer plattformweit sehen darf", () => {
+
+  async function frage(rolle, query, pfad = "/emergency/active") {
+    const pool = zugang([
+      ["FROM demand_requests dr", () => [fremdeNotlage()]],
+      ["FROM demand_requests", () => [fremdeNotlage()]]
+    ]);
+    const res = antwort();
+    await handler(createEmergencyRouter(deps(pool, rolle)), "get", pfad)(
+      anfrage({ session: { userId: "wer-auch-immer" }, query }), res
+    );
+    return { res, pool };
+  }
+
+  it("ein UNTERNEHMEN bekommt den plattformweiten Blick nicht", async () => {
+    for (const pfad of ["/emergency/active", "/emergency/dashboard", "/emergency/history"]) {
+      const { res, pool } = await frage("company", { all: "1" }, pfad);
+      assert.strictEqual(res._status, 403, `${pfad}: ein Unternehmen kam durch`);
+      assert.strictEqual(res._json.error, "AGENCY_ONLY");
+      assert.strictEqual(pool.calls.length, 0,
+        `${pfad}: es wurde trotz Ablehnung abgefragt`);
+    }
+  });
+
+  it("ABGELEHNT, nicht still auf die eigene Organisation reduziert", async () => {
+    /*
+     * Der Unterschied ist keine Feinheit: wer plattformweit fragt und
+     * stillschweigend nur das Eigene bekommt, haelt eine leere Liste fuer eine
+     * Aussage ueber den Markt — und trifft danach eine Entscheidung darauf.
+     */
+    const { res } = await frage("company", { all: "1" });
+    assert.notStrictEqual(res._status, 200,
+      "die Anfrage wurde beantwortet statt abgelehnt");
+  });
+
+  it("eine AGENTUR bekommt ihn — auf allen drei Wegen", async () => {
+    for (const pfad of ["/emergency/active", "/emergency/dashboard", "/emergency/history"]) {
+      const { res, pool } = await frage("agency", { all: "1" }, pfad);
+      assert.strictEqual(res._status, 200, `${pfad}: ${JSON.stringify(res._json)}`);
+      assert.strictEqual(res._json.scope, "platform",
+        `${pfad}: die Antwort sagt nicht, welchen Ausschnitt sie zeigt`);
+      /* Die drei Wege heben den Filter UNTERSCHIEDLICH auf: `active` und
+         `history` binden `null` als Parameter, die Kennzahlen lassen die
+         Bedingung ganz weg (`orgFilter = ""`, `params = []`). Eine Probe, die
+         nur nach `null` sucht, prueft deshalb zwei von dreien - meine erste
+         Fassung tat genau das. Gefragt ist die Sache: keine Org-Bindung. */
+      const abfrage = pool.calls[0];
+      const gebunden = abfrage.params.includes("wer-auch-immer")
+        || /requester_company_id = \$\d/.test(abfrage.sql) && abfrage.params.length > 0
+           && !abfrage.params.includes(null);
+      assert.ok(!gebunden,
+        `${pfad}: der Org-Filter wurde nicht aufgehoben — params=${JSON.stringify(abfrage.params)}`);
+    }
+  });
+
+  it("ohne Schalter bleibt es bei der eigenen Organisation — fuer JEDE Rolle", async () => {
+    for (const rolle of ["company", "agency"]) {
+      const { res, pool } = await frage(rolle, {});
+      assert.strictEqual(res._status, 200);
+      assert.strictEqual(res._json.scope, "own");
+      assert.ok(pool.calls[0].params.includes("wer-auch-immer"),
+        `${rolle}: der eigene Ausschnitt wurde nicht gebunden`);
+    }
+  });
+});
+
+describe("N7.5 · was der plattformweite Blick hergibt", () => {
+
+  it("KEIN heikles Feld verlaesst die fremde Organisation", async () => {
+    const pool = zugang([["FROM demand_requests dr", () => [fremdeNotlage()]]]);
+    const res = antwort();
+    await handler(createEmergencyRouter(deps(pool, "agency")), "get", "/emergency/active")(
+      anfrage({ session: { userId: "agentur-1" }, query: { all: "1" } }), res
+    );
+    assert.strictEqual(res._status, 200);
+    const zeile = res._json.items[0];
+    const durchgerutscht = HEIKEL.filter((f) => Object.prototype.hasOwnProperty.call(zeile, f));
+    assert.deepEqual(durchgerutscht, [],
+      "diese Felder gingen an eine fremde Organisation: " + durchgerutscht.join(", "));
+  });
+
+  it("was der Leitstand BRAUCHT, kommt trotzdem an", async () => {
+    /* Eine Auswahl, die zu viel wegnimmt, macht den Blick wertlos — dann
+       benutzt ihn niemand, und die Notlage bleibt unbesetzt. */
+    const pool = zugang([["FROM demand_requests dr", () => [fremdeNotlage()]]]);
+    const res = antwort();
+    await handler(createEmergencyRouter(deps(pool, "agency")), "get", "/emergency/active")(
+      anfrage({ session: { userId: "agentur-1" }, query: { all: "1" } }), res
+    );
+    const zeile = res._json.items[0];
+    for (const feld of ["id", "title", "role", "skill_tags", "location_city", "urgency",
+                        "urgency_level", "urgency_label", "age_minutes", "sla_overdue",
+                        "escalation_level", "required_total_count",
+                        "currently_committed_count", "requester_company_name"]) {
+      assert.ok(Object.prototype.hasOwnProperty.call(zeile, feld),
+        `${feld} fehlt — ohne es ist der plattformweite Blick nicht zu gebrauchen`);
+    }
+  });
+
+  it("EINE ERLAUBNISLISTE, keine Streichliste", async () => {
+    /*
+     * Der Unterschied entscheidet ueber die naechste Spalte. Eine Streichliste
+     * laesst ein NEUES Feld standardmaessig durch — und niemand denkt beim
+     * Anlegen einer Spalte an diesen Endpunkt. Hier wird eine Spalte erfunden,
+     * die es nicht gibt: sie darf nicht hinausgehen.
+     */
+    const pool = zugang([["FROM demand_requests dr",
+      () => [fremdeNotlage({ spalte_von_morgen: "geheim" })]]]);
+    const res = antwort();
+    await handler(createEmergencyRouter(deps(pool, "agency")), "get", "/emergency/active")(
+      anfrage({ session: { userId: "agentur-1" }, query: { all: "1" } }), res
+    );
+    assert.ok(!Object.prototype.hasOwnProperty.call(res._json.items[0], "spalte_von_morgen"),
+      "ein unbekanntes Feld ging hinaus — die Auswahl ist eine Streichliste");
+  });
+
+  it("DIE EIGENE Organisation sieht weiterhin alles", async () => {
+    /*
+     * Die Einschraenkung gilt dem FREMDEN Blick. Wer die eigene Notlage
+     * ansieht, hat auf jedes Feld Anspruch — und der Leitstand aus N7.4 liest
+     * sie. Ohne diese Gegenprobe waere die Reparatur eine Verschlechterung.
+     */
+    const pool = zugang([["FROM demand_requests dr", () => [fremdeNotlage()]]]);
+    const res = antwort();
+    await handler(createEmergencyRouter(deps(pool, "company")), "get", "/emergency/active")(
+      anfrage({ session: { userId: "company-1" }, query: {} }), res
+    );
+    const zeile = res._json.items[0];
+    for (const feld of HEIKEL) {
+      assert.ok(Object.prototype.hasOwnProperty.call(zeile, feld),
+        `${feld} fehlt im EIGENEN Ausschnitt — die Auswahl greift zu weit`);
+    }
+  });
+
+  it("die Auswahl steht im Dienst, nicht in der Route", () => {
+    /*
+     * Formprobe mit Grund: eine Einschraenkung an der Route gilt fuer diese
+     * eine Route. Am Dienst gilt sie fuer jeden kuenftigen Aufrufer — und der
+     * naechste wird sie nicht kennen.
+     */
+    const dienst = fs.readFileSync(path.join(API, "services", "emergencyStaffingService.js"), "utf8");
+    assert.match(dienst, /const FREMDE_SICHT = Object\.freeze\(\[/,
+      "die Feldauswahl liegt nicht als eingefrorene Liste im Dienst");
+    assert.match(dienst, /return orgId \? angereichert : angereichert\.map\(nurFremdeSicht\);/,
+      "die Auswahl wird nicht am Ausschnitt entschieden");
+    const route = fs.readFileSync(path.join(API, "routes", "emergency.js"), "utf8");
+    assert.ok(!/contact_phone/.test(route),
+      "die Route kennt die heiklen Felder namentlich — dann ist es eine Streichliste an der falschen Stelle");
   });
 });

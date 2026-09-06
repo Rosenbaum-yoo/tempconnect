@@ -244,14 +244,12 @@ Im Katalog „Notdienst / Emergency Staffing" (`api/config/planCatalog.js:322`),
 >   noch im Dienst. Jeder Angemeldete mit `emergency_staffing` im Tarif konnte jede fremde
 >   Notlage dreimal hochstufen; jede Stufe löst einen E-Mail-Rundruf an bis zu 50 Anbieter
 >   aus. Geschlossen über `canAccessAsOwner`, bewacht von `api/test/notdienstLeitstand.test.js`.
-> * **`GET /emergency/active?all=1` und `/dashboard?all=1` heben die Org-Grenze auf.** Der
->   Schalter ist beabsichtigt und getestet; unbeabsichtigt ist, was dabei mitgeht:
->   `getActiveEmergencies` liefert `dr.*`, also auch `contact_name`/`contact_phone` — die
->   Durchwahl der Ansprechperson des fremden Unternehmens (Migration 192). Der ausdrücklich
->   öffentliche Nachbarpfad `/marketplace/public/demand-requests` wählt 16 Felder von Hand
->   aus und lässt genau diese beiden weg. **Offen, Owner-Entscheidung** (Zielgruppe des
->   Schalters und Feldauswahl); der Leitstand benutzt ihn nicht, und ein Wächter hält das
->   fest.
+> * **`GET /emergency/active?all=1` und `/dashboard?all=1` heben die Org-Grenze auf** —
+>   **entschieden und geschlossen am 2026-09-06 (Welle N7.5).** Der Schalter bleibt, weil eine
+>   Agentur sehen muss, wo Not herrscht; er bekam die Zielgruppe, die handeln kann (nur
+>   Agenturen, Tarif bleibt), und eine **Erlaubnisliste** von 22 Feldern statt der 44 Spalten
+>   von `demand_requests`. `contact_name`/`contact_phone`, Budget, Konditionen und Koordinaten
+>   gehen nicht mehr hinaus. Die eigene Organisation sieht unverändert alles.
 
 ### 13. Auswertung und Steuerung
 

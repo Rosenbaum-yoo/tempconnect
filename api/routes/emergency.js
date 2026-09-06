@@ -52,6 +52,50 @@ export function createEmergencyRouter(deps) {
   const router = Router();
   const emergencyAccess = requireFeature("emergency_staffing");
 
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   * WER DEN PLATTFORMWEITEN BLICK BEKOMMT (N7.5, 2026-09-06)
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * `?all=1` hebt den Org-Filter auf. Davor stand bis heute nur
+   * `requireFeature("emergency_staffing")` - und das prueft den TARIF, keine
+   * Rolle. Ein UNTERNEHMEN auf PLUS las damit die Notlagen seiner Wettbewerber,
+   * obwohl es sie gar nicht bedienen kann.
+   *
+   * Der Schalter selbst bleibt: eine Agentur muss sehen, wo Not herrscht, sonst
+   * gibt es keinen Markt. Nur die Zielgruppe wird die, die handeln KANN.
+   *
+   * WARUM DAS KEINE REICHWEITE KOSTET, und das ist der Punkt, der die Abwaegung
+   * aufloest: `GET /marketplace/public/demand-requests` filtert NICHT nach
+   * Dringlichkeit. Notlagen erscheinen dort schon heute - fuer jeden
+   * Angemeldeten, mit 14 kuratierten Feldern, ohne Tarifschranke. Was dieser
+   * Schalter zusaetzlich liefert, ist die Leitstand-Qualitaet: Alter, SLA-Stand,
+   * Eskalationsstufe, Sortierung nach Dringlichkeit. Das ist das Premium-
+   * Produkt, nicht der Bedarf selbst. Der Tarif bleibt deshalb stehen
+   * (Owner-Entscheidung 2026-09-06).
+   *
+   * ABGELEHNT wird ausdruecklich, statt still auf die eigene Organisation
+   * zurueckzufallen: wer plattformweit fragt und stillschweigend nur das Eigene
+   * bekommt, haelt eine leere Liste fuer eine Aussage ueber den Markt.
+   *
+   * @returns {Promise<{ok: true}|{ok: false, status: number, error: string}>}
+   */
+  async function plattformweitErlaubt(req) {
+    const me = await getUserAndPlan(req.session.userId);
+    if (me?.role !== "agency") {
+      return { ok: false, status: 403, error: "AGENCY_ONLY" };
+    }
+    return { ok: true };
+  }
+
+  /** Der Org-Ausschnitt fuer diese Anfrage - `null` heisst plattformweit. */
+  async function ausschnitt(req) {
+    if (req.query.all !== "1") return { ok: true, orgId: req.session.userId };
+    const erlaubt = await plattformweitErlaubt(req);
+    if (!erlaubt.ok) return erlaubt;
+    return { ok: true, orgId: null };
+  }
+
   async function getDemandById(demandId) {
     const { rows } = await pool.query(
       `SELECT dr.id, dr.requester_company_id, dr.urgency, dr.status, dr.required_total_count,
@@ -107,10 +151,10 @@ export function createEmergencyRouter(deps) {
 
   router.get("/emergency/active", requireAuth, emergencyAccess, async (req, res) => {
     try {
-      const items = await emergencyService.getActiveEmergencies(
-        pool, req.query.all === "1" ? null : req.session.userId
-      );
-      res.json({ items, count: items.length });
+      const a = await ausschnitt(req);
+      if (!a.ok) return res.status(a.status).json({ error: a.error });
+      const items = await emergencyService.getActiveEmergencies(pool, a.orgId);
+      res.json({ items, count: items.length, scope: a.orgId ? "own" : "platform" });
     } catch (e) {
       logger.error({ err: e.message }, "GET /emergency/active");
       res.status(500).json({ error: "SERVER_ERROR" });
@@ -121,10 +165,10 @@ export function createEmergencyRouter(deps) {
 
   router.get("/emergency/dashboard", requireAuth, emergencyAccess, async (req, res) => {
     try {
-      const dashboard = await emergencyService.getEmergencyDashboard(
-        pool, req.query.all === "1" ? null : req.session.userId
-      );
-      res.json(dashboard);
+      const a = await ausschnitt(req);
+      if (!a.ok) return res.status(a.status).json({ error: a.error });
+      const dashboard = await emergencyService.getEmergencyDashboard(pool, a.orgId);
+      res.json({ ...dashboard, scope: a.orgId ? "own" : "platform" });
     } catch (e) {
       logger.error({ err: e.message }, "GET /emergency/dashboard");
       res.status(500).json({ error: "SERVER_ERROR" });
@@ -224,12 +268,15 @@ export function createEmergencyRouter(deps) {
 
   router.get("/emergency/history", requireAuth, emergencyAccess, async (req, res) => {
     try {
+      const a = await ausschnitt(req);
+      if (!a.ok) return res.status(a.status).json({ error: a.error });
+      /* Der Verlauf liefert seit jeher eine kuratierte Auswahl (kein `dr.*`) -
+         hier fehlte nur die Zielgruppe. */
       const items = await emergencyService.getEmergencyHistory(
-        pool,
-        req.query.all === "1" ? null : req.session.userId,
+        pool, a.orgId,
         { limit: Number(req.query.limit) || 50, offset: Number(req.query.offset) || 0 }
       );
-      res.json({ items, count: items.length });
+      res.json({ items, count: items.length, scope: a.orgId ? "own" : "platform" });
     } catch (e) {
       logger.error({ err: e.message }, "GET /emergency/history");
       res.status(500).json({ error: "SERVER_ERROR" });

@@ -223,15 +223,50 @@ describe("GET /emergency/active", () => {
     assert.strictEqual(res._json.items[0].urgency_level, "NOTDIENST");
   });
 
-  it("passes null org scope when all=1", async () => {
+  /*
+   * GEAENDERT AM 2026-09-06 (Welle N7.5, Owner-Entscheidung).
+   *
+   * Diese Probe hiess "passes null org scope when all=1" und fuhr die Anfrage
+   * als ROLLE "company". Sie schrieb damit fest, dass ein UNTERNEHMEN den
+   * plattformweiten Blick bekommt - also die offenen Notlagen seiner
+   * Wettbewerber, obwohl es sie gar nicht bedienen kann.
+   *
+   * Das war kein Versehen der Probe, sondern die getreue Abbildung eines
+   * Verhaltens, das niemand entschieden hatte: vor dem Schalter stand nur
+   * `requireFeature("emergency_staffing")`, und das prueft den TARIF, keine
+   * Rolle. Die Probe kodierte einen Befund als Soll - der eine Fall, in dem
+   * nicht der Code an den Test angepasst wird, sondern der Test an die
+   * Entscheidung.
+   *
+   * Der Schalter selbst bleibt. Nur bekommt er die Zielgruppe, die handeln kann.
+   */
+  it("eine AGENTUR bekommt den plattformweiten Ausschnitt", async () => {
+    const pool = dispatchPool([["FROM demand_requests dr", () => []]]);
+    const router = createEmergencyRouter(baseDeps(pool, "agency"));
+    const handler = findHandler(router, "get", "/emergency/active");
+    const res = mockRes();
+    await handler(mockReq({ session: { userId: "agency-99" }, query: { all: "1" } }), res);
+    assert.strictEqual(res._status, 200);
+    assert.strictEqual(res._json.count, 0);
+    assert.strictEqual(res._json.scope, "platform");
+    assert.deepStrictEqual(pool.calls[0].params, [null]);
+  });
+
+  it("ein UNTERNEHMEN bekommt ihn nicht — und faellt auch nicht still zurueck", async () => {
+    /*
+     * Abgelehnt statt stillschweigend auf die eigene Organisation reduziert:
+     * wer plattformweit fragt und nur das Eigene bekommt, haelt eine leere
+     * Liste fuer eine Aussage ueber den Markt.
+     */
     const pool = dispatchPool([["FROM demand_requests dr", () => []]]);
     const router = createEmergencyRouter(baseDeps(pool, "company"));
     const handler = findHandler(router, "get", "/emergency/active");
     const res = mockRes();
     await handler(mockReq({ session: { userId: "company-99" }, query: { all: "1" } }), res);
-    assert.strictEqual(res._status, 200);
-    assert.strictEqual(res._json.count, 0);
-    assert.deepStrictEqual(pool.calls[0].params, [null]);
+    assert.strictEqual(res._status, 403);
+    assert.strictEqual(res._json.error, "AGENCY_ONLY");
+    assert.strictEqual(pool.calls.length, 0,
+      "es wurde trotz Ablehnung eine Abfrage gestellt");
   });
 
   it("returns 500 SERVER_ERROR on query failure", async () => {
