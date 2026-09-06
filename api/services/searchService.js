@@ -16,6 +16,7 @@
 
 import { config } from "../config/index.js";
 import { createServiceLogger, swallow } from "../utils/logger.js";
+import * as companyBlocklistService from "./companyBlocklistService.js";
 
 const log = createServiceLogger("searchService");
 
@@ -383,6 +384,29 @@ async function searchDatabase(pool, query, { type, limit, offset, start, viewerO
   //  - capacity_posts: MARKTPLATZ -> nur aktiv, nicht-privat, nicht-abgelaufen.
   //  - companies: VERZEICHNIS -> nur Orgs mit Opt-in (profile_visibility_settings is_public + approved).
   // Match = Substring (ILIKE) ODER Trigram-Aehnlichkeit (%) -> Tippfehler-/Teilwort-Toleranz; Ranking via similarity().
+  /*
+   * ═════════════════════════════════════════════════════════════════════════
+   * N4.2 - DIE SUCHE KENNT DIE SPERRE
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * Der Feed blendet eine fuer dieses Unternehmen gesperrte Kraft aus. Die
+   * Suche tat es nicht - derselbe Datensatz, zwei Meinungen darueber, ob er
+   * existiert. Wer den Namen tippte, fand ihn; wer blaetterte, nicht.
+   *
+   * Ohne Betrachter-Org bleibt die Bedingung WEG statt "false" zu werden: eine
+   * anonyme oder org-lose Suche sieht den oeffentlichen Marktplatz, und dort
+   * gibt es niemanden, der gesperrt haette. Ein hartes `false` haette hier den
+   * ganzen Zweig geleert.
+   *
+   * Kein Rollen-Check davor. Steht in der Sperrliste eine Zeile mit dieser Org
+   * als Kunde, dann IST sie in diesem Moment Kunde - unabhaengig davon, was in
+   * `users.role` steht. Fuer eine Zeitarbeitsfirma findet die Bedingung nichts
+   * und laesst alles durch; eine zusaetzliche Abfrage nach der Rolle waere ein
+   * Rundgang fuer eine Antwort, die die Bedingung selbst schon gibt.
+   */
+  const gesperrtRaus = (platzhalter) =>
+    viewerOrgId ? companyBlocklistService.nichtGesperrtSql("cp", platzhalter) : "TRUE";
+
   const domains = {
     requisitions: !viewerOrgId ? null : {
       sql: `SELECT id, title, role, location_city, status, org_id, 'requisitions' AS _index,
@@ -399,21 +423,23 @@ async function searchDatabase(pool, query, { type, limit, offset, start, viewerO
       countParams: [like, query, viewerOrgId]
     },
     capacity_posts: {
-      sql: `SELECT id, title, role, location_city, status, 'capacity_posts' AS _index,
-                   GREATEST(similarity(f_unaccent(coalesce(title,'')),f_unaccent($2)), similarity(f_unaccent(coalesce(role,'')),f_unaccent($2))) AS _score
-            FROM capacity_posts
-            WHERE status = 'active'
-              AND (visibility_status IS NULL OR visibility_status <> 'private')
-              AND (availability_to IS NULL OR availability_to >= CURRENT_DATE)
-              AND (f_unaccent(title) ILIKE f_unaccent($1) OR f_unaccent(role) ILIKE f_unaccent($1) OR f_unaccent(location_city) ILIKE f_unaccent($1) OR f_unaccent(title) % f_unaccent($2) OR f_unaccent(role) % f_unaccent($2))
-            ORDER BY _score DESC NULLS LAST, created_at DESC
+      sql: `SELECT cp.id, cp.title, cp.role, cp.location_city, cp.status, 'capacity_posts' AS _index,
+                   GREATEST(similarity(f_unaccent(coalesce(cp.title,'')),f_unaccent($2)), similarity(f_unaccent(coalesce(cp.role,'')),f_unaccent($2))) AS _score
+            FROM capacity_posts cp
+            WHERE cp.status = 'active'
+              AND (cp.visibility_status IS NULL OR cp.visibility_status <> 'private')
+              AND (cp.availability_to IS NULL OR cp.availability_to >= CURRENT_DATE)
+              AND ${gesperrtRaus(5)}
+              AND (f_unaccent(cp.title) ILIKE f_unaccent($1) OR f_unaccent(cp.role) ILIKE f_unaccent($1) OR f_unaccent(cp.location_city) ILIKE f_unaccent($1) OR f_unaccent(cp.title) % f_unaccent($2) OR f_unaccent(cp.role) % f_unaccent($2))
+            ORDER BY _score DESC NULLS LAST, cp.created_at DESC
             LIMIT $3 OFFSET $4`,
-      params: [like, query, limit, offset],
-      count: `SELECT COUNT(*)::int AS c FROM capacity_posts
-              WHERE status = 'active' AND (visibility_status IS NULL OR visibility_status <> 'private')
-                AND (availability_to IS NULL OR availability_to >= CURRENT_DATE)
-                AND (f_unaccent(title) ILIKE f_unaccent($1) OR f_unaccent(role) ILIKE f_unaccent($1) OR f_unaccent(location_city) ILIKE f_unaccent($1) OR f_unaccent(title) % f_unaccent($2) OR f_unaccent(role) % f_unaccent($2))`,
-      countParams: [like, query]
+      params: viewerOrgId ? [like, query, limit, offset, viewerOrgId] : [like, query, limit, offset],
+      count: `SELECT COUNT(*)::int AS c FROM capacity_posts cp
+              WHERE cp.status = 'active' AND (cp.visibility_status IS NULL OR cp.visibility_status <> 'private')
+                AND (cp.availability_to IS NULL OR cp.availability_to >= CURRENT_DATE)
+                AND ${gesperrtRaus(3)}
+                AND (f_unaccent(cp.title) ILIKE f_unaccent($1) OR f_unaccent(cp.role) ILIKE f_unaccent($1) OR f_unaccent(cp.location_city) ILIKE f_unaccent($1) OR f_unaccent(cp.title) % f_unaccent($2) OR f_unaccent(cp.role) % f_unaccent($2))`,
+      countParams: viewerOrgId ? [like, query, viewerOrgId] : [like, query]
     },
     companies: {
       sql: `SELECT o.id, o.name AS company_name, o.legal_name, 'companies' AS _index,

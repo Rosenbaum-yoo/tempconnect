@@ -25,6 +25,7 @@ import { requireScope } from "../middleware/apiKeyAuth.js";
 import { swallow } from "../utils/logger.js";
 import { canAccessAsOwner } from "../utils/ownerCheck.js";
 import * as merkmalKatalog from "../services/workerMerkmalKatalog.js";
+import * as companyBlocklistService from "../services/companyBlocklistService.js";
 
 /* ── Zod Schemas ──────────────────────────────────── */
 
@@ -343,7 +344,13 @@ export function createCapacityExchangeRouter(deps) {
         headcount: gefordert,
         from: demand.start_date || null,
         to: demand.end_date || null,
-        alleSkills: false
+        alleSkills: false,
+        /* N4.2 - gerechnet wird gegen DIESEN Kunden. Wer dort gesperrt ist,
+         * zaehlt nicht mit: eine Deckungszusage, die zwei Kraefte einschliesst,
+         * die sich nachher nicht zuweisen lassen, ist schlimmer als eine
+         * offene Luecke. Die Agentur erfaehrt daraus keinen Namen und keinen
+         * Grund - die Zahl faellt, mehr nicht. */
+        kundeOrgId: demand.requester_org_id || null
       });
 
       res.json({
@@ -634,6 +641,34 @@ export function createCapacityExchangeRouter(deps) {
     try {
       const entry = await capacityExchangeService.getEntryById(pool, req.params.id, req.session.userId);
       if (!entry) return res.status(404).json({ error: "NOT_FOUND" });
+
+      /*
+       * N4.1 - DIE SPERRE WIRKT AUCH HIER, nicht erst beim Buchen.
+       *
+       * Der Feed blendet eine gesperrte Kraft aus. Diese Ansicht tat es nicht:
+       * ein alter Link, ein offener Tab oder ein Treffer aus der Suche fuehrte
+       * weiterhin auf das Angebot. Der Kunde konnte es lesen, planen, im Team
+       * besprechen - und erfuhr die Sperre erst beim Abschluss (409).
+       *
+       * KEIN 404. Das Unternehmen hat die Sperre SELBST gesetzt; ihm hier
+       * "nicht gefunden" zu antworten laesst es den Fehler bei sich suchen.
+       * Also derselbe Code wie beim Buchen, damit die Oberflaeche denselben Satz
+       * sagen kann - und niemand sonst erfaehrt etwas: die Auskunft geht nur an
+       * den, der gesperrt hat.
+       */
+      const meDetail = await getUserAndPlan(req.session.userId);
+      if (meDetail?.role === "company" && req.orgId && entry.worker_profile_id) {
+        const sperre = await companyBlocklistService.isWorkerBlockedForCompanyByProfile(
+          pool, req.orgId, entry.worker_profile_id
+        );
+        if (sperre) {
+          return res.status(409).json({
+            error: "WORKER_BLOCKED_FOR_COMPANY",
+            blocked_until: sperre.blocked_until || null
+          });
+        }
+      }
+
       // Attach trust signals for the viewer
       entry.trust_signals = await capacityExchangeService.computeTrustSignals(pool, entry.supplier_company_id);
 

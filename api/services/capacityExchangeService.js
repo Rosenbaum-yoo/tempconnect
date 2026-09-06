@@ -15,6 +15,7 @@ import { cpSpaltenSql } from "./capacityPostOeffentlicheSpalten.js";
 /* M1.7 — die EINE Tabelle, die entscheidet, wie viele Anzeigen ein Plan
  * tragen darf. Siehe die Begruendung am Block darunter. */
 import { PLAN_LIMITS } from "./userService.js";
+import * as companyBlocklistService from "./companyBlocklistService.js";
 
 /* ── Plan-based limits ──────────────────────────────
  *
@@ -629,15 +630,11 @@ export async function browseFeed(pool, opts = {}) {
    * Unternehmen sehen die Kraft weiterhin: die Sperre ist eine Beziehung
    * zwischen ZWEI Parteien, kein Plattform-Urteil. */
   if (opts.viewer_company_org_id) {
+    /* N4: derselbe Baustein wie in Suche und Detailansicht. Hier stand eine
+       eigene Kopie - solange sie die einzige war, fiel nicht auf, dass die
+       anderen beiden Flaechen gar keine hatten. */
     params.push(opts.viewer_company_org_id);
-    where.push(`NOT EXISTS (
-      SELECT 1
-        FROM company_worker_blocklist bl
-        JOIN worker_profiles wpb ON wpb.user_id = bl.worker_user_id
-       WHERE wpb.id = cp.worker_profile_id
-         AND bl.company_org_id = $${idx}
-         AND (bl.blocked_until IS NULL OR bl.blocked_until >= CURRENT_DATE)
-    )`);
+    where.push(companyBlocklistService.nichtGesperrtSql("cp", idx));
     idx++;
   }
 

@@ -35,10 +35,23 @@ describe("searchService — RBAC/Sichtbarkeit + Fuzzy (DB-Pfad)", () => {
     const pool = capturePool(() => ({ rows: [] }));
     await searchService.search(pool, "Stapler", { type: "capacity_posts", viewerOrgId: "org-1" });
     const sql = pool.calls[0].sql;
-    assert.match(sql, /status = 'active'/);
-    assert.match(sql, /visibility_status IS NULL OR visibility_status <> 'private'/);
-    assert.match(sql, /availability_to IS NULL OR availability_to >= CURRENT_DATE/);
-    assert.match(sql, /f_unaccent\(title\) % f_unaccent\(\$2\)/, "Fuzzy (unaccent-gewrappt)");
+    /*
+     * Der Alias ist ab Welle N4 optional geschrieben (`cp.status` statt
+     * `status`): der Zweig braucht seit dem Sperrlisten-Filter einen Alias,
+     * weil die Bedingung `cp.worker_profile_id` nennt. Die REGELN darunter sind
+     * unveraendert — deshalb wird hier die Schreibweise toleriert und nicht die
+     * Zusicherung aufgeweicht. Faellt eine der drei Sichtbarkeitsregeln weg,
+     * ist diese Probe weiterhin rot.
+     */
+    assert.match(sql, /(?:cp\.)?status = 'active'/);
+    assert.match(sql, /(?:cp\.)?visibility_status IS NULL OR (?:cp\.)?visibility_status <> 'private'/);
+    assert.match(sql, /(?:cp\.)?availability_to IS NULL OR (?:cp\.)?availability_to >= CURRENT_DATE/);
+    assert.match(sql, /f_unaccent\((?:cp\.)?title\) % f_unaccent\(\$2\)/, "Fuzzy (unaccent-gewrappt)");
+
+    /* Neu in N4: eine fuer diesen Betrachter gesperrte Kraft gehoert nicht in
+     * die Trefferliste — der Feed blendete sie aus, die Suche zeigte sie an. */
+    assert.match(sql, /company_worker_blocklist/, "die Suche kennt die Sperrliste nicht");
+    assert.ok(pool.calls[0].params.includes("org-1"), "die Betrachter-Org wird nicht gebunden");
   });
 
   it("companies: nur opted-in Orgs (profile_visibility_settings is_public + approved)", async () => {

@@ -524,7 +524,7 @@ TCi18n.register('de', {
   'ts.rev.assign.infoStaff': 'Personal:',
   'ts.rev.assign.blockedSuffix': '— gesperrt bei diesem Kunden',
   'ts.rev.assign.blockedTitle': '{n} Kraft/Kräfte von diesem Kunden gesperrt',
-  'ts.rev.assign.blockedHint': '— im Dropdown deaktiviert. Grund: {names}',
+  'ts.rev.assign.blockedHint': '— im Dropdown deaktiviert. Den Grund kennt nur der Kunde.',
   'ts.rev.assign.doneDeal': 'Deal-Einsatz zugewiesen – Worker wird benachrichtigt',
   'ts.rev.assign.doneCapacity': 'Personal zugewiesen – Worker wird benachrichtigt',
   'ts.rev.assign.errCapacityNotFound': 'Personalangebot nicht gefunden.',
@@ -1391,7 +1391,7 @@ TCi18n.register('en', {
   'ts.rev.assign.infoStaff': 'Staff:',
   'ts.rev.assign.blockedSuffix': '— blocked at this client',
   'ts.rev.assign.blockedTitle': '{n} worker(s) blocked by this client',
-  'ts.rev.assign.blockedHint': '— disabled in the dropdown. Reason: {names}',
+  'ts.rev.assign.blockedHint': '— disabled in the dropdown. Only the client knows the reason.',
   'ts.rev.assign.doneDeal': 'Deal assignment staffed – the worker is notified',
   'ts.rev.assign.doneCapacity': 'Staff assigned – the worker is notified',
   'ts.rev.assign.errCapacityNotFound': 'Staff offer not found.',
@@ -3709,7 +3709,8 @@ async function loadAssignData(){
     // in submitAssign waehlt anhand dessen das richtige Backend-Ziel.
     const dC=await fetchJson(`${API}/assignable-sources`);
     unassignedCaps=dC.items||[];
-    await loadSupplierBlocks();
+    /* Die Sperren werden nicht mehr vorab geladen (N4.3) \u2014 sie kommen je Kunde,
+       sobald der Disponent einen Einsatz waehlt. Siehe `ladeSperren`. */
     if(!wrksLoaded){
       const dW=await fetchJson(`${API}/workers`);
       allWrks=dW.items||dW.workers||[];
@@ -3785,16 +3786,32 @@ function parseAssignableSelection(raw){
   if(idx<=0)return { source:'capacity', id:raw };
   return { source:raw.slice(0,idx), id:raw.slice(idx+1) };
 }
-/* P3.3 \u2014 Sperr-Hinweise: welcher eigene Worker ist bei welchem Kunden gesperrt.
- * Einmal geladen, dann rein clientseitig gefiltert (kein Request je Auswahl). */
-let supplierBlocks=[];
+/* P3.3 / N4.3 \u2014 Sperr-Hinweise: wen kann ich BEI DIESEM KUNDEN nicht einsetzen.
+ *
+ * Frueher lud diese Seite EINMAL die komplette Sperrliste \u2014 mit Kundennamen und
+ * Sperrgruenden \u2014 und filterte im Browser. Das war bequem und gab dem Disponenten
+ * Dinge preis, die ihn nichts angehen: warum ein Kunde jemanden nicht mehr will,
+ * und bei wem sonst noch. Jetzt fragt die Seite pro Kunde \u2014 also genau dann, wenn
+ * der Disponent ohnehin fuer diesen Kunden plant \u2014 und bekommt nur Kraft + Frist.
+ *
+ * Je Kunde EINMAL: gemerkt wird nur ein GELUNGENER Abruf, sonst wuerde ein
+ * kurzer Netzausfall die Sperren fuer den Rest der Sitzung unsichtbar machen. */
+const sperrenJeKunde=new Map();
+async function ladeSperren(companyOrgId){
+  if(!companyOrgId)return new Map();
+  const key=String(companyOrgId);
+  if(sperrenJeKunde.has(key))return sperrenJeKunde.get(key);
+  const m=new Map();
+  try{
+    const d=await fetchJson(`${API}/workers/blocks?company_org_id=${encodeURIComponent(key)}`);
+    (d.items||[]).forEach((b)=>m.set(String(b.worker_user_id),b));
+    sperrenJeKunde.set(key,m);
+  }catch(e){ /* Hinweis ist Zusatz \u2014 die Zuweisung darf nie daran scheitern */ }
+  return m;
+}
 function blocksForCompany(companyOrgId){
   if(!companyOrgId)return new Map();
-  const m=new Map();
-  supplierBlocks.forEach((b)=>{
-    if(String(b.company_org_id)===String(companyOrgId))m.set(String(b.worker_user_id),b);
-  });
-  return m;
+  return sperrenJeKunde.get(String(companyOrgId))||new Map();
 }
 
 function rebuildWorkerSelect(blockedWorkerUserIds,companyOrgId){
@@ -3807,7 +3824,9 @@ function rebuildWorkerSelect(blockedWorkerUserIds,companyOrgId){
   const hidden=activeW.length-available.length;
   const hiddenLabel=hidden>0?` (${hidden} ausgeblendet: bereits zugewiesen)`:'';
   // Vom Kunden gesperrte Kr\u00e4fte werden NICHT versteckt, sondern sichtbar deaktiviert \u2014
-  // der Disponent muss den Grund sehen, nicht r\u00e4tseln, warum jemand fehlt.
+  // sonst sucht der Disponent nach jemandem, der einfach fehlt. Sichtbar-aber-
+  // gesperrt beantwortet die Frage; der GRUND steht seit N4.3 nicht mehr dabei
+  // (Owner-Entscheid 2026-09-06), denn er wurde f\u00fcr den Kunden notiert.
   const byCompany=blocksForCompany(companyOrgId);
   let blockedCount=0;
   wSel.innerHTML='<option value="">'+esc(tt('ts.rev.assign.pleaseChoose'))+hiddenLabel+'</option>'
@@ -3821,27 +3840,23 @@ function rebuildWorkerSelect(blockedWorkerUserIds,companyOrgId){
       return `<option value="${uid}" disabled>${name} ${esc(tt('ts.rev.assign.blockedSuffix'))}${esc(until)}</option>`;
     }).join('');
   if(prev && !blocked.has(String(prev)) && !byCompany.has(String(prev))) wSel.value=prev;
-  setAssignBlockNotice(byCompany,blockedCount);
+  setAssignBlockNotice(blockedCount);
 }
 
-function setAssignBlockNotice(byCompany,count){
+/* Der Hinweis sagt WIE VIELE und dass sie deaktiviert sind \u2014 nicht warum.
+ * `byCompany` ist bewusst kein Parameter mehr: solange die Sperrzeilen hier
+ * ankommen, kommt irgendwann jemand auf die Idee, wieder etwas daraus zu zeigen. */
+function setAssignBlockNotice(count){
   const info=document.getElementById('asgCapInfo');
   if(!info||!count)return;
-  const names=[...byCompany.values()].map((b)=>esc(b.reason||'ohne Grundangabe')).slice(0,3);
   info.insertAdjacentHTML('beforeend',
     '<div class="wk-alert wk-alert-warn" style="margin-top:8px;font-size:.8rem">'
     +'<strong>'+esc(tt('ts.rev.assign.blockedTitle', { n: count }))+'</strong> '
-    +esc(tt('ts.rev.assign.blockedHint', { names: names.join(' \u00b7 ') }))
+    +esc(tt('ts.rev.assign.blockedHint'))
     +'</div>');
 }
 
-async function loadSupplierBlocks(){
-  try{
-    const d=await fetchJson(`${API}/workers/blocks`);
-    supplierBlocks=d.items||[];
-  }catch(e){ supplierBlocks=[]; }  // Hinweis ist Zusatz \u2014 Zuweisung darf nie daran scheitern
-}
-function onCapSelect(){
+async function onCapSelect(){
   const raw=document.getElementById('asgCap').value;
   const info=document.getElementById('asgCapInfo');
   const sel=parseAssignableSelection(raw);
@@ -3873,7 +3888,9 @@ function onCapSelect(){
     +(c.availability_from?`<br>${esc(tt('ts.rev.assign.optPeriod'))} ${fmtD(c.availability_from)}${c.availability_to?' \u2013 '+fmtD(c.availability_to):''}`:'')
     +(c.shift_model?`<br>Schichtmodell: ${esc(c.shift_model)}`:'')
     +(remain?`<br>${esc(tt('ts.rev.assign.infoStaff'))} ${esc(remain)}`:'');
-  // Erst jetzt, damit der Sperr-Hinweis an die fertige Info-Box angehängt wird.
+  // Erst die Sperren dieses Kunden holen (N4.3: je Kunde, nicht vorab alle),
+  // dann aufbauen \u2014 damit der Sperr-Hinweis an die fertige Info-Box kommt.
+  await ladeSperren(c.client_org_id||null);
   rebuildWorkerSelect(Array.isArray(c.assigned_worker_user_ids)?c.assigned_worker_user_ids:[], c.client_org_id||null);
   // Pre-fill Start/End aus der Quelle (capacity.availability_* bzw. deal_assignment.start_date/planned_end_date)
   if(c.availability_from) document.getElementById('asgStart').value=String(c.availability_from).substring(0,10);

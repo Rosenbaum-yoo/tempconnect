@@ -1248,14 +1248,42 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  /* ── Sperr-Hinweise für die Disposition (P3.3) ───────────────────────────────
-   * „Wer aus meiner Belegschaft ist bei welchem Kunden gesperrt?" — damit die
-   * Zuweisungs-UI die Sperre anzeigt, bevor der Guard mit 409 abweist.
-   * MUSS vor "/workers/:userId" stehen. */
+  /* ── Sperr-Hinweise für die Disposition (P3.3, eingeengt in N4.3) ────────────
+   * „Wen kann ich BEI DIESEM KUNDEN nicht einsetzen?" — damit die Zuweisungs-UI
+   * die Sperre anzeigt, bevor der Guard mit 409 abweist.
+   * MUSS vor "/workers/:userId" stehen.
+   *
+   * ══════════════════════════════════════════════════════════════════════════
+   * WAS SICH AM 2026-09-06 GEAENDERT HAT (Owner-Entscheid)
+   * ══════════════════════════════════════════════════════════════════════════
+   *
+   * Vorher gab dieser Endpunkt die GANZE Liste heraus: Kraft, Kunde, GRUND,
+   * Kundenname. Der Disponenten-Bildschirm zeigte die Gruende sogar an. Eine
+   * Sperre ist aber das Urteil eines Kunden ueber einen MENSCHEN; sie
+   * durchzusetzen ist etwas anderes, als sie dem Arbeitgeber dieses Menschen zu
+   * erzaehlen. Und der Grund wurde fuer den Kunden notiert, nicht fuer die
+   * Gegenseite.
+   *
+   * Jetzt beantwortet der Server die Frage, die gestellt wird:
+   *   mit ?company_org_id=…  die Sperren dieses einen Kunden — ohne Grund,
+   *                          ohne Namen. Genau das, was die Auswahl braucht.
+   *   ohne Parameter         welche eigenen Kraefte IRGENDWO gesperrt sind,
+   *                          ohne zu sagen wo.
+   *
+   * Kein Abfrage-Orakel: eine Antwort kommt nur fuer die EIGENE Belegschaft
+   * (`worker_profiles.supplier_org_id = req.orgId`), und ein Treffer entsteht
+   * nur dort, wo dieser Kunde eine dieser Kraefte tatsaechlich gesperrt hat —
+   * also nur bei einer bestehenden Geschaeftsbeziehung. Wer eine fremde Org
+   * einsetzt, bekommt eine leere Liste, und das ist keine Auskunft. */
   router.get("/workers/blocks", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
     try {
-      const items = await blocklistSvc.listBlocksForSupplier(pool, req.orgId);
-      res.json({ items, total: items.length });
+      const roh = typeof req.query.company_org_id === "string" ? req.query.company_org_id.trim() : "";
+      /* Nur eine echte UUID wird weitergereicht. Ein Freitext wuerde die Abfrage
+       * mit 22P02 abbrechen — und ein 500 an dieser Stelle sieht aus wie ein
+       * Serverfehler, obwohl der Aufruf falsch war. */
+      const companyOrgId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(roh) ? roh : null;
+      const items = await blocklistSvc.listBlocksForSupplier(pool, req.orgId, { companyOrgId });
+      res.json({ items, total: items.length, scoped_to_company: !!companyOrgId });
     } catch (err) { next(err); }
   });
 

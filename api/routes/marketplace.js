@@ -789,6 +789,37 @@ export function createMarketplaceRouter(deps) {
         if (!cap) return { error: "NOT_FOUND" };
         if (cap.supplier_company_id === req.session.userId) return { error: "SELF_DEAL_FORBIDDEN" };
 
+        /*
+         * ═══════════════════════════════════════════════════════════════════
+         * DIESELBE SPERRE WIE BEIM ABSCHLUSS (N4.2, 2026-09-06)
+         * ═══════════════════════════════════════════════════════════════════
+         *
+         * Bis hierher pruefte NUR `accept-deal` die Sperrliste. Der Weg direkt
+         * daneben - "ich moechte verhandeln" - pruefte sie nicht. Das ist keine
+         * theoretische Luecke: der Verhandlungsweg legt einen Bedarf an, sendet
+         * ein Angebot, benachrichtigt die Zeitarbeitsfirma und schickt ihr eine
+         * E-Mail. Ein Unternehmen konnte also eine Verhandlung ueber genau die
+         * Kraft anstossen, die es selbst gesperrt hat - und die Gegenseite
+         * bekam eine Anfrage, die niemals in einer Buchung enden kann.
+         *
+         * Peinlich wird es nicht am Server, sondern am Telefon: die Disposition
+         * ruft zurueck, stimmt Konditionen ab, und erst beim Abschluss faellt
+         * der 409. Zwei Haeuser haben dann Zeit fuer etwas aufgewendet, das von
+         * Anfang an ausgeschlossen war.
+         *
+         * Ueber die PROFIL-Kennung, in EINER Abfrage - `accept-deal` laedt dafuer
+         * noch das Profil separat nach. Beide Wege antworten mit demselben Code,
+         * damit die Oberflaeche nicht zwei Faelle unterscheiden muss.
+         */
+        if (cap.worker_profile_id && req.orgId) {
+          const sperre = await companyBlocklistService.isWorkerBlockedForCompanyByProfile(
+            client, req.orgId, cap.worker_profile_id
+          );
+          if (sperre) {
+            return { error: "WORKER_BLOCKED_FOR_COMPANY", blocked_until: sperre.blocked_until || null };
+          }
+        }
+
         const capacityState = await capacityExchangeService.getCapacityCommercialState(client, cap.id);
         const remainingHeadcount = Math.max(0, Number(capacityState.remaining_headcount) || 0);
         const requestedHeadcount = normalizeDealHeadcount(body.headcount, remainingHeadcount || cap.headcount || 1);
@@ -866,6 +897,7 @@ export function createMarketplaceRouter(deps) {
 
       if (result.error === "NOT_FOUND") return res.status(404).json({ error: "NOT_FOUND" });
       if (result.error === "SELF_DEAL_FORBIDDEN") return res.status(403).json({ error: "SELF_DEAL_FORBIDDEN" });
+      if (result.error === "WORKER_BLOCKED_FOR_COMPANY") return res.status(409).json(result);
       if (result.error === "NOT_ACTIVE") return res.status(409).json({ error: "NOT_ACTIVE" });
       if (result.error === "CAPACITY_UNAVAILABLE") return res.status(409).json(result);
 

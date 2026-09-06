@@ -22,6 +22,7 @@
  * eine Abfrage pro Kraft waere bei 300 Kunden der teuerste Pfad im Formular.
  */
 import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
+import * as companyBlocklistService from "./companyBlocklistService.js";
 
 /** Zustand einer Kraft bezogen auf den angefragten Zeitraum. */
 export const ZUSTAND = Object.freeze({
@@ -112,7 +113,8 @@ export async function resolveSkillTags(pool, tags = []) {
  * @param {boolean} [p.alleSkills]    true = Kraft muss ALLE Faehigkeiten haben (Buendel-Logik)
  */
 export async function checkOfferCoverage(pool, {
-  orgId, skillTags = [], skillIds = [], headcount = 1, from = null, to = null, alleSkills = false
+  orgId, skillTags = [], skillIds = [], headcount = 1, from = null, to = null,
+  alleSkills = false, kundeOrgId = null
 }) {
   if (!orgId) throw Object.assign(new Error("ORG_REQUIRED"), { code: "ORG_REQUIRED" });
 
@@ -156,6 +158,28 @@ export async function checkOfferCoverage(pool, {
   const zuordnungIds = zuordnung.map((z) => z.skill_id);
   const zuordnungGruppen = zuordnung.map((z) => String(z.gruppe));
   const gruppenAnzahl = new Set(zuordnungGruppen).size;
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * N4.2 - EINE ZAHL, DIE HAELT
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Mit `kundeOrgId` rechnet die Deckung OHNE die Kraefte, die dieser Kunde
+   * gesperrt hat. Ohne diesen Zweig sagte die Vorschau "14 von 14 gedeckt",
+   * die Zeitarbeitsfirma sagte zu - und zwei der Vierzehn liessen sich gar
+   * nicht zuweisen. Eine zu hohe Zusage ist teurer als eine ehrliche Luecke:
+   * die Luecke fuellt man aus dem Rest auf, die Zusage bricht man.
+   *
+   * Ohne Kunden (Formular-Vorschau am eigenen Angebot) bleibt die Bedingung
+   * WEG: ein proaktives Personalangebot hat noch keinen Empfaenger, und es
+   * gibt niemanden, der gesperrt haben koennte.
+   *
+   * `spalte: "id"` - hier laeuft die Bedingung auf den PROFILZEILEN, nicht auf
+   * einem Angebot; dort heisst die Kennung `k.id`.
+   */
+  const sperrBedingung = kundeOrgId
+    ? companyBlocklistService.nichtGesperrtSql("k", 8, { spalte: "id" })
+    : "TRUE";
+
   // Eine Abfrage fuer die gesamte Belegschaft: Treffer, Ueberschneidungen im Zeitraum und
   // die Bindungslage. Die Ueberlappungsregel ist absichtlich Zeichen fuer Zeichen dieselbe
   // wie in findWorkerScheduleConflicts — sonst zeigt die Vorschau "frei" und der spaetere
@@ -225,8 +249,11 @@ export async function checkOfferCoverage(pool, {
           LIMIT 1
        ) abw ON TRUE
       WHERE ($5::boolean IS NOT TRUE OR k.treffer = $6)
+        AND ${sperrBedingung}
       ORDER BY k.treffer DESC, k.last_name, k.first_name`,
-    [zuordnungIds, orgId, von, bis || OFFENES_ENDE, alleSkills, gruppenAnzahl, zuordnungGruppen]
+    kundeOrgId
+      ? [zuordnungIds, orgId, von, bis || OFFENES_ENDE, alleSkills, gruppenAnzahl, zuordnungGruppen, kundeOrgId]
+      : [zuordnungIds, orgId, von, bis || OFFENES_ENDE, alleSkills, gruppenAnzahl, zuordnungGruppen]
   );
 
   const heute = todayDE();

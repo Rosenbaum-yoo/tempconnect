@@ -298,7 +298,12 @@ export async function createDemandRequest(pool, requesterId, plan, payload) {
 
 export async function getDemandById(pool, id) {
   const { rows } = await pool.query(
-    `SELECT dr.*, u.company_name AS requester_company_name,
+    /* `u.org_id` (N4.2): die Sperrliste haengt an der ORG, `requester_company_id`
+       ist eine NUTZER-Kennung. Ohne diese Spalte braeuchte jede Flaeche, die
+       gegen die Sperre rechnet, einen zweiten Rundlauf - der Verbund auf
+       `users` steht hier ohnehin schon. Der ganze Datensatz geht nur an den
+       Eigentuemer des Bedarfs (`canAccessAsOwner`), also an dessen eigene Org. */
+    `SELECT dr.*, u.company_name AS requester_company_name, u.org_id AS requester_org_id,
             EXISTS (
               SELECT 1
               FROM offers o_origin

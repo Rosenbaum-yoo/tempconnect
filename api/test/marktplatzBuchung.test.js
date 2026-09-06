@@ -154,11 +154,48 @@ describe("Buchungs-Wuensche · Teil B — die Verdrahtung", () => {
     }
   });
 
-  it("der Feed blendet gesperrte Kraefte aus — org-gebunden und zeitbewusst", () => {
-    assert.match(feedService, /company_worker_blocklist bl/);
-    assert.match(feedService, /bl\.company_org_id = \$/, "die Sperre gilt je Unternehmen, nicht plattformweit");
-    assert.match(feedService, /bl\.blocked_until IS NULL OR bl\.blocked_until >= CURRENT_DATE/,
+  it("der Feed blendet gesperrte Kraefte aus — org-gebunden und zeitbewusst", async () => {
+    /*
+     * Geprueft wird die ERZEUGTE ABFRAGE, nicht mehr der Quelltext von
+     * `capacityExchangeService.js` (Nachbesserung 2026-09-06, Welle N4).
+     *
+     * Vorher stand hier `assert.match(feedService, /company_worker_blocklist bl/)`
+     * — die Bedingung war damals in diese eine Datei getippt. In N4 ist sie in
+     * `companyBlocklistService.nichtGesperrtSql()` gewandert, weil Suche,
+     * Detailansicht und Deckungsrechnung dieselbe brauchen. Der Feed filtert
+     * seither GENAUSO, aber der Quelltext dieser Datei enthaelt die Zeichen
+     * nicht mehr — und dieser Waechter wurde rot, obwohl nichts kaputt war.
+     *
+     * Das ist der Fehler, den ein Waechter nie machen darf: er hing an der
+     * SCHREIBWEISE statt an der Wirkung. Jetzt laeuft `browseFeed` gegen einen
+     * mitschreibenden Muster-Pool, und geprueft wird, was Postgres bekaeme.
+     * Damit ueberlebt der Waechter jeden Umbau, der die Wirkung erhaelt — und
+     * faellt weiterhin, sobald sie fehlt.
+     */
+    const abfragen = [];
+    const lauf = async (sql, params = []) => {
+      abfragen.push({ sql: String(sql), params });
+      return { rows: [], rowCount: 0 };
+    };
+    const musterPool = { query: lauf, connect: async () => ({ query: lauf, release() {} }) };
+
+    const ORG = "00000000-0000-0000-0000-0000000000c1";
+    await browseFeed(musterPool, { viewer_role: "company", viewer_company_org_id: ORG, limit: 5 });
+    const mitSperre = abfragen.filter((a) => a.sql.includes("company_worker_blocklist bl"));
+    assert.ok(mitSperre.length >= 1, "der Feed filtert die Sperrliste nicht mehr");
+    const q = mitSperre[0];
+    assert.match(q.sql, /bl\.company_org_id = \$/, "die Sperre gilt je Unternehmen, nicht plattformweit");
+    assert.match(q.sql, /bl\.blocked_until IS NULL OR bl\.blocked_until >= CURRENT_DATE/,
       "eine abgelaufene Befristung sperrt nicht mehr");
+    assert.ok(q.params.includes(ORG),
+      "die Bedingung steht da, aber die Org des Betrachters wird nicht gebunden");
+
+    /* Und die Gegenprobe: ohne Unternehmens-Org filtert der Feed gar nicht —
+     * sonst waere er fuer jede Zeitarbeitsfirma stumm beschnitten. */
+    abfragen.length = 0;
+    await browseFeed(musterPool, { viewer_role: "agency", limit: 5 });
+    assert.strictEqual(abfragen.filter((a) => a.sql.includes("company_worker_blocklist")).length, 0);
+
     assert.match(feedRoute, /viewer_company_org_id: \(me\?\.role === "company" && req\.orgId\)/,
       "nur ein Unternehmen mit Org-Kontext filtert — Agenturen sehen ihren eigenen Bestand ungefiltert");
   });

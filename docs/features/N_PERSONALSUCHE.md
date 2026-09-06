@@ -120,6 +120,53 @@ steht bereits fest, wenn jemand sucht. Abweichender Einsatzort ist eine Option, 
 **Heute greift die Sperre erst beim Buchen** — der Kunde sieht also Menschen, die er gar nicht
 buchen kann. Das dreht N4 um: **gesperrt heißt unsichtbar**, nicht „abgewiesen beim Klick".
 
+> **Gebaut am 2026-09-06 (Welle N4).** Die Bedingung steht jetzt **einmal** im Repo —
+> `nichtGesperrtSql(alias, platzhalter, {spalte})` im `companyBlocklistService` — und vier
+> Flächen benutzen sie: Feed, Suche, Detailansicht und Deckungsrechnung. Bewacht von
+> `api/test/gesperrtHeisstUnsichtbar.test.js` (33 Proben, **35 Rückmutationen ohne
+> Überlebende**).
+>
+> **Gemessen war der Zustand schlechter als die Beschreibung oben.** „Die Sperre greift beim
+> Buchen" stimmte nur für **einen** der beiden Deal-Wege:
+>
+> | Fläche | vorher | jetzt |
+> |---|---|---|
+> | `accept-deal` | 409 (seit J2c) | unverändert |
+> | `negotiate-deal` | **ließ durch** | 409, vor der Platzrechnung |
+> | Feed | blendete aus | benutzt den gemeinsamen Baustein |
+> | Suche | zeigte an | filtert, Liste **und** Trefferzahl |
+> | Detailansicht | zeigte an | 409 |
+> | Deckungsrechnung | zählte mit | rechnet ohne (N4.2) |
+>
+> **Der Verhandlungsweg war die ernstere Lücke.** Er ist kein reiner Lesepfad: er legt einen
+> Bedarf an, schreibt ein Angebot, benachrichtigt die Zeitarbeitsfirma und schickt ihr eine
+> E-Mail. Ein Unternehmen konnte also eine Verhandlung über genau die Kraft anstoßen, die es
+> selbst gesperrt hatte — und die Gegenseite bekam eine Anfrage, die niemals in einer Buchung
+> enden kann. Auffallen konnte das erst am Telefon.
+>
+> **Kein 404 in der Detailansicht.** Das Unternehmen hat die Sperre selbst gesetzt; ihm „nicht
+> gefunden" zu antworten ließe es den Fehler bei sich suchen. Derselbe Code wie beim Buchen,
+> damit die Oberfläche einen einzigen Satz braucht.
+
+> **Offen und owner-pflichtig: die K4-Kopie ist beides — undicht und marktseitenblind.**
+> Beim Prüfen der oben genannten Falle („der Filter gehört hinter die Kopie") zeigte sich, dass
+> `feedKopieService.istKopierwuerdig()` **nur die 15 Query-Filter** prüft, nicht die aus dem
+> Betrachter abgeleiteten Einschränkungen. Dabei entscheidet `viewer_role` in `browseFeed`
+> (Zeile 866 ff.), welche **Marktseite** überhaupt in der Liste steht: ein Unternehmen sieht
+> `supply`, eine Zeitarbeitsfirma `demand`. Die Tabelle hat genau **eine** Zeile
+> (`CHECK (id = 1)`). Folgen, beide live:
+> * Die Kopie wird von dem geschrieben, dessen unfilterte Seite-1-Anfrage zuletzt lief. War
+>   das eine Agentur, enthält sie **Bedarfe** — und ein Unternehmen bekommt im Fehlerfall die
+>   falsche Marktseite serviert.
+> * Ein Unternehmensabruf ist **nie** neutral (`viewer_company_org_id` ist für jedes
+>   Unternehmen mit Org gesetzt). Seine gefilterte Liste wird zur Kopie für alle — genau der
+>   Fall, den der Abschnitt oben ausschließen wollte.
+>
+> Beide vertretbaren Reparaturen berühren eine Owner-Entscheidung: **Kopie je Marktseite**
+> (Migration: `CHECK (id = 1)` → `id IN (1,2)`) oder **Kopie nur für die Agenturseite** (ohne
+> Migration, nimmt aber der Unternehmensseite den K4-Schutz — und genau die traf der Vorfall
+> vom 26.08.). Empfehlung: die Migration. Nicht autonom gebaut.
+
 ### 4.3 Die Bestätigung
 
 Vor dem verbindlichen Abschluss werden **alle vier Kriterien noch einmal gezeigt** und in
@@ -251,9 +298,10 @@ einzigen Aufrufer.**
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|
-| N4.1 | **Die Sperrliste wirkt im Feed und in der Suche**, nicht erst beim Buchen | Gesperrte Kraft taucht in keiner Trefferliste auf. **Rückmutation** |
-| N4.2 | **Und im Bündel**, damit die Menge stimmt | 14 gesucht, 2 gesperrt → das Bündel füllt aus dem Rest auf |
-| N4.3 | **Ohne der Gegenseite zu verraten, dass gesperrt wurde** | Die Zeitarbeitsfirma sieht keinen Hinweis auf die Sperre eines Kunden |
+| N4.1 | **Die Sperrliste wirkt im Feed und in der Suche**, nicht erst beim Buchen | ✅ 2026-09-06 — plus Detailansicht und `negotiate-deal`; eine Bedingung, vier Flächen |
+| N4.2 | **Und im Bündel**, damit die Menge stimmt | ✅ 2026-09-06 — `checkOfferCoverage({kundeOrgId})`; ohne Kunde bleibt die Bedingung weg |
+| N4.3 | **Ohne der Gegenseite zu verraten, dass gesperrt wurde** | ✅ 2026-09-06 — ohne Grund, ohne Kundenname; je Kunde gefragt statt am Stück geladen |
+| N4.4 | **Die K4-Kopie** trägt weder fremde Sperren noch die falsche Marktseite | ⏸ **owner-pflichtig** — beide Wege berühren eine Owner-Entscheidung, siehe Abschnitt 4.2 |
 
 ### N5 · Die Bestätigung mit Wirkung
 
