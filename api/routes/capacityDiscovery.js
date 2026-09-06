@@ -19,6 +19,32 @@ export function createCapacityDiscoveryRouter(deps) {
   });
 
   /**
+   * GET /capacity-discovery/by-skill - der Bestand je FAEHIGKEIT (N1.3)
+   *
+   * Die Zahl, die im Auswahlkatalog neben der Faehigkeit steht. `skills` grenzt
+   * auf die gerade sichtbaren ein, damit die Oberflaeche nicht den ganzen
+   * Katalog abfragt, um zwoelf Kacheln zu beschriften.
+   *
+   * `requireAuth` genuegt, wie beim Nachbarn `by-role`: die Zahlen sind
+   * Aggregate ueber den oeffentlichen Marktplatz und nennen keine Firma.
+   */
+  router.get("/capacity-discovery/by-skill", requireAuth, async (req, res) => {
+    const roh = typeof req.query.skills === "string" ? req.query.skills : "";
+    const skills = roh
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .slice(0, 100);
+    const data = await capacityDiscovery.aggregateBySkill(pool, {
+      city: req.query.city || null,
+      worker_category: req.query.worker_category || null,
+      skills: skills.length ? skills : null,
+      limit: parseInt(req.query.limit, 10) || 200
+    });
+    res.json({ items: data, count: data.length });
+  });
+
+  /**
    * GET /capacity-discovery/marktluecke — Nachfrage und Angebot nebeneinander (N7.1)
    *
    * Das Nachfragesignal fuer die Zeitarbeitsfirma: "Im Raum Muenster werden 34

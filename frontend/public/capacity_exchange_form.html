@@ -114,9 +114,13 @@
             <input type="number" id="f-headcount" class="ds-input" min="1" max="999" value="1"/>
           </div>
           <div class="ds-form-full ds-form-group">
-            <label class="ds-label" for="f-skills" data-i18n="cap.f.skills">Skills (kommagetrennt)</label>
-            <input type="text" id="f-skills" class="ds-input" placeholder="z.B. Stapler, Kommissionierung, SAP" data-i18n-ph="cap.f.skillsPh"/>
-            <span class="ds-helper" data-i18n="cap.f.skillsHelp">Kommagetrennte Schlagworte fuer besseres Matching.</span>
+            <label class="ds-label" data-i18n="cap.f.skills">Faehigkeiten</label>
+            <!-- N1.1: Das Feld bleibt und traegt weiter die Auswahl - `collectData`,
+                 die Bearbeiten-Vorbelegung und die Deckungsvorschau lesen es
+                 unveraendert. Nur TIPPEN kann man nicht mehr hinein. -->
+            <input type="hidden" id="f-skills"/>
+            <div id="skillPickerAngebot"></div>
+            <span class="ds-helper" data-i18n="cap.f.skillsHelp">Aus dem Plattform-Katalog - dieselbe Achse, auf der die Gegenseite sucht.</span>
           </div>
         </div>
       </div>
@@ -338,6 +342,61 @@
 
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
+  <script src="/public/js/skillPicker.js"></script>
+  <script>
+  /*
+   * N1.1 - der Katalog auf der Angebotsseite.
+   *
+   * ZWEI DINGE, DIE SONST STILL KAPUTTGEHEN:
+   *
+   * (1) `capacityExchangeForm.js` haengt an `f-skills` einen `input`- und einen
+   *     `change`-Lauscher, um die Deckungsvorschau nachzuziehen. Ein verstecktes
+   *     Feld feuert beides NICHT von allein - wer den Wert per Skript setzt,
+   *     loest kein Ereignis aus. Der Waehler stoesst `change` deshalb selbst an.
+   *     Ohne das bliebe die Vorschau stehen, ohne dass etwas nach Fehler aussieht.
+   *
+   * (2) Beim BEARBEITEN setzt dieselbe Datei `f-skills` aus dem geladenen
+   *     Eintrag. Auch das erreicht den Waehler nicht von allein - er wuerde mit
+   *     leerer Auswahl darueber schreiben. Deshalb meldet sie es ueber ein
+   *     eigenes Ereignis, und der Waehler uebernimmt.
+   */
+  (function () {
+    var waehler = null;
+    var letzterOrt = "";
+
+    function ort() {
+      var f = document.getElementById("f-city");
+      return (f && f.value || "").trim();
+    }
+
+    function aufsetzen(vorbelegung) {
+      var vorher = vorbelegung || (waehler ? waehler.werte() : []);
+      waehler = TCSkillPicker.mount({
+        container: "skillPickerAngebot",
+        hiddenInput: "f-skills",
+        initial: vorher,
+        showAvailability: false,
+        onChange: function () {
+          var feld = document.getElementById("f-skills");
+          if (feld) feld.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      });
+      letzterOrt = ort();
+    }
+
+    function start() {
+      if (!document.getElementById("skillPickerAngebot")) return;
+      aufsetzen();
+      document.addEventListener("tc:skills-loaded", function (ev) {
+        aufsetzen(Array.isArray(ev.detail) ? ev.detail : []);
+      });
+      document.addEventListener("tc:langchange", function () { if (waehler) waehler.neu(); });
+    }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
+  })();
+  </script>
   <script src="/public/js/pages/capacityExchangeForm.js"></script>
   <script src="/public/js/pageShell.js"></script>
   <div id="tc-footer" data-tc-footer></div>

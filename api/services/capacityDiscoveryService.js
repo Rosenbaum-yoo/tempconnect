@@ -22,6 +22,108 @@ const COMMERCIAL_COMMITMENT_JOIN = `
 
 const REMAINING_HEADCOUNT_SQL = `GREATEST(cp.headcount - COALESCE(commercial_state.committed_headcount, 0), 0)`;
 
+/* -- Aggregate by Skill (N1.3) ------------------------- */
+
+/**
+ * Der Bestand JE FAEHIGKEIT - nicht je Rolle.
+ *
+ * WARUM ES DAS BRAUCHT. Der Plan zu Welle N1 nennt als Nachweis "je Faehigkeit
+ * die Zahl verfuegbarer Kraefte, aus `capacity-discovery/by-role`". Gemessen am
+ * 2026-09-06 stimmt das nicht: `aggregateByRole` gruppiert nach `cp.role`
+ * ("Pflegekraft"), nicht nach `cp.skill_tags` ("Stapler"). Die Rolle beantwortet
+ * eine andere Frage.
+ *
+ * Und die Frage der Faehigkeit ist die interessantere: wer im Auswahlkatalog
+ * "Pick-by-Voice" anklickt und daneben eine 0 sieht, waehlt etwas anderes -
+ * BEVOR er eine Ausschreibung schreibt, auf die sich niemand meldet. Genau
+ * dafuer steht die Zahl neben der Faehigkeit und nicht in einem Bericht danach.
+ *
+ * `UNNEST` statt eines Treffers je Zeile: ein Eintrag mit drei Faehigkeiten
+ * zaehlt bei allen dreien. Das ist gewollt - die Frage lautet "wie viele Kraefte
+ * bringen diese Faehigkeit mit", nicht "wie viele Eintraege gibt es". Die Summen
+ * ueber alle Faehigkeiten sind deshalb GROESSER als die Zahl der Kraefte; wer
+ * sie addiert, addiert falsch. Deshalb liefert die Antwort auch keine
+ * Gesamtsumme, die zum Addieren einlaedt.
+ *
+ * Dieselbe Rest-Rechnung wie ueberall in dieser Datei: bereits verbindlich
+ * vergebene Koepfe zaehlen nicht mehr als verfuegbar.
+ *
+ * ZUR SCHREIBWEISE, und zwar ehrlich: `CROSS JOIN LATERAL UNNEST(...)` statt
+ * `TRIM(UNNEST(...))`. Ich hatte beim Bauen angenommen, Postgres weise die
+ * zweite Form ab - das ist FALSCH, sie laeuft (gemessen gegen PostgreSQL 16.12
+ * am 2026-09-06, beide Formen liefern dasselbe). Der Grund ist ein anderer und
+ * kleiner: eine mengenliefernde Funktion in der Auswahlliste entfaltet die
+ * Zeilen implizit, und sobald eine ZWEITE dazukommt, laufen beide im Gleich-
+ * schritt statt ueber Kreuz - eine Semantik, die man beim Lesen nicht sieht und
+ * beim Erweitern falsch rät. Der laterale Verbund schreibt die Entfaltung hin.
+ *
+ * Die DB-gebundene Rauchprobe daneben bleibt trotzdem richtig: sie beweist,
+ * dass Postgres die Abfrage versteht - was ein Muster-Zugang nie zeigen kann,
+ * weil er sie nie ausfuehrt.
+ *
+ * Returns: [{ skill, entry_count, total_headcount, cities }]
+ */
+export async function aggregateBySkill(pool, filters = {}) {
+  const params = [];
+  const where = ["cp.status = 'active'"];
+  let idx = 1;
+
+  if (filters.org_id) {
+    where.push(`cp.org_id = $${idx}`); params.push(filters.org_id); idx++;
+  }
+  if (filters.city) {
+    where.push(`LOWER(cp.location_city) = LOWER($${idx})`); params.push(filters.city); idx++;
+  }
+  if (filters.worker_category) {
+    where.push(`cp.worker_category = $${idx}`); params.push(filters.worker_category); idx++;
+  }
+  /* Eine Vorauswahl von Faehigkeiten: die Oberflaeche fragt nur nach denen, die
+     gerade auf dem Schirm stehen, statt den ganzen Katalog zu holen. */
+  const skillFilter = Array.isArray(filters.skills) && filters.skills.length
+    ? filters.skills.map((x) => String(x)).filter(Boolean)
+    : null;
+
+  const limit = Math.min(300, filters.limit || 200);
+
+  let skillWhere = "";
+  if (skillFilter && skillFilter.length) {
+    skillWhere = ` WHERE LOWER(je.skill) = ANY($${idx}::text[])`;
+    params.push(skillFilter.map((x) => x.toLowerCase()));
+    idx++;
+  }
+  params.push(limit);
+
+  const { rows } = await pool.query(
+    `SELECT je.skill,
+            COUNT(*)::int AS entry_count,
+            SUM(je.rest)::int AS total_headcount,
+            ARRAY_AGG(DISTINCT je.location_city) FILTER (WHERE je.location_city IS NOT NULL) AS cities
+       FROM (
+         SELECT TRIM(t.skill) AS skill,
+                cp.location_city,
+                ${REMAINING_HEADCOUNT_SQL} AS rest
+           FROM capacity_posts cp
+           ${COMMERCIAL_COMMITMENT_JOIN}
+           CROSS JOIN LATERAL UNNEST(cp.skill_tags) AS t(skill)
+          WHERE ${where.join(" AND ")}
+            AND ${REMAINING_HEADCOUNT_SQL} > 0
+       ) je
+      ${skillWhere}
+      GROUP BY je.skill
+      HAVING je.skill <> ''
+      ORDER BY total_headcount DESC
+      LIMIT $${idx}`,
+    params
+  );
+
+  return rows.map((r) => ({
+    skill: r.skill,
+    entry_count: Number(r.entry_count) || 0,
+    total_headcount: Number(r.total_headcount) || 0,
+    cities: Array.isArray(r.cities) ? r.cities : []
+  }));
+}
+
 /* ── Aggregate by Role ────────────────────────────────── */
 
 /**

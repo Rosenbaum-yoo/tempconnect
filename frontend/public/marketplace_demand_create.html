@@ -52,8 +52,14 @@
           <input id="role" name="role" required placeholder="z.B. Produktionshelfer" data-i18n-ph="dem.create.ph.role"/>
         </div>
         <div>
-          <label for="skill_tags" data-i18n="dem.create.label.skills">Skills (kommagetrennt)</label>
-          <input id="skill_tags" name="skill_tags" placeholder="z.B. Schichtarbeit, Montage" data-i18n-ph="dem.create.ph.skills"/>
+          <label data-i18n="dem.create.label.skills">Faehigkeiten</label>
+          <!-- N1.1: Das Feld bleibt - es traegt weiter die Auswahl und wird vom
+               Absende-Code unveraendert gelesen. Nur TIPPEN kann man nicht mehr
+               hinein: der Wert kommt aus dem Katalog. Ohne diese Umstellung
+               entstehen Schreibvarianten, die einander nie finden. -->
+          <input type="hidden" id="skill_tags" name="skill_tags"/>
+          <div id="skillPicker"></div>
+          <div class="hint" data-i18n="dem.create.hint.skills">Aus dem Plattform-Katalog. Die Zahl daneben sagt, wie viele Kraefte diese Faehigkeit heute mitbringen.</div>
         </div>
         <div>
           <label for="headcount" data-i18n="dem.create.label.headcount">Anzahl Personen</label>
@@ -150,7 +156,8 @@
         'dem.create.ph.title': 'z.B. 10 Produktionshelfer ab sofort',
         'dem.create.label.role': 'Rolle / Beruf *',
         'dem.create.ph.role': 'z.B. Produktionshelfer',
-        'dem.create.label.skills': 'Skills (kommagetrennt)',
+        'dem.create.label.skills': 'Faehigkeiten',
+        'dem.create.hint.skills': 'Aus dem Plattform-Katalog. Die Zahl daneben sagt, wie viele Kraefte diese Faehigkeit heute mitbringen.',
         'dem.create.ph.skills': 'z.B. Schichtarbeit, Montage',
         'dem.create.label.headcount': 'Anzahl Personen',
         'dem.create.label.startDate': 'Startdatum *',
@@ -207,7 +214,8 @@
         'dem.create.ph.title': 'e.g. 10 production assistants, starting now',
         'dem.create.label.role': 'Role / occupation *',
         'dem.create.ph.role': 'e.g. production assistant',
-        'dem.create.label.skills': 'Skills (comma-separated)',
+        'dem.create.label.skills': 'Skills',
+        'dem.create.hint.skills': 'From the platform catalogue. The number beside each one says how many people bring that skill today.',
         'dem.create.ph.skills': 'e.g. shift work, assembly',
         'dem.create.label.headcount': 'Number of people',
         'dem.create.label.startDate': 'Start date *',
@@ -371,6 +379,8 @@
       btn.disabled = true;
       btn.textContent = t('dem.create.submitting', 'Wird gesendet...');
 
+      /* Der Waehler schreibt seine Auswahl in dasselbe Feld zurueck - dieser
+         Abschnitt bleibt deshalb Wort fuer Wort, wie er war. */
       var tags = (document.getElementById("skill_tags").value || "")
         .split(",").map(function(tag) { return tag.trim(); }).filter(Boolean);
 
@@ -456,6 +466,50 @@
         }
       });
     });
+  })();
+  </script>
+  <script src="/public/js/skillPicker.js"></script>
+  <script>
+  /*
+   * N1.1 - der Katalog auf der Nachfrageseite.
+   *
+   * Der Ort wird MITGEGEBEN, sobald er im Formular steht: "23 verfuegbar" ist
+   * eine ganz andere Aussage als "23 verfuegbar in Muenster". Aendert sich die
+   * Stadt, wird der Waehler neu aufgesetzt - eine Zahl, die zum falschen Ort
+   * gehoert, ist schlimmer als keine.
+   */
+  (function () {
+    var waehler = null;
+    var letzterOrt = "";
+
+    function aufsetzen() {
+      var ortFeld = document.getElementById("location_city");
+      var ort = (ortFeld && ortFeld.value || "").trim();
+      var vorher = waehler ? waehler.werte() : [];
+      waehler = TCSkillPicker.mount({
+        container: "skillPicker",
+        hiddenInput: "skill_tags",
+        initial: vorher,
+        showAvailability: true,
+        city: ort || null
+      });
+      letzterOrt = ort;
+    }
+
+    function start() {
+      if (!document.getElementById("skillPicker")) return;
+      aufsetzen();
+      var ortFeld = document.getElementById("location_city");
+      if (ortFeld) {
+        ortFeld.addEventListener("change", function () {
+          if ((ortFeld.value || "").trim() !== letzterOrt) aufsetzen();
+        });
+      }
+      document.addEventListener("tc:langchange", function () { if (waehler) waehler.neu(); });
+    }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
   })();
   </script>
   <script src="/public/js/pageShell.js"></script>

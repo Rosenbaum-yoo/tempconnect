@@ -171,8 +171,29 @@ einzigen Aufrufer.**
 |---|---|---|
 | N1.1 | **Fähigkeiten anklickbar** aus `GET /skills/catalog`, Mehrfachauswahl, Vorschläge beim Tippen | Freitext ist nicht mehr möglich |
 | N1.2 | **Wer seinen Begriff nicht findet, wird geführt**, nicht abgewiesen — dieselbe Zuordnung über Schreibvarianten, die `proposeSkill` schon kann | „Gabelstaplerfahrer" führt zu „Staplerfahrer" |
-| N1.3 | **Der Bestand wird sichtbar, bevor gesucht wird:** je Fähigkeit die Zahl verfügbarer Kräfte, aus `capacity-discovery/by-role` | Wer eine Fähigkeit wählt, sieht sofort, ob es sie gibt |
+| N1.3 | **Der Bestand wird sichtbar, bevor gesucht wird:** je Fähigkeit die Zahl verfügbarer Kräfte, aus `capacity-discovery/by-skill` | Wer eine Fähigkeit wählt, sieht sofort, ob es sie gibt |
 | N1.4 | **Wächter: kein Freitext-Skill mehr auf der Nachfrageseite** | Rückmutation: Freitextfeld wieder einbauen → rot |
+
+> **Erledigt am 2026-09-06 — mit einer Berichtigung.** Diese Tabelle nannte für N1.3
+> `capacity-discovery/by-role` als Quelle. Gemessen stimmt das nicht: `aggregateByRole`
+> gruppiert nach `cp.role` („Pflegekraft"), nicht nach `cp.skill_tags` („Stapler") — die
+> Rolle beantwortet eine andere Frage. Die Zahl je **Fähigkeit** gab es noch nicht; sie ist
+> als `aggregateBySkill` / `GET /capacity-discovery/by-skill` neu gebaut, mit derselben
+> Rest-Rechnung wie die Nachbarn. (Dritte Ungenauigkeit dieser Art in Folge, vgl. N7.1 und
+> N7.4 — Herkunftsangaben in diesem Plan sind Hinweise, keine Belege, und gehören vor dem
+> Bauen gemessen.)
+>
+> Geliefert: `frontend/public/js/skillPicker.js` — ein gemeinsames Bauteil für beide Seiten,
+> das seine Gestalt selbst mitbringt und in jedes Folgeprojekt passt. Eingebaut in
+> `marketplace_demand_create.html` (mit Bestandszahlen und Ortsbezug) und
+> `capacity_exchange_form.html`. Bewacht von `api/test/faehigkeitenKatalog.test.js` (29
+> Proben, 36 Rückmutationen ohne Überlebende) und `test/integration/bestandJeFaehigkeit.flow.test.js`
+> (6 Proben gegen die laufende Datenbank).
+>
+> **Dabei aufgefallen, noch offen:** `frontend/public/js/pages/mitarbeiter.js` trägt eine
+> **zweite, fest verdrahtete** Fähigkeitsliste (12 Gruppen, 142 Einträge, ohne Aliase). Sie
+> ist eine Schattenwahrheit neben `platform_skills` und veraltet lautlos. Sie zu ersetzen ist
+> eine eigene Welle mit eigenem Risiko — siehe `docs/PILOT_GO_LIVE_TODOS.md`, Offene Blocker.
 
 ### N2 · Die vier Fragen als Assistent
 

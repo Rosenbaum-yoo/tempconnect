@@ -48,9 +48,9 @@ TCi18n.register('de', {
   'cap.f.rolePh': 'z.B. Lagerhelfer',
   'cap.f.category': 'Kategorie',
   'cap.f.headcount': 'Anzahl Personen',
-  'cap.f.skills': 'Skills (kommagetrennt)',
+  'cap.f.skills': 'Faehigkeiten',
   'cap.f.skillsPh': 'z.B. Stapler, Kommissionierung, SAP',
-  'cap.f.skillsHelp': 'Kommagetrennte Schlagworte fuer besseres Matching.',
+  'cap.f.skillsHelp': 'Aus dem Plattform-Katalog - dieselbe Achse, auf der die Gegenseite sucht.',
   'cap.f.availType': 'Verfuegbarkeitstyp',
   'cap.f.from': 'Verfuegbar ab',
   'cap.f.to': 'Verfuegbar bis',
@@ -194,9 +194,9 @@ TCi18n.register('en', {
   'cap.f.rolePh': 'e.g. warehouse assistant',
   'cap.f.category': 'Category',
   'cap.f.headcount': 'Number of people',
-  'cap.f.skills': 'Skills (comma-separated)',
+  'cap.f.skills': 'Skills',
   'cap.f.skillsPh': 'e.g. forklift, order picking, SAP',
-  'cap.f.skillsHelp': 'Comma-separated keywords for better matching.',
+  'cap.f.skillsHelp': 'From the platform catalogue - the same axis the other side searches on.',
   'cap.f.availType': 'Availability type',
   'cap.f.from': 'Available from',
   'cap.f.to': 'Available until',
@@ -473,6 +473,12 @@ TCi18n.register('en', {
         val("f-worker-category", e.worker_category || "");
         val("f-headcount", e.headcount || 1);
         val("f-skills", Array.isArray(e.skill_tags) ? e.skill_tags.join(", ") : "");
+        /* N1.1: Ein verstecktes Feld per Skript zu setzen loest kein Ereignis
+           aus - der Faehigkeiten-Waehler erfaehrt sonst nichts davon und
+           ueberschreibt die geladene Auswahl mit einer leeren. */
+        document.dispatchEvent(new CustomEvent("tc:skills-loaded", {
+          detail: Array.isArray(e.skill_tags) ? e.skill_tags : []
+        }));
         val("f-availability-type", e.availability_type || "immediate");
         val("f-from", e.availability_from ? String(e.availability_from).substring(0,10) : "");
         val("f-to", e.availability_to ? String(e.availability_to).substring(0,10) : "");
