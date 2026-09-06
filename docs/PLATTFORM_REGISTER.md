@@ -542,10 +542,14 @@ Weiterleitung oder für keinen Nutzer erreichbar.
 > gemeinsame Achse. Der Wähler ist ein eigenständiges Bauteil
 > (`frontend/public/js/skillPicker.js`), das seine Gestalt selbst mitbringt.
 >
-> **Nicht erledigt:** `frontend/public/js/pages/mitarbeiter.js` trägt weiterhin eine
-> **zweite, fest verdrahtete** Liste (12 Gruppen, 142 Einträge, ohne Aliase, ohne Bestand).
-> Wer dort ein Profil pflegt, wählt aus einer anderen Menge als der Markt. Offen, siehe
-> `docs/PILOT_GO_LIVE_TODOS.md`.
+> **Erledigt in Welle N1b (2026-09-06):** die zweite, fest verdrahtete Liste in
+> `mitarbeiter.js` ist entfernt. Von ihren 142 Begriffen standen **33** im Katalog und
+> **109 nicht** — wer dort ein Profil pflegte, wählte aus einer anderen Menge als der Markt
+> und schrieb obendrein nur eine Wortliste ins Profil, so dass `worker_profile_skills` leer
+> blieb und der Angebotsgenerator den Menschen nie in den Markt brachte. Alle **fünf**
+> Flächen wählen jetzt aus `platform_skills`; erzwungen durch
+> `api/test/eineAchseFuerFaehigkeiten.test.js`, das über **alle** Seiten nach tippbaren
+> Fähigkeitsfeldern sucht.
 
 ### Hilfe, Vertrauen, Recht
 
@@ -722,7 +726,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | davon reine Weiterleitungen | 9 | je 14 nicht-leere Zeilen, reiner Meta-Refresh |
 | davon Attrappen | 3 | `sla_nachweise.html`, `impressum.html`, `datenschutz.html` (Wurzel) |
 | davon für keinen Nutzer erreichbar | **0** | war 1 (timesheet-templates.html); am 26.08. entfernt — siehe Liste A, A1 |
-| Backend-Testdateien | <!--zahl:backend-testdateien-->460<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
+| Backend-Testdateien | <!--zahl:backend-testdateien-->461<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
 | E2E-Testdateien | <!--zahl:e2e-testdateien-->17<!--/zahl--> | `ls e2e/tests/ \| wc -l` |
 | Rollen im Rechtemodell | 12 | `ROLE_HIERARCHY` in `api/services/rbacService.js:9-22` |
 | Benannte Berechtigungen | 63 | `PERMISSIONS` in `api/services/rbacService.js:25 ff.` |
@@ -740,7 +744,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 >
 > **Eine Zahl, die hier bewusst fehlt:** die Gesamtzahl grüner Tests. Sie steht in mehreren
 > Projektdokumenten (3979+), wurde für dieses Register aber **nicht** nachgerechnet, weil das
-> einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die <!--zahl:backend-testdateien-->460<!--/zahl--> Testdateien und
+> einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die <!--zahl:backend-testdateien-->461<!--/zahl--> Testdateien und
 > <!--zahl:e2e-testdateien-->17<!--/zahl--> E2E-Dateien. Wer die Testzahl in ein Investorendokument schreibt, muss sie vorher unter
 > `api/scripts/run-tests.js` real erzeugen.
 
@@ -947,7 +951,7 @@ Ehrlichkeit über die eigenen Grenzen gehört in ein Dokument, das später an In
    `docs-consistency`-Test existiert, der tote Verweise und verwaiste Dateien rot werden lässt,
    veraltet diese Datei still. Vorbild für die Mechanik: `api/test/flaechenZuordnung.test.js`.
 
-2. **Die Testzahl ist nicht nachgerechnet.** Belegt sind <!--zahl:backend-testdateien-->460<!--/zahl--> Backend-Testdateien und <!--zahl:e2e-testdateien-->17<!--/zahl-->
+2. **Die Testzahl ist nicht nachgerechnet.** Belegt sind <!--zahl:backend-testdateien-->461<!--/zahl--> Backend-Testdateien und <!--zahl:e2e-testdateien-->17<!--/zahl-->
    E2E-Dateien. Die in mehreren Projektdokumenten genannte Gesamtzahl grüner Tests (3979+)
    wurde für dieses Register **nicht** verifiziert — dazu wäre ein vollständiger Suite-Lauf
    unter `api/scripts/run-tests.js` nötig gewesen. Wer sie in eine Investorendarstellung

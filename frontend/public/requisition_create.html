@@ -81,7 +81,15 @@
         <h2 class="rc-card__title" data-i18n="rst.g.req.title">Anforderungen &amp; Budget</h2>
         <p class="rc-card__hint" data-i18n="rst.g.req.hint">Optional. Skills helfen beim Matching, das Budget steuert Vorschläge.</p>
         <div class="rc-grid">
-          <div class="rc-field rc-full"><label data-i18n="rst.g.f.skills">Skills (kommagetrennt)</label><input id="cSkills" data-i18n-ph="rst.g.ph.skills" placeholder="z.B. Schweißen, SPS, Gabelstapler"/></div>
+          <div class="rc-field rc-full">
+            <label data-i18n="rst.g.f.skills">Fähigkeiten</label>
+            <!-- N1b: war Freitext, und der Platzhalter schlug ausgerechnet
+                 "Gabelstapler" vor — einen ALIAS. Wer das eintippt, sucht nach
+                 einem Wort, das im Katalog nicht als Name existiert. Jetzt aus
+                 dem Katalog, mit der Zahl verfügbarer Kräfte daneben. -->
+            <input type="hidden" id="cSkills"/>
+            <div id="skillPickerAnforderung"></div>
+          </div>
           <div class="rc-field"><label data-i18n="rst.g.f.budgetMin">Budget min (Cent)</label><input id="cBudgetMin" type="number" min="0"/></div>
           <div class="rc-field"><label data-i18n="rst.g.f.budgetMax">Budget max (Cent)</label><input id="cBudgetMax" type="number" min="0"/></div>
           <div class="rc-field rc-full"><label class="rc-check"><input type="checkbox" id="cApproval"> <span data-i18n="rst.g.f.approval">Freigabe erforderlich</span></label></div>
@@ -101,6 +109,38 @@
   <script src="/public/js/footer.js"></script>
   <script src="/public/js/demoBanner.js" defer></script>
   <script src="/public/js/breadcrumb.js" defer></script>
+  <script src="/public/js/skillPicker.js"></script>
+  <script>
+  /* N1b — dieselbe Achse wie auf allen anderen Flächen. Der Ort geht mit,
+     sobald er im Formular steht: "23 verfügbar" und "23 verfügbar in Münster"
+     sind verschiedene Aussagen. */
+  (function () {
+    var waehler = null, letzterOrt = "";
+    function aufsetzen() {
+      var of = document.getElementById("cCity");
+      var ort = (of && of.value || "").trim();
+      waehler = TCSkillPicker.mount({
+        container: "skillPickerAnforderung",
+        hiddenInput: "cSkills",
+        initial: waehler ? waehler.werte() : [],
+        showAvailability: true,
+        city: ort || null
+      });
+      letzterOrt = ort;
+    }
+    function start() {
+      if (!document.getElementById("skillPickerAnforderung")) return;
+      aufsetzen();
+      var of = document.getElementById("cCity");
+      if (of) of.addEventListener("change", function () {
+        if ((of.value || "").trim() !== letzterOrt) aufsetzen();
+      });
+      document.addEventListener("tc:langchange", function () { if (waehler) waehler.neu(); });
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
+  })();
+  </script>
   <script>
   /* Woerterbuch (P6.1, DE/EN) fuer requisition_create.html — Namensraum rst.g.*.
 
@@ -148,7 +188,7 @@
     'rst.g.ph.city': 'z.B. Dortmund',
     'rst.g.req.title': 'Anforderungen & Budget',
     'rst.g.req.hint': 'Optional. Skills helfen beim Matching, das Budget steuert Vorschläge.',
-    'rst.g.f.skills': 'Skills (kommagetrennt)',
+    'rst.g.f.skills': 'Fähigkeiten',
     'rst.g.ph.skills': 'z.B. Schweißen, SPS, Gabelstapler',
     'rst.g.f.budgetMin': 'Budget min (Cent)',
     'rst.g.f.budgetMax': 'Budget max (Cent)',
@@ -191,7 +231,7 @@
     'rst.g.ph.city': 'e.g. Dortmund',
     'rst.g.req.title': 'Requirements & budget',
     'rst.g.req.hint': 'Optional. Skills improve matching, the budget steers suggestions.',
-    'rst.g.f.skills': 'Skills (comma-separated)',
+    'rst.g.f.skills': 'Skills',
     'rst.g.ph.skills': 'e.g. Welding, PLC, forklift',
     'rst.g.f.budgetMin': 'Budget min (cents)',
     'rst.g.f.budgetMax': 'Budget max (cents)',

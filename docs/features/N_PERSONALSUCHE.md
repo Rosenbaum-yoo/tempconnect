@@ -190,10 +190,15 @@ einzigen Aufrufer.**
 > Proben, 36 Rückmutationen ohne Überlebende) und `test/integration/bestandJeFaehigkeit.flow.test.js`
 > (6 Proben gegen die laufende Datenbank).
 >
-> **Dabei aufgefallen, noch offen:** `frontend/public/js/pages/mitarbeiter.js` trägt eine
-> **zweite, fest verdrahtete** Fähigkeitsliste (12 Gruppen, 142 Einträge, ohne Aliase). Sie
-> ist eine Schattenwahrheit neben `platform_skills` und veraltet lautlos. Sie zu ersetzen ist
-> eine eigene Welle mit eigenem Risiko — siehe `docs/PILOT_GO_LIVE_TODOS.md`, Offene Blocker.
+> **Nachgezogen in N1b (2026-09-06), auf Owner-Hinweis.** N1 stellte die beiden *Markt*-
+> Flächen um; die Achse ist damit aber noch nicht gemeinsam. `matchingEngine.scoreMatch`
+> vergleicht Nachfrage und Angebot als **Mengen** — eine gemeinsame Achse entsteht erst, wenn
+> **alle** Flächen aus derselben Menge wählen. Zwei taten es nicht:
+> `mitarbeiter.html` (142 fest verdrahtete Begriffe, davon **109 nicht im Katalog**, und ein
+> Freitextfeld obendrein) und `requisition_create.html`. Beide sind jetzt am Wähler; die
+> Agentur bekam dafür den katalog-gebundenen Endpunkt `PUT /workers/:userId/skills`, den es
+> bis dahin nur für den Arbeiter selbst gab. Bewacht von
+> `api/test/eineAchseFuerFaehigkeiten.test.js`.
 
 ### N2 · Die vier Fragen als Assistent
 

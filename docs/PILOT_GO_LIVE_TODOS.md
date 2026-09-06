@@ -2,6 +2,52 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-06 — Eine Achse für Fähigkeiten, auch dort wo die Menschen gepflegt werden (N1b)
+
+**Status:** erledigt · **Kategorie:** Bug (Matching) + Produktausbau ·
+**Anlass:** Owner-Hinweis — die gesuchten Fähigkeiten müssen mit den angeklickten
+zusammenfinden.
+
+**Fakt.** Welle N1 stellte die beiden **Markt**-Flächen auf den Katalog. Das genügte nicht:
+`matchingEngine.scoreMatch` vergleicht beide Seiten als **Mengen**, ohne Index als
+kleingeschriebene Rohform. Eine gemeinsame Achse entsteht nur, wenn **alle** Flächen aus
+derselben Menge wählen — und das taten drei von fünf.
+
+Die folgenreichste Ausnahme war ausgerechnet die, an der die Zeitarbeitsfirma ihre Leute
+pflegt (`mitarbeiter.html`). Sie bot **142 im Browser fest verdrahtete** Begriffe an; davon
+standen **33 im Katalog** (Namen und Aliase zusammen), **109 nicht** — darunter „Stapler",
+„Pick-by-Voice", „MAG-Schweißen". Kanonisch heißt es „Staplerfahrer:in". Ein Unternehmen,
+das seit N1 den Katalogbegriff wählt, fand einen so gepflegten Menschen **nicht**.
+
+**Der tiefere Schaden.** Diese Fläche schrieb per `PATCH /workers/:id` eine Wortliste ins
+Profil. Die relationale Zuordnung `worker_profile_skills` blieb dabei **leer** — und genau
+daraus baut `capacityOfferGeneratorService` die Marktangebote. Wer seine Leute dort pflegte,
+brachte sie gar nicht erst in den Markt. Ohne Fehler, ohne Meldung: der Weg endete einfach.
+
+**Warum es den Weg nicht gab.** Der Arbeiter selbst konnte seine Fähigkeiten seit jeher
+katalog-gebunden setzen (`PUT /worker/me/skills` → `setWorkerSkills`, jede `skill_id` gegen
+`platform_skills` geprüft). Die Agentur, die dieselben Menschen verwaltet, hatte diesen
+Endpunkt nicht. Neu: `GET`/`PUT /workers/:userId/skills`, org-gebunden, mit
+`source: "agency"`.
+
+**Geliefert.** `mitarbeiter.html` und `requisition_create.html` auf `TCSkillPicker`; 15
+Funktionen und das Freitextfeld „Zusätzlicher Spezial-Skill" entfallen ersatzlos. Der Wähler
+lernt `auswahl()` (Auswahl **mit** Katalog-Kennung) und optionale Gruppen-Aktionen — die es
+bewusst **nur** auf der Mitarbeiterseite gibt: eine Ausschreibung mit zwölf Pflicht-
+Fähigkeiten findet niemanden.
+
+**Bestandsdaten sind sauber.** Gegen die laufende Datenbank gemessen: 33 Profile, 3 mit
+Fähigkeiten — und genau diese 3 haben auch relationale Zuordnungen, mit übereinstimmender
+Anzahl und **null** Begriffen außerhalb des Katalogs. Nichts nachzuziehen.
+
+**Verifikation.** 17 Proben in `api/test/eineAchseFuerFaehigkeiten.test.js`, **17
+Rückmutationen ohne Überlebende**. Die Rundum-Wache sucht nach der **Form** eines tippbaren
+Fähigkeitsfeldes über alle Seiten — sie hat beim ersten Lauf den *geführten* Vorschlagsweg
+im Arbeiterportal zu Unrecht angeklagt und unterscheidet ihn jetzt, eng begrenzt und mit
+Gegenprobe.
+
+---
+
 ### 2026-09-06 — Freitext war nie eine gemeinsame Achse (N1)
 
 **Status:** erledigt (ein Punkt bleibt offen, siehe Offene Blocker) ·
@@ -693,24 +739,6 @@ Letzte Aktualisierung: 2026-08-22 — **E-Rechnung nach EN 16931 geliefert**: XR
     spätestens 01.01.2028. **Owner-Entscheidung**, weil es die eigene Rechnungsstellung
     betrifft.
 
-- **N1 — zwei Fähigkeitslisten nebeneinander: `platform_skills` und eine fest verdrahtete im Browser.**
-  - *Status:* offen, **kein Produktionsrisiko heute**, aber eine Schattenwahrheit, die lautlos veraltet.
-  - *Fakt:* `frontend/public/js/pages/mitarbeiter.js:1320` trägt `SKILL_CATALOG_GROUPS` — 12 Gruppen,
-    142 Fähigkeiten, **ohne Aliase, ohne Bestandszahlen**, gepflegt von Hand. Der Marktplatz wählt
-    seit Welle N1 aus `platform_skills` (162 Fähigkeiten, 14 Kategorien, mit Schreibvarianten).
-    Wer im Mitarbeiterprofil eine Fähigkeit setzt, wählt damit aus einer **anderen Menge** als die
-    Seite, auf der später gesucht wird. Dieselbe Datei ruft `/skills/catalog` bereits an einer
-    anderen Stelle auf (Pool-Generator, `mitarbeiter.js:2785`) — beide Wahrheiten stehen also
-    nebeneinander in einer Datei.
-  - *Warum es nicht in N1 mit erledigt wurde:* die Liste hängt an einer übersetzten, gruppierten
-    Oberfläche mit Gruppen-Aktionen („Gruppe wählen"/„Gruppe leeren"), die der Katalog so nicht
-    kennt. Ein Austausch ist eine eigene Welle mit eigenem Rückbau-Risiko — und er stand nicht in N1.
-  - *Aktion:* `mitarbeiter.js` auf `/skills/catalog` umstellen und `SKILL_CATALOG_GROUPS` entfernen;
-    die Kategorien des Katalogs treten an die Stelle der Gruppen. Danach ein Wächter: **keine fest
-    verdrahtete Fähigkeitsliste im Frontend**.
-  - *Aufwand:* ~3 h. *Verify:* Profil anlegen, Fähigkeit wählen, im Marktplatz danach suchen —
-    derselbe Begriff auf beiden Seiten.
-
 - **N7.4 — `GET /api/emergency/active?all=1` liefert die ganze Zeile, quer über alle Kunden.**
   - *Status:* offen, **Owner-Entscheidung**, weil es eine Sicherheits- **und** Produktfrage zugleich ist.
   - *Fakt:* `/emergency/active` und `/emergency/dashboard` kennen `?all=1`; der Schalter setzt
@@ -744,7 +772,7 @@ Letzte Aktualisierung: 2026-08-22 — **E-Rechnung nach EN 16931 geliefert**: XR
 ---
 
 
-Letzte Aktualisierung: 2026-09-06 — **Welle N1 (Faehigkeiten-Katalog) abgeschlossen: beide Marktseiten waehlen jetzt aus derselben Menge.** Vorher tippten beide Freitext — Schreibvarianten, die einander nie finden, ohne dass es jemand sieht. Neu: ein gemeinsames Bauteil (`skillPicker.js`), die Zahl verfuegbarer Kraefte je Faehigkeit (`aggregateBySkill`, die es noch nicht gab) und der gefuehrte Weg fuer eigene Begriffe. **Neuer offener Punkt:** `mitarbeiter.js` traegt eine zweite, fest verdrahtete Liste. Vorher: **Welle N7.4 (Notdienst) abgeschlossen: von elf fertigen, auditierten Endpunkten riefen die Oberflächen zwei auf.** Sechs davon verdrahtet, darunter der einzige Weg, eine Teilzusage zurückzunehmen. Drei Befunde dabei: `POST /emergency/:id/escalate` hatte **keine Eigentumsprüfung** (jeder Tarif-Berechtigte konnte fremde Notlagen hochstufen und damit einen E-Mail-Rundruf an bis zu 50 Anbieter auslösen) — geschlossen; `?all=1` liefert `dr.*` inkl. fremder Kontakt-Durchwahl — **offen, Owner-Entscheidung**; der Erreichbarkeits-Wächter übersah 17 Registerzeilen und damit fünf lebende Seiten — geschlossen. Vorher: 2026-08-21 — **8.1.1 (a)–(e) abgeschlossen. Beim Bauen von (d) zwei aktive Cross-Org-Lecks gefunden: 201 Kundenkonten konnten das plattformweite Audit-Log lesen und exportieren — und jeden Nutzer der Plattform ändern oder sperren.** Beides geschlossen. Zwei neue P1-Punkte offen (admin.js als Kundenfläche mit Plattformdaten; fünf Routen mit selbstabschaltender Org-Grenze). Vorher: **8.1.1 abgeschlossen: das Audit-Log trennt die Mandanten, Abnahme `fremde_org` 139 → 0.** Die Ursache war ein Demo-Login ohne `session.regenerate()`, der die Organisation des Vorgängers erbte — das betraf die Mandantengrenze von 45 Routen, nicht nur das Audit. Vorher: **Vorlauf V-2 zu Welle I erledigt: drei Wächter prüfen jetzt den git-Index statt des Dateibaums (P2-W1)** — sie waren in jedem Worktree/Klon/CI dauerhaft rot, ohne dass etwas kaputt war, und im Hauptbaum gleichzeitig falsch grün. Voller Lauf erstmals 9524/0. Vorher: 2026-08-19 — **Welle H2 (Mandantengrenzen) abgeschlossen: zehn Cross-Org-Lücken geschlossen, Wächter gebaut.** Neuer P1-Eintrag: Migration 117 existiert nicht, obwohl 28 Tabellen in `TENANT_ISOLATION_MODEL.md` auf sie verweisen. Vorher: 2026-08-07 — **P8 Deal-Verbindlichkeit (Wellen A-E) abgeschlossen und committet** (`4220693`..`67b0282`). Vier geerbte Defekte dabei gefunden und geschlossen, darunter eine Kennzahl, die das Feed-Ranking steuerte und in Produktion durchgehend NULL war, und ein Bounty, das notorische Kurzfrist-Stornierer mit 3 % Rabatt belohnte. **Neue Betriebs-Pflicht vor Go-Live: Cron `recompute-deal-reliability` einrichten + Migrationen 164/165 einspielen** (siehe Done-Eintrag). Vorher: 2026-07-26 — **P1.0 Schritt (d) erledigt**: `.env.prod.example` kannte `STAFF_SESSION_SECRET` nicht, obwohl die Variable in Produktion ein `fatal()` ausloest — ein Deploy nach dieser Vorlage waere nicht gestartet. Ergaenzt + Waechter `api/test/prodEnvTemplate.test.js`, der Pflichtvariablen aus dem Code gegen die Vorlage prueft. Ebenfalls am 2026-07-26: `docs/AUDIT_BACKLOG.md` vollstaendig abgearbeitet (u. a. ein ausnutzbares Cross-Org-Leck geschlossen). Vorher: 2026-06-13 — **Welle F1 (Code-Schlussarbeiten) abgeschlossen + committet** (`9f37250`/`1044343`/`878b022`/`845b6c9`): Prod-Härtung, Security-Quick-Wins, Hygiene-Sweep, Test-Harness-Folge inkl. eines gefundenen+gefixten requireMfa-SCC-Betriebsblockers; volle Suite 4508/0, Lint 0/0, Builds grün — siehe Abschlussbericht im Worklog. Marktstart-Ziel auf **01.09.2026** aktualisiert (UG-Gründung = kritischer Pfad). Vorher: 2026-06-11 — **Der konsolidierte Vorwaerts-Plan bis zur finalen Abnahme (Wellen F0-F6) liegt in `docs/finalization/FINALISIERUNGSPLAN_ABNAHME.md`** und mappt ALLE offenen Punkte dieses Files (P0.4, P1.0, P1.4, E-01, P2.x) + Gap-Register O-01-O-11 + Audit-Funde 2026-06-11 auf Wellen/Phasen mit Abnahmekriterien. Vorher: 2026-06-05 (Go-Live-Haertung abgeschlossen, „drei wie empfohlen" Owner-approved: P0.6 [052-Demo-Seed-Backdoor] via Env-Flag-Gate `SEED_DEMO_WORLD` [migrate.sh PGOPTIONS-GUC + 052 DO-Guard + Compose-Split base/prod=false, override=true] + Remediation-Migration 125 [Hash-Neutralisierung der 6 Demo-Konten, gegated+idempotent]; P0.7 Tier-2 [Bestands-DB-116-Backstop] via Forward-Repair-Migration 126 [nicht-transaktional, per-Tabelle-to_regclass-guarded, idempotent]; subscriptions-RLS-Exclusion bestaetigt. Verifiziert auf zwei Wegwerf-DBs [beide Flag-Pfade + Nicht-Superuser-Deny-by-Default-Laufzeitbeweis], realer Stack unberuehrt. AKTIVIERUNG: 126 schaltet Deny-by-Default+FORCE RLS beim naechsten migrate-Lauf gegen Bestands-/Managed-DB scharf. Alle Diffs uncommitted = Owner-Commit-Gate. Vorherige offene Owner-Tasks bleiben: P0.4, P1.4-Live-Run, E-01, R2/R9 extern).
+Letzte Aktualisierung: 2026-09-06 — **Welle N1b abgeschlossen: jetzt waehlen ALLE FUENF Flaechen aus derselben Faehigkeitsmenge.** Die Mitarbeiterseite bot 142 fest verdrahtete Begriffe an, von denen **109 im Katalog nicht vorkamen** — und schrieb sie als Wortliste ins Profil, wodurch `worker_profile_skills` leer blieb und der Angebotsgenerator diese Menschen nie in den Markt brachte. Neuer katalog-gebundener Endpunkt fuer die Agentursicht; Bestandsdaten geprueft und sauber. Vorher: **Welle N1 (Faehigkeiten-Katalog) abgeschlossen: beide Marktseiten waehlen jetzt aus derselben Menge.** Vorher tippten beide Freitext — Schreibvarianten, die einander nie finden, ohne dass es jemand sieht. Neu: ein gemeinsames Bauteil (`skillPicker.js`), die Zahl verfuegbarer Kraefte je Faehigkeit (`aggregateBySkill`, die es noch nicht gab) und der gefuehrte Weg fuer eigene Begriffe. **Neuer offener Punkt:** `mitarbeiter.js` traegt eine zweite, fest verdrahtete Liste. Vorher: **Welle N7.4 (Notdienst) abgeschlossen: von elf fertigen, auditierten Endpunkten riefen die Oberflächen zwei auf.** Sechs davon verdrahtet, darunter der einzige Weg, eine Teilzusage zurückzunehmen. Drei Befunde dabei: `POST /emergency/:id/escalate` hatte **keine Eigentumsprüfung** (jeder Tarif-Berechtigte konnte fremde Notlagen hochstufen und damit einen E-Mail-Rundruf an bis zu 50 Anbieter auslösen) — geschlossen; `?all=1` liefert `dr.*` inkl. fremder Kontakt-Durchwahl — **offen, Owner-Entscheidung**; der Erreichbarkeits-Wächter übersah 17 Registerzeilen und damit fünf lebende Seiten — geschlossen. Vorher: 2026-08-21 — **8.1.1 (a)–(e) abgeschlossen. Beim Bauen von (d) zwei aktive Cross-Org-Lecks gefunden: 201 Kundenkonten konnten das plattformweite Audit-Log lesen und exportieren — und jeden Nutzer der Plattform ändern oder sperren.** Beides geschlossen. Zwei neue P1-Punkte offen (admin.js als Kundenfläche mit Plattformdaten; fünf Routen mit selbstabschaltender Org-Grenze). Vorher: **8.1.1 abgeschlossen: das Audit-Log trennt die Mandanten, Abnahme `fremde_org` 139 → 0.** Die Ursache war ein Demo-Login ohne `session.regenerate()`, der die Organisation des Vorgängers erbte — das betraf die Mandantengrenze von 45 Routen, nicht nur das Audit. Vorher: **Vorlauf V-2 zu Welle I erledigt: drei Wächter prüfen jetzt den git-Index statt des Dateibaums (P2-W1)** — sie waren in jedem Worktree/Klon/CI dauerhaft rot, ohne dass etwas kaputt war, und im Hauptbaum gleichzeitig falsch grün. Voller Lauf erstmals 9524/0. Vorher: 2026-08-19 — **Welle H2 (Mandantengrenzen) abgeschlossen: zehn Cross-Org-Lücken geschlossen, Wächter gebaut.** Neuer P1-Eintrag: Migration 117 existiert nicht, obwohl 28 Tabellen in `TENANT_ISOLATION_MODEL.md` auf sie verweisen. Vorher: 2026-08-07 — **P8 Deal-Verbindlichkeit (Wellen A-E) abgeschlossen und committet** (`4220693`..`67b0282`). Vier geerbte Defekte dabei gefunden und geschlossen, darunter eine Kennzahl, die das Feed-Ranking steuerte und in Produktion durchgehend NULL war, und ein Bounty, das notorische Kurzfrist-Stornierer mit 3 % Rabatt belohnte. **Neue Betriebs-Pflicht vor Go-Live: Cron `recompute-deal-reliability` einrichten + Migrationen 164/165 einspielen** (siehe Done-Eintrag). Vorher: 2026-07-26 — **P1.0 Schritt (d) erledigt**: `.env.prod.example` kannte `STAFF_SESSION_SECRET` nicht, obwohl die Variable in Produktion ein `fatal()` ausloest — ein Deploy nach dieser Vorlage waere nicht gestartet. Ergaenzt + Waechter `api/test/prodEnvTemplate.test.js`, der Pflichtvariablen aus dem Code gegen die Vorlage prueft. Ebenfalls am 2026-07-26: `docs/AUDIT_BACKLOG.md` vollstaendig abgearbeitet (u. a. ein ausnutzbares Cross-Org-Leck geschlossen). Vorher: 2026-06-13 — **Welle F1 (Code-Schlussarbeiten) abgeschlossen + committet** (`9f37250`/`1044343`/`878b022`/`845b6c9`): Prod-Härtung, Security-Quick-Wins, Hygiene-Sweep, Test-Harness-Folge inkl. eines gefundenen+gefixten requireMfa-SCC-Betriebsblockers; volle Suite 4508/0, Lint 0/0, Builds grün — siehe Abschlussbericht im Worklog. Marktstart-Ziel auf **01.09.2026** aktualisiert (UG-Gründung = kritischer Pfad). Vorher: 2026-06-11 — **Der konsolidierte Vorwaerts-Plan bis zur finalen Abnahme (Wellen F0-F6) liegt in `docs/finalization/FINALISIERUNGSPLAN_ABNAHME.md`** und mappt ALLE offenen Punkte dieses Files (P0.4, P1.0, P1.4, E-01, P2.x) + Gap-Register O-01-O-11 + Audit-Funde 2026-06-11 auf Wellen/Phasen mit Abnahmekriterien. Vorher: 2026-06-05 (Go-Live-Haertung abgeschlossen, „drei wie empfohlen" Owner-approved: P0.6 [052-Demo-Seed-Backdoor] via Env-Flag-Gate `SEED_DEMO_WORLD` [migrate.sh PGOPTIONS-GUC + 052 DO-Guard + Compose-Split base/prod=false, override=true] + Remediation-Migration 125 [Hash-Neutralisierung der 6 Demo-Konten, gegated+idempotent]; P0.7 Tier-2 [Bestands-DB-116-Backstop] via Forward-Repair-Migration 126 [nicht-transaktional, per-Tabelle-to_regclass-guarded, idempotent]; subscriptions-RLS-Exclusion bestaetigt. Verifiziert auf zwei Wegwerf-DBs [beide Flag-Pfade + Nicht-Superuser-Deny-by-Default-Laufzeitbeweis], realer Stack unberuehrt. AKTIVIERUNG: 126 schaltet Deny-by-Default+FORCE RLS beim naechsten migrate-Lauf gegen Bestands-/Managed-DB scharf. Alle Diffs uncommitted = Owner-Commit-Gate. Vorherige offene Owner-Tasks bleiben: P0.4, P1.4-Live-Run, E-01, R2/R9 extern).
 ## Owner-Aufgaben im Klartext (Stand 2026-07-26)
 
 > **Warum dieser Abschnitt existiert:** die Punkte unten stehen weiter unten schon als P0.4 /

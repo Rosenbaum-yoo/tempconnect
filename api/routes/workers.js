@@ -124,6 +124,22 @@ const updateProfileSchema = z.object({
   availability_note: z.string().max(1000).optional().nullable()
 });
 
+/*
+ * N1b - dieselbe Form wie im Arbeiterportal (`routes/workerPortal.js`), und das
+ * ist Absicht: es ist DERSELBE Vorgang, nur von der anderen Seite ausgeloest.
+ * Zwei Formen fuer dieselbe Zuordnung waeren zwei Wahrheiten.
+ */
+const setzeFaehigkeitenSchema = z.object({
+  skills: z.array(z.object({
+    skill_id:         z.string().uuid(),
+    proficiency:      z.enum(["beginner", "intermediate", "advanced", "expert"]).optional(),
+    years_experience: z.number().min(0).max(60).optional().nullable(),
+    is_primary:       z.boolean().optional(),
+    certified:        z.boolean().optional(),
+    certificate_ref:  z.string().max(200).optional().nullable()
+  })).max(200)
+});
+
 const updateAssignmentLinkSchema = z.object({
   client_name:           z.string().max(200).optional().nullable(),
   location_address:      z.string().max(500).optional().nullable(),
@@ -1276,6 +1292,71 @@ export function createWorkersRouter(deps) {
       res.locals.audit = { action: "worker.update_profile", entity_type: "worker_profile", entity_id: req.params.userId, details: { changed_fields: Object.keys(parsed.data) } };
       const hub = await workerService.getWorkerHub(pool, req.params.userId);
       res.json({ ...hub, ...buildPublicProfileLinks(hub) });
+    } catch (err) { next(err); }
+  });
+
+  /* ── Faehigkeiten eines Mitarbeiters: lesen und setzen ───────────────────
+   *
+   * BEFUND N1b (2026-09-06): diesen Weg gab es fuer die Agentur nicht.
+   *
+   * Der Arbeiter selbst konnte seine Faehigkeiten seit jeher katalog-gebunden
+   * setzen (`PUT /worker/me/skills` -> `setWorkerSkills`, mit `skill_id` gegen
+   * `platform_skills` geprueft). Die Zeitarbeitsfirma, die dieselben Menschen in
+   * `mitarbeiter.html` verwaltet, hatte nur `PATCH /workers/:userId` mit
+   * `skill_tags: string[]` - FREITEXT.
+   *
+   * Was daraus folgte, ist kein Schoenheitsfehler:
+   *
+   *   1. `worker_profile_skills` blieb LEER. Der Angebotsgenerator
+   *      (`capacityOfferGeneratorService`) baut seine Marktangebote aus genau
+   *      dieser Tabelle - ein so gepflegter Mensch kam nie in den Markt.
+   *   2. Der Spiegel `worker_profiles.skill_tags[]` trug Woerter aus einer
+   *      anderen Liste als der Katalog. Gemessen am 2026-09-06: von den 142
+   *      Begriffen, die die Oberflaeche anbot, standen **33** im Katalog (Namen
+   *      und Aliase zusammen) - **109 nicht**. Und `matchingEngine.scoreMatch`
+   *      vergleicht ohne Index die kleingeschriebene Rohform. Ein Unternehmen,
+   *      das seit Welle N1 "Staplerfahrer:in" aus dem Katalog waehlt, findet
+   *      einen Menschen nicht, an dem "Stapler" steht.
+   *
+   * Der Vorgang selbst ist unveraendert: derselbe Dienst, dieselbe Pruefung
+   * gegen `platform_skills`, derselbe Spiegel-Abgleich. Nur die Herkunft steht
+   * jetzt in `source` - "agency" statt "worker" -, damit spaeter nachvollziehbar
+   * bleibt, wer die Zuordnung gesetzt hat. */
+
+  router.get("/workers/:userId/skills", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
+    try {
+      const scoped = await getScopedWorker(req.params.userId, req.orgId);
+      if (scoped.error) return res.status(scoped.status).json({ error: scoped.error });
+      const items = await workerService.getWorkerSkills(pool, scoped.worker.id);
+      res.json({ items, count: items.length });
+    } catch (err) { next(err); }
+  });
+
+  router.put("/workers/:userId/skills", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
+    try {
+      const parsed = setzeFaehigkeitenSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+
+      const scoped = await getScopedWorker(req.params.userId, req.orgId);
+      if (scoped.error) return res.status(scoped.status).json({ error: scoped.error });
+
+      const result = await workerService.setWorkerSkills(pool, {
+        workerProfileId: scoped.worker.id,
+        /* Die Org-Kennung kommt aus der SITZUNG, nicht aus dem geladenen Profil:
+           `getScopedWorker` hat beide bereits gleichgesetzt, und die Sitzung ist
+           die Quelle, der die Pruefung galt. */
+        supplierOrgId: req.orgId,
+        skills: parsed.data.skills,
+        source: "agency"
+      });
+
+      res.locals.audit = {
+        action: "worker.update_skills",
+        entity_type: "worker_profile",
+        entity_id: req.params.userId,
+        details: { skill_count: result.count, source: "agency" }
+      };
+      res.json(result);
     } catch (err) { next(err); }
   });
 

@@ -76,6 +76,9 @@
     ".skp-gruppe__titel{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;",
     "  color:var(--ds-text-secondary,#8d9bba);margin-bottom:5px}",
     ".skp-gruppe__zahl{font-weight:600;opacity:.7}",
+    ".skp-gruppe__titel{display:flex;align-items:center;gap:8px}",
+    ".skp-gruppe__aktionen{margin-left:auto;display:flex;gap:4px;text-transform:none;letter-spacing:0}",
+    ".skp-gruppe__aktionen .skp-knopf{padding:1px 8px;font-size:11px}",
     ".skp-raster{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:4px}",
     ".skp-option{display:flex;align-items:center;gap:7px;padding:5px 8px;border:1px solid transparent;",
     "  border-radius:var(--ds-radius-md,8px);font-size:13px;cursor:pointer}",
@@ -189,7 +192,15 @@
 
     var gewaehlt = [];
     var katalog = null;          // { categories: [...] }
-    var flach = [];              // [{name, category, aliases}]
+    var flach = [];              // [{id, name, category, aliases}]
+    /*
+     * N1b - die KENNUNG je Name. Der Waehler arbeitet mit Namen, weil das
+     * bestehende Formularfeld Namen traegt. Wer die Zuordnung aber relational
+     * speichert (`worker_profile_skills.skill_id`), braucht die Kennung - und
+     * sie aus dem Namen zurueckzurechnen waere genau die Schreibvarianten-
+     * Rechnung, die dieses Bauteil abschaffen soll.
+     */
+    var kennungNach = {};        // { schluessel(name): id }
     var bestand = {};            // { schluessel(name): anzahl }
     var suche = "";
     var meldung = null;          // { art, text }
@@ -412,8 +423,23 @@
           (nachKat[k] = nachKat[k] || []).push(s);
         });
         html += Object.keys(nachKat).map(function (kat) {
+          /*
+           * N1b - GRUPPEN-AKTIONEN, aber nur auf Wunsch. Die Mitarbeiterseite
+           * hatte sie in ihrer eigenen Fassung ("Gruppe waehlen"/"Gruppe
+           * leeren"), und sie dort zu verlieren waere ein Rueckschritt: wer ein
+           * Profil neu anlegt, klickt sonst zwoelf Kaestchen einzeln. Auf den
+           * Marktseiten waeren sie dagegen falsch - eine Ausschreibung mit
+           * ZWOELF Faehigkeiten findet niemanden mehr.
+           */
+          var aktionen = opt.groupActions
+            ? '<span class="skp-gruppe__aktionen">'
+              + '<button type="button" class="skp-knopf" data-skp-gruppe-an="' + esc(kat) + '">'
+              + esc(t("skp.selectGroup", "alle")) + "</button>"
+              + '<button type="button" class="skp-knopf" data-skp-gruppe-aus="' + esc(kat) + '">'
+              + esc(t("skp.clearGroup", "keine")) + "</button></span>"
+            : "";
           return '<div class="skp-gruppe"><div class="skp-gruppe__titel">' + esc(kat)
-            + ' <span class="skp-gruppe__zahl">' + esc(nachKat[kat].length) + "</span></div>"
+            + ' <span class="skp-gruppe__zahl">' + esc(nachKat[kat].length) + "</span>" + aktionen + "</div>"
             + '<div class="skp-raster">'
             + nachKat[kat].map(function (s) {
                 return '<label class="skp-option' + (istGewaehlt(s.name) ? " skp-option--an" : "") + '">'
@@ -455,6 +481,34 @@
       var vor = ev.target.closest && ev.target.closest("[data-skp-vorschlag]");
       if (vor) { ev.preventDefault(); vorschlagen(vor.getAttribute("data-skp-vorschlag")); return; }
 
+      var an = ev.target.closest && ev.target.closest("[data-skp-gruppe-an]");
+      if (an) {
+        ev.preventDefault();
+        var katAn = an.getAttribute("data-skp-gruppe-an");
+        /* NUR die gerade sichtbaren: wer gefiltert hat und "alle" drueckt, meint
+           die Treffer vor sich, nicht die ganze Kategorie. */
+        sichtbare().forEach(function (s) {
+          if ((s.category || t("skp.uncategorised", "Ohne Kategorie")) === katAn && !istGewaehlt(s.name)) {
+            gewaehlt.push(s.name);
+          }
+        });
+        schreibeZurueck(); zeichnen();
+        return;
+      }
+
+      var aus = ev.target.closest && ev.target.closest("[data-skp-gruppe-aus]");
+      if (aus) {
+        ev.preventDefault();
+        var katAus = aus.getAttribute("data-skp-gruppe-aus");
+        var drin = {};
+        sichtbare().forEach(function (s) {
+          if ((s.category || t("skp.uncategorised", "Ohne Kategorie")) === katAus) drin[schluessel(s.name)] = true;
+        });
+        gewaehlt = gewaehlt.filter(function (g) { return !drin[schluessel(g)]; });
+        schreibeZurueck(); zeichnen();
+        return;
+      }
+
       var neu = ev.target.closest && ev.target.closest("[data-skp-neu]");
       if (neu) { ev.preventDefault(); katalogVersprechen = null; laden(); }
     });
@@ -486,7 +540,8 @@
         flach = [];
         (katalog.categories || []).forEach(function (c) {
           (c.skills || []).forEach(function (s) {
-            flach.push({ name: s.name, category: c.category, aliases: s.aliases || [] });
+            flach.push({ id: s.id, name: s.name, category: c.category, aliases: s.aliases || [] });
+            kennungNach[schluessel(s.name)] = s.id;
           });
         });
 
@@ -530,8 +585,18 @@
     laden();
 
     return {
-      /** Die aktuelle Auswahl. */
+      /** Die aktuelle Auswahl als Namen - fuer Formulare, die Namen tragen. */
       werte: function () { return gewaehlt.slice(); },
+      /**
+       * Die aktuelle Auswahl MIT Katalog-Kennung - fuer alles, was relational
+       * speichert (`worker_profile_skills.skill_id`). Namen ohne Kennung koennen
+       * nicht vorkommen: gewaehlt wird nur, was aus dem Katalog kam.
+       */
+      auswahl: function () {
+        return gewaehlt.map(function (n) {
+          return { skill_id: kennungNach[schluessel(n)] || null, name: n };
+        }).filter(function (x) { return x.skill_id; });
+      },
       /** Auswahl von außen setzen (z. B. beim Bearbeiten). */
       setzen: function (namen) {
         mitgebracht = Array.isArray(namen) ? namen.slice() : [];

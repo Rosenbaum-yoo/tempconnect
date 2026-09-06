@@ -381,22 +381,21 @@
           </div>
           <div class="form-card">
             <h3 style="font-size:14px;font-weight:800;margin:0 0 12px" data-i18n="mit.skills.title">Skills &amp; Kompetenzen</h3>
-            <div style="font-size:12px;color:var(--wk-text-muted);margin:0 0 12px" data-i18n="mit.skills.intro">Breiter, einsatz- und matchingorientierter Skill-Katalog f&uuml;r alle typischen Workforce-Szenarien. Zertifikate, Scheine und formale Nachweise bitte weiterhin separat unter Qualifikationen pflegen.</div>
-            <div class="skill-catalog-toolbar">
-              <input type="text" id="skillCatalogSearch" placeholder="Skill-Katalog filtern (z.B. Logistik, Schweissen, Office)..." data-i18n-ph="mit.skills.filterPh" oninput="renderSkillCatalog()">
-              <button class="btn" type="button" onclick="clearAllSkills()" data-i18n="mit.skills.clearAll">Auswahl leeren</button>
-            </div>
-            <div id="skillCatalogMeta" class="skill-catalog-meta"></div>
-            <div id="skillCatalogSections" class="skill-catalog-grid"></div>
-            <div class="hub-section-title" style="margin:16px 0 8px" data-i18n="mit.skills.selected">Ausgew&auml;hlte Skills</div>
-            <div id="skillSelectionSummary" class="skill-selection-summary"></div>
-            <div id="skillTagsList" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;margin-bottom:12px"></div>
-            <div class="hub-section-title" style="margin:0 0 8px" data-i18n="mit.skills.extraTitle">Zus&auml;tzlicher Spezial-Skill</div>
-            <div style="display:flex;gap:6px">
-              <input type="text" id="newSkillInput" placeholder="Skill eingeben (z.B. Schweissen)" data-i18n-ph="mit.skills.extraPh" style="flex:1;margin:0" onkeydown="if(event.key==='Enter'){event.preventDefault();addSkillTag();}">
-              <button class="btn primary" onclick="addSkillTag()" data-i18n="mit.action.add">+ Hinzuf&uuml;gen</button>
-            </div>
-            <div style="margin-top:12px;font-size:12px;color:var(--wk-text-muted)" data-i18n="mit.skills.extraHint">Sonderf&auml;lle, kundenspezifische Begriffe und seltene Nischen-Kompetenzen k&ouml;nnen hier erg&auml;nzt werden und bleiben zusammen mit der Checkbox-Auswahl gespeichert.</div>
+            <div style="font-size:12px;color:var(--wk-text-muted);margin:0 0 12px" data-i18n="mit.skills.intro">Dieselbe Auswahl, aus der auch Unternehmen ihren Bedarf beschreiben. Nur was hier steht, kann gefunden werden. Zertifikate, Scheine und formale Nachweise bitte weiterhin separat unter Qualifikationen pflegen.</div>
+            <!--
+              N1b (2026-09-06): hier standen eine eigene Filterzeile, eine eigene
+              Katalogflaeche, eine eigene Chip-Liste und ein FREITEXTFELD
+              ("Zusaetzlicher Spezial-Skill"). Alle vier bedienten eine im
+              Browser fest verdrahtete Liste von 142 Begriffen, von denen 109
+              im Plattform-Katalog nicht vorkamen — sie konnten mit keiner
+              Ausschreibung matchen.
+
+              Jetzt: dasselbe Bauteil wie auf beiden Marktseiten. Wer einen
+              Begriff vermisst, schlaegt ihn im Waehler zur Pruefung vor,
+              statt ihn still an der Achse vorbei einzutippen.
+            -->
+            <div id="skillPickerMitarbeiter"></div>
+            <div id="skillSelectionSummary" class="skill-selection-summary" style="margin-top:10px"></div>
           </div>
           <div class="form-card">
             <h3 style="font-size:14px;font-weight:800;margin:0 0 12px" data-i18n="mit.qual.title">Qualifikationen &amp; Nachweise</h3>
@@ -827,6 +826,7 @@ Anna;Beispiel;anna@example.com;0157987654;M&uuml;nchen;P002</pre>
 <script src="/public/js/dateDE.js"></script>
 <script src="/public/js/planFeatures.js"></script>
 <script src="/public/js/slaGuard.js"></script>
+<script defer src="/public/js/skillPicker.js"></script>
 <script defer src="/public/js/pages/mitarbeiter.js"></script>
 <script src="/public/js/pageShell.js"></script>
 <script src="/public/js/notifications.js"></script>

@@ -21,7 +21,7 @@
     "flaechenTor": "Flaechen OHNE Platzhalter-Route mit EINEM Tor: Name des Middleware, Montagepfad, erwarteter Status ohne Voraussetzung, Mindestzahl der Routen (sonst wird die Pruefung blind, wenn eine Teilflaeche verschwindet), und die Tabellen, in die das Tor selbst protokollieren darf."
   },
   "grundlinie": {
-    "verhaltensgeprueft": 257,
+    "verhaltensgeprueft": 259,
     "hinweis": "Sperrklinke: die Zahl darf wachsen, nicht fallen. Wer eine Route auf 'bewusste-ausnahme' zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-20 von 257 auf 256 gesenkt, weil /matching/worker/:id mit Befund P1-19 ENTFERNT wurde — eine Route, die es nicht mehr gibt, kann nicht geprueft werden. Drei andere Zusicherungen halten stattdessen fest, dass sie nicht zurueckkehrt. Am 2026-08-22 von 256 auf 257 erhoeht: Abschnitt 10 hat mit `GET /support-requests/:id` die erste Route des Support-Eingangs angelegt. Ihre Grenze ist eine NUTZER-Grenze, keine Org-Grenze — ein Support-Fall kann persoenlich sein."
   },
   "abgedeckteRouter": [
@@ -4577,6 +4577,30 @@
           "traegerspalten": [
             "supplier_org_id"
           ]
+        },
+        {
+          "methode": "get",
+          "pfad": "/workers/:userId/skills",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "put",
+          "pfad": "/workers/:userId/skills",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "anfrage": {
+            "body": {
+              "skills": []
+            }
+          },
+          "hinweis": "N1b: setzt die Katalog-Faehigkeiten eines Mitarbeiters. Die Grenze steht in getScopedWorker, VOR jedem Schreibzugriff - die Probe in eineAchseFuerFaehigkeiten.test.js prueft zusaetzlich, dass bei 403 nichts geschrieben wurde."
         },
         {
           "methode": "get",

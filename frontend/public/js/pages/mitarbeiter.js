@@ -1307,90 +1307,37 @@ var _currentWorkerDocuments = [];
 var _currentWorkerDocumentSummary = null;
 var MAX_SKILL_TAGS = 50;
 var PLAN_ORDER = ["DEMO", "BASIS", "PLUS", "PRO", "INDIVIDUELL"];
-/* P6.1: Labels kommen aus dem Woerterbuch — die Feld-Schluessel (name, city, …)
-   bleiben unveraendert, weil sie an das Backend gehen. */
-var _publicFieldLabelKeys = {
-  name: "mit.public.f.name",
-  city: "mit.public.f.city",
-  skill_tags: "mit.public.f.skills",
-  qualifications: "mit.public.f.quals",
-  profile_text: "mit.public.f.profileText",
-  availability_note: "mit.public.f.availability"
-};
-var SKILL_CATALOG_GROUPS = [
-  {
-    id: "lager_logistik",
-    title: "Lager & Logistik",
-    description: "Operative Lager-, Versand- und Intralogistik-Kompetenzen.",
-    skills: ["Kommissionierung", "Wareneingang", "Warenausgang", "Stapler", "Frontstapler", "Schubmaststapler", "Hochregal", "Scanner / MDE", "Pick-by-Voice", "Versand", "Verpackung", "Inventur"]
-  },
-  {
-    id: "produktion_montage",
-    title: "Produktion & Montage",
-    description: "Serienfertigung, Montage und Linienkompetenzen.",
-    skills: ["Maschinenbedienung", "Montage", "Serienfertigung", "Qualitätskontrolle", "Sichtprüfung", "Rüsten", "Endkontrolle", "Löten", "Kabelkonfektion", "Kunststoffverarbeitung", "Lebensmittelproduktion", "Pharma-Produktion"]
-  },
-  {
-    id: "metall_industrie",
-    title: "Metall & Industrie",
-    description: "Technische und industrielle Fertigungskompetenzen.",
-    skills: ["MAG-Schweißen", "WIG-Schweißen", "MIG-Schweißen", "Metallbau", "Kanten / Biegen", "Drehen", "Fräsen", "CNC-Bedienung", "Zeichnung lesen", "Instandhaltung", "Hydraulik", "Pneumatik"]
-  },
-  {
-    id: "bau_handwerk",
-    title: "Bau & Handwerk",
-    description: "Baunahe, handwerkliche und montageorientierte Fähigkeiten.",
-    skills: ["Trockenbau", "Elektroinstallation", "Sanitär", "Heizungsbau", "Malerarbeiten", "Fliesenlegen", "Holzmontage", "Fenster- / Türenmontage", "Rohbau", "Betonarbeiten", "Garten- und Landschaftsbau", "Gerüstbau"]
-  },
-  {
-    id: "transport_fahrdienst",
-    title: "Transport & Fahrdienst",
-    description: "Fahr-, Touren- und Transportfertigkeiten.",
-    skills: ["Führerschein B", "Führerschein C / CE", "Ladungssicherung", "Auslieferung", "Tourenplanung", "Nahverkehr", "Fernverkehr", "Kurierdienst", "Fahrzeugpflege", "Fahrerkarte", "Kühltransport", "Personenbeförderung"]
-  },
-  {
-    id: "buero_verwaltung",
-    title: "Büro & Verwaltung",
-    description: "Administrative, kaufmännische und koordinative Skills.",
-    skills: ["MS Office", "Excel-Reporting", "Datenerfassung", "Sachbearbeitung", "Auftragsbearbeitung", "Disposition", "Terminplanung", "Empfang", "Telefonzentrale", "Rechnungsprüfung", "Personalassistenz", "Dokumentenmanagement"]
-  },
-  {
-    id: "handel_service",
-    title: "Handel & Service",
-    description: "Vertriebs-, Retail- und serviceorientierte Kompetenzen.",
-    skills: ["Kundenberatung", "Kasse / POS", "Warenverräumung", "Merchandising", "Reklamationsbearbeitung", "Call Center", "Telesales", "Serviceannahme", "Filialsupport", "Upselling", "Beschwerdemanagement", "Front Office"]
-  },
-  {
-    id: "gastro_event",
-    title: "Gastro & Event",
-    description: "Gastgewerbe-, Veranstaltungs- und Front-of-House-Skills.",
-    skills: ["Service", "Küche", "Spülküche", "Bar", "Housekeeping", "Rezeption", "Catering", "Bankettservice", "Veranstaltungsaufbau", "Garderobe", "Frühstücksservice", "Night Audit"]
-  },
-  {
-    id: "pflege_soziales",
-    title: "Pflege & Soziales",
-    description: "Pflege-, Betreuungs- und sozialnahe Kompetenzen.",
-    skills: ["Grundpflege", "Behandlungspflege", "Betreuung", "Seniorenbetreuung", "Pflegedokumentation", "Medikamentengabe", "OP-Begleitung", "Stationshilfe", "Alltagsbegleitung", "Kita-Betreuung", "Schulbegleitung", "Sozialberatung"]
-  },
-  {
-    id: "facility_reinigung",
-    title: "Facility & Reinigung",
-    description: "Gebäude-, Reinigungs- und Betreiberservices.",
-    skills: ["Unterhaltsreinigung", "Glasreinigung", "Industriereinigung", "Maschinenreinigung", "Hausmeisterservice", "Gebäudetechnik", "Winterdienst", "Grünpflege", "Abfallmanagement", "Sicherheitsdienst", "Empfangsdienst", "Zutrittskontrolle"]
-  },
-  {
-    id: "digital_systeme",
-    title: "Digital & Systeme",
-    description: "IT-nahe, systemische und prozessunterstützende Skills.",
-    skills: ["Hardware-Rollout", "First-Level-Support", "Ticketing", "ERP / Warenwirtschaft", "SAP-Grundkenntnisse", "CRM-Pflege", "E-Commerce Support", "Contentpflege", "Social Media Support", "Datenanalyse", "Power BI", "Prozessdokumentation"]
-  },
-  {
-    id: "sprachen_kommunikation",
-    title: "Sprachen & Kommunikation",
-    description: "Sprachkompetenzen für Einsätze, Kundenkontakt und Teams.",
-    skills: ["Deutsch B2", "Deutsch C1", "Englisch B1", "Englisch B2", "Polnisch", "Rumänisch", "Türkisch", "Arabisch", "Russisch", "Französisch"]
-  }
-];
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * N1b (2026-09-06) - HIER STAND EINE ZWEITE FAEHIGKEITSLISTE
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * `SKILL_CATALOG_GROUPS`: 12 Gruppen, 142 Begriffe, von Hand gepflegt, ohne
+ * Schreibvarianten. Daneben gibt es seit Migration 145 den PLATTFORM-Katalog
+ * (`platform_skills`, 162 Faehigkeiten in 14 Kategorien, 115 davon mit
+ * Aliasen) - und dieselbe Datei rief ihn an anderer Stelle bereits ab
+ * (Pool-Generator). Zwei Wahrheiten in einer Datei.
+ *
+ * WARUM DAS MEHR WAR ALS UNORDNUNG. Gemessen am 2026-09-06: von den 142
+ * Begriffen standen **33** im Katalog (Namen und Aliase zusammen) - **109
+ * nicht**. Darunter "Stapler", "Pick-by-Voice", "MAG-Schweissen", "Ruesten".
+ *
+ * `matchingEngine.scoreMatch` vergleicht die Faehigkeiten einer Nachfrage mit
+ * denen eines Angebots als MENGEN, ohne Index kleingeschrieben und roh. Seit
+ * Welle N1 waehlt das Unternehmen aus dem Katalog. Ein Mensch, an dem hier
+ * "Stapler" stand, war fuer eine Ausschreibung nach "Staplerfahrer:in"
+ * unsichtbar - und niemand sah, warum.
+ *
+ * Schlimmer noch: dieser Weg schrieb `skill_tags` per `PATCH /workers/:id` als
+ * Freitext. `worker_profile_skills` blieb dabei LEER - und genau daraus baut
+ * der Angebotsgenerator die Marktangebote. Wer seine Leute hier pflegte, brachte
+ * sie nie in den Markt.
+ *
+ * Jetzt: `TCSkillPicker` (dasselbe Bauteil wie auf beiden Marktseiten) gegen
+ * `/skills/catalog`, gespeichert ueber `PUT /workers/:userId/skills`, das die
+ * Kennungen gegen `platform_skills` prueft und den Spiegel synchron haelt.
+ */
+
 var _skillCatalogMeta = null;
 
 /* ── API + CSRF ──────────────────────────────────────── */
@@ -1431,18 +1378,6 @@ function api(path, opts) {
       throw err;
     });
   });
-}
-
-/* Skill-Gruppen: Titel/Beschreibung sind UI-Text und kommen aus dem
-   Woerterbuch (Schluessel aus der Gruppen-ID). Die Skill-NAMEN bleiben
-   bewusst deutsch — sie werden als skill_tags gespeichert und gematcht. */
-function skillGroupTitle(group) {
-  if (!group) return "";
-  return TCi18n.t("mit.skillgroup." + group.id + ".title") || group.title;
-}
-function skillGroupDescription(group) {
-  if (!group) return "";
-  return TCi18n.t("mit.skillgroup." + group.id + ".desc") || group.description;
 }
 
 function toast(msg, type) {
@@ -2931,52 +2866,9 @@ function normalizeSkillKey(value) {
   return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function getSkillCatalogMeta() {
-  if (_skillCatalogMeta) return _skillCatalogMeta;
-  var order = {};
-  var groups = {};
-  var totalSkills = 0;
-  SKILL_CATALOG_GROUPS.forEach(function(group) {
-    groups[group.id] = group;
-    group.skills.forEach(function(skill) {
-      var key = normalizeSkillKey(skill);
-      if (order[key]) return;
-      order[key] = {
-        label: skill,
-        groupId: group.id,
-        groupTitle: group.title,
-        index: totalSkills
-      };
-      totalSkills += 1;
-    });
-  });
-  _skillCatalogMeta = {
-    order: order,
-    groups: groups,
-    totalSkills: totalSkills
-  };
-  return _skillCatalogMeta;
-}
-
-function isCatalogSkill(skill) {
-  return !!getSkillCatalogMeta().order[normalizeSkillKey(skill)];
-}
-
 function hasSkill(skill) {
   var key = normalizeSkillKey(skill);
   return _currentSkills.some(function(current) { return normalizeSkillKey(current) === key; });
-}
-
-function sortSkillList(skills) {
-  var catalogOrder = getSkillCatalogMeta().order;
-  return (skills || []).slice().sort(function(a, b) {
-    var aMeta = catalogOrder[normalizeSkillKey(a)];
-    var bMeta = catalogOrder[normalizeSkillKey(b)];
-    if (aMeta && bMeta) return aMeta.index - bMeta.index;
-    if (aMeta) return -1;
-    if (bMeta) return 1;
-    return String(a || "").localeCompare(String(b || ""), TCi18n.dateLocale(), { sensitivity: "base" });
-  });
 }
 
 function setCurrentSkills(skills) {
@@ -2989,34 +2881,69 @@ function setCurrentSkills(skills) {
     seen[key] = true;
     if (next.length < MAX_SKILL_TAGS) next.push(value);
   });
-  _currentSkills = sortSkillList(next);
+  /* Die Reihenfolge kommt jetzt aus dem Katalog (Kategorie, dann Name) -
+     eine eigene Sortierung hier waere eine zweite Ordnung. */
+  _currentSkills = next;
 }
 
-function addSkillValue(skill, opts) {
-  var options = opts || {};
-  var value = String(skill || "").trim().replace(/\s+/g, " ");
-  if (!value) return false;
-  if (hasSkill(value)) return false;
-  if (_currentSkills.length >= MAX_SKILL_TAGS) {
-    if (!options.silentLimitToast) toast(TCi18n.t("mit.skills.limit", { max: MAX_SKILL_TAGS }), "err");
-    return false;
-  }
-  _currentSkills.push(value);
-  _currentSkills = sortSkillList(_currentSkills);
-  return true;
-}
 
-function removeSkillValue(skill) {
-  var key = normalizeSkillKey(skill);
-  _currentSkills = _currentSkills.filter(function(current) {
-    return normalizeSkillKey(current) !== key;
+/* ── N1b · Der Faehigkeiten-Waehler ────────────────────────────────────────
+ *
+ * Dasselbe Bauteil wie auf beiden Marktseiten (`/public/js/skillPicker.js`).
+ * Es liest `/skills/catalog` und liefert die Auswahl MIT Katalog-Kennung -
+ * genau das, was `PUT /workers/:userId/skills` braucht, um sie relational in
+ * `worker_profile_skills` abzulegen.
+ *
+ * `_currentSkills` bleibt die Lesequelle fuer alles andere auf dieser Seite
+ * (Kopfzeile, Zusammenfassung, oeffentliches Profil) - nur SCHREIBEN tut jetzt
+ * ausschliesslich der Waehler.
+ */
+var _skillWaehler = null;
+
+function faehigkeitenWaehlerAufsetzen(vorbelegung) {
+  var ziel = document.getElementById("skillPickerMitarbeiter");
+  if (!ziel || !window.TCSkillPicker) return;
+  _skillWaehler = TCSkillPicker.mount({
+    container: ziel,
+    initial: Array.isArray(vorbelegung) ? vorbelegung : [],
+    showAvailability: false,
+    groupActions: true,
+    onChange: function (namen) {
+      setCurrentSkills(namen);
+      /* Eine Stelle, die weiss, was nach einer Auswahl neu zu zeichnen ist -
+         sonst laufen die beiden Listen beim naechsten Zusatz auseinander. */
+      updateSkillSelectionViews();
+    }
   });
-  _currentSkills = sortSkillList(_currentSkills);
+}
+
+function renderSkillZusammenfassung() {
+  var el = document.getElementById("skillSelectionSummary");
+  if (!el) return;
+  el.textContent = _currentSkills.length
+    ? TCi18n.t("mit.skills.summary", { total: _currentSkills.length, catalog: _currentSkills.length })
+    : TCi18n.t("mit.skills.noneSelected");
+}
+
+/**
+ * Speichert die Faehigkeiten ueber den KATALOG-GEBUNDENEN Weg.
+ *
+ * Getrennt vom Profil-PATCH, und das ist kein Umweg: die Zuordnung ist eine
+ * eigene Beziehung (`worker_profile_skills`) mit eigener Pruefung gegen
+ * `platform_skills`. Sie als Wortliste durch das Profil zu schieben war genau
+ * der Fehler, den diese Welle behebt.
+ */
+function faehigkeitenSpeichern(workerUserId) {
+  if (!_skillWaehler) return Promise.resolve(null);
+  var auswahl = _skillWaehler.auswahl();
+  return api("/workers/" + encodeURIComponent(workerUserId) + "/skills", {
+    method: "PUT",
+    body: { skills: auswahl.map(function (a) { return { skill_id: a.skill_id }; }) }
+  });
 }
 
 function updateSkillSelectionViews() {
-  renderSkillTags();
-  renderSkillCatalog();
+  renderSkillZusammenfassung();
   renderWorkerHubHeader(_currentSkillWorker);
 }
 
@@ -3060,8 +2987,7 @@ function resetWorkerHubSelection() {
   var hint = document.getElementById("skillsEmptyHint");
   if (panel) panel.style.display = "none";
   if (hint) hint.style.display = "";
-  renderSkillTags();
-  renderSkillCatalog();
+  renderSkillZusammenfassung();
 }
 
 function openWorkerProfileHub(userId) {
@@ -3147,143 +3073,6 @@ function renderWorkerHubHeader(worker) {
       "</div>" +
     "</div>";
 }
-function renderSkillCatalog() {
-  var container = document.getElementById("skillCatalogSections");
-  if (!container) return;
-  var metaEl = document.getElementById("skillCatalogMeta");
-  var searchInput = document.getElementById("skillCatalogSearch");
-  var query = (searchInput && searchInput.value || "").trim().toLowerCase();
-  var catalogMeta = getSkillCatalogMeta();
-  var selectedCatalogCount = _currentSkills.filter(function(skill) { return isCatalogSkill(skill); }).length;
-  var customCount = Math.max(0, _currentSkills.length - selectedCatalogCount);
-  if (metaEl) {
-    var metaParts = [
-      TCi18n.t("mit.skills.metaCatalog", { skills: catalogMeta.totalSkills, groups: SKILL_CATALOG_GROUPS.length }),
-      TCi18n.t("mit.skills.metaSelected", { count: _currentSkills.length })
-    ];
-    if (customCount) metaParts.push(TCi18n.t("mit.skills.metaCustom", { count: customCount }));
-    if (query) metaParts.push(TCi18n.t("mit.skills.metaFilter", { query: query }));
-    metaParts.push(TCi18n.t("mit.skills.metaHint"));
-    metaEl.textContent = metaParts.join(" · ");
-  }
-  var groupsHtml = SKILL_CATALOG_GROUPS.map(function(group) {
-    var groupTitle = skillGroupTitle(group);
-    var groupDescription = skillGroupDescription(group);
-    var visibleSkills = group.skills.filter(function(skill) {
-      if (!query) return true;
-      // Suche laeuft ueber die angezeigte (uebersetzte) Gruppenbeschriftung
-      // UND die deutschen Skill-Namen — beides ist auf dem Schirm sichtbar.
-      var haystack = (groupTitle + " " + groupDescription + " " + skill).toLowerCase();
-      return haystack.indexOf(query) >= 0;
-    });
-    if (!visibleSkills.length) return "";
-    var selectedCount = group.skills.filter(function(skill) { return hasSkill(skill); }).length;
-    var groupMeta = TCi18n.t("mit.skills.groupSelected", { selected: selectedCount, total: group.skills.length });
-    if (query) groupMeta = TCi18n.t("mit.skills.groupHits", { count: visibleSkills.length }) + " · " + groupMeta;
-    return '<div class="skill-catalog-group">' +
-      '<div class="skill-catalog-group__head">' +
-        '<div>' +
-          '<div class="hub-section-title" style="margin:0 0 2px">' + esc(groupTitle) + '</div>' +
-          '<div class="skill-catalog-group__meta">' + esc(groupDescription) + ' · ' + esc(groupMeta) + '</div>' +
-        "</div>" +
-        '<div class="skill-catalog-group__actions">' +
-          '<button type="button" class="action-btn" data-group-id="' + esc(group.id) + '" onclick="selectSkillGroup(this.getAttribute(&quot;data-group-id&quot;))">' + esc(TCi18n.t("mit.skills.selectGroup")) + '</button>' +
-          '<button type="button" class="action-btn" data-group-id="' + esc(group.id) + '" onclick="clearSkillGroup(this.getAttribute(&quot;data-group-id&quot;))">' + esc(TCi18n.t("mit.skills.clearGroup")) + '</button>' +
-        "</div>" +
-      "</div>" +
-      '<div class="skill-checkbox-grid">' +
-        visibleSkills.map(function(skill) {
-          return '<label class="skill-checkbox-option">' +
-            '<input type="checkbox" data-skill="' + esc(skill) + '" ' + (hasSkill(skill) ? "checked" : "") + ' onchange="handleSkillCatalogToggle(this)">' +
-            '<span>' + esc(skill) + "</span>" +
-          "</label>";
-        }).join("") +
-      "</div>" +
-    "</div>";
-  }).join("");
-  if (!groupsHtml) {
-    container.innerHTML = '<div class="hub-list-item"><div class="hub-list-title">' + esc(TCi18n.t("mit.skills.noMatch")) + '</div><div class="hub-list-meta">' + esc(TCi18n.t("mit.skills.noMatchHint")) + '</div></div>';
-    return;
-  }
-  container.innerHTML = groupsHtml;
-}
-
-function renderSkillTags() {
-  var el = document.getElementById("skillTagsList");
-  var summaryEl = document.getElementById("skillSelectionSummary");
-  if (!el) return;
-  var catalogCount = _currentSkills.filter(function(skill) { return isCatalogSkill(skill); }).length;
-  var customCount = Math.max(0, _currentSkills.length - catalogCount);
-  if (summaryEl) {
-    if (!_currentSkills.length) summaryEl.textContent = TCi18n.t("mit.skills.noneSelected");
-    else summaryEl.textContent = TCi18n.t("mit.skills.summary", { total: _currentSkills.length, catalog: catalogCount }) +
-      (customCount ? " · " + TCi18n.t("mit.skills.summaryCustom", { count: customCount }) : "");
-  }
-  if (!_currentSkills.length) {
-    el.innerHTML = '<span style="color:var(--wk-text-muted);font-size:13px">' + esc(TCi18n.t("mit.skills.emptyHint")) + '</span>';
-    return;
-  }
-  el.innerHTML = _currentSkills.map(function(skill, index) {
-    var customClass = isCatalogSkill(skill) ? "" : " custom";
-    var customBadge = isCatalogSkill(skill) ? "" : '<span class="skill-chip-note">' + esc(TCi18n.t("mit.skills.customBadge")) + '</span>';
-    return '<span class="hub-chip' + customClass + '">' + esc(skill) + customBadge + '<button onclick="removeSkill(' + index + ')" style="background:none;border:none;color:var(--wk-text-muted);cursor:pointer;font-size:14px;padding:0;line-height:1">&times;</button></span>';
-  }).join("");
-}
-
-function addSkillTag() {
-  var input = document.getElementById("newSkillInput");
-  var value = (input && input.value || "").trim();
-  if (!value) return;
-  addSkillValue(value);
-  if (input) input.value = "";
-  updateSkillSelectionViews();
-}
-
-function handleSkillCatalogToggle(input) {
-  if (!input) return;
-  var skill = input.getAttribute("data-skill") || "";
-  if (input.checked) addSkillValue(skill);
-  else removeSkillValue(skill);
-  updateSkillSelectionViews();
-}
-
-function selectSkillGroup(groupId) {
-  var group = getSkillCatalogMeta().groups[groupId];
-  if (!group) return;
-  var added = 0;
-  var limitHit = false;
-  group.skills.forEach(function(skill) {
-    var alreadySelected = hasSkill(skill);
-    if (addSkillValue(skill, { silentLimitToast: true })) added += 1;
-    else if (!alreadySelected && _currentSkills.length >= MAX_SKILL_TAGS) limitHit = true;
-  });
-  updateSkillSelectionViews();
-  if (limitHit) toast(TCi18n.t("mit.skills.limit", { max: MAX_SKILL_TAGS }), "err");
-  else if (added > 0) toast(TCi18n.t("mit.skills.groupAdded", { group: skillGroupTitle(group), count: added }));
-}
-
-function clearSkillGroup(groupId) {
-  var group = getSkillCatalogMeta().groups[groupId];
-  if (!group) return;
-  var before = _currentSkills.length;
-  group.skills.forEach(function(skill) { removeSkillValue(skill); });
-  updateSkillSelectionViews();
-  if (before !== _currentSkills.length) toast(TCi18n.t("mit.skills.groupCleared", { group: skillGroupTitle(group) }));
-}
-
-function clearAllSkills() {
-  if (!_currentSkills.length) return;
-  setCurrentSkills([]);
-  updateSkillSelectionViews();
-  toast(TCi18n.t("mit.skills.allCleared"));
-}
-
-function removeSkill(index) {
-  _currentSkills.splice(index, 1);
-  _currentSkills = sortSkillList(_currentSkills);
-  updateSkillSelectionViews();
-}
-
 function getDocumentsForQualification(name) {
   var key = String(name || "").trim().toLowerCase();
   if (!key) return [];
@@ -3637,8 +3426,10 @@ function loadWorkerSkills() {
     if (panel) panel.style.display = "";
     if (hint) hint.style.display = "none";
     fillWorkerHubForm(worker);
-    renderSkillCatalog();
-    renderSkillTags();
+    /* N1b: auch dieser Ladepfad setzt den Waehler auf - sonst steht er beim
+       Oeffnen eines Mitarbeiters leer neben gefuellten Faehigkeiten. */
+    faehigkeitenWaehlerAufsetzen((worker.skill_tags || []).slice());
+    renderSkillZusammenfassung();
     renderQualifications();
     renderWorkerDocuments();
     renderWorkerHubHeader(worker);
@@ -3668,20 +3459,41 @@ function saveWorkerHub() {
     availability_note: document.getElementById("availabilityNoteInput").value.trim() || null,
     profile_text: document.getElementById("profileTextarea").value.trim() || null,
     notes: document.getElementById("profileNotes").value.trim() || null,
-    skill_tags: _currentSkills.slice(),
+    /*
+     * N1b - `skill_tags` steht hier NICHT mehr.
+     *
+     * Faehigkeiten sind eine eigene Beziehung mit eigener Pruefung gegen den
+     * Katalog (`worker_profile_skills.skill_id`). Sie als Wortliste durch das
+     * Profil zu schieben war der Weg, auf dem 109 von 142 Begriffen entstanden,
+     * die kein Unternehmen je finden konnte. Sie gehen jetzt ueber
+     * `PUT /workers/:userId/skills` - siehe `faehigkeitenSpeichern`.
+     */
     qualifications: _currentQuals.slice(),
     profile_public: isPublic,
     public_profile_fields: publicFields
   };
-  api("/workers/" + encodeURIComponent(_currentSkillWorker.user_id || _currentSkillWorker.id), { method: "PATCH", body: body }).then(function(worker) {
+  var kennung = _currentSkillWorker.user_id || _currentSkillWorker.id;
+  /*
+   * ERST die Faehigkeiten, DANN das Profil - und beides muss durch.
+   *
+   * Die Reihenfolge ist nicht gleichgueltig: `setWorkerSkills` schreibt den
+   * Spiegel `worker_profiles.skill_tags[]` selbst. Liefe das Profil-PATCH
+   * danach mit einer alten Wortliste, wuerde es den frisch gesetzten Spiegel
+   * ueberschreiben. Deshalb traegt der Rumpf oben keine `skill_tags` mehr - und
+   * die Reihenfolge haelt die Antwort des PATCH als letzte Wahrheit.
+   */
+  faehigkeitenSpeichern(kennung).then(function () {
+  return api("/workers/" + encodeURIComponent(kennung), { method: "PATCH", body: body });
+  }).then(function(worker) {
     _currentSkillWorker = worker;
     setCurrentSkills((worker.skill_tags || []).slice());
     _currentQuals = (worker.qualifications || []).slice();
     _currentWorkerDocuments = (worker.document_hub && worker.document_hub.recent_documents || []).slice();
     _currentWorkerDocumentSummary = worker.document_hub && worker.document_hub.summary || null;
     fillWorkerHubForm(worker);
-    renderSkillCatalog();
-    renderSkillTags();
+    /* N1b: die geladenen Faehigkeiten in den Waehler, nicht daneben. */
+    faehigkeitenWaehlerAufsetzen((worker.skill_tags || []).slice());
+    renderSkillZusammenfassung();
     renderQualifications();
     renderWorkerDocuments();
     renderWorkerHubHeader(worker);
@@ -4492,13 +4304,6 @@ window.populateSkillsWorkerSelect = populateSkillsWorkerSelect;
 window.loadWorkerSkills = loadWorkerSkills;
 window.openWorkerProfileHub = openWorkerProfileHub;
 window.resetWorkerHubSelection = resetWorkerHubSelection;
-window.renderSkillCatalog = renderSkillCatalog;
-window.handleSkillCatalogToggle = handleSkillCatalogToggle;
-window.selectSkillGroup = selectSkillGroup;
-window.clearSkillGroup = clearSkillGroup;
-window.clearAllSkills = clearAllSkills;
-window.addSkillTag = addSkillTag;
-window.removeSkill = removeSkill;
 window.addQualification = addQualification;
 window.removeQual = removeQual;
 window.uploadWorkerDocument = uploadWorkerDocument;
@@ -4524,8 +4329,7 @@ window.csvReset = csvReset;
 document.addEventListener("tc:langchange", function() {
   renderWorkers();
   renderInvites();
-  renderSkillCatalog();
-  renderSkillTags();
+  renderSkillZusammenfassung();
   if (_currentSkillWorker) {
     renderQualifications();
     renderWorkerDocuments();
@@ -4541,9 +4345,9 @@ document.addEventListener("tc:langchange", function() {
 });
 
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", function() { init(); csvInitUpload(); renderSkillCatalog(); });
+  document.addEventListener("DOMContentLoaded", function() { init(); csvInitUpload(); });
 } else {
-  init(); csvInitUpload(); renderSkillCatalog();
+  init(); csvInitUpload();
 }
 
 /* ── Ersatz suchen (Welle G6) ───────────────────────────────────────────────
