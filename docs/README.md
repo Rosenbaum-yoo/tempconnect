@@ -100,6 +100,7 @@ Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeita
 | [features/P6_I18N_UEBERGABE.md](features/P6_I18N_UEBERGABE.md) | Zweisprachigkeit DE/EN: Architektur der Sprachschicht, verbindliche Migrationsregeln, Gates und Stand. |
 | [features/P8_DEAL_VERBINDLICHKEIT.md](features/P8_DEAL_VERBINDLICHKEIT.md) | Deal-Rücknahme und ihre Folgen: Zuverlässigkeitsquote, Bounty statt Strafe, mehrstufige Bestätigung, Besetzbarkeits-Vorschau. Wellen A–E. |
 | [features/P9_BOUNTY_MERKLISTE_ENTITLEMENTS.md](features/P9_BOUNTY_MERKLISTE_ENTITLEMENTS.md) | Drei Spuren: Bounty-System wahrheitsfähig und zuschaltbar machen (inkl. Rabatt, der die Rechnung erreicht), Merkliste für Angebote beidseitig, Freischaltung nach Zahlung härten. |
+| [features/Q_ZUVERLAESSIGKEIT_ZEUGNIS.md](features/Q_ZUVERLAESSIGKEIT_ZEUGNIS.md) | **Bauanweisung mit zwei Vorbehalten** (Owner 2026-09-06): Zuverlaessigkeit, Zeugnis, Abwesenheit. Zwei der drei Themen beruehren Arbeitsrecht und Datenschutz und sind nicht so baubar, wie sie zuerst klingen. |
 | [features/URSPRUNGSPROMPT_AUDIT.md](features/URSPRUNGSPROMPT_AUDIT.md) | Punkt-für-Punkt-Abgleich des Ursprungsprompts gegen den Code: erfüllt / teilweise / fehlt, mit Dateibelegen. |
 
 **Support-Ops**

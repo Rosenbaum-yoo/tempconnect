@@ -308,13 +308,19 @@ einzigen Aufrufer.**
 > 2026-09-06 als **„N2.1" committet** wurde (`e4fd049`), ist inhaltlich **N2.3** dieser
 > Tabelle plus Abschnitt 4.4 — die Ableitung des Notdienstes aus dem Einsatzbeginn. Der
 > Commit-Titel bleibt stehen, wie er ist; die Zeile N2.3 unten trägt den Verweis. Das
-> eigentliche **N2.1 (vier Schritte als Assistent) ist offen.**
+> eigentliche **N2.1 (die Schritte als Assistent) ist offen.**
 >
-> **Beim Bauen von N2.2 gemessen:** die vier Fragen stehen bereits **alle** auf
-> `marketplace_demand_create.html` — Katalogwähler (N1), Anzahl, Zeitraum mit abgeleiteter
-> Dringlichkeit, Budget. Was fehlt, ist nicht das Datenmodell und nicht das Feld, sondern
-> die **Schrittform**. Ein zweiter Anlagepfad wäre eine Parallelstruktur; der Assistent
-> gehört deshalb auf diese Seite, nicht neben sie.
+> **Beim Bauen von N2.2 gemessen:** alle Felder stehen bereits auf
+> `marketplace_demand_create.html` — **Einsatzort** (`location_city`, `location_postal`,
+> `radius_km`), Katalogwähler (N1), Anzahl, Zeitraum mit abgeleiteter Dringlichkeit,
+> Budget. Was fehlt, ist nicht das Datenmodell und nicht das Feld, sondern die
+> **Schrittform**. Ein zweiter Anlagepfad wäre eine Parallelstruktur; der Assistent gehört
+> deshalb auf diese Seite, nicht neben sie.
+>
+> Die Zählung folgt der Korrektur in 4.1 (`ce8b892`): **fünf Schritte, der Ort vorn** —
+> der Standortkontext ist Rechnungsadresse oder Niederlassung, nicht der Einsatzort. Für
+> N2.2 ändert das nichts: der Preisvorschlag liest `location_city`, also das Feld, das der
+> Kunde selbst füllt — nie einen abgeleiteten Kontext.
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|

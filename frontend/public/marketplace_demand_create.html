@@ -13,6 +13,19 @@
     .urgency-anzeige--notdienst{border-color:var(--danger,#f87171);color:var(--danger,#f87171)}
     .urgency-anzeige b{font-weight:800}
     .urgency-anzeige small{display:block;font-weight:400;color:var(--muted,#8d9bba);font-size:12px}
+    /* N2.2 - der Preisvorschlag. Bewusst ruhig: er ist ein Vorschlag, kein
+       Aufruf. Kein Farbakzent, keine Umrandung in Signalfarbe - sonst liest
+       ihn jemand als Vorgabe. */
+    .preis-vorschlag{display:none;padding:10px 12px;border:1px solid var(--line,#2a3550);
+      border-radius:8px;font-size:13px;line-height:1.5}
+    .preis-vorschlag[data-sichtbar="ja"]{display:block}
+    .preis-vorschlag b{font-weight:800;font-size:15px}
+    .preis-vorschlag small{display:block;color:var(--muted,#8d9bba);font-size:11.5px;margin-top:4px}
+    .preis-vorschlag .pv-zeile{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+    .preis-vorschlag .pv-uebernehmen{padding:4px 10px;font-size:12px;border-radius:6px;
+      border:1px solid var(--line,#2a3550);background:transparent;color:inherit;cursor:pointer}
+    .preis-vorschlag .pv-uebernehmen:hover{border-color:var(--muted,#8d9bba)}
+    .preis-vorschlag .pv-guete{font-size:11.5px;color:var(--muted,#8d9bba)}
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .form-grid .full { grid-column: 1 / -1; }
     label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
@@ -103,6 +116,12 @@
           <div id="urgencyAnzeige" class="urgency-anzeige" aria-live="polite"></div>
           <p class="urgency-hint" data-i18n="dem.create.urgencyHint">Notdienst erfordert PRO-Plan. Pulse = Prozessnachweis, kein Erfolgsversprechen.</p>
         </div>
+        <!-- N2.2 - der Vorschlag steht UEBER den beiden Feldern, nicht darunter:
+             wer schon eine Zahl getippt hat, liest ihn nicht mehr. `aria-live`,
+             weil er sich beim Tippen von Rolle und Ort aendert. -->
+        <div class="full">
+          <div id="preisVorschlag" class="preis-vorschlag" aria-live="polite"></div>
+        </div>
         <div>
           <label for="budget_min" data-i18n="dem.create.label.budgetMin">Budget min (EUR)</label>
           <input id="budget_min" name="budget_min" type="number" step="0.01" min="0"/>
@@ -168,6 +187,11 @@
         'dem.create.label.skills': 'Faehigkeiten',
         'dem.create.hint.skills': 'Aus dem Plattform-Katalog. Die Zahl daneben sagt, wie viele Kraefte diese Faehigkeit heute mitbringen.',
         'dem.create.ph.skills': 'z.B. Schichtarbeit, Montage',
+        'dem.create.preis.gueteHoch': 'gut belegt',
+        'dem.create.preis.gueteMittel': 'belegt',
+        'dem.create.preis.gueteNiedrig': 'd\u00fcnne Datenlage',
+        'dem.create.preis.datenpunkte': '{n} Datenpunkte',
+        'dem.create.preis.uebernehmen': 'In die Felder \u00fcbernehmen',
         'dem.create.label.headcount': 'Anzahl Personen',
         'dem.create.label.startDate': 'Startdatum *',
         'dem.create.label.endDate': 'Enddatum',
@@ -232,6 +256,11 @@
         'dem.create.label.skills': 'Skills',
         'dem.create.hint.skills': 'From the platform catalogue. The number beside each one says how many people bring that skill today.',
         'dem.create.ph.skills': 'e.g. shift work, assembly',
+        'dem.create.preis.gueteHoch': 'well evidenced',
+        'dem.create.preis.gueteMittel': 'evidenced',
+        'dem.create.preis.gueteNiedrig': 'thin data',
+        'dem.create.preis.datenpunkte': '{n} data points',
+        'dem.create.preis.uebernehmen': 'Copy into the fields',
         'dem.create.label.headcount': 'Number of people',
         'dem.create.label.startDate': 'Start date *',
         'dem.create.label.endDate': 'End date',
@@ -551,6 +580,161 @@
         + "</small></span>";
     }
 
+    /* ═══════════════════════════════════════════════════════════════════
+     * N2.2 - DIE VIERTE FRAGE BEANTWORTET SICH SELBST
+     * ═══════════════════════════════════════════════════════════════════
+     *
+     * `/api/pricing/suggest` ist seit Langem fertig, getestet und plan-gegated
+     * - und hatte am 2026-09-06 NULL Aufrufer. Es fehlte nur die Anzeige.
+     *
+     * Warum das mehr ist als Bequemlichkeit: ein Budget, das niemand bedienen
+     * kann, ist die haeufigste Ursache fuer einen Bedarf, auf den nie jemand
+     * antwortet. Der Kunde merkt das nie - er sieht nur Stille und schliesst
+     * daraus auf den Markt statt auf seine Zahl.
+     *
+     * DIESER TEIL STEHT ABSICHTLICH IN DERSELBEN IIFE wie die
+     * Notdienst-Ableitung: der Vorschlag haengt an der Dringlichkeit, und die
+     * Vorlauf-Regel darf nicht ein drittes Mal im Code stehen (Server, Anzeige,
+     * und dann noch hier). Er benutzt `tageBis` und `VORLAUF_TAGE` mit.
+     */
+
+    var preisLauf = 0;          // Nur die JUENGSTE Antwort darf zeichnen.
+    var preisZeitgeber = null;
+    var preisGesperrt = false;  // 403 = kein Tarif. Dann nicht weiter fragen.
+
+    /* Eigene Fassung: das `esc` dieser Seite liegt in der IIFE darueber und ist
+       hier NICHT sichtbar. Es zu benutzen haette bei jedem Zeichnen geworfen -
+       lautlos, weil der Aufruf in einem `.then()` steckt. */
+    function pvEsc(x) {
+      var d = document.createElement("div");
+      d.textContent = x == null ? "" : String(x);
+      return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    /* Das `t` dieser IIFE reicht keine Werte weiter, also wird hier ersetzt.
+       Ohne das stuende "{n} Datenpunkte" woertlich auf dem Schirm. */
+    function pvText(schluessel, ersatz, werte) {
+      var roh = t(schluessel, ersatz);
+      if (!werte) return roh;
+      return String(roh).replace(/\{(\w+)\}/g, function (ganz, name) {
+        return Object.prototype.hasOwnProperty.call(werte, name) ? String(werte[name]) : ganz;
+      });
+    }
+
+    function preisFeldWert(id) {
+      var el = document.getElementById(id);
+      return el ? String(el.value || "").trim() : "";
+    }
+
+    function preisEuro(x) {
+      return (Math.round(Number(x) * 100) / 100)
+        .toLocaleString(document.documentElement.lang === "en" ? "en-GB" : "de-DE",
+          { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function zeichnePreis(daten) {
+      var ziel = document.getElementById("preisVorschlag");
+      if (!ziel) return;
+      var v = daten && daten.suggestion;
+      /* Ohne Spanne gibt es nichts zu zeigen. Eine leere Karte mit
+         Ueberschrift waere schlechter als gar keine: sie behauptet eine
+         Auskunft, die sie nicht hat. */
+      if (!v || v.min_eur == null || v.max_eur == null) { versteckePreis(); return; }
+
+      var gueteText = {
+        high: t("dem.create.preis.gueteHoch", "gut belegt"),
+        medium: t("dem.create.preis.gueteMittel", "belegt"),
+        low: t("dem.create.preis.gueteNiedrig", "d\u00fcnne Datenlage")
+      }[daten.confidence] || String(daten.confidence || "");
+
+      ziel.innerHTML =
+        '<div class="pv-zeile">'
+        + "<b>" + pvEsc(preisEuro(v.min_eur)) + "\u2013" + pvEsc(preisEuro(v.max_eur)) + " \u20ac/h</b>"
+        + '<span class="pv-guete">' + pvEsc(gueteText) + " \u00b7 "
+        + pvEsc(pvText("dem.create.preis.datenpunkte", "{n} Datenpunkte",
+            { n: daten.total_data_points }))
+        + "</span>"
+        + '<button type="button" class="pv-uebernehmen" id="preisUebernehmen">'
+        + pvEsc(t("dem.create.preis.uebernehmen", "In die Felder \u00fcbernehmen"))
+        + "</button>"
+        + "</div>"
+        + (daten.explanation ? "<small>" + pvEsc(daten.explanation) + "</small>" : "")
+        + "<small>" + pvEsc(daten.disclaimer || "") + "</small>";
+      ziel.setAttribute("data-sichtbar", "ja");
+
+      /* Der Vorschlag ist ein Vorschlag: NIE von selbst in die Felder
+         schreiben. Wer eine Zahl uebernimmt, hat sie gewaehlt. */
+      var knopf = document.getElementById("preisUebernehmen");
+      if (knopf) {
+        knopf.addEventListener("click", function () {
+          var min = document.getElementById("budget_min");
+          var max = document.getElementById("budget_max");
+          if (min) min.value = v.min_eur;
+          if (max) max.value = v.max_eur;
+        });
+      }
+    }
+
+    function versteckePreis() {
+      var ziel = document.getElementById("preisVorschlag");
+      if (!ziel) return;
+      ziel.innerHTML = "";
+      ziel.removeAttribute("data-sichtbar");
+    }
+
+    function holePreis() {
+      if (preisGesperrt) return;
+      var rolle = preisFeldWert("role");
+      var ort = preisFeldWert("location_city");
+      /* Der Motor verlangt mindestens eines von beidem. Ohne das waere die
+         Antwort ein 400 - also gar nicht erst fragen. */
+      if (!rolle && !ort) { versteckePreis(); return; }
+
+      var tage = tageBis(preisFeldWert("start_date"));
+      var dringlichkeit = (tage !== null && tage <= VORLAUF_TAGE) ? "notdienst" : "normal";
+
+      var lauf = ++preisLauf;
+      var frage = "/api/pricing/suggest?urgency=" + encodeURIComponent(dringlichkeit)
+        + "&context=demand"
+        + (rolle ? "&role=" + encodeURIComponent(rolle) : "")
+        + (ort ? "&region=" + encodeURIComponent(ort) : "");
+
+      /* Die Zusage wird ZURUECKGEGEBEN. Ohne das kann kein Aufrufer - und
+         keine Probe - abwarten, dass wirklich gezeichnet wurde; eine Pruefung
+         direkt nach dem Aufruf liefe vor der Antwort und waere gruen, ohne
+         etwas gesehen zu haben. */
+      return fetch(frage, { credentials: "include" })
+        .then(function (r) {
+          /*
+           * 403 = der Tarif traegt `smart_pricing` nicht. Owner-Vorgabe: KEIN
+           * Vorschlag, aber auch KEINE Sperre - der Bedarf laesst sich ohne ihn
+           * genauso anlegen. Und danach wird nicht weiter gefragt: ein Tarif
+           * aendert sich nicht waehrend des Tippens, und eine 403-Schleife bei
+           * jedem Tastendruck waere Laerm im Netzwerk und im Protokoll.
+           */
+          if (r.status === 403) { preisGesperrt = true; return null; }
+          if (!r.ok) return null;
+          return r.json();
+        })
+        .then(function (d) {
+          if (lauf !== preisLauf) return;   // eine juengere Antwort ist schon da
+          if (!d) { versteckePreis(); return; }
+          zeichnePreis(d);
+        })
+        .catch(function () {
+          /* Ein Netzfehler darf das Formular nie beschaedigen - der Vorschlag
+             ist Zugabe. Stillschweigend verbergen statt Fehler anzeigen. */
+          if (lauf === preisLauf) versteckePreis();
+        });
+    }
+
+    function preisAngestossen() {
+      /* Entprellt: Rolle und Ort werden GETIPPT. Ohne das liefe je Zeichen
+         eine Abfrage mit vier Aggregaten dahinter. */
+      if (preisZeitgeber) clearTimeout(preisZeitgeber);
+      preisZeitgeber = setTimeout(holePreis, 400);
+    }
+
     function start() {
       var feld = document.getElementById("start_date");
       if (!feld) return;
@@ -558,6 +742,16 @@
       feld.addEventListener("change", zeigeDringlichkeit);
       document.addEventListener("tc:langchange", zeigeDringlichkeit);
       zeigeDringlichkeit();
+
+      /* N2.2: derselbe Anlass fuer beide Anzeigen - das Startdatum aendert die
+         Dringlichkeit UND damit den Preisaufschlag. */
+      ["role", "location_city", "start_date"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener("input", preisAngestossen);
+        el.addEventListener("change", preisAngestossen);
+      });
+      holePreis();
     }
 
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
