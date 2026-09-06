@@ -148,7 +148,7 @@ buchen kann. Das dreht N4 um: **gesperrt heißt unsichtbar**, nicht „abgewiese
 > gefunden" zu antworten ließe es den Fehler bei sich suchen. Derselbe Code wie beim Buchen,
 > damit die Oberfläche einen einzigen Satz braucht.
 
-> **Offen und owner-pflichtig: die K4-Kopie ist beides — undicht und marktseitenblind.**
+> **Erledigt am 2026-09-06 (N4.4): die K4-Kopie ist undicht und marktseitenblind GEWESEN.**
 > Beim Prüfen der oben genannten Falle („der Filter gehört hinter die Kopie") zeigte sich, dass
 > `feedKopieService.istKopierwuerdig()` **nur die 15 Query-Filter** prüft, nicht die aus dem
 > Betrachter abgeleiteten Einschränkungen. Dabei entscheidet `viewer_role` in `browseFeed`
@@ -162,10 +162,24 @@ buchen kann. Das dreht N4 um: **gesperrt heißt unsichtbar**, nicht „abgewiese
 >   Unternehmen mit Org gesetzt). Seine gefilterte Liste wird zur Kopie für alle — genau der
 >   Fall, den der Abschnitt oben ausschließen wollte.
 >
-> Beide vertretbaren Reparaturen berühren eine Owner-Entscheidung: **Kopie je Marktseite**
-> (Migration: `CHECK (id = 1)` → `id IN (1,2)`) oder **Kopie nur für die Agenturseite** (ohne
-> Migration, nimmt aber der Unternehmensseite den K4-Schutz — und genau die traf der Vorfall
-> vom 26.08.). Empfehlung: die Migration. Nicht autonom gebaut.
+> **Owner-Entscheid 2026-09-06: Kopie je Marktseite.** Migration 216 löst `CHECK (id = 1)`
+> zu `id IN (1,2)` — `1 = supply` (was ein Unternehmen sieht), `2 = demand` (was eine
+> Zeitarbeitsfirma sieht). Die vorhandene Zeile wird **gelöscht**, nicht umgedeutet: niemand
+> weiß, welche Seite sie trug, und im schlechteren Fall trug sie die Sperrliste eines Kunden.
+>
+> `istKopierwuerdig()` zählt jetzt auch die aus dem **Betrachter** abgeleiteten
+> Einschränkungen — `viewer_company_org_id` und die Inter-Agency-Freigabe wirken stärker als
+> jeder Query-Filter. Damit gilt: ein Unternehmen mit Sperrliste hinterlässt **keine** Kopie
+> und bekommt im Fehlerfall den ehrlichen 500er statt einer Liste, in der die von ihm
+> gesperrten Kräfte wieder auftauchen.
+>
+> Der Kern des alten Fehlers war eine Wortverwechslung: „kein einziger Filter" meinte die 15
+> Einträge aus der URL und übersah, dass der Betrachter die Liste stärker beschneidet als
+> jeder von ihnen.
+>
+> **Zwei Rückmutationen haben zuerst überlebt** — beide in der *Verdrahtung*, nicht im Dienst:
+> man konnte die Marktseite in der Route weglassen oder fest auf `supply` stellen, ohne dass
+> eine Probe rot wurde. Vier Routen-Proben später: 12 von 12.
 
 ### 4.3 Die Bestätigung
 
@@ -301,7 +315,7 @@ einzigen Aufrufer.**
 | N4.1 | **Die Sperrliste wirkt im Feed und in der Suche**, nicht erst beim Buchen | ✅ 2026-09-06 — plus Detailansicht und `negotiate-deal`; eine Bedingung, vier Flächen |
 | N4.2 | **Und im Bündel**, damit die Menge stimmt | ✅ 2026-09-06 — `checkOfferCoverage({kundeOrgId})`; ohne Kunde bleibt die Bedingung weg |
 | N4.3 | **Ohne der Gegenseite zu verraten, dass gesperrt wurde** | ✅ 2026-09-06 — ohne Grund, ohne Kundenname; je Kunde gefragt statt am Stück geladen |
-| N4.4 | **Die K4-Kopie** trägt weder fremde Sperren noch die falsche Marktseite | ⏸ **owner-pflichtig** — beide Wege berühren eine Owner-Entscheidung, siehe Abschnitt 4.2 |
+| N4.4 | **Die K4-Kopie** trägt weder fremde Sperren noch die falsche Marktseite | ✅ 2026-09-06 — Migration 216, eine Kopie je Marktseite; der Betrachter zählt bei der Kopierwürdigkeit mit |
 
 ### N5 · Die Bestätigung mit Wirkung
 

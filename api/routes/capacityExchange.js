@@ -592,9 +592,11 @@ export function createCapacityExchangeRouter(deps) {
 
       /* Die letzte gute Seite aufheben (Welle K4). Fire-and-forget: eine
        * misslungene Kopie darf die Antwort nie aufhalten. Nur die
-       * ungefilterte erste Seite — siehe feedKopieService. */
+       * ungefilterte erste Seite, und seit N4.4 JE MARKTSEITE — ein
+       * Unternehmen und eine Zeitarbeitsfirma sehen nicht dieselbe Liste.
+       * Siehe feedKopieService. */
       if (feedKopie.istKopierwuerdig(opts)) {
-        feedKopie.kopieSchreiben(pool, result).catch(() => {});
+        feedKopie.kopieSchreiben(pool, result, feedKopie.seiteFuer(opts.viewer_role)).catch(() => {});
       }
 
       res.json(result);
@@ -614,7 +616,7 @@ export function createCapacityExchangeRouter(deps) {
        * neue Unwahrheit statt einer alten.
        */
       if (opts && feedKopie.istKopierwuerdig(opts)) {
-        const kopie = await feedKopie.kopieLesen(pool);
+        const kopie = await feedKopie.kopieLesen(pool, feedKopie.seiteFuer(opts.viewer_role));
         if (kopie) {
           /* Das Festhalten des Rueckfalls (Zaehler + Fehler-Protokoll)
            * passiert in `kopieLesen`. Hier stand zuerst ein dispatch() auf
