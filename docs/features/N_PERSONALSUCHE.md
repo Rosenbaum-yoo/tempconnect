@@ -325,17 +325,25 @@ einzigen Aufrufer.**
 | Phase | Inhalt | Nachweis |
 |---|---|---|
 | N2.1 | **Vier Schritte**, die den **bestehenden** Bedarf erzeugen (M-L6: kein zweites Datenmodell) | Der Datensatz ist identisch mit dem der Formularseite |
+| N2.0 | **Der Marktplatz bekommt Koordinaten** — Vorbedingung dafür, dass „genauere Angaben erhöhen die Trefferqualität" wahr ist | ✅ 2026-09-06 — beide Seiten beim Anlegen, Bedarf vor dem Matching; PLZ über **Freitext**, weil die strukturierte Abfrage sie meist verschluckt |
 | N2.2 | **Preisvorschlag aus `smartPricing`** bei Frage 4, abhängig von Rolle, Region, Dringlichkeit | ✅ 2026-09-06 — in der Bedarfsanlage, entprellt; 403 verbirgt still und fragt nicht wieder |
 | N2.3 | **Notdienst-Hinweis**, wenn der Vorlauf ihn nahelegt | ✅ 2026-09-06 — **committet als „N2.1"** (`e4fd049`), siehe Hinweis oben; die Stufe wird abgeleitet statt gefragt (4.4) |
 | N2.4 | **Treffer-Vorschau live**: „mit diesen Angaben: 23 Kräfte" — ändert sich mit jedem Schritt | ⏳ **Nachweis muss angepasst werden**, siehe Hinweis unter der Tabelle |
 | N2.5 | **Abbrechen verliert nichts** — der halbfertige Bedarf bleibt Entwurf | Modal schließen, wiederkommen, Stand ist da |
 | N2.6 | **Erreichbar aus der Personalsuche**, nicht von einer eigenen Seite | Klickpfad vom Hub bis zum Assistenten. Die Fläche ist `capacity_search.html` („Personal finden"); sie verlinkt die Bedarfsanlage heute **gar nicht** |
 
-> **N2.4: der Nachweis „Radius vergrößern → Zahl steigt" ist so nicht erreichbar** (gemessen
-> 2026-09-06). Der Radiusfilter des Feeds rechnet mit `haversineKm` und braucht **Koordinaten**
-> (`capacityExchangeService.js:828`) — die Bedarfsanlage erfasst aber nur Ort, PLZ und Radius,
-> nie `location_lat`/`location_lng`. Ohne Geokodierung, die es im Repo nicht gibt, kann keine
-> Vorschau auf den Radius reagieren.
+> **N2.4: der Nachweis „Radius vergrößern → Zahl steigt" war nicht erreichbar — bis N2.0.**
+> Gemessen 2026-09-06: der Radiusfilter des Feeds rechnet mit `haversineKm` und braucht
+> **Koordinaten** (`capacityExchangeService.js:828`); die Bedarfsanlage erfasste nur Ort, PLZ
+> und Radius, nie `location_lat`/`location_lng`.
+>
+> **Der Geokodierer war die ganze Zeit da** — `geoService.geocode()`, benutzt von
+> Registrierung, Profil und Inseraten. Nur der Marktplatz rief ihn nie. In der laufenden
+> Datenbank: `demand_requests` 40 Zeilen / **5** mit Koordinaten, `capacity_posts` 45 / **7**
+> — bei **100 %** erfasstem `radius_km`. Die Entfernungsbewertung lief also praktisch nie;
+> gerechnet wurde über den Rückfall „gleiche Stadt, exakt geschrieben" mit 60 % Gewicht.
+> **Erledigt in N2.0** (2026-09-06): beide Marktseiten werden beim Anlegen geokodiert, der
+> Bedarf **vor** dem Matching-Anstoß.
 >
 > Ebenfalls gemessen: `aggregateBySkill` liefert eine Zahl **je Fähigkeit**, nicht eine
 > Gesamtzahl — Summieren würde jedes Angebot doppelt zählen, das zwei gewählte Fähigkeiten
