@@ -2975,6 +2975,44 @@ Doku-Waechter P2-W1).
 > sind damit in *keinem* Org-Audit sichtbar. Details, Messung und Abnahmekriterium
 > im Plan.
 
+## Owner-Gedanke 2026-09-06: ein Marktplatz mit EINER Suchrichtung?
+
+> **Noch keine Entscheidung — eine Ueberlegung, auf ausdruecklichen Wunsch festgehalten.**
+> *„ich bin auch am ueberlegen, ob wir nicht lieber nur Unternehmen nach Mitarbeitern suchen
+> lassen statt auch Zeitarbeitsfirmen nach Arbeitsplatzangeboten. […] das macht dann aber
+> viel zu Legacy. […] vieles muss bald wieder raus, dazu sollten wir auch noch ein Doc
+> erstellen mit Wellen und Phasen — aber erst, wenn alle Abschnitte durch sind."*
+
+**Der Gedanke:** nur **eine** Suchrichtung. Das Unternehmen sucht Menschen. Die
+Zeitarbeitsfirma durchsucht **keine** Bedarfe mehr.
+
+**Ein Befund, der die Ueberlegung stuetzt** (gemessen 2026-09-01, Welle M0/M5): die Richtung
+„Firma stoebert in Bedarfen“ ist **heute schon kaputt**. Die einzige Seite mit freiem
+Mengenfeld (`sla_angebote.html`) speist ihre Bedarfsauswahl aus einem Endpunkt, der hart auf
+die **eigenen** Bedarfe scopet — fuer eine Agentur ist die Liste **immer leer**. Diese
+Richtung war also nie wirklich in Betrieb.
+
+**Die Bedingung, ohne die es bricht:** `demand_requests` darf **nicht** verschwinden. Der
+Bedarf traegt die Buendelung (M5), den Notdienst, die Restmengen-Buchfuehrung und die Kette
+zum Rahmenvertrag. Was entfaellt, ist die **Stoeber-Flaeche**, nicht das Objekt. Der Bedarf
+entsteht dann aus der **Suche**, nicht aus einem Aushang.
+
+**Was die Zeitarbeitsfirma stattdessen bekommt** — und das ist mehr, nicht weniger:
+das **Nachfragesignal** aus N7.1 („im Raum Muenster werden 34 gesucht, verfuegbar sind 6“)
+plus **gezielte Anfragen**, wenn sie passt. Ein Aushang sagt ihr, worauf sie bieten kann;
+das Signal sagt ihr, **wen sie einstellen soll**.
+
+**Die Folge, die einen Doppelbau verhindert:** Bei dieser Entscheidung wird **M5.4**
+(Anbieter-Modus der Bedarfsliste) **hinfaellig** — dort war vorgesehen, der Agentur fremde
+Bedarfe zu zeigen. **Diese Phase sollte nicht gebaut werden, bevor die Richtung entschieden
+ist.** Das Buendel entsteht dann nicht aus Geboten der Agenturen, sondern aus dem
+vorhandenen Angebot — was es unabhaengig davon macht, ob gerade eine Agentur online ist.
+
+**Zeitpunkt:** Das Aufraeum-Dokument mit Wellen und Phasen kommt **erst, wenn alle Abschnitte
+durch sind** (Owner-Vorgabe). Bis dahin bleibt dieser Eintrag der Merkzettel.
+
+---
+
 ## Offene Owner-Entscheidungen
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
