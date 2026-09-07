@@ -449,12 +449,40 @@ TCi18n.register('en', {
       }).catch(function() {});
     }
 
-    // Geocode helper
+    /*
+     * Geocode helper — MIT PLZ ZUERST DER FREITEXT (Welle N2.0, 2026-09-07).
+     *
+     * Hier stand die strukturierte Abfrage (postal_code= + city=), sobald eine
+     * Postleitzahl vorlag. Gegen den echten Dienst gemessen ignoriert Nominatim
+     * die PLZ auf diesem Weg meistens:
+     *
+     *   48143 + Münster  vs  nur Münster   0,0 km
+     *   21031 + Hamburg  vs  nur Hamburg   0,0 km
+     *   81929 + München  vs  nur München   0,0 km
+     *   13403 + Berlin   vs  nur Berlin    9,3 km
+     *
+     * Der Freitext loest sie auf (3,4-10,6 km vom Ortsmittelpunkt). Das Angebot
+     * bekam damit den Stadtmittelpunkt statt des Stadtteils — und seit N2.4b
+     * rechnet der Umkreis wirklich mit diesem Punkt.
+     *
+     * Dieselbe Reihenfolge wie im Server (`marktGeoService.koordinatenNachtragen`):
+     * Freitext, und nur wenn der nichts findet, der strukturierte Weg. Zwei
+     * verschiedene Reihenfolgen ergaeben zwei verschiedene Punkte fuer denselben
+     * Ort — je nachdem, wer ihn gerade bestimmt.
+     */
     function geocode(city, postal) {
-      var q = postal
-        ? "/geo/coordinates?postal_code=" + encodeURIComponent(postal) + "&city=" + encodeURIComponent(city)
-        : "/geo/coordinates?q=" + encodeURIComponent(city);
-      return fetch(API + q, { credentials: "include" }).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; });
+      var hole = function(pfad) {
+        return fetch(API + pfad, { credentials: "include" })
+          .then(function(r) { return r.ok ? r.json() : null; })
+          .catch(function() { return null; });
+      };
+      if (!postal) return hole("/geo/coordinates?q=" + encodeURIComponent(city));
+      var frei = String(postal) + (city ? " " + city : "");
+      return hole("/geo/coordinates?q=" + encodeURIComponent(frei)).then(function(p) {
+        if (p) return p;
+        return hole("/geo/coordinates?postal_code=" + encodeURIComponent(postal)
+          + "&city=" + encodeURIComponent(city));
+      });
     }
 
     // Populate form for edit mode
