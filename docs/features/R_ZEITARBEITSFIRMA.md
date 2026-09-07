@@ -64,8 +64,33 @@ Acht Dinge, in der Reihenfolge, in der sie im Betrieb anfallen. Zu jedem der Sta
 |---|---|---|
 | R1.1 | **Erhebung zuerst:** jede der 17 Flächen einordnen — *täglich gebraucht · gelegentlich · ersetzt · tot*. Gegen Welle **P** halten, damit nichts entfernt wird, das ein Plan vorsieht | Eine Tabelle mit Urteil und Beleg je Fläche. **Vor jedem Umbau** |
 | R1.2 | **Die Startseite beantwortet eine Frage:** *was muss ich heute tun?* Keine Kacheln mit Kennzahlen, sondern **Aufgaben mit Anzahl** — „3 Stundenzettel warten", „2 Zusagen unbestätigt", „1 Ausfall ohne Ersatz" | Jede Zeile führt direkt zum Vorgang, nicht zu einer Übersicht |
-| R1.3 | **Was täglich gebraucht wird, steht in der Navigation.** Beginnend mit der Stundenzettel-Prüfung | Klickpfad für jede tägliche Aufgabe. **Wächter:** neue Fläche ohne Klickpfad → rot (M11.8) |
-| R1.4 | **Die drei Generationen werden benannt**, nicht stillschweigend nebeneinander gelassen: welche Fläche ist die gültige, welche wird abgelöst | Registereintrag je abgelöster Fläche, mit Nachfolger |
+| R1.3 | **Was täglich gebraucht wird, steht in der Navigation.** Beginnend mit der Stundenzettel-Prüfung. Die Einträge liegen in `frontend/public/js/pageShell.js` (~1215, `INTENTS`) mit `label`, `sub`, `href`, `key`, `org` — **und Suchbegriffen** (`t`), damit die Fläche auch über die Suche gefunden wird | Klickpfad **und** Suchtreffer für jede tägliche Aufgabe |
+| R1.4 | **Der Eintrag wird erzwungen, nicht nur hinzugefügt** — siehe den Befund unter der Tabelle. Sonst fällt er beim nächsten Umbau still wieder heraus, und genau das ist hier schon passiert | Eintrag entfernen → **Probe rot**. Ohne diese Rückmutation zählt R1.3 nicht als erledigt |
+| R1.5 | **Die drei Generationen werden benannt**, nicht stillschweigend nebeneinander gelassen: welche Fläche ist die gültige, welche wird abgelöst | Registereintrag je abgelöster Fläche, mit Nachfolger |
+
+> ### Der Wächter existiert — und war die ganze Zeit grün
+>
+> **Gemessen 2026-09-07, nachdem die bauende Sitzung empfohlen hatte, den
+> Navigationseintrag per Wächter zu erzwingen.** Der Rat ist richtig. Der Wächter ist nur
+> schon da: `api/test/erreichbarkeit.test.js` liest `docs/PLATTFORM_REGISTER.md` und prüft,
+> dass jede lebende Seite **erreichbar** ist. Er läuft **7/7 grün** — während
+> `worker-submissions-review.html` in keiner Navigation steht.
+>
+> **Der Grund ist sein Maßstab:** er prüft *„von irgendwo aus erreichbar"*. Ein Verweis aus
+> einer Benachrichtigung genügt ihm. Für eine **tägliche** Aufgabe genügt das nicht — eine
+> Disponentin, die Stundenzettel prüfen will, hat keine Benachrichtigung, sie hat eine Absicht.
+>
+> **Und jemand hat das schon gesehen:** eine seiner Proben heißt wörtlich *„die Monatsplanung
+> steht in der Navigation — nicht nur in einem Verweis"*. Genau die richtige Unterscheidung —
+> aber **von Hand, für eine einzige Seite**. Wieder ein **aufzählender** Wächter, wo ein
+> **entdeckender** gebraucht wird.
+>
+> **Daraus die Bauvorgabe für R1.4:** das Register bekommt eine Spalte für *tägliche Aufgabe*,
+> und der Wächter verlangt für diese Zeilen einen **Navigationseintrag**, nicht bloß einen
+> Verweis. Damit gilt die Regel für die nächste Fläche automatisch mit — und niemand muss sie
+> erneut von Hand entdecken.
+
+---
 
 ### R2 · Der Eingang
 
