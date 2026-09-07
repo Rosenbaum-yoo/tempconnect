@@ -328,7 +328,7 @@ einzigen Aufrufer.**
 | N2.0 | **Der Marktplatz bekommt Koordinaten** — Vorbedingung dafür, dass „genauere Angaben erhöhen die Trefferqualität" wahr ist | ✅ 2026-09-06 — beide Seiten beim Anlegen, Bedarf vor dem Matching; PLZ über **Freitext**, weil die strukturierte Abfrage sie meist verschluckt |
 | N2.2 | **Preisvorschlag aus `smartPricing`** bei Frage 4, abhängig von Rolle, Region, Dringlichkeit | ✅ 2026-09-06 — in der Bedarfsanlage, entprellt; 403 verbirgt still und fragt nicht wieder |
 | N2.3 | **Notdienst-Hinweis**, wenn der Vorlauf ihn nahelegt | ✅ 2026-09-06 — **committet als „N2.1"** (`e4fd049`), siehe Hinweis oben; die Stufe wird abgeleitet statt gefragt (4.4) |
-| N2.4 | **Treffer-Vorschau live**: „mit diesen Angaben: 23 Kräfte" — ändert sich mit jedem Schritt | ⏳ **Nachweis muss angepasst werden**, siehe Hinweis unter der Tabelle |
+| N2.4 | **Treffer-Vorschau live**: „mit diesen Angaben: 23 Kräfte" — ändert sich mit jedem Schritt | ⏳ **Vorstufe erledigt** (2026-09-06): die Zahl des Feeds zählt jetzt nur die eigene Marktseite. Offen: der Radius wirkt noch nicht auf sie — siehe unten |
 | N2.5 | **Abbrechen verliert nichts** — der halbfertige Bedarf bleibt Entwurf | Modal schließen, wiederkommen, Stand ist da |
 | N2.6 | **Erreichbar aus der Personalsuche**, nicht von einer eigenen Seite | Klickpfad vom Hub bis zum Assistenten. Die Fläche ist `capacity_search.html` („Personal finden"); sie verlinkt die Bedarfsanlage heute **gar nicht** |
 
@@ -344,6 +344,29 @@ einzigen Aufrufer.**
 > gerechnet wurde über den Rückfall „gleiche Stadt, exakt geschrieben" mit 60 % Gewicht.
 > **Erledigt in N2.0** (2026-09-06): beide Marktseiten werden beim Anlegen geokodiert, der
 > Bedarf **vor** dem Matching-Anstoß.
+
+> **Beim Vorbereiten von N2.4 gefunden — und zur Hälfte behoben (2026-09-06).**
+>
+> Die Vorschau sollte den **Endpunkt benutzen, dessen Ergebnis der Kunde später sieht** —
+> sonst gäbe es zwei Wahrheiten über denselben Markt. Dabei fiel auf, dass die Zahl dieses
+> Endpunkts selbst nicht stimmte:
+>
+> **(1) `total` addierte beide Marktseiten** und wurde erst danach gefiltert. Gemessen mit 6
+> Angeboten und 17 fremden Bedarfen: ein Unternehmen bekam `total: 23` und sah 6. Die Zahl
+> speist auch die **Blätterung** — über sechs Einträgen standen 23 Treffer, also Seiten, die
+> es nicht gibt. *(Die Beispielzahl „23" aus diesem Plan ist zufällig genau der Fehler.)*
+> **Behoben**, bewacht von `api/test/trefferzahlStimmt.test.js`.
+>
+> **(2) Der Radius wirkt weiterhin nicht auf `total`** — und das ist der offene Rest. Der
+> Umkreis wird erst **nach** der Datenbankabfrage in JavaScript angewandt, und zwar **nach
+> dem `LIMIT`**. Zwei bestehende Folgen: die Zahl ist zu groß, sobald jemand einen Umkreis
+> setzt, und eine Seite kann **weniger** Einträge liefern als angefordert, weil erst
+> geschnitten und dann gefiltert wird.
+>
+> Das zu beheben heißt, den Umkreis **in SQL** zu rechnen — ein eigener Eingriff in die
+> Feed-Abfrage, der die Blätterung des ganzen Marktplatzes berührt. Erst danach ist der
+> Nachweis „Radius vergrößern → Zahl steigt" ehrlich zu führen. **Nicht Teil dieser Welle,
+> owner-pflichtig wegen der Tragweite.**
 >
 > Ebenfalls gemessen: `aggregateBySkill` liefert eine Zahl **je Fähigkeit**, nicht eine
 > Gesamtzahl — Summieren würde jedes Angebot doppelt zählen, das zwei gewählte Fähigkeiten

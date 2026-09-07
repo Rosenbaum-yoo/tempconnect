@@ -798,7 +798,33 @@ export async function browseFeed(pool, opts = {}) {
          FROM demand_requests dr
         WHERE ${demandVisibilityWhere}`;
   const { rows: demandCount } = await pool.query(demandCountSql);
-  const total = (supplyCount[0]?.cnt ?? 0) + (demandCount[0]?.cnt ?? 0);
+
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * N2.4 — DIE ZAHL ZAEHLT NUR, WAS DER BETRACHTER AUCH SIEHT
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Hier stand `supply + demand`, also die Summe BEIDER Marktseiten. Weiter
+   * unten wird `items` dann nach `viewerRole` gefiltert (GEGENSEITENLOGIK):
+   * ein Unternehmen sieht ausschliesslich `supply`, eine Zeitarbeitsfirma
+   * ausschliesslich `demand`.
+   *
+   * Gemessen am 2026-09-06 mit 6 Angeboten und 17 fremden Bedarfen: ein
+   * Unternehmen bekam `total: 23` und sah 6. Die 17 waren die Einkaufslisten
+   * anderer Unternehmen — Zeilen, die in seiner Liste nie erscheinen.
+   *
+   * Das ist nicht nur eine schiefe Anzeige: `total` speist die BLAETTERUNG.
+   * Ueber einer Liste mit sechs Eintraegen standen 23 Treffer, also mehrere
+   * Seiten, die es nicht gibt.
+   *
+   * Die Auswahl hier ist Zeichen fuer Zeichen dieselbe wie die von `items`
+   * weiter unten — eine zweite Meinung darueber, was zur eigenen Marktseite
+   * gehoert, waere genau der Fehler, der hier gerade behoben wird.
+   */
+  const supplyGesehen = viewerRole !== "agency" || interAgencySupplyVisible;
+  const demandGesehen = viewerRole !== "company";
+  const total = (supplyGesehen ? (supplyCount[0]?.cnt ?? 0) : 0)
+              + (demandGesehen ? (demandCount[0]?.cnt ?? 0) : 0);
 
   // Fetch supply entries
   const supplyParams = [...params, limit, offset];
