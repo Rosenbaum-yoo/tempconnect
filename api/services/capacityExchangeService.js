@@ -6,7 +6,7 @@
  */
 
 import * as capacityWorkflow from "./capacityWorkflow.js";
-import { haversineKm, scoreMatch } from "./matchingEngine.js";
+import { scoreMatch } from "./matchingEngine.js";
 import { loadSkillIndex, expandTags } from "./skillNormalizationService.js";
 import * as auditLog from "./auditLog.js";
 import { computePremiumBoost } from "./reputationService.js";
@@ -555,6 +555,69 @@ export async function listOwnEntries(pool, supplierId, opts = {}) {
 
 /* ── READ: Public feed (company side) ────────────── */
 
+/**
+ * Der Umkreis als SQL — Entfernung und Bedingung fuer eine Marktseite.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WARUM DAS IN SQL GEHOERT UND NICHT DANACH
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Bis zum 2026-09-07 wurde der Umkreis NACH der Abfrage in JavaScript
+ * angewandt — und zwar nach dem `LIMIT`. Drei Folgen, alle gemessen:
+ *
+ *   1. `total` kannte den Umkreis nicht. Wer 25 km suchte, las eine Zahl, die
+ *      die ganze Republik zaehlte.
+ *   2. Eine Seite lieferte WENIGER Eintraege als angefordert: erst wurden 25
+ *      Zeilen geschnitten, dann davon die Haelfte weggefiltert.
+ *   3. Die Blaetterung zeigte Seiten, die es nicht gab — und "nichts gefunden"
+ *      auf Seite 2, obwohl Seite 3 wieder Treffer hatte.
+ *
+ * ZAHLEN STATT PLATZHALTER, und das ist Absicht: die drei Werte kommen als
+ * Zahlen herein und werden hier auf `Number.isFinite` geprueft. Die beiden
+ * Marktseiten haben verschiedene Parameter-Regime (die Angebotsabfrage zaehlt
+ * `idx` hoch, die Bedarfsabfrage bindet gar nichts) — sie zusammenzufuehren
+ * waere ein groesserer Eingriff als der, um den es hier geht. Eine geprueft
+ * endliche Zahl kann nichts einschleusen; ein Text koennte es, und deshalb
+ * kommt hier auch keiner an.
+ *
+ * Die Formel ist dieselbe wie in `haversineKm` (Erdradius 6371 km) — die
+ * Auswahl darf nicht anders rechnen als die Anzeige.
+ */
+function umkreisSql(breite, laenge, radiusKm) {
+  /*
+   * `null` und `""` ZUERST abweisen — und zwar ausdruecklich, weil `Number(null)`
+   * gleich 0 ist und `Number.isFinite(0)` wahr. Ein fehlender Laengengrad haette
+   * sonst stillschweigend Greenwich bedeutet, ein fehlender Breitengrad den
+   * Aequator: die Suche haette gefiltert, ohne dass jemand einen Punkt genannt
+   * hat. Der alte JavaScript-Filter prueft genau das (`!= null`) — beim Umzug
+   * ins SQL ging es zuerst verloren, eine Probe hat es zurueckgeholt.
+   */
+  for (const wert of [breite, laenge, radiusKm]) {
+    if (wert === null || wert === undefined || wert === "") return null;
+  }
+  const b = Number(breite);
+  const l = Number(laenge);
+  const r = Number(radiusKm);
+  if (!Number.isFinite(b) || !Number.isFinite(l) || !Number.isFinite(r)) return null;
+  if (b < -90 || b > 90 || l < -180 || l > 180 || r <= 0) return null;
+
+  const entfernung = (alias) => `(6371 * 2 * asin(sqrt(
+        power(sin(radians(${alias}.location_lat - (${b})) / 2), 2)
+        + cos(radians(${b})) * cos(radians(${alias}.location_lat))
+        * power(sin(radians(${alias}.location_lng - (${l})) / 2), 2))))`;
+
+  return {
+    entfernung,
+    /* Ohne Koordinaten faellt die Zeile heraus — genau wie vorher im
+       JavaScript. Und der eigene Radius eines Eintrags zaehlt mit: wer
+       schreibt "ich fahre bis 80 km", bleibt drin, auch wenn der Suchende
+       nur 25 km eingestellt hat. */
+    bedingung: (alias) => `${alias}.location_lat IS NOT NULL
+      AND ${alias}.location_lng IS NOT NULL
+      AND ${entfernung(alias)} <= GREATEST(${r}, COALESCE(${alias}.radius_km, 25))`
+  };
+}
+
 export async function browseFeed(pool, opts = {}) {
   const viewerRole = opts.viewer_role || null;
   const viewerUserId = opts.viewer_user_id || null;
@@ -573,6 +636,10 @@ export async function browseFeed(pool, opts = {}) {
   const demandAvailabilityClause = (isImmediateWindow && immediateStart && immediateEnd)
     ? ` AND dr.start_date <= '${immediateEnd}' AND (dr.end_date IS NULL OR dr.end_date >= '${immediateStart}')`
     : '';
+  /* N2.4b — der Umkreis wird jetzt mitgefiltert statt nachtraeglich. `null`
+     heisst: keine Umkreissuche, dann bleibt alles wie zuvor. */
+  const umkreis = umkreisSql(opts.latitude, opts.longitude, opts.radius_km);
+
   const demandVisibilityWhere = `${demandRemainingOpenSql} > 0
       AND dr.status IN ('open', 'partially_covered')
       AND NOT EXISTS (
@@ -740,9 +807,12 @@ export async function browseFeed(pool, opts = {}) {
     : "FALSE";
 
   // Build supply query with current filters
+  if (umkreis) where.push(umkreis.bedingung("cp"));
+
   const supplyCte = `
     SELECT ${ENTRY_SELECT},
            COALESCE(cp.updated_at, cp.created_at) AS sort_date,
+           ${umkreis ? `${umkreis.entfernung("cp")}` : "NULL::double precision"} AS _distance_km,
            ${supplyGemerkt} AS gemerkt
     ${ENTRY_JOINS}
     WHERE ${where.join(' AND ')}`;
@@ -751,6 +821,10 @@ export async function browseFeed(pool, opts = {}) {
   const demandRoleWhere = (viewerRole === "agency" && !interAgencyEnabled)
     ? "AND u.role = 'company'"
     : "";
+  const demandWhereMitUmkreis = umkreis
+    ? `${demandVisibilityWhere} AND ${umkreis.bedingung("dr")}`
+    : demandVisibilityWhere;
+
   const demandCte = `
     SELECT
       dr.id, dr.title, dr.role, dr.skill_tags, dr.headcount,
@@ -761,6 +835,7 @@ export async function browseFeed(pool, opts = {}) {
       dr.start_date AS availability_from, dr.end_date AS availability_to,
       dr.location_city, dr.location_postal,
       dr.location_lat, dr.location_lng, dr.radius_km,
+      ${umkreis ? `${umkreis.entfernung("dr")}` : "NULL::double precision"} AS _distance_km,
       dr.urgency AS priority_level,
       dr.featured_until,
       dr.budget_min AS price_min, dr.budget_max AS price_max,
@@ -783,7 +858,7 @@ export async function browseFeed(pool, opts = {}) {
                  AND ci_merk.interaction_type = 'save') AS gemerkt
     FROM demand_requests dr
     JOIN users u ON u.id = dr.requester_company_id
-    WHERE ${demandVisibilityWhere}
+    WHERE ${demandWhereMitUmkreis}
       ${demandRoleWhere}`;
 
   // Count: supply + demand separately (avoids UNION column mismatch)
@@ -793,10 +868,10 @@ export async function browseFeed(pool, opts = {}) {
     ? `SELECT COUNT(*)::int AS cnt
          FROM demand_requests dr
          JOIN users u ON u.id = dr.requester_company_id
-        WHERE ${demandVisibilityWhere} AND u.role = 'company'`
+        WHERE ${demandWhereMitUmkreis} AND u.role = 'company'`
     : `SELECT COUNT(*)::int AS cnt
          FROM demand_requests dr
-        WHERE ${demandVisibilityWhere}`;
+        WHERE ${demandWhereMitUmkreis}`;
   const { rows: demandCount } = await pool.query(demandCountSql);
 
   /*
@@ -829,7 +904,8 @@ export async function browseFeed(pool, opts = {}) {
   // Fetch supply entries
   const supplyParams = [...params, limit, offset];
   const { rows: rawSupplyRows } = await pool.query(
-    `${supplyCte} ORDER BY sort_date DESC LIMIT $${idx} OFFSET $${idx + 1}`, supplyParams);
+    `${supplyCte} ORDER BY ${umkreis ? "_distance_km ASC, " : ""}sort_date DESC`
+    + ` LIMIT $${idx} OFFSET $${idx + 1}`, supplyParams);
   let supplyRows = await enrichCapacityEntries(pool, rawSupplyRows, { viewerUserId });
   supplyRows = supplyRows.filter((row) => row.visible_to_viewer);
   if (opts.min_headcount) {
@@ -843,25 +919,24 @@ export async function browseFeed(pool, opts = {}) {
   if (supplyRows.length < limit) {
     const demandLimit = limit - supplyRows.length;
     const { rows: dr } = await pool.query(
-      `${demandCte} ORDER BY COALESCE(dr.updated_at, dr.created_at) DESC LIMIT $1`,
+      `${demandCte} ORDER BY ${umkreis ? "_distance_km ASC, " : ""}COALESCE(dr.updated_at, dr.created_at) DESC LIMIT $1`,
       [demandLimit, viewerUserId]);
     demandRows = dr;
   }
 
   let items = [...supplyRows, ...demandRows];
 
-  // Post-query geo filter
-  if (opts.latitude != null && opts.longitude != null && opts.radius_km != null) {
-    const sLat = Number(opts.latitude);
-    const sLng = Number(opts.longitude);
-    const sR = Number(opts.radius_km);
-    items = items.filter(r => {
-      if (r.location_lat == null || r.location_lng == null) return false;
-      const dist = haversineKm(sLat, sLng, r.location_lat, r.location_lng);
-      r._distance_km = Math.round(dist * 10) / 10;
-      return dist <= Math.max(sR, r.radius_km || 25);
+  /*
+   * N2.4b — hier stand der Umkreisfilter. Er ist in die Abfrage gewandert
+   * (`umkreisSql`), weil er nach dem `LIMIT` lief: die Trefferzahl kannte den
+   * Umkreis nicht, und eine Seite konnte weniger Eintraege liefern als
+   * angefordert. Geblieben ist das RUNDEN der Entfernung fuer die Anzeige —
+   * die Zahl kommt jetzt aus SQL und traegt dort volle Genauigkeit.
+   */
+  if (umkreis) {
+    items.forEach((r) => {
+      if (r._distance_km != null) r._distance_km = Math.round(Number(r._distance_km) * 10) / 10;
     });
-    items.sort((a, b) => (a._distance_km || 0) - (b._distance_km || 0));
   }
 
   // ── R2-1: Activity Badges ──

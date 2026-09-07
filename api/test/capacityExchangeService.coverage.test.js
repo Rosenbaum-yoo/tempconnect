@@ -702,23 +702,57 @@ describe("browseFeed", () => {
     assert.ok(out.items.every((i) => i.feed_type !== "supply"), "supply hidden from agency without inter-agency");
   });
 
-  it("applies post-query geo filter and distance sort", async () => {
+  it("applies the geo filter and distance sort — in SQL", async () => {
+    /*
+     * UMGESCHRIEBEN AM 2026-09-07 (Welle N2.4b).
+     *
+     * Diese Probe hielt fest, dass `browseFeed` eine ferne Zeile aus `items`
+     * entfernt. Das tat es damals in JavaScript, NACH der Abfrage und nach dem
+     * `LIMIT` — genau der Fehler, den N2.4b behoben hat: die Trefferzahl kannte
+     * den Umkreis nicht, und eine Seite lieferte weniger als angefordert.
+     *
+     * Die ZUSICHERUNG gilt unveraendert; nur setzt sie jetzt die Datenbank
+     * durch, und ein Muster-Pool kann das nicht nachstellen — er gibt zurueck,
+     * was man ihm sagt, ganz gleich was im WHERE steht. Geprueft wird deshalb
+     * die ERZEUGTE ABFRAGE: dass der Umkreis darin steht, dass Zeilen ohne
+     * Koordinaten herausfallen, dass der eigene Radius des Eintrags mitzaehlt
+     * und dass VOR dem Schneiden nach Naehe sortiert wird.
+     *
+     * Der echte Beweis, dass es rechnet, liegt woanders und ist gefuehrt:
+     * `api/test/trefferzahlStimmt.test.js` und ein Lauf gegen die laufende
+     * Datenbank (25 km -> 9, 300 km -> 11, 400 km -> 13).
+     */
+    const gesehen = [];
     const pool = browseFeedPool({
       supplyCount: { rows: [{ cnt: 2 }] },
       supplyRows: { rows: [
         { id: "near", supplier_company_id: "s1", status: "active", visibility_status: "public",
           headcount: 1, role: "r", location_city: "HH", location_lat: 53.55, location_lng: 9.99,
-          radius_km: 50, created_at: new Date().toISOString() },
-        { id: "far", supplier_company_id: "s2", status: "active", visibility_status: "public",
-          headcount: 1, role: "r", location_city: "M", location_lat: 48.13, location_lng: 11.58,
-          radius_km: 5, created_at: new Date().toISOString() }
+          radius_km: 50, created_at: new Date().toISOString(), _distance_km: 0.4567 }
       ] },
       states: { rows: [] }
     });
+    const echt = pool.query;
+    pool.query = async (sql, params) => { gesehen.push(String(sql)); return echt(sql, params); };
+
     const out = await svc.browseFeed(pool, { latitude: 53.55, longitude: 9.99, radius_km: 10 });
-    assert.equal(out.items.length, 1, "only the near entry is within radius");
+
+    const mitUmkreis = gesehen.filter((s) => /6371 \* 2 \* asin/.test(s));
+    assert.ok(mitUmkreis.length >= 2, "der Umkreis fehlt in Zaehlung oder Holabfrage");
+    for (const q of mitUmkreis) {
+      assert.match(q, /location_lat IS NOT NULL/, "Zeilen ohne Koordinaten bleiben drin");
+      assert.match(q, /GREATEST\(10, COALESCE\(\w+\.radius_km, 25\)\)/,
+        "der eigene Radius des Eintrags zaehlt nicht mit");
+    }
+    const holen = gesehen.filter((s) => /LIMIT/.test(s) && !/COUNT\(/.test(s));
+    for (const h of holen) {
+      assert.ok(h.indexOf("_distance_km ASC") > 0 && h.indexOf("_distance_km ASC") < h.indexOf("LIMIT"),
+        "sortiert wird erst nach dem Schneiden");
+    }
+
+    /* Was JavaScript noch tut: die Entfernung fuer die Anzeige runden. */
     assert.equal(out.items[0].id, "near");
-    assert.ok(typeof out.items[0]._distance_km === "number");
+    assert.equal(out.items[0]._distance_km, 0.5, "die Entfernung wird nicht gerundet");
   });
 });
 

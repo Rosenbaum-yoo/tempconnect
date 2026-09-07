@@ -328,7 +328,7 @@ einzigen Aufrufer.**
 | N2.0 | **Der Marktplatz bekommt Koordinaten** — Vorbedingung dafür, dass „genauere Angaben erhöhen die Trefferqualität" wahr ist | ✅ 2026-09-06 — beide Seiten beim Anlegen, Bedarf vor dem Matching; PLZ über **Freitext**, weil die strukturierte Abfrage sie meist verschluckt |
 | N2.2 | **Preisvorschlag aus `smartPricing`** bei Frage 4, abhängig von Rolle, Region, Dringlichkeit | ✅ 2026-09-06 — in der Bedarfsanlage, entprellt; 403 verbirgt still und fragt nicht wieder |
 | N2.3 | **Notdienst-Hinweis**, wenn der Vorlauf ihn nahelegt | ✅ 2026-09-06 — **committet als „N2.1"** (`e4fd049`), siehe Hinweis oben; die Stufe wird abgeleitet statt gefragt (4.4) |
-| N2.4 | **Treffer-Vorschau live**: „mit diesen Angaben: 23 Kräfte" — ändert sich mit jedem Schritt | ⏳ **Vorstufe erledigt** (2026-09-06): die Zahl des Feeds zählt jetzt nur die eigene Marktseite. Offen: der Radius wirkt noch nicht auf sie — siehe unten |
+| N2.4 | **Treffer-Vorschau live**: „mit diesen Angaben: 23 Kräfte" — ändert sich mit jedem Schritt | ⏳ **Zahl ist jetzt belastbar** (2026-09-06/07): eigene Marktseite **und** Umkreis. Nachweis geführt: 25 km → 9, 300 km → 11, 400 km → 13. Offen bleibt die **Anzeige** im Formular |
 | N2.5 | **Abbrechen verliert nichts** — der halbfertige Bedarf bleibt Entwurf | Modal schließen, wiederkommen, Stand ist da |
 | N2.6 | **Erreichbar aus der Personalsuche**, nicht von einer eigenen Seite | Klickpfad vom Hub bis zum Assistenten. Die Fläche ist `capacity_search.html` („Personal finden"); sie verlinkt die Bedarfsanlage heute **gar nicht** |
 
@@ -357,16 +357,36 @@ einzigen Aufrufer.**
 > es nicht gibt. *(Die Beispielzahl „23" aus diesem Plan ist zufällig genau der Fehler.)*
 > **Behoben**, bewacht von `api/test/trefferzahlStimmt.test.js`.
 >
-> **(2) Der Radius wirkt weiterhin nicht auf `total`** — und das ist der offene Rest. Der
-> Umkreis wird erst **nach** der Datenbankabfrage in JavaScript angewandt, und zwar **nach
-> dem `LIMIT`**. Zwei bestehende Folgen: die Zahl ist zu groß, sobald jemand einen Umkreis
-> setzt, und eine Seite kann **weniger** Einträge liefern als angefordert, weil erst
-> geschnitten und dann gefiltert wird.
+> **(2) Der Radius wirkte nicht auf `total`** — **behoben am 2026-09-07 (N2.4b, Owner-Freigabe).**
+> Der Umkreis wurde erst *nach* der Datenbankabfrage in JavaScript angewandt, und zwar **nach
+> dem `LIMIT`**. Drei Folgen: die Zahl war zu groß, sobald jemand einen Umkreis setzte; eine
+> Seite lieferte **weniger** Einträge als angefordert; und die Blätterung zeigte Seiten, die
+> es nicht gab.
 >
-> Das zu beheben heißt, den Umkreis **in SQL** zu rechnen — ein eigener Eingriff in die
-> Feed-Abfrage, der die Blätterung des ganzen Marktplatzes berührt. Erst danach ist der
-> Nachweis „Radius vergrößern → Zahl steigt" ehrlich zu führen. **Nicht Teil dieser Welle,
-> owner-pflichtig wegen der Tragweite.**
+> Jetzt rechnet Postgres — dieselbe Haversine-Formel wie `haversineKm`, damit die Auswahl
+> nicht anders rechnet als die Anzeige. Gemessen gegen die laufende Datenbank, Suchpunkt
+> Hamburg-Bergedorf:
+>
+> | Radius | 25 km | 200 km | 300 km | 400 km |
+> |---|---|---|---|---|
+> | Treffer | 9 | 9 | **11** | **13** |
+>
+> **Das ist der Nachweis, den dieser Plan verlangt** — „Radius vergrößern → Zahl steigt" —
+> und `total` stimmt bei jedem Schritt mit der Zahl der Einträge überein.
+>
+> Zwei Regeln sind dabei erhalten geblieben, weil ihr Verlust still gewesen wäre: eine Zeile
+> **ohne Koordinaten** fällt heraus, und der **eigene Radius** eines Eintrags zählt mit (wer
+> „ich fahre bis 80 km" schreibt, bleibt drin, auch wenn der Suchende 25 km eingestellt hat).
+>
+> **Beim Umzug ins SQL verloren und von einer Probe zurückgeholt:** der alte Filter prüfte
+> ausdrücklich `!= null`. Ohne das hätte ein fehlender Längengrad stillschweigend **Greenwich**
+> bedeutet und ein fehlender Breitengrad den Äquator — die Suche hätte gefiltert, ohne dass
+> jemand einen Punkt genannt hat.
+>
+> **Was weiterhin nach dem `LIMIT` läuft, benannt statt verschwiegen:** die anderen Nachfilter
+> der Angebotsseite (`visible_to_viewer`, `min_headcount`, `remaining_headcount > 0`). Auch sie
+> können eine Seite kürzen. Der Umkreis war der teuerste von ihnen, weil er als einziger die
+> **Trefferzahl** verfälschte — die anderen bleiben ein eigener Befund.
 >
 > Ebenfalls gemessen: `aggregateBySkill` liefert eine Zahl **je Fähigkeit**, nicht eine
 > Gesamtzahl — Summieren würde jedes Angebot doppelt zählen, das zwei gewählte Fähigkeiten
