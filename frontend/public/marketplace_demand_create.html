@@ -26,6 +26,24 @@
       border:1px solid var(--line,#2a3550);background:transparent;color:inherit;cursor:pointer}
     .preis-vorschlag .pv-uebernehmen:hover{border-color:var(--muted,#8d9bba)}
     .preis-vorschlag .pv-guete{font-size:11.5px;color:var(--muted,#8d9bba)}
+    /* N2.1 - der Assistent. Ohne JavaScript greift nichts davon: dann steht
+       das Formular wie zuvor als eine Seite da. Erst `data-assistent="an"`
+       am Formular blendet ueberhaupt etwas aus. */
+    .as-leiste{display:flex;gap:6px;margin:0 0 14px;flex-wrap:wrap}
+    .as-leiste li{list-style:none;display:flex;align-items:center;gap:6px;font-size:12px;
+      color:var(--muted,#8d9bba);padding:4px 10px;border-radius:999px;
+      border:1px solid var(--line,#2a3550)}
+    .as-leiste li[data-stand="jetzt"]{color:var(--fg,#e8ecf6);border-color:var(--brand,#4a9eff)}
+    .as-leiste li[data-stand="fertig"]{color:var(--ok,#4ade80);border-color:var(--ok,#4ade80)}
+    .as-leiste .as-nr{display:inline-flex;width:18px;height:18px;border-radius:50%;
+      align-items:center;justify-content:center;font-size:11px;font-weight:700;
+      border:1px solid currentColor}
+    .as-kopf{margin:0 0 4px;font-size:16px;font-weight:800}
+    .as-hinweis{margin:0 0 12px;font-size:12.5px;color:var(--muted,#8d9bba);line-height:1.5}
+    .as-fuss{display:flex;gap:8px;align-items:center;margin-top:16px;flex-wrap:wrap}
+    .as-zaehler{margin-left:auto;font-size:12px;color:var(--muted,#8d9bba)}
+    form[data-assistent="an"] .as-verborgen{display:none}
+    .as-fehler{color:var(--danger,#f87171);font-size:12.5px;margin-top:8px}
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .form-grid .full { grid-column: 1 / -1; }
     label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
@@ -60,6 +78,14 @@
     <p style="color:var(--muted);margin:0 0 16px" data-i18n="dem.create.subtitle">Beschreibe deinen Personalbedarf. TempConnect matched automatisch passendes Personal und benachrichtigt Anbieter.</p>
 
     <form id="demandForm" class="card">
+      <!-- N2.1 - der Assistent baut sich aus den vorhandenen Feldern auf.
+           Sie werden NICHT verschoben: das Skript ordnet jedes Feld einem
+           Schritt zu und blendet die anderen aus. So gibt es keinen zweiten
+           Anlagepfad, keinen zweiten Datensatz und kein zweites Formular,
+           das man vergessen kann mitzupflegen. -->
+      <ul class="as-leiste" id="asLeiste" hidden></ul>
+      <h2 class="as-kopf" id="asKopf" hidden></h2>
+      <p class="as-hinweis" id="asHinweis" hidden></p>
       <div class="form-grid">
         <div class="full">
           <label for="title" data-i18n="dem.create.label.title">Titel *</label>
@@ -140,9 +166,13 @@
         </div>
       </div>
       <p class="urgency-hint" data-i18n="dem.create.contactHint">Wer ist erreichbar, wenn eine Schicht wackelt? Die Nummer sieht die Zeitarbeitsfirma an der Besetzung und die eingesetzte Person im Einsatzportal. Leer lassen heisst: es wird die Nummer aus Ihrem Profil genommen — fehlt auch die, bleibt die Stelle offen, bis ein Angebot angenommen wird.</p>
-      <div style="margin-top:16px">
+      <div class="as-fuss" id="asFuss">
+        <button type="button" class="btn" id="asZurueck" hidden data-i18n="dem.create.as.back">Zurück</button>
+        <button type="button" class="btn primary" id="asWeiter" hidden data-i18n="dem.create.as.next">Weiter</button>
         <button type="submit" class="btn primary" id="submitBtn" data-i18n="dem.create.submit">Nachfrage absenden</button>
+        <span class="as-zaehler" id="asZaehler" hidden></span>
       </div>
+      <div class="as-fehler" id="asFehler" hidden aria-live="polite"></div>
       <div id="msg" style="display:none"></div>
     </form>
 
@@ -187,6 +217,20 @@
         'dem.create.label.skills': 'Faehigkeiten',
         'dem.create.hint.skills': 'Aus dem Plattform-Katalog. Die Zahl daneben sagt, wie viele Kraefte diese Faehigkeit heute mitbringen.',
         'dem.create.ph.skills': 'z.B. Schichtarbeit, Montage',
+        'dem.create.as.back': 'Zur\u00fcck',
+        'dem.create.as.next': 'Weiter',
+        'dem.create.as.step': 'Schritt {n} von {m}',
+        'dem.create.as.s0': 'An welchen Ort sollen die Arbeiter?',
+        'dem.create.as.s0h': 'Vorbelegt aus Ihrem Standort \u2014 aber \u00e4nderbar. Genauere Angaben erh\u00f6hen die Trefferqualit\u00e4t: gegen diesen Punkt rechnet der Einsatzradius. Mit Postleitzahl trifft er den Stadtteil statt der Stadtmitte.',
+        'dem.create.as.s1': 'Was suchen Sie?',
+        'dem.create.as.s1h': 'Die F\u00e4higkeiten kommen aus dem Katalog \u2014 nur so finden sich beide Marktseiten zuverl\u00e4ssig.',
+        'dem.create.as.s2': 'Wie viele Personen?',
+        'dem.create.as.s2h': 'Ab zwei Personen wird das Ergebnis geb\u00fcndelt \u2014 quer \u00fcber Zeitarbeitsfirmen.',
+        'dem.create.as.s3': 'Von wann bis wann?',
+        'dem.create.as.s3h': 'Dieses Feld entscheidet den Notdienst. Es gibt keine eigene Frage danach.',
+        'dem.create.as.s4': 'Wie teuer d\u00fcrfen sie einzeln sein?',
+        'dem.create.as.s4h': 'Der Vorschlag ist ein Vorschlag \u2014 keine Vorgabe.',
+        'dem.create.as.required': 'Bitte f\u00fcllen Sie die Pflichtfelder dieses Schritts aus.',
         'dem.create.preis.gueteHoch': 'gut belegt',
         'dem.create.preis.gueteMittel': 'belegt',
         'dem.create.preis.gueteNiedrig': 'd\u00fcnne Datenlage',
@@ -256,6 +300,20 @@
         'dem.create.label.skills': 'Skills',
         'dem.create.hint.skills': 'From the platform catalogue. The number beside each one says how many people bring that skill today.',
         'dem.create.ph.skills': 'e.g. shift work, assembly',
+        'dem.create.as.back': 'Back',
+        'dem.create.as.next': 'Next',
+        'dem.create.as.step': 'Step {n} of {m}',
+        'dem.create.as.s0': 'Where should the workers go?',
+        'dem.create.as.s0h': 'Pre-filled from your location \u2014 but editable. More precise details improve match quality: the radius is measured from this point. With a postal code it hits the district instead of the city centre.',
+        'dem.create.as.s1': 'What are you looking for?',
+        'dem.create.as.s1h': 'Skills come from the catalogue \u2014 only then do both market sides reliably find each other.',
+        'dem.create.as.s2': 'How many people?',
+        'dem.create.as.s2h': 'From two people on, the result is bundled \u2014 across agencies.',
+        'dem.create.as.s3': 'From when until when?',
+        'dem.create.as.s3h': 'This field decides emergency staffing. There is no separate question for it.',
+        'dem.create.as.s4': 'What may each of them cost?',
+        'dem.create.as.s4h': 'The suggestion is a suggestion \u2014 not a requirement.',
+        'dem.create.as.required': 'Please fill in the required fields of this step.',
         'dem.create.preis.gueteHoch': 'well evidenced',
         'dem.create.preis.gueteMittel': 'evidenced',
         'dem.create.preis.gueteNiedrig': 'thin data',
@@ -800,6 +858,215 @@
 
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
     else start();
+  })();
+  </script>
+  <script>
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * N2.1 — FUENF SCHRITTE, DER ORT VORN
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * Owner-Vorgabe (Nachtrag 2026-09-06, Korrektur des ersten Entwurfs): der
+   * Einsatzort wird AUSDRUECKLICH gefragt und steht VORN — vorbelegt, aber
+   * aenderbar. Der Grund ist kein Bedienkomfort: der Standortkontext ist die
+   * Rechnungsadresse oder Niederlassung, NICHT der Einsatzort. Eine
+   * Pflegeeinrichtung mit vier Haeusern sucht fuer EIN Haus. Wer den Kontext
+   * ungefragt als Einsatzort nimmt, rechnet die Entfernung gegen den falschen
+   * Punkt — und seit N2.4b rechnet sie wirklich.
+   *
+   * KEIN ZWEITES FORMULAR. Die Felder werden nicht verschoben und nicht
+   * verdoppelt; dieses Skript ordnet die VORHANDENEN Felder je einem Schritt
+   * zu und blendet die uebrigen aus. Damit gibt es weiterhin einen Anlagepfad,
+   * einen Datensatz und eine Absendestelle — ein zweiter waere die Sorte
+   * Parallelstruktur, die beim ersten Regelwechsel auseinanderlaeuft.
+   *
+   * OHNE JAVASCRIPT AENDERT SICH NICHTS. Erst `data-assistent="an"` am
+   * Formular laesst die Ausblendregel greifen; faellt das Skript aus, steht
+   * das Formular wie zuvor als eine Seite da und bleibt absendbar.
+   */
+  (function () {
+    var SCHRITTE = [
+      { schluessel: "s0", felder: ["location_city", "location_postal", "radius_km"], pflicht: ["location_city"] },
+      { schluessel: "s1", felder: ["title", "role", "skill_tags"],                   pflicht: ["title", "role"] },
+      { schluessel: "s2", felder: ["headcount"],                                     pflicht: [] },
+      { schluessel: "s3", felder: ["start_date", "end_date", "urgencyAnzeige"],      pflicht: ["start_date"] },
+      { schluessel: "s4", felder: ["preisVorschlag", "budget_min", "budget_max", "contact_name", "contact_phone"], pflicht: [] }
+    ];
+
+    var jetzt = 0;
+    var form, leiste, kopf, hinweis, zurueck, weiter, absenden, zaehler, fehler;
+
+    function t(k, ersatz, werte) {
+      var v = (window.TCi18n && TCi18n.t) ? TCi18n.t(k) : "";
+      var roh = v || ersatz;
+      if (!werte) return roh;
+      return String(roh).replace(/\{(\w+)\}/g, function (ganz, name) {
+        return Object.prototype.hasOwnProperty.call(werte, name) ? String(werte[name]) : ganz;
+      });
+    }
+
+    /* Der Traeger eines Feldes ist sein umschliessendes <div> im Raster —
+       dort steht auch die Beschriftung. Ohne sie waere das Feld beschriftet
+       ausgeblendet und unbeschriftet sichtbar. */
+    function traeger(id) {
+      var el = document.getElementById(id);
+      if (!el) return null;
+      var d = el.closest ? el.closest(".form-grid > div") : null;
+      return d || el.parentElement;
+    }
+
+    function alleTraeger() {
+      var raus = [];
+      SCHRITTE.forEach(function (sch, i) {
+        sch.felder.forEach(function (id) {
+          var d = traeger(id);
+          if (d && raus.indexOf(d) < 0) { d.setAttribute("data-schritt", i); raus.push(d); }
+        });
+      });
+      return raus;
+    }
+
+    function zeige() {
+      var traegerListe = alleTraeger();
+      traegerListe.forEach(function (d) {
+        var gehoert = Number(d.getAttribute("data-schritt")) === jetzt;
+        d.classList.toggle("as-verborgen", !gehoert);
+      });
+
+      /* Der Kontakthinweis gehoert zum letzten Schritt — er erklaert die
+         beiden Kontaktfelder und stuende sonst unter einer leeren Seite. */
+      var kontaktHinweis = document.querySelector(".urgency-hint[data-i18n='dem.create.contactHint']");
+      if (kontaktHinweis) kontaktHinweis.classList.toggle("as-verborgen", jetzt !== SCHRITTE.length - 1);
+      /* Ebenso der Notdienst-Hinweis: er gehoert zum Zeitraum. */
+      var notHinweis = document.querySelector(".urgency-hint[data-i18n='dem.create.urgencyHint']");
+      if (notHinweis) notHinweis.classList.toggle("as-verborgen", jetzt !== 3);
+
+      var sch = SCHRITTE[jetzt];
+      if (kopf) kopf.textContent = t("dem.create.as." + sch.schluessel, "");
+      if (hinweis) hinweis.textContent = t("dem.create.as." + sch.schluessel + "h", "");
+      if (zaehler) zaehler.textContent = t("dem.create.as.step", "Schritt {n} von {m}",
+        { n: jetzt + 1, m: SCHRITTE.length });
+
+      if (zurueck) zurueck.hidden = jetzt === 0;
+      if (weiter) weiter.hidden = jetzt === SCHRITTE.length - 1;
+      /* Absenden gibt es NUR im letzten Schritt. Sonst schickt ein Druck auf
+         die Eingabetaste im ersten Schritt einen halben Bedarf los. */
+      if (absenden) absenden.hidden = jetzt !== SCHRITTE.length - 1;
+      if (fehler) { fehler.hidden = true; fehler.textContent = ""; }
+
+      if (leiste) {
+        leiste.innerHTML = SCHRITTE.map(function (x, i) {
+          var stand = i === jetzt ? "jetzt" : (i < jetzt ? "fertig" : "offen");
+          return '<li data-stand="' + stand + '"><span class="as-nr">' + (i + 1) + "</span>"
+            + escText(t("dem.create.as." + x.schluessel, "")) + "</li>";
+        }).join("");
+      }
+    }
+
+    function escText(x) {
+      var d = document.createElement("div");
+      d.textContent = x == null ? "" : String(x);
+      return d.innerHTML;
+    }
+
+    /* Geprueft wird nur, was DIESER Schritt verlangt — nicht das ganze
+       Formular. Wer im zweiten Schritt steht, soll nicht wegen eines Feldes
+       aus dem vierten haengenbleiben. */
+    function schrittVollstaendig() {
+      var sch = SCHRITTE[jetzt];
+      for (var i = 0; i < sch.pflicht.length; i++) {
+        var el = document.getElementById(sch.pflicht[i]);
+        if (!el) continue;
+        if (!String(el.value || "").trim()) {
+          if (fehler) {
+            fehler.textContent = t("dem.create.as.required", "Bitte fuellen Sie die Pflichtfelder dieses Schritts aus.");
+            fehler.hidden = false;
+          }
+          if (el.focus) el.focus();
+          return false;
+        }
+      }
+      return true;
+    }
+
+    function gehe(richtung) {
+      if (richtung > 0 && !schrittVollstaendig()) return;
+      jetzt = Math.min(SCHRITTE.length - 1, Math.max(0, jetzt + richtung));
+      zeige();
+      if (kopf && kopf.scrollIntoView) kopf.scrollIntoView({ block: "nearest" });
+    }
+
+    /*
+     * Der Ort kommt vorbelegt — aber nur, wenn das Feld LEER ist. Wer schon
+     * getippt hat, bekommt seine Eingabe nicht ueberschrieben.
+     */
+    function ortVorbelegen() {
+      var feld = document.getElementById("location_city");
+      if (!feld || String(feld.value || "").trim()) return;
+      /* Die Zusage wird ZURUECKGEGEBEN — sonst kann kein Aufrufer und keine
+         Probe abwarten, dass die Vorbelegung wirklich angekommen ist. */
+      return fetch("/api/me/active-location", { credentials: "include" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (!d || !Array.isArray(d.locations) || !d.locations.length) return;
+          var aktiv = d.location_id
+            ? d.locations.filter(function (x) { return String(x.id) === String(d.location_id); })[0]
+            : null;
+          var quelle = aktiv || d.locations.filter(function (x) { return x.is_hq; })[0] || d.locations[0];
+          if (quelle && quelle.city && !String(feld.value || "").trim()) {
+            feld.value = quelle.city;
+            /* Anstossen, damit Preisvorschlag und Notdienst-Anzeige die
+               Vorbelegung sofort mitbekommen — sonst rechnen sie mit leer. */
+            feld.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+        })
+        .catch(function () { /* Vorbelegung ist Zugabe, nie Bedingung */ });
+    }
+
+    function start() {
+      form = document.getElementById("demandForm") || document.querySelector("form");
+      leiste = document.getElementById("asLeiste");
+      kopf = document.getElementById("asKopf");
+      hinweis = document.getElementById("asHinweis");
+      zurueck = document.getElementById("asZurueck");
+      weiter = document.getElementById("asWeiter");
+      absenden = document.getElementById("submitBtn");
+      zaehler = document.getElementById("asZaehler");
+      fehler = document.getElementById("asFehler");
+      if (!form || !weiter || !leiste) return;
+
+      [leiste, kopf, hinweis, zaehler].forEach(function (el) { if (el) el.hidden = false; });
+      form.setAttribute("data-assistent", "an");
+
+      zurueck.addEventListener("click", function () { gehe(-1); });
+      weiter.addEventListener("click", function () { gehe(1); });
+      document.addEventListener("tc:langchange", zeige);
+
+      /* Die Eingabetaste soll weiterblaettern statt abzusenden, solange noch
+         Schritte offen sind — sonst entsteht ein halber Bedarf. */
+      form.addEventListener("keydown", function (e) {
+        if (e.key !== "Enter") return;
+        var ziel = e.target || {};
+        if (ziel.tagName === "TEXTAREA") return;
+        if (jetzt < SCHRITTE.length - 1) { e.preventDefault(); gehe(1); }
+      });
+
+      ortVorbelegen();
+      zeige();
+    }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
+
+    /* Fuer die Probe: der Schrittzustand ist sonst von aussen unsichtbar. */
+    window.__tcAssistent = {
+      schritte: SCHRITTE,
+      jetzt: function () { return jetzt; },
+      gehe: gehe,
+      zeige: zeige,
+      start: start,
+      vorbelegen: ortVorbelegen
+    };
   })();
   </script>
   <script src="/public/js/pageShell.js"></script>

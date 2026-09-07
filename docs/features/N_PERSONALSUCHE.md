@@ -308,7 +308,7 @@ einzigen Aufrufer.**
 > 2026-09-06 als **„N2.1" committet** wurde (`e4fd049`), ist inhaltlich **N2.3** dieser
 > Tabelle plus Abschnitt 4.4 — die Ableitung des Notdienstes aus dem Einsatzbeginn. Der
 > Commit-Titel bleibt stehen, wie er ist; die Zeile N2.3 unten trägt den Verweis. Das
-> eigentliche **N2.1 (die Schritte als Assistent) ist offen.**
+> eigentliche **N2.1 (die Schritte als Assistent) ist seit 2026-09-07 gebaut.**
 >
 > **Beim Bauen von N2.2 gemessen:** alle Felder stehen bereits auf
 > `marketplace_demand_create.html` — **Einsatzort** (`location_city`, `location_postal`,
@@ -324,7 +324,7 @@ einzigen Aufrufer.**
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|
-| N2.1 | **Vier Schritte**, die den **bestehenden** Bedarf erzeugen (M-L6: kein zweites Datenmodell) | Der Datensatz ist identisch mit dem der Formularseite |
+| N2.1 | **Fünf Schritte**, die den **bestehenden** Bedarf erzeugen (M-L6: kein zweites Datenmodell) | ✅ 2026-09-07 — der Ort vorn, vorbelegt aus dem aktiven Standort, änderbar. Die Felder werden **nicht verschoben**: das Skript ordnet die vorhandenen je einem Schritt zu |
 | N2.0 | **Der Marktplatz bekommt Koordinaten** — Vorbedingung dafür, dass „genauere Angaben erhöhen die Trefferqualität" wahr ist | ✅ 2026-09-06 — beide Seiten beim Anlegen, Bedarf vor dem Matching; PLZ über **Freitext**, weil die strukturierte Abfrage sie meist verschluckt |
 | N2.2 | **Preisvorschlag aus `smartPricing`** bei Frage 4, abhängig von Rolle, Region, Dringlichkeit | ✅ 2026-09-06 — in der Bedarfsanlage, entprellt; 403 verbirgt still und fragt nicht wieder |
 | N2.3 | **Notdienst-Hinweis**, wenn der Vorlauf ihn nahelegt | ✅ 2026-09-06 — **committet als „N2.1"** (`e4fd049`), siehe Hinweis oben; die Stufe wird abgeleitet statt gefragt (4.4) |
