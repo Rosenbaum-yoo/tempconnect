@@ -299,6 +299,22 @@ describe("Erreichbarkeit — die Wege, auf die es ankommt",
     }
   ];
 
+  /*
+   * WAS ALS "DAUERHAFT DA" ZAEHLT.
+   *
+   * Nachgetragen 2026-09-08 nach einer Rueckmutation, die UEBERLIEF: der
+   * dauerhafte Verweis wurde nicht geloescht, sondern AUSKOMMENTIERT — und die
+   * Probe blieb gruen. Genau so verschwinden Wege bei einem Umbau; haeufiger
+   * als durch Loeschen. Der Selbsttest unten deckte die Luecke nicht ab, weil
+   * er den NAMEN in einem Kommentar prueft, nicht ein href IN einem Kommentar.
+   *
+   * Skripte fallen raus, weil ihr Inhalt zustandsabhaengig ist (dafuer gibt es
+   * die Leerzustands-Probe). Kommentare fallen raus, weil sie nichts anzeigen.
+   */
+  const statischesMarkup = (quelle) => quelle
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<!--[\s\S]*?-->/g, "");
+
   const verweisMuster = (nach) =>
     new RegExp('href\\s*=\\s*"[^"]*' + nach.replace(/\./g, "\\."), "i");
 
@@ -320,8 +336,8 @@ describe("Erreichbarkeit — die Wege, auf die es ankommt",
        * Und auf das ATTRIBUT, nicht auf das Vorkommen des Namens: eine
        * Erwaehnung in einem Kommentar oder Woerterbuch-Eintrag ist kein Weg.
        */
-      const quelle = fs.readFileSync(path.join(PUB, weg.von), "utf8")
-        .replace(/<script[\s\S]*?<\/script>/gi, "");
+      const quelle = statischesMarkup(
+        fs.readFileSync(path.join(PUB, weg.von), "utf8"));
       assert.match(quelle, verweisMuster(weg.nach),
         `${weg.von} verlinkt ${weg.nach} nicht.\n  Warum das zaehlt: ${weg.grund}`);
     });
@@ -350,6 +366,19 @@ describe("Erreichbarkeit — die Wege, auf die es ankommt",
         "das Muster haelt eine blosse Erwaehnung faelschlich fuer einen Weg");
       assert.ok(muster.test(`<a href="/public/${weg.nach}">x</a>`),
         "das Muster erkennt einen echten Verweis nicht");
+
+      /*
+       * Und der Fall, der die erste Fassung ueberlebt hat: ein Verweis, der
+       * noch dasteht, aber auskommentiert ist. Das Muster allein sieht ihn —
+       * deshalb muss `statischesMarkup` ihn vorher wegnehmen.
+       */
+      const auskommentiert = `<!-- <a href="/public/${weg.nach}">x</a> -->`;
+      assert.ok(muster.test(auskommentiert),
+        "Vorbedingung: das Muster allein sieht auch den auskommentierten Verweis");
+      assert.ok(!muster.test(statischesMarkup(auskommentiert)),
+        "ein auskommentierter Verweis gilt faelschlich als Weg");
+      assert.ok(muster.test(statischesMarkup(`<a href="/public/${weg.nach}">x</a>`)),
+        "statischesMarkup verschluckt einen echten Verweis");
     });
   }
 });
