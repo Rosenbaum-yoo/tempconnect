@@ -30,6 +30,18 @@
          Fassung beim naechsten apply() ueberschreiben. -->
     <h1 id="search-page-h1">Personal finden</h1>
     <p style="color:var(--muted);margin:0 0 12px"><span data-i18n="srch.intro.auto">Automatisches Matching &amp; Notdienst Einmal Arbeitsplatzangebot definieren – passende Vorschläge kommen automatisch zu dir. Erstelle eine Suche für deinen Personalbedarf, z. B. „Staplerfahrer in Hamburg“, mit Startdatum und Einsatzdauer. Ab diesem Moment übernimmt das System: Neue passende Angebote werden automatisch erkannt Du erhältst sofort Benachrichtigungen bei relevanten Matches Kein manuelles Suchen mehr – nur noch entscheiden.</span><br><br><span data-i18n="srch.intro.urgent">Wenn es schnell gehen muss: Erstelle eine Notfall-Anfrage in wenigen Sekunden Das System informiert automatisch passende Anbieter in deinem Netzwerk Erste Rückmeldungen kommen in Echtzeit So kannst du kurzfristige Ausfälle oder Engpässe sofort abdecken – ohne Telefonketten oder E-Mail-Chaos.</span><br><br><span data-i18n="srch.intro.persist">Jede Suche wird automatisch als persistenter Suchauftrag gespeichert und sofort gematcht. Neue Treffer werden laufend benachrichtigt.</span></p>
+    <!-- N2.6 - der Weg von hier zum Assistenten.
+         Owner-Vorgabe: die Bedarfsanlage ist "erreichbar aus der Personalsuche,
+         nicht von einer eigenen Seite". Sie war von mehreren Stellen aus
+         verlinkt, ausgerechnet von hier aber nicht — und hier sucht das
+         Unternehmen. Wer nichts findet, soll nicht die Seite wechseln muessen,
+         um es auszuschreiben. -->
+    <p id="bedarfWeg" style="margin:0 0 16px;font-size:13.5px;color:var(--muted)">
+      <span data-i18n="srch.cta.lead">Nichts Passendes dabei?</span>
+      <a href="/public/marketplace_demand_create.html" class="btn primary"
+         style="margin-left:8px;padding:6px 14px;font-size:13px"
+         data-i18n="srch.cta.create">Bedarf ausschreiben</a>
+    </p>
     <form id="searchForm" class="card" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;align-items:end">
       <div>
         <label for="role" data-i18n="srch.form.role">Rolle</label>
@@ -344,6 +356,8 @@
       'srch.result.jobLabel': 'Suchauftrag:',
       'srch.result.statusLabel': 'Status:',
       'srch.result.pulseLabel': 'Pulse:',
+      'srch.cta.lead': 'Nichts Passendes dabei?',
+      'srch.cta.create': 'Bedarf ausschreiben',
       'srch.result.noMatches': 'Keine Matches gefunden. Der Suchauftrag läuft weiter – Sie werden bei neuen Matches benachrichtigt.',
       'srch.result.noMatchesLoc': 'Keine Matches für Standort {loc}. Der Suchauftrag läuft weiter – Sie werden bei neuen Matches benachrichtigt.',
       'srch.result.score': 'Score:',
@@ -467,6 +481,8 @@
       'srch.result.jobLabel': 'Search request:',
       'srch.result.statusLabel': 'Status:',
       'srch.result.pulseLabel': 'Pulse:',
+      'srch.cta.lead': 'Nothing suitable?',
+      'srch.cta.create': 'Post a staffing need',
       'srch.result.noMatches': 'No matches found. The search request stays active – you will be notified about new matches.',
       'srch.result.noMatchesLoc': 'No matches for location {loc}. The search request stays active – you will be notified about new matches.',
       'srch.result.score': 'Score:',
@@ -633,7 +649,14 @@
           html += '<div class="card" style="margin-bottom:12px;padding:12px"><span style="color:var(--muted);font-size:13px">' + esc(TCi18n.t('srch.result.jobLabel')) + ' <strong>' + esc(job.title || '–') + '</strong> – ' + esc(TCi18n.t('srch.result.statusLabel')) + ' ' + esc(job.status || 'open') + (job.sla_status ? ' – ' + esc(TCi18n.t('srch.result.pulseLabel')) + ' ' + esc(job.sla_status) : '') + '</span></div>';
           if (matches.length === 0) {
             var matchLocLbl = getLocLabel();
-            html += '<div class="empty">' + esc(matchLocLbl ? TCi18n.t('srch.result.noMatchesLoc', { loc: matchLocLbl }) : TCi18n.t('srch.result.noMatches')) + '</div>';
+            /* N2.6 - genau hier braucht der Kunde den Weg: er hat gesucht und
+               nichts gefunden. Ein Hinweis ohne naechsten Schritt ist eine
+               Sackgasse. */
+            html += '<div class="empty">'
+              + esc(matchLocLbl ? TCi18n.t('srch.result.noMatchesLoc', { loc: matchLocLbl }) : TCi18n.t('srch.result.noMatches'))
+              + '<div style="margin-top:10px"><a href="/public/marketplace_demand_create.html" class="btn primary" style="padding:6px 14px;font-size:13px">'
+              + esc(TCi18n.t('srch.cta.create')) + '</a></div>'
+              + '</div>';
           } else {
             matches.forEach(function(m) {
               var name = esc(m.capacity_title || m.demand_title || '–');

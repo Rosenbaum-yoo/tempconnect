@@ -264,3 +264,92 @@ describe("Erreichbarkeit — keine Seite, die nur ihre URL kennt",
       "eine tote Seite und eine im Register begruendete Ausnahme sind kein Befund");
   });
 });
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * N2.6 — BESTIMMTE WEGE, NICHT NUR IRGENDEINER
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Der Waechter oben fragt: "ist diese Seite von IRGENDWO erreichbar?" Das ist
+ * die richtige Grundfrage, aber sie war fuer die Bedarfsanlage schon gruen,
+ * als der Weg fehlte, auf den es ankommt.
+ *
+ * Owner-Vorgabe (Welle N, Phase N2.6): die Bedarfsanlage ist "erreichbar aus
+ * der PERSONALSUCHE, nicht von einer eigenen Seite". Gemessen am 2026-09-07
+ * verlinkten sie `marketplace_demand_list`, `enterprise`, `notdienst_leitstand`
+ * und `matching_results` — ausgerechnet `capacity_search` nicht. Also genau die
+ * Flaeche, auf der ein Unternehmen sucht und nichts findet.
+ *
+ * Ein Weg, den niemand festhaelt, faellt beim naechsten Umbau still wieder
+ * heraus. Deshalb steht hier nicht "irgendwo verlinkt", sondern WOHER WOHIN.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("Erreichbarkeit — die Wege, auf die es ankommt",
+  { skip: !vorhanden && "Repo-Wurzel nicht gefunden" }, () => {
+
+  const PUB = vorhanden ? path.join(ROOT, "frontend/public") : null;
+
+  /** Von → Nach, mit dem Grund, warum genau dieser Weg zaehlt. */
+  const WEGE = [
+    {
+      von: "capacity_search.html",
+      nach: "marketplace_demand_create.html",
+      grund: "Wer Personal sucht und nichts findet, muss den Bedarf ausschreiben "
+        + "koennen, ohne die Flaeche zu wechseln (N2.6)."
+    }
+  ];
+
+  const verweisMuster = (nach) =>
+    new RegExp('href\\s*=\\s*"[^"]*' + nach.replace(/\./g, "\\."), "i");
+
+  for (const weg of WEGE) {
+    it(`${weg.von} fuehrt zu ${weg.nach}`, () => {
+      /*
+       * ERST NACH ZWEI RUECKMUTATIONEN RICHTIG.
+       *
+       * Die erste Fassung fragte nur, ob IRGENDWO auf der Seite ein Verweis
+       * steht. Damit war sie auch dann gruen, wenn der dauerhafte Weg entfernt
+       * wurde und nur noch der im Leerzustand uebrig blieb — der erscheint aber
+       * erst, wenn eine Suche null Treffer hatte. Wer noch nicht gesucht hat
+       * oder wer Treffer bekam, haette dann keinen Weg.
+       *
+       * Geprueft wird deshalb das STATISCHE Markup: die Skriptbloecke werden
+       * herausgeschnitten, und der Verweis muss in dem stehen, was uebrig
+       * bleibt. Das ist der Weg, der unabhaengig von jedem Zustand da ist.
+       *
+       * Und auf das ATTRIBUT, nicht auf das Vorkommen des Namens: eine
+       * Erwaehnung in einem Kommentar oder Woerterbuch-Eintrag ist kein Weg.
+       */
+      const quelle = fs.readFileSync(path.join(PUB, weg.von), "utf8")
+        .replace(/<script[\s\S]*?<\/script>/gi, "");
+      assert.match(quelle, verweisMuster(weg.nach),
+        `${weg.von} verlinkt ${weg.nach} nicht.\n  Warum das zaehlt: ${weg.grund}`);
+    });
+
+    it(`${weg.von} bietet ${weg.nach} auch im Leerzustand an`, () => {
+      /*
+       * Der zweite, kontextbezogene Weg: wer gesucht und nichts gefunden hat,
+       * braucht den naechsten Schritt DORT, wo die Enttaeuschung steht. Ein
+       * Hinweis ohne naechsten Schritt ist eine Sackgasse.
+       */
+      const quelle = fs.readFileSync(path.join(PUB, weg.von), "utf8");
+      const leerzweig = /matches\.length === 0[\s\S]{0,900}/.exec(quelle);
+      assert.ok(leerzweig, "der Leerzustand ist nicht mehr auffindbar");
+      assert.match(leerzweig[0], verweisMuster(weg.nach),
+        "der Leerzustand nennt keinen naechsten Schritt");
+    });
+
+    it(`der Waechter haelt eine blosse Erwaehnung von ${weg.nach} nicht fuer einen Weg`, () => {
+      /*
+       * SELBSTTEST des Musters oben. Ohne ihn koennte jemand die Pruefung auf
+       * `includes(name)` zurueckbauen — sie bliebe gruen, und ein Weg, der nur
+       * noch als Wort im Kommentar existiert, gaelte als vorhanden.
+       */
+      const muster = verweisMuster(weg.nach);
+      assert.ok(!muster.test(`<!-- siehe ${weg.nach} --> <p>${weg.nach}</p>`),
+        "das Muster haelt eine blosse Erwaehnung faelschlich fuer einen Weg");
+      assert.ok(muster.test(`<a href="/public/${weg.nach}">x</a>`),
+        "das Muster erkennt einen echten Verweis nicht");
+    });
+  }
+});
