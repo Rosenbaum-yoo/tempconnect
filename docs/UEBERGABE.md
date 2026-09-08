@@ -30,7 +30,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 
 ---
 
-## Wo wir gerade stehen *(2026-08-29)*
+## Wo wir gerade stehen *(2026-09-08)*
 
 | Spur | Gegenstand | Stand |
 |---|---|---|
@@ -42,7 +42,14 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | ✅ **vollständig gebaut** — Mig 208 + 209, `werbepraemieService`, 26 Proben, **16 Rückmutationen** |
 | **K3** | Monatsplanung | **✅ ABGESCHLOSSEN** — zwei Achsen (Einsätze / Mitarbeiter), Konfliktvorschau vor dem Schreiben, in der Navigation, gehärtet (Indizes, Zeitzone, Mutation Testing) |
 | **L** | Tragfähigkeit / Hochverfügbarkeit | dokumentiert, **nicht gebaut** (eigener Abschnitt, Owner-Vorgabe) |
-| **M** | Marktplatz-Flow Ende zu Ende (19 Schritte) | **gemessen und geplant** (2026-09-01), noch nicht gebaut — zwölf Wellen M0–M11 |
+| **M** | Marktplatz-Flow Ende zu Ende (19 Schritte) | **M0–M3 gebaut** (2026-09-02–6), M4.8 + M4b.1 angefangen. **M1.1 Takt-Herzschlag steht** — Mig 212, `betriebsTaktService.js`, Staff-CC-Kachel. M4–M11 offen |
+| **N** | Personalsuche: die Unternehmenssicht | **im Bau** — N1/N1b (Katalog auf beiden Marktseiten), N2.0–N2.4 (Ort als Frage 0, Notdienst abgeleitet, Treffer-Vorschau), N4/N4.4, N7.1–7.5 gebaut. **N3, N5, N6 offen** |
+| **O** | Rahmenbedingungen und Passung | geplant, nicht gebaut. **Befund:** `contracts`/`framework` ist modelliert, der Buchungsweg liest ihn **null mal** |
+| **P** | Altlasten-Register (A entfernen / B anschließen / C behalten / D messen) | Register steht, **nicht abgearbeitet**. Klasse B hat sieben Posten — wer dort aufräumt, löscht geplante Fähigkeiten |
+| **Q** | Zuverlässigkeit, Zeugnis, Abwesenheit | geplant, nicht gebaut. Skala **ohne Gesundheitsdaten** und **nicht heimlich**; Zeugnis nur als Entwurf |
+| **R** | Die Sicht der Zeitarbeitsfirma | geplant, nicht gebaut. **Befund:** 17 Flächen, **4 in der Navigation** — die tägliche Stundenzettel-Prüfung (10 Endpunkte) in keiner |
+| **S** | Abhängigkeiten laufen wieder glatt | geplant. **Übergangslösung aktiv:** `@pdf-lib/fontkit` mit `--no-save --legacy-peer-deps` nachinstalliert, steht **nicht** im `package-lock.json`. Der Peer-Konflikt ist umgangen, nicht gelöst |
+| **T** | Das monatliche Marktaudit + Wertermittlung | geplant. Antwortet **in Fähigkeiten statt Zahlen**, führt die **Schulden daneben**, beziffert **Wiederherstellungsaufwand** statt Plattformwert |
 
 > **Der wichtigste Befund der M-Messung, weil er alles andere betrifft:**
 > **Die Marktplatz-Automatik läuft nicht.** Der Mechanismus ist vollständig gebaut
@@ -1997,6 +2004,8 @@ zurückziehen müssen.**
 
 | Plan | Inhalt |
 |---|---|
+| [features/T_MARKTAUDIT.md](features/T_MARKTAUDIT.md) | **Das monatliche Audit.** Nicht ein zweiter Messweg, sondern **das fehlende Gedaechtnis**: `doku-generieren.js` prueft die Zahl von heute, hebt sie aber nicht auf — deshalb laesst sich nicht sagen, was sich veraendert hat. Der Bericht antwortet **in Faehigkeiten statt in Zahlen** (je Satz drei Belege: Endpunkt · Aufrufer · Waechter; fehlt einer, gilt sie als *halb*) und fuehrt die **Schulden daneben** — ein Bericht, der nur waechst, ist Werbung. **Wertermittlung als Wiederherstellungsaufwand in Personenmonaten mit Spanne, nie ein Euro-Betrag als Wert der Plattform.** |
+| [features/S_ABHAENGIGKEITEN.md](features/S_ABHAENGIGKEITEN.md) | **Der Peer-Konflikt ist ein Symptom.** Nach dem Merge startete der Container 26-mal nicht (`@pdf-lib/fontkit` fehlte), und `npm install` scheiterte am `bullmq`/`redis`-Konflikt. **Gemessen:** `redis` steht in `package.json` und wird in **genau einer Datei** benutzt (`rateLimit.js:7`), waehrend `ioredis` **undeklariert** ueber `bullmq` mitkommt. Zwei Klienten fuer dieselbe Sache. Empfehlung **C: node-redis abloesen**. Dazu S4 — der Container bedient den **Hauptbaum**, nicht den Worktree. |
 | [features/P_ALTLASTEN.md](features/P_ALTLASTEN.md) | **Das Altlasten-Register.** Vier Klassen: **A entfernen · B anschließen (sieht tot aus, ist geplant) · C behalten · D erst messen**. Die Unterscheidung A/B ist der Kern — tot und noch-nicht-angeschlossen sehen identisch aus und verlangen das Gegenteil. **Klasse B hat sieben Posten; wer dort aufräumt, löscht geplante Fähigkeiten.** |
 | [features/R_ZEITARBEITSFIRMA.md](features/R_ZEITARBEITSFIRMA.md) | **Die Sicht der Zeitarbeitsfirma.** **Befund:** sie hat keinen Ort, sie hat **17** — davon **4 in der Navigation**. Die tägliche Stundenzettel-Prüfung (10 Endpunkte) steht in keiner. Die Welle baut nicht mehr Funktionen, sondern **einen Ort und einen Tag**. Abgeleitet, weil die Flow-Vorgabe des Owners nie kam — Annahmen sind gekennzeichnet. |
 | [features/Q_ZUVERLAESSIGKEIT_ZEUGNIS.md](features/Q_ZUVERLAESSIGKEIT_ZEUGNIS.md) | **Zuverlässigkeit, Zeugnis, Abwesenheit.** Skala **ohne Krankmeldungen** und **nicht heimlich** (Art. 9 / Art. 15 / § 87 BetrVG); Zeugnis als **Entwurf**, nie automatisch ausgestellt; Verspätung und Krankmeldung **lösen sich ab statt sich zu sperren**. |
