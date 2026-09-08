@@ -42,6 +42,11 @@
     .as-hinweis{margin:0 0 12px;font-size:12.5px;color:var(--muted,#8d9bba);line-height:1.5}
     .as-fuss{display:flex;gap:8px;align-items:center;margin-top:16px;flex-wrap:wrap}
     .as-zaehler{margin-left:auto;font-size:12px;color:var(--muted,#8d9bba)}
+    /* N2.4 - die Trefferzahl. Ruhig gehalten: sie ist eine Auskunft, kein
+       Versprechen, und sie steht neben dem Schrittzaehler statt darueber. */
+    .as-treffer{font-size:12.5px;color:var(--muted,#8d9bba)}
+    .as-treffer b{color:var(--fg,#e8ecf6);font-weight:800}
+    .as-treffer[data-leer="ja"] b{color:var(--danger,#f87171)}
     form[data-assistent="an"] .as-verborgen{display:none}
     .as-fehler{color:var(--danger,#f87171);font-size:12.5px;margin-top:8px}
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -170,6 +175,7 @@
         <button type="button" class="btn" id="asZurueck" hidden data-i18n="dem.create.as.back">Zurück</button>
         <button type="button" class="btn primary" id="asWeiter" hidden data-i18n="dem.create.as.next">Weiter</button>
         <button type="submit" class="btn primary" id="submitBtn" data-i18n="dem.create.submit">Nachfrage absenden</button>
+        <span class="as-treffer" id="asTreffer" hidden aria-live="polite"></span>
         <span class="as-zaehler" id="asZaehler" hidden></span>
       </div>
       <div class="as-fehler" id="asFehler" hidden aria-live="polite"></div>
@@ -231,6 +237,9 @@
         'dem.create.as.s4': 'Wie teuer d\u00fcrfen sie einzeln sein?',
         'dem.create.as.s4h': 'Der Vorschlag ist ein Vorschlag \u2014 keine Vorgabe.',
         'dem.create.as.required': 'Bitte f\u00fcllen Sie die Pflichtfelder dieses Schritts aus.',
+        'dem.create.as.hits': 'Mit diesen Angaben: <b>{n}</b> Kr\u00e4fte im Umkreis',
+        'dem.create.as.hitsOne': 'Mit diesen Angaben: <b>1</b> Kraft im Umkreis',
+        'dem.create.as.hitsNone': 'Mit diesen Angaben: <b>niemand</b> im Umkreis \u2014 gr\u00f6\u00dferer Radius oder weniger F\u00e4higkeiten hilft',
         'dem.create.preis.gueteHoch': 'gut belegt',
         'dem.create.preis.gueteMittel': 'belegt',
         'dem.create.preis.gueteNiedrig': 'd\u00fcnne Datenlage',
@@ -314,6 +323,9 @@
         'dem.create.as.s4': 'What may each of them cost?',
         'dem.create.as.s4h': 'The suggestion is a suggestion \u2014 not a requirement.',
         'dem.create.as.required': 'Please fill in the required fields of this step.',
+        'dem.create.as.hits': 'With these details: <b>{n}</b> workers within range',
+        'dem.create.as.hitsOne': 'With these details: <b>1</b> worker within range',
+        'dem.create.as.hitsNone': 'With these details: <b>nobody</b> within range \u2014 a wider radius or fewer skills helps',
         'dem.create.preis.gueteHoch': 'well evidenced',
         'dem.create.preis.gueteMittel': 'evidenced',
         'dem.create.preis.gueteNiedrig': 'thin data',
@@ -1023,6 +1035,135 @@
         .catch(function () { /* Vorbelegung ist Zugabe, nie Bedingung */ });
     }
 
+    /* ═══════════════════════════════════════════════════════════════════
+     * N2.4 — DIE TREFFER-VORSCHAU
+     * ═══════════════════════════════════════════════════════════════════
+     *
+     * "Mit diesen Angaben: 23 Kraefte" — und die Zahl aendert sich mit jedem
+     * Schritt.
+     *
+     * SIE KOMMT AUS DEMSELBEN ENDPUNKT, DESSEN ERGEBNIS DER KUNDE SPAETER
+     * SIEHT (`/capacity-exchange/feed`, `limit=1`, nur `total` gelesen). Ein
+     * eigener Zaehler waere eine zweite Wahrheit ueber denselben Markt — und
+     * die beiden liefen beim ersten Regelwechsel auseinander. Nebenbei zaehlt
+     * der Feed damit auch die Sperrliste dieses Unternehmens richtig mit: wer
+     * hier gesperrt ist, erscheint nicht in der Zahl.
+     *
+     * DIE ZAHL WURDE ERST BELASTBAR GEMACHT. Vor Welle N2.4 addierte `total`
+     * beide Marktseiten (ein Unternehmen las 23 und sah 6), und vor N2.4b
+     * kannte sie den Umkreis nicht. Ohne diese beiden Reparaturen waere die
+     * Vorschau eine huebsche Luege gewesen.
+     *
+     * DER PUNKT WIRD GENAUSO BESTIMMT WIE SPAETER AM SERVER: Freitext
+     * "<PLZ> <Ort>", sonst der Ort allein — dieselbe Reihenfolge wie in
+     * `marktGeoService`. Sonst zaehlte die Vorschau gegen einen anderen Punkt
+     * als den, den der angelegte Bedarf bekommt.
+     */
+    var vorschauLauf = 0;
+    var vorschauZeitgeber = null;
+    var ortSpeicher = {};   // ein Ort wird EINMAL aufgeloest, nicht je Tastendruck
+
+    function vorschauWert(id) {
+      var el = document.getElementById(id);
+      return el ? String(el.value || "").trim() : "";
+    }
+
+    function punktFuer(plz, ort) {
+      if (!ort && !plz) return Promise.resolve(null);
+      var schluessel = (plz || "") + "|" + (ort || "");
+      if (Object.prototype.hasOwnProperty.call(ortSpeicher, schluessel)) {
+        return Promise.resolve(ortSpeicher[schluessel]);
+      }
+      var hole = function (pfad) {
+        return fetch("/api" + pfad, { credentials: "include" })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+      };
+      var erste = plz
+        ? hole("/geo/coordinates?q=" + encodeURIComponent(plz + (ort ? " " + ort : "")))
+        : hole("/geo/coordinates?q=" + encodeURIComponent(ort));
+      return erste.then(function (p) {
+        if (p || !plz) return p;
+        return hole("/geo/coordinates?postal_code=" + encodeURIComponent(plz)
+          + "&city=" + encodeURIComponent(ort));
+      }).then(function (p) {
+        /* Auch ein Misserfolg wird gemerkt — sonst fragt jede Tastenpause
+           denselben unbekannten Ort erneut bei einem fremden Dienst. */
+        ortSpeicher[schluessel] = p || null;
+        return p || null;
+      });
+    }
+
+    function zeigeTreffer(anzahl) {
+      var ziel = document.getElementById("asTreffer");
+      if (!ziel) return;
+      if (anzahl === null) { ziel.hidden = true; ziel.innerHTML = ""; ziel.removeAttribute("data-leer"); return; }
+      var text = anzahl === 0
+        /* Der Rueckfalltext sagt DASSELBE wie der Woerterbucheintrag. Sagte er
+           weniger, bekaeme ausgerechnet der, dessen Woerterbuch nicht geladen
+           hat, den hilfreichen Teil nicht — und niemand faende je heraus warum. */
+        ? t("dem.create.as.hitsNone", "Mit diesen Angaben: <b>niemand</b> im Umkreis — größerer Radius oder weniger Fähigkeiten hilft")
+        : (anzahl === 1
+            ? t("dem.create.as.hitsOne", "Mit diesen Angaben: <b>1</b> Kraft im Umkreis")
+            : t("dem.create.as.hits", "Mit diesen Angaben: <b>{n}</b> Kr\u00e4fte im Umkreis"));
+      /* Nur die Zahl wird eingesetzt, und sie ist eine Zahl — der Text kommt
+         aus dem eigenen Woerterbuch, nicht von aussen. */
+      ziel.innerHTML = String(text).replace("{n}", String(Number(anzahl) || 0));
+      if (anzahl === 0) ziel.setAttribute("data-leer", "ja"); else ziel.removeAttribute("data-leer");
+      ziel.hidden = false;
+    }
+
+    function holeTreffer() {
+      var ort = vorschauWert("location_city");
+      var plz = vorschauWert("location_postal");
+      /* Ohne Ort gibt es nichts zu zaehlen — und der Ort ist der erste
+         Schritt, also ist das nur ganz am Anfang der Fall. */
+      if (!ort && !plz) { zeigeTreffer(null); return Promise.resolve(null); }
+
+      var lauf = ++vorschauLauf;
+      return punktFuer(plz, ort).then(function (punkt) {
+        /*
+         * OHNE PUNKT KEINE ZAHL. Ein Zaehlen ohne Umkreis ergaebe eine ganz
+         * andere Groesse — "alle Kraefte der Plattform" — und der Satz
+         * darueber behauptete trotzdem "im Umkreis". Lieber nichts sagen als
+         * etwas anderes zaehlen, als dasteht.
+         */
+        if (lauf !== vorschauLauf) return null;
+        if (!punkt) { zeigeTreffer(null); return null; }
+
+        var radius = vorschauWert("radius_km") || "25";
+        var rolle = vorschauWert("role");
+        var faehigkeiten = vorschauWert("skill_tags");
+        var frage = "/api/capacity-exchange/feed?limit=1"
+          + "&latitude=" + encodeURIComponent(punkt.lat)
+          + "&longitude=" + encodeURIComponent(punkt.lng)
+          + "&radius_km=" + encodeURIComponent(radius)
+          + (ort ? "&city=" + encodeURIComponent(ort) : "")
+          + (rolle ? "&role=" + encodeURIComponent(rolle) : "")
+          + (faehigkeiten ? "&skill_tags=" + encodeURIComponent(faehigkeiten) : "");
+
+        return fetch(frage, { credentials: "include" })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            if (lauf !== vorschauLauf) return null;   // eine juengere Antwort ist da
+            if (!d || typeof d.total !== "number") { zeigeTreffer(null); return null; }
+            zeigeTreffer(d.total);
+            return d.total;
+          })
+          .catch(function () {
+            if (lauf === vorschauLauf) zeigeTreffer(null);
+            return null;
+          });
+      });
+    }
+
+    function vorschauAngestossen() {
+      /* Entprellt und laenger als beim Preis: hier haengt ein fremder
+         Kartendienst dahinter. */
+      if (vorschauZeitgeber) clearTimeout(vorschauZeitgeber);
+      vorschauZeitgeber = setTimeout(holeTreffer, 600);
+    }
+
     function start() {
       form = document.getElementById("demandForm") || document.querySelector("form");
       leiste = document.getElementById("asLeiste");
@@ -1051,6 +1192,16 @@
         if (jetzt < SCHRITTE.length - 1) { e.preventDefault(); gehe(1); }
       });
 
+      /* N2.4: alles, was die Zahl aendert. `skill_tags` ist ein verstecktes
+         Feld — der Katalogwaehler meldet seine Auswahl seit N2.4 per
+         `change`, sonst kaeme hier nie etwas an. */
+      ["location_city", "location_postal", "radius_km", "role", "skill_tags"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener("input", vorschauAngestossen);
+        el.addEventListener("change", vorschauAngestossen);
+      });
+
       ortVorbelegen();
       zeige();
     }
@@ -1060,6 +1211,9 @@
 
     /* Fuer die Probe: der Schrittzustand ist sonst von aussen unsichtbar. */
     window.__tcAssistent = {
+      treffer: holeTreffer,
+      trefferAnstoss: vorschauAngestossen,
+      punktFuer: punktFuer,
       schritte: SCHRITTE,
       jetzt: function () { return jetzt; },
       gehe: gehe,

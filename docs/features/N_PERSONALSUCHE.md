@@ -328,7 +328,7 @@ einzigen Aufrufer.**
 | N2.0 | **Der Marktplatz bekommt Koordinaten** — Vorbedingung dafür, dass „genauere Angaben erhöhen die Trefferqualität" wahr ist | ✅ 2026-09-06 — beide Seiten beim Anlegen, Bedarf vor dem Matching; PLZ über **Freitext**, weil die strukturierte Abfrage sie meist verschluckt |
 | N2.2 | **Preisvorschlag aus `smartPricing`** bei Frage 4, abhängig von Rolle, Region, Dringlichkeit | ✅ 2026-09-06 — in der Bedarfsanlage, entprellt; 403 verbirgt still und fragt nicht wieder |
 | N2.3 | **Notdienst-Hinweis**, wenn der Vorlauf ihn nahelegt | ✅ 2026-09-06 — **committet als „N2.1"** (`e4fd049`), siehe Hinweis oben; die Stufe wird abgeleitet statt gefragt (4.4) |
-| N2.4 | **Treffer-Vorschau live**: „mit diesen Angaben: 23 Kräfte" — ändert sich mit jedem Schritt | ⏳ **Zahl ist jetzt belastbar** (2026-09-06/07): eigene Marktseite **und** Umkreis. Nachweis geführt: 25 km → 9, 300 km → 11, 400 km → 13. Offen bleibt die **Anzeige** im Formular |
+| N2.4 | **Treffer-Vorschau live**: „mit diesen Angaben: 23 Kräfte" — ändert sich mit jedem Schritt | ✅ 2026-09-07 — die Zahl kommt aus **demselben Endpunkt**, dessen Ergebnis der Kunde später sieht (`feed`, `limit=1`, nur `total`). Reagiert auf Ort, PLZ, Umkreis, Rolle und Fähigkeiten |
 | N2.5 | **Abbrechen verliert nichts** — der halbfertige Bedarf bleibt Entwurf | Modal schließen, wiederkommen, Stand ist da |
 | N2.6 | **Erreichbar aus der Personalsuche**, nicht von einer eigenen Seite | Klickpfad vom Hub bis zum Assistenten. Die Fläche ist `capacity_search.html` („Personal finden"); sie verlinkt die Bedarfsanlage heute **gar nicht** |
 

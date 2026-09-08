@@ -213,7 +213,24 @@
     var verworfen = [];
 
     function schreibeZurueck() {
-      if (feld) feld.value = gewaehlt.join(", ");
+      if (feld) {
+        feld.value = gewaehlt.join(", ");
+        /*
+         * MELDEN, NICHT NUR SCHREIBEN (N2.4, 2026-09-07).
+         *
+         * Ein per Skript gesetzter Wert loest von sich aus KEIN `change` aus.
+         * Wer auf dieses versteckte Feld hoert — die Treffer-Vorschau tut das —
+         * bekaeme von einer Auswahl nie etwas mit und muesste stattdessen
+         * pollen. Das Ereignis gehoert an die Stelle, die den Wert aendert.
+         *
+         * `bubbles`, damit auch ein Zuhoerer am Formular es sieht. Der
+         * `onChange`-Rueckruf bleibt daneben bestehen: er ist der direkte Weg
+         * fuer den Einbauer, das Ereignis der offene fuer alle anderen.
+         */
+        try {
+          feld.dispatchEvent(new Event("change", { bubbles: true }));
+        } catch (e) { /* aeltere Umgebungen: der Rueckruf unten genuegt */ }
+      }
       if (typeof opt.onChange === "function") opt.onChange(gewaehlt.slice());
     }
 
