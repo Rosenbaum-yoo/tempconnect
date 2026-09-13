@@ -171,6 +171,22 @@ describe("N2.4 · die Zahl kommt aus dem Feed", { skip: !da && "Seite fehlt" }, 
     assert.ok(u.indexOf("skill_tags=") >= 0, "die Faehigkeiten fehlen");
   });
 
+  it("KEIN Stadtfilter neben dem Umkreis — sonst heisst 'im Umkreis' 'in genau dieser Stadt'", async () => {
+    /*
+     * N2.7, Befund der Pruefung vom 12.09. Die Vorschau schickte `&city=`
+     * mit; die Feed-Route macht daraus einen EXAKTEN Vergleich des
+     * Stadtnamens. Ein Angebot in Norderstedt (20 km, mit Koordinaten) fiel bei
+     * "Hamburg, 50 km" heraus — und die Vorschau riet zu einem groesseren
+     * Radius, der daran nichts aenderte. Der Punkt steht schon fuer den Ort.
+     */
+    const v = bereit();
+    await v.sandkasten._treffer();
+    const feed = v.wege.filter((w) => w.indexOf("/capacity-exchange/feed") >= 0);
+    assert.strictEqual(feed.length, 1);
+    assert.ok(!/[?&]city=/.test(feed[0]), "die Vorschau filtert zusaetzlich auf den Stadtnamen: " + feed[0]);
+    assert.ok(feed[0].indexOf("latitude=") >= 0, "ohne Stadtfilter muss der Punkt den Ort tragen");
+  });
+
   it("die Zahl aus `total` steht auf dem Schirm", async () => {
     const v = bereit({ feedTotal: 23 });
     await v.sandkasten._treffer();
@@ -179,14 +195,23 @@ describe("N2.4 · die Zahl kommt aus dem Feed", { skip: !da && "Seite fehlt" }, 
     assert.ok(v.ziel.innerHTML.indexOf("{n}") < 0, "der Platzhalter steht woertlich da");
   });
 
-  it("eine Kraft ist Einzahl, keine ist ein Hinweis", async () => {
+  it("ein Angebot ist Einzahl, keines ist ein Hinweis", async () => {
+    /*
+     * KORRIGIERT IN N2.7. Hier stand "1 Kraft" und "niemand". Gezaehlt werden
+     * aber ANGEBOTE — `total` des Feeds —, und ein Sammelangebot traegt oft
+     * mehrere Personen. "3 Kraefte" bei 24 verfuegbaren liess einen Kunden, der
+     * zehn braucht, abbrechen, obwohl ein einziges Angebot gereicht haette. Die
+     * Probe schrieb die unwahre Beschriftung als Soll fest; die Zusage — Einzahl,
+     * Null mit Hinweis, gekennzeichnete Leere — bleibt unveraendert.
+     */
     const eins = bereit({ feedTotal: 1 });
     await eins.sandkasten._treffer();
-    assert.ok(/<b>1<\/b> Kraft/.test(eins.ziel.innerHTML), "Einzahl fehlt: " + eins.ziel.innerHTML);
+    assert.ok(/<b>1<\/b> Angebot\b/.test(eins.ziel.innerHTML), "Einzahl fehlt: " + eins.ziel.innerHTML);
+    assert.ok(!/Kr(ä|\\u00e4|ae)ft/.test(eins.ziel.innerHTML), "die Zahl nennt wieder Menschen statt Angebote");
 
     const keins = bereit({ feedTotal: 0 });
     await keins.sandkasten._treffer();
-    assert.ok(keins.ziel.innerHTML.indexOf("niemand") >= 0, "die Null sagt nichts: " + keins.ziel.innerHTML);
+    assert.ok(keins.ziel.innerHTML.indexOf("kein Angebot") >= 0, "die Null sagt nichts: " + keins.ziel.innerHTML);
     assert.strictEqual(keins.ziel._attr["data-leer"], "ja", "die Null ist nicht als solche gekennzeichnet");
     assert.ok(/Radius|Fähigkeiten/.test(keins.ziel.innerHTML),
       "bei null Treffern fehlt der Hinweis, was hilft");

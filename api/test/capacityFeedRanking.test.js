@@ -258,7 +258,16 @@ describe("capacity feed ranking hierarchy", () => {
       }
     };
 
-    await browseFeed(pool, { viewer_role: "agency", availability_window: "immediate", availability_from: "2026-04-15", limit: 25, page: 1 });
+    /* Zwei Betrachter statt einem (nachgezogen in N2.7). Hier stand nur eine
+       Zeitarbeitsfirma — und die Probe setzte damit voraus, dass sie ANGEBOTE
+       holt, die sie nie sieht. Genau das war der Fehler: diese Zeilen
+       verbrauchten ihre Seite und flogen danach wieder raus. Seit N2.7 holt
+       jede Rolle nur ihre eigene Marktseite. Die Zusage dieser Probe — das
+       Fenster "sofort" steht in BEIDEN Abfragen — bleibt unveraendert; sie wird
+       mit dem Betrachter geprueft, der die jeweilige Seite wirklich holt. */
+    const fenster = { availability_window: "immediate", availability_from: "2026-04-15", limit: 25, page: 1 };
+    await browseFeed(pool, { viewer_role: "company", ...fenster });
+    await browseFeed(pool, { viewer_role: "agency", ...fenster });
     assert.match(supplyCountSql, /cp\.availability_from <=/);
     assert.match(supplyCountSql, /cp\.availability_to/);
     assert.match(supplyListSql, /cp\.availability_from <=/);

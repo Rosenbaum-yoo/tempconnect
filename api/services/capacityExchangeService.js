@@ -901,30 +901,78 @@ export async function browseFeed(pool, opts = {}) {
   const total = (supplyGesehen ? (supplyCount[0]?.cnt ?? 0) : 0)
               + (demandGesehen ? (demandCount[0]?.cnt ?? 0) : 0);
 
-  // Fetch supply entries
-  const supplyParams = [...params, limit, offset];
-  const { rows: rawSupplyRows } = await pool.query(
-    `${supplyCte} ORDER BY ${umkreis ? "_distance_km ASC, " : ""}sort_date DESC`
-    + ` LIMIT $${idx} OFFSET $${idx + 1}`, supplyParams);
-  let supplyRows = await enrichCapacityEntries(pool, rawSupplyRows, { viewerUserId });
-  supplyRows = supplyRows.filter((row) => row.visible_to_viewer);
-  if (opts.min_headcount) {
-    supplyRows = supplyRows.filter((row) => row.remaining_headcount >= Number(opts.min_headcount));
-  }
-  supplyRows = supplyRows.filter((row) => row.status !== 'active' || row.remaining_headcount > 0);
-  supplyRows.forEach(r => { r.feed_type = 'supply'; });
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * N2.7 — JEDE MARKTSEITE BLAETTERT RICHTIG (Pruefung vom 12.09.)
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Hier holte der Feed ZUERST Angebote (mit OFFSET) und DANACH Bedarfe — aber
+   * nur "den Rest der Seite" und OHNE OFFSET. Drei Folgen, alle bestaetigt:
+   *
+   *   1. Eine Zeitarbeitsfirma sieht keine Angebote — die wurden trotzdem
+   *      geholt, verbrauchten die Seite und flogen weiter unten wieder raus.
+   *      Mit 13 Angeboten und 17 Bedarfen blieben 12 Bedarfe; 5 waren nie
+   *      erreichbar.
+   *   2. Seite 2 lieferte DIESELBEN Bedarfe wie Seite 1: ohne OFFSET beginnt
+   *      die Bedarfsabfrage auf jeder Seite von vorn. Seit N2.4 zaehlt `total`
+   *      ehrlich — die Blaetterung versprach damit Seiten, die sich wiederholen.
+   *   3. Bei Umkreissuche standen Angebote in 100 km VOR einem Bedarf in 200 m:
+   *      jede Seite war fuer sich nach Naehe sortiert, die Zusammenfuehrung
+   *      nicht. Die gemeinsame Sortierung stand bis N2.4b im JavaScript-Filter
+   *      und ist mit ihm verschwunden.
+   *
+   * Jetzt: geholt wird nur, was der Betrachter sieht — dieselbe Auswahl wie
+   * bei `total`. Eine Seite allein blaettert direkt in SQL. Sieht jemand BEIDE
+   * Seiten, holt jede `offset + limit` Zeilen, beide werden gemeinsam sortiert
+   * und dann geschnitten. Das kostet mit der Seitentiefe mehr, betrifft aber nur
+   * die seltenen Betrachter beider Seiten; Unternehmen und Zeitarbeitsfirmen
+   * blaettern einseitig und bezahlen nichts zusaetzlich.
+   *
+   * WEITERHIN NACH DEM LIMIT — benannt, nicht verschwiegen: die Nachfilter der
+   * Angebotsseite (`visible_to_viewer`, `min_headcount`, freie Kopfzahl). Auch
+   * sie koennen eine Seite kuerzen; das ist ein eigener Befund.
+   */
+  const beideSeiten = supplyGesehen && demandGesehen;
+  const fenster = beideSeiten ? offset + limit : limit;
+  const versatz = beideSeiten ? 0 : offset;
 
-  // Fetch demand entries (only if supply didn't fill the page)
+  // Fetch supply entries
+  let supplyRows = [];
+  if (supplyGesehen) {
+    const supplyParams = [...params, fenster, versatz];
+    const { rows: rawSupplyRows } = await pool.query(
+      `${supplyCte} ORDER BY ${umkreis ? "_distance_km ASC, " : ""}sort_date DESC`
+      + ` LIMIT $${idx} OFFSET $${idx + 1}`, supplyParams);
+    supplyRows = await enrichCapacityEntries(pool, rawSupplyRows, { viewerUserId });
+    supplyRows = supplyRows.filter((row) => row.visible_to_viewer);
+    if (opts.min_headcount) {
+      supplyRows = supplyRows.filter((row) => row.remaining_headcount >= Number(opts.min_headcount));
+    }
+    supplyRows = supplyRows.filter((row) => row.status !== 'active' || row.remaining_headcount > 0);
+    supplyRows.forEach(r => { r.feed_type = 'supply'; });
+  }
+
+  // Fetch demand entries — mit eigenem OFFSET ($3); $2 bleibt der Betrachter
   let demandRows = [];
-  if (supplyRows.length < limit) {
-    const demandLimit = limit - supplyRows.length;
+  if (demandGesehen) {
     const { rows: dr } = await pool.query(
-      `${demandCte} ORDER BY ${umkreis ? "_distance_km ASC, " : ""}COALESCE(dr.updated_at, dr.created_at) DESC LIMIT $1`,
-      [demandLimit, viewerUserId]);
+      `${demandCte} ORDER BY ${umkreis ? "_distance_km ASC, " : ""}COALESCE(dr.updated_at, dr.created_at) DESC LIMIT $1 OFFSET $3`,
+      [fenster, viewerUserId, versatz]);
     demandRows = dr;
   }
 
   let items = [...supplyRows, ...demandRows];
+  if (beideSeiten) {
+    /* Gemeinsam sortieren, DANN schneiden. Bei Umkreissuche entscheidet die
+       Naehe ueber beide Seiten; sonst die Aktualitaet — dieselben Schluessel,
+       nach denen jede Seite in SQL sortiert wurde. */
+    const zeit = (r) => new Date(r.sort_date || r.updated_at || r.created_at || 0).getTime();
+    const naehe = (r) => (r._distance_km == null ? Infinity : Number(r._distance_km));
+    items.sort(umkreis
+      ? (a, b) => (naehe(a) - naehe(b)) || (zeit(b) - zeit(a))
+      : (a, b) => zeit(b) - zeit(a));
+    items = items.slice(offset, offset + limit);
+  }
 
   /*
    * N2.4b — hier stand der Umkreisfilter. Er ist in die Abfrage gewandert
@@ -1169,7 +1217,12 @@ export async function browseFeed(pool, opts = {}) {
   }
 
   // Sort by rank_score (unless geo-sorted)
-  if (!(opts.latitude != null && opts.longitude != null && opts.radius_km != null)) {
+  /* N2.7 — EINE Definition von "Umkreissuche". Hier stand eine eigene Pruefung
+     auf `!= null`; `umkreisSql` prueft auf endliche Zahlen. `latitude=abc`
+     ergab NaN, war damit "nicht null" — die Rangsortierung fiel still aus,
+     obwohl gar nicht nach Umkreis gefiltert wurde. Premium-Hervorhebungen
+     standen dann irgendwo. Jetzt entscheidet, ob wirklich gefiltert wird. */
+  if (!umkreis) {
     items.sort((a, b) => {
       const aPreferred = a.counterparty_priority === "preferred" ? 1 : 0;
       const bPreferred = b.counterparty_priority === "preferred" ? 1 : 0;

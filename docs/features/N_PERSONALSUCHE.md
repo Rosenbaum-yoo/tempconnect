@@ -161,6 +161,12 @@ buchen kann. Das dreht N4 um: **gesperrt heißt unsichtbar**, nicht „abgewiese
 > gefunden" zu antworten ließe es den Fehler bei sich suchen. Derselbe Code wie beim Buchen,
 > damit die Oberfläche einen einzigen Satz braucht.
 
+> **KORREKTUR 2026-09-13 (N2.7) — auch N2.0/N2.4b waren nicht vollständig.** Der Punkt
+> entstand erst nach dem ersten Matching und beim Notdienst gar nicht; die Treffer-Vorschau
+> filterte zusätzlich auf den exakten Stadtnamen; die Bedarfsseite des Feeds blätterte nicht.
+> Behoben in N2.7. Die Vorschau zählt **Angebote**, nicht Menschen — eine Personenzahl braucht
+> die freie Kopfzahl in SQL und ist offen.
+
 > **KORREKTUR 2026-09-12 (N4.5) — die Tabelle oben war zu optimistisch.** Die adversarische
 > Prüfung fand, dass der Riegel der **Detailansicht nie ausgelöst hat**: er las
 > `entry.worker_profile_id`, und diese Spalte steht mit Absicht **nicht** in der öffentlichen

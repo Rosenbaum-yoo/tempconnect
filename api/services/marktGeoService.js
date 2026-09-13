@@ -80,6 +80,33 @@ const TABELLEN = Object.freeze({
 });
 
 /**
+ * Der Punkt fuer einen Ort — ohne Datensatz, ohne Schreiben.
+ *
+ * N2.7: die Anlage bestimmt den Punkt jetzt BEVOR der Bedarf entsteht. Bis
+ * dahin wurde er nachgetragen, und das kam zu spaet: `runInitialMatching` lief
+ * vorher und rechnete den ersten Durchgang — samt der Mails an bis zu 15
+ * Anbieter — noch ohne Koordinaten. Der Notdienst-Zweig kehrte sogar vor dem
+ * Nachtragen zurueck und bekam nie einen Punkt.
+ *
+ * Dieselbe Reihenfolge wie beim Nachtragen: mit Postleitzahl der Freitext
+ * (nur er loest sie auf), sonst oder ohne Treffer der strukturierte Weg.
+ *
+ * @returns {Promise<{lat:number,lng:number}|null>} WIRFT NIE.
+ */
+export async function punktFuer({ plz = null, ort = null } = {}, opt = {}) {
+  const geocode = opt.geocode || geoService.geocode;
+  const geocodeQuery = opt.geocodeQuery || geoService.geocodeQuery;
+  try {
+    if (!plz && !ort) return null;
+    return plz
+      ? (await geocodeQuery(ort ? `${plz} ${ort}` : String(plz))) || (await geocode(plz, ort))
+      : await geocode(null, ort);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Traegt Koordinaten nach, wenn welche zu ermitteln sind.
  *
  * Reihenfolge ist Absicht: erst pruefen, ob der Datensatz schon welche hat
@@ -115,13 +142,8 @@ export async function koordinatenNachtragen(pool, tabelle, zeile, opt = {}) {
     const ort = zeile.location_city || null;
     if (!plz && !ort) return zeile;
 
-    /* Mit Postleitzahl der Freitext — nur er loest sie wirklich auf (siehe
-       Messung im Kopf). Ohne Treffer der strukturierte Weg: ein Ortsmittelpunkt
-       ist immer noch besser als gar keiner, weil er die Entfernungsrechnung
-       ueberhaupt erst einschaltet. */
-    const punkt = plz
-      ? (await geocodeQuery(ort ? `${plz} ${ort}` : String(plz))) || (await geocode(plz, ort))
-      : await geocode(null, ort);
+    /* Dieselbe Aufloesung wie vor der Anlage — `punktFuer` ist die EINE Fassung. */
+    const punkt = await punktFuer({ plz, ort }, { geocode, geocodeQuery });
     if (!punkt) return zeile;
 
     const { rows } = await pool.query(

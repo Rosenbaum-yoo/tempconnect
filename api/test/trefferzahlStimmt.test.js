@@ -50,6 +50,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 
 import { browseFeed } from "../services/capacityExchangeService.js";
 
@@ -251,5 +252,133 @@ describe("N2.4b · der Umkreis steht in der Abfrage, nicht dahinter", () => {
       assert.strictEqual(treffer._distance_km, 12.3,
         "die Entfernung wird nicht auf eine Nachkommastelle gerundet");
     }
+  });
+});
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   N2.7 — JEDE MARKTSEITE BLAETTERT RICHTIG
+   ═══════════════════════════════════════════════════════════════════════
+ *
+ * Gefunden in der Pruefung vom 12.09. Der Feed holte ZUERST Angebote (mit
+ * OFFSET), DANACH Bedarfe — nur "den Rest der Seite" und OHNE OFFSET:
+ *
+ *   * Eine Zeitarbeitsfirma sieht keine Angebote; die wurden trotzdem geholt,
+ *     verbrauchten die Seite und flogen weiter unten wieder raus.
+ *   * Seite 2 lieferte dieselben Bedarfe wie Seite 1.
+ *   * Bei Umkreissuche standen Angebote in 100 km vor einem Bedarf in 200 m.
+ *
+ * Gegen die laufende Datenbank belegt (Agentur, 4 je Seite): nachher 0
+ * Doppelte zwischen Seite 1 und 2, alle Seiten zusammen genau `total`; bei
+ * Sicht auf beide Seiten mit Umkreis nach Naehe sortiert.
+ */
+
+describe("N2.7 · jede Marktseite blaettert richtig", () => {
+
+  /* Ein Pool, der Hol- und Zaehlabfragen unterscheidet und Zeilen liefert. */
+  function feedPool({ angebote = [], bedarfe = [] } = {}) {
+    const calls = [];
+    const istBedarfHolen = (s) => /FROM demand_requests dr/.test(s) && /LIMIT \$1/.test(s) && !/COUNT\(/.test(s);
+    const istAngebotHolen = (s) => /sort_date DESC/.test(s) && /OFFSET \$\d+/.test(s) && !/demand_requests dr/.test(s);
+    const lauf = async (sql, params = []) => {
+      const s = String(sql);
+      calls.push({ sql: s, params });
+      if (/COUNT\(\*\)::int AS cnt/.test(s)) {
+        return { rows: [{ cnt: /demand_requests dr/.test(s) ? bedarfe.length : angebote.length }] };
+      }
+      if (istBedarfHolen(s)) return { rows: bedarfe.map((b) => ({ ...b })) };
+      if (istAngebotHolen(s)) return { rows: angebote.map((a) => ({ ...a })) };
+      return { rows: [], rowCount: 0 };
+    };
+    return {
+      calls, query: lauf, connect: async () => ({ query: lauf, release() {} }),
+      holAngebote: () => calls.filter((c) => istAngebotHolen(c.sql)),
+      holBedarfe: () => calls.filter((c) => istBedarfHolen(c.sql))
+    };
+  }
+
+  it("eine Zeitarbeitsfirma holt KEINE Angebote — die verbrauchten sonst ihre Seite", async () => {
+    const p = feedPool();
+    await browseFeed(p, { viewer_role: "agency", limit: 4, page: 1 });
+    assert.strictEqual(p.holAngebote().length, 0, "Angebote werden geholt, obwohl die Agentur sie nie sieht");
+    assert.strictEqual(p.holBedarfe().length, 1);
+  });
+
+  it("…und ihre Bedarfe blaettern mit OFFSET — Seite 3 beginnt bei 8", async () => {
+    const p = feedPool();
+    await browseFeed(p, { viewer_role: "agency", limit: 4, page: 3 });
+    const q = p.holBedarfe()[0];
+    assert.match(q.sql, /LIMIT \$1 OFFSET \$3/, "die Bedarfsabfrage hat keinen OFFSET — jede Seite beginnt von vorn");
+    assert.strictEqual(q.params[0], 4, "das Limit stimmt nicht");
+    assert.strictEqual(q.params[2], 8, "der Versatz stimmt nicht");
+  });
+
+  it("ein Unternehmen holt KEINE Bedarfe — die Einkaufslisten anderer gehen es nichts an", async () => {
+    const p = feedPool();
+    await browseFeed(p, { viewer_role: "company", limit: 4, page: 1 });
+    assert.strictEqual(p.holBedarfe().length, 0, "fremde Bedarfe werden geholt und erst danach verworfen");
+    assert.strictEqual(p.holAngebote().length, 1);
+  });
+
+  it("wer BEIDE Seiten sieht, bekommt je Seite ein Fenster ab 0 — geschnitten wird danach", async () => {
+    const p = feedPool();
+    await browseFeed(p, { limit: 4, page: 3 });
+    const a = p.holAngebote()[0];
+    const b = p.holBedarfe()[0];
+    assert.ok(a && b, "eine der beiden Seiten wurde nicht geholt");
+    assert.deepStrictEqual(a.params.slice(-2), [12, 0], "das Angebotsfenster ist nicht offset+limit ab 0");
+    assert.deepStrictEqual([b.params[0], b.params[2]], [12, 0], "das Bedarfsfenster ist nicht offset+limit ab 0");
+  });
+
+  it("die Naehe gilt ueber BEIDE Seiten — der Bedarf in 200 m steht vor dem Angebot in 100 km", async () => {
+    /* Die Probe gilt nur, wenn wirklich beide Seiten auf der Seite landen —
+       sonst waere "richtig sortiert" trivial wahr. */
+    const p = feedPool({
+      angebote: [{ id: "cp-fern", status: "active", is_active: true, visibility_status: "public",
+        headcount: 2, supplier_company_id: "s1", _distance_km: 100, sort_date: "2026-09-10" }],
+      bedarfe: [{ id: "dr-nah", feed_type: "demand", status: "open", _distance_km: 0.2,
+        updated_at: "2026-09-01", created_at: "2026-09-01" }]
+    });
+    const e = await browseFeed(p, { latitude: 53.5, longitude: 10.2, radius_km: 400, limit: 10 });
+    const reihe = e.items.map((i) => i.id);
+    assert.ok(reihe.includes("cp-fern") && reihe.includes("dr-nah"),
+      "nicht beide Seiten auf der Seite — die Probe misst so nichts: " + reihe.join(","));
+    assert.deepStrictEqual(reihe.slice(0, 2), ["dr-nah", "cp-fern"],
+      "die Naehe gilt nur je Seite, nicht ueber beide");
+  });
+
+  it("…und ohne Umkreis entscheidet ueber die Seitenzugehoerigkeit die Aktualitaet, nicht die Marktseite", async () => {
+    /* Vorher kamen IMMER erst alle Angebote, dann Bedarfe. Bei Sicht auf beide
+       Seiten und kleiner Seite fiel ein frischer Bedarf hinter alte Angebote
+       von der Seite. */
+    const p = feedPool({
+      angebote: [{ id: "cp-alt", status: "active", is_active: true, visibility_status: "public",
+        headcount: 1, supplier_company_id: "s1", sort_date: "2026-01-01" }],
+      bedarfe: [{ id: "dr-frisch", feed_type: "demand", status: "open",
+        updated_at: "2026-09-12", created_at: "2026-09-12" }]
+    });
+    const e = await browseFeed(p, { limit: 1, page: 1 });
+    const reihe = e.items.map((i) => i.id);
+    assert.ok(p.holAngebote().length === 1 && p.holBedarfe().length === 1, "beide Seiten muessen geholt werden");
+    assert.deepStrictEqual(reihe, ["dr-frisch"], "die Seite schneidet nach Marktseite statt nach Aktualitaet: " + reihe.join(","));
+  });
+
+  it("unbrauchbare Koordinaten schalten die Rangsortierung NICHT ab", () => {
+    /*
+     * `latitude=abc` ergab NaN, war "nicht null" — die Rangsortierung fiel aus,
+     * obwohl gar nicht nach Umkreis gefiltert wurde. Jetzt gilt EINE Definition
+     * von Umkreissuche: die, nach der auch gefiltert wird.
+     *
+     * Wortlaut-Probe, bewusst: die Rangzahl entsteht aus Reputation, Tarif und
+     * Hervorhebung ueber mehrere Nachladeabfragen, und ihre Wirkung im
+     * Muster-Pool nachzustellen waere eine zweite Rangberechnung. Die Wirkung
+     * ist gegen die laufende Datenbank belegt (Muell-Koordinaten = gleiche
+     * Reihenfolge wie ohne Umkreis); diese Probe haelt die EINE Definition fest.
+     */
+    const quelle = fs.readFileSync(new URL("../services/capacityExchangeService.js", import.meta.url), "utf8");
+    const block = /\/\/ Sort by rank_score \(unless geo-sorted\)[\s\S]{0,800}?items\.sort/.exec(quelle);
+    assert.ok(block, "die Rangsortierung ist nicht mehr auffindbar");
+    assert.match(block[0], /if \(!umkreis\) \{/, "die Rangsortierung hat wieder eine eigene Umkreis-Definition");
+    assert.ok(!/opts\.latitude != null/.test(block[0]), "die alte Null-Pruefung steht wieder da");
   });
 });

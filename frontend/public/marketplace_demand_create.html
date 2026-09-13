@@ -237,9 +237,9 @@
         'dem.create.as.s4': 'Wie teuer d\u00fcrfen sie einzeln sein?',
         'dem.create.as.s4h': 'Der Vorschlag ist ein Vorschlag \u2014 keine Vorgabe.',
         'dem.create.as.required': 'Bitte f\u00fcllen Sie die Pflichtfelder dieses Schritts aus.',
-        'dem.create.as.hits': 'Mit diesen Angaben: <b>{n}</b> Kr\u00e4fte im Umkreis',
-        'dem.create.as.hitsOne': 'Mit diesen Angaben: <b>1</b> Kraft im Umkreis',
-        'dem.create.as.hitsNone': 'Mit diesen Angaben: <b>niemand</b> im Umkreis \u2014 gr\u00f6\u00dferer Radius oder weniger F\u00e4higkeiten hilft',
+        'dem.create.as.hits': 'Mit diesen Angaben: <b>{n}</b> Angebote im Umkreis',
+        'dem.create.as.hitsOne': 'Mit diesen Angaben: <b>1</b> Angebot im Umkreis',
+        'dem.create.as.hitsNone': 'Mit diesen Angaben: <b>kein Angebot</b> im Umkreis \u2014 gr\u00f6\u00dferer Radius oder weniger F\u00e4higkeiten hilft',
         'dem.create.preis.gueteHoch': 'gut belegt',
         'dem.create.preis.gueteMittel': 'belegt',
         'dem.create.preis.gueteNiedrig': 'd\u00fcnne Datenlage',
@@ -323,9 +323,9 @@
         'dem.create.as.s4': 'What may each of them cost?',
         'dem.create.as.s4h': 'The suggestion is a suggestion \u2014 not a requirement.',
         'dem.create.as.required': 'Please fill in the required fields of this step.',
-        'dem.create.as.hits': 'With these details: <b>{n}</b> workers within range',
-        'dem.create.as.hitsOne': 'With these details: <b>1</b> worker within range',
-        'dem.create.as.hitsNone': 'With these details: <b>nobody</b> within range \u2014 a wider radius or fewer skills helps',
+        'dem.create.as.hits': 'With these details: <b>{n}</b> offers within range',
+        'dem.create.as.hitsOne': 'With these details: <b>1</b> offer within range',
+        'dem.create.as.hitsNone': 'With these details: <b>no offer</b> within range \u2014 a wider radius or fewer skills helps',
         'dem.create.preis.gueteHoch': 'well evidenced',
         'dem.create.preis.gueteMittel': 'evidenced',
         'dem.create.preis.gueteNiedrig': 'thin data',
@@ -1218,10 +1218,14 @@
         /* Der Rueckfalltext sagt DASSELBE wie der Woerterbucheintrag. Sagte er
            weniger, bekaeme ausgerechnet der, dessen Woerterbuch nicht geladen
            hat, den hilfreichen Teil nicht — und niemand faende je heraus warum. */
-        ? t("dem.create.as.hitsNone", "Mit diesen Angaben: <b>niemand</b> im Umkreis — größerer Radius oder weniger Fähigkeiten hilft")
+        ? t("dem.create.as.hitsNone", "Mit diesen Angaben: <b>kein Angebot</b> im Umkreis — größerer Radius oder weniger Fähigkeiten hilft")
         : (anzahl === 1
-            ? t("dem.create.as.hitsOne", "Mit diesen Angaben: <b>1</b> Kraft im Umkreis")
-            : t("dem.create.as.hits", "Mit diesen Angaben: <b>{n}</b> Kr\u00e4fte im Umkreis"));
+            /* "Angebote", nicht "Kraefte" (N2.7): gezaehlt werden Anzeigen, und
+               ein Sammelangebot traegt oft mehrere Personen. "3 Kraefte" bei
+               24 verfuegbaren liess den Kunden abbrechen, obwohl ein einziges
+               Angebot gereicht haette. */
+            ? t("dem.create.as.hitsOne", "Mit diesen Angaben: <b>1</b> Angebot im Umkreis")
+            : t("dem.create.as.hits", "Mit diesen Angaben: <b>{n}</b> Angebote im Umkreis"));
       /* Nur die Zahl wird eingesetzt, und sie ist eine Zahl — der Text kommt
          aus dem eigenen Woerterbuch, nicht von aussen. */
       ziel.innerHTML = String(text).replace("{n}", String(Number(anzahl) || 0));
@@ -1254,7 +1258,10 @@
           + "&latitude=" + encodeURIComponent(punkt.lat)
           + "&longitude=" + encodeURIComponent(punkt.lng)
           + "&radius_km=" + encodeURIComponent(radius)
-          + (ort ? "&city=" + encodeURIComponent(ort) : "")
+          /* KEIN `&city=` (N2.7). Der Punkt steht schon fuer den Ort; ein
+             zusaetzlicher Stadtfilter machte aus "im Umkreis" "in genau dieser
+             Stadt" — Norderstedt fiel bei Hamburg 50 km heraus, und die
+             Vorschau riet zu einem groesseren Radius, der nichts aenderte. */
           + (rolle ? "&role=" + encodeURIComponent(rolle) : "")
           + (faehigkeiten ? "&skill_tags=" + encodeURIComponent(faehigkeiten) : "");
 

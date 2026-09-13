@@ -278,30 +278,18 @@ describe("N2.0 · ein Kartendienst darf keinen Bedarf verhindern", () => {
    4. DIE VERDRAHTUNG — beide Marktseiten, und vor dem Matching
    ═══════════════════════════════════════════════════════════════════════ */
 
-describe("N2.0 · beide Seiten sind verdrahtet", () => {
-  /* Statisch geladen, nicht per `await import` in einem `async describe`: das
-     hielt beim erzwungenen Ausstieg (`--test-force-exit`) einen Griff offen und
-     erzeugte den libuv-Abbruch, den zwei andere Suiten dieses Repos schon
-     haben. Die Proben waren dabei gruen — die DATEI galt trotzdem als rot. */
-  const HIER = path.dirname(fileURLToPath(import.meta.url));
-  const ROUTE = fs.readFileSync(path.resolve(HIER, "..", "routes", "marketplace.js"), "utf8");
-
-  it("der Bedarf wird geokodiert — VOR dem Matching", () => {
-    /*
-     * Die Reihenfolge ist die Sache. `scheduleMatchTrigger` stoesst die
-     * Zuordnung an; kaemen die Koordinaten danach, liefe genau der erste und
-     * fuer den Kunden sichtbarste Durchgang noch ohne sie.
-     */
-    const geo = ROUTE.indexOf('koordinatenNachtragen(pool, "demand_requests"');
-    const match = ROUTE.indexOf('scheduleMatchTrigger(pool, { sourceType: "demand_request"');
-    assert.ok(geo > 0, "der Bedarf wird nicht geokodiert");
-    assert.ok(match > 0, "der Matchtrigger ist weg");
-    assert.ok(geo < match, "die Koordinaten kommen erst nach dem Matching");
-  });
-
-  it("das Angebot wird ebenso geokodiert", () => {
-    // Eine Seite allein bringt nichts: die Entfernung braucht beide.
-    assert.ok(ROUTE.includes('koordinatenNachtragen(pool, "capacity_posts"'),
-      "nur der Bedarf bekommt Koordinaten — die Entfernung rechnet trotzdem nicht");
-  });
-});
+/*
+ * HIER STANDEN ZWEI WORTLAUT-PROBEN — und beide waren falsch (entfernt in N2.7).
+ *
+ * Sie verglichen die POSITION zweier Zeichenketten im Quelltext:
+ * `koordinatenNachtragen(pool, "demand_requests"` vor
+ * `scheduleMatchTrigger(...)`. Das war gruen und bewies nichts: das ERSTE
+ * Matching (`runInitialMatching`, samt Mails an bis zu 15 Anbieter) stand noch
+ * weiter oben und lief ohne Punkt. Und der Notdienst-Zweig kehrte vor dem
+ * Nachtragen zurueck. Ein Waechter am Wortlaut, der die falsche Stelle verglich.
+ *
+ * Seit N2.7 entsteht der Punkt VOR dem Datensatz. Bewacht wird das an der
+ * WIRKUNG — Kartendienst ueber `fetch` ersetzt, Route ausgefuehrt, gemessen,
+ * was in der Datenbank ankommt und in welcher Reihenfolge:
+ * `api/test/punktVorDemBedarf.test.js`.
+ */

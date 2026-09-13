@@ -456,12 +456,18 @@ export function createMarketplaceRouter(deps) {
       if (wLimit !== undefined && wLimit !== -1 && (parsed.data.headcount || 1) > wLimit) {
         return res.status(403).json({ error: "WORKER_LIMIT_EXCEEDED", limit: wLimit, requested: parsed.data.headcount || 1, plan: me.plan });
       }
-      let row = await marketplaceService.createCapacityPost(pool, req.session.userId, parsed.data);
-      /* N2.0 - ohne Koordinaten rechnet die Entfernungsbewertung nicht, und der
-         erfasste Radius bleibt wirkungslos. Best effort: schlaegt der fremde
-         Kartendienst fehl, bleibt das Angebot gueltig und faellt auf den
-         Stadtvergleich zurueck - also auf das Verhalten von gestern. */
-      row = await marktGeo.koordinatenNachtragen(pool, "capacity_posts", row, { logger });
+      /* N2.0/N2.7 - ohne Koordinaten rechnet die Entfernungsbewertung nicht,
+         und der erfasste Radius bleibt wirkungslos. Der Punkt wird VOR dem
+         Datensatz bestimmt und gleich mitgeschrieben — so gibt es keinen
+         Augenblick, in dem das Angebot ohne ihn existiert. Best effort:
+         schlaegt der fremde Dienst fehl (oder dauert laenger als
+         GEO_TIMEOUT_MS), entsteht das Angebot trotzdem. Mitgeschickte
+         Koordinaten gelten und werden nicht ueberschrieben. */
+      if (parsed.data.location_lat == null || parsed.data.location_lng == null) {
+        const punkt = await marktGeo.punktFuer({ plz: parsed.data.location_postal, ort: parsed.data.location_city });
+        if (punkt) { parsed.data.location_lat = punkt.lat; parsed.data.location_lng = punkt.lng; }
+      }
+      const row = await marketplaceService.createCapacityPost(pool, req.session.userId, parsed.data);
       res.locals.audit = { action: "marketplace.capacity_post.create", entity_type: "capacity_post", entity_id: row.id, details: { role: parsed.data.role, city: parsed.data.location_city } };
 
       // Instant-Matching (P4.1): dieser Pfad hatte bisher gar keinen Trigger — ein neues
@@ -1031,6 +1037,28 @@ export function createMarketplaceRouter(deps) {
         return res.status(403).json({ error: "WORKER_LIMIT_EXCEEDED", limit: wLimit, requested: parsed.data.headcount || 1, plan: me.plan });
       }
 
+      /*
+       * ═══════════════════════════════════════════════════════════════════════
+       * N2.7 — DER PUNKT ENTSTEHT VOR DEM BEDARF, FUER BEIDE WEGE
+       * ═══════════════════════════════════════════════════════════════════════
+       *
+       * Hier stand vorher nichts, und weiter unten wurde nachgetragen — mit dem
+       * Kommentar "die Koordinaten muessen vor dem Matching stehen". Das stimmte
+       * nicht: `runInitialMatching` lief schon VOR dem Nachtragen und rechnete
+       * den ersten, sichtbarsten Durchgang ohne Punkt, samt der Mails an bis zu
+       * fuenfzehn Anbieter. Der Notdienst-Zweig kehrte sogar vor dem Nachtragen
+       * zurueck — ausgerechnet der dringendste Bedarf bekam nie Koordinaten,
+       * und seine Alarmierung verglich Staedtenamen.
+       *
+       * Jetzt wird der Punkt bestimmt, bevor ueberhaupt verzweigt wird. Nach
+       * der Pruefung der Grenzen (kein Netzabruf fuer eine Anfrage, die ohnehin
+       * abgewiesen wird), vor allem, was mit dem Ort rechnet.
+       */
+      if (parsed.data.location_lat == null || parsed.data.location_lng == null) {
+        const punkt = await marktGeo.punktFuer({ plz: parsed.data.location_postal, ort: parsed.data.location_city });
+        if (punkt) { parsed.data.location_lat = punkt.lat; parsed.data.location_lng = punkt.lng; }
+      }
+
       const plan = me?.plan ?? "FREE";
       if (urgency === "notdienst") {
         /*
@@ -1085,7 +1113,7 @@ export function createMarketplaceRouter(deps) {
        * Ort steht, ist damit eine erreichbare Nummer hinterlegt. */
       const kontakt = await ansprechperson(pool, req.session.userId, parsed.data);
 
-      let demand = await marketplaceService.createDemandRequest(pool, req.session.userId, plan, {
+      const demand = await marketplaceService.createDemandRequest(pool, req.session.userId, plan, {
         ...parsed.data,
         /* Nach dem Spread, damit die Ableitung den Schema-Standardwert schlaegt. */
         urgency,
@@ -1133,19 +1161,6 @@ export function createMarketplaceRouter(deps) {
       // Ersetzt die frueher hier inline gebaute In-App-Benachrichtigung: die ging nur
       // an die Anbieterseite, ohne Dedup, ohne match_alerts-Datensatz und verlinkte auf
       // die eigene Nachfrage statt auf das passende Angebot. Der Chokepoint alarmiert
-      /*
-       * N2.0 - DIE KOORDINATEN MUESSEN VOR DEM MATCHING STEHEN.
-       *
-       * `scheduleMatchTrigger` stoesst die Zuordnung an. Wuerden die
-       * Koordinaten erst danach nachgetragen, liefe genau der erste - und fuer
-       * den Kunden sichtbarste - Durchgang noch ohne sie: auf dem Vergleich der
-       * Stadt-Zeichenkette, mit 60 % des Ortsgewichts. Der Bedarf saehe dann
-       * schlechter zugeordnet aus, als er ist, und niemand koennte sagen warum.
-       *
-       * Deshalb hier und nicht spaeter, obwohl es einen fremden Dienst fragt.
-       */
-      demand = await marktGeo.koordinatenNachtragen(pool, "demand_requests", demand, { logger });
-
       // beide Seiten mit Deep-Link auf das konkrete Gegenstueck. Die SLA-Mails oben
       // bleiben unberuehrt — anderer Kanal, andere Zusage.
       scheduleMatchTrigger(pool, { sourceType: "demand_request", sourceId: demand.id });
