@@ -329,7 +329,7 @@ einzigen Aufrufer.**
 | N2.2 | **Preisvorschlag aus `smartPricing`** bei Frage 4, abhängig von Rolle, Region, Dringlichkeit | ✅ 2026-09-06 — in der Bedarfsanlage, entprellt; 403 verbirgt still und fragt nicht wieder |
 | N2.3 | **Notdienst-Hinweis**, wenn der Vorlauf ihn nahelegt | ✅ 2026-09-06 — **committet als „N2.1"** (`e4fd049`), siehe Hinweis oben; die Stufe wird abgeleitet statt gefragt (4.4) |
 | N2.4 | **Treffer-Vorschau live**: „mit diesen Angaben: 23 Kräfte" — ändert sich mit jedem Schritt | ✅ 2026-09-07 — die Zahl kommt aus **demselben Endpunkt**, dessen Ergebnis der Kunde später sieht (`feed`, `limit=1`, nur `total`). Reagiert auf Ort, PLZ, Umkreis, Rolle und Fähigkeiten |
-| N2.5 | **Abbrechen verliert nichts** — der halbfertige Bedarf bleibt Entwurf | Modal schließen, wiederkommen, Stand ist da |
+| N2.5 | **Abbrechen verliert nichts** — der halbfertige Bedarf bleibt Entwurf | ✅ 2026-09-12 — Entwurf im Browser (`tc_bedarf_entwurf`), inklusive Schritt; nach dem Absenden gelöscht, nach sieben Tagen verworfen |
 | N2.6 | **Erreichbar aus der Personalsuche**, nicht von einer eigenen Seite | ✅ 2026-09-07 — zwei Wege aus `capacity_search.html`: einer dauerhaft im Kopf, einer im Leerzustand. Bewacht von `erreichbarkeit.test.js` (WOHER → WOHIN, im statischen Markup) |
 
 > **N2.4: der Nachweis „Radius vergrößern → Zahl steigt" war nicht erreichbar — bis N2.0.**

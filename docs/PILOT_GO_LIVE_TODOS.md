@@ -2,6 +2,128 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-12 — Abbrechen verliert nichts (N2.5)
+
+**Status:** erledigt · **Kategorie:** Produktausbau — **damit ist Abschnitt N2 vollständig**
+
+Wer den Assistenten schließt und wiederkommt, findet seinen Stand vor — Eingaben **und** den
+Schritt, an dem er aufgehört hat.
+
+**Im Browser, nicht auf dem Server, und das ist eine Entscheidung.** Ein `status='draft'` in
+`demand_requests` bräuchte eine Migration **und** einen zusätzlichen Filter in *jeder* Abfrage,
+die Bedarfe liest. Genau diese Fehlerklasse hat diese Welle mehrfach behoben — in N4 fehlte die
+Sperre in vier von fünf Flächen, in N2.4 zählte die Trefferzahl die falsche Marktseite. Ein
+halbfertiger Bedarf, der in den Feed rutscht, wäre der teuerste Ausgang: eine Zeitarbeitsfirma
+antwortet auf etwas, das niemand abgeschickt hat.
+
+**Der Preis dieser Wahl wird benannt:** der Entwurf lebt in *diesem* Browser. Wer das Gerät
+wechselt, fängt neu an. Für einen halbfertigen Bedarf ist das vertretbar — für einen
+abgeschickten wäre es das nicht, und der liegt auf dem Server.
+
+**Drei Regeln, die den Unterschied machen:**
+* **Die bloße Ortsvorbelegung ist kein Stand.** Der Ort wird beim Öffnen aus dem
+  Standortkontext gefüllt (N2.1), der Umkreis hat einen Standardwert. Zählte das als Entwurf,
+  meldete sich das Formular beim zweiten Besuch mit einem „Stand", den niemand eingegeben hat.
+* **Nach dem Absenden gelöscht** — sonst startet der nächste Bedarf vorbelegt mit dem vorigen,
+  und der Kunde schickt womöglich zweimal dasselbe ab.
+* **Nach sieben Tagen verworfen** — ein zwei Wochen alter Entwurf trägt ein Startdatum in der
+  Vergangenheit. Ab da ist ein leeres Formular ehrlicher als ein alter Stand.
+
+**Eine gemessene Reihenfolge-Falle entschied den Einbauort.** Der Katalogwähler liest seine
+Vorauswahl **beim Montieren** aus dem versteckten Feld `skill_tags`. Stünde die
+Wiederherstellung weiter unten (in der Assistenten-IIFE), kämen die Fähigkeiten zu spät: im
+Feld, aber nicht angeklickt. Der Entwurfsblock steht deshalb **vor** dem Wähler — und diese
+Position ist bewacht, samt Selbsttest, dass der Wächter die umgekehrte Reihenfolge auch
+wirklich bemerkt.
+
+**Zwei eigene Fehler dabei gefangen.** Eine Probe forderte, der Entwurf dürfe ein gefülltes
+Feld nicht anfassen — falsch: `headcount` und `radius_km` *stehen* im Markup auf Werten, und
+wer sie ausnimmt, stellt genau die zwei Zahlen nicht wieder her, die der Kunde geändert hat.
+Und eine zweite legte einen Eintrag hin und las ihn zurück; damit prüfte sie nur, dass JSON
+funktioniert — das **Schreiben** des Schritts blieb unbewacht und überlebte die Rückmutation.
+
+**Verifikation.** 15 Proben in `api/test/entwurfVerliertNichts.test.js` — der Entwurf wird
+**ausgeführt**, mit Speicher-Ersatz —, **11 von 12 Rückmutationen gefangen**. Die zwölfte ist
+kein Überlebender, sondern ein nicht greifender Anker; die betroffene Zusicherung (Position vor
+dem Wähler) ist durch eine eigene Probe mit Selbsttest gedeckt.
+
+---
+
+### 2026-09-08 — Offen: die adversarische Pruefung der Wellen N4/N2
+
+**Status:** geplant, einmal fehlgeschlagen · **Owner-Vorgabe 2026-09-08**
+
+**Was geprüft werden soll.** Der Diff `4434c99~1..HEAD` über `api/`, `frontend/`, `sql/` —
+zehn Wellen aus dem 06./07.09., rund 4.700 Zeilen in 28 Dateien (N4, N4.4, N2.0, N2.0b,
+N2.0c, N2.2, N2.4, N2.4b, N2.1, N2.6). Fünf Blickwinkel, je Befund zwei unabhängige
+Skeptiker, die ihn zu **widerlegen** versuchen; im Zweifel gilt widerlegt.
+
+Die Blickwinkel: SQL-Korrektheit und Einschleusung · verlorene Semantik (was konnte der alte
+Code, was der neue nicht mehr?) · die Bedarfsanlage im Browser (vier IIFEs, Gültigkeitsbereiche,
+i18n, ausgeblendete Pflichtfelder) · taugen die neuen Wächter etwas? · Mandantengrenze und
+Preisgabe.
+
+**Der erste Anlauf am 07.09. ist NICHT durchgelaufen** — alle fünf Finder starben am
+Sitzungslimit. Das Ergebnis lautete `rohbefunde: 0`, und das heißt hier **„kein Agent kam
+durch"**, nicht „alles sauber". Wer diese Zeile später liest: das war keine Prüfung.
+
+**Wiederholung** am 08.09. gestartet, sobald das Limit wieder voll verfügbar war (die
+ursprüngliche Planung nannte 11:30; der Start erfolgte um 13:11, weil das Limit erst dann
+zurückgesetzt war).
+
+**Das Skript liegt vor** und ist wiederverwendbar:
+`.claude/projects/…/workflows/scripts/pruefe-welle-n-wf_bc573e4f-907.js` — es liest nur, ändert
+nichts und committet nichts. Kosten des Laufs: rund 750.000 Subagent-Token.
+
+**Bis die Prüfung durchgelaufen ist, gilt:** die zehn Wellen sind ausschließlich durch ihre
+eigenen Wächter gedeckt (rund 130 Proben, rund 120 Rückmutationen ohne Überlebende) — also
+durch dieselbe Hand, die sie gebaut hat.
+
+**Stand des zweiten Anlaufs (08.09., 13:11 gestartet):** **kein Ergebnis hinterlegt.** Ob er
+durchlief, abbrach oder noch läuft, ist von hier aus nicht belegbar — also gilt die Prüfung
+weiterhin als **nicht erfolgt**. Wer sie wiederholt, startet das Skript einfach neu.
+
+---
+
+## Übergabe an die nächste Sitzung (Stand 2026-09-12)
+
+**Welle N, Abschnitt N2 — was steht:**
+
+| Phase | Stand |
+|---|---|
+| N2.0 / N2.0b / N2.0c | ✅ Koordinaten: beim Anlegen, für den Bestand, und beide Marktseiten lösen gleich auf |
+| N2.1 | ✅ fünf Schritte, der Ort vorn |
+| N2.2 | ✅ Preisvorschlag an der vierten Frage |
+| N2.3 | ✅ Notdienst wird abgeleitet (committet als „N2.1", siehe Abschnitt 5 des Plans) |
+| N2.4 / N2.4b | ✅ Treffer-Vorschau; Trefferzahl und Umkreis vorher belastbar gemacht |
+| N2.6 | ✅ Weg aus der Personalsuche, bewacht |
+| N2.5 | ✅ Entwurf im Browser, mit Schritt |
+
+**Damit ist Abschnitt N2 vollständig.** Die folgende Vorarbeit ist in N2.5 eingeflossen und
+bleibt als Begründung stehen:
+
+1. **Entwurf im Browser, nicht auf dem Server.** Ein `status='draft'` in `demand_requests`
+   bräuchte eine Migration *und* einen zusätzlichen Filter in **jeder** Abfrage, die Bedarfe
+   liest. Genau diese Fehlerklasse — ein Filter, der an einer von mehreren Stellen fehlt —
+   hat diese Sitzung mehrfach behoben (N4, N2.4). Ein halbfertiger Bedarf, der in den Feed
+   rutscht, wäre der teuerste Ausgang. `localStorage` hat dieses Risiko nicht. Hausmuster
+   steht in `capacityExchangeDetail.js:1823` (`tc_`-Schlüssel, JSON, try/catch, weil der
+   Speicher fehlen kann). Dazu gehören: **Löschen nach erfolgreichem Absenden** (sonst startet
+   der nächste Bedarf vorbelegt) und eine **Altersgrenze**, weil ein zwei Wochen alter Entwurf
+   ein Startdatum in der Vergangenheit trägt.
+2. **Eine Reihenfolge-Falle, gemessen:** der Katalogwähler montiert in einem Skriptblock
+   **vor** der Assistenten-IIFE und liest seine Vorauswahl beim Montieren aus dem versteckten
+   Feld `skill_tags`. Ein Entwurf, der erst in `start()` des Assistenten zurückgeschrieben
+   wird, käme **zu spät** — die Fähigkeiten wären wiederhergestellt, aber nicht angeklickt.
+   Das Zurückschreiben muss vor der Montage des Wählers passieren.
+
+**Ebenfalls offen, nicht von mir zu entscheiden:** Commit `1e3d539` (Live-Belegschaft, zwei
+vergessene Importe). Die zweite Sitzung hat am 07.09. gemeldet, dass sie merget — **ob es
+angekommen ist, ist hier nicht geprüft.** Solange nicht, zeigt der Container die kaputte
+Fassung, obwohl der Quellbaum längst stimmt.
+
+---
+
 ### 2026-09-07 — Der Weg von der Personalsuche zum Assistenten (N2.6)
 
 **Status:** erledigt · **Kategorie:** Erreichbarkeit
@@ -1234,7 +1356,7 @@ Letzte Aktualisierung: 2026-08-22 — **E-Rechnung nach EN 16931 geliefert**: XR
 ---
 
 
-Letzte Aktualisierung: 2026-09-08 — **N2.6: die Bedarfsanlage ist aus der Personalsuche erreichbar** — dauerhaft im Kopf und im Leerzustand. Der allgemeine Erreichbarkeits-Waechter war gruen, weil die Seite von IRGENDWO erreichbar war; jetzt steht der bestimmte Weg fest (WOHER → WOHIN). Vorher: **N2.4: die Treffer-Vorschau steht.** „Mit diesen Angaben: N Kraefte im Umkreis“ — die Zahl kommt aus demselben Endpunkt, dessen Ergebnis der Kunde spaeter sieht, und reagiert auf Ort, PLZ, Umkreis, Rolle und Faehigkeiten. Vorher: **N2.0c: beide Marktseiten loesen einen Ort gleich auf.** Das Angebotsformular geokodierte umgekehrt zum Server — Angebote landeten auf der Stadtmitte, Bedarfe im Stadtteil. Seit N2.4b rechnet der Umkreis wirklich mit diesen Punkten. Vorher: **N2.1: die Bedarfsanlage ist ein Assistent in fuenf Schritten, der Ort vorn.** Vorbelegt aus dem aktiven Standort, aenderbar; die Felder werden nicht verschoben, sondern je einem Schritt zugeordnet. Ohne JavaScript bleibt es das bisherige Formular. Vorher: **N2.4b: der Umkreis rechnet in SQL.** Er lief vorher nach dem LIMIT — die Trefferzahl kannte ihn nicht, und eine Seite konnte weniger liefern als angefordert. Nachweis gefuehrt: 25 km -> 9, 300 km -> 11, 400 km -> 13. Vorher: **N2.0b: der Bestand ist nachgetragen.** Alle aktiven Angebote und offenen Bedarfe haben jetzt Koordinaten (vorher 0 von 22); der Lauf brauchte 6 Abfragen fuer 22 Zeilen, weil ein Ort nur einmal gefragt wird. Belegt: die PLZ verschiebt den Punkt um 13,7 km gegenueber der Ortsmitte. Vorher: **N2.4-Vorstufe: die Trefferzahl des Feeds zaehlte beide Marktseiten und filterte erst danach — ein Unternehmen sah 6 Angebote und las 23 Treffer.** Behoben; der Radius wirkt weiterhin nicht auf die Zahl (offen, owner-pflichtig). Vorher: **Welle N2.0 abgeschlossen: der Marktplatz bekommt Koordinaten.** Gemessen: von 40 Bedarfen hatten 5 welche, von 45 Angeboten 7 — bei 100 % erfasstem Radius. Die Entfernungsbewertung lief damit praktisch nie. Beide Seiten werden jetzt beim Anlegen geokodiert, die PLZ ueber die Freitext-Abfrage (die strukturierte verschluckt sie meistens — gemessen). Vorher: **Welle N2.2 abgeschlossen: der Preisvorschlag erreicht die Bedarfsanlage.** `/api/pricing/suggest` war fertig und hatte NULL Aufrufer; jetzt zeigt die vierte Frage eine belegte Spanne statt eines leeren Feldes. Ohne Tarif kein Vorschlag, aber keine Sperre. Vorher: **Welle N4 vollstaendig abgeschlossen: gesperrt heisst unsichtbar — eine Bedingung, vier Flaechen (Feed, Suche, Detailansicht, Deckungsrechnung), und `negotiate-deal` bekommt den Riegel, den nur `accept-deal` hatte.** Die Auskunft an die Agentur nennt weder Grund noch Kunden. Die K4-Feed-Kopie hat seit Migration 216 eine Marktseite und nimmt keine betrachter-gefilterte Liste mehr auf (N4.4). Vorher: **Welle N2.1 abgeschlossen: der Notdienst wird aus dem Einsatzbeginn ABGELEITET (Vorlauf <= 2 Kalendertage, Europe/Berlin), das Auswahlfeld ist entfernt.** Dabei gefunden: die Notdienst-Maschinerie waere mit NORMALER SLA angelaufen, weil der geparste Rumpf den Schema-Standardwert trug. Vorher: **Welle N7.5 abgeschlossen: der plattformweite Notdienst-Blick hat jetzt eine Zielgruppe (nur Agenturen) und eine Feldauswahl (22 Felder statt 44 Spalten, als Erlaubnisliste im Dienst).** Damit ist der letzte offene Sicherheitspunkt aus N7.4 entschieden und geschlossen. Vorher: **Welle N1b abgeschlossen: jetzt waehlen ALLE FUENF Flaechen aus derselben Faehigkeitsmenge.** Die Mitarbeiterseite bot 142 fest verdrahtete Begriffe an, von denen **109 im Katalog nicht vorkamen** — und schrieb sie als Wortliste ins Profil, wodurch `worker_profile_skills` leer blieb und der Angebotsgenerator diese Menschen nie in den Markt brachte. Neuer katalog-gebundener Endpunkt fuer die Agentursicht; Bestandsdaten geprueft und sauber. Vorher: **Welle N1 (Faehigkeiten-Katalog) abgeschlossen: beide Marktseiten waehlen jetzt aus derselben Menge.** Vorher tippten beide Freitext — Schreibvarianten, die einander nie finden, ohne dass es jemand sieht. Neu: ein gemeinsames Bauteil (`skillPicker.js`), die Zahl verfuegbarer Kraefte je Faehigkeit (`aggregateBySkill`, die es noch nicht gab) und der gefuehrte Weg fuer eigene Begriffe. **Neuer offener Punkt:** `mitarbeiter.js` traegt eine zweite, fest verdrahtete Liste. Vorher: **Welle N7.4 (Notdienst) abgeschlossen: von elf fertigen, auditierten Endpunkten riefen die Oberflächen zwei auf.** Sechs davon verdrahtet, darunter der einzige Weg, eine Teilzusage zurückzunehmen. Drei Befunde dabei: `POST /emergency/:id/escalate` hatte **keine Eigentumsprüfung** (jeder Tarif-Berechtigte konnte fremde Notlagen hochstufen und damit einen E-Mail-Rundruf an bis zu 50 Anbieter auslösen) — geschlossen; `?all=1` liefert `dr.*` inkl. fremder Kontakt-Durchwahl — **offen, Owner-Entscheidung**; der Erreichbarkeits-Wächter übersah 17 Registerzeilen und damit fünf lebende Seiten — geschlossen. Vorher: 2026-08-21 — **8.1.1 (a)–(e) abgeschlossen. Beim Bauen von (d) zwei aktive Cross-Org-Lecks gefunden: 201 Kundenkonten konnten das plattformweite Audit-Log lesen und exportieren — und jeden Nutzer der Plattform ändern oder sperren.** Beides geschlossen. Zwei neue P1-Punkte offen (admin.js als Kundenfläche mit Plattformdaten; fünf Routen mit selbstabschaltender Org-Grenze). Vorher: **8.1.1 abgeschlossen: das Audit-Log trennt die Mandanten, Abnahme `fremde_org` 139 → 0.** Die Ursache war ein Demo-Login ohne `session.regenerate()`, der die Organisation des Vorgängers erbte — das betraf die Mandantengrenze von 45 Routen, nicht nur das Audit. Vorher: **Vorlauf V-2 zu Welle I erledigt: drei Wächter prüfen jetzt den git-Index statt des Dateibaums (P2-W1)** — sie waren in jedem Worktree/Klon/CI dauerhaft rot, ohne dass etwas kaputt war, und im Hauptbaum gleichzeitig falsch grün. Voller Lauf erstmals 9524/0. Vorher: 2026-08-19 — **Welle H2 (Mandantengrenzen) abgeschlossen: zehn Cross-Org-Lücken geschlossen, Wächter gebaut.** Neuer P1-Eintrag: Migration 117 existiert nicht, obwohl 28 Tabellen in `TENANT_ISOLATION_MODEL.md` auf sie verweisen. Vorher: 2026-08-07 — **P8 Deal-Verbindlichkeit (Wellen A-E) abgeschlossen und committet** (`4220693`..`67b0282`). Vier geerbte Defekte dabei gefunden und geschlossen, darunter eine Kennzahl, die das Feed-Ranking steuerte und in Produktion durchgehend NULL war, und ein Bounty, das notorische Kurzfrist-Stornierer mit 3 % Rabatt belohnte. **Neue Betriebs-Pflicht vor Go-Live: Cron `recompute-deal-reliability` einrichten + Migrationen 164/165 einspielen** (siehe Done-Eintrag). Vorher: 2026-07-26 — **P1.0 Schritt (d) erledigt**: `.env.prod.example` kannte `STAFF_SESSION_SECRET` nicht, obwohl die Variable in Produktion ein `fatal()` ausloest — ein Deploy nach dieser Vorlage waere nicht gestartet. Ergaenzt + Waechter `api/test/prodEnvTemplate.test.js`, der Pflichtvariablen aus dem Code gegen die Vorlage prueft. Ebenfalls am 2026-07-26: `docs/AUDIT_BACKLOG.md` vollstaendig abgearbeitet (u. a. ein ausnutzbares Cross-Org-Leck geschlossen). Vorher: 2026-06-13 — **Welle F1 (Code-Schlussarbeiten) abgeschlossen + committet** (`9f37250`/`1044343`/`878b022`/`845b6c9`): Prod-Härtung, Security-Quick-Wins, Hygiene-Sweep, Test-Harness-Folge inkl. eines gefundenen+gefixten requireMfa-SCC-Betriebsblockers; volle Suite 4508/0, Lint 0/0, Builds grün — siehe Abschlussbericht im Worklog. Marktstart-Ziel auf **01.09.2026** aktualisiert (UG-Gründung = kritischer Pfad). Vorher: 2026-06-11 — **Der konsolidierte Vorwaerts-Plan bis zur finalen Abnahme (Wellen F0-F6) liegt in `docs/finalization/FINALISIERUNGSPLAN_ABNAHME.md`** und mappt ALLE offenen Punkte dieses Files (P0.4, P1.0, P1.4, E-01, P2.x) + Gap-Register O-01-O-11 + Audit-Funde 2026-06-11 auf Wellen/Phasen mit Abnahmekriterien. Vorher: 2026-06-05 (Go-Live-Haertung abgeschlossen, „drei wie empfohlen" Owner-approved: P0.6 [052-Demo-Seed-Backdoor] via Env-Flag-Gate `SEED_DEMO_WORLD` [migrate.sh PGOPTIONS-GUC + 052 DO-Guard + Compose-Split base/prod=false, override=true] + Remediation-Migration 125 [Hash-Neutralisierung der 6 Demo-Konten, gegated+idempotent]; P0.7 Tier-2 [Bestands-DB-116-Backstop] via Forward-Repair-Migration 126 [nicht-transaktional, per-Tabelle-to_regclass-guarded, idempotent]; subscriptions-RLS-Exclusion bestaetigt. Verifiziert auf zwei Wegwerf-DBs [beide Flag-Pfade + Nicht-Superuser-Deny-by-Default-Laufzeitbeweis], realer Stack unberuehrt. AKTIVIERUNG: 126 schaltet Deny-by-Default+FORCE RLS beim naechsten migrate-Lauf gegen Bestands-/Managed-DB scharf. Alle Diffs uncommitted = Owner-Commit-Gate. Vorherige offene Owner-Tasks bleiben: P0.4, P1.4-Live-Run, E-01, R2/R9 extern).
+Letzte Aktualisierung: 2026-09-12 — **N2.5: Abbrechen verliert nichts — damit ist Abschnitt N2 vollstaendig.** Der Entwurf lebt im Browser und nicht als `draft` in der Datenbank: ein halbfertiger Bedarf, der durch einen vergessenen Filter in den Feed rutscht, waere der teuerste Ausgang. Vorher: **N2.6: die Bedarfsanlage ist aus der Personalsuche erreichbar** — dauerhaft im Kopf und im Leerzustand. Der allgemeine Erreichbarkeits-Waechter war gruen, weil die Seite von IRGENDWO erreichbar war; jetzt steht der bestimmte Weg fest (WOHER → WOHIN). Vorher: **N2.4: die Treffer-Vorschau steht.** „Mit diesen Angaben: N Kraefte im Umkreis“ — die Zahl kommt aus demselben Endpunkt, dessen Ergebnis der Kunde spaeter sieht, und reagiert auf Ort, PLZ, Umkreis, Rolle und Faehigkeiten. Vorher: **N2.0c: beide Marktseiten loesen einen Ort gleich auf.** Das Angebotsformular geokodierte umgekehrt zum Server — Angebote landeten auf der Stadtmitte, Bedarfe im Stadtteil. Seit N2.4b rechnet der Umkreis wirklich mit diesen Punkten. Vorher: **N2.1: die Bedarfsanlage ist ein Assistent in fuenf Schritten, der Ort vorn.** Vorbelegt aus dem aktiven Standort, aenderbar; die Felder werden nicht verschoben, sondern je einem Schritt zugeordnet. Ohne JavaScript bleibt es das bisherige Formular. Vorher: **N2.4b: der Umkreis rechnet in SQL.** Er lief vorher nach dem LIMIT — die Trefferzahl kannte ihn nicht, und eine Seite konnte weniger liefern als angefordert. Nachweis gefuehrt: 25 km -> 9, 300 km -> 11, 400 km -> 13. Vorher: **N2.0b: der Bestand ist nachgetragen.** Alle aktiven Angebote und offenen Bedarfe haben jetzt Koordinaten (vorher 0 von 22); der Lauf brauchte 6 Abfragen fuer 22 Zeilen, weil ein Ort nur einmal gefragt wird. Belegt: die PLZ verschiebt den Punkt um 13,7 km gegenueber der Ortsmitte. Vorher: **N2.4-Vorstufe: die Trefferzahl des Feeds zaehlte beide Marktseiten und filterte erst danach — ein Unternehmen sah 6 Angebote und las 23 Treffer.** Behoben; der Radius wirkt weiterhin nicht auf die Zahl (offen, owner-pflichtig). Vorher: **Welle N2.0 abgeschlossen: der Marktplatz bekommt Koordinaten.** Gemessen: von 40 Bedarfen hatten 5 welche, von 45 Angeboten 7 — bei 100 % erfasstem Radius. Die Entfernungsbewertung lief damit praktisch nie. Beide Seiten werden jetzt beim Anlegen geokodiert, die PLZ ueber die Freitext-Abfrage (die strukturierte verschluckt sie meistens — gemessen). Vorher: **Welle N2.2 abgeschlossen: der Preisvorschlag erreicht die Bedarfsanlage.** `/api/pricing/suggest` war fertig und hatte NULL Aufrufer; jetzt zeigt die vierte Frage eine belegte Spanne statt eines leeren Feldes. Ohne Tarif kein Vorschlag, aber keine Sperre. Vorher: **Welle N4 vollstaendig abgeschlossen: gesperrt heisst unsichtbar — eine Bedingung, vier Flaechen (Feed, Suche, Detailansicht, Deckungsrechnung), und `negotiate-deal` bekommt den Riegel, den nur `accept-deal` hatte.** Die Auskunft an die Agentur nennt weder Grund noch Kunden. Die K4-Feed-Kopie hat seit Migration 216 eine Marktseite und nimmt keine betrachter-gefilterte Liste mehr auf (N4.4). Vorher: **Welle N2.1 abgeschlossen: der Notdienst wird aus dem Einsatzbeginn ABGELEITET (Vorlauf <= 2 Kalendertage, Europe/Berlin), das Auswahlfeld ist entfernt.** Dabei gefunden: die Notdienst-Maschinerie waere mit NORMALER SLA angelaufen, weil der geparste Rumpf den Schema-Standardwert trug. Vorher: **Welle N7.5 abgeschlossen: der plattformweite Notdienst-Blick hat jetzt eine Zielgruppe (nur Agenturen) und eine Feldauswahl (22 Felder statt 44 Spalten, als Erlaubnisliste im Dienst).** Damit ist der letzte offene Sicherheitspunkt aus N7.4 entschieden und geschlossen. Vorher: **Welle N1b abgeschlossen: jetzt waehlen ALLE FUENF Flaechen aus derselben Faehigkeitsmenge.** Die Mitarbeiterseite bot 142 fest verdrahtete Begriffe an, von denen **109 im Katalog nicht vorkamen** — und schrieb sie als Wortliste ins Profil, wodurch `worker_profile_skills` leer blieb und der Angebotsgenerator diese Menschen nie in den Markt brachte. Neuer katalog-gebundener Endpunkt fuer die Agentursicht; Bestandsdaten geprueft und sauber. Vorher: **Welle N1 (Faehigkeiten-Katalog) abgeschlossen: beide Marktseiten waehlen jetzt aus derselben Menge.** Vorher tippten beide Freitext — Schreibvarianten, die einander nie finden, ohne dass es jemand sieht. Neu: ein gemeinsames Bauteil (`skillPicker.js`), die Zahl verfuegbarer Kraefte je Faehigkeit (`aggregateBySkill`, die es noch nicht gab) und der gefuehrte Weg fuer eigene Begriffe. **Neuer offener Punkt:** `mitarbeiter.js` traegt eine zweite, fest verdrahtete Liste. Vorher: **Welle N7.4 (Notdienst) abgeschlossen: von elf fertigen, auditierten Endpunkten riefen die Oberflächen zwei auf.** Sechs davon verdrahtet, darunter der einzige Weg, eine Teilzusage zurückzunehmen. Drei Befunde dabei: `POST /emergency/:id/escalate` hatte **keine Eigentumsprüfung** (jeder Tarif-Berechtigte konnte fremde Notlagen hochstufen und damit einen E-Mail-Rundruf an bis zu 50 Anbieter auslösen) — geschlossen; `?all=1` liefert `dr.*` inkl. fremder Kontakt-Durchwahl — **offen, Owner-Entscheidung**; der Erreichbarkeits-Wächter übersah 17 Registerzeilen und damit fünf lebende Seiten — geschlossen. Vorher: 2026-08-21 — **8.1.1 (a)–(e) abgeschlossen. Beim Bauen von (d) zwei aktive Cross-Org-Lecks gefunden: 201 Kundenkonten konnten das plattformweite Audit-Log lesen und exportieren — und jeden Nutzer der Plattform ändern oder sperren.** Beides geschlossen. Zwei neue P1-Punkte offen (admin.js als Kundenfläche mit Plattformdaten; fünf Routen mit selbstabschaltender Org-Grenze). Vorher: **8.1.1 abgeschlossen: das Audit-Log trennt die Mandanten, Abnahme `fremde_org` 139 → 0.** Die Ursache war ein Demo-Login ohne `session.regenerate()`, der die Organisation des Vorgängers erbte — das betraf die Mandantengrenze von 45 Routen, nicht nur das Audit. Vorher: **Vorlauf V-2 zu Welle I erledigt: drei Wächter prüfen jetzt den git-Index statt des Dateibaums (P2-W1)** — sie waren in jedem Worktree/Klon/CI dauerhaft rot, ohne dass etwas kaputt war, und im Hauptbaum gleichzeitig falsch grün. Voller Lauf erstmals 9524/0. Vorher: 2026-08-19 — **Welle H2 (Mandantengrenzen) abgeschlossen: zehn Cross-Org-Lücken geschlossen, Wächter gebaut.** Neuer P1-Eintrag: Migration 117 existiert nicht, obwohl 28 Tabellen in `TENANT_ISOLATION_MODEL.md` auf sie verweisen. Vorher: 2026-08-07 — **P8 Deal-Verbindlichkeit (Wellen A-E) abgeschlossen und committet** (`4220693`..`67b0282`). Vier geerbte Defekte dabei gefunden und geschlossen, darunter eine Kennzahl, die das Feed-Ranking steuerte und in Produktion durchgehend NULL war, und ein Bounty, das notorische Kurzfrist-Stornierer mit 3 % Rabatt belohnte. **Neue Betriebs-Pflicht vor Go-Live: Cron `recompute-deal-reliability` einrichten + Migrationen 164/165 einspielen** (siehe Done-Eintrag). Vorher: 2026-07-26 — **P1.0 Schritt (d) erledigt**: `.env.prod.example` kannte `STAFF_SESSION_SECRET` nicht, obwohl die Variable in Produktion ein `fatal()` ausloest — ein Deploy nach dieser Vorlage waere nicht gestartet. Ergaenzt + Waechter `api/test/prodEnvTemplate.test.js`, der Pflichtvariablen aus dem Code gegen die Vorlage prueft. Ebenfalls am 2026-07-26: `docs/AUDIT_BACKLOG.md` vollstaendig abgearbeitet (u. a. ein ausnutzbares Cross-Org-Leck geschlossen). Vorher: 2026-06-13 — **Welle F1 (Code-Schlussarbeiten) abgeschlossen + committet** (`9f37250`/`1044343`/`878b022`/`845b6c9`): Prod-Härtung, Security-Quick-Wins, Hygiene-Sweep, Test-Harness-Folge inkl. eines gefundenen+gefixten requireMfa-SCC-Betriebsblockers; volle Suite 4508/0, Lint 0/0, Builds grün — siehe Abschlussbericht im Worklog. Marktstart-Ziel auf **01.09.2026** aktualisiert (UG-Gründung = kritischer Pfad). Vorher: 2026-06-11 — **Der konsolidierte Vorwaerts-Plan bis zur finalen Abnahme (Wellen F0-F6) liegt in `docs/finalization/FINALISIERUNGSPLAN_ABNAHME.md`** und mappt ALLE offenen Punkte dieses Files (P0.4, P1.0, P1.4, E-01, P2.x) + Gap-Register O-01-O-11 + Audit-Funde 2026-06-11 auf Wellen/Phasen mit Abnahmekriterien. Vorher: 2026-06-05 (Go-Live-Haertung abgeschlossen, „drei wie empfohlen" Owner-approved: P0.6 [052-Demo-Seed-Backdoor] via Env-Flag-Gate `SEED_DEMO_WORLD` [migrate.sh PGOPTIONS-GUC + 052 DO-Guard + Compose-Split base/prod=false, override=true] + Remediation-Migration 125 [Hash-Neutralisierung der 6 Demo-Konten, gegated+idempotent]; P0.7 Tier-2 [Bestands-DB-116-Backstop] via Forward-Repair-Migration 126 [nicht-transaktional, per-Tabelle-to_regclass-guarded, idempotent]; subscriptions-RLS-Exclusion bestaetigt. Verifiziert auf zwei Wegwerf-DBs [beide Flag-Pfade + Nicht-Superuser-Deny-by-Default-Laufzeitbeweis], realer Stack unberuehrt. AKTIVIERUNG: 126 schaltet Deny-by-Default+FORCE RLS beim naechsten migrate-Lauf gegen Bestands-/Managed-DB scharf. Alle Diffs uncommitted = Owner-Commit-Gate. Vorherige offene Owner-Tasks bleiben: P0.4, P1.4-Live-Run, E-01, R2/R9 extern).
 ## Owner-Aufgaben im Klartext (Stand 2026-07-26)
 
 > **Warum dieser Abschnitt existiert:** die Punkte unten stehen weiter unten schon als P0.4 /

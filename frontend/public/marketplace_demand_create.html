@@ -448,6 +448,9 @@
     /** Ergebnisblock aus der Server-Antwort aufbauen (auch beim Sprachwechsel). */
     function renderResult(d) {
       lastResult = d;
+      /* N2.5: der Bedarf ist angelegt — ab jetzt waere der Entwurf ein
+         Wiedergaenger, der den naechsten Bedarf vorbelegt. */
+      if (window.__tcEntwurf) window.__tcEntwurf.loeschen();
       document.getElementById("res-id").textContent = d.id.substring(0, 8);
       var slaEl = document.getElementById("res-sla");
       if (d.sla_status) {
@@ -828,6 +831,115 @@
     else start();
   })();
   </script>
+  <script>
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * N2.5 — ABBRECHEN VERLIERT NICHTS
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * Wer den Assistenten schliesst und wiederkommt, findet seinen Stand vor.
+   *
+   * IM BROWSER, NICHT AUF DEM SERVER — und das ist eine Entscheidung, keine
+   * Bequemlichkeit. Ein `status='draft'` in `demand_requests` braeuchte eine
+   * Migration UND einen zusaetzlichen Filter in JEDER Abfrage, die Bedarfe
+   * liest. Genau diese Fehlerklasse — ein Filter, der an einer von mehreren
+   * Stellen fehlt — hat diese Welle mehrfach behoben (N4: die Sperre fehlte in
+   * vier von fuenf Flaechen; N2.4: die Trefferzahl zaehlte die falsche
+   * Marktseite). Ein halbfertiger Bedarf, der in den Feed rutscht, waere der
+   * teuerste Ausgang: eine Zeitarbeitsfirma antwortet auf etwas, das niemand
+   * abgeschickt hat.
+   *
+   * Der Preis dieser Wahl wird benannt und nicht versteckt: der Entwurf lebt in
+   * DIESEM Browser. Wer das Geraet wechselt, faengt neu an. Fuer einen
+   * halbfertigen Bedarf ist das vertretbar — fuer einen abgeschickten waere es
+   * das nicht, und der liegt auf dem Server.
+   *
+   * WARUM DIESER BLOCK HIER STEHT UND NICHT WEITER UNTEN: der Katalogwaehler
+   * montiert im naechsten Skriptblock und liest seine Vorauswahl DABEI aus dem
+   * versteckten Feld `skill_tags`. Wuerde der Entwurf erst in der
+   * Assistenten-IIFE zurueckgeschrieben, kaeme er zu spaet — die Faehigkeiten
+   * stuenden im Feld, waeren aber nicht angeklickt.
+   */
+  (function () {
+    var SCHLUESSEL = "tc_bedarf_entwurf";
+    /* Ein Entwurf von vor zwei Wochen traegt ein Startdatum in der
+       Vergangenheit und einen Preisvorschlag von gestern. Ab hier ist ein
+       leeres Formular ehrlicher als ein alter Stand. */
+    var HOECHSTALTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+    var FELDER = ["title", "role", "skill_tags", "headcount", "start_date", "end_date",
+      "location_city", "location_postal", "radius_km", "budget_min", "budget_max",
+      "contact_name", "contact_phone"];
+
+    function lesen() {
+      try {
+        var roh = window.localStorage.getItem(SCHLUESSEL);
+        if (!roh) return null;
+        var e = JSON.parse(roh);
+        if (!e || typeof e !== "object") return null;
+        if (!e.stand || (Date.now() - Number(e.stand)) > HOECHSTALTER_MS) {
+          loeschen();
+          return null;
+        }
+        return e;
+      } catch (x) { return null; }   /* Speicher kann fehlen oder gesperrt sein */
+    }
+
+    function schreiben() {
+      try {
+        var werte = {};
+        var etwasDrin = false;
+        FELDER.forEach(function (id) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          var v = String(el.value || "");
+          werte[id] = v;
+          /* Die Vorbelegung des Ortes allein ist KEIN Entwurf — sonst meldete
+             sich das Formular beim zweiten Besuch mit einem "Stand", den
+             niemand eingegeben hat. */
+          if (v.trim() && id !== "location_city" && id !== "radius_km") etwasDrin = true;
+        });
+        if (!etwasDrin) { loeschen(); return; }
+        window.localStorage.setItem(SCHLUESSEL, JSON.stringify({
+          stand: Date.now(),
+          schritt: Number(window.__tcEntwurfSchritt || 0),
+          werte: werte
+        }));
+      } catch (x) { /* ein voller oder gesperrter Speicher darf nichts brechen */ }
+    }
+
+    function loeschen() {
+      try { window.localStorage.removeItem(SCHLUESSEL); } catch (x) { /* s. o. */ }
+    }
+
+    function wiederherstellen() {
+      var e = lesen();
+      if (!e || !e.werte) return null;
+      FELDER.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var v = e.werte[id];
+        /* Nur fuellen, was leer ist: ein Feld mit Standardwert (headcount=1,
+           radius_km=25) darf der Entwurf ueberschreiben, eine Eingabe nicht —
+           und zu diesem Zeitpunkt hat noch niemand getippt. */
+        if (typeof v === "string" && v !== "") el.value = v;
+      });
+      return e;
+    }
+
+    var wieder = wiederherstellen();
+    window.__tcEntwurf = {
+      schreiben: schreiben,
+      loeschen: loeschen,
+      lesen: lesen,
+      felder: FELDER,
+      hoechstalterMs: HOECHSTALTER_MS,
+      /* Der Assistent liest das beim Start und springt dorthin zurueck. */
+      schritt: wieder && Number.isFinite(Number(wieder.schritt)) ? Number(wieder.schritt) : 0,
+      wiederhergestellt: !!wieder
+    };
+  })();
+  </script>
   <script src="/public/js/skillPicker.js"></script>
   <script>
   /*
@@ -1004,6 +1116,10 @@
     function gehe(richtung) {
       if (richtung > 0 && !schrittVollstaendig()) return;
       jetzt = Math.min(SCHRITTE.length - 1, Math.max(0, jetzt + richtung));
+      /* N2.5: der Schritt gehoert zum Stand. Ohne ihn faende der Kunde zwar
+         seine Eingaben wieder, aber am Anfang — und muesste sich durchklicken. */
+      window.__tcEntwurfSchritt = jetzt;
+      if (window.__tcEntwurf) window.__tcEntwurf.schreiben();
       zeige();
       if (kopf && kopf.scrollIntoView) kopf.scrollIntoView({ block: "nearest" });
     }
@@ -1201,6 +1317,29 @@
         el.addEventListener("input", vorschauAngestossen);
         el.addEventListener("change", vorschauAngestossen);
       });
+
+      /* N2.5: jede Aenderung sichert den Stand. Entprellt, weil hier getippt
+         wird — und `change` zusaetzlich, weil der Katalogwaehler nur das meldet. */
+      var sicherungsZeitgeber = null;
+      var sichern = function () {
+        if (sicherungsZeitgeber) clearTimeout(sicherungsZeitgeber);
+        sicherungsZeitgeber = setTimeout(function () {
+          if (window.__tcEntwurf) window.__tcEntwurf.schreiben();
+        }, 500);
+      };
+      (window.__tcEntwurf ? window.__tcEntwurf.felder : []).forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener("input", sichern);
+        el.addEventListener("change", sichern);
+      });
+
+      /* Ein wiederhergestellter Entwurf springt zu dem Schritt zurueck, an dem
+         der Kunde aufgehoert hat. */
+      if (window.__tcEntwurf && window.__tcEntwurf.wiederhergestellt) {
+        jetzt = Math.min(SCHRITTE.length - 1, Math.max(0, Number(window.__tcEntwurf.schritt) || 0));
+        window.__tcEntwurfSchritt = jetzt;
+      }
 
       ortVorbelegen();
       zeige();
