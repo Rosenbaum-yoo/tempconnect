@@ -106,6 +106,61 @@ export async function isWorkerBlockedForCompanyByProfile(db, companyOrgId, worke
 }
 
 /**
+ * Ist das Angebot fuer dieses Unternehmen gesperrt? — ueber die ANGEBOTS-Kennung.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WARUM ES DIESE FUNKTION GIBT (N4.5, gefunden in der Gegenpruefung 2026-09-12)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Die Detailansicht pruefte `entry.worker_profile_id`. Diese Spalte steht
+ * ABSICHTLICH nicht in der oeffentlichen Projektion (`NUR_INTERN`: "is_anonymous
+ * ist das Versprechen; diese Spalte draussen zu halten ist sein Vollzug"). Der
+ * geladene Datensatz trug sie also nie — die Bedingung war immer falsch, der
+ * Riegel feuerte kein einziges Mal.
+ *
+ * Die Probe dazu war gruen, weil sie die Spalte SELBST in die Muster-Zeile
+ * geschrieben hatte. Der Muster-Pool lieferte, was die Produktion nie liefert.
+ *
+ * Die Loesung darf die Spalte NICHT oeffentlich machen. Sie loest die Kraft
+ * serverseitig auf und benutzt danach dieselbe Einzelpruefung wie ueberall —
+ * zwei kleine Abfragen, keine zweite Abschrift der Sperrbedingung.
+ */
+export async function isCapacityPostBlockedForCompany(db, companyOrgId, capacityPostId) {
+  if (!companyOrgId || !capacityPostId) return null;
+  const { rows } = await db.query(
+    "SELECT worker_profile_id FROM capacity_posts WHERE id = $1",
+    [capacityPostId]
+  );
+  const profil = rows[0]?.worker_profile_id;
+  /* Ein Sammelangebot haengt an keinem Profil — es gibt nichts zu sperren. */
+  if (!profil) return null;
+  return isWorkerBlockedForCompanyByProfile(db, companyOrgId, profil);
+}
+
+/**
+ * Welche Unternehmen haben die Kraft hinter diesem Profil AKTIV gesperrt?
+ *
+ * Fuer die Gegenrichtung der Zuordnung: ein NEUES Angebot wird gegen offene
+ * Bedarfe gerechnet, und der Match-Trigger schreibt beide Seiten an. Ohne
+ * diese Menge bekaeme genau das Unternehmen, das die Kraft gesperrt hat, ihr
+ * Angebot zugeschickt.
+ *
+ * @returns {Promise<Set<string>>} Org-Kennungen als Zeichenketten.
+ */
+export async function sperrendeKundenFuerProfil(db, workerProfileId) {
+  if (!workerProfileId) return new Set();
+  const { rows } = await db.query(
+    `SELECT DISTINCT bl.company_org_id
+       FROM company_worker_blocklist bl
+       JOIN worker_profiles wp ON wp.user_id = bl.worker_user_id
+      WHERE wp.id = $1
+        AND (bl.blocked_until IS NULL OR bl.blocked_until >= CURRENT_DATE)`,
+    [workerProfileId]
+  );
+  return new Set(rows.map((r) => String(r.company_org_id)));
+}
+
+/**
  * Sperrliste eines Unternehmens (Käufer-Sicht). Standard: nur aktive Sperren.
  */
 export async function listCompanyBlocklist(pool, companyOrgId, { includeExpired = false } = {}) {

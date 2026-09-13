@@ -1042,7 +1042,7 @@ export function createMarketplaceRouter(deps) {
          * eine Probe, die den gespeicherten Wert prueft statt die Antwort.
          */
         const emergencyResult = await emergencyService.createEmergencyRequest(
-          pool, req.session.userId, plan, { ...parsed.data, urgency }
+          pool, req.session.userId, plan, { ...parsed.data, urgency, requester_org_id: req.orgId || null }
         );
         const demand = emergencyResult.demand;
         const events = await marketplaceService.getDemandSlaEvents(pool, demand.id);
@@ -1098,7 +1098,9 @@ export function createMarketplaceRouter(deps) {
       }
 
       const verifiedIds = await marketplaceService.getVerifiedSupplierIds(pool);
-      const { candidateCount, matchCount, matches } = await marketplaceService.runInitialMatching(pool, demand, verifiedIds);
+      const { candidateCount, matchCount, matches } = await marketplaceService.runInitialMatching(
+        pool, demand, verifiedIds, { kundeOrgId: req.orgId || null }
+      );
 
       await marketplaceService.recordDemandMatchingAttempt(pool, demand.id, { candidateCount, matchCount });
 
@@ -1188,7 +1190,10 @@ export function createMarketplaceRouter(deps) {
       // Match Suggestions: top matching capacity posts for this demand
       let suggested_matches = [];
       try {
-        const suggestions = await matchingEngine.findMatches(pool, id, { topN: 5, minScore: 20 });
+        /* N4.5: die Org des BEDARFSTELLERS, nicht die des Betrachters. */
+        const suggestions = await matchingEngine.findMatches(pool, id, {
+          topN: 5, minScore: 20, kundeOrgId: row.requester_org_id || null
+        });
         suggested_matches = suggestions.map(m => ({
           id: m.capacity_post?.id,
           title: m.capacity_post?.title,

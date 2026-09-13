@@ -148,7 +148,7 @@ buchen kann. Das dreht N4 um: **gesperrt heißt unsichtbar**, nicht „abgewiese
 > | `negotiate-deal` | **ließ durch** | 409, vor der Platzrechnung |
 > | Feed | blendete aus | benutzt den gemeinsamen Baustein |
 > | Suche | zeigte an | filtert, Liste **und** Trefferzahl |
-> | Detailansicht | zeigte an | 409 |
+> | Detailansicht | zeigte an | 409 — **erst seit N4.5 wirksam** (siehe unten) |
 > | Deckungsrechnung | zählte mit | rechnet ohne (N4.2) |
 >
 > **Der Verhandlungsweg war die ernstere Lücke.** Er ist kein reiner Lesepfad: er legt einen
@@ -160,6 +160,17 @@ buchen kann. Das dreht N4 um: **gesperrt heißt unsichtbar**, nicht „abgewiese
 > **Kein 404 in der Detailansicht.** Das Unternehmen hat die Sperre selbst gesetzt; ihm „nicht
 > gefunden" zu antworten ließe es den Fehler bei sich suchen. Derselbe Code wie beim Buchen,
 > damit die Oberfläche einen einzigen Satz braucht.
+
+> **KORREKTUR 2026-09-12 (N4.5) — die Tabelle oben war zu optimistisch.** Die adversarische
+> Prüfung fand, dass der Riegel der **Detailansicht nie ausgelöst hat**: er las
+> `entry.worker_profile_id`, und diese Spalte steht mit Absicht **nicht** in der öffentlichen
+> Projektion (`NUR_INTERN`). Die Probe war grün, weil sie die Spalte selbst in die Muster-Zeile
+> geschrieben hatte. Außerdem fehlte die Sperre an **fünf weiteren Stellen**, die Anbieter
+> aktiv ansprechen: die Treffer beim Anlegen (samt bis zu 15 Mails), die Vorschläge in der
+> Bedarfsansicht, der Sofort-Abgleich hinter Match-Trigger und Notdienst-Alarmierung, dessen
+> Eskalation (bis zu 50 Anbieter) — und die Gegenrichtung, in der ein neues Angebot dem
+> sperrenden Unternehmen zugeschickt wurde. Alles behoben in N4.5, siehe
+> `docs/PILOT_GO_LIVE_TODOS.md`.
 
 > **Erledigt am 2026-09-06 (N4.4): die K4-Kopie ist undicht und marktseitenblind GEWESEN.**
 > Beim Prüfen der oben genannten Falle („der Filter gehört hinter die Kopie") zeigte sich, dass

@@ -42,6 +42,13 @@ import * as deckungsDienst from "../services/capacityOfferMatchService.js";
 import { createCapacityExchangeRouter } from "../routes/capacityExchange.js";
 import { createMarketplaceRouter } from "../routes/marketplace.js";
 import { createWorkersRouter } from "../routes/workers.js";
+import { OEFFENTLICH as OEFFENTLICHE_SPALTEN, NUR_INTERN } from "../services/capacityPostOeffentlicheSpalten.js";
+import * as matchMotor from "../services/matchingEngine.js";
+import * as sofortAbgleich from "../services/instantMatchService.js";
+import * as notdienstDienst from "../services/emergencyStaffingService.js";
+import * as matchTrigger from "../services/matchTriggerService.js";
+import * as marktDienst from "../services/marketplaceService.js";
+import { todayDE } from "../utils/dateDE.js";
 
 const HIER = path.dirname(fileURLToPath(import.meta.url));
 const API = path.resolve(HIER, "..");
@@ -251,10 +258,30 @@ describe("N4.2 · Feed und Suche filtern dieselbe Bedingung", () => {
 
 describe("N4.1 · die Detailansicht verweigert die gesperrte Kraft", () => {
 
-  const eintrag = (ueber = {}) => [{
-    id: CP, supplier_company_id: "u9", title: "Pflegekraft", role: "Pflege",
-    status: "active", worker_profile_id: PROFIL, headcount: 1, ...ueber
-  }];
+  /*
+   * ═════════════════════════════════════════════════════════════════════════
+   * N4.5 — DIE MUSTER-ZEILE TRAEGT GENAU, WAS DIE PRODUKTION TRAEGT
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * Hier stand eine handgeschriebene Zeile MIT `worker_profile_id`. Die
+   * Detailansicht laedt aber ueber die oeffentliche Projektion, und die enthaelt
+   * diese Spalte absichtlich nicht (`NUR_INTERN`). Die Probe war gruen, der
+   * Riegel in Wahrheit tot: der Muster-Pool lieferte, was die Produktion nie
+   * liefert. Gefunden in der adversarischen Pruefung vom 12.09.
+   *
+   * Jetzt wird die Zeile aus `OEFFENTLICHE_SPALTEN` gebaut. Wer die Spalte eines Tages
+   * oeffentlich macht, aendert damit auch diese Zeile — und wer den Riegel
+   * wieder auf `entry.worker_profile_id` stuetzt, faellt hier durch.
+   */
+  const eintrag = (ueber = {}) => {
+    const roh = { id: CP, supplier_company_id: "u9", title: "Pflegekraft", role: "Pflege",
+      status: "active", headcount: 1, worker_profile_id: PROFIL, created_by: "u9", ...ueber };
+    const zeile = {};
+    for (const spalte of OEFFENTLICHE_SPALTEN) if (spalte in roh) zeile[spalte] = roh[spalte];
+    return [zeile];
+  };
+  /* Die serverseitige Aufloesung der Kraft — getrennt von der Projektion. */
+  const INTERN = ["SELECT worker_profile_id FROM capacity_posts WHERE id", [{ worker_profile_id: PROFIL }]];
 
   it("409 statt 404 — das Unternehmen hat die Sperre selbst gesetzt", async () => {
     /*
@@ -263,6 +290,7 @@ describe("N4.1 · die Detailansicht verweigert die gesperrte Kraft", () => {
      * die Oberflaeche nicht zwei Faelle unterscheiden muss.
      */
     const p = pool([
+      INTERN,
       ["FROM capacity_posts cp", eintrag()],
       ["FROM company_worker_blocklist bl", [{ id: "b1", reason: "x", blocked_until: "2099-01-01" }]]
     ]);
@@ -270,23 +298,36 @@ describe("N4.1 · die Detailansicht verweigert die gesperrte Kraft", () => {
     await handler(createCapacityExchangeRouter(deps(p)), "get", "/capacity-exchange/feed/:id")(
       anfrage({ params: { id: CP } }), res, () => {}
     );
-    assert.strictEqual(res._status, 409);
+    assert.strictEqual(eintrag()[0].worker_profile_id, undefined,
+      "die Muster-Zeile traegt eine Spalte, die die Projektion nicht liefert");
+    assert.strictEqual(res._status, 409, "der Riegel greift nicht — er stuetzt sich auf eine nie geladene Spalte");
     assert.strictEqual(res._json.error, "WORKER_BLOCKED_FOR_COMPANY");
     assert.strictEqual(res._json.blocked_until, "2099-01-01");
   });
 
   it("die Sperrpruefung fragt nach der EIGENEN Org, nicht nach dem Angebot", async () => {
     const p = pool([
+      INTERN,
       ["FROM capacity_posts cp", eintrag()],
       ["FROM company_worker_blocklist bl", [{ id: "b1", blocked_until: null }]]
     ]);
     await handler(createCapacityExchangeRouter(deps(p)), "get", "/capacity-exchange/feed/:id")(
       anfrage({ params: { id: CP }, orgId: ORG_KUNDE }), antwort(), () => {}
     );
+    assert.deepStrictEqual(p.finde("SELECT worker_profile_id FROM capacity_posts WHERE id")[0]?.params, [CP],
+      "die Kraft wird nicht ueber das Angebot aufgeloest");
     const pruefung = p.finde("FROM company_worker_blocklist bl")[0];
     assert.ok(pruefung, "es wurde gar nicht geprueft");
     assert.deepStrictEqual(pruefung.params, [ORG_KUNDE, PROFIL],
       "geprueft wird gegen die falsche Org oder das falsche Profil");
+  });
+
+  it("die Loesung macht die Profilkennung NICHT oeffentlich", () => {
+    /* Die bequeme Reparatur waere gewesen, `worker_profile_id` in die
+       Projektion aufzunehmen. Das haette das Versprechen hinter `is_anonymous`
+       gebrochen, um eine Sperre durchzusetzen. */
+    assert.ok(!OEFFENTLICHE_SPALTEN.includes("worker_profile_id"), "die Profilkennung ist oeffentlich geworden");
+    assert.ok(NUR_INTERN.includes("worker_profile_id"));
   });
 
   it("eine ZEITARBEITSFIRMA wird nicht ausgesperrt", async () => {
@@ -552,24 +593,39 @@ describe("N4.3 · die Auskunft an die Agentur nennt weder Grund noch Kunden", ()
     assert.strictEqual(p.calls.length, 0);
   });
 
-  it("der Endpunkt reicht nur eine echte Kennung durch", async () => {
+  it("der Endpunkt reicht nur eine echte Kennung durch — eine krumme ist ein Fehler", async () => {
     /*
-     * Freitext wuerde die Abfrage mit 22P02 abbrechen — ein 500 sieht aus wie
-     * ein Serverfehler, obwohl der Aufruf falsch war.
+     * KORRIGIERT IN N4.5 (Befund der Gegenpruefung vom 12.09.).
+     *
+     * Die erste Fassung forderte: eine unbrauchbare Kennung faellt STILL auf
+     * die ungescopte Liste zurueck (`scoped_to_company: false`). Das kodierte
+     * einen Fehler als Soll. Der Disponenten-Bildschirm liest dieses Feld
+     * nicht — er haette an Kraeften "gesperrt bei diesem Kunden" angezeigt, die
+     * bei einem ANDEREN Kunden gesperrt sind. Eine gesendete, aber krumme
+     * Kennung ist eine fehlerhafte Anfrage, keine Bitte um die ganze Liste.
+     *
+     * Kein Parameter bleibt die bewusste Frage nach der Uebersicht.
      */
-    for (const [eingabe, erwartetScoped] of [
-      [ORG_KUNDE, true], ["  " + ORG_KUNDE + "  ", true],
-      ["nicht-uuid", false], ["", false], ["' OR 1=1 --", false]
+    for (const [eingabe, erwartet] of [
+      [ORG_KUNDE, "scoped"], ["  " + ORG_KUNDE + "  ", "scoped"], ["", "uebersicht"],
+      ["nicht-uuid", 400], ["' OR 1=1 --", 400], [ORG_KUNDE.replace(/-/g, ""), 400]
     ]) {
       const p = pool();
       const res = antwort();
       await handler(createWorkersRouter(deps(p, { role: "agency" })), "get", "/workers/blocks")(
         anfrage({ query: { company_org_id: eingabe }, orgId: ORG_ANDERE }), res, () => {}
       );
-      assert.strictEqual(res._json.scoped_to_company, erwartetScoped, `Eingabe: ${JSON.stringify(eingabe)}`);
+      const was = JSON.stringify(eingabe);
+      if (erwartet === 400) {
+        assert.strictEqual(res._status, 400, `${was}: kein 400`);
+        assert.strictEqual(res._json.error, "INVALID_COMPANY_ORG_ID", `${was}: falscher Grund`);
+        assert.strictEqual(p.calls.length, 0, `${was}: trotz Fehler wurde die Sperrliste abgefragt`);
+        continue;
+      }
       const q = p.calls[0];
-      assert.strictEqual(q.params.length, erwartetScoped ? 2 : 1);
-      if (erwartetScoped) assert.strictEqual(q.params[1], ORG_KUNDE, "die Kennung wurde ungetrimmt gebunden");
+      assert.strictEqual(res._json.scoped_to_company, erwartet === "scoped", was);
+      assert.strictEqual(q.params.length, erwartet === "scoped" ? 2 : 1, was);
+      if (erwartet === "scoped") assert.strictEqual(q.params[1], ORG_KUNDE, "die Kennung wurde ungetrimmt gebunden");
     }
   });
 
@@ -795,5 +851,223 @@ describe("N4.3 · der Bildschirm, ausgefuehrt", () => {
     b.umgebung.rebuildWorkerSelect([], "kunde-1");
     assert.ok(b.feld.innerHTML.includes("bis 2026-12-31"), "die Frist wird nicht genannt");
     assert.ok(b.feld.innerHTML.includes("dauerhaft"), "eine unbefristete Sperre bekommt kein Wort");
+  });
+});
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   6. N4.5 — DIE ZUORDNUNGS-MOTOREN KENNEN DIE SPERRE
+   ═══════════════════════════════════════════════════════════════════════
+ *
+ * Die Gegenpruefung vom 12.09. fand, was N4 uebersehen hatte: es gibt DREI
+ * getrennte Zuordnungs-Motoren, und keiner kannte die Kundensperre. Zwei davon
+ * schreiben Anbieter AKTIV an — der Anlagepfad mailt bis zu fuenfzehn, die
+ * Notdienst-Eskalation bis zu fuenfzig. Eine Zeitarbeitsfirma bekam also eine
+ * Anfrage ueber den Bedarf genau des Kunden, der ihre Kraft gesperrt hat.
+ *
+ * Und in beide Richtungen: ein NEUES Angebot wird gegen offene Bedarfe
+ * gerechnet, und der Match-Trigger schreibt beide Seiten an — das sperrende
+ * Unternehmen bekam das Angebot der gesperrten Kraft zugeschickt.
+ */
+
+describe("N4.5 · die Zuordnungs-Motoren kennen die Sperre", () => {
+
+  const sperrBindung = (calls, nadel) => {
+    const q = calls.find((c) => c.sql.includes(nadel));
+    assert.ok(q, "die Kapazitaetsabfrage lief nicht (" + nadel + ")");
+    return q;
+  };
+
+  it("instantMatchFromParams: mit Kunde gefiltert und gebunden", async () => {
+    const p = pool();
+    await sofortAbgleich.instantMatchFromParams(p, { role: "x", skill_tags: [] }, null, { kundeOrgId: ORG_KUNDE });
+    const q = sperrBindung(p.calls, "FROM capacity_posts cp");
+    assert.ok(q.sql.includes("FROM company_worker_blocklist bl"), "der Sofort-Abgleich kennt die Sperre nicht");
+    assert.deepStrictEqual(q.params, [ORG_KUNDE]);
+  });
+
+  it("instantMatchFromParams: `orgId` allein filtert ebenso — der Weg ueber /matching", async () => {
+    const p = pool();
+    await sofortAbgleich.instantMatchFromParams(p, { role: "x", skill_tags: [] }, ORG_KUNDE, {});
+    assert.deepStrictEqual(sperrBindung(p.calls, "FROM capacity_posts cp").params, [ORG_KUNDE]);
+  });
+
+  it("instantMatchFromParams: ohne Kunde bleibt die Abfrage wortgleich und bindet nichts", async () => {
+    /* Der Normalfall bezahlt nichts: ohne jemanden, der gesperrt haben kann,
+       steht keine Bedingung in der Abfrage. */
+    const p = pool();
+    await sofortAbgleich.instantMatchFromParams(p, { role: "x", skill_tags: [] }, null, {});
+    const q = sperrBindung(p.calls, "FROM capacity_posts cp");
+    assert.ok(!q.sql.includes("company_worker_blocklist"));
+    assert.match(q.sql, /WHERE cp\.is_active = TRUE`?$|WHERE cp\.is_active = TRUE\s*$/);
+    assert.deepStrictEqual(q.params, []);
+  });
+
+  it("matchRequisition: gefiltert mit Kunde, wortgleich ohne", async () => {
+    const mit = pool();
+    await matchMotor.matchRequisition(mit, { role: "x", skill_tags: [] }, { kundeOrgId: ORG_KUNDE, skillIndex: null });
+    const q = sperrBindung(mit.calls, "FROM capacity_posts");
+    assert.ok(q.sql.includes("wpb.id = capacity_posts.worker_profile_id"),
+      "die Vorschlaege kennen die Sperre nicht");
+    assert.deepStrictEqual(q.params, [ORG_KUNDE]);
+
+    const ohne = pool();
+    await matchMotor.matchRequisition(ohne, { role: "x", skill_tags: [] }, { skillIndex: null });
+    assert.strictEqual(sperrBindung(ohne.calls, "FROM capacity_posts").sql,
+      "SELECT * FROM capacity_posts WHERE is_active = TRUE");
+  });
+
+  it("runInitialMatching: die Treffer beim Anlegen — daraus gehen bis zu 15 Mails", async () => {
+    const p = pool();
+    await marktDienst.runInitialMatching(p, { start_date: "2026-10-01", end_date: null }, new Set(),
+      { kundeOrgId: ORG_KUNDE });
+    const q = sperrBindung(p.calls, "availability_from <= $1");
+    assert.ok(q.sql.includes("FROM company_worker_blocklist bl"), "die Anlage-Treffer kennen die Sperre nicht");
+    const nummer = Number(/bl\.company_org_id = \$(\d+)/.exec(q.sql)[1]);
+    assert.strictEqual(q.params[nummer - 1], ORG_KUNDE, "der Platzhalter zeigt nicht auf den Kunden");
+  });
+
+  it("die GEGENRICHTUNG: ein neues Angebot erreicht das sperrende Unternehmen nicht", async () => {
+    const p = pool([
+      ["SELECT * FROM capacity_posts WHERE id", [{ id: CP, worker_profile_id: PROFIL, role: "Pflege",
+        skill_tags: [], location_city: "Münster", is_active: true }]],
+      ["SELECT DISTINCT bl.company_org_id", [{ company_org_id: ORG_KUNDE }]],
+      ["FROM requisitions WHERE status IN", [
+        { id: "r-gesperrt", org_id: ORG_KUNDE, role: "Pflege", skill_tags: [], location_city: "Münster" },
+        { id: "r-frei", org_id: ORG_ANDERE, role: "Pflege", skill_tags: [], location_city: "Münster" }]],
+      ["FROM demand_requests WHERE status = 'open'", [
+        { id: "d-gesperrt", requester_company_id: "u-kunde", role: "Pflege", skill_tags: [], location_city: "Münster" },
+        { id: "d-frei", requester_company_id: "u-andere", role: "Pflege", skill_tags: [], location_city: "Münster" }]],
+      ["FROM users WHERE id = ANY", [{ id: "u-kunde", org_id: ORG_KUNDE }, { id: "u-andere", org_id: ORG_ANDERE }]]
+    ]);
+    const treffer = await matchMotor.matchCapacityToRequisitions(p, CP, { minScore: 1, skillIndex: null });
+    const ids = treffer.map((t) => t.entity?.id || t.id);
+    assert.ok(!ids.includes("r-gesperrt"), "die Requisition des sperrenden Unternehmens bekam das Angebot");
+    assert.ok(!ids.includes("d-gesperrt"), "der Bedarf des sperrenden Unternehmens bekam das Angebot");
+    assert.ok(ids.includes("r-frei") && ids.includes("d-frei"),
+      "der Filter hat mehr entfernt als die Sperre verlangt: " + ids.join(", "));
+  });
+
+  it("die Gegenrichtung ohne Sperre bezahlt keine zusaetzliche Abfrage", async () => {
+    const p = pool([
+      ["SELECT * FROM capacity_posts WHERE id", [{ id: CP, worker_profile_id: PROFIL, role: "Pflege", skill_tags: [] }]],
+      ["FROM demand_requests WHERE status = 'open'", [{ id: "d1", requester_company_id: "u1", role: "Pflege", skill_tags: [] }]]
+    ]);
+    await matchMotor.matchCapacityToRequisitions(p, CP, { minScore: 1, skillIndex: null });
+    assert.strictEqual(p.finde("FROM users WHERE id = ANY").length, 0,
+      "ohne jede Sperre werden trotzdem Nutzer-Orgs nachgeladen");
+  });
+
+  it("die Notdienst-Anlage reicht die Org bis in den Abgleich", async () => {
+    const p = pool([
+      ["INSERT INTO demand_requests", [{ id: "dr1", role: "Pflege", skill_tags: [], headcount: 1,
+        start_date: "2026-09-14", location_city: "Münster", urgency: "notdienst" }]]
+    ]);
+    await notdienstDienst.createEmergencyRequest(p, "u1", "PRO",
+      { role: "Pflege", skill_tags: [], headcount: 1, start_date: "2026-09-14",
+        location_city: "Münster", urgency: "notdienst", requester_org_id: ORG_KUNDE });
+    assert.deepStrictEqual(sperrBindung(p.calls, "FROM capacity_posts cp").params, [ORG_KUNDE],
+      "die Notdienst-Alarmierung kennt die Sperre nicht");
+  });
+
+  it("die Eskalation bestimmt die Org selbst — und laedt dafuer den Auftraggeber", async () => {
+    /*
+     * Beim ersten Einbau las die Eskalation `demand.requester_company_id` aus
+     * einer Abfrage, die diese Spalte gar nicht auswaehlte. Der Riegel war
+     * damit so tot wie der der Detailansicht — aus demselben Grund. Diese Probe
+     * prueft deshalb auch, dass die Spalte GELADEN wird, nicht nur gelesen.
+     */
+    const p = pool([
+      [(sql) => /SELECT id, urgency, status, escalation_level/.test(sql), (sql) =>
+        sql.includes("requester_company_id")
+          ? [{ id: "dr1", urgency: "notdienst", status: "open", escalation_level: 0, role: "Pflege",
+               location_city: "Münster", requester_company_id: "u-kunde" }]
+          : [{ id: "dr1", urgency: "notdienst", status: "open", escalation_level: 0, role: "Pflege",
+               location_city: "Münster" }]],
+      ["SELECT org_id FROM users WHERE id", (sql, params) => params[0] === "u-kunde" ? [{ org_id: ORG_KUNDE }] : []]
+    ]);
+    await notdienstDienst.escalateEmergency(p, "dr1", "staff-1");
+    assert.deepStrictEqual(sperrBindung(p.calls, "FROM capacity_posts cp").params, [ORG_KUNDE],
+      "die Eskalation schreibt an, ohne die Sperre zu kennen");
+  });
+
+  it("der Match-Trigger bestimmt die Org eines Bedarfs, ohne die Empfaenger zu verschieben", async () => {
+    const p = pool([
+      ["FROM demand_requests WHERE id = $1 AND status = 'open'", [{ id: "dr1", requester_company_id: "u-kunde",
+        role: "Pflege", skill_tags: [], location_city: "Münster", urgency: "normal" }]],
+      ["SELECT org_id FROM users WHERE id", (sql, params) => params[0] === "u-kunde" ? [{ org_id: ORG_KUNDE }] : []]
+    ]);
+    await matchTrigger.runMatchTrigger(p, { sourceType: "demand_request", sourceId: "dr1" });
+    assert.deepStrictEqual(sperrBindung(p.calls, "FROM capacity_posts cp").params, [ORG_KUNDE],
+      "der Match-Trigger schreibt an, ohne die Sperre zu kennen");
+  });
+});
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   7. N4.5 — DIE ROUTEN REICHEN DIE RICHTIGE ORG DURCH
+   ═══════════════════════════════════════════════════════════════════════
+ *
+ * Diese drei Proben gibt es, weil VIER Rueckmutationen ueberlebt haben. Die
+ * Dienste waren bewacht, die UEBERGABE der Org in den Routen nicht: man konnte
+ * in der Bedarfsansicht die Org des BETRACHTERS statt der des BEDARFSTELLERS
+ * uebergeben, und nichts wurde rot. Genau das haette die Sperre fuer jeden
+ * ausgehebelt, der nicht selbst der Auftraggeber ist.
+ *
+ * Die Koordinaten stehen in jedem Rumpf, damit die Nachtragung sofort
+ * zurueckspringt — sonst fragte eine Einheitsprobe Nominatim ueber das Netz.
+ */
+
+describe("N4.5 · die Routen reichen die richtige Org durch", () => {
+
+  const RUMPF = {
+    title: "10 Pflegekraefte", role: "Pflege", headcount: 2, location_city: "Münster",
+    location_postal: "48143", location_lat: 51.96, location_lng: 7.62, radius_km: 25
+  };
+  const angelegt = (ueber = {}) => [{ id: "dr1", ...RUMPF, start_date: "2027-03-01", end_date: null,
+    sla_status: null, urgency: "normal", requester_company_id: "u1", ...ueber }];
+
+  it("Bedarfsansicht: die Vorschlaege rechnen mit der Org des BEDARFSTELLERS", async () => {
+    /* Der Betrachter sitzt absichtlich in einer ANDEREN Org. Waere seine Org
+       gebunden, griffe die Sperre des Auftraggebers nicht. */
+    const p = pool([
+      ["u.org_id AS requester_org_id", [{ id: "dr1", requester_company_id: "u1", requester_org_id: ORG_KUNDE,
+        role: "Pflege", skill_tags: [], location_city: "Münster" }]],
+      ["SELECT * FROM demand_requests WHERE id = $1", [{ id: "dr1", role: "Pflege", skill_tags: [],
+        location_city: "Münster" }]]
+    ]);
+    await handler(createMarketplaceRouter(deps(p)), "get", "/marketplace/demand-requests/:id")(
+      anfrage({ params: { id: "dr1" }, orgId: ORG_ANDERE }), antwort(), () => {}
+    );
+    const q = p.calls.find((c) => c.sql.includes("FROM capacity_posts WHERE is_active"));
+    assert.ok(q, "die Vorschlaege wurden gar nicht gerechnet");
+    assert.deepStrictEqual(q.params, [ORG_KUNDE],
+      "gebunden ist nicht die Org des Bedarfstellers: " + JSON.stringify(q.params));
+  });
+
+  it("Anlage: die Treffer (und damit die Mails) kennen die Org des anlegenden Kunden", async () => {
+    const p = pool([["INSERT INTO demand_requests", angelegt()]]);
+    await handler(createMarketplaceRouter(deps(p)), "post", "/marketplace/demand-requests")(
+      anfrage({ body: { ...RUMPF, start_date: "2027-03-01" }, orgId: ORG_KUNDE }), antwort(), () => {}
+    );
+    const q = p.calls.find((c) => c.sql.includes("availability_from <= $1"));
+    assert.ok(q, "die Anlage-Treffer wurden nicht gerechnet");
+    assert.ok(q.sql.includes("FROM company_worker_blocklist bl"), "die Anlage-Treffer kennen die Sperre nicht");
+    assert.ok(q.params.includes(ORG_KUNDE), "die Org des Kunden wurde nicht uebergeben");
+  });
+
+  it("Notdienst-Anlage: die Alarmierung kennt die Org des anlegenden Kunden", async () => {
+    /* Startdatum HEUTE in Europe/Berlin — der Server leitet daraus den
+       Notdienst ab und nimmt den Alarmierungsweg. */
+    const heute = todayDE();
+    const p = pool([["INSERT INTO demand_requests", angelegt({ start_date: heute, urgency: "notdienst" })]]);
+    const res = antwort();
+    await handler(createMarketplaceRouter(deps(p)), "post", "/marketplace/demand-requests")(
+      anfrage({ body: { ...RUMPF, start_date: heute }, orgId: ORG_KUNDE }), res, () => {}
+    );
+    assert.ok(res._json?.emergency, "der Notdienst-Weg wurde nicht genommen — die Probe misst sonst etwas anderes");
+    const q = p.calls.find((c) => c.sql.includes("FROM capacity_posts cp") && c.sql.includes("supplier_name"));
+    assert.ok(q, "die Alarmierung hat nicht abgeglichen");
+    assert.deepStrictEqual(q.params, [ORG_KUNDE], "die Alarmierung kennt die Sperre des Kunden nicht");
   });
 });

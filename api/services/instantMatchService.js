@@ -15,6 +15,7 @@ import { scoreMatch, classifyMatch, logMatch } from "./matchingEngine.js";
 import { computeFillRateSignal, computeSlaComplianceSignal, computeRoleExpertiseSignal, computeRecencySignal, computeSmartRankScore, classifySmartRank, SMART_RANK_LABELS } from "./smartRankingService.js";
 import { swallow } from "../utils/logger.js";
 import { loadSkillIndex } from "./skillNormalizationService.js";
+import * as companyBlocklistService from "./companyBlocklistService.js";
 
 /* ── Batch-Loader ─────────────────────────────────────── */
 
@@ -220,12 +221,30 @@ export async function instantMatchFromParams(pool, demand, orgId, opts = {}) {
   const topN = opts.topN || 25;
   const minScore = opts.minScore || 10;
 
+  /*
+   * N4.5 — DIE KUNDENSPERRE GILT AUCH HIER.
+   *
+   * Dieser Motor steht hinter drei Wegen, die Anbieter AKTIV ansprechen: der
+   * Match-Trigger (schreibt beide Seiten an), die Notdienst-Alarmierung und ihre
+   * Eskalation. Ohne diesen Filter bekam die Zeitarbeitsfirma eine Anfrage fuer
+   * eine Kraft, die bei genau diesem Kunden nie buchbar ist — die Falle, die N4
+   * an vier Flaechen geschlossen hatte und die hier offen stand.
+   *
+   * `kundeOrgId` ist bewusst eine EIGENE Angabe und nicht `orgId`: `orgId`
+   * steuert die Vendor-Pool-Rangfolge, und im Match-Trigger haengt an derselben
+   * Org auch, WER benachrichtigt wird. Die Sperre darf beides nicht verschieben.
+   */
+  const sperrOrg = opts.kundeOrgId || orgId || null;
+
   // 2. Alle aktiven Capacity Posts laden
   const { rows: caps } = await pool.query(
     `SELECT cp.*, o.name AS supplier_name
      FROM capacity_posts cp
      LEFT JOIN organizations o ON o.id = cp.supplier_company_id
-     WHERE cp.is_active = TRUE`
+     WHERE cp.is_active = TRUE${sperrOrg
+       ? `
+       AND ${companyBlocklistService.nichtGesperrtSql("cp", 1)}` : ""}`,
+    sperrOrg ? [sperrOrg] : []
   );
 
   if (caps.length === 0) return { matches: [], total: 0, demand };

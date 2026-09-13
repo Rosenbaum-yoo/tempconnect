@@ -1281,7 +1281,16 @@ export function createWorkersRouter(deps) {
       /* Nur eine echte UUID wird weitergereicht. Ein Freitext wuerde die Abfrage
        * mit 22P02 abbrechen — und ein 500 an dieser Stelle sieht aus wie ein
        * Serverfehler, obwohl der Aufruf falsch war. */
-      const companyOrgId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(roh) ? roh : null;
+      const istKennung = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(roh);
+      /* N4.5 — eine GESENDETE, aber unbrauchbare Kennung ist ein Fehler, keine
+         Bitte um die ganze Liste. Vorher fiel sie still auf die ungescopte
+         Antwort zurueck: der Disponent sah dann "gesperrt bei diesem Kunden" an
+         Kraeften, die bei einem ANDEREN Kunden gesperrt sind. Kein Parameter
+         bleibt die bewusste Frage nach der Uebersicht. */
+      if (roh && !istKennung) {
+        return res.status(400).json({ error: "INVALID_COMPANY_ORG_ID" });
+      }
+      const companyOrgId = istKennung ? roh : null;
       const items = await blocklistSvc.listBlocksForSupplier(pool, req.orgId, { companyOrgId });
       res.json({ items, total: items.length, scoped_to_company: !!companyOrgId });
     } catch (err) { next(err); }

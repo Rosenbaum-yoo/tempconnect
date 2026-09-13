@@ -659,9 +659,13 @@ export function createCapacityExchangeRouter(deps) {
        * den, der gesperrt hat.
        */
       const meDetail = await getUserAndPlan(req.session.userId);
-      if (meDetail?.role === "company" && req.orgId && entry.worker_profile_id) {
-        const sperre = await companyBlocklistService.isWorkerBlockedForCompanyByProfile(
-          pool, req.orgId, entry.worker_profile_id
+      /* N4.5 — ueber die ANGEBOTS-Kennung, nicht ueber `entry.worker_profile_id`:
+         diese Spalte steht mit Absicht nicht in der oeffentlichen Projektion, der
+         Datensatz trug sie nie, und der Riegel feuerte deshalb kein einziges Mal.
+         Siehe `isCapacityPostBlockedForCompany`. */
+      if (meDetail?.role === "company" && req.orgId) {
+        const sperre = await companyBlocklistService.isCapacityPostBlockedForCompany(
+          pool, req.orgId, entry.id
         );
         if (sperre) {
           return res.status(409).json({

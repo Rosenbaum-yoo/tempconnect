@@ -23,6 +23,7 @@ import { cpSpaltenSql } from "./capacityPostOeffentlicheSpalten.js";
  * In `updateOfferStatus` laeuft die Pruefung auf dem `client` der Transaktion,
  * nicht auf dem Pool — sonst laese sie an der eigenen Transaktion vorbei. */
 import { canAccessAsOwner } from "../utils/ownerCheck.js";
+import * as companyBlocklistService from "./companyBlocklistService.js";
 
 const log = createServiceLogger("marketplace");
 
@@ -534,7 +535,13 @@ export async function getDemandSlaEvents(pool, demandId) {
 
 /* ── matching ───────────────────────────────────────────────── */
 
-export async function runInitialMatching(pool, demandRow, verifiedSupplierIds = new Set()) {
+export async function runInitialMatching(pool, demandRow, verifiedSupplierIds = new Set(), opts = {}) {
+  /*
+   * N4.5 — aus diesen Treffern schreibt der Anlagepfad bis zu FUENFZEHN Anbieter
+   * per Mail an. Ohne Sperrfilter bekam eine Zeitarbeitsfirma die Mail ueber
+   * den Bedarf genau des Kunden, der ihre Kraft gesperrt hat.
+   */
+  const kundeOrgId = opts.kundeOrgId || null;
   const { rows: caps } = await pool.query(
     `SELECT ${cpSpaltenSql("cp")}, ${CAPACITY_COMMERCIAL_SELECT}
      FROM capacity_posts cp
@@ -542,8 +549,12 @@ export async function runInitialMatching(pool, demandRow, verifiedSupplierIds = 
      WHERE cp.status = 'active'
        AND ${CAPACITY_REMAINING_HEADCOUNT_SQL} > 0
        AND availability_from <= $1
-       AND (availability_to IS NULL OR availability_to >= $2)`,
-    [demandRow.end_date || demandRow.start_date, demandRow.start_date]
+       AND (availability_to IS NULL OR availability_to >= $2)${kundeOrgId
+       ? `
+       AND ${companyBlocklistService.nichtGesperrtSql("cp", 3)}` : ""}`,
+    kundeOrgId
+      ? [demandRow.end_date || demandRow.start_date, demandRow.start_date, kundeOrgId]
+      : [demandRow.end_date || demandRow.start_date, demandRow.start_date]
   );
   const scored = [];
   for (const cap of caps) {

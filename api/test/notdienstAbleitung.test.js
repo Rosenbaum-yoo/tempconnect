@@ -185,8 +185,15 @@ describe("N2.1 · die Route leitet ab, statt zu fragen", () => {
      * statt 30, kein Antwortfenster, keine Eskalation. Ein Notdienst, der
      * keiner ist, und niemand haette es gesehen.
      */
-    assert.match(handler, /createEmergencyRequest\(\s*\n?\s*pool, req\.session\.userId, plan, \{ \.\.\.parsed\.data, urgency \}/,
+    /* Nachgezogen in N4.5: das Regex verlangte hier ein schliessendes ` }`
+       direkt nach `urgency` — also "kein weiterer Schluessel". Das ist nicht die
+       Zusage, sondern ein Detail: N4.5 haengt `requester_org_id` fuer die
+       Kundensperre an. Die Zusage bleibt unveraendert streng — `urgency` steht
+       UNMITTELBAR nach dem Spread, sonst gewinnt der Schema-Standard. */
+    assert.match(handler, /createEmergencyRequest\(\s*\n?\s*pool, req\.session\.userId, plan, \{ \.\.\.parsed\.data, urgency(?:\s*\}|,)/,
       "der Notdienst-Weg bekommt die abgeleitete Stufe nicht");
+    assert.ok(!/createEmergencyRequest\([\s\S]{0,160}?urgency,[^}]*\burgency\s*:/.test(handler),
+      "hinter der abgeleiteten Stufe wird `urgency` erneut gesetzt — dann gewinnt der spaetere Wert");
     assert.match(handler, /\.\.\.parsed\.data,\s*\n\s*\/\* Nach dem Spread[\s\S]{0,120}?\n\s*urgency,/,
       "der normale Weg bekommt sie nicht — oder VOR dem Spread, dann gewinnt der Schema-Standard");
   });

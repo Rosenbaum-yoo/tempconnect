@@ -270,8 +270,18 @@ export async function runMatchTrigger(pool, args = {}) {
     // Vendor-Pool, Smart Rank sind dort bereits batch-vorgeladen — kein N+1, keine
     // Zweitimplementierung).
     const demand = demandView(sourceType, row);
+    /* N4.5 — die Org des Auftraggebers fuer die Kundensperre. NICHT ueber
+       `demand.orgId`: daran haengt in `resolveRecipients`, wer benachrichtigt
+       wird, und Marktplatz-Bedarfe tragen dort absichtlich keine Org. */
+    let kundeOrgId = sourceType === "requisition" ? (row.org_id || null) : null;
+    if (sourceType === "demand_request" && row.requester_company_id) {
+      const { rows: kunde } = await pool.query(
+        "SELECT org_id FROM users WHERE id = $1", [row.requester_company_id]
+      );
+      kundeOrgId = kunde[0]?.org_id || null;
+    }
     const result = await instantMatchFromParams(pool, toEngineDemand(sourceType, row), demand.orgId, {
-      topN, minScore, urgency: demand.urgency,
+      topN, minScore, urgency: demand.urgency, kundeOrgId,
       requisitionId: sourceType === "requisition" ? sourceId : null
     });
     for (const m of result.matches || []) {

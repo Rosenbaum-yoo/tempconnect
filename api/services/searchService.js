@@ -179,7 +179,10 @@ export async function search(pool, query, opts = {}) {
     // SICHERHEIT: Der Meilisearch-Pfad filtert (noch) NICHT pro Viewer (org-privat/opt-in). In der
     // Pilot-/Hetzner-Umgebung ist Meilisearch nicht aktiv -> es laeuft der org-/sichtbarkeits-gescopte
     // DB-Pfad unten. Vor Aktivierung von Meilisearch: pro-Index-Filter ergaenzen (requisitions org_id,
-    // capacity status, orgs is_public) — sonst cross-org-Leak.
+    // capacity status, orgs is_public) — sonst cross-org-Leak. UND die Kundensperre (N4.2,
+    // `companyBlocklistService.nichtGesperrtSql`): ohne sie sieht ein Unternehmen die von ihm
+    // gesperrte Kraft in der Suche wieder, waehrend `searchService.rbac.test.js` gruen bleibt,
+    // weil er nur den DB-Pfad prueft.
     return searchMeilisearch(client, query, { type, limit, offset, filters: opts.filters, sort: opts.sort, start });
   }
 
