@@ -39,11 +39,12 @@
  * steigt". Und `total` stimmt bei jedem Schritt mit der Zahl der Eintraege
  * ueberein.
  *
- * WAS WEITERHIN NACH DEM LIMIT LAEUFT — benannt, nicht verschwiegen: die
- * anderen Nachfilter der Angebotsseite (`visible_to_viewer`, `min_headcount`,
- * `remaining_headcount > 0`). Auch sie koennen eine Seite kuerzen. Der Umkreis
- * war der teuerste von ihnen, weil er als einziger die Trefferzahl verfaelschte
- * — die anderen bleiben ein eigener Befund.
+ * NACH DEM LIMIT laeuft seit N2.8 nur noch `visible_to_viewer`. Bis N2.7 stand
+ * hier: auch `min_headcount` und `remaining_headcount > 0` liefen danach, und
+ * der Umkreis sei der einzige gewesen, der die Trefferzahl verfaelschte. Das
+ * zweite war falsch — `min_headcount` verfaelschte sie ebenso (gemessen: 24 von
+ * 189 Faellen, jeder mit gesetztem Mindestwert). Beide Kopfzahl-Filter stehen
+ * seit N2.8 in Zaehlung und Abfrage; siehe den Abschnitt unten.
  *
  * Lauf: node --test --test-force-exit test/trefferzahlStimmt.test.js
  */
@@ -52,7 +53,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-import { browseFeed } from "../services/capacityExchangeService.js";
+import { browseFeed, getCapacityCommercialStates, _FUER_PROBEN } from "../services/capacityExchangeService.js";
 
 /* Ein Muster-Pool, der die beiden Zaehlabfragen unterscheidbar beantwortet. */
 function pool({ angebote = 6, bedarfe = 17 } = {}) {
@@ -380,5 +381,202 @@ describe("N2.7 · jede Marktseite blaettert richtig", () => {
     assert.ok(block, "die Rangsortierung ist nicht mehr auffindbar");
     assert.match(block[0], /if \(!umkreis\) \{/, "die Rangsortierung hat wieder eine eigene Umkreis-Definition");
     assert.ok(!/opts\.latitude != null/.test(block[0]), "die alte Null-Pruefung steht wieder da");
+  });
+});
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   N2.8 — DIE FREIE KOPFZAHL FILTERT IN SQL, NICHT HINTER DEM LIMIT
+   ═══════════════════════════════════════════════════════════════════════
+ *
+ * SQL filterte `cp.headcount >= N` (GESAMT), JavaScript danach
+ * `remaining_headcount >= N` (FREI). Ein Angebot "20 gesamt, 19 zugesagt" kam
+ * bei "mindestens 2" durch SQL, wurde gezaehlt — und fiel dann aus der Seite.
+ *
+ * Gegen die laufende Datenbank belegt (Transaktion mit ROLLBACK, Angebot mit
+ * 20 Plaetzen, 19 zugesagt): "mindestens 2" -> nicht im Feed, total 5 = 5
+ * Eintraege; "mindestens 1" -> im Feed, 7 = 7; voll gebucht bei Status
+ * `active` -> nicht im Feed, 6 = 6. Unter dem alten Code war `total` in jedem
+ * Filterfall groesser als die Zahl der Eintraege.
+ *
+ * Und ein zweiter, schwererer Befund in derselben Formel: zwei Zuweisungen am
+ * selben Angebot VERDOPPELTEN die Zusage (19 -> 38), weil `assignments`
+ * direkt dazugejoint wurde. Die freie Kopfzahl fiel auf null, und
+ * `syncCapacityCommercialState` nahm das Angebot als `reserved` aus dem Markt.
+ */
+
+describe("N2.8 · die freie Kopfzahl filtert in SQL", () => {
+
+  const zeilen = { angebote: 0 };
+  function kopfzahlPool({ angebotsZeilen = [], zaehlung = null, zustaende = [] } = {}) {
+    const calls = [];
+    const lauf = async (sql, params = []) => {
+      const s = String(sql);
+      calls.push({ sql: s, params });
+      if (/COUNT\(\*\)::int AS cnt/.test(s)) {
+        return { rows: [{ cnt: /demand_requests dr/.test(s) ? 0 : (zaehlung ?? angebotsZeilen.length) }] };
+      }
+      if (/AS sort_date/.test(s) && /FROM capacity_posts cp/.test(s)) return { rows: angebotsZeilen.map((z) => ({ ...z })) };
+      if (/committed_headcount/.test(s) && /GROUP BY cp\.id/.test(s)) return { rows: zustaende };
+      return { rows: [], rowCount: 0 };
+    };
+    return { calls, query: lauf, connect: async () => ({ query: lauf, release() {} }) };
+  }
+  void zeilen;
+
+  it("`min_headcount` filtert die FREIE Kopfzahl — in Zaehlung und Abfrage, mit gebundenem Wert", async () => {
+    /* MIT Betrachter und Org, wie die Route aufruft: dann steht der Mindestwert
+       NICHT an Stelle 1. Die erste Fassung rief ohne Betrachter auf — ein fest
+       verdrahtetes `$1` blieb gruen, weil der Wert zufaellig dort lag
+       (Befund der kleinen Gegenpruefung vom 13.09.). */
+    const p = kopfzahlPool();
+    await browseFeed(p, { viewer_role: "company", viewer_user_id: "11111111-1111-4111-8111-111111111111",
+      viewer_company_org_id: "22222222-2222-4222-8222-222222222222", min_headcount: 4, limit: 10 });
+    const zaehlung = p.calls.find((c) => /COUNT\(\*\)::int AS cnt/.test(c.sql) && /FROM capacity_posts cp/.test(c.sql));
+    const abfrage = p.calls.find((c) => /AS sort_date/.test(c.sql));
+    for (const [name, q] of [["Zaehlung", zaehlung], ["Abfrage", abfrage]]) {
+      assert.ok(q, name + " lief nicht");
+      const m = /GREATEST\(cp\.headcount - COALESCE\(zusage\.zugesagt, 0\), 0\) >= \$(\d+)/.exec(q.sql);
+      assert.ok(m, `${name}: der Mindestfilter prueft nicht die freie Kopfzahl`);
+      assert.notStrictEqual(Number(m[1]), 1, `${name}: der Mindestfilter haengt an $1 — dort steht der Betrachter`);
+      assert.strictEqual(q.params[Number(m[1]) - 1], 4, `${name}: der Platzhalter traegt nicht den Mindestwert`);
+      assert.ok(!/cp\.headcount >= \$\d+/.test(q.sql), `${name}: die Gesamt-Kopfzahl filtert wieder`);
+    }
+  });
+
+  it("Zaehlung UND Abfrage tragen GENAU den geteilten Zusage-Block — und zwar vor dem WHERE", async () => {
+    /*
+     * Die erste Fassung pruefte nur, dass IRGENDEIN Lateral-Block mit `o_zu`
+     * dasteht. Ein am Aufrufort abgewandelter Block (in der Zaehlung
+     * `'accepted'` -> `IN ('accepted','pending')`) liess Zaehlung und Seite
+     * verschieden rechnen — genau der Fehler, den N2.8 behebt — und blieb gruen.
+     * Ebenso ein Block HINTER dem WHERE: ungueltiges SQL, aber die Regex passte.
+     */
+    const p = kopfzahlPool();
+    await browseFeed(p, { viewer_role: "company", limit: 10 });
+    const block = _FUER_PROBEN.FREIE_KOPFZAHL_JOIN;
+    const ziele = p.calls.filter((c) => /FROM capacity_posts cp/.test(c.sql) && (/COUNT\(\*\)/.test(c.sql) || /AS sort_date/.test(c.sql)));
+    assert.strictEqual(ziele.length, 2, "Zaehlung und Abfrage wurden nicht beide gefunden");
+    for (const q of ziele) {
+      const stelle = q.sql.indexOf(block);
+      assert.ok(stelle >= 0, "eine Abfrage traegt einen abgewandelten oder gar keinen Zusage-Block");
+      const where = q.sql.indexOf("WHERE", stelle + block.length);
+      assert.ok(where > stelle, "der Zusage-Block steht nicht vor dem WHERE");
+    }
+  });
+
+  it("der Zusage-Block selbst: je Angebot, summiert, mit Bedarf verbunden", () => {
+    /*
+     * Diese Bestandteile pinnt keine andere Probe — und jede Abwandlung blieb in
+     * der kleinen Gegenpruefung gruen: `capacity_post_id = cp.id` ->
+     * `IS NOT NULL` (die Zusagen der GANZEN Plattform), `SUM` -> `MAX`,
+     * `demand_requests ... ON TRUE` (Zusage mal Zahl aller Bedarfe), Alias
+     * umbenannt (jede Feed-Abfrage bricht in Postgres ab).
+     */
+    const b = _FUER_PROBEN.FREIE_KOPFZAHL_JOIN;
+    assert.ok(b.includes("WHERE o_zu.capacity_post_id = cp.id"), "die Zusage ist nicht an DIESES Angebot gebunden");
+    assert.ok(b.includes("COALESCE(SUM("), "die Zusage wird nicht summiert");
+    assert.ok(b.includes("LEFT JOIN demand_requests d_zu ON d_zu.id = o_zu.demand_request_id"),
+      "der Bedarf ist nicht ueber seine Kennung verbunden");
+    /* Mit Wortende, nicht als Teilzeichenkette: `zugesagt_n` ENTHAELT
+       `zugesagt` — die erste Fassung dieser Zeile liess genau diese
+       Umbenennung durch, und jede Feed-Abfrage waere in Postgres gescheitert. */
+    assert.match(b, /\)::int AS zugesagt(?![A-Za-z0-9_])/, "die Spalte heisst nicht `zugesagt`");
+    assert.ok(/\)\s*zusage ON TRUE\s*$/.test(b), "der Block heisst nicht `zusage`");
+    assert.strictEqual(_FUER_PROBEN.FREIE_KOPFZAHL_SQL, "GREATEST(cp.headcount - COALESCE(zusage.zugesagt, 0), 0)",
+      "die freie Kopfzahl liest nicht aus dem Block");
+  });
+
+  it("hinter dem LIMIT wird NICHT mehr nach Kopfzahl gefiltert — die Zahl bleibt stimmig", async () => {
+    /*
+     * Was SQL liefert, bleibt auf der Seite. Kaeme eine JS-Kopie des Filters
+     * zurueck, verwuerfe sie bei der kleinsten Abweichung wieder Zeilen, die
+     * gezaehlt wurden — kurze Seite, falsche Zahl. Deshalb liefert der
+     * Muster-Pool hier eine Zeile, die die JS-Kopie verwerfen WUERDE.
+     */
+    const p = kopfzahlPool({
+      angebotsZeilen: [{ id: "cp-1", supplier_company_id: "s1", status: "active", is_active: true,
+        visibility_status: "public", headcount: 5, sort_date: "2026-09-10" }],
+      zustaende: [{ capacity_post_id: "cp-1", committed_headcount: 5, counterparty_user_ids: [] }]
+    });
+    const e = await browseFeed(p, { viewer_role: "company", min_headcount: 4, limit: 10 });
+    assert.strictEqual(e.items.length, 1, "eine JS-Kopie des Kopfzahl-Filters verwirft wieder hinter dem LIMIT");
+    assert.strictEqual(e.total, e.items.length, "Zahl und Seite laufen auseinander");
+  });
+
+  it("ein aktives Angebot ohne freien Platz wird in SQL ausgeschlossen", async () => {
+    const p = kopfzahlPool();
+    await browseFeed(p, { viewer_role: "company", limit: 10 });
+    const ziele = p.calls.filter((c) => /FROM capacity_posts cp/.test(c.sql) && (/COUNT\(\*\)/.test(c.sql) || /AS sort_date/.test(c.sql)));
+    /* Ohne diese Zeile konnte die Probe gruen sein, ohne eine einzige Abfrage
+       geprueft zu haben — eine leere Schleife sichert nichts zu. */
+    assert.strictEqual(ziele.length, 2, "Zaehlung und Abfrage wurden nicht beide gefunden");
+    for (const q of ziele) {
+      assert.match(q.sql, /\(cp\.status <> 'active' OR GREATEST\(cp\.headcount - COALESCE\(zusage\.zugesagt, 0\), 0\) > 0\)/);
+    }
+  });
+
+  it("EINE Formel fuer die Zusage — in allen vier Rechnungen, die tatsaechlich gesendet werden", async () => {
+    /*
+     * Die Formel stand DREIMAL im Repo. Die erste Fassung dieser Probe hiess
+     * schon "EINE Formel" und pruefte nur zwei davon — Marktplatz-Treffer und
+     * Discovery ("N Kraefte verfuegbar") rechneten weiter mit eigenen Kopien.
+     * Jetzt kommt sie aus `zusageFormel.js`, und geprueft wird der SQL-Text,
+     * den jede Rechnung wirklich absendet.
+     */
+    const { zugesagtJeAngebotSql } = await import("../services/zusageFormel.js");
+    const marktDienst = await import("../services/marketplaceService.js");
+    const discovery = await import("../services/capacityDiscoveryService.js");
+
+    const handelPool = kopfzahlPool();
+    await getCapacityCommercialStates(handelPool, ["cp-1"]);
+    assert.ok(handelPool.calls.find((c) => /committed_headcount/.test(c.sql)).sql.includes(zugesagtJeAngebotSql("o", "d")),
+      "der Handelsstand rechnet mit einer eigenen Formel");
+
+    assert.ok(_FUER_PROBEN.FREIE_KOPFZAHL_JOIN.includes(zugesagtJeAngebotSql("o_zu", "d_zu")),
+      "der Feed rechnet mit einer eigenen Formel");
+
+    const trefferPool = kopfzahlPool();
+    await marktDienst.runInitialMatching(trefferPool, { start_date: "2026-10-01", end_date: null }, new Set());
+    assert.ok(trefferPool.calls.some((c) => c.sql.includes(zugesagtJeAngebotSql("o", "dr"))),
+      "die Marktplatz-Treffer rechnen mit einer eigenen Formel");
+
+    const discoveryPool = kopfzahlPool();
+    await discovery.aggregateByRole(discoveryPool, {});
+    assert.ok(discoveryPool.calls.some((c) => c.sql.includes(zugesagtJeAngebotSql("o", "dr"))),
+      "die Discovery-Zahlen rechnen mit einer eigenen Formel");
+
+    for (const q of [...handelPool.calls, ...trefferPool.calls, ...discoveryPool.calls]) {
+      assert.ok(!/THEN GREATEST\(COALESCE\(o\.offered_quantity, dr?\.headcount, 0\), 0\)/.test(
+        q.sql.split(zugesagtJeAngebotSql("o", "d")).join("").split(zugesagtJeAngebotSql("o", "dr")).join("")),
+        "neben der geteilten Formel steht noch eine Abschrift");
+    }
+    assert.throws(() => zugesagtJeAngebotSql("o; DROP TABLE offers --", "d"), /ZUSAGE_ALIAS_UNGUELTIG/);
+  });
+
+  it("Zuweisungen verdoppeln die Zusage nicht — sie werden je Angebot vorab summiert", async () => {
+    /*
+     * `assignments.offer_id` ist nicht eindeutig. Direkt dazugejoint, taucht ein
+     * Angebot mit zwei Zuweisungen zweimal auf, und SUM zaehlt seine Zusage
+     * doppelt. Gegen die Datenbank gemessen: 19 statt 38.
+     */
+    const p = kopfzahlPool();
+    await getCapacityCommercialStates(p, ["cp-1"]);
+    const sql = p.calls.find((c) => /committed_headcount/.test(c.sql)).sql;
+    assert.ok(!/LEFT JOIN assignments a ON a\.offer_id = o\.id/.test(sql),
+      "die Zuweisungen werden wieder direkt dazugejoint — dann verdoppelt sich die Zusage");
+    assert.match(sql, /LEFT JOIN LATERAL \([\s\S]*FROM assignments a1[\s\S]*WHERE a1\.offer_id = o\.id[\s\S]*\) a ON TRUE/,
+      "die Zuweisungen werden nicht je Angebot zusammengefasst");
+    /* Welche Spalte unter welchem Namen summiert wird, pinnte die erste Fassung
+       nicht: vertauscht lieferte der Handelsstand besetzte und reservierte
+       Kopfzahl verkehrt herum — und blieb gruen. */
+    assert.ok(sql.includes("COALESCE(SUM(a1.filled_quantity), 0) AS filled_quantity"),
+      "die besetzte Kopfzahl wird nicht aus `filled_quantity` summiert");
+    assert.ok(sql.includes("COALESCE(SUM(a1.reserved_quantity), 0) AS reserved_quantity"),
+      "die reservierte Kopfzahl wird nicht aus `reserved_quantity` summiert");
+    assert.match(sql, /THEN COALESCE\(a\.filled_quantity, 0\)[\s\S]*?AS assigned_headcount/,
+      "`assigned_headcount` liest nicht die besetzte Kopfzahl");
+    assert.match(sql, /THEN COALESCE\(a\.reserved_quantity, 0\)[\s\S]*?AS staffing_reserved_headcount/,
+      "`staffing_reserved_headcount` liest nicht die reservierte Kopfzahl");
   });
 });

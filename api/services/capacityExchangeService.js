@@ -7,6 +7,7 @@
 
 import * as capacityWorkflow from "./capacityWorkflow.js";
 import { scoreMatch } from "./matchingEngine.js";
+import { zugesagtJeAngebotSql } from "./zusageFormel.js";
 import { loadSkillIndex, expandTags } from "./skillNormalizationService.js";
 import * as auditLog from "./auditLog.js";
 import { computePremiumBoost } from "./reputationService.js";
@@ -82,6 +83,29 @@ const ENTRY_JOINS = `
   LEFT JOIN company_profiles cfp ON cfp.user_id = cp.supplier_company_id
   LEFT JOIN worker_profiles wpm ON wpm.id = cp.worker_profile_id
 `;
+
+/* Die zugesagte Kopfzahl je Angebot kommt aus `zusageFormel.js` — der EINEN
+   Quelle fuer Handelsstand, Feed, Marktplatz-Treffer und Discovery (N2.8). */
+
+/**
+ * Die freie Kopfzahl eines Kapazitaetsangebots als SQL — fuer Filter, die VOR
+ * dem `LIMIT` greifen muessen.
+ *
+ * Eigene Aliase (`o_zu`, `d_zu`): `ENTRY_JOINS` belegt `o` bereits mit
+ * `organizations`. Innerhalb des Lateral-Blocks waere das zwar gueltig, aber
+ * genau die Sorte Doppelbelegung, ueber die spaeter jemand stolpert.
+ */
+const FREIE_KOPFZAHL_JOIN = `
+  LEFT JOIN LATERAL (
+    SELECT COALESCE(SUM(${zugesagtJeAngebotSql("o_zu", "d_zu")}), 0)::int AS zugesagt
+      FROM offers o_zu
+      LEFT JOIN demand_requests d_zu ON d_zu.id = o_zu.demand_request_id
+     WHERE o_zu.capacity_post_id = cp.id
+  ) zusage ON TRUE
+`;
+const FREIE_KOPFZAHL_SQL = "GREATEST(cp.headcount - COALESCE(zusage.zugesagt, 0), 0)";
+
+export const _FUER_PROBEN = Object.freeze({ zugesagtJeAngebotSql, FREIE_KOPFZAHL_JOIN, FREIE_KOPFZAHL_SQL });
 
 const EMPTY_CAPACITY_COMMERCIAL_STATE = Object.freeze({
   committed_headcount: 0,
@@ -175,16 +199,31 @@ export async function getCapacityCommercialStates(pool, capacityPostIds = []) {
     return new Map();
   }
 
+  /*
+   * N2.8 — ZUWEISUNGEN WERDEN JE ANGEBOT VORAB SUMMIERT, nicht dazugejoint.
+   *
+   * Hier stand `LEFT JOIN assignments a ON a.offer_id = o.id` direkt im Verbund.
+   * `assignments.offer_id` ist NICHT eindeutig (kein UNIQUE-Index, gemessen
+   * 2026-09-13). Traegt ein Angebot zwei Zuweisungen, erscheint es zweimal im
+   * Verbund — und die SUMME der zugesagten Kopfzahl zaehlt es doppelt. Gegen
+   * die Datenbank gemessen: 19 zugesagt wurden zu 38. Die freie Kopfzahl faellt
+   * auf null, und `syncCapacityCommercialState` stellt das Angebot auf
+   * `reserved`: es verschwindet aus dem Markt, obwohl noch Plaetze frei sind.
+   *
+   * Heute hat kein Angebot zwei Zuweisungen. Das Schema verhindert es aber
+   * nicht, und die Feed-Filter aus N2.8 rechnen ohne diesen Verbund — beide
+   * Rechnungen liefen genau in diesem Fall auseinander. Der Lateral-Block
+   * liefert je Angebot HOECHSTENS EINE Zeile.
+   *
+   * Die Erklaerung steht hier und NICHT im SQL-Text: der geht bei jeder Abfrage
+   * an Postgres und landet in dessen Statistiken — und eine Probe, die den
+   * SQL-Text liest, hielt den Satz "hier stand ..." fuer den Verbund selbst.
+   */
   const { rows } = await pool.query(
     `SELECT
        cp.id AS capacity_post_id,
        COALESCE(SUM(
-         CASE
-           WHEN o.status = 'accepted'
-             AND COALESCE(o.agreement_status, 'none') NOT IN ('cancelled', 'expired')
-           THEN GREATEST(COALESCE(o.offered_quantity, d.headcount, 0), 0)
-           ELSE 0
-         END
+         ${zugesagtJeAngebotSql("o", "d")}
        ), 0)::int AS committed_headcount,
        COUNT(DISTINCT o.id) FILTER (
          WHERE o.status = 'accepted'
@@ -215,7 +254,12 @@ export async function getCapacityCommercialStates(pool, capacityPostIds = []) {
      FROM capacity_posts cp
      LEFT JOIN offers o ON o.capacity_post_id = cp.id
      LEFT JOIN demand_requests d ON d.id = o.demand_request_id
-     LEFT JOIN assignments a ON a.offer_id = o.id
+     LEFT JOIN LATERAL (
+       SELECT COALESCE(SUM(a1.filled_quantity), 0) AS filled_quantity,
+              COALESCE(SUM(a1.reserved_quantity), 0) AS reserved_quantity
+         FROM assignments a1
+        WHERE a1.offer_id = o.id
+     ) a ON TRUE
      WHERE cp.id = ANY($1)
      GROUP BY cp.id`,
     [uniqueIds]
@@ -683,6 +727,13 @@ export async function browseFeed(pool, opts = {}) {
     where.push("cp.status = 'active'");
   }
 
+  /* N2.8 — ein AKTIVES Angebot ohne freien Platz steht nicht im Markt. Diese
+     Regel lief bisher erst nach dem `LIMIT` in JavaScript. Selten, weil der
+     Status beim Abschluss auf `reserved` springt (`syncCapacityCommercialState`)
+     — aber jeder Weg, der zusagt, ohne zu synchronisieren, kuerzte sonst die
+     Seite und blaehte die Zahl. */
+  where.push(`(cp.status <> 'active' OR ${FREIE_KOPFZAHL_SQL} > 0)`);
+
   // Marktplatz zeigt nur AKTUELLE Angebote: abgelaufene (Einsatz-Enddatum vorbei) ausblenden.
   // availability_to IS NULL = offenes Ende -> bleibt sichtbar. Reiner Query-Zeit-Filter:
   // kein Loeschen, reversibel; Angebote "laufen ab", sobald ihr Enddatum < heute ist.
@@ -733,8 +784,13 @@ export async function browseFeed(pool, opts = {}) {
     idx++;
   }
   if (opts.min_headcount) {
+    /* N2.8 — die FREIE Kopfzahl, nicht die gesamte. Hier stand
+       `cp.headcount >= N`, und NACH dem `LIMIT` filterte JavaScript auf die
+       freie. Ein Angebot "5 gesamt, 3 zugesagt" kam bei "mindestens 4" durch
+       SQL, wurde mitgezaehlt — und fiel dann aus der Seite. Kurze Seite UND
+       falsche Trefferzahl, sobald jemand nach Mindestanzahl filtert. */
     params.push(opts.min_headcount);
-    where.push(`cp.headcount >= $${idx}`);
+    where.push(`${FREIE_KOPFZAHL_SQL} >= $${idx}`);
     idx++;
   }
   if (opts.shift_model) {
@@ -815,6 +871,7 @@ export async function browseFeed(pool, opts = {}) {
            ${umkreis ? `${umkreis.entfernung("cp")}` : "NULL::double precision"} AS _distance_km,
            ${supplyGemerkt} AS gemerkt
     ${ENTRY_JOINS}
+    ${FREIE_KOPFZAHL_JOIN}
     WHERE ${where.join(' AND ')}`;
 
   // Demand CTE (commercially open, no user filters applied)
@@ -863,7 +920,7 @@ export async function browseFeed(pool, opts = {}) {
 
   // Count: supply + demand separately (avoids UNION column mismatch)
   const { rows: supplyCount } = await pool.query(
-    `SELECT COUNT(*)::int AS cnt ${ENTRY_JOINS} WHERE ${where.join(' AND ')}`, countParams);
+    `SELECT COUNT(*)::int AS cnt ${ENTRY_JOINS} ${FREIE_KOPFZAHL_JOIN} WHERE ${where.join(' AND ')}`, countParams);
   const demandCountSql = (viewerRole === "agency" && !interAgencyEnabled)
     ? `SELECT COUNT(*)::int AS cnt
          FROM demand_requests dr
@@ -928,9 +985,10 @@ export async function browseFeed(pool, opts = {}) {
    * die seltenen Betrachter beider Seiten; Unternehmen und Zeitarbeitsfirmen
    * blaettern einseitig und bezahlen nichts zusaetzlich.
    *
-   * WEITERHIN NACH DEM LIMIT — benannt, nicht verschwiegen: die Nachfilter der
-   * Angebotsseite (`visible_to_viewer`, `min_headcount`, freie Kopfzahl). Auch
-   * sie koennen eine Seite kuerzen; das ist ein eigener Befund.
+   * NACH DEM LIMIT laeuft seit N2.8 nur noch `visible_to_viewer` — und der
+   * grenzt enger ein als das SQL hoechstens in einem Randfall (siehe dort).
+   * Die beiden Kopfzahl-Filter, die hier bis N2.7 genannt waren, stehen jetzt
+   * in Zaehlung und Abfrage.
    */
   const beideSeiten = supplyGesehen && demandGesehen;
   const fenster = beideSeiten ? offset + limit : limit;
@@ -944,11 +1002,14 @@ export async function browseFeed(pool, opts = {}) {
       `${supplyCte} ORDER BY ${umkreis ? "_distance_km ASC, " : ""}sort_date DESC`
       + ` LIMIT $${idx} OFFSET $${idx + 1}`, supplyParams);
     supplyRows = await enrichCapacityEntries(pool, rawSupplyRows, { viewerUserId });
+    /* `visible_to_viewer` bleibt: SQL grenzt schon strenger ein (Status,
+       Privatheit, Vertragspartner bei `reserved`). Der Filter kann hoechstens
+       einen Randfall entfernen — ein `reserved`-Angebot, bei dem der Betrachter
+       Anbieter eines Angebots ist, aber nicht des Kapazitaetsangebots.
+       Die beiden Kopfzahl-Filter standen hier ebenfalls — N2.8 hat sie in SQL
+       verlegt. Eine JS-Kopie hinter dem `LIMIT` wuerde bei der kleinsten
+       Abweichung wieder genau das tun, was behoben ist: Seiten kuerzen. */
     supplyRows = supplyRows.filter((row) => row.visible_to_viewer);
-    if (opts.min_headcount) {
-      supplyRows = supplyRows.filter((row) => row.remaining_headcount >= Number(opts.min_headcount));
-    }
-    supplyRows = supplyRows.filter((row) => row.status !== 'active' || row.remaining_headcount > 0);
     supplyRows.forEach(r => { r.feed_type = 'supply'; });
   }
 

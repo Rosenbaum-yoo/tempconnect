@@ -4,15 +4,15 @@
  * "5 electricians available in Stuttgart" style summaries.
  */
 
+import { zugesagtJeAngebotSql } from "./zusageFormel.js";
+
+/* Die Formel kommt aus `zusageFormel.js` (N2.8) — hier stand eine eigene
+   Abschrift, eine von dreien. Die Zahlen "N Kraefte verfuegbar" rechnen
+   damit dieselbe freie Kopfzahl wie Feed und Handelsstand. */
 const COMMERCIAL_COMMITMENT_JOIN = `
   LEFT JOIN LATERAL (
     SELECT COALESCE(SUM(
-      CASE
-        WHEN o.status = 'accepted'
-          AND COALESCE(o.agreement_status, 'none') NOT IN ('cancelled', 'expired')
-        THEN GREATEST(COALESCE(o.offered_quantity, dr.headcount, 0), 0)
-        ELSE 0
-      END
+      ${zugesagtJeAngebotSql("o", "dr")}
     ), 0)::int AS committed_headcount
     FROM offers o
     JOIN demand_requests dr ON dr.id = o.demand_request_id

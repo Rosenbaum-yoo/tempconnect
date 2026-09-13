@@ -656,16 +656,29 @@ describe("browseFeed", () => {
   });
 
   it("drops fully-committed supply entries (remaining_headcount === 0)", async () => {
-    const pool = browseFeedPool({
-      supplyCount: { rows: [{ cnt: 1 }] },
-      supplyRows: { rows: [{
-        id: "cap-1", supplier_company_id: "sup", status: "active",
-        visibility_status: "public", headcount: 2, role: "r", location_city: "HH"
-      }] },
-      states: { rows: [{ capacity_post_id: "cap-1", committed_headcount: 2, counterparty_user_ids: ["b"] }] }
-    });
-    const out = await svc.browseFeed(pool, { viewer_user_id: "sup" });
-    assert.equal(out.items.length, 0, "filled supply removed from feed");
+    /*
+     * NACHGEZOGEN IN N2.8 (§0.9: die Probe pruefte, WO der Filter sitzt).
+     *
+     * Die erste Fassung liess den Muster-Pool eine AKTIVE, VOLL GEBUCHTE Zeile
+     * liefern und erwartete, dass JavaScript sie nach dem `LIMIT` verwirft.
+     * Genau dieses Verwerfen hinter dem `LIMIT` kuerzte Seiten und blaehte die
+     * Trefferzahl — deshalb steht der Filter jetzt im SQL, und eine solche
+     * Zeile kann die Abfrage gar nicht mehr liefern. Die Zusage bleibt: ein
+     * aktives Angebot ohne freien Platz steht nicht im Feed. Geprueft wird sie
+     * dort, wo sie jetzt eingeloest wird — in Zaehlung UND Abfrage.
+     * Die Wirkung ist gegen die laufende Datenbank belegt (N2.8).
+     */
+    const pool = browseFeedPool({ supplyCount: { rows: [{ cnt: 0 }] } });
+    await svc.browseFeed(pool, { viewer_user_id: "sup" });
+    const zaehlung = pool.calls.find((c) => c.sql.includes("COUNT(*)::int AS cnt") && c.sql.includes("FROM capacity_posts cp"));
+    const abfrage = pool.calls.find((c) => c.sql.includes("AS sort_date") && c.sql.includes("FROM capacity_posts cp"));
+    for (const [name, q] of [["Zaehlung", zaehlung], ["Abfrage", abfrage]]) {
+      assert.ok(q, `${name} lief nicht`);
+      assert.match(q.sql, /cp\.status <> 'active' OR GREATEST\(cp\.headcount - COALESCE\(zusage\.zugesagt, 0\), 0\) > 0/,
+        `${name}: ein aktives Angebot ohne freien Platz wird nicht ausgeschlossen`);
+      assert.match(q.sql, /LEFT JOIN LATERAL[\s\S]*FROM offers o_zu[\s\S]*\) zusage ON TRUE/,
+        `${name}: die zugesagte Kopfzahl wird nicht berechnet`);
+    }
   });
 
   it("company viewer sees only supply (demand filtered out)", async () => {

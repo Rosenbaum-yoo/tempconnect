@@ -9,6 +9,7 @@ import { createServiceLogger } from "../utils/logger.js";
 import { assertTransition, TransitionError } from "./stateMachine.js";
 import * as capacityExchangeService from "./capacityExchangeService.js";
 import { cpSpaltenSql } from "./capacityPostOeffentlicheSpalten.js";
+import { zugesagtJeAngebotSql } from "./zusageFormel.js";
 /* Entscheidung D-M5 (Owner, 2026-08-20): die Grenze dieser Flaeche ist der
  * NUTZER (`supplier_company_id` / `requester_company_id` sind Fremdschluessel
  * auf `users`), und sie wurde bis hierher als blosse Namensgleichheit geprueft.
@@ -72,15 +73,12 @@ export async function getVerifiedSupplierIds(pool) {
   return new Set(rows.map((r) => r.company_id));
 }
 
+/* Die Formel kommt aus `zusageFormel.js` (N2.8) — hier stand eine eigene
+   Abschrift, eine von dreien. */
 const CAPACITY_COMMERCIAL_JOIN = `
   LEFT JOIN LATERAL (
     SELECT COALESCE(SUM(
-      CASE
-        WHEN o.status = 'accepted'
-          AND COALESCE(o.agreement_status, 'none') NOT IN ('cancelled', 'expired')
-        THEN GREATEST(COALESCE(o.offered_quantity, dr.headcount, 0), 0)
-        ELSE 0
-      END
+      ${zugesagtJeAngebotSql("o", "dr")}
     ), 0)::int AS committed_headcount
     FROM offers o
     JOIN demand_requests dr ON dr.id = o.demand_request_id
