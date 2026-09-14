@@ -2,6 +2,88 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-14 — Ein Angebot, ein Einsatz — und eine Anlage, die nichts an Fremdes hängt (N2.9)
+
+**Status:** erledigt · **Kategorie:** Owner-Entscheid (Schema) + Security (Org-Boundary) ·
+**Quelle:** offener Punkt aus N2.8, Sicherheitsbefund beim Klären gefunden
+
+Drei Owner-Entscheide vom 13.09., in dieser Reihenfolge umgesetzt.
+
+**1. Genau eine Zuweisung je Angebot — Ausfälle über die Warteliste im Einsatz.** Die Frage aus
+N2.8 war: eine oder mehrere, „mit Warteliste, falls die erste nicht mehr läuft"? Beim Klären
+stellte sich heraus, dass die Warteliste **längst existiert** (`assignment_staffing_waitlist`,
+Migration 089) — und zwar **innerhalb** eines Einsatzes: fällt eine Kraft aus, rückt die nächste
+in **denselben** Einsatz nach, der Staffing-Worker füllt automatisch nach. Vertrag, Stundensatz,
+Stundenzettel und Rechnung bleiben eine Linie. Ein zweiter Einsatz am selben Angebot wäre ein
+zweiter Vertragsdatensatz für dieselbe Vereinbarung — und genau die doppelte Zusage aus N2.8.
+
+**Migration 217** (`217_eine_zuweisung_je_angebot.sql`): eindeutiger Teilindex
+`assignments_offer_eindeutig` auf `assignments(offer_id) WHERE offer_id IS NOT NULL`; er ersetzt
+den gewöhnlichen `assignments_offer_idx`. Liegen Doppelte vor, bricht die Migration **mit ihrer
+Anzahl ab**, statt eine Zeile zu löschen — an einer Zuweisung hängen Stundenzettel und Rechnungen
+(HGB §257). Gemessen vor dem Einspielen: 5 Zuweisungen mit Angebot, 5 verschiedene Angebote.
+Eingespielt auf der Entwicklungsdatenbank; Rollback steht in der Datei.
+
+**2. Sicherheitsbefund: die manuelle Einsatz-Anlage übernahm sechs Fremdschlüssel ungeprüft.**
+`POST /api/assignments` schrieb `offer_id`, `supplier_org_id`, `demand_request_id`,
+`deal_request_id`, `contract_id` und `requisition_id` direkt in den Einsatz — geprüft wurden nur
+Standort und Abteilung. Wer das Anlagerecht hatte (auch per API-Schlüssel mit `write:assignments`),
+konnte einen Einsatz an ein **fremdes Angebot** oder eine **beliebige Zeitarbeitsfirma** hängen:
+er erschien in deren Portal (die Liste liest beide Seiten), und sobald er besetzt war, zählte er
+im Handelsstand gegen die freie Kopfzahl des fremden Angebots. `PATCH` ließ dasselbe für
+`contract_id` zu.
+
+| Verweis | jetzt |
+|---|---|
+| `offer_id`, `deal_request_id` | **400 `LINK_VIA_DEAL_ONLY`** — setzt nur der Deal-Abschluss |
+| `requisition_id` | muss der Org gehören, sonst 403 |
+| `demand_request_id` | Anleger gehört der Org (`users.org_id` oder aktive Mitgliedschaft), sonst 403 |
+| `contract_id` | Käufer = Org, sonst 403; nennt der Rumpf eine andere Firma als der Vertrag: 400 |
+| `supplier_org_id` | eigene Org, oder **erklärter Partner**: Vendor-Pool aktiv/nicht gesperrt/nicht abgelaufen, aktiver Rahmenvertrag, oder ein Einsatz aus einem Deal; sonst 403 `SUPPLIER_NOT_PARTNER` |
+| ohne Org-Kontext | Verweise werden abgelehnt (400), nicht ungeprüft geschrieben |
+
+Fremd und nicht vorhanden sind **dieselbe** Antwort — sonst ließe sich mit der Anlage abfragen,
+welche Kennungen es bei anderen gibt. Die Prüfung sitzt in `assignmentService.pruefeAnlageVerweise`
+/ `pruefeVertragsVerweis`; die Route bleibt dünn.
+
+**Grenze, benannt:** „erklärter Partner" beweist eine Beziehung, die die **Org selbst** angelegt
+hat (Vendor-Pool, Vertrag) — nicht die Zustimmung der Zeitarbeitsfirma. Das ist eine eigene,
+auditierte Handlung an anderer Stelle, keine Nebenwirkung eines einzelnen Aufrufs.
+
+**3. Die Warteliste läuft still.** Owner-Vorgabe: „keiner soll mitbekommen, dass er vorgemerkt ist
+für ein Angebot, das er sehr wahrscheinlich niemals annimmt." **Gemessen: der Code hält das
+bereits ein** — kein Kräfte-Endpunkt liest die Warteliste, benachrichtigt wird nur bei einer
+echten Einladung. `api/test/wartelisteBleibtStill.test.js` hält es fest, an der Wirkung:
+Vormerken schreibt keinen Kontakt; eine Kampagne benachrichtigt die Eingeladenen, das mitgefüllte
+Polster nicht; Anfragen und Auswahl-Sets der Kraft lesen die Warteliste nicht; das Kräfte-Portal
+hat keinen Pfad dorthin.
+
+**Offen, benannt (Owner, Rechtsfrage):** eine **formale DSGVO-Auskunft** (Art. 15) ist keine
+Oberfläche. `exportUserDataFull` nennt heute weder Einladungen noch Vormerkungen. Ob eine
+Vormerkung dort erscheinen muss (Rang und Punktzahl sind personenbezogene Daten), entscheidet der
+Owner — nicht der Code. Empfehlung: in der Auskunft ja, neutral benannt; in der Oberfläche nie.
+
+**Verifikation.**
+
+* `api/test/einsatzAnlageVerweise.test.js` — 22 Proben am Handler: Antwort **und** ob der Einsatz
+  geschrieben wurde, Bindung der Org aus der Sitzung, Form der Partner-Abfrage.
+* `api/test/wartelisteBleibtStill.test.js` — 5 Proben; jede prüft zuerst, dass ihr Gegenstand
+  wirklich eingetreten ist (vorgemerkt, zugestellt, Quelle gelesen).
+* `api/test/integration/einsatzVerweise.flow.test.js` — die Prüfung gegen die **echte** Datenbank
+  (7 Fälle, Transaktion mit ROLLBACK): Vendor-Pool aktiv/gesperrt/abgelaufen/ausgesetzt/Gegenrichtung,
+  Vertragsentwurf vs. aktiv, Deal-Einsatz, Bedarf.
+* `freieKopfzahl.flow.test.js`: der Fall „zwei Zuweisungen" ist nach §0.9 umgestellt — er
+  kodierte einen Zustand, den das Schema jetzt verbietet, und beweist nun das Verbot selbst
+  (`23505` auf `assignments_offer_eindeutig`).
+* **28 Rückmutationen, alle rot:** 19 am Sicherheitsfix, 5 an der stillen Warteliste, 4 nur
+  mit Datenbank fangbare (heute Ablaufendes, Vertragsentwurf, Gegenrichtung, Bedarf ohne Org).
+
+**Beim Rückmutieren an meinen eigenen Proben gefunden:** die Großbuchstaben-Probe benutzte eine
+Kennung **nur aus Ziffern** — `toUpperCase()` änderte nichts, die Probe war wirkungslos. Sie prüft
+jetzt zuerst, dass sich die Kennung ändert.
+
+---
+
 ### 2026-09-13 — Die freie Kopfzahl filtert vor dem LIMIT (N2.8)
 
 **Status:** erledigt · **Kategorie:** Bug-Pattern (zwei Befunde in bestehendem Code)
@@ -46,7 +128,8 @@ Verbund selbst. Die Erklärung steht jetzt vor der Abfrage.
 
 **Offen, benannt:** eine UNIQUE-Bedingung auf `assignments(offer_id)` — falls ein Angebot fachlich
 nie mehr als eine Zuweisung haben soll. Das ist eine Schemaentscheidung und liegt beim Owner; die
-Abfrage rechnet jetzt in beiden Fällen richtig.
+Abfrage rechnet jetzt in beiden Fällen richtig. **→ Entschieden 2026-09-13, umgesetzt in N2.9:**
+genau eine Zuweisung je Angebot (Migration 217), Ausfälle über die Warteliste im Einsatz.
 
 **Verifikation — und was eine kleine Gegenprüfung an meinen Proben fand.**
 

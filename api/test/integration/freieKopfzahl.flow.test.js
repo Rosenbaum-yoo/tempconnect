@@ -11,7 +11,8 @@
  *
  * Diese Probe fuehrt die Rechnung gegen die echte Datenbank aus. In EINER
  * Transaktion, die am Ende zurueckgerollt wird: sie legt ein angenommenes
- * Angebot und zwei Zuweisungen an ein bestehendes Kapazitaetsangebot, fragt den
+ * Angebot und seine Zuweisung an ein bestehendes Kapazitaetsangebot (eine
+ * zweite verweigert das Schema seit Migration 217), fragt den
  * Feed und den Handelsstand ueber GENAU diese Verbindung ab und hinterlaesst
  * nichts.
  *
@@ -96,15 +97,26 @@ describe("N2.8 — die freie Kopfzahl am realen Schema",
     assert.ok(stimmig(passt));
   });
 
-  it("zwei Zuweisungen am selben Angebot verdoppeln die Zusage NICHT", async (t) => {
+  it("ein Angebot traegt hoechstens EINE Zuweisung — und die eine verdoppelt die Zusage nicht", async (t) => {
+    /* Bis N2.8 legte dieser Fall ZWEI Zuweisungen an dasselbe Angebot und
+       pruefte, dass die Zusage nicht doppelt zaehlt. Seit Migration 217
+       (Owner-Entscheid 2026-09-13, Welle N2.9) laesst das Schema die zweite
+       nicht mehr zu; der Test kodierte damit einen verbotenen Zustand und ist
+       nach §0.9 umgestellt: er beweist jetzt das Verbot SELBST und rechnet mit
+       der einen erlaubten Zuweisung weiter. Die vorab summierende Verbindung
+       bleibt als zweite Linie in `trefferzahlStimmt.test.js` gepinnt. */
     if (!angebotsZusage) return t.skip("kein Gegenstand");
     const H = Number(angebot.headcount);
-    await client.query(
-      "INSERT INTO assignments (offer_id, start_date) VALUES ($1, CURRENT_DATE), ($1, CURRENT_DATE)",
-      [angebotsZusage]);
+    await client.query("INSERT INTO assignments (offer_id, start_date) VALUES ($1, CURRENT_DATE)", [angebotsZusage]);
+    await client.query("SAVEPOINT zweite_zuweisung");
+    await assert.rejects(
+      client.query("INSERT INTO assignments (offer_id, start_date) VALUES ($1, CURRENT_DATE)", [angebotsZusage]),
+      (err) => err.code === "23505" && err.constraint === "assignments_offer_eindeutig",
+      "eine zweite Zuweisung am selben Angebot wurde angenommen — Migration 217 fehlt oder greift nicht");
+    await client.query("ROLLBACK TO SAVEPOINT zweite_zuweisung");
     const zustand = (await getCapacityCommercialStates(client, [angebot.id])).get(angebot.id);
     assert.strictEqual(zustand.committed_headcount, H - 1,
-      `zugesagt ${zustand.committed_headcount} statt ${H - 1} — der Zuweisungs-Verbund verdoppelt die Zusage`);
+      `zugesagt ${zustand.committed_headcount} statt ${H - 1} — der Zuweisungs-Verbund verfaelscht die Zusage`);
     const feed = await browseFeed(client, { viewer_role: "company", min_headcount: 1, limit: 100 });
     assert.strictEqual(drin(feed, angebot.id), true, "das Angebot ist trotz freiem Platz aus dem Feed verschwunden");
   });

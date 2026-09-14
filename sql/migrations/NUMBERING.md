@@ -26,7 +26,9 @@
 > vergeben, und ab 158 ist keine Nummer mehr doppelt zulaessig),
 > 203 Rechnungsnummer je Firma (Welle J7: eigener lueckenloser Kreis je
 > Zeitarbeitsfirma und Jahr, Vergabe erst beim Stellen, eingefrorener
-> Abrechnungssatz an der Rechnung)
+> Abrechnungssatz an der Rechnung),
+> 217 ein Angebot traegt hoechstens eine Zuweisung (Welle N2.9: eindeutiger
+> Teilindex auf `assignments(offer_id)`, Ausfaelle ueber die Warteliste im Einsatz)
 
 This document records known legacy numbering anomalies and establishes the rule
 for all future migrations.
@@ -41,7 +43,7 @@ for all future migrations.
 
 ## Rule: Next migration number
 
-**Next migration MUST start at: 217**
+**Next migration MUST start at: 218**
 
 Format: `<NNN>_<short_description>.sql` (three-digit zero-padded)
 
@@ -117,8 +119,8 @@ alphabetical order within the number (e.g. `064_capacity_…` before `064_strate
 
 ## Checklist for new migrations
 
-1. Use the next sequential number (currently **217**)
-2. File name: `217_<short_snake_case>.sql`
+1. Use the next sequential number (currently **218**)
+2. File name: `218_<short_snake_case>.sql`
 3. Wrap DDL in a transaction if the DB supports transactional DDL
 4. Include a `-- Migration NNN:` comment header with a brief description
 5. Use `SET client_min_messages TO WARNING;` to suppress noise
