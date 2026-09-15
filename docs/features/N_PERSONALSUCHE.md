@@ -505,3 +505,80 @@ N1  Katalog beidseitig     ← ohne das findet nichts zueinander
 - **Die Rechnung aus dem Abschluss erzeugen.** „Leistung vor Beleg" bleibt.
 - **Den Preisvorschlag zur Vorgabe machen.** Er ist ein Vorschlag; wer anders bietet, darf.
 - **Eine eigene Matching-Engine bauen.** `matchingService` existiert.
+
+---
+
+## 9. Nachtrag N8 — aus dem Owner-Dokument vom 2026-09-14
+
+> Der Owner hat alle Abschnitte in einem Dokument zusammengeführt. Beim Abgleich blieben vier
+> Punkte übrig, die in Welle N gehören. Owner-Antworten vom 2026-09-14 sind eingearbeitet.
+
+### N8.1 · Katalog statt Freitext — auch dort, wo gesucht wird
+
+**Owner:** *„Freitext für Suche durch Checkboxen mit Katalogeinträgen ersetzen, damit Matching
+funktioniert … es wurde noch nicht ganz umgesetzt."* **Das stimmt, gemessen:** N1/N1b haben den
+Katalog in Bedarfsanlage und Angebotsformular gebracht. Freitext steht noch hier:
+
+| Fläche | Feld |
+|---|---|
+| `capacity_exchange_feed.html` (Personal finden) | Schnellstart „Welche Tätigkeit?" (`js/schnellstart.js`) und Filter „Rolle" |
+| `capacity_search.html` | `role` (:48), `searchJobTitle` (:160), `searchJobRole` (:162), `req_role` (:196) |
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| N8.1a | **Denselben Katalogwähler** (`js/skillPicker.js`) einsetzen — kein zweiter | Auswahl erzeugt Katalogschlüssel, nie Freitext |
+| N8.1b | **Tippen bleibt möglich, aber als Suche IM Katalog** („pfle" → Pflege-Einträge), Präfixsuche | Kein Wert ohne Katalogschlüssel verlässt das Formular |
+| N8.1c | **Alte Freitext-Links** (`?role=pflege`) auf Katalogschlüssel abbilden, nicht brechen | Bestehender Link liefert dieselben Treffer |
+| N8.1d | **Wächter, entdeckend:** jedes `<input>` für Rolle/Tätigkeit/Skill auf Marktplatzseiten muss am Katalog hängen | Neues Freitextfeld → rot. Rückmutation |
+
+### N8.2 · Der Stundenzettel kennt seinen Kunden
+
+**Owner:** *„Die Plattform sollte schon wissen, an welchen Kunden der Stundenzettel eingereicht
+werden soll."* **Gemessen:** `worker_time_submissions` trägt `buyer_org_id`; die Aktion „An Kunden
+senden" (`js/pages/workerSubmissionsReview.js:2933`) verlangt trotzdem Name und E-Mail von Hand.
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| N8.2a | **Ist `buyer_org_id` gesetzt:** Empfänger ist die Kundenorganisation — der Zettel landet in ihrer Stundenzettel-Sicht (`companyTimesheets`), Kontakt vorbefüllt aus der Organisation | Kein Pflichtfeld für Plattformkunden |
+| N8.2b | **Fehlt `buyer_org_id`** (Kunde außerhalb der Plattform): Handeingabe bleibt — TempConnect läuft auch neben bestehenden Systemen | Beide Wege belegt |
+| N8.2c | **Messen, wo `buyer_org_id` leer bleibt, obwohl der Einsatz aus einem Deal stammt** | Zahl je Entstehungsweg; jede Lücke wird geschlossen, nicht umgangen |
+| N8.2d | **Mandantengrenze:** ein Zettel geht nie an eine Organisation, die nicht Käufer dieses Einsatzes ist | Fremde `buyer_org_id` → abgelehnt |
+
+### N8.3 · „Aktueller Plan: ?" nach dem Schnellstart
+
+**Gemessen am Screenshot des Owners:** nach dem Schnellstart zeigt `capacity_exchange_feed.html`
+die Bezahlschranke mit „Aktueller Plan: **?**" und ohne Plattform-Navigation. Das „?" ist der feste
+Platzhalter in `capacity_exchange_feed.html:17` — er bleibt stehen, wenn die Schranke gezeigt wird,
+ohne dass der Plan geladen wurde. **Das widerspricht M-E2** („erst sehen, dann zahlen").
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| N8.3a | **Nachstellen:** angemeldet, ohne Abo, Schnellstart-URL aufrufen — welcher Weg zeigt die Schranke? | Ursache mit Beleg, bevor etwas geändert wird |
+| N8.3b | **Ein angemeldetes Konto ohne Abo SIEHT den Marktplatz** (M-E2); gesperrt ist erst das Handeln | Konto ohne Abo → Feed sichtbar, Abschluss gesperrt |
+| N8.3c | **Kein Platzhalter als Aussage:** ist der Plan unbekannt, steht dort nichts — oder die Seite lädt ihn | „?" kommt im Markup nicht mehr vor |
+
+### N8.4 · Umkreis bundesweit — Owner-Entscheid 2026-09-14, hebt M-E4 teilweise auf
+
+**Owner (Abschnitt 26):** Umkreis auch deutschlandweit, damit Montage- und Fahrdienstkräfte richtig
+stehen. **Auf Rückfrage entschieden: bundesweit für alle**, nicht nur für Montage.
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| N8.4a | **Vierte Stufe „bundesweit"** neben 10 / 50 / 100 km; Vorgabe bleibt 50 | Auswahl in Angebot **und** Suche |
+| N8.4b | **Bundesweit heißt: kein Umkreisfilter — nicht ein sehr großer Radius.** Ein Radius von 1000 km würde wieder am Anker rechnen und das Blättern (N2.7) belasten | Treffer ohne Distanzbedingung, Anker bleibt verborgen (M-E4) |
+| N8.4c | **Das Ranking gewichtet Nähe weiter** — bundesweit verfügbar heißt nicht gleich gut für jeden Ort. Wer näher ist, steht bei gleicher Passung vorn | Gleiche Passung, 20 km vs. 400 km → der nähere zuerst |
+| N8.4d | **Die Passungszahl nennt die Nähe als Bestandteil**, damit „83 % statt 70 %" nachvollziehbar bleibt (Owner: *„immer wieder erinnern"*) | Aufschlüsselung der Prozentzahl sichtbar |
+
+### N8.5 · Kreislauf und Verdrahtung
+
+**N8 schließt zwei Glieder:** N8.1 macht K-1 Verfügbarkeit überhaupt erst treffsicher (Suche und
+Angebot sprechen denselben Katalog), N8.2 schließt K-2 Zeit und Geld zwischen Zeitarbeitsfirma und
+Kunde. Kreislaufkarte, Betriebsarten und Verdrahtungskette: [`V_SCHNITTSTELLEN.md`](V_SCHNITTSTELLEN.md),
+Abschnitte 3a–3c.
+
+| Über den Plan hinaus mitzudenken | Warum |
+|---|---|
+| **Suche ohne Treffer wird zum Bedarf** — mit denselben Katalogschlüsseln vorbefüllt (N2.6-Weg) | Die Enttäuschung endet in einer Handlung, und der Bedarf matcht später automatisch |
+| **Gespeicherte Suche meldet neue Treffer** (Benachrichtigung, katalogfest) | Schließt K-1 von der Käuferseite: neues Angebot → der wartende Käufer erfährt es |
+| **Stundenzettel beim Kunden:** Genehmigen / Ablehnen mit Grund direkt aus der Benachrichtigung, Ergebnis zurück an Zeitarbeitsfirma **und** Einsatzportal (X) | Ohne Rückweg bleibt der Zettel beim Kunden liegen |
+| **Angedockter Betrieb:** Fieldglass-Bedarfe (V4) erscheinen in derselben katalogfesten Suche | Ein Bedarf, eine Suche — egal aus welchem System |

@@ -50,6 +50,12 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **R** | Die Sicht der Zeitarbeitsfirma | geplant, nicht gebaut. **Befund:** 17 Flächen, **4 in der Navigation** — die tägliche Stundenzettel-Prüfung (10 Endpunkte) in keiner |
 | **S** | Abhängigkeiten laufen wieder glatt | geplant. **Übergangslösung aktiv:** `@pdf-lib/fontkit` mit `--no-save --legacy-peer-deps` nachinstalliert, steht **nicht** im `package-lock.json`. Der Peer-Konflikt ist umgangen, nicht gelöst |
 | **T** | Das monatliche Marktaudit + Wertermittlung | geplant. Antwortet **in Fähigkeiten statt Zahlen**, führt die **Schulden daneben**, beziffert **Wiederherstellungsaufwand** statt Plattformwert |
+| **N8** | Nachtrag aus dem Owner-Dokument (2026-09-14) | geplant. Katalog statt Freitext auch in „Personal finden" und `capacity_search.html`; Stundenzettel nutzt die bekannte `buyer_org_id`; Fehler „Aktueller Plan: ?" (widerspricht M-E2); **Umkreis bundesweit für alle** (erweitert M-E4) |
+| **E7** | Beispielansicht im Leerzustand der Live-Belegschaft | geplant. **Nur** bei 200 ohne Einträge, gekennzeichnet; bei 500/401 nie |
+| **U** | Standorte, Rollen, Profilsichtbarkeit (Owner-Abschnitte 11, 24) | geplant. **Zuerst U0.2/U2.4:** `assertLocationBelongsToOrg` steht in nur 4 Routendateien — möglicher Sicherheitsbefund |
+| **V** | **Komplettsystem oder angedockt** (zvoove, SAP Fieldglass), Schnittstellen, **Kreislaufkarte K-1…K-7**, Verdrahtungskette für alle neuen Wellen | geplant. Kern: „führendes System je Objekt" (V6) **vor** jedem Adapter. Adapter warten auf Anbieter-Zugang. **V-E1 offen** (Preis des angedockten Pakets) |
+| **W** | Support Center für Mengen, Repo-Hygiene (Owner-Abschnitte 18, 19) | geplant. **W5 zuerst:** das Owner-Dokument liegt ungetrackt im öffentlichen Repo. Externer Support erst nach Standardvertragsklauseln (Indien ohne Angemessenheitsbeschluss) |
+| **X** | Lohnvorschau im Einsatzportal | geplant. Brutto genau, netto als Spanne, **keine** Steuerdaten; **nie** aus dem Verrechnungssatz |
 
 > **Der wichtigste Befund der M-Messung, weil er alles andere betrifft:**
 > **Die Marktplatz-Automatik läuft nicht.** Der Mechanismus ist vollständig gebaut
@@ -2006,6 +2012,10 @@ zurückziehen müssen.**
 |---|---|
 | [features/T_MARKTAUDIT.md](features/T_MARKTAUDIT.md) | **Das monatliche Audit.** Nicht ein zweiter Messweg, sondern **das fehlende Gedaechtnis**: `doku-generieren.js` prueft die Zahl von heute, hebt sie aber nicht auf — deshalb laesst sich nicht sagen, was sich veraendert hat. Der Bericht antwortet **in Faehigkeiten statt in Zahlen** (je Satz drei Belege: Endpunkt · Aufrufer · Waechter; fehlt einer, gilt sie als *halb*) und fuehrt die **Schulden daneben** — ein Bericht, der nur waechst, ist Werbung. **Wertermittlung als Wiederherstellungsaufwand in Personenmonaten mit Spanne, nie ein Euro-Betrag als Wert der Plattform.** |
 | [features/S_ABHAENGIGKEITEN.md](features/S_ABHAENGIGKEITEN.md) | **Der Peer-Konflikt ist ein Symptom.** Nach dem Merge startete der Container 26-mal nicht (`@pdf-lib/fontkit` fehlte), und `npm install` scheiterte am `bullmq`/`redis`-Konflikt. **Gemessen:** `redis` steht in `package.json` und wird in **genau einer Datei** benutzt (`rateLimit.js:7`), waehrend `ioredis` **undeklariert** ueber `bullmq` mitkommt. Zwei Klienten fuer dieselbe Sache. Empfehlung **C: node-redis abloesen**. Dazu S4 — der Container bedient den **Hauptbaum**, nicht den Worktree. |
+| [features/V_SCHNITTSTELLEN.md](features/V_SCHNITTSTELLEN.md) | **Komplettsystem oder angedocktes Modul.** Je Organisation und Objekt genau ein führendes System; der Kern (Marktplatz, Matching, Deal, Live-Belegschaft, Einsatzportal) bleibt immer bei TempConnect. Enthält die **Kreislaufkarte K-1…K-7** und die **Verdrahtungskette**, an der jede Phase von N8, E7, U, W, X gemessen wird. |
+| [features/U_STANDORTE_ROLLEN_SICHTBARKEIT.md](features/U_STANDORTE_ROLLEN_SICHTBARKEIT.md) | **Standorte, Rollen, Profile.** Firmen-Admin verwaltet sein Team ohne Rechteausweitung; Worker-Profile pseudonym bis zum Abschluss, über Positivliste. |
+| [features/W_SUPPORT_REPOHYGIENE.md](features/W_SUPPORT_REPOHYGIENE.md) | **Support Center für Mengen, Repo ohne Fallen.** Rückweg „häufige Anfrage wird Hilfeartikel"; externe Rolle mit geringsten Rechten; Schlüsselmuster- und Office-Datei-Wächter. |
+| [features/X_LOHNVORSCHAU.md](features/X_LOHNVORSCHAU.md) | **Lohnvorschau.** Die Falle zuerst: die Plattform kennt den Kundenpreis, nicht den Lohn. |
 | [features/P_ALTLASTEN.md](features/P_ALTLASTEN.md) | **Das Altlasten-Register.** Vier Klassen: **A entfernen · B anschließen (sieht tot aus, ist geplant) · C behalten · D erst messen**. Die Unterscheidung A/B ist der Kern — tot und noch-nicht-angeschlossen sehen identisch aus und verlangen das Gegenteil. **Klasse B hat sieben Posten; wer dort aufräumt, löscht geplante Fähigkeiten.** |
 | [features/R_ZEITARBEITSFIRMA.md](features/R_ZEITARBEITSFIRMA.md) | **Die Sicht der Zeitarbeitsfirma.** **Befund:** sie hat keinen Ort, sie hat **17** — davon **4 in der Navigation**. Die tägliche Stundenzettel-Prüfung (10 Endpunkte) steht in keiner. Die Welle baut nicht mehr Funktionen, sondern **einen Ort und einen Tag**. Abgeleitet, weil die Flow-Vorgabe des Owners nie kam — Annahmen sind gekennzeichnet. |
 | [features/Q_ZUVERLAESSIGKEIT_ZEUGNIS.md](features/Q_ZUVERLAESSIGKEIT_ZEUGNIS.md) | **Zuverlässigkeit, Zeugnis, Abwesenheit.** Skala **ohne Krankmeldungen** und **nicht heimlich** (Art. 9 / Art. 15 / § 87 BetrVG); Zeugnis als **Entwurf**, nie automatisch ausgestellt; Verspätung und Krankmeldung **lösen sich ab statt sich zu sperren**. |
@@ -3029,6 +3039,14 @@ durch sind** (Owner-Vorgabe). Bis dahin bleibt dieser Eintrag der Merkzettel.
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
 
+### Aus dem Owner-Dokument *(2026-09-14)*
+
+- **V-E1** — Preis des angedockten Pakets (Welle V): eigenes Paket, Rabatt auf PRO oder Provision.
+  Blockiert den Bau von V6/V7 nicht.
+- Entschieden am selben Tag: **Umkreis bundesweit für alle** (erweitert M-E4, N8.4) ·
+  **Beispielansicht nur im Leerzustand, gekennzeichnet** (E7) · **Lohnvorschau brutto genau,
+  netto als Spanne, ohne Steuerdaten** (X).
+
 ### Vier weitere Entscheidungen getroffen *(2026-09-04)*
 
 Alle vier stammen aus der M0-Nacharbeit — drei davon hat erst die Messung sichtbar
@@ -3165,6 +3183,8 @@ Vollständig in [features/M_MARKTPLATZ_FLOW.md](features/M_MARKTPLATZ_FLOW.md), 
 - ~~**M-E3**~~ ✅ **Unbegrenzt**, wie verkauft. Der widersprechende zweite Wert wird
   **entfernt**, nicht angeglichen — zwei Tabellen für dieselbe Grenze sind der Fehler.
 - ~~**M-E4**~~ ✅ **Einsatzradius statt Wohnort**, wählbar 10 / 50 / 100 km, Vorgabe 50.
+  **Erweitert 2026-09-14 (Owner-Abschnitt 26): zusätzlich „bundesweit" für alle** — als
+  fehlender Umkreisfilter, nicht als Riesenradius; Nähe zählt im Ranking weiter. Siehe N8.4.
   Ausgeliefert werden Radius plus grobe Raumangabe, **nie der Anker**; gesucht wird per
   Abstandsrechnung serverseitig. Die Kraft erscheint dadurch in **jeder** Suche, deren
   Einsatzort im Radius liegt — datensparsam **und** reichweitenstärker. Radius null ist

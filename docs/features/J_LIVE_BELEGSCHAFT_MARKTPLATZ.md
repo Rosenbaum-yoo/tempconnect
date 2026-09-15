@@ -3,7 +3,8 @@
 > **Stand:** 2026-08-26 · Worktree `brave-sanderson-9e9148` · Branch `claude/brave-sanderson-9e9148`
 > **Zweck:** Diese Datei allein genügt, um J in einem neuen Chat ohne Rückfragen
 > fortzusetzen. Erst lesen, dann die nächste offene Welle abarbeiten.
-> **Status:** Plan — noch nichts gebaut. Owner-Freigabe je Welle abwarten.
+> **Status:** gebaut und zusammengeführt (J1–J10) — Stand laut `docs/UEBERGABE.md`.
+> *(Bis 2026-09-14 stand hier „Plan — noch nichts gebaut"; die Zeile war seit dem Bau überholt.)*
 
 > **Owner-Prompt (Abschnitt 19, sinngemäß):** Die Live-Belegschaft-Seite (lief lokal auf
 > :8099) soll in die Plattform, unter „Einsätze & Zeiten" als neue Kachel, im

@@ -341,3 +341,30 @@ Die Versuchung ist, mit den Reitern anzufangen — sie sind das Sichtbare. Das
 wäre falsch: ein Reiter ohne Datenquelle ist eine Zusage, die das Produkt nicht
 halten kann, und genau davon hat dieses Repo schon genug (siehe
 `docs/FRONTEND_REIFEGRAD_AUDIT.md`).
+
+---
+
+## Nachtrag E7 — Beispielansicht im Leerzustand (Owner-Abschnitt 25, entschieden 2026-09-14)
+
+**Owner:** Hat die Live-Belegschaft noch nichts anzuzeigen, soll trotzdem ein Vorschaubild
+erscheinen. **Auf Rückfrage entschieden:** nur im Leerzustand und klar gekennzeichnet — bei
+Fehlern (500/401) **keine** Beispieldaten. Ein Beispielbild im Fehlerfall würde den Ausfall
+verstecken; das ist dieselbe Falle wie der leere Feed vom 26.08. (Welle K4).
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| E7.1 | **Nur bei Antwort 200 mit null Einträgen** erscheint die Beispielansicht | 401 → Anmeldung; 500 → ehrliche Fehlermeldung mit „Erneut laden" |
+| E7.2 | **Unübersehbar gekennzeichnet** („Beispiel — so sieht es aus, sobald Ihr erster Einsatz läuft"), Karten sichtbar abgesetzt, nicht klickbar | Kein Beispiel-Eintrag ist mit einem echten verwechselbar |
+| E7.3 | **Die Beispieldaten kommen nie aus der API** und mischen sich nie mit echten: ab dem ersten echten Eintrag verschwindet die Beispielansicht | Ein echter Eintrag → keine Beispielkarte |
+| E7.4 | **Ein nächster Schritt statt Sackgasse:** Verweis auf Einsatz anlegen bzw. Marktplatz | Klickpfad belegt |
+| E7.5 | **Wächter:** Beispielansicht bei nicht-200 → rot; Beispielansicht neben echten Einträgen → rot | Zwei Rückmutationen |
+
+> Die Projektregel „keine Demo-Daten in Produktions-UI" bleibt bestehen. Diese Ansicht ist
+> keine vorgetäuschte Kennzahl, sondern eine **gekennzeichnete Erklärung eines leeren Zustands**
+> — die Kennzeichnung ist genau das, was sie von Fake-Daten unterscheidet.
+
+**Kreislauf:** E7 ist der Einstieg in K-1 Verfügbarkeit für Firmen, die noch nichts gebucht haben —
+der nächste Schritt aus der Beispielansicht führt direkt in den Kreislauf (Mitarbeiter importieren
+bzw. Personal finden). Im **angedockten Betrieb** (V6) erklärt die Beispielansicht zusätzlich, dass
+Mitarbeiter aus dem Fremdsystem nach dem ersten Abgleich hier erscheinen. Verdrahtungskette:
+[`V_SCHNITTSTELLEN.md`](V_SCHNITTSTELLEN.md), Abschnitt 3c.
