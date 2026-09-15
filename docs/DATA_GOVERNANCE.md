@@ -36,15 +36,40 @@ Das System klassifiziert alle personenbezogenen Daten in vier Kategorien:
 - **Aktion bei Löschung**: Sofort gelöscht
 - **Retention**: Automatisch bereinigbar (TTL-basiert)
 
+## Auskunft (Art. 15/20)
+
+`exportUserDataFull` (Konto) und `workerProfileGovernanceService.exportWorkerProfileData`
+(Profil, auch ohne Konto) liefern alle vier Kategorien. Seit **Welle N2.10 (2026-09-15)**:
+
+- **Die Auskunft funktioniert.** Vorher verlangte die erste Abfrage `users.plan` und
+  `users.is_active` (gibt es nicht); der Fehler wurde geschluckt, und `GET /api/me/export`
+  antwortete **jedem** Nutzer mit 404. Sechs weitere Abschnitte kamen still leer an.
+- **Koordinaten** (`users.latitude/longitude`, seit N2.0 aus der Anschrift abgeleitet) stehen drin.
+- **Einsatzplanung** (Owner-Entscheid 2026-09-15): Einladungen und Vormerkungen der Warteliste
+  mit Rang, Punktzahl und Gründen, der Zeitarbeitsfirma, Tätigkeit und Zeitraum — **ohne**
+  Kundenunternehmen (Geschäftsinformation Dritter, Art. 15 Abs. 4) und mit einem neutralen
+  Hinweis, was eine Vormerkung ist. Im Betrieb bleibt die Warteliste still; in der formalen
+  Auskunft steht sie. Beide Auskünfte nutzen dieselben Abfragen aus `assignmentStaffingService`.
+- **Nie in der Datei:** Passwort-Hash, MFA-/TOTP-Geheimnisse, Wiederherstellungscodes, Tokens.
+
 ## Anonymisierung (Art. 17)
 
 Ablauf:
-1. **Vorbedingungsprüfung** (`canDeleteUser`): Prüft auf Blocker
-   - Aktive Assignments → ACTIVE_ASSIGNMENTS
-   - Offene Timesheets → PENDING_TIMESHEETS
-   - Unbezahlte Rechnungen → OPEN_INVOICES
-2. **Anonymisierung** (`anonymizeUser`): Kategorie-weise Verarbeitung
-3. **Audit-Log**: Unveränderlicher Eintrag in Kat C
+1. **Vorbedingungsprüfung** (`canDeleteUser`): Prüft auf Blocker — **fail-closed**: scheitert eine
+   Prüfung, scheitert die Löschung (500), statt still durchzugehen
+   - Aktive Assignments (angelegt vom Nutzer) → ACTIVE_ASSIGNMENTS
+   - Eingereichte Timesheets → PENDING_TIMESHEETS
+   - Offene Rechnungen des Kontos (`draft`, `issued`, `overdue`) → OPEN_INVOICES
+   - **Eigene laufende oder zugesagte Einsätze einer Kraft**, heute (Europe/Berlin) noch nicht
+     beendet → ACTIVE_DEPLOYMENTS (N2.10). Unbeantwortete Anfragen sperren nicht.
+2. **Anonymisierung** (`anonymizeUser`): Kategorie-weise Verarbeitung. Seit N2.10 zusätzlich:
+   Profil inaktiv, Koordinaten gelöscht, und die **Einsatzplanung aufgeräumt**
+   (`assignmentStaffingService.raeumeEinsatzplanungAuf`, in derselben Transaktion):
+   Reservierungen freigegeben, offene Einladungen und Auswahl-Sets zurückgezogen,
+   unbeantwortete Anfragen wie abgelehnt, Vormerkungen **gelöscht**, offene Marktangebote
+   archiviert, betroffene Einsätze neu gerechnet. Einsätze, Stundenzettel und Rechnungen bleiben.
+   Dieselbe Bereinigung läuft in `deleteWorkerData` und `anonymizeWorkerProfile`.
+3. **Audit-Log**: Unveränderlicher Eintrag in Kat C, mit den Zahlen der Bereinigung
 
 ## Aufbewahrungsfristen (Retention)
 
@@ -95,7 +120,7 @@ Alle Endpoints unter `/api/data-governance/`. RBAC: `data_governance.*` (owner, 
 | Method | Path | Auth | Beschreibung |
 |--------|------|------|-------------|
 | GET | `/api/me/export` | Session | Eigener DSGVO-Export (delegiert an exportUserDataFull) |
-| DELETE | `/api/me` | Session | Account-Löschung — ausschließlich anonymizeUser. Blocker (aktive Einsätze, offene Rechnungen/Timesheets) → 409 `ACCOUNT_DELETE_BLOCKED` mit Blockerliste; Fehler → 500. Kein Hard-Delete-Fallback mehr (HGB §257: Kat-C-Daten bleiben) |
+| DELETE | `/api/me` | Session | Account-Löschung — ausschließlich anonymizeUser. Blocker (laufende oder zugesagte Einsätze, offene Rechnungen/Timesheets) → 409 `ACCOUNT_DELETE_BLOCKED` mit Blockerliste; Fehler — auch eine nicht prüfbare Sperre — → 500. Kein Hard-Delete-Fallback mehr (HGB §257: Kat-C-Daten bleiben) |
 
 ## Dateien
 
@@ -115,3 +140,15 @@ node --test --test-force-exit api/test/dataGovernanceService.test.js
 ```
 
 27 Tests: Constants, Export (User/Org), canDeleteUser, anonymizeUser, deleteWorkerData, Retention (Status/Dry-Run/Cleanup), DSGVO-Anfragen (Create/List/Complete).
+
+Seit N2.10 zusätzlich:
+
+| Datei | Prüft |
+|---|---|
+| `api/test/auskunftFunktioniert.test.js` | gelesene Spalten, keine Geheimnisse, Einsatzplanung ohne Kunde, Org-Export |
+| `api/test/loeschenRaeumtAuf.test.js` | Bereinigung (Zustände, Bindung, Transaktion), Sperren inkl. fail-closed, Route 409/500, alle drei Löschpfade |
+| `api/test/integration/auskunft.flow.test.js` | Auskunft gegen die echte Datenbank — **null gescheiterte Abfragen** |
+| `api/test/integration/loeschenRaeumtAuf.flow.test.js` | ganze Einsatzplanung aufgebaut, Sperren, Löschung über den DELETE-/me-Pfad |
+
+Ohne Datenbank prüft `api/test/sqlSchemaWaechter.test.js` jede Abfrage des Dienstes gegen die
+Schema-Momentaufnahme — für `dataGovernanceService.js` seit N2.10 **ohne Ausnahme**.

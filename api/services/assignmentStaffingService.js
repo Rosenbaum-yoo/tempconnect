@@ -5314,3 +5314,189 @@ export async function runStaffingMaintenance(pool, {
     ...backfill
   };
 }
+
+/* ── Datenschutz: die Einsatzplanung einer Person (Welle N2.10) ─────────
+ *
+ * Diese Datei besitzt die Tabellen der Einsatzplanung (Einladungen,
+ * Reservierungen, Auswahl-Sets, Warteliste). Deshalb stehen HIER die beiden
+ * Stuecke, die jeder DSGVO-Pfad braucht — einmal, nicht je Pfad eine Abschrift:
+ *
+ *   Art. 15  AUSKUNFT_EINLADUNGEN_SQL / AUSKUNFT_VORMERKUNGEN_SQL / EINSATZPLANUNG_HINWEIS
+ *            (genutzt von dataGovernanceService.exportUserDataFull und
+ *             workerProfileGovernanceService.exportWorkerProfileData)
+ *   Art. 17  raeumeEinsatzplanungAuf
+ *            (genutzt von anonymizeUser, deleteWorkerData, anonymizeWorkerProfile)
+ */
+
+/**
+ * Einsatzplanung in der Auskunft (Owner-Entscheid 2026-09-15).
+ *
+ * Die Warteliste laeuft im Betrieb STILL: niemand erfaehrt, dass er fuer einen
+ * Einsatz vorgemerkt ist (api/test/wartelisteBleibtStill.test.js). Eine formale
+ * Auskunft ist aber keine Oberflaeche — Rang, Punktzahl und Gruende sind Daten
+ * UEBER die Person, und Art. 15 verlangt sie auf Antrag. Also: in der Auskunft
+ * ja, neutral benannt; in der Oberflaeche nie.
+ *
+ * Genannt werden die Zeitarbeitsfirma (sie hat die Daten verarbeitet) sowie
+ * Taetigkeit und Zeitraum des Einsatzes — ohne diese waere eine Punktzahl nicht
+ * verstaendlich. NICHT genannt wird das Kundenunternehmen: bei einer blossen
+ * Vormerkung ist es eine Geschaeftsinformation Dritter (Art. 15 Abs. 4); wer
+ * eingeladen wurde, hat den Kunden ohnehin in der Einladung gesehen.
+ */
+export const EINSATZPLANUNG_HINWEIS =
+  "Vormerkungen sind ein Planungsschritt Ihrer Zeitarbeitsfirma fuer einen konkreten Einsatz: " +
+  "eine Reihenfolge moeglicher Nachruecker, falls dort ein Platz frei wird. Eine Vormerkung ist " +
+  "weder eine Anfrage noch eine Zusage, und Sie werden dazu nicht benachrichtigt. Eine " +
+  "Nachricht erhalten Sie erst, wenn Sie tatsaechlich eingeladen werden. Punktzahl und Gruende " +
+  "beschreiben, wie gut Ihr Profil zu den Anforderungen des Einsatzes passte.";
+
+export const AUSKUNFT_EINLADUNGEN_SQL =
+  `SELECT i.id, i.assignment_id, i.status, i.score, i.score_reasons, i.personal_message,
+            i.sent_at, i.viewed_at, i.interested_at, i.responded_at, i.accepted_at, i.declined_at,
+            i.cancelled_at, i.expired_at, i.expires_at, i.response_note,
+            so.name AS zeitarbeitsfirma, a.worker_description AS taetigkeit, a.start_date, a.planned_end_date
+       FROM assignment_staffing_invites i
+       JOIN assignments a ON a.id = i.assignment_id
+       LEFT JOIN organizations so ON so.id = i.supplier_org_id
+      WHERE i.worker_user_id = $1
+      ORDER BY i.sent_at DESC`;
+
+export const AUSKUNFT_VORMERKUNGEN_SQL =
+  `SELECT w.id, w.assignment_id, w.status, w.queue_rank, w.score, w.soft_score, w.hard_match,
+            w.match_reasons, w.factor_scores, w.hard_failures, w.missing_requirements,
+            w.queued_at, w.invited_at, w.reserved_at, w.assigned_at, w.removed_at, w.removal_reason,
+            w.last_evaluated_at, w.created_at, w.updated_at,
+            so.name AS zeitarbeitsfirma, a.worker_description AS taetigkeit, a.start_date, a.planned_end_date
+       FROM assignment_staffing_waitlist w
+       JOIN assignments a ON a.id = w.assignment_id
+       LEFT JOIN organizations so ON so.id = w.supplier_org_id
+      WHERE w.worker_user_id = $1
+      ORDER BY w.created_at DESC`;
+
+/** Die Tabellen, die `raeumeEinsatzplanungAuf` tatsaechlich traf — fuer das Audit jedes Loeschpfads. */
+export function aufgeraeumteTabellen(e) {
+  return [
+    [e?.reservierungen, "assignment_staffing_reservations"],
+    [e?.einladungen, "assignment_staffing_invites"],
+    [e?.auswahl, "assignment_staffing_choice_sets"],
+    [e?.anfragen, "worker_assignment_links"],
+    [e?.vormerkungen, "assignment_staffing_waitlist"],
+    [e?.marktangebote, "capacity_posts"]
+  ].filter(([n]) => n > 0).map(([, tabelle]) => tabelle);
+}
+
+/** Wie ein Disponent eine zurueckgezogene Anfrage im Portal liest — ohne den Grund der Loeschung. */
+export const GRUND_PERSON_GELOESCHT = "Person nicht mehr verfuegbar (Datenloeschung)";
+
+/**
+ * Art. 17 — die Einsatzplanung einer geloeschten Person aufraeumen.
+ *
+ * BEFUND 2026-09-15: Keiner der drei Loeschpfade fasste die Einsatzplanung an.
+ * `anonymizeUser` (DELETE /me) liess sogar das Profil AKTIV — die Person blieb
+ * im Kandidatenpool, ihre Vormerkungen standen, und das automatische Nachruecken
+ * (runAutoBackfill) konnte einen geloeschten Menschen einladen und
+ * benachrichtigen. Disponenten sahen "[Geloescht]" als Vorschlag.
+ *
+ * Owner-Entscheid 2026-09-15 ("vollstaendig aufraeumen"):
+ *   Reservierungen   freigegeben
+ *   Einladungen      offene zurueckgezogen (auch angenommene, deren
+ *                    Reservierung eben freigegeben wurde)
+ *   Auswahl-Sets     offene zurueckgezogen
+ *   Einsatzanfragen  unbeantwortete wie eine Ablehnung — derselbe Zustand, den
+ *                    workerService beim Ablehnen schreibt
+ *   Vormerkungen     GELOESCHT: Rang, Punktzahl und Gruende sind Bewertungsdaten,
+ *                    die nach der Loeschung keinem Zweck mehr dienen
+ *   Marktangebote    die offenen Angebote der Person archiviert (sonst stuende sie
+ *                    bis zum naechsten Sweep weiter im Markt)
+ * Einsaetze, Stundenzettel und Rechnungen bleiben — sie unterliegen der
+ * Aufbewahrung (HGB §257). Laufende Einsaetze verhindert bei der
+ * Selbstloeschung bereits `canDeleteUser`.
+ *
+ * Muss INNERHALB der Transaktion des Loeschpfads laufen: faellt ein Schritt,
+ * faellt die ganze Loeschung — kein halb aufgeraeumter Mensch.
+ *
+ * @returns {{reservierungen:number, einladungen:number, auswahl:number,
+ *            anfragen:number, vormerkungen:number, marktangebote:number,
+ *            einsaetze_neu_berechnet:number}}
+ */
+export async function raeumeEinsatzplanungAuf(client, workerUserId) {
+  const leer = { reservierungen: 0, einladungen: 0, auswahl: 0, anfragen: 0, vormerkungen: 0, marktangebote: 0, einsaetze_neu_berechnet: 0 };
+  if (!workerUserId) return leer;
+
+  const reservierungen = await client.query(
+    `UPDATE assignment_staffing_reservations
+        SET status = 'released', released_at = NOW(), release_reason = 'person_geloescht', updated_at = NOW()
+      WHERE worker_user_id = $1 AND status = 'reserved'
+      RETURNING id, assignment_id, invite_id`,
+    [workerUserId]
+  );
+  const freigegebeneEinladungen = reservierungen.rows.map((r) => r.invite_id).filter(Boolean);
+
+  const einladungen = await client.query(
+    `UPDATE assignment_staffing_invites
+        SET status = 'cancelled', cancelled_at = NOW(), remind_after = NULL, updated_at = NOW()
+      WHERE worker_user_id = $1
+        AND (status IN ('sent', 'viewed', 'interested')
+             OR (status = 'accepted' AND id = ANY($2::uuid[])))
+      RETURNING id, assignment_id`,
+    [workerUserId, freigegebeneEinladungen]
+  );
+
+  const auswahl = await client.query(
+    `UPDATE assignment_staffing_choice_sets
+        SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
+      WHERE worker_user_id = $1
+        AND status IN ('options_presented', 'preference_submitted', 'preference_ranked')
+      RETURNING id`,
+    [workerUserId]
+  );
+
+  const anfragen = await client.query(
+    `UPDATE worker_assignment_links
+        SET worker_confirmation_status = 'worker_declined',
+            worker_declined_reason = $2,
+            worker_declined_at = NOW(),
+            is_active = FALSE,
+            updated_at = NOW()
+      WHERE worker_user_id = $1
+        AND is_active = TRUE
+        AND worker_confirmation_status = 'pending_confirmation'
+      RETURNING id, assignment_id`,
+    [workerUserId, GRUND_PERSON_GELOESCHT]
+  );
+
+  const vormerkungen = await client.query(
+    "DELETE FROM assignment_staffing_waitlist WHERE worker_user_id = $1 RETURNING assignment_id",
+    [workerUserId]
+  );
+
+  const marktangebote = await client.query(
+    `UPDATE capacity_posts cp
+        SET status = 'archived', is_active = FALSE, updated_at = NOW()
+      WHERE cp.status IN ('draft', 'active', 'paused')
+        AND cp.worker_profile_id IN (SELECT wp.id FROM worker_profiles wp WHERE wp.user_id = $1)
+      RETURNING cp.id`,
+    [workerUserId]
+  );
+
+  // Die Zaehler der betroffenen Einsaetze stimmen erst nach einer Neuberechnung
+  // wieder: eine freigegebene Reservierung oder eine zurueckgezogene Anfrage gibt
+  // einen Platz frei, den das Nachruecken sonst nicht saehe.
+  const einsaetze = [...new Set(
+    [...reservierungen.rows, ...einladungen.rows, ...anfragen.rows, ...vormerkungen.rows]
+      .map((r) => r.assignment_id).filter(Boolean)
+  )];
+  for (const assignmentId of einsaetze) {
+    await recalcAssignmentStaffing(client, assignmentId, { lock: true, writeEvent: true });
+  }
+
+  return {
+    reservierungen: reservierungen.rowCount || 0,
+    einladungen: einladungen.rowCount || 0,
+    auswahl: auswahl.rowCount || 0,
+    anfragen: anfragen.rowCount || 0,
+    vormerkungen: vormerkungen.rowCount || 0,
+    marktangebote: marktangebote.rowCount || 0,
+    einsaetze_neu_berechnet: einsaetze.length
+  };
+}

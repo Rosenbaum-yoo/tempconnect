@@ -703,20 +703,10 @@ const BESTAND = new Set([
    * Variante, weil die Oberflaeche plausibel aussieht. */
   "services/dealProgressHelper.js::state_transitions",
 
-  /* ── DSGVO-Export: dieselbe Klasse wie anonymizeUser, nur eine Funktion
-   * weiter. exportUserDataFull kapselt jede Abfrage in safeQuery(), das den
-   * Fehler schluckt — der Export liefert dem Betroffenen also stillschweigend
-   * LEERE Abschnitte statt seiner Daten (Art. 15 DSGVO). ──────────────────── */
-  "services/dataGovernanceService.js::users.is_active",        // gibt es nicht
-  "services/dataGovernanceService.js::users.plan",             // Plan haengt an organizations/subscriptions
-  "services/dataGovernanceService.js::requests.sender_id",     // richtig: requester_id
-  "services/dataGovernanceService.js::ratings.reviewer_id",    // ratings hat weder reviewer_id …
-  "services/dataGovernanceService.js::ratings.reviewee_id",    // … noch reviewee_id
-  "services/dataGovernanceService.js::offers.created_by",      // richtig: supplier_company_id
-  "services/dataGovernanceService.js::invoices.created_by",    // richtig: user_id
-  "services/dataGovernanceService.js::subscriptions.plan_name",  // richtig: plan
-  "services/dataGovernanceService.js::subscriptions.expires_at", // gibt es nicht
-  "services/dataGovernanceService.js::contracts.org_id",       // contracts hat buyer_org_id/supplier_org_id
+  /* ── DSGVO: Auskunft UND Loeschsperre in dataGovernanceService sind am
+   * 2026-09-15 behoben (Welle N2.10) — alle zehn Eintraege gestrichen. Die
+   * Auskunft hatte wegen users.plan/is_active fuer JEDEN Nutzer null geliefert;
+   * der Rechnungs-Riegel (invoices.created_by) hat nie gegriffen. ─────────── */
 
   /* ── Passwort-Zuruecksetzen: users hat weder reset_token noch
    * reset_token_expires. Der komplette Ablauf wirft. ───────────────────────── */

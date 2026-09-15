@@ -38,6 +38,13 @@
  */
 
 import { withTransaction } from "../utils/transaction.js";
+import {
+  AUSKUNFT_EINLADUNGEN_SQL,
+  AUSKUNFT_VORMERKUNGEN_SQL,
+  EINSATZPLANUNG_HINWEIS,
+  aufgeraeumteTabellen,
+  raeumeEinsatzplanungAuf
+} from "./assignmentStaffingService.js";
 
 /** Wie bei den mutierenden OCC-Aktionen: eine Begruendung, die etwas erklaert. */
 const REASON_MIN = 10;
@@ -102,8 +109,13 @@ export async function exportWorkerProfileData(pool, orgId, profileId) {
   let stundenzettel = { rows: [] };
   let dokumente = { rows: [] };
   let beschwerden = { rows: [] };
+  /* N2.10 (Owner-Entscheid 2026-09-15): Einladungen und Vormerkungen gehoeren in
+   * die Auskunft — hier wie in exportUserDataFull aus DENSELBEN Abfragen, sonst
+   * spraeche die Profil-Auskunft anders ueber denselben Menschen. */
+  let einladungenEinsatz = { rows: [] };
+  let vormerkungen = { rows: [] };
   if (userId) {
-    [einsaetze, stundenzettel, dokumente, beschwerden] = await Promise.all([
+    [einsaetze, stundenzettel, dokumente, beschwerden, einladungenEinsatz, vormerkungen] = await Promise.all([
       pool.query(
         `SELECT client_name, location_address, start_date, end_date, is_active, is_montage
            FROM worker_assignment_links WHERE worker_user_id = $1 ORDER BY start_date DESC`, [userId]),
@@ -117,7 +129,9 @@ export async function exportWorkerProfileData(pool, orgId, profileId) {
           WHERE worker_user_id = $1 ORDER BY created_at DESC`, [userId]),
       pool.query(
         `SELECT severity, reason, status, created_at FROM worker_complaints
-          WHERE worker_user_id = $1 ORDER BY created_at DESC`, [userId])
+          WHERE worker_user_id = $1 ORDER BY created_at DESC`, [userId]),
+      pool.query(AUSKUNFT_EINLADUNGEN_SQL, [userId]),
+      pool.query(AUSKUNFT_VORMERKUNGEN_SQL, [userId])
     ]);
   }
 
@@ -140,6 +154,11 @@ export async function exportWorkerProfileData(pool, orgId, profileId) {
     stundenzettel: stundenzettel.rows,
     dokumente: dokumente.rows,
     beschwerden: beschwerden.rows,
+    einsatzplanung: {
+      hinweis: EINSATZPLANUNG_HINWEIS,
+      einladungen: einladungenEinsatz.rows,
+      vormerkungen: vormerkungen.rows
+    },
     scope: { supplier_org_id: orgId, worker_profile_id: profileId },
     generated_at: new Date().toISOString()
   };
@@ -200,10 +219,18 @@ export async function anonymizeWorkerProfile(pool, orgId, profileId, { actorId =
      * bleibt unberuehrt: dafuer gibt es anonymizeUser, und ein zweiter Pfad auf
      * dieselbe Zeile waere genau die Vermischung, die Weg (a) vermeiden sollte. */
     const userId = auf.profil.user_id;
+    let einsatzplanung = null;
     if (userId) {
       const dok = await client.query(
         `DELETE FROM worker_profile_documents WHERE worker_user_id = $1 RETURNING id`, [userId]);
       if (dok.rowCount) t.push("worker_profile_documents");
+
+      /* N2.10 (Owner-Entscheid 2026-09-15, "vollstaendig aufraeumen"): dieselbe
+       * Bereinigung wie beim Konto-Loeschen. Das inaktive Profil nahm die Person
+       * zwar aus neuen Vorschlaegen, aber offene Einladungen, Reservierungen und
+       * die Vormerkungen samt Rang und Punktzahl blieben stehen. */
+      einsatzplanung = await raeumeEinsatzplanungAuf(client, userId);
+      t.push(...aufgeraeumteTabellen(einsatzplanung));
 
       await client.query(`DELETE FROM notifications WHERE user_id = $1`, [userId]);
       t.push("notifications");
@@ -216,7 +243,7 @@ export async function anonymizeWorkerProfile(pool, orgId, profileId, { actorId =
        VALUES ($1, 'dsgvo.anonymize_worker_profile', 'worker_profile', $2, $3, NOW())`,
       [actorId, profileId, JSON.stringify({
         anonymized_tables: t, reason: grund, supplier_org_id: orgId,
-        had_account: Boolean(userId), responsible_actor_user_id: actorId
+        had_account: Boolean(userId), responsible_actor_user_id: actorId, einsatzplanung
       })]
     );
 

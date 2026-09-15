@@ -77,6 +77,8 @@ describe("dataGovernanceService — exportUserDataFull", () => {
       { rows: [] },        // assignments
       { rows: [] },        // timesheets
       { rows: [] },        // worker_time_submissions
+      { rows: [] },        // assignment_staffing_invites (N2.10)
+      { rows: [] },        // assignment_staffing_waitlist (N2.10)
       { rows: [] },        // subscriptions
       { rows: [] },        // invoices
       { rows: [] }         // notifications
@@ -96,7 +98,7 @@ describe("dataGovernanceService — exportUserDataFull", () => {
   it("includes Kat C notice about retention", async () => {
     const pool = sequencePool(
       { rows: [{ id: "u1", email: "x@x.de" }] },
-      ...Array(16).fill({ rows: [] })
+      ...Array(18).fill({ rows: [] })   // N2.10: zwei Abfragen der Einsatzplanung mehr
     );
     const result = await svc.exportUserDataFull(pool, "u1");
     assert.ok(result.category_C.notice.includes("HGB"));
@@ -195,7 +197,8 @@ describe("dataGovernanceService — anonymizeUser", () => {
       { rows: [{ mitglied: 1 }] },   // Befund E-17: Zugehoerigkeitspruefung (neu, zuerst)
       { rows: [{ c: 2 }] },   // active assignments blocker
       { rows: [{ c: 0 }] },
-      { rows: [{ c: 0 }] }
+      { rows: [{ c: 0 }] },
+      { rows: [{ c: 0 }] }    // N2.10: laufende eigene Einsaetze
     );
     const result = await svc.anonymizeUser(pool, "u1", "actor1", "o1");
     assert.strictEqual(result.success, false);
@@ -209,10 +212,14 @@ describe("dataGovernanceService — anonymizeUser", () => {
       { rows: [{ c: 0 }] },   // assignments
       { rows: [{ c: 0 }] },   // timesheets
       { rows: [{ c: 0 }] },   // invoices
+      { rows: [{ c: 0 }] },   // N2.10: laufende eigene Einsaetze (worker_assignment_links)
       // anonymize queries
       { rows: [{ email: "max@firma.de" }] }, // SELECT Original-E-Mail (vor users-UPDATE)
       { rows: [] },            // UPDATE users
       { rows: [] },            // UPDATE worker_profiles
+      // N2.10: raeumeEinsatzplanungAuf — Reservierungen, Einladungen, Auswahl-Sets,
+      // Anfragen, Vormerkungen, Marktangebote (nichts betroffen, also keine Neuberechnung)
+      ...Array(6).fill({ rows: [] }),
       { rows: [] },            // DELETE worker_invites
       { rows: [] },            // UPDATE company_profiles
       { rows: [] },            // UPDATE offers
@@ -237,8 +244,9 @@ describe("dataGovernanceService — anonymizeUser", () => {
       { rows: [{ c: 0 }] },
       { rows: [{ c: 0 }] },
       { rows: [{ c: 0 }] },
+      { rows: [{ c: 0 }] },   // N2.10: laufende eigene Einsaetze
       { rows: [{ email: "max@firma.de" }] }, // SELECT Original-E-Mail
-      ...Array(9).fill({ rows: [] })
+      ...Array(15).fill({ rows: [] })   // N2.10: +6 Einsatzplanung
     );
     const result = await svc.anonymizeUser(pool, "u1", "actor1", "o1");
     assert.ok(result.anonymized_tables.includes("session"));
@@ -255,6 +263,8 @@ describe("dataGovernanceService — deleteWorkerData", () => {
     const pool = sequencePool(
       { rows: [] },            // UPDATE worker_profiles
       { rows: [] },            // DELETE worker_invites
+      ...Array(6).fill({ rows: [] }),   // N2.10: raeumeEinsatzplanungAuf
+      { rows: [] },            // N2.10: UPDATE users (Koordinaten)
       { rows: [] },            // DELETE notifications
       { rows: [] }             // INSERT audit_log
     );

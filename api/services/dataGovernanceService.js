@@ -12,6 +12,14 @@
 
 import { withTransaction } from "../utils/transaction.js";
 import { logger } from "../config/index.js";
+import { todayDE } from "../utils/dateDE.js";
+import {
+  AUSKUNFT_EINLADUNGEN_SQL,
+  AUSKUNFT_VORMERKUNGEN_SQL,
+  EINSATZPLANUNG_HINWEIS,
+  aufgeraeumteTabellen,
+  raeumeEinsatzplanungAuf
+} from "./assignmentStaffingService.js";
 
 export const DATA_CATEGORIES = {
   A: {
@@ -21,7 +29,7 @@ export const DATA_CATEGORIES = {
   },
   B: {
     label: "Geschäftlich notwendig",
-    tables: ["org_memberships", "assignments", "requisitions", "requisition_candidates", "contracts", "vendor_pool", "capacity_posts", "demand_requests", "timesheets", "timesheet_entries", "worker_time_submissions", "worker_assignment_links", "matches"],
+    tables: ["org_memberships", "assignments", "requisitions", "requisition_candidates", "contracts", "vendor_pool", "capacity_posts", "demand_requests", "timesheets", "timesheet_entries", "worker_time_submissions", "worker_assignment_links", "matches", "assignment_staffing_invites", "assignment_staffing_waitlist"],
     action: "Export + Anonymisierung Personenreferenzen"
   },
   C: {
@@ -56,33 +64,71 @@ async function safeQuery(pool, sql, params = []) {
   }
 }
 
+/*
+ * BEFUND 2026-09-15 (Welle N2.10): DIE AUSKUNFT HAT FUER NIEMANDEN FUNKTIONIERT.
+ *
+ * Die erste Abfrage verlangte `users.plan` und `users.is_active` — beide Spalten
+ * gibt es nicht. `safeQuery` schluckt den Fehler, `user` bleibt leer, die
+ * Funktion liefert `null`, und `GET /me/export` antwortete JEDEM Nutzer mit
+ * 404 USER_NOT_FOUND. Gemessen an der Entwicklungsdatenbank mit einem echten
+ * Kraefte-Konto. Der SQL-Schema-Waechter fuehrte die Spalten als "Bestand" —
+ * gesehen, aber nicht behoben.
+ *
+ * Sechs weitere Abfragen zielten auf Spalten, die es nicht gibt, und lieferten
+ * dem Betroffenen still LEERE Abschnitte statt seiner Daten:
+ *   company_contacts   haengt direkt an user_id (keine company_profile_id)
+ *   requests           Absender ist requester_id, nicht sender_id
+ *   ratings            rater_id / rated_id, nicht reviewer_id / reviewee_id
+ *   offers             Urheber ist supplier_company_id, nicht created_by
+ *   subscriptions      plan / current_period_end, nicht plan_name / expires_at
+ *   invoices           user_id, nicht created_by
+ * Jede Abfrage steht jetzt unter dem Schema-Waechter ohne Ausnahme.
+ *
+ * Neu in der Auskunft: die Koordinaten des Kontos (seit Welle N2.0 fuer den
+ * Umkreis gespeichert — personenbezogen, weil aus der Anschrift abgeleitet) und
+ * die EINSATZPLANUNG (Owner-Entscheid 2026-09-15, unten).
+ *
+ * Geheimnisse (password_hash, MFA-/TOTP-Geheimnisse, Wiederherstellungscodes,
+ * verification_token) bleiben bewusst draussen: sie sind keine Auskunft ueber
+ * die Person, sondern ein Schluessel zu ihrem Konto — in einer herunterladbaren
+ * Datei waeren sie ein Risiko FUER den Betroffenen.
+ */
+
+// Einsatzplanung: Abfragen, Hinweis und Aufraeumen besitzt der Dienst, dem die
+// Tabellen gehoeren — hier nur weitergereicht (Begruendung dort).
+export { EINSATZPLANUNG_HINWEIS };
+
 /**
  * Vollständiger DSGVO-Export aller personenbezogenen Daten eines Users.
  */
 export async function exportUserDataFull(pool, userId) {
-  const [user] = await safeQuery(pool, "SELECT id, email, company_name, role, phone, contact_person, street, postal_code, city, vat_id, plan, is_active, created_at FROM users WHERE id = $1", [userId]);
+  const [user] = await safeQuery(pool, "SELECT id, email, company_name, role, org_id, phone, contact_person, street, postal_code, city, latitude, longitude, vat_id, email_verified_at, mfa_enabled, created_at, updated_at FROM users WHERE id = $1", [userId]);
   if (!user) return null;
 
   // Kat A: Personenbezogen
   const workerProfiles = await safeQuery(pool, "SELECT * FROM worker_profiles WHERE user_id = $1", [userId]);
   const companyProfiles = await safeQuery(pool, "SELECT * FROM company_profiles WHERE user_id = $1", [userId]);
-  const companyContacts = await safeQuery(pool, "SELECT cc.* FROM company_contacts cc JOIN company_profiles cp ON cp.id = cc.company_profile_id WHERE cp.user_id = $1", [userId]);
+  const companyContacts = await safeQuery(pool, "SELECT * FROM company_contacts WHERE user_id = $1", [userId]);
 
   // Kat B: Geschäftlich
   const orgMemberships = await safeQuery(pool, "SELECT om.*, o.name AS org_name FROM org_memberships om LEFT JOIN organizations o ON o.id = om.org_id WHERE om.user_id = $1", [userId]);
   const listings = await safeQuery(pool, "SELECT * FROM listings WHERE owner_id = $1", [userId]);
-  const requestsSent = await safeQuery(pool, "SELECT * FROM requests WHERE sender_id = $1", [userId]);
+  const requestsSent = await safeQuery(pool, "SELECT * FROM requests WHERE requester_id = $1", [userId]);
   const requestsReceived = await safeQuery(pool, "SELECT * FROM requests WHERE receiver_id = $1", [userId]);
-  const ratings = await safeQuery(pool, "SELECT * FROM ratings WHERE reviewer_id = $1 OR reviewee_id = $1", [userId]);
-  const offers = await safeQuery(pool, "SELECT * FROM offers WHERE created_by = $1", [userId]);
+  const ratings = await safeQuery(pool, "SELECT * FROM ratings WHERE rater_id = $1 OR rated_id = $1", [userId]);
+  const offers = await safeQuery(pool, "SELECT * FROM offers WHERE supplier_company_id = $1", [userId]);
   const capacityPosts = await safeQuery(pool, "SELECT * FROM capacity_posts WHERE created_by = $1", [userId]);
   const assignments = await safeQuery(pool, "SELECT * FROM assignments WHERE created_by = $1", [userId]);
   const timesheets = await safeQuery(pool, "SELECT * FROM timesheets WHERE submitted_by = $1 OR approved_by = $1", [userId]);
   const workerTimeSubmissions = await safeQuery(pool, "SELECT * FROM worker_time_submissions WHERE worker_user_id = $1", [userId]);
 
+  // Kat B: Einsatzplanung — Einladungen und Vormerkungen (siehe EINSATZPLANUNG_HINWEIS).
+  const staffingInvites = await safeQuery(pool, AUSKUNFT_EINLADUNGEN_SQL, [userId]);
+  const staffingWaitlist = await safeQuery(pool, AUSKUNFT_VORMERKUNGEN_SQL, [userId]);
+
   // Kat C: Aufbewahrungspflichtig
-  const subscriptions = await safeQuery(pool, "SELECT id, plan_name, status, created_at, expires_at FROM subscriptions WHERE user_id = $1", [userId]);
-  const invoices = await safeQuery(pool, "SELECT id, invoice_number, status, total_cents, currency, created_at FROM invoices WHERE created_by = $1", [userId]);
+  const subscriptions = await safeQuery(pool, "SELECT id, plan, status, created_at, current_period_start, current_period_end, canceled_at FROM subscriptions WHERE user_id = $1", [userId]);
+  const invoices = await safeQuery(pool, "SELECT id, invoice_number, status, total_cents, currency, created_at FROM invoices WHERE user_id = $1", [userId]);
 
   // Kat D: Technisch
   const notifications = await safeQuery(pool, "SELECT id, type, title, is_read, created_at FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 200", [userId]);
@@ -96,7 +142,10 @@ export async function exportUserDataFull(pool, userId) {
       data_categories: ["A", "B", "C", "D"]
     },
     category_A: { user, worker_profiles: workerProfiles, company_profiles: companyProfiles, company_contacts: companyContacts },
-    category_B: { org_memberships: orgMemberships, listings, requests_sent: requestsSent, requests_received: requestsReceived, ratings, offers, capacity_posts: capacityPosts, assignments, timesheets, worker_time_submissions: workerTimeSubmissions },
+    category_B: {
+      org_memberships: orgMemberships, listings, requests_sent: requestsSent, requests_received: requestsReceived, ratings, offers, capacity_posts: capacityPosts, assignments, timesheets, worker_time_submissions: workerTimeSubmissions,
+      staffing: { notice: EINSATZPLANUNG_HINWEIS, invites: staffingInvites, waitlist: staffingWaitlist }
+    },
     category_C: { subscriptions, invoices, notice: "Aufbewahrungspflichtig nach HGB §257 (6-10 Jahre). Löschung nicht möglich." },
     category_D: { notifications }
   };
@@ -109,10 +158,13 @@ export async function exportOrgDataFull(pool, orgId) {
   const [org] = await safeQuery(pool, "SELECT id, name, type, plan, is_active, created_at FROM organizations WHERE id = $1", [orgId]);
   if (!org) return null;
 
-  const members = await safeQuery(pool, "SELECT om.user_id, om.role, u.email, u.company_name FROM org_memberships om JOIN users u ON u.id = om.user_id WHERE om.org_id = $1", [orgId]);
+  // Befund 2026-09-15: `om.role` gibt es nicht (die Spalte heisst role_key) und
+  // `contracts.org_id` ebenso wenig — beide Abschnitte kamen still leer an.
+  const members = await safeQuery(pool, "SELECT om.user_id, om.role_key, om.is_active, u.email, u.company_name FROM org_memberships om JOIN users u ON u.id = om.user_id WHERE om.org_id = $1", [orgId]);
   const requisitions = await safeQuery(pool, "SELECT id, role, status, created_at FROM requisitions WHERE org_id = $1", [orgId]);
   const assignments = await safeQuery(pool, "SELECT id, status, hourly_rate_cents, start_date, created_at FROM assignments WHERE org_id = $1", [orgId]);
-  const contracts = await safeQuery(pool, "SELECT id, title, status, created_at FROM contracts WHERE org_id = $1", [orgId]);
+  // Ein Vertrag gehoert beiden Seiten: die Org ist Kaeufer ODER Zeitarbeitsfirma.
+  const contracts = await safeQuery(pool, "SELECT id, title, contract_type, status, buyer_org_id, supplier_org_id, valid_from, valid_until, created_at FROM contracts WHERE buyer_org_id = $1 OR supplier_org_id = $1", [orgId]);
   const vendorPool = await safeQuery(pool, "SELECT vp.*, so.name AS supplier_name FROM vendor_pool vp LEFT JOIN organizations so ON so.id = vp.supplier_org_id WHERE vp.client_org_id = $1", [orgId]);
   const locations = await safeQuery(pool, "SELECT * FROM org_locations WHERE org_id = $1", [orgId]);
   const departments = await safeQuery(pool, "SELECT * FROM org_departments WHERE org_id = $1", [orgId]);
@@ -137,20 +189,53 @@ export async function exportOrgDataFull(pool, orgId) {
 
 /* ── Anonymisierung (Art. 17 DSGVO) ───────────────────────────────────── */
 
+
 /**
  * Prüft ob ein User anonymisiert werden kann.
+ *
+ * BEFUND 2026-09-15 (Welle N2.10), Owner-Entscheid "beides sperren":
+ *
+ * 1. DIE SPERRE WAR "FAIL-OPEN". Jede Pruefung lief durch `safeQuery`, das
+ *    Fehler schluckt und [] liefert — ein Fehler hiess also "kein Hindernis".
+ *    Genau so ist der Rechnungs-Riegel gestorben: er fragte `invoices.created_by`
+ *    (gibt es nicht; richtig ist user_id) und dazu den Status 'sent' (gibt es
+ *    auch nicht; richtig ist 'issued'). OPEN_INVOICES hat nie gegriffen. Eine
+ *    Sperre, die bei einem Fehler freigibt, ist keine. Die Pruefungen laufen
+ *    jetzt direkt: scheitert eine, scheitert die Loeschung (500), statt still
+ *    durchzugehen — "Fehlerpfade eskalieren, nie degradieren" (CLAUDE.md,
+ *    Erkenntnis 2026-08-03).
+ *
+ * 2. DIE EINGESETZTE KRAFT WURDE NICHT GEFRAGT. ACTIVE_ASSIGNMENTS zaehlt
+ *    Einsaetze, die jemand ANGELEGT hat (created_by — der Disponent). Eine Kraft
+ *    konnte ihr Konto mitten im Einsatz loeschen; Stundenzettel und Abrechnung
+ *    des laufenden Einsatzes rissen ab. ACTIVE_DEPLOYMENTS zaehlt jetzt ihre
+ *    eigenen zugesagten Einsaetze, die heute (Europe/Berlin) noch nicht beendet
+ *    sind — auch die mit gemeldetem Ausfall, der Einsatz laeuft ja weiter.
+ *    Unbeantwortete Anfragen sperren NICHT: die zieht die Loeschung zurueck
+ *    (assignmentStaffingService.raeumeEinsatzplanungAuf).
  */
 export async function canDeleteUser(pool, userId) {
   const blockers = [];
+  const zaehle = async (sql, params) => Number((await pool.query(sql, params)).rows[0]?.c || 0);
 
-  const [activeAssignment] = await safeQuery(pool, "SELECT COUNT(*)::int AS c FROM assignments WHERE created_by = $1 AND status = 'active'", [userId]);
-  if (activeAssignment?.c > 0) blockers.push({ reason: "ACTIVE_ASSIGNMENTS", count: activeAssignment.c });
+  const activeAssignments = await zaehle("SELECT COUNT(*)::int AS c FROM assignments WHERE created_by = $1 AND status = 'active'", [userId]);
+  if (activeAssignments > 0) blockers.push({ reason: "ACTIVE_ASSIGNMENTS", count: activeAssignments });
 
-  const [pendingTimesheets] = await safeQuery(pool, "SELECT COUNT(*)::int AS c FROM timesheets WHERE submitted_by = $1 AND status IN ('submitted','pending')", [userId]);
-  if (pendingTimesheets?.c > 0) blockers.push({ reason: "PENDING_TIMESHEETS", count: pendingTimesheets.c });
+  const pendingTimesheets = await zaehle("SELECT COUNT(*)::int AS c FROM timesheets WHERE submitted_by = $1 AND status = 'submitted'", [userId]);
+  if (pendingTimesheets > 0) blockers.push({ reason: "PENDING_TIMESHEETS", count: pendingTimesheets });
 
-  const [openInvoices] = await safeQuery(pool, "SELECT COUNT(*)::int AS c FROM invoices WHERE created_by = $1 AND status IN ('draft','sent','overdue')", [userId]);
-  if (openInvoices?.c > 0) blockers.push({ reason: "OPEN_INVOICES", count: openInvoices.c });
+  const openInvoices = await zaehle("SELECT COUNT(*)::int AS c FROM invoices WHERE user_id = $1 AND status IN ('draft','issued','overdue')", [userId]);
+  if (openInvoices > 0) blockers.push({ reason: "OPEN_INVOICES", count: openInvoices });
+
+  const laufendeEinsaetze = await zaehle(
+    `SELECT COUNT(*)::int AS c FROM worker_assignment_links
+      WHERE worker_user_id = $1
+        AND is_active = TRUE
+        AND worker_confirmation_status IN ('auto_confirmed','worker_confirmed','worker_unavailable')
+        AND (end_date IS NULL OR end_date >= $2::date)`,
+    [userId, todayDE()]
+  );
+  if (laufendeEinsaetze > 0) blockers.push({ reason: "ACTIVE_DEPLOYMENTS", count: laufendeEinsaetze });
 
   return { canDelete: blockers.length === 0, blockers };
 }
@@ -234,12 +319,26 @@ export async function anonymizeUser(pool, userId, actorId, orgId) {
     // steht hier ein Wert, den keine Pruefung je bestaetigen kann: bcrypt
     // vergleicht gegen einen ungueltigen Hash und liefert immer false. Die
     // Anmeldung ist damit dauerhaft zu, ohne dass das Schema weicher wird. */
-    await client.query(`UPDATE users SET email = $2, password_hash = '!anonymisiert', company_name = $3, phone = NULL, contact_person = $3, street = NULL, postal_code = NULL, city = NULL, vat_id = NULL, updated_at = NOW() WHERE id = $1`, [userId, anonEmail, DELETED]);
+    /* N2.10: die Koordinaten gehen mit der Anschrift. Seit Welle N2.0 steht die
+    // aus der Anschrift abgeleitete Position in latitude/longitude — blieb sie
+    // stehen, war der Wohnort eines geloeschten Menschen weiter auf wenige Meter
+    // bekannt, obwohl Strasse und PLZ laengst leer waren. */
+    await client.query(`UPDATE users SET email = $2, password_hash = '!anonymisiert', company_name = $3, phone = NULL, contact_person = $3, street = NULL, postal_code = NULL, city = NULL, latitude = NULL, longitude = NULL, vat_id = NULL, updated_at = NOW() WHERE id = $1`, [userId, anonEmail, DELETED]);
     tables.push("users");
 
     // Kat A: Worker profiles
-    const { rows: wpRes } = await client.query(`UPDATE worker_profiles SET first_name = $2, last_name = $2, phone = NULL, street = NULL, postal_code = NULL, city = NULL, date_of_birth = NULL, iban_last4 = NULL, updated_at = NOW() WHERE user_id = $1 RETURNING id`, [userId, DELETED]);
+    /* N2.10: `is_active = FALSE` fehlte hier — die Kraft blieb nach DELETE /me
+    // AKTIV im Kandidatenpool (queryWorkerSuggestionBase filtert nur darauf) und
+    // ihre Marktpraesenz lief weiter. Die beiden anderen Loeschpfade
+    // (deleteWorkerData, anonymizeWorkerProfile) setzten es immer; `notes`
+    // ebenso wie dort, denn dort steht, was die Firma ueber den Menschen notiert. */
+    const { rows: wpRes } = await client.query(`UPDATE worker_profiles SET first_name = $2, last_name = $2, phone = NULL, street = NULL, postal_code = NULL, city = NULL, date_of_birth = NULL, iban_last4 = NULL, notes = NULL, is_active = FALSE, updated_at = NOW() WHERE user_id = $1 RETURNING id`, [userId, DELETED]);
     if (wpRes.length) tables.push("worker_profiles");
+
+    // N2.10: Einladungen, Reservierungen, Auswahl-Sets, Anfragen, Vormerkungen,
+    // Marktangebote — siehe assignmentStaffingService.raeumeEinsatzplanungAuf.
+    const einsatzplanung = await raeumeEinsatzplanungAuf(client, userId);
+    tables.push(...aufgeraeumteTabellen(einsatzplanung));
 
     // Kat A: Worker invites — nur Einladungen AN diese Person (ihre E-Mail).
     // Frueher stand hier `created_by = $1` — die Spalte existiert nicht
@@ -284,7 +383,7 @@ export async function anonymizeUser(pool, userId, actorId, orgId) {
     await client.query(
       `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, details, created_at)
        VALUES ($1, 'dsgvo.anonymize', 'user', $2, $3, NOW())`,
-      [actorId, userId, JSON.stringify({ anonymized_tables: tables })]
+      [actorId, userId, JSON.stringify({ anonymized_tables: tables, einsatzplanung, responsible_actor_user_id: actorId })]
     );
 
     return { tables, originalEmail };
@@ -311,13 +410,20 @@ export async function deleteWorkerData(pool, workerUserId, actorId) {
     await client.query("DELETE FROM worker_invites WHERE LOWER(email) IN (SELECT LOWER(email) FROM users WHERE id = $1)", [workerUserId]);
     tables.push("worker_invites");
 
+    // N2.10: dieselbe Einsatzplanungs-Bereinigung wie beim Konto-Loeschen; die
+    // Koordinaten gehen mit der Anschrift (users behaelt sonst den Wohnort).
+    const einsatzplanung = await raeumeEinsatzplanungAuf(client, workerUserId);
+    tables.push(...aufgeraeumteTabellen(einsatzplanung));
+    await client.query("UPDATE users SET latitude = NULL, longitude = NULL, updated_at = NOW() WHERE id = $1", [workerUserId]);
+    tables.push("users");
+
     await client.query("DELETE FROM notifications WHERE user_id = $1", [workerUserId]);
     tables.push("notifications");
 
     await client.query(
       `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, details, created_at)
        VALUES ($1, 'dsgvo.delete_worker', 'user', $2, $3, NOW())`,
-      [actorId, workerUserId, JSON.stringify({ anonymized_tables: tables })]
+      [actorId, workerUserId, JSON.stringify({ anonymized_tables: tables, einsatzplanung, responsible_actor_user_id: actorId })]
     );
 
     return tables;

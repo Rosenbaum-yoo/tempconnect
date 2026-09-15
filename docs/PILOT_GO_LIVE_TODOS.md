@@ -2,6 +2,85 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-15 — Die DSGVO-Auskunft liefert wieder, und Löschen räumt die Einsatzplanung auf (N2.10)
+
+**Status:** erledigt · **Kategorie:** Bug (Compliance, Art. 15/17) + drei Owner-Entscheide ·
+**Quelle:** offene Rechtsfrage aus N2.9; beim Umsetzen zwei weitere Befunde gefunden
+
+**1. Die Auskunft hat für niemanden funktioniert.** Owner-Entscheid war: Vormerkungen der
+Warteliste gehören in die formale Auskunft (Art. 15) — neutral benannt, in der Oberfläche nie.
+Beim Einbauen, gegen die Entwicklungsdatenbank gemessen: `exportUserDataFull` lieferte für ein
+echtes Kräfte-Konto `null`. Die erste Abfrage verlangte `users.plan` und `users.is_active`
+(gibt es nicht), `safeQuery` schluckte den Fehler, und **`GET /api/me/export` antwortete jedem
+Nutzer mit 404**. Sechs weitere Abschnitte kamen still leer an (`company_contacts`,
+gesendete Anfragen, Bewertungen, Angebote, Abos, Rechnungen — jeweils eine Spalte, die es nicht
+gibt), im Org-Export zwei (`om.role`, `contracts.org_id`). Der SQL-Schema-Wächter führte die
+Spalten als „Bestand" — gesehen, nicht behoben.
+
+Jetzt: alle Abfragen korrigiert und für `dataGovernanceService.js` **ohne Wächter-Ausnahme**;
+Koordinaten des Kontos (seit N2.0) in der Auskunft; Geheimnisse (Passwort-Hash, MFA/TOTP,
+Tokens) bewusst nie. **Einsatzplanung:** Einladungen und Vormerkungen mit Rang, Punktzahl,
+Gründen, Zeitarbeitsfirma, Tätigkeit und Zeitraum — **ohne Kundenunternehmen** (Art. 15 Abs. 4)
+— und einem neutralen Hinweis. Beide Auskünfte (Konto und Profil ohne Konto) lesen aus
+denselben Abfragen in `assignmentStaffingService`.
+
+**2. Löschen ließ einen Menschen im Kandidatenpool.** Keiner der drei Löschpfade fasste die
+Einsatzplanung an. `anonymizeUser` (`DELETE /me`) ließ das Profil sogar **aktiv**: die Person
+blieb in Vorschlägen („[Gelöscht]"), ihre Vormerkungen standen, und das automatische Nachrücken
+konnte einen gelöschten Menschen einladen und benachrichtigen. Die Wohnort-Koordinaten blieben.
+Owner-Entscheid „vollständig aufräumen" — `raeumeEinsatzplanungAuf`, in der Transaktion jedes
+Löschpfads (`anonymizeUser`, `deleteWorkerData`, `anonymizeWorkerProfile`):
+
+| Was | danach |
+|---|---|
+| Profil / Koordinaten | inaktiv / gelöscht |
+| Reservierungen | freigegeben (`person_geloescht`) |
+| Einladungen, Auswahl-Sets | offene zurückgezogen — auch die angenommene Einladung, deren Reservierung freigegeben wurde |
+| Unbeantwortete Einsatzanfragen | wie eine Ablehnung (derselbe Zustand wie beim Ablehnen im Portal) |
+| Vormerkungen | **gelöscht** — Bewertungsdaten ohne Zweck |
+| Offene Marktangebote der Person | archiviert |
+| Betroffene Einsätze | Zähler neu gerechnet — der frei gewordene Platz wird sichtbar |
+| Einsätze, Stundenzettel, Rechnungen | bleiben (HGB §257) |
+
+**3. Die Löschsperre griff nur halb.** Owner-Entscheid „beides sperren":
+* **Rechnungen:** der Riegel fragte `invoices.created_by` (gibt es nicht) und den Status `sent`
+  (gibt es auch nicht) — `OPEN_INVOICES` hat **nie** gegriffen. Jetzt `user_id` und
+  `draft`/`issued`/`overdue`.
+* **Eigene Einsätze:** geprüft wurden nur Einsätze, die jemand *angelegt* hat (der Disponent).
+  Eine Kraft konnte ihr Konto mitten im Einsatz löschen. Jetzt `ACTIVE_DEPLOYMENTS`: zugesagte
+  Einsätze, heute (Europe/Berlin) noch nicht beendet. Unbeantwortete Anfragen sperren nicht —
+  die zieht die Löschung zurück.
+* **Fail-closed:** jede Sperr-Prüfung lief durch `safeQuery` — ein Fehler hieß „kein Hindernis".
+  Genau so ist der Rechnungs-Riegel unbemerkt gestorben. Jetzt scheitert die Löschung (500),
+  statt still durchzugehen.
+
+**Verifikation.**
+
+* `api/test/auskunftFunktioniert.test.js`, `api/test/loeschenRaeumtAuf.test.js` — Zustände,
+  Bindungen, Transaktionsgrenze, fail-closed, Route 409/500, alle drei Löschpfade.
+* `api/test/integration/auskunft.flow.test.js` — die Auskunft gegen die echte Datenbank mit
+  mitgeschriebenen Abfragefehlern: **null**.
+* `api/test/integration/loeschenRaeumtAuf.flow.test.js` — die ganze Einsatzplanung einer echten
+  Kraft aufgebaut (Einladung, angenommene Einladung mit Reservierung, Auswahl-Set, Anfrage,
+  Vormerkung, Marktangebot, beendeter Einsatz), beide Sperren, Löschung über den `DELETE /me`-Pfad.
+* **31 Rückmutationen, alle rot:** 13 an der Auskunft (Spalten, Bindung an die Person, Kunde in
+  Vormerkung und Einladung, Passwort-Hash, Koordinaten, Hinweis, Org-Export), 18 an Löschen und
+  Sperre (Profil aktiv, Koordinaten, jeder Bereinigungsschritt einzeln, keine Neuberechnung,
+  Rechnungs-Status, heute endender Einsatz, Anfrage sperrt, fail-open, alle drei Löschpfade) —
+  15 davon zusätzlich mit Datenbank rot.
+* Beim Bauen an den eigenen Proben gefunden: eine Probe suchte `expires_at` im ganzen SQL-Text —
+  Einladungen haben die Spalte zu Recht (Teilzeichenketten-Falle, jetzt je Tabelle); die
+  Datenbank-Probe schrieb `org_id` in eine Tabelle ohne diese Spalte; eine Rückmutation
+  („Einladung nennt den Kunden als Firma") war nur ohne Datenbank rot — die Datenbank-Probe
+  prüft die Firma jetzt auch bei der Einladung.
+
+**Offen, benannt:** die Auskunft ist für Kräfte noch nicht vollständig — Einsatz-Verknüpfungen,
+Abwesenheiten, Dokumente und Beschwerden stehen in der Profil-Auskunft, aber nicht in der
+Konto-Auskunft (`GET /api/me/export`). Eine gemeinsame, testerzwungene Inventur „jede Tabelle mit
+`user_id`/`worker_user_id` ist in der Auskunft oder begründet ausgenommen" wäre der nächste Schritt.
+
+---
+
 ### 2026-09-14 — Ein Angebot, ein Einsatz — und eine Anlage, die nichts an Fremdes hängt (N2.9)
 
 **Status:** erledigt · **Kategorie:** Owner-Entscheid (Schema) + Security (Org-Boundary) ·

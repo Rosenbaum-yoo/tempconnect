@@ -542,7 +542,7 @@ export function createMeRouter(deps) {
       if (!anonResult.success) {
         return res.status(409).json({
           error: "ACCOUNT_DELETE_BLOCKED",
-          message: "Dein Konto kann noch nicht gelöscht werden: Es bestehen offene Vorgänge (aktive Einsätze, offene Rechnungen oder unbestätigte Stundenzettel). Bitte schließe diese zuerst ab.",
+          message: "Dein Konto kann noch nicht gelöscht werden: Es bestehen offene Vorgänge (laufende oder zugesagte Einsätze, offene Rechnungen oder unbestätigte Stundenzettel). Nach Einsatzende bzw. Abschluss ist die Löschung möglich.",
           blockers: anonResult.blockers || []
         });
       }
