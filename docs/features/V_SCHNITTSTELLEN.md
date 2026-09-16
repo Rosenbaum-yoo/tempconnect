@@ -129,7 +129,10 @@ angedockt an zvoove bis SAP Fieldglass. Das ist keine Schnittstellenfrage, sonde
 | V6.2 | **Genau ein führendes System je Objekt.** Ist es extern, lehnt jeder schreibende Endpunkt dieses Objekts ab (409, mit Hinweis wohin) — geschrieben wird nur über den Adapter | Schreibversuch bei extern geführtem Objekt → 409. Rückmutation |
 | V6.3 | **Wechsel der Betriebsart** ist ein geführter Vorgang mit Wirkungsvorschau („ab jetzt kommen 214 Mitarbeiter aus zvoove, 3 lokale Änderungen würden überschrieben") — nie ein stiller Schalter | Vorschau zeigt Zahlen, bevor etwas geschieht |
 | V6.4 | **Module als Berechtigung** (Tier 3 der Konfigurations-Taxonomie), nicht als eigener Plan-Zweig | Modul aus → Fläche nach bestehendem Sichtbarkeitsmuster |
-| V6.5 | **Owner-Entscheidung V-E1 (offen):** Preis des angedockten Pakets — eigenes Paket, Rabatt auf PRO oder Provision | Blockiert V6.1–V6.4 nicht |
+| V6.5 | ~~**Owner-Entscheidung V-E1**~~ ✅ entschieden 2026-09-15 — **Preis getrennt nach Andockziel:** zvoove als Zusatzmodul **ab PRO**, Vorgabe **249 €/Monat + 490 € Einrichtung**; SAP Fieldglass **nur INDIVIDUELL** (Stufe L/Enterprise) mit Projektpauschale; offene API und Webhooks bleiben INDIVIDUELL wie heute (`planFeatures.js:148`) | Werte stehen einmal im Tarifkatalog, nirgends sonst |
+| V6.6 | **Zwei neue Feature-Schlüssel** im bestehenden Katalog (`planCatalog.js`, `available_as_addon`), keine Sonderlogik: `andockung_zvoove` (PRO + INDIVIDUELL, als Zusatz buchbar), `andockung_fieldglass` (nur INDIVIDUELL) | Schlüssel fehlt im Plan → Adapter nicht aufrufbar. Rückmutation |
+| V6.7 | **Einrichtung als einmaliger Posten auf der nächsten Monatsrechnung** — zuerst messen, ob die Abrechnung einmalige Posten schon kann (dieselbe Anforderung hat die Premium-Anzeige: *„einmalige In-App-Kosten zur Rechnung monatlich addieren"*). Wenn ja: wiederverwenden | Befund vor dem Bau; ein Posten, eine Rechnung, E-Rechnung gültig |
+| V6.8 | **Preis sichtbar, bevor gebucht wird:** Tarifseite, Buchungsdialog und Wirkungsvorschau (V6.3) nennen dieselben Beträge aus dem Katalog | Betrag im Katalog ändern → alle drei Stellen ändern sich |
 
 ### V7 · Die Oberfläche kennt die Betriebsart
 

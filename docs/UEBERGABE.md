@@ -53,7 +53,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **N8** | Nachtrag aus dem Owner-Dokument (2026-09-14) | geplant. Katalog statt Freitext auch in „Personal finden" und `capacity_search.html`; Stundenzettel nutzt die bekannte `buyer_org_id`; Fehler „Aktueller Plan: ?" (widerspricht M-E2); **Umkreis bundesweit für alle** (erweitert M-E4) |
 | **E7** | Beispielansicht im Leerzustand der Live-Belegschaft | geplant. **Nur** bei 200 ohne Einträge, gekennzeichnet; bei 500/401 nie |
 | **U** | Standorte, Rollen, Profilsichtbarkeit (Owner-Abschnitte 11, 24) | geplant. **Zuerst U0.2/U2.4:** `assertLocationBelongsToOrg` steht in nur 4 Routendateien — möglicher Sicherheitsbefund |
-| **V** | **Komplettsystem oder angedockt** (zvoove, SAP Fieldglass), Schnittstellen, **Kreislaufkarte K-1…K-7**, Verdrahtungskette für alle neuen Wellen | geplant. Kern: „führendes System je Objekt" (V6) **vor** jedem Adapter. Adapter warten auf Anbieter-Zugang. **V-E1 offen** (Preis des angedockten Pakets) |
+| **V** | **Komplettsystem oder angedockt** (zvoove, SAP Fieldglass), Schnittstellen, **Kreislaufkarte K-1…K-7**, Verdrahtungskette für alle neuen Wellen | geplant. Kern: „führendes System je Objekt" (V6) **vor** jedem Adapter. Adapter warten auf Anbieter-Zugang. **Preis entschieden (V6.5):** zvoove ab PRO für 249 €/Monat + 490 € Einrichtung, Fieldglass nur INDIVIDUELL |
 | **W** | Support Center für Mengen, Repo-Hygiene (Owner-Abschnitte 18, 19) | geplant. **W5 zuerst:** das Owner-Dokument liegt ungetrackt im öffentlichen Repo. Externer Support erst nach Standardvertragsklauseln (Indien ohne Angemessenheitsbeschluss) |
 | **X** | Lohnvorschau im Einsatzportal | geplant. Brutto genau, netto als Spanne, **keine** Steuerdaten; **nie** aus dem Verrechnungssatz |
 
@@ -3041,8 +3041,27 @@ durch sind** (Owner-Vorgabe). Bis dahin bleibt dieser Eintrag der Merkzettel.
 
 ### Aus dem Owner-Dokument *(2026-09-14)*
 
-- **V-E1** — Preis des angedockten Pakets (Welle V): eigenes Paket, Rabatt auf PRO oder Provision.
-  Blockiert den Bau von V6/V7 nicht.
+- ~~**V-E1**~~ ✅ entschieden 2026-09-15 — Andockung **getrennt nach Ziel** bepreist: zvoove als
+  Zusatzmodul ab PRO (249 €/Monat + 490 € Einrichtung), SAP Fieldglass nur INDIVIDUELL mit
+  Projektpauschale, offene API bleibt INDIVIDUELL. Begründung: Zeitarbeitsfirmen sind die
+  Angebotsseite — ein Verkaufsgespräch je Firma bremst genau das Volumen, das der Marktplatz braucht.
+
+#### Das Owner-Dokument ist die Abnahmeprobe
+
+Der Owner hat alle Abschnitte in **`fix neu hier sind auch die vorherigen wellen .docx`** in der
+Wurzel des Hauptordners gesammelt (26 Abschnitte, Fix-Listen ab Juni, 31 Screenshots). **Es bleibt
+dort, bis alles abgearbeitet ist, und dient dann als Probe:** jeder Punkt bekommt einen Stand mit
+Beleg (Datei:Zeile, Commit, Test) — nicht „laut Plan", sondern am Code gemessen.
+
+- **Nie versionieren.** Das Repository ist öffentlich; das Dokument enthält Geschäftsunterlagen und
+  Screenshots mit Konten. Seit 2026-09-15 in `.git/info/exclude` (`/*.docx`, `/~$*` — gilt für
+  alle Worktrees); die dauerhafte Regel ist W5.1.
+- **Lesen ohne pandoc** (auf diesem Rechner nicht installiert): die `.docx` ist ein ZIP;
+  `word/document.xml` mit Python `zipfile` + `ElementTree` auslesen, Bilder aus `word/media/`.
+- **Stand 2026-09-14:** alle Abschnitte gegen Pläne abgeglichen, 23–26 und Nachträge am Code
+  geprüft. **Nicht** einzeln geprüft: die älteren Punkte, die der Owner als erledigt markiert hat.
+- **Am Ende:** Ergebnis als Tabelle an den Owner; das Dokument **löscht der Owner selbst** oder es
+  wird aus dem Projektordner verschoben — Claude löscht keine Owner-Unterlagen.
 - Entschieden am selben Tag: **Umkreis bundesweit für alle** (erweitert M-E4, N8.4) ·
   **Beispielansicht nur im Leerzustand, gekennzeichnet** (E7) · **Lohnvorschau brutto genau,
   netto als Spanne, ohne Steuerdaten** (X).
