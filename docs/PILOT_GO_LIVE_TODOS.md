@@ -2,6 +2,106 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-16 — Was die große Gegenprüfung fand: 20 Befunde, abgearbeitet (N2.11)
+
+**Status:** erledigt · **Kategorie:** Security (Mandantengrenze) + Bug + Wächter-Qualität ·
+**Quelle:** adversarische Prüfung der ganzen Welle N vom 15.09. (14 Agenten, ~2,3 Mio. Tokens;
+drei Blickwinkel waren nie gelaufen: SQL-Einschleusung, Browser-Verdrahtung, Wächter-Qualität)
+
+**Ergebnis der Prüfung:** 20 Befunde. Neun wurden von je einem Skeptiker geprüft und **alle
+bestätigt** (vier davon in der Schwere heruntergestuft), elf lagen über der Grenze der Prüfung und
+wurden hier beim Beheben einzeln am Code verifiziert. **Kein Befund im SQL-Blickwinkel** — der
+Prüfer hat 64 Filterkombinationen gegen die laufende Datenbank ausgeführt, inklusive Grenzwerten
+wie `1e21` und `5e-324`; Platzhalter und Schranken hielten.
+
+**1. Kundensperre: die Firma stand nicht am Bedarf** (Owner-Entscheid, Migration 218). Ein Bedarf
+speicherte nur den anlegenden **Nutzer**. Vier Stellen rieten die Firma über `users.org_id` — die
+persönliche Start-Firma. Wer als eingeladenes Teammitglied für Firma A handelt, wurde dort gegen
+die **leere** Sperrliste seiner Start-Firma geprüft: die bei A gesperrte Kraft wurde A doch
+vorgeschlagen, und ihre Zeitarbeitsfirma bekam eine Anfrage. Jetzt trägt der Bedarf
+`requester_org_id` (aus der aktiven Firma der Sitzung, nie aus dem Rumpf); Altbestand: einzige
+aktive Unternehmens-Mitgliedschaft, sonst Start-Firma. Gelesen wird sie an **einer** Stelle
+(`companyBlocklistService.kundenOrgEinesBedarfs` / `…sDerBedarfe`, mit Rückfall). Gemessen: 32 von
+40 Bedarfen bekamen eine Firma; die übrigen acht haben Anleger ohne jede Firma.
+
+**2. Zweiter Notdienst-Weg ohne Sperre.** `POST /api/emergency/request` reichte keine Firma durch —
+der Abgleich lief ungefiltert, die gesperrte Kraft stand in den Treffern, und ihre Zeitarbeitsfirma
+bekam „NOTDIENST — sofortige Reaktion erforderlich".
+
+**3. `GET /api/matching/demand/:id`**: rechnete ohne Sperre (zwei Flächen, zwei Antworten zur
+selben Sperre) **und** gab per `SELECT *` die interne `worker_profile_id` heraus. Die Sperre sitzt
+jetzt in `findMatches` selbst — kein Aufrufer muss mehr daran denken —, und die Vorschläge lesen
+die öffentliche Projektion.
+
+**4. Blättern ohne eindeutige Ordnung.** Beide Marktseiten sortierten nur nach Zeitstempel. Bei
+Gleichstand ist die Reihenfolge für Postgres unbestimmt und hängt vom LIMIT ab: nachgestellt
+lieferten drei Seiten zu je 25 nur 73 verschiedene Zeilen — zwei Angebote standen auf keiner Seite,
+obwohl `total` sie zählte. Gleichstände sind der Normalfall, weil die Marktpräsenz Angebote in
+**einem** INSERT anlegt. Jetzt ist die Kennung letzter Sortierschlüssel, in SQL und in der
+Zusammenführung, und `sort_date` ist auf Millisekunden gekürzt (genauer liefert der pg-Treiber
+Zeitstempel nicht an JavaScript).
+
+**5. Sieben Befunde im Browser** (Bedarfsanlage, Dispo-Ansicht):
+
+| Befund | jetzt |
+|---|---|
+| Wiederhergestellte Fähigkeiten erschienen **nicht** im Katalogwähler — unsichtbar mitgesendet oder beim ersten Klick verworfen | der Wähler liest seine Vorauswahl beim ersten Aufsetzen aus dem versteckten Feld |
+| Absenden scheiterte **lautlos** an ungültigen Feldern in ausgeblendeten Schritten | der Assistent prüft selbst, springt zum Feld, macht seinen Schritt sichtbar und sagt, was fehlt |
+| Nach erfolgreichem Anlegen blieb der Assistent im letzten Schritt stehen, obwohl `form.reset()` alles geleert hatte | er fängt von vorn an |
+| `headcount="1"` zählte immer als Eingabe → jeder Seitenaufruf legte einen 7-Tage-Entwurf an, der den alten Ort zurückholte | ein Feld mit bloßem Markup-Standard ist keine Eingabe |
+| Sprachwechsel löschte einen neu begonnenen Entwurf | gelöscht wird nur im Erfolgszweig des Absendens |
+| Eingabetaste blätterte auf Knöpfen weiter („Zurück" sprang vorwärts) und zusätzlich im Suchfeld des Wählers | nur aus einem Eingabefeld, und nicht, wenn jemand anderes die Taste schon behandelt hat |
+| Treffer-Vorschau blieb nach dem Wiederherstellen unsichtbar | sie wird beim Start geholt, wenn ein Ort dasteht |
+
+Dazu in der Dispo-Ansicht: nach dem Warten auf die Kundensperren schrieb der **frühere** Einsatz
+Sperren und Zeitraum in den inzwischen gewählten — „Zuweisen" hätte B mit den Daten von A
+abgeschickt. Jetzt schreibt nur der jüngste Lauf.
+
+**6. Acht Wächter, die nur scheinbar etwas zusicherten** — jeder mit ausgeführter Rückmutation
+belegt, die vorher grün blieb:
+
+* Sperre im Feed: `params.includes(org)` statt Platzhalter **an seiner Stelle** — eine fest
+  verdrahtete `$1` verglich die Sperre mit der Nutzer-Kennung (284/284 grün).
+* Feed-Kopie: `params.includes(1)` wurde von der **Eintragszahl** 1 erfüllt — die Kopie fest auf
+  die Bedarfs-Seite zu schreiben blieb unbemerkt (82/82 grün); genau der N4.4-Fehler.
+* Umkreis: Formel und Radius gepinnt, der **Vergleich** dazwischen nicht — `<=` zu `>` blieb
+  318/318 grün.
+* Detailansicht „bleibt offen": nur `notEqual(409)` — ein 404 für jedes Unternehmen blieb grün.
+* Preis-Tor: „requireFeature wurde irgendwann aufgerufen" — das Tor aus der Route zu nehmen blieb
+  grün (65/65).
+* Entwurfs-Probe lief mit leerer Personenzahl, die es im Markup nicht gibt.
+* Bedarfs-Verweis: das **ODER** zwischen Start-Firma und Mitgliedschaft war nicht gepinnt — ein UND
+  blieb auch gegen die echte Datenbank grün.
+* Leerzustand-Wächter schnitt 900 Zeichen aus und zählte einen Verweis im **Treffer**-Zweig mit.
+
+**7. Doku:** `docs/API.md` beschrieb `POST /assignments` noch als Weg, einen Deal zu verknüpfen —
+genau das lehnt der Endpunkt seit N2.9 ab. Jetzt stehen dort alle neuen Antworten.
+
+**Verifikation.**
+
+* Neue Proben: `api/test/firmaAmBedarf.test.js` (17), `api/test/gegenpruefungFrontend.test.js` (14,
+  mit ausgeführtem Code in vm-Sandkästen), `api/test/integration/firmaAmBedarf.flow.test.js` (7
+  gegen die echte Datenbank: Spalte, Rückfall, **der Nachtrag der Migration selbst**, Blättern mit
+  echten Gleichständen, Umkreis „innerhalb").
+* **32 Rückmutationen, alle rot:** 21 am Backend und an den Wächtern (15 davon zusätzlich mit
+  Datenbank), 11 am Frontend.
+* **Zwei davon überlebten im ersten Lauf** — und der Fehler lag in meinen eigenen Proben: Die
+  beiden Eingabetasten-Proben ließen die Pflichtfelder leer, und dann blättert der Assistent
+  ohnehin nicht weiter. Sie prüfen jetzt zuerst, dass die Taste unter denselben Bedingungen
+  wirklich blättern **würde**. Dabei kam eine dritte Probe dazu (fremd behandelte Taste).
+* **Ehrlich benannt:** die Rückmutation „Zusammenführung ohne Tie-Break" wurde nur **ohne**
+  Datenbank rot. Mit Datenbank blieb sie grün, weil das Fenster beider Marktseiten immer bei 0
+  beginnt und JavaScript stabil sortiert — die Kennung ist dort Absicherung, kein Fehler von heute.
+* Beim Bauen an den eigenen Proben gefunden: eine Probe las meinen **Kommentar** über die alte
+  Stelle als Code; eine andere scheiterte, weil ein `COUNT(*)` im Muster-Pool keine Zeile lieferte —
+  die alte „nicht 409"-Fassung hatte verdeckt, dass die Ansicht dort nie 200 erreichte.
+
+**Offen, benannt:** die elf Befunde über der Prüfgrenze sind hier behoben, aber **nicht** von einem
+unabhängigen Skeptiker geprüft worden. Wer die nächste große Prüfung fährt, sollte die Grenze
+höher setzen (oder in zwei Läufen prüfen) — 20 Befunde bei 9 Prüfplätzen war zu eng.
+
+---
+
 ### 2026-09-15 — Die DSGVO-Auskunft liefert wieder, und Löschen räumt die Einsatzplanung auf (N2.10)
 
 **Status:** erledigt · **Kategorie:** Bug (Compliance, Art. 15/17) + drei Owner-Entscheide ·

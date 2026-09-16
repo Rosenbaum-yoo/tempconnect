@@ -3856,7 +3856,25 @@ function setAssignBlockNotice(count){
     +'</div>');
 }
 
+/*
+ * N2.11 — WER NACH DEM WARTEN SCHREIBT, MUSS NOCH GEMEINT SEIN.
+ *
+ * Seit N4.3 ist `onCapSelect` asynchron (die Sperren des Kunden werden erst beim
+ * Auswaehlen geholt). Danach wurde nie geprueft, ob die Auswahl noch dieselbe
+ * ist. Befund der Pruefung vom 2026-09-15, in einer Sandbox nachgestellt:
+ * Einsatz A waehlen (Kunde X, Oktober), dann B (Kunde Y, Dezember) — kommt die
+ * Antwort fuer X spaeter, baut sie die Kraefte-Liste mit den Sperren von X,
+ * haengt den Sperr-Hinweis an die Info-Box von B und schreibt Start und Ende
+ * von A in die Felder, die "Zuweisen" dann absendet. Erreichbar auch ohne
+ * langsames Netz: ein schon geladener Kunde kommt sofort aus dem Zwischenspeicher.
+ *
+ * Ein Zaehler je Aufruf: nur der JUENGSTE schreibt.
+ */
+let capAuswahlLauf = 0;
+
 async function onCapSelect(){
+  const lauf = ++capAuswahlLauf;
+  const nochGemeint = () => lauf === capAuswahlLauf;
   const raw=document.getElementById('asgCap').value;
   const info=document.getElementById('asgCapInfo');
   const sel=parseAssignableSelection(raw);
@@ -3891,6 +3909,9 @@ async function onCapSelect(){
   // Erst die Sperren dieses Kunden holen (N4.3: je Kunde, nicht vorab alle),
   // dann aufbauen \u2014 damit der Sperr-Hinweis an die fertige Info-Box kommt.
   await ladeSperren(c.client_org_id||null);
+  /* Inzwischen ein anderer Einsatz gewaehlt? Dann gehoert die Anzeige ihm —
+     dieser Lauf schreibt nichts mehr (weder Sperren noch Zeitraum). */
+  if(!nochGemeint()) return;
   rebuildWorkerSelect(Array.isArray(c.assigned_worker_user_ids)?c.assigned_worker_user_ids:[], c.client_org_id||null);
   // Pre-fill Start/End aus der Quelle (capacity.availability_* bzw. deal_assignment.start_date/planned_end_date)
   if(c.availability_from) document.getElementById('asgStart').value=String(c.availability_from).substring(0,10);

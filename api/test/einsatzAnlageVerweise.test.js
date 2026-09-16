@@ -145,6 +145,11 @@ describe("N2.9 — jeder eigene Verweis gegen die Org der Sitzung", () => {
     assert.match(q.sql, /JOIN users u ON u\.id = d\.requester_company_id/);
     assert.match(q.sql, /u\.org_id = \$2/);
     assert.match(q.sql, /om\.user_id = u\.id AND om\.org_id = \$2 AND om\.is_active = TRUE/);
+    /* N2.11 — Befund der Pruefung vom 2026-09-15: der Titel sagt ODER, gepinnt
+       waren nur die beiden Teile. `OR EXISTS` -> `AND EXISTS` blieb gruen, auch
+       gegen die echte Datenbank. Die Verknuepfung selbst: */
+    assert.match(q.sql.replace(/\s+/g, " "), /AND \(u\.org_id = \$2 OR EXISTS \(SELECT 1 FROM org_memberships om/,
+      "die beiden Wege sind nicht mehr ODER-verknuepft");
   });
 
   it("die Org im Rumpf kann die Pruefung nicht umlenken (fremde org_id → 403 vor jeder Verweis-Abfrage)", async () => {

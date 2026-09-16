@@ -130,8 +130,13 @@ export function createEmergencyRouter(deps) {
       const parsed = emergencyRequestSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
 
+      /* N2.11 — der zweite Notdienst-Anlegeweg reichte keine Firma durch. Die
+         Kundensperre haengt an ihr: ohne sie lief der Abgleich ungefiltert, die
+         gesperrte Kraft stand in den Treffern, und ihre Zeitarbeitsfirma bekam
+         "NOTDIENST — sofortige Reaktion" (Befund der Pruefung vom 2026-09-15).
+         Aus der Sitzung, nach dem Spread — nie aus dem Rumpf. */
       const result = await emergencyService.createEmergencyRequest(
-        pool, req.session.userId, me?.plan ?? "FREE", parsed.data
+        pool, req.session.userId, me?.plan ?? "FREE", { ...parsed.data, requester_org_id: req.orgId || null }
       );
 
       res.locals.audit = {

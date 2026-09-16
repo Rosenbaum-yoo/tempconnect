@@ -160,6 +160,52 @@ export async function sperrendeKundenFuerProfil(db, workerProfileId) {
   return new Set(rows.map((r) => String(r.company_org_id)));
 }
 
+/*
+ * ── Die Firma eines Marktplatz-Bedarfs (Welle N2.11, Migration 218) ────────
+ *
+ * BEFUND 2026-09-15 (adversarische Pruefung, Mandantengrenze): vier Stellen
+ * rieten die Kunden-Firma eines Bedarfs ueber `users.org_id` — die persoenliche
+ * START-Firma des Anlegers. Ein eingeladenes Teammitglied von Firma A pruefte
+ * dort gegen die leere Sperrliste seiner Start-Firma; die bei A gesperrte Kraft
+ * wurde A vorgeschlagen und ihre Zeitarbeitsfirma angeschrieben.
+ *
+ * Seit Migration 218 traegt der Bedarf die Firma selbst (`requester_org_id`,
+ * beim Anlegen aus der aktiven Firma der Sitzung). Diese beiden Funktionen sind
+ * die EINZIGE Stelle, die sie liest — mit dem bisherigen Verhalten als Rueckfall
+ * fuer einen Bedarf ohne Firma, damit keiner ohne Sperre bleibt.
+ */
+
+/** @returns {Promise<string|null>} */
+export async function kundenOrgEinesBedarfs(db, bedarf) {
+  if (!bedarf) return null;
+  if (bedarf.requester_org_id) return bedarf.requester_org_id;
+  if (!bedarf.requester_company_id) return null;
+  const { rows } = await db.query("SELECT org_id FROM users WHERE id = $1", [bedarf.requester_company_id]);
+  return rows[0]?.org_id || null;
+}
+
+/**
+ * Dasselbe fuer viele Bedarfe — EINE Abfrage fuer alle, die keine Firma tragen,
+ * keine je Bedarf.
+ * @returns {Promise<Map<string, string|null>>} Bedarfs-Kennung -> Firma
+ */
+export async function kundenOrgsDerBedarfe(db, bedarfe) {
+  const ergebnis = new Map();
+  const offen = [];
+  for (const b of bedarfe || []) {
+    if (b.requester_org_id) ergebnis.set(String(b.id), String(b.requester_org_id));
+    else if (b.requester_company_id) offen.push(b);
+    else ergebnis.set(String(b.id), null);
+  }
+  if (offen.length) {
+    const nutzer = [...new Set(offen.map((b) => b.requester_company_id))];
+    const { rows } = await db.query("SELECT id, org_id FROM users WHERE id = ANY($1::uuid[])", [nutzer]);
+    const orgJeNutzer = new Map(rows.map((u) => [String(u.id), u.org_id ? String(u.org_id) : null]));
+    for (const b of offen) ergebnis.set(String(b.id), orgJeNutzer.get(String(b.requester_company_id)) ?? null);
+  }
+  return ergebnis;
+}
+
 /**
  * Sperrliste eines Unternehmens (Käufer-Sicht). Standard: nur aktive Sperren.
  */

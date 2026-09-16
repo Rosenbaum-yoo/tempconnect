@@ -318,6 +318,27 @@ describe("Erreichbarkeit — die Wege, auf die es ankommt",
   const verweisMuster = (nach) =>
     new RegExp('href\\s*=\\s*"[^"]*' + nach.replace(/\./g, "\\."), "i");
 
+  /* Der Block, den eine oeffnende Klammer beginnt — bis zur PASSENDEN
+     schliessenden. Klammern in Zeichenketten zaehlen nicht mit. */
+  const zweigNach = (quelle, kopf) => {
+    const m = kopf.exec(quelle);
+    if (!m) return null;
+    let tiefe = 0;
+    let inText = null;
+    for (let i = m.index + m[0].length - 1; i < quelle.length; i++) {
+      const z = quelle[i];
+      if (inText) {
+        if (z === "\\") { i++; continue; }
+        if (z === inText) inText = null;
+        continue;
+      }
+      if (z === "'" || z === '"' || z === "`") { inText = z; continue; }
+      if (z === "{") tiefe++;
+      else if (z === "}" && --tiefe === 0) return quelle.slice(m.index, i + 1);
+    }
+    return null;
+  };
+
   for (const weg of WEGE) {
     it(`${weg.von} fuehrt zu ${weg.nach}`, () => {
       /*
@@ -349,10 +370,24 @@ describe("Erreichbarkeit — die Wege, auf die es ankommt",
        * Hinweis ohne naechsten Schritt ist eine Sackgasse.
        */
       const quelle = fs.readFileSync(path.join(PUB, weg.von), "utf8");
-      const leerzweig = /matches\.length === 0[\s\S]{0,900}/.exec(quelle);
+      /* N2.11 — Befund der Pruefung vom 2026-09-15: hier wurden 900 Zeichen ab
+         `matches.length === 0` ausgeschnitten. Das `} else {` des Treffer-Zweigs
+         liegt nach ~750 Zeichen — ein Verweis im TREFFER-Zweig galt damit als
+         Leerzustand. Jetzt genau der Block zwischen den passenden Klammern. */
+      const leerzweig = zweigNach(quelle, /matches\.length === 0\)\s*\{/);
       assert.ok(leerzweig, "der Leerzustand ist nicht mehr auffindbar");
-      assert.match(leerzweig[0], verweisMuster(weg.nach),
+      assert.match(leerzweig, verweisMuster(weg.nach),
         "der Leerzustand nennt keinen naechsten Schritt");
+    });
+
+    it(`der Leerzustand-Waechter zaehlt einen Verweis im Treffer-Zweig NICHT mit (${weg.nach})`, () => {
+      /* Selbsttest: genau die Rueckmutation, die die 900-Zeichen-Fassung ueberlebte. */
+      const verschoben = `if (matches.length === 0) { html += '<div class="empty">nichts</div>'; } else { html += '<a href="/public/${weg.nach}">x</a>'; }`;
+      assert.ok(!verweisMuster(weg.nach).test(zweigNach(verschoben, /matches\.length === 0\)\s*\{/)),
+        "ein Verweis hinter `} else {` gilt als Leerzustand");
+      const richtig = `if (matches.length === 0) { html += '<a href="/public/${weg.nach}">x</a>'; } else { html += '<b>t</b>'; }`;
+      assert.ok(verweisMuster(weg.nach).test(zweigNach(richtig, /matches\.length === 0\)\s*\{/)),
+        "ein Verweis IM Leerzustand wird nicht erkannt");
     });
 
     it(`der Waechter haelt eine blosse Erwaehnung von ${weg.nach} nicht fuer einen Weg`, () => {

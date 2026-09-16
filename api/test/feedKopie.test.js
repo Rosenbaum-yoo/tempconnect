@@ -16,6 +16,24 @@ import assert from "node:assert/strict";
 import * as kopie from "../services/feedKopieService.js";
 import { createCapacityExchangeRouter } from "../routes/capacityExchange.js";
 
+/*
+ * N2.11 — die gebundene Marktseite an IHRER Stelle lesen.
+ *
+ * Befund der Pruefung vom 2026-09-15: die Proben fragten `params.includes(seite)`.
+ * Jede Probe schreibt genau EINEN Eintrag, also steht die Eintragszahl 1 in den
+ * Parametern — und `includes(SEITEN.supply)` (= 1) war auch dann wahr, wenn als
+ * Seite 2 gebunden wurde. Ausgefuehrt: `[..., eintraege, SEITEN.demand]` fest
+ * verdrahtet, 82/82 gruen. Genau der N4.4-Fehler, den die Datei bewachen soll.
+ *
+ * Jetzt wird die Nummer aus dem SQL gelesen — `VALUES ($N, …)` beim Schreiben,
+ * `WHERE id = $N` beim Lesen und Zaehlen — und der Wert DORT verglichen.
+ */
+function gebundeneSeite(call) {
+  const m = /VALUES \(\$(\d+),/.exec(call.sql) || /WHERE id = \$(\d+)/.exec(call.sql);
+  assert.ok(m, `keine Seiten-Stelle im SQL gefunden: ${call.sql.replace(/\s+/g, " ").slice(0, 120)}`);
+  return call.params[Number(m[1]) - 1];
+}
+
 /* ── Werkzeug ──────────────────────────────────────────────────────────── */
 
 function pool(antworten = {}) {
@@ -316,7 +334,7 @@ describe("K4 · der Endpunkt greift auf die Kopie zurueck", () => {
       await new Promise((fertig) => setImmediate(fertig));
       const schreiben = p.calls.filter((c) => /INSERT INTO marktplatz_feed_kopie/i.test(c.sql));
       assert.equal(schreiben.length, 1, `${rolle}: es wurde nicht genau einmal geschrieben`);
-      assert.ok(schreiben[0].params.includes(erwartet),
+      assert.strictEqual(gebundeneSeite(schreiben[0]), erwartet,
         `${rolle}: geschrieben wurde auf die falsche Marktseite`);
     }
   });
@@ -329,7 +347,7 @@ describe("K4 · der Endpunkt greift auf die Kopie zurueck", () => {
       assert.equal(r._status, 200, `${rolle}: die Kopie kam nicht`);
       const lesen = p.calls.filter((c) => /FROM marktplatz_feed_kopie/i.test(c.sql));
       assert.equal(lesen.length, 1, `${rolle}: es wurde nicht genau einmal gelesen`);
-      assert.ok(lesen[0].params.includes(erwartet),
+      assert.strictEqual(gebundeneSeite(lesen[0]), erwartet,
         `${rolle}: im Fehlerfall kam die Liste der ANDEREN Marktseite`);
     }
   });
@@ -430,7 +448,8 @@ describe("N4.4 · die Marktseite entscheidet, welche Kopie gilt", () => {
       await kopie.kopieSchreiben(p, { items: [{ id: "a" }] }, kopie.seiteFuer(rolle));
       const q = p.find("INSERT INTO marktplatz_feed_kopie")[0];
       assert.ok(q, `${rolle}: nichts geschrieben`);
-      assert.ok(q.params.includes(erwartet), `${rolle}: falsche Zeile beschrieben`);
+      assert.strictEqual(gebundeneSeite(q), erwartet, `${rolle}: falsche Zeile beschrieben`);
+      assert.strictEqual(q.params[1], 1, "die Eintragszahl steht nicht an ihrer Stelle");
       assert.ok(!/VALUES \(1,/.test(q.sql),
         "die Zeilennummer steht wieder fest im SQL statt als Parameter");
     }
@@ -452,12 +471,12 @@ describe("N4.4 · die Marktseite entscheidet, welche Kopie gilt", () => {
     assert.ok(k, "die Kopie kam nicht zurueck");
 
     const lesen = p.find("FROM marktplatz_feed_kopie")[0];
-    assert.ok(lesen.params.includes(kopie.SEITEN.demand), "es wurde die falsche Seite gelesen");
+    assert.strictEqual(gebundeneSeite(lesen), kopie.SEITEN.demand, "es wurde die falsche Seite gelesen");
     assert.ok(!/WHERE id = 1/.test(lesen.sql), "die Seite steht wieder fest im SQL");
 
     const zaehler = p.find("UPDATE marktplatz_feed_kopie")[0];
     assert.ok(zaehler, "der Rueckfall wurde nicht gezaehlt");
-    assert.ok(zaehler.params.includes(kopie.SEITEN.demand),
+    assert.strictEqual(gebundeneSeite(zaehler), kopie.SEITEN.demand,
       "der Rueckfall wurde auf der falschen Seite gezaehlt");
   });
 
@@ -475,8 +494,7 @@ describe("N4.4 · die Marktseite entscheidet, welche Kopie gilt", () => {
     await kopie.kopieSchreiben(p, { items: [{ id: "angebot" }] }, kopie.SEITEN.supply);
     await kopie.kopieSchreiben(p, { items: [{ id: "bedarf" }] }, kopie.SEITEN.demand);
     const [erste, zweite] = p.find("INSERT INTO marktplatz_feed_kopie");
-    assert.notDeepEqual(erste.params, zweite.params);
-    assert.ok(erste.params.includes(kopie.SEITEN.supply));
-    assert.ok(zweite.params.includes(kopie.SEITEN.demand));
+    assert.strictEqual(gebundeneSeite(erste), kopie.SEITEN.supply);
+    assert.strictEqual(gebundeneSeite(zweite), kopie.SEITEN.demand);
   });
 });

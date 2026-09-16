@@ -32,6 +32,7 @@
 import { createServiceLogger, swallow } from "../utils/logger.js";
 import { matchCapacityToRequisitions, logMatch } from "./matchingEngine.js";
 import { instantMatchFromParams } from "./instantMatchService.js";
+import * as companyBlocklistService from "./companyBlocklistService.js";
 import { dispatch, findOrgMembersWithPermission } from "./notificationMatrix.js";
 import { getUserPreferences } from "./matchAlertService.js";
 import { summarizeMatch } from "./matchExplanationService.js";
@@ -273,13 +274,11 @@ export async function runMatchTrigger(pool, args = {}) {
     /* N4.5 — die Org des Auftraggebers fuer die Kundensperre. NICHT ueber
        `demand.orgId`: daran haengt in `resolveRecipients`, wer benachrichtigt
        wird, und Marktplatz-Bedarfe tragen dort absichtlich keine Org. */
-    let kundeOrgId = sourceType === "requisition" ? (row.org_id || null) : null;
-    if (sourceType === "demand_request" && row.requester_company_id) {
-      const { rows: kunde } = await pool.query(
-        "SELECT org_id FROM users WHERE id = $1", [row.requester_company_id]
-      );
-      kundeOrgId = kunde[0]?.org_id || null;
-    }
+    /* N2.11: die Firma steht seit Migration 218 am Bedarf; `users.org_id` war die
+       Start-Firma des Anlegers und fuer Teammitglieder falsch. */
+    const kundeOrgId = sourceType === "requisition"
+      ? (row.org_id || null)
+      : await companyBlocklistService.kundenOrgEinesBedarfs(pool, row);
     const result = await instantMatchFromParams(pool, toEngineDemand(sourceType, row), demand.orgId, {
       topN, minScore, urgency: demand.urgency, kundeOrgId,
       requisitionId: sourceType === "requisition" ? sourceId : null

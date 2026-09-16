@@ -184,6 +184,27 @@ describe("N2.4b · der Umkreis steht in der Abfrage, nicht dahinter", () => {
       "der eigene Radius des Eintrags wird nicht mehr beruecksichtigt");
   });
 
+  it("der Vergleich heisst INNERHALB — Entfernung <= Radius, in jeder Zaehl- und Holabfrage", async () => {
+    /*
+     * N2.11 — Befund der Pruefung vom 2026-09-15: die Proben oben pinnten die
+     * Formel und den Radius, aber nicht den Vergleich DAZWISCHEN. Ausgefuehrt:
+     * `<=` zu `>` blieb in 13 Feed-Dateien 318/318 gruen — die Umkreissuche
+     * haette nur noch Angebote AUSSERHALB geliefert, und die Treffer-Vorschau
+     * waere mit wachsendem Radius gesunken.
+     *
+     * Der Vergleich steht direkt zwischen der schliessenden Klammer der
+     * Entfernung und dem Radius. Das Gegenstueck an der echten Datenbank:
+     * `integration/firmaAmBedarf.flow.test.js` ("der Umkreis rechnet innerhalb").
+     */
+    const alle = await sqlVon(HAMBURG);
+    const mitUmkreis = alle.filter((s) => /6371 \* 2 \* asin/.test(s));
+    assert.ok(mitUmkreis.length >= 3, `erwartet Zaehlungen und Holabfragen, gefunden ${mitUmkreis.length}`);
+    for (const s of mitUmkreis) {
+      assert.match(s.replace(/\s+/g, " "), /\){4} <= GREATEST\(25, COALESCE\((cp|dr)\.radius_km, 25\)\)/,
+        "die Umkreisbedingung vergleicht nicht mehr 'Entfernung <= Radius'");
+    }
+  });
+
   it("bei Umkreissuche wird nach Naehe sortiert — VOR dem LIMIT", async () => {
     /*
      * Der Kern der Sache. Sortiert man erst nach dem Schneiden, ist die erste

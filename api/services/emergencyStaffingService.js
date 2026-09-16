@@ -12,6 +12,7 @@
 
 import { createServiceLogger } from "../utils/logger.js";
 import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
+import { kundenOrgEinesBedarfs } from "./companyBlocklistService.js";
 
 const logger = createServiceLogger("emergencyStaffing");
 
@@ -227,9 +228,11 @@ export async function createEmergencyRequest(pool, userId, plan, payload) {
       end_date: demand.end_date
     };
     /* N4.5: `kundeOrgId` fuer die Sperre. `orgId` bleibt null, damit sich an
-       der Vendor-Pool-Rangfolge der Alarmierung nichts verschiebt. */
+       der Vendor-Pool-Rangfolge der Alarmierung nichts verschiebt.
+       N2.11: aus dem GESPEICHERTEN Bedarf (Migration 218), mit Rueckfall — so
+       rechnet die Anlage mit derselben Firma wie jede spaetere Stelle. */
     matchResults = await instantMatchFromParams(pool, demandParams, null, {
-      kundeOrgId: payload.requester_org_id || null,
+      kundeOrgId: await kundenOrgEinesBedarfs(pool, { ...demand, requester_org_id: demand.requester_org_id || payload.requester_org_id }),
       topN: 25, minScore: 10,
       budgetPerHour: demand.budget_max,
       workersNeeded: demand.headcount,
@@ -514,7 +517,7 @@ export async function escalateEmergency(pool, demandId, actorId) {
      ersten Einbau fehlte sie hier; der Riegel war damit so tot wie der der
      Detailansicht, aus demselben Grund. */
   const { rows } = await pool.query(
-    `SELECT id, urgency, status, escalation_level, title, role, location_city, requester_company_id
+    `SELECT id, urgency, status, escalation_level, title, role, location_city, requester_company_id, requester_org_id
      FROM demand_requests WHERE id = $1`,
     [demandId]
   );
@@ -549,15 +552,15 @@ export async function escalateEmergency(pool, demandId, actorId) {
 
     const demand = rows[0];
     /* N4.5: die Eskalation schreibt BIS ZU FUENFZIG Anbieter an — gerade dort
-       darf keine Anfrage fuer eine gesperrte Kraft hinausgehen. */
-    const { rows: kundeRows } = await pool.query(
-      "SELECT org_id FROM users WHERE id = $1", [demand?.requester_company_id || null]
-    );
+       darf keine Anfrage fuer eine gesperrte Kraft hinausgehen.
+       N2.11: die Firma steht am Bedarf (Migration 218); `users.org_id` war die
+       Start-Firma des Anlegers und fuer Teammitglieder falsch. */
+    const kundeOrgId = await kundenOrgEinesBedarfs(pool, demand);
     const matchResults = await instantMatchFromParams(pool, {
       role: demand.role,
       skill_tags: [],
       location_city: demand.location_city
-    }, null, { topN: 50, minScore: 5, urgency: "CRITICAL", kundeOrgId: kundeRows[0]?.org_id || null });
+    }, null, { topN: 50, minScore: 5, urgency: "CRITICAL", kundeOrgId });
 
     const supplierIds = [...new Set(
       (matchResults.matches || []).map(m => m.capacity_post?.supplier_company_id).filter(Boolean)

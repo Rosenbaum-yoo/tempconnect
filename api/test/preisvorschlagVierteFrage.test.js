@@ -353,19 +353,47 @@ describe("N2.2 · der Endpunkt bleibt plan-gegated", () => {
      * und darf NIE dazu fuehren, dass jemand das Tor am Server aufmacht, damit
      * "die Karte immer erscheint". Diese Probe haelt die Reihenfolge fest.
      */
-    const stapel = [];
+    /*
+     * N2.11 — Befund der Pruefung vom 2026-09-15: hier stand nur "requireFeature
+     * wurde IRGENDWANN mit smart_pricing aufgerufen" und "der Stapel hat >= 3
+     * Schichten". Ausgefuehrt: `router.get("/pricing/suggest", requireAuth,
+     * requireAuth, …)` blieb 65/65 gruen — jeder Angemeldete ohne Tarif bekam den
+     * Preisvorschlag. Jetzt an der Wirkung: ein Tor, das ABLEHNT, laesst den
+     * Handler nie laufen — und genau dieses Tor steht in genau dieser Route.
+     */
+    const tore = new Map();
+    let abgefragt = 0;
+    const anmeldung = function anmeldung(_q, _s, next) { next(); };
     const router = createSmartPricingRouter({
-      pool: { query: async () => ({ rows: [] }) },
-      requireAuth: (_q, _s, next) => next(),
-      requireFeature: (merkmal) => { stapel.push(merkmal); return (_q, _s, next) => next(); },
+      pool: { query: async () => { abgefragt += 1; return { rows: [] }; } },
+      requireAuth: anmeldung,
+      requireFeature: (merkmal) => {
+        const tor = function tarifTor(_q, res) { res.status(403).json({ error: "PLAN_LOCKED", feature: merkmal }); };
+        tore.set(merkmal, tor);
+        return tor;
+      },
       logger: { error() {}, warn() {}, info() {} }
     });
-    assert.ok(stapel.includes("smart_pricing"), "das Plan-Tor wurde entfernt");
+    assert.ok(tore.has("smart_pricing"), "das Plan-Tor wurde entfernt");
 
-    const schicht = router.stack.find((l) => l.route && l.route.path === "/pricing/suggest");
+    const schicht = router.stack.find((l) => l.route && l.route.path === "/pricing/suggest" && l.route.methods.get);
     assert.ok(schicht, "die Route gibt es nicht mehr");
-    assert.ok(schicht.route.stack.length >= 3,
-      "vor dem Handler stehen keine zwei Waechter mehr (Anmeldung + Tarif)");
+    const kette = schicht.route.stack.map((l) => l.handle);
+    const tor = kette.indexOf(tore.get("smart_pricing"));
+    assert.ok(tor > kette.indexOf(anmeldung) && tor < kette.length - 1,
+      "das smart_pricing-Tor haengt nicht zwischen Anmeldung und Handler dieser Route");
+
+    // Die Kette so laufen lassen, wie Express es tut: bis eine Schicht antwortet.
+    const res = { _status: 200, _json: null, status(c) { this._status = c; return this; }, json(b) { this._json = b; return this; } };
+    return (async () => {
+      for (const schritt of kette) {
+        let weiter = false;
+        await schritt({ query: { role: "Pflege" }, session: { userId: "u1" } }, res, () => { weiter = true; });
+        if (!weiter) break;
+      }
+      assert.strictEqual(res._status, 403, "ohne Tarif kam die Route durch");
+      assert.strictEqual(abgefragt, 0, "der Preisvorschlag wurde trotz geschlossenem Tor gerechnet");
+    })();
   });
 
   it("mindestens Rolle oder Region ist Pflicht", async () => {

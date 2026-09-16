@@ -37,7 +37,7 @@ function buildMockPool({ supplyRows, demandRows, plans = [], reputations = [] })
           }))
         };
       }
-      if (sql.includes("FROM demand_requests dr") && sql.includes("ORDER BY COALESCE(dr.updated_at, dr.created_at) DESC")) {
+      if (sql.includes("FROM demand_requests dr") && sql.includes("sort_date DESC, dr.id DESC")) {
         const companyOnly = sql.includes("u.role = 'company'");
         return { rows: companyOnly ? demandRows.filter(r => r.supplier_role === "company") : demandRows };
       }
@@ -184,7 +184,7 @@ describe("capacity feed ranking hierarchy", () => {
         if (sql.includes("FROM capacity_posts cp") && sql.includes("ORDER BY sort_date DESC")) {
           return { rows: [] };
         }
-        if (sql.includes("FROM demand_requests dr") && sql.includes("ORDER BY COALESCE(dr.updated_at, dr.created_at) DESC")) {
+        if (sql.includes("FROM demand_requests dr") && sql.includes("sort_date DESC, dr.id DESC")) {
           demandListSql = sql;
           return {
             rows: [{
@@ -247,7 +247,7 @@ describe("capacity feed ranking hierarchy", () => {
           demandCountSql = sql;
           return { rows: [{ cnt: 0 }] };
         }
-        if (sql.includes("FROM demand_requests dr") && sql.includes("ORDER BY COALESCE(dr.updated_at, dr.created_at) DESC")) {
+        if (sql.includes("FROM demand_requests dr") && sql.includes("sort_date DESC, dr.id DESC")) {
           demandListSql = sql;
           return { rows: [] };
         }

@@ -867,7 +867,7 @@ export async function browseFeed(pool, opts = {}) {
 
   const supplyCte = `
     SELECT ${ENTRY_SELECT},
-           COALESCE(cp.updated_at, cp.created_at) AS sort_date,
+           date_trunc('milliseconds', COALESCE(cp.updated_at, cp.created_at)) AS sort_date,
            ${umkreis ? `${umkreis.entfernung("cp")}` : "NULL::double precision"} AS _distance_km,
            ${supplyGemerkt} AS gemerkt
     ${ENTRY_JOINS}
@@ -906,7 +906,7 @@ export async function browseFeed(pool, opts = {}) {
       u.role AS supplier_role,
       NULL::text AS org_name,
       'demand'::text AS feed_type,
-      COALESCE(dr.updated_at, dr.created_at) AS sort_date,
+      date_trunc('milliseconds', COALESCE(dr.updated_at, dr.created_at)) AS sort_date,
       -- P9/B1: gemerkte Bedarfe, aus derselben Abfrage. $2 ist der Betrachter;
       -- ohne angemeldeten Nutzer bleibt es FALSE.
       EXISTS (SELECT 1 FROM capacity_interactions ci_merk
@@ -994,12 +994,32 @@ export async function browseFeed(pool, opts = {}) {
   const fenster = beideSeiten ? offset + limit : limit;
   const versatz = beideSeiten ? 0 : offset;
 
+  /*
+   * N2.11 — EINE TOTALE ORDNUNG. Bis hier sortierten beide Seiten nur nach
+   * Entfernung und Zeitstempel. Bei Gleichstand ist die Reihenfolge fuer
+   * Postgres unbestimmt und haengt vom LIMIT ab (Top-N-Heapsort): Seite 1 und
+   * Seite 2 konnten dieselbe Zeile zeigen und eine andere auf keiner Seite —
+   * obwohl `total` sie zaehlte. Gleichstaende sind kein Randfall: die
+   * Marktpraesenz legt Angebote in EINEM INSERT…SELECT an (identischer
+   * Zeitstempel); gemessen am 2026-09-15 teilten sich 3 von 6 aktiven Angeboten
+   * denselben. Nachgestellt: drei Seiten zu je 25 lieferten 73 verschiedene
+   * Zeilen, zwei Angebote fehlten.
+   *
+   * Deshalb die Kennung als letzter Schluessel — in SQL UND in der
+   * JS-Zusammenfuehrung darunter, mit DERSELBEN Ordnung: `sort_date` ist auf
+   * Millisekunden gekuerzt (der pg-Treiber liefert Zeitstempel nur so genau an
+   * JavaScript; eine Mikrosekunde Unterschied haette SQL anders sortieren lassen
+   * als die Zusammenfuehrung), und UUIDs vergleicht Postgres byteweise — das ist
+   * die Reihenfolge ihrer kleingeschriebenen Hex-Darstellung.
+   */
+  const kennungAbsteigend = (a, b) => (String(a.id) < String(b.id) ? 1 : String(a.id) > String(b.id) ? -1 : 0);
+
   // Fetch supply entries
   let supplyRows = [];
   if (supplyGesehen) {
     const supplyParams = [...params, fenster, versatz];
     const { rows: rawSupplyRows } = await pool.query(
-      `${supplyCte} ORDER BY ${umkreis ? "_distance_km ASC, " : ""}sort_date DESC`
+      `${supplyCte} ORDER BY ${umkreis ? "_distance_km ASC, " : ""}sort_date DESC, cp.id DESC`
       + ` LIMIT $${idx} OFFSET $${idx + 1}`, supplyParams);
     supplyRows = await enrichCapacityEntries(pool, rawSupplyRows, { viewerUserId });
     /* `visible_to_viewer` bleibt: SQL grenzt schon strenger ein (Status,
@@ -1017,7 +1037,7 @@ export async function browseFeed(pool, opts = {}) {
   let demandRows = [];
   if (demandGesehen) {
     const { rows: dr } = await pool.query(
-      `${demandCte} ORDER BY ${umkreis ? "_distance_km ASC, " : ""}COALESCE(dr.updated_at, dr.created_at) DESC LIMIT $1 OFFSET $3`,
+      `${demandCte} ORDER BY ${umkreis ? "_distance_km ASC, " : ""}sort_date DESC, dr.id DESC LIMIT $1 OFFSET $3`,
       [fenster, viewerUserId, versatz]);
     demandRows = dr;
   }
@@ -1030,8 +1050,8 @@ export async function browseFeed(pool, opts = {}) {
     const zeit = (r) => new Date(r.sort_date || r.updated_at || r.created_at || 0).getTime();
     const naehe = (r) => (r._distance_km == null ? Infinity : Number(r._distance_km));
     items.sort(umkreis
-      ? (a, b) => (naehe(a) - naehe(b)) || (zeit(b) - zeit(a))
-      : (a, b) => zeit(b) - zeit(a));
+      ? (a, b) => (naehe(a) - naehe(b)) || (zeit(b) - zeit(a)) || kennungAbsteigend(a, b)
+      : (a, b) => (zeit(b) - zeit(a)) || kennungAbsteigend(a, b));
     items = items.slice(offset, offset + limit);
   }
 

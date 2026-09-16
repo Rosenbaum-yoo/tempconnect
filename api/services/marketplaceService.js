@@ -256,8 +256,8 @@ export async function createDemandRequest(pool, requesterId, plan, payload) {
       shifts, requirements, urgency, budget_min, budget_max,
       sla_started_at, sla_minutes, sla_due_at, sla_status,
       required_total_count, remaining_open_count, currently_committed_count,
-      contact_name, contact_phone)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
+      contact_name, contact_phone, requester_org_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
      RETURNING *`,
     [
       requesterId,
@@ -289,7 +289,11 @@ export async function createDemandRequest(pool, requesterId, plan, payload) {
        * Aufgeloest wird sie in der Route (mit Rueckfall aufs Profil); hier steht
        * nur, was ankommt — der Dienst entscheidet nicht ueber Pflichten. */
       payload.contact_name || null,
-      payload.contact_phone || null
+      payload.contact_phone || null,
+      /* N2.11 (Migration 218): die Firma, fuer die angelegt wird — Traeger der
+       * Kundensperre. Kommt aus der aktiven Firma der Sitzung (`req.orgId`),
+       * nie aus dem Rumpf; die Routen setzen sie nach dem Spread. */
+      payload.requester_org_id || null
     ]
   );
   return rows[0];
@@ -297,12 +301,15 @@ export async function createDemandRequest(pool, requesterId, plan, payload) {
 
 export async function getDemandById(pool, id) {
   const { rows } = await pool.query(
-    /* `u.org_id` (N4.2): die Sperrliste haengt an der ORG, `requester_company_id`
-       ist eine NUTZER-Kennung. Ohne diese Spalte braeuchte jede Flaeche, die
-       gegen die Sperre rechnet, einen zweiten Rundlauf - der Verbund auf
-       `users` steht hier ohnehin schon. Der ganze Datensatz geht nur an den
-       Eigentuemer des Bedarfs (`canAccessAsOwner`), also an dessen eigene Org. */
-    `SELECT dr.*, u.company_name AS requester_company_name, u.org_id AS requester_org_id,
+    /* Die Firma des Bedarfs (N4.2, korrigiert N2.11): die Sperrliste haengt an
+       der FIRMA. Bis N2.11 stand hier `u.org_id` — die persoenliche Start-Firma
+       des Anlegers, fuer eingeladene Teammitglieder die falsche. Seit Migration
+       218 traegt der Bedarf die Firma selbst; `u.org_id` bleibt nur Rueckfall
+       fuer einen Bedarf ohne. Die Spalte heisst wie die aus `dr.*` und steht
+       DAHINTER — pg liefert den spaeteren Wert, also den mit Rueckfall.
+       Der ganze Datensatz geht nur an den Eigentuemer des Bedarfs. */
+    `SELECT dr.*, u.company_name AS requester_company_name,
+            COALESCE(dr.requester_org_id, u.org_id) AS requester_org_id,
             EXISTS (
               SELECT 1
               FROM offers o_origin

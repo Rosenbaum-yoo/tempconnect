@@ -165,4 +165,34 @@ describe("N2.9 — die Verweis-Pruefung am realen Schema",
     assert.deepEqual(await pruefeAnlageVerweise(client, randomUUID(), { demand_request_id: rows[0].id }),
       { status: 403, error: "ORG_BOUNDARY_VIOLATION", field: "demand_request_id" });
   });
+
+  it("jeder der beiden Wege reicht ALLEIN — nur Start-Firma, nur Mitgliedschaft", async (t) => {
+    /* N2.11 — Befund der Pruefung vom 2026-09-15: der Fall oben nahm einen Anleger,
+       der BEIDES hat. Ein `AND` statt `OR` blieb deshalb auch hier gruen. Jetzt
+       wird je ein Weg in einem Sicherungspunkt abgeschaltet. */
+    const { rows } = await client.query(
+      `SELECT d.id, u.id AS nutzer, u.org_id FROM demand_requests d JOIN users u ON u.id = d.requester_company_id
+        WHERE u.org_id IS NOT NULL LIMIT 1`);
+    if (!rows[0]) return t.skip("kein Bedarf mit zugeordneter Org im Bestand");
+    const { id, nutzer, org_id: org } = rows[0];
+
+    await client.query("SAVEPOINT nur_startfirma");
+    await client.query("DELETE FROM org_memberships WHERE user_id = $1 AND org_id = $2", [nutzer, org]);
+    assert.equal(await pruefeAnlageVerweise(client, org, { demand_request_id: id }), null,
+      "ohne Mitgliedschaft, nur ueber users.org_id: abgelehnt");
+    await client.query("ROLLBACK TO SAVEPOINT nur_startfirma");
+
+    await client.query("SAVEPOINT nur_mitgliedschaft");
+    const andere = randomUUID();
+    await client.query(
+      `INSERT INTO organizations (id, name, type, slug) VALUES ($1, 'N2.11 Probe', 'company', $2)`, [andere, `n211-${andere}`]);
+    await client.query(
+      `INSERT INTO org_memberships (user_id, org_id, role_key, is_active) VALUES ($1, $2, 'member', TRUE)`, [nutzer, andere]);
+    assert.equal(await pruefeAnlageVerweise(client, andere, { demand_request_id: id }), null,
+      "nur ueber eine aktive Mitgliedschaft: abgelehnt");
+    await client.query("UPDATE org_memberships SET is_active = FALSE WHERE user_id = $1 AND org_id = $2", [nutzer, andere]);
+    assert.deepEqual(await pruefeAnlageVerweise(client, andere, { demand_request_id: id }),
+      { status: 403, error: "ORG_BOUNDARY_VIOLATION", field: "demand_request_id" }, "eine INAKTIVE Mitgliedschaft reicht");
+    await client.query("ROLLBACK TO SAVEPOINT nur_mitgliedschaft");
+  });
 });

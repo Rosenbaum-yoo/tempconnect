@@ -42,10 +42,29 @@ function entwurf({ gespeichert = null, jetzt = 1_800_000_000_000, speicherWirft 
   assert.ok(bis > von, "das Ende des Blocks ist nicht auffindbar");
   const quelle = html.slice(von, bis);
 
+  /*
+   * N2.11 — DIE FELDER STARTEN WIE IM MARKUP, nicht leer.
+   *
+   * Befund der Pruefung vom 2026-09-15: der Nachbau setzte jedes Feld auf "".
+   * Im Markup steht `headcount` aber auf value="1". Die Probe "die blosse
+   * Ortsvorbelegung ist kein Stand" war deshalb nur unter einem Wert gruen, den
+   * die Seite nie hat — im Betrieb entstand bei jedem Oeffnen ein 7-Tage-Entwurf,
+   * der beim naechsten Besuch den alten Ort zurueckholte (auch nach einem
+   * Standortwechsel). Der Standard kommt jetzt aus dem Markup selbst, und
+   * `defaultValue` traegt ihn, wie im Browser.
+   */
+  const standardAus = (id) => {
+    const tag = new RegExp(`<(input|select|textarea)[^>]*\\bid="${id}"[^>]*>`, "i").exec(html);
+    const wert = tag && /\bvalue="([^"]*)"/i.exec(tag[0]);
+    return wert ? wert[1] : "";
+  };
   const felder = {};
   ["title", "role", "skill_tags", "headcount", "start_date", "end_date",
     "location_city", "location_postal", "radius_km", "budget_min", "budget_max",
-    "contact_name", "contact_phone"].forEach((id) => { felder[id] = { id, value: "" }; });
+    "contact_name", "contact_phone"].forEach((id) => {
+    const standard = standardAus(id);
+    felder[id] = { id, value: standard, defaultValue: standard };
+  });
 
   const speicher = { _: gespeichert === null ? {} : { tc_bedarf_entwurf: gespeichert } };
   const sandkasten = {
@@ -163,10 +182,22 @@ describe("N2.5 · was NICHT als Entwurf zaehlt", { skip: !da && "Seite fehlt" },
      * hat — und der Kunde suchte, was er angeblich angefangen hatte.
      */
     const e = entwurf();
+    // Mit den ECHTEN Standardwerten des Markups (N2.11): headcount steht auf "1".
+    assert.strictEqual(e.felder.headcount.value, "1",
+      "Vorbedingung: das Markup belegt die Anzahl mit 1 — sonst prueft diese Probe den falschen Fall");
     e.felder.location_city.value = "Münster";
-    e.felder.radius_km.value = "25";
     e.sandkasten._schreiben();
     assert.strictEqual(e.roh(), undefined, "die Vorbelegung allein wurde als Entwurf gespeichert");
+  });
+
+  it("ein Feld, das nur seinen Markup-Standard traegt, ist keine Eingabe — eine Aenderung schon", () => {
+    const e = entwurf();
+    e.felder.headcount.value = "1";           // unveraendert
+    e.sandkasten._schreiben();
+    assert.strictEqual(e.roh(), undefined, "der Markup-Standard zaehlte als Eingabe");
+    e.felder.headcount.value = "2";           // jetzt hat jemand getippt
+    e.sandkasten._schreiben();
+    assert.strictEqual(JSON.parse(e.roh()).werte.headcount, "2");
   });
 
   it("sobald etwas Eigenes dazukommt, wird gespeichert — mitsamt Ort", () => {
@@ -244,10 +275,25 @@ describe("N2.5 · nach dem Absenden ist der Entwurf weg", () => {
      * Kunde schickt womoeglich zweimal dasselbe ab, ohne es zu merken.
      * Geprueft an der Stelle, die nur nach einer echten Serverantwort laeuft.
      */
-    const block = /function renderResult\(d\) \{[\s\S]{0,400}/.exec(html);
-    assert.ok(block, "renderResult ist nicht mehr auffindbar");
-    assert.match(block[0], /__tcEntwurf.*loeschen\(\)/,
+    /* §0.9 (N2.11): hier wurde `renderResult` geprueft. Genau dort war das
+       Loeschen falsch — renderResult laeuft auch bei jedem Sprachwechsel, und ein
+       Entwurf, der NACH dem Erfolg fuer den naechsten Bedarf begonnen wurde,
+       verschwand beim Umschalten (Befund der Pruefung vom 2026-09-15). Geprueft
+       wird jetzt der Erfolgszweig des Absendens — und dass renderResult es NICHT
+       mehr tut. */
+    const erfolg = /postDemand\(body\)\.then\(function\(d\) \{[\s\S]{0,900}/.exec(html);
+    assert.ok(erfolg, "der Erfolgszweig des Absendens ist nicht mehr auffindbar");
+    assert.match(erfolg[0], /__tcEntwurf.*loeschen\(\)/,
       "nach dem Anlegen bleibt der Entwurf liegen");
+
+    const von = html.indexOf("function renderResult(d) {");
+    const bis = html.indexOf("document.addEventListener(\"tc:langchange\"", von);
+    assert.ok(von > 0 && bis > von, "renderResult ist nicht mehr auffindbar");
+    /* Ohne Kommentare: die Erklaerung, warum das Loeschen hier NICHT mehr steht,
+       nennt den Aufruf beim Namen — Prosa ist kein Code. */
+    const ohneKommentare = html.slice(von, bis).replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    assert.equal(/__tcEntwurf.*loeschen\(\)/.test(ohneKommentare), false,
+      "renderResult loescht den Entwurf wieder — es laeuft auch beim Sprachwechsel");
   });
 
   it("der Entwurf wird vor dem Katalogwaehler wiederhergestellt", { skip: !da && "Seite fehlt" }, () => {

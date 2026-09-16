@@ -448,9 +448,11 @@
     /** Ergebnisblock aus der Server-Antwort aufbauen (auch beim Sprachwechsel). */
     function renderResult(d) {
       lastResult = d;
-      /* N2.5: der Bedarf ist angelegt — ab jetzt waere der Entwurf ein
-         Wiedergaenger, der den naechsten Bedarf vorbelegt. */
-      if (window.__tcEntwurf) window.__tcEntwurf.loeschen();
+      /* N2.11 — hier stand `__tcEntwurf.loeschen()`. renderResult laeuft aber
+         auch bei jedem Sprachwechsel (unten), und `lastResult` bleibt nach dem
+         Erfolg stehen: ein Entwurf, den der Kunde DANACH fuer den naechsten
+         Bedarf begonnen hatte, verschwand beim Umschalten der Sprache. Geloescht
+         wird jetzt genau einmal — im Erfolgszweig des Absendens. */
       document.getElementById("res-id").textContent = d.id.substring(0, 8);
       var slaEl = document.getElementById("res-sla");
       if (d.sla_status) {
@@ -535,7 +537,16 @@
         btn.textContent = t('dem.create.submit', 'Nachfrage absenden');
         showMsg("ok", 'dem.create.msgOk', 'Nachfrage erfolgreich erstellt!');
         form.reset();
+        /* N2.5: der Bedarf ist angelegt — ab jetzt waere der Entwurf ein
+           Wiedergaenger, der den naechsten Bedarf vorbelegt. Genau HIER, nicht
+           in renderResult: das laeuft auch beim Sprachwechsel (N2.11). */
+        if (window.__tcEntwurf) window.__tcEntwurf.loeschen();
         renderResult(d);
+        /* N2.11: `form.reset()` leert auch die Pflichtfelder der frueheren
+           Schritte. Der Assistent stand aber weiter im letzten Schritt — der
+           naechste Klick auf "Absenden" lief dann in die stumme Browser-Pruefung
+           eines AUSGEBLENDETEN leeren Pflichtfelds. Er faengt jetzt von vorn an. */
+        document.dispatchEvent(new CustomEvent("tc:bedarf-angelegt"));
       })
       .catch(function(err) {
         btn.disabled = false;
@@ -896,8 +907,14 @@
           werte[id] = v;
           /* Die Vorbelegung des Ortes allein ist KEIN Entwurf — sonst meldete
              sich das Formular beim zweiten Besuch mit einem "Stand", den
-             niemand eingegeben hat. */
-          if (v.trim() && id !== "location_city" && id !== "radius_km") etwasDrin = true;
+             niemand eingegeben hat.
+             N2.11: und ebensowenig ein Feld, das nur seinen MARKUP-STANDARD
+             traegt. `headcount` steht auf value="1", zaehlte damit immer als
+             Eingabe — jeder Seitenaufruf legte einen 7-Tage-Entwurf an, der beim
+             naechsten Besuch den alten Ort zurueckholte, auch nach einem
+             Standortwechsel. `defaultValue` ist genau dieser Markup-Wert. */
+          if (v.trim() && v !== String(el.defaultValue || "")
+              && id !== "location_city" && id !== "radius_km") etwasDrin = true;
         });
         if (!etwasDrin) { loeschen(); return; }
         window.localStorage.setItem(SCHLUESSEL, JSON.stringify({
@@ -954,10 +971,23 @@
     var waehler = null;
     var letzterOrt = "";
 
+    /* N2.11 — der Waehler liest seine Vorauswahl NUR aus `opt.initial`, nie aus
+       dem versteckten Feld (skillPicker.js: `var mitgebracht = …opt.initial…`).
+       Beim ersten Aufsetzen stand hier `[]`. Ein wiederhergestellter Entwurf
+       hatte seine Faehigkeiten aber genau dorthin geschrieben: sie wurden
+       unsichtbar mitgesendet und beim ersten Klick im Waehler still verworfen.
+       Also beim ersten Aufsetzen aus dem Feld lesen — dieselbe Trennung wie beim
+       Absenden, das ebenfalls das Feld liest. */
+    function ausFeld() {
+      var feld = document.getElementById("skill_tags");
+      return String(feld && feld.value || "").split(",")
+        .map(function (x) { return x.trim(); }).filter(Boolean);
+    }
+
     function aufsetzen() {
       var ortFeld = document.getElementById("location_city");
       var ort = (ortFeld && ortFeld.value || "").trim();
-      var vorher = waehler ? waehler.werte() : [];
+      var vorher = waehler ? waehler.werte() : ausFeld();
       waehler = TCSkillPicker.mount({
         container: "skillPicker",
         hiddenInput: "skill_tags",
@@ -1302,16 +1332,81 @@
       [leiste, kopf, hinweis, zaehler].forEach(function (el) { if (el) el.hidden = false; });
       form.setAttribute("data-assistent", "an");
 
+      /* ═══════════════════════════════════════════════════════════════════
+       * N2.11 — DAS ABSENDEN SCHEITERT NICHT MEHR LAUTLOS
+       * ═══════════════════════════════════════════════════════════════════
+       *
+       * Befund der Pruefung vom 2026-09-15, im Browser nachgestellt: der
+       * Assistent blendet Felder mit `display:none` aus. Ist eines davon
+       * ungueltig (leeres Pflichtfeld nach `form.reset()`, Radius 600 bei
+       * max=500, Anzahl 0), faengt die NATIVE Browser-Pruefung das Absenden ab —
+       * noch vor jedem submit-Handler. Sie kann das Feld aber nicht anzeigen und
+       * meldet nur in der Konsole "not focusable". Fuer den Kunden passierte:
+       * nichts. Kein Hinweis, keine Meldung, kein Bedarf.
+       *
+       * Also uebernimmt der Assistent die Pruefung: `noValidate` schaltet die
+       * stumme Browser-Pruefung ab, und diese Schicht prueft VOR dem eigentlichen
+       * Absende-Handler (capture), springt zum ersten ungueltigen Feld, macht
+       * seinen Schritt sichtbar und sagt, was fehlt.
+       */
+      form.noValidate = true;
+
+      function ersterFehler() {
+        for (var i = 0; i < SCHRITTE.length; i++) {
+          for (var k = 0; k < SCHRITTE[i].felder.length; k++) {
+            var el = document.getElementById(SCHRITTE[i].felder[k]);
+            if (el && typeof el.checkValidity === "function" && !el.checkValidity()) {
+              return { el: el, schritt: i };
+            }
+          }
+        }
+        return null;
+      }
+
+      form.addEventListener("submit", function (e) {
+        var schlecht = ersterFehler();
+        if (!schlecht) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        jetzt = schlecht.schritt;
+        window.__tcEntwurfSchritt = jetzt;
+        zeige();
+        if (fehler) {
+          fehler.textContent = schlecht.el.validationMessage
+            || t("dem.create.as.required", "Bitte fuellen Sie die Pflichtfelder dieses Schritts aus.");
+          fehler.hidden = false;
+        }
+        if (schlecht.el.focus) schlecht.el.focus();
+        if (schlecht.el.reportValidity) schlecht.el.reportValidity();
+      }, true);
+
+      /* Nach dem erfolgreichen Absenden faengt der Assistent von vorn an —
+         `form.reset()` hat die Pflichtfelder der frueheren Schritte geleert. */
+      document.addEventListener("tc:bedarf-angelegt", function () {
+        jetzt = 0;
+        window.__tcEntwurfSchritt = 0;
+        zeige();
+      });
+
       zurueck.addEventListener("click", function () { gehe(-1); });
       weiter.addEventListener("click", function () { gehe(1); });
       document.addEventListener("tc:langchange", zeige);
 
       /* Die Eingabetaste soll weiterblaettern statt abzusenden, solange noch
-         Schritte offen sind — sonst entsteht ein halber Bedarf. */
+         Schritte offen sind — sonst entsteht ein halber Bedarf.
+         N2.11: aber nur aus einem EINGABEFELD heraus. Vorher blaetterte sie auch
+         auf einem Knopf weiter (Enter auf "Zurueck" sprang vorwaerts, Enter auf
+         dem x eines Faehigkeits-Chips sprang in den naechsten Schritt) und
+         zusaetzlich zum Suchfeld des Katalogwaehlers, der Enter selbst behandelt
+         (skillPicker.js ruft dort `preventDefault`, aber kein `stopPropagation`
+         — "die Taste gehoert dem Waehler"). */
       form.addEventListener("keydown", function (e) {
         if (e.key !== "Enter") return;
+        if (e.defaultPrevented) return;
         var ziel = e.target || {};
-        if (ziel.tagName === "TEXTAREA") return;
+        if (ziel.tagName === "TEXTAREA" || ziel.tagName === "BUTTON" || ziel.tagName === "A"
+            || ziel.tagName === "SELECT") return;
+        if (ziel.closest && ziel.closest("#skillPicker")) return;
         if (jetzt < SCHRITTE.length - 1) { e.preventDefault(); gehe(1); }
       });
 
@@ -1350,6 +1445,11 @@
 
       ortVorbelegen();
       zeige();
+      /* N2.11: die Vorschau haengt nur an `input`/`change`. Nach einem
+         wiederhergestellten Entwurf ist der Ort schon gefuellt, ortVorbelegen()
+         kehrt sofort zurueck und loest nichts aus — "Mit diesen Angaben: N
+         Angebote" blieb unsichtbar, bis der Kunde irgendein Feld anfasste. */
+      if (vorschauWert("location_city") || vorschauWert("location_postal")) holeTreffer();
     }
 
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);

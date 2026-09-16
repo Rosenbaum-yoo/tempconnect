@@ -192,13 +192,27 @@ describe("N4.1 · nichtGesperrtSql — die Bedingung selbst", () => {
 
 describe("N4.2 · Feed und Suche filtern dieselbe Bedingung", () => {
 
-  it("der Feed setzt die Bedingung ein und bindet die Betrachter-Org", async () => {
+  it("der Feed setzt die Bedingung ein und bindet die Betrachter-Org — an IHRER Stelle", async () => {
+    /*
+     * N2.11 — Befund der Pruefung vom 2026-09-15: diese Probe rief den Feed OHNE
+     * `viewer_user_id` auf. Dann stand die Org zufaellig an $1, und
+     * `params.includes(ORG)` pruefte nur, dass sie IRGENDWO gebunden ist. Die Route
+     * uebergibt aber immer den Nutzer: dann ist $1 der Nutzer und die Org $2. Eine
+     * fest verdrahtete `$1` (ausgefuehrt: 284/284 gruen) haette die Sperre gegen
+     * die NUTZER-Kennung verglichen — sie griffe nie.
+     *
+     * Jetzt wie in der Route: Nutzer UND Org, und der Wert wird an der Nummer
+     * gelesen, die im SQL steht — in Abfrage UND Zaehlung.
+     */
     const p = pool();
-    await kapazitaetsDienst.browseFeed(p, { viewer_company_org_id: ORG_KUNDE, limit: 10 });
+    await kapazitaetsDienst.browseFeed(p, { viewer_user_id: "u-betrachter", viewer_company_org_id: ORG_KUNDE, limit: 10 });
     const mit = p.calls.filter((c) => c.sql.includes("FROM company_worker_blocklist bl"));
-    assert.ok(mit.length >= 1, "der Feed filtert die Sperre nicht mehr");
-    assert.ok(mit.some((c) => c.params.includes(ORG_KUNDE)),
-      "die Bedingung steht da, aber die Org des Betrachters wird nicht gebunden");
+    assert.ok(mit.length >= 2, "der Feed filtert die Sperre nicht in Abfrage UND Zaehlung");
+    for (const c of mit) {
+      const nummer = Number(/bl\.company_org_id = \$(\d+)/.exec(c.sql)[1]);
+      assert.strictEqual(c.params[nummer - 1], ORG_KUNDE,
+        `die Sperrbedingung zeigt auf $${nummer} = ${JSON.stringify(c.params[nummer - 1])}, nicht auf die Betrachter-Org`);
+    }
   });
 
   it("ohne Betrachter-Org filtert der Feed nicht — sonst waere er fuer alle leer", async () => {
@@ -335,24 +349,39 @@ describe("N4.1 · die Detailansicht verweigert die gesperrte Kraft", () => {
     // Angebot ansieht, hat damit nichts zu tun.
     const p = pool([
       ["FROM capacity_posts cp", eintrag()],
-      ["FROM company_worker_blocklist bl", [{ id: "b1", blocked_until: null }]]
+      ["FROM company_worker_blocklist bl", [{ id: "b1", blocked_until: null }]],
+      /* Eine COUNT-Abfrage liefert in echt IMMER eine Zeile — die
+         Vertrauenssignale lesen `rows[0].cnt`. */
+      ["COUNT(*)::int AS cnt", [{ cnt: 0 }]]
     ]);
     const res = antwort();
     await handler(createCapacityExchangeRouter(deps(p, { role: "agency" })), "get", "/capacity-exchange/feed/:id")(
       anfrage({ params: { id: CP } }), res, () => {}
     );
-    assert.notStrictEqual(res._status, 409);
+    /* N2.11: vorher nur `notStrictEqual(409)` — ein 404 oder 500 fuer die eigene
+       Ansicht haette bestanden (Stellvertreter-Zusicherung, Befund der Pruefung
+       vom 2026-09-15). Jetzt: die Ansicht KOMMT, mit genau diesem Angebot. */
+    assert.strictEqual(res._status, 200, `die Agentur bekommt ${res._status}: ${JSON.stringify(res._json)}`);
+    assert.strictEqual(res._json?.id, CP);
     assert.strictEqual(p.finde("FROM company_worker_blocklist bl").length, 0,
       "fuer eine Agentur wurde die Sperrliste ueberhaupt abgefragt");
   });
 
-  it("ohne Sperre bleibt die Ansicht offen", async () => {
-    const p = pool([["FROM capacity_posts cp", eintrag()]]);
+  it("ohne Sperre bleibt die Ansicht offen — geprueft UND geliefert", async () => {
+    /* N2.11 — Befund der Pruefung vom 2026-09-15: hier stand nur
+       `notStrictEqual(res._status, 409)`. Ausgefuehrt: eine Zeile
+       `if (!sperre) return 404` vor der Sperrantwort blieb 131/131 gruen — die
+       Detailansicht waere fuer JEDES Unternehmen tot gewesen. Jetzt: die Sperre
+       wurde wirklich geprueft (sonst beweist die Probe nichts), und die Ansicht
+       kommt mit genau diesem Angebot. */
+    const p = pool([INTERN, ["FROM capacity_posts cp", eintrag()], ["COUNT(*)::int AS cnt", [{ cnt: 0 }]]]);
     const res = antwort();
     await handler(createCapacityExchangeRouter(deps(p)), "get", "/capacity-exchange/feed/:id")(
-      anfrage({ params: { id: CP } }), res, () => {}
+      anfrage({ params: { id: CP }, orgId: ORG_KUNDE }), res, () => {}
     );
-    assert.notStrictEqual(res._status, 409);
+    assert.ok(p.finde("FROM company_worker_blocklist bl").length >= 1, "die Sperre wurde gar nicht geprueft");
+    assert.strictEqual(res._status, 200, `ohne Sperre kommt ${res._status}: ${JSON.stringify(res._json)}`);
+    assert.strictEqual(res._json?.id, CP);
   });
 });
 
@@ -533,14 +562,18 @@ describe("N4.2 · die Deckungsrechnung zaehlt Gesperrte nicht mit", () => {
       "gefiltert wird gegen die NUTZER-Kennung — in der Sperrliste steht die Org");
   });
 
-  it("und der Bedarf traegt diese Org ueberhaupt", async () => {
+  it("und der Bedarf traegt diese Org ueberhaupt — die gespeicherte Firma vor der Start-Firma", async () => {
     // Ohne die Spalte ist `requester_org_id` still `undefined`, die Bedingung
     // faellt weg und niemandem faellt etwas auf.
+    /* §0.9 (N2.11): hier stand `u.org_id AS requester_org_id` als Soll — die
+       persoenliche Start-Firma des Anlegers, fuer eingeladene Teammitglieder die
+       falsche. Die Probe kodierte damit den Befund der Pruefung vom 2026-09-15.
+       Seit Migration 218 gewinnt die am Bedarf gespeicherte Firma. */
     const p = pool([["FROM demand_requests dr", [{ id: "dr1" }]]]);
     const { getDemandById } = await import("../services/marketplaceService.js");
     await getDemandById(p, "dr1");
-    assert.ok(/u\.org_id AS requester_org_id/.test(p.calls[0].sql),
-      "die Org des Bedarfstellers wird nicht mitgeladen");
+    assert.ok(/COALESCE\(dr\.requester_org_id, u\.org_id\) AS requester_org_id/.test(p.calls[0].sql),
+      "die Org des Bedarfstellers wird nicht mitgeladen — oder die Start-Firma gewinnt");
   });
 });
 
@@ -911,10 +944,16 @@ describe("N4.5 · die Zuordnungs-Motoren kennen die Sperre", () => {
       "die Vorschlaege kennen die Sperre nicht");
     assert.deepStrictEqual(q.params, [ORG_KUNDE]);
 
+    /* §0.9 (N2.11): hier stand `SELECT * FROM capacity_posts WHERE is_active =
+       TRUE` als wortgleiches Soll. `*` gab `worker_profile_id` an Bedarfsteller
+       heraus (Befund der Pruefung vom 2026-09-15). Die Zusage "ohne Kunde keine
+       Bedingung und keine Bindung" bleibt; das Soll ist jetzt die oeffentliche
+       Projektion. */
     const ohne = pool();
     await matchMotor.matchRequisition(ohne, { role: "x", skill_tags: [] }, { skillIndex: null });
-    assert.strictEqual(sperrBindung(ohne.calls, "FROM capacity_posts").sql,
-      "SELECT * FROM capacity_posts WHERE is_active = TRUE");
+    const ohneKunde = sperrBindung(ohne.calls, "FROM capacity_posts");
+    assert.strictEqual(ohneKunde.sql, `SELECT ${OEFFENTLICHE_SPALTEN.map((s) => `capacity_posts.${s}`).join(", ")} FROM capacity_posts WHERE is_active = TRUE`);
+    assert.deepStrictEqual(ohneKunde.params, []);
   });
 
   it("runInitialMatching: die Treffer beim Anlegen — daraus gehen bis zu 15 Mails", async () => {
@@ -1031,7 +1070,7 @@ describe("N4.5 · die Routen reichen die richtige Org durch", () => {
     /* Der Betrachter sitzt absichtlich in einer ANDEREN Org. Waere seine Org
        gebunden, griffe die Sperre des Auftraggebers nicht. */
     const p = pool([
-      ["u.org_id AS requester_org_id", [{ id: "dr1", requester_company_id: "u1", requester_org_id: ORG_KUNDE,
+      ["AS requester_org_id", [{ id: "dr1", requester_company_id: "u1", requester_org_id: ORG_KUNDE,
         role: "Pflege", skill_tags: [], location_city: "Münster" }]],
       ["SELECT * FROM demand_requests WHERE id = $1", [{ id: "dr1", role: "Pflege", skill_tags: [],
         location_city: "Münster" }]]

@@ -1118,7 +1118,11 @@ export function createMarketplaceRouter(deps) {
         /* Nach dem Spread, damit die Ableitung den Schema-Standardwert schlaegt. */
         urgency,
         contact_name: kontakt.name,
-        contact_phone: kontakt.telefon
+        contact_phone: kontakt.telefon,
+        /* N2.11: die Firma, fuer die angelegt wird — aus der Sitzung, nie aus dem
+           Rumpf (nach dem Spread). Traeger der Kundensperre fuer jede spaetere
+           Stelle, die den Bedarf abgleicht. */
+        requester_org_id: req.orgId || null
       });
 
       if (demand.sla_status === "RUNNING") {
