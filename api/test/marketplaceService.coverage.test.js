@@ -585,7 +585,11 @@ describe("createOffer", () => {
       cancellation_policy: { window: 24 }
     });
     assert.deepStrictEqual(result, created);
-    const q = pool.calls[0];
+    /* Fixture-Pflege (N3.0/M5.8): createOffer fragt jetzt ZUERST den Besteller
+       des Bedarfs ab (Selbstgeschaefts-Riegel) — die INSERT-Abfrage ist nicht
+       mehr die erste. Gesucht wird sie am SQL, nicht an der Position. */
+    const q = pool.calls.find((c) => c.sql.includes("INSERT INTO offers"));
+    assert.ok(q, "es wurde kein Angebot geschrieben");
     assert.match(q.sql, /INSERT INTO offers/);
     assert.match(q.sql, /'draft'/);
     assert.strictEqual(q.params[0], UUID);     // demand_request_id
@@ -603,7 +607,11 @@ describe("createOffer", () => {
       return undefined;
     });
     await createOffer(pool, "sup-1", UUID, {});
-    const q = pool.calls[0];
+    const q = pool.calls.find((c) => c.sql.includes("INSERT INTO offers"));
+    assert.ok(q, "es wurde kein Angebot geschrieben");
+    /* N3.0/M5.3: die MENGE ist die eine Ausnahme — ohne Angabe gilt jetzt 1
+       statt NULL. Ein NULL las die Deckungsrechnung als "der ganze Bedarf". */
+    assert.strictEqual(q.params[9], 1);      // offered_quantity
     assert.strictEqual(q.params[7], null);   // attachments
     assert.strictEqual(q.params[13], null);  // surcharges
     assert.strictEqual(q.params[21], null);  // compliance_check

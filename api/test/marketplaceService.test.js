@@ -33,8 +33,19 @@ function sequencePool(...responses) {
 const UUID = "00000000-0000-4000-8000-000000000001";
 const UUID2 = "00000000-0000-4000-8000-000000000002";
 
-function buildDemandSyncHarness({ offer, demand, aggregate, updatedOffer, extraQueryHandler }) {
+/*
+ * N3.0/M5.2 — VORHER UND NACHHER SIND ZWEI ZUSTAENDE.
+ *
+ * Seit dem Ueberfuellungs-Riegel liest `updateOfferStatus` die Deckung ZWEIMAL:
+ * einmal VOR dem Annehmen (passt die Menge ueberhaupt noch?) und einmal danach
+ * (der neue Stand des Bedarfs). Die Vorrichtung lieferte beide Male dieselbe
+ * Zahl — also den Zustand NACH der Annahme, schon bevor sie geschehen war. Mit
+ * `aggregateVorher` laesst sich der Ausgangsstand getrennt setzen; fehlt er,
+ * bleibt es beim bisherigen Verhalten.
+ */
+function buildDemandSyncHarness({ offer, demand, aggregate, aggregateVorher, updatedOffer, extraQueryHandler }) {
   const calls = [];
+  let deckungGelesen = 0;
   const demandRow = {
     id: offer.demand_request_id,
     status: demand.status ?? "open",
@@ -82,6 +93,19 @@ function buildDemandSyncHarness({ offer, demand, aggregate, updatedOffer, extraQ
         return { rows: [demandRow], rowCount: 1 };
       }
       if (sql.includes("dr.id AS demand_request_id")) {
+        deckungGelesen += 1;
+        if (deckungGelesen === 1 && aggregateVorher) {
+          return {
+            rows: [{
+              demand_request_id: offer.demand_request_id,
+              required_total_count: aggregateVorher.required_total_count ?? demandRow.required_total_count,
+              committed_headcount: aggregateVorher.committed_headcount ?? 0,
+              active_offer_count: aggregateVorher.active_offer_count ?? 0,
+              is_capacity_origin: aggregateVorher.is_capacity_origin === true
+            }],
+            rowCount: 1
+          };
+        }
         return { rows: [aggregateRow], rowCount: 1 };
       }
       if (sql.includes("UPDATE demand_requests")) {
@@ -123,7 +147,11 @@ describe("updateOfferStatus — state transitions", () => {
   });
 
   it("sent→accepted by requester succeeds + leaves demand only partially covered until staffing fills slots", async () => {
-    const sentOffer = { ...BASE_OFFER, status: "sent" };
+    /* Fixture-Pflege (N3.0/M5.2): seit dem Ueberfuellungs-Riegel braucht das
+       Angebot eine MENGE. Ohne sie gilt es als Angebot ueber den ganzen Bedarf
+       (4 von 4) und wird bei 2 noch offenen Plaetzen zu Recht abgewiesen. Die
+       Zusicherungen unten sind unveraendert. */
+    const sentOffer = { ...BASE_OFFER, status: "sent", offered_quantity: 2 };
     const harness = buildDemandSyncHarness({
       offer: sentOffer,
       demand: { status: "open", headcount: 4, required_total_count: 4 },
@@ -139,7 +167,8 @@ describe("updateOfferStatus — state transitions", () => {
   });
 
   it("sent→accepted recalculates demand_requests from committed quantity instead of hardcoding fulfilled", async () => {
-    const sentOffer = { ...BASE_OFFER, status: "sent" };
+    // Fixture-Pflege wie oben: Menge am Angebot, sonst greift der Ueberfuellungs-Riegel.
+    const sentOffer = { ...BASE_OFFER, status: "sent", offered_quantity: 2 };
     const harness = buildDemandSyncHarness({
       offer: sentOffer,
       demand: { status: "fulfilled", headcount: 4, required_total_count: 4, currently_committed_count: 4, remaining_open_count: 0 },
@@ -345,12 +374,16 @@ describe("updateOfferStatus — state transitions", () => {
           };
         }
         if (sql.includes("dr.id AS demand_request_id")) {
+          /* Fixture-Pflege (N3.0/M5.2): vorher offen, nachher gedeckt — genau
+             wie beim Kapazitaetsangebot eine Zeile darueber. Der
+             Ueberfuellungs-Riegel liest diese Zahl VOR der Annahme; stuende
+             dort schon die volle Deckung, wiese er die eigene Annahme ab. */
           return {
             rows: [{
               demand_request_id: UUID2,
               required_total_count: 2,
-              committed_headcount: 2,
-              active_offer_count: 1,
+              committed_headcount: offerAccepted ? 2 : 0,
+              active_offer_count: offerAccepted ? 1 : 0,
               is_capacity_origin: true
             }],
             rowCount: 1
@@ -501,6 +534,9 @@ describe("acceptOffer — shortcut for updateOfferStatus", () => {
     const harness = buildDemandSyncHarness({
       offer,
       demand: { status: "open", headcount: 1, required_total_count: 1 },
+      /* Vorher offen, nachher gedeckt — sonst wies der Riegel die Annahme ab,
+         weil der Bedarf schon vor ihr als voll galt. */
+      aggregateVorher: { required_total_count: 1, committed_headcount: 0, active_offer_count: 0 },
       aggregate: { required_total_count: 1, committed_headcount: 1, active_offer_count: 1 },
       updatedOffer: { ...offer, status: "accepted" }
     });

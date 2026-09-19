@@ -127,6 +127,11 @@ const demandRequestSchema = z.object({
   budget_min: z.number().optional().nullable(),
   budget_max: z.number().optional().nullable(),
   sla_minutes: z.number().int().min(15).max(10080).optional().nullable(),
+  /* N3.0/M5.9: "Alle 30 oder keiner" ist waehlbar — die Spalten gibt es seit
+     Migration 070, gelesen hat sie bis dahin keine Zeile. Ohne Angabe bleibt es
+     beim Bisherigen: Teilerfuellung erlaubt, Ueberfuellung nicht. */
+  partial_fulfillment_allowed: z.boolean().optional(),
+  overfill_allowed: z.boolean().optional(),
   /* Weich wie beim Angebot, aus demselben Grund: die Pflicht setzt die ROUTE
    * durch, mit Rueckfall aufs Profil. Im Schema waere sie eine Pflicht ohne
    * Rueckfall — wer sie im Profil gepflegt hat, muesste sie bei JEDEM Bedarf
@@ -1497,6 +1502,9 @@ export function createMarketplaceRouter(deps) {
         contact_name: kontakt.name,
         contact_phone: kontakt.telefon,
       });
+      /* N3.0/M5.8: wer auf den EIGENEN Bedarf bietet, bekommt die Absage hier —
+         nicht erst beim Annehmen. */
+      if (offer?.error === "SELF_DEAL_FORBIDDEN") return res.status(403).json(offer);
       res.locals.audit = { action: "marketplace.offer.create", entity_type: "offer", entity_id: offer.id, details: { demand_request_id: demandId } };
       res.status(201).json(offer);
     } catch (e) {
@@ -1537,6 +1545,11 @@ export function createMarketplaceRouter(deps) {
       const result = await marketplaceService.updateOfferStatus(pool, req.params.id, newStatus, req.session.userId);
       if (result.error === "NOT_FOUND") return res.status(404).json({ error: "NOT_FOUND" });
       if (result.error === "FORBIDDEN") return res.status(403).json({ error: "FORBIDDEN" });
+      /* N3.0/M5: derselbe Weg, dieselben Riegel — dieser Endpunkt nimmt ein
+         Angebot mit `status: "accepted"` genauso an wie /accept. */
+      if (result.error === "SELF_DEAL_FORBIDDEN") return res.status(403).json(result);
+      if (result.error === "OVERFILL_NOT_ALLOWED") return res.status(409).json(result);
+      if (result.error === "PARTIAL_NOT_ALLOWED") return res.status(409).json(result);
       if (result.error === "CAPACITY_UNAVAILABLE") return res.status(409).json(result);
       if (result.error === "INVALID_TRANSITION") return res.status(409).json(result);
       res.locals.audit = { action: `marketplace.offer.${newStatus}`, entity_type: "offer", entity_id: req.params.id, new_values: { status: newStatus } };
@@ -1575,6 +1588,12 @@ export function createMarketplaceRouter(deps) {
       const result = await marketplaceService.acceptOffer(pool, req.params.id, req.session.userId);
       if (result.error === "NOT_FOUND") return res.status(404).json({ error: "NOT_FOUND" });
       if (result.error === "FORBIDDEN") return res.status(403).json({ error: "FORBIDDEN" });
+      /* N3.0/M5: die drei Riegel des Normalwegs. Ueberfuellung und Teilerfuellung
+         sind ein Konflikt mit dem Stand des Bedarfs (409), das Selbstgeschaeft
+         ist verboten (403). */
+      if (result.error === "SELF_DEAL_FORBIDDEN") return res.status(403).json(result);
+      if (result.error === "OVERFILL_NOT_ALLOWED") return res.status(409).json(result);
+      if (result.error === "PARTIAL_NOT_ALLOWED") return res.status(409).json(result);
       if (result.error === "CAPACITY_UNAVAILABLE") return res.status(409).json(result);
       if (result.error === "INVALID_TRANSITION") return res.status(409).json(result);
       if (result.error) return res.status(400).json(result);

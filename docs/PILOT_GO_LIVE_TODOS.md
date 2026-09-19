@@ -2,6 +2,70 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-19 — Die Menge stimmt, und drei Riegel halten (N3.0 / M5 Teil 1)
+
+**Status:** erledigt · **Kategorie:** Bug-Pattern (drei Wahrheiten über dieselbe Zahl) + Produktausbau ·
+**Quelle:** Owner-Entscheid 2026-09-19 („Riegel zuerst, dann Korb, dann Sammelabschluss"); Messung
+am Code für den Kreislauf der Personalsuche
+
+Das Bündel in N3 setzt auf dem Korb aus M5 auf — und der Korb setzt darauf, dass die **Menge
+stimmt**. Gemessen stimmte sie nicht.
+
+**1. Drei Rechner, drei Wahrheiten (M5.1).** `demand_requests.currently_committed_count` und
+`remaining_open_count` wurden von drei Diensten geschrieben, jeder mit eigener Rechnung:
+
+| Dienst | zählte | Folge |
+|---|---|---|
+| `marketplaceService` | angenommene Angebote | die kanonische Rechnung, aber nicht die einzige |
+| `assignmentStaffingService` | die Besetzung **eines** Einsatzes | bei zwei Zeitarbeitsfirmen löschte die zweite Neuberechnung den Anteil der ersten — ausgelöst auch vom **Lesen** einer Dealakte |
+| `emergencyCommitmentService` | nur Notdienst-Zusagen | überschrieb die Angebote |
+
+Jetzt rechnet **eine** Abfrage über drei Quellen, und keine zählt doppelt: angenommene Angebote,
+Notdienst-Zusagen **ohne** Angebot (`agreement_offer_id IS NULL`) und Einsätze am Bedarf **ohne**
+Angebot (`offer_id IS NULL`). Die beiden anderen Dienste stoßen sie nur noch an.
+
+**2. Der Überfüllungs-Riegel gilt jetzt auch auf dem Normalweg (M5.2).** Er stand nur im Notdienst:
+ein Bedarf über 30 Plätze konnte zweimal 30 annehmen. Geprüft wird vor dem Schreiben, in derselben
+Transaktion, in der der Bedarf gesperrt ist — sonst gewinnt bei zwei gleichzeitigen Annahmen der
+Zufall. Antwort: **409 `OVERFILL_NOT_ALLOWED`** mit Restmenge. Wer Überfüllung ausdrücklich
+erlaubt, darf überfüllen.
+
+**3. Die Menge steht am Angebot (M5.3).** `offered_quantity` blieb NULL, und die Deckungsrechnung
+las NULL als „der ganze Bedarf". Ein Angebot über **eine** Kraft galt damit als vollständige
+Deckung — der Bedarf war erfüllt, die übrigen Plätze verschwanden aus dem Markt. Ohne Angabe gilt
+jetzt **1**.
+
+**4. „Alle 30 oder keiner" wirkt (M5.9).** `partial_fulfillment_allowed` stand seit Migration 070
+im Schema und wurde von **keiner Zeile** gelesen. Der Kunde kann es jetzt beim Anlegen wählen; ein
+Angebot, das den Rest nicht deckt, wird mit **409 `PARTIAL_NOT_ALLOWED`** abgewiesen.
+
+**5. Niemand handelt mit sich selbst (M5.8).** Der Riegel stand nur auf dem Zustimmungsweg. Ein
+Unternehmen konnte auf den **eigenen** Bedarf bieten und selbst annehmen. Jetzt beides: **403
+`SELF_DEAL_FORBIDDEN`**, schon beim Anbieten.
+
+**Verifikation.**
+
+* `api/test/mengeUndRiegel.test.js` — 13 Proben an der Wirkung: welche Quellen die Abfrage nennt,
+  was gebunden wird, dass vor dem Schreiben abgewiesen wird, und dass die Besetzung eines Einsatzes
+  die Deckung des Bedarfs **nicht** mehr überschreibt.
+* `api/test/integration/deckungStimmt.flow.test.js` — 9 Fälle gegen die echte Datenbank
+  (Transaktion mit ROLLBACK): 2 + 1 + 1 = 4 von 6, und beide Doppelzähl-Wege einzeln nachgestellt.
+  Die neue Abfrage ist damit wirklich ausgeführt, nicht nur gepinnt.
+* **12 Rückmutationen, alle rot** (4 davon zusätzlich mit Datenbank).
+* **Beim Bauen gefunden:** die neue Abfrage enthielt `FROM offers o` — und mehrere Muster-Pools
+  erkennen daran die **Angebots**-Abfrage. Sie antworteten der Deckungsrechnung mit einer
+  Angebotszeile, und die Deckung kam als 0 zurück. Die Aliase heißen jetzt `ang`, `notd`, `eins`.
+  Ein zweiter Fehler derselben Art: ein Kommentar **im** SQL-Text enthielt Backticks und beendete
+  die Zeichenkette.
+* **Fixture-Pflege (§0.9, Zusicherungen unverändert):** zwei Vorrichtungen lieferten für „vorher"
+  und „nachher" dieselbe Deckung. Der Riegel liest den Stand **vor** der Annahme; stünde dort
+  schon die volle Deckung, wiese er die eigene Annahme ab. Die Vorrichtung kennt jetzt beide Stände.
+
+**Offen, benannt:** Anbieter-Modus der Bedarfsliste und die Korb-Ansicht (M5.4/M5.5), danach ein
+Klick → N Verträge (M5.6/M5.7). Erst damit kann N3 ein Bündel über mehrere Firmen zeigen.
+
+---
+
 ### 2026-09-19 — Was die Nachprüfung der Nachprüfung fand (N2.12)
 
 **Status:** erledigt · **Kategorie:** Bug (tote Prüfung) + Wächter-Qualität ·

@@ -20,41 +20,33 @@ async function hasSupplierMatch(pool, demandId, supplierCompanyId) {
   return Boolean(rows[0]);
 }
 
+/*
+ * N3.0/M5.1 (Owner-Entscheid 2026-09-19): EIN Rechner fuer die Restmenge.
+ *
+ * Hier stand eine eigene Rechnung, die NUR die Notdienst-Zusagen zaehlte — und
+ * damit die angenommenen Angebote desselben Bedarfs ueberschrieb. Jetzt rechnet
+ * `marketplaceService.syncDemandCommercialState` fuer alle Quellen zusammen
+ * (Angebote, Notdienst-Zusagen ohne Angebot, Einsaetze ohne Angebot).
+ * Der Rueckgabewert bleibt wortgleich, damit die Aufrufer unveraendert bleiben.
+ */
 async function recalcDemandCoverage(client, demandId) {
-  const demandQ = await client.query(
-    `SELECT id, required_total_count
-       FROM demand_requests
-      WHERE id = $1
-      FOR UPDATE`,
-    [demandId]
-  );
-  const demand = demandQ.rows[0];
-  if (!demand) return null;
-
-  const committedQ = await client.query(
-    `SELECT COALESCE(SUM(committed_quantity), 0)::int AS total
-       FROM emergency_provider_commitments
-      WHERE demand_request_id = $1
-        AND status = 'committed'`,
-    [demandId]
-  );
-  const committedTotal = Number(committedQ.rows[0]?.total || 0);
-  const requiredTotal = Number(demand.required_total_count || 1);
+  const { syncDemandCommercialState } = await import("./marketplaceService.js");
+  const bedarf = await syncDemandCommercialState(client, demandId);
+  if (!bedarf) return null;
+  const requiredTotal = Number(bedarf.required_total_count || 1);
+  const committedTotal = Number(bedarf.committed_headcount ?? bedarf.currently_committed_count ?? 0);
   const { status, remaining } = mapDemandStatus(requiredTotal, committedTotal);
-
-  await client.query(
-    `UPDATE demand_requests
-        SET currently_committed_count = $2,
-            remaining_open_count = $3,
-            status = $4,
-            fulfilled_at = CASE WHEN $4 = 'fulfilled' THEN COALESCE(fulfilled_at, NOW()) ELSE fulfilled_at END,
-            updated_at = NOW()
-      WHERE id = $1`,
-    [demandId, committedTotal, remaining, status]
-  );
-
-  return { required_total_count: requiredTotal, currently_committed_count: committedTotal, remaining_open_count: remaining, status };
+  return {
+    required_total_count: requiredTotal,
+    currently_committed_count: committedTotal,
+    remaining_open_count: Number(bedarf.remaining_open_count ?? remaining),
+    status: bedarf.status || status
+  };
 }
+
+/* Nur fuer Proben: die Neuberechnung ist intern, aber ihre Delegation an den
+   einen Rechner (N3.0/M5.1) ist genau die Zusicherung dieser Welle. */
+export const _FUER_PROBEN = Object.freeze({ recalcDemandCoverage });
 
 export async function listCommitments(pool, demandId) {
   const { rows } = await pool.query(

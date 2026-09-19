@@ -127,10 +127,13 @@ describe("N2.11 · die Firma wird beim Anlegen gespeichert — aus der Sitzung",
     const p = pool([["INSERT INTO demand_requests", [{ id: "dr1" }]]]);
     await marktDienst.createDemandRequest(p, "u1", "PRO", { title: "t", role: "r", start_date: "2027-01-01", requester_org_id: FIRMA_A });
     const q = p.finde("INSERT INTO demand_requests")[0];
-    assert.ok(q.sql.includes("contact_name, contact_phone, requester_org_id)"));
-    assert.ok(q.sql.includes("$26,$27)"));
-    assert.equal(q.params.length, 27);
+    assert.ok(q.sql.includes("contact_name, contact_phone, requester_org_id,"));
     assert.equal(q.params[26], FIRMA_A);
+    /* N3.0/M5.9: dahinter stehen seit der Riegel-Welle die beiden Schalter —
+       ohne Angabe Teilerfuellung erlaubt, Ueberfuellung nicht. */
+    assert.equal(q.params.length, 29);
+    assert.equal(q.params[27], true, "Teilerfuellung ist nicht mehr die Vorgabe");
+    assert.equal(q.params[28], false, "Ueberfuellung waere die Vorgabe geworden");
   });
 
   const RUMPF = { title: "10 Pflegekraefte", role: "Pflege", headcount: 2, location_city: "Münster",

@@ -805,43 +805,24 @@ async function refreshCampaignMetrics(client, campaignId) {
   return rows[0] || null;
 }
 
-async function syncDemandCoverage(client, assignment, staffing) {
+/*
+ * N3.0/M5.1 (Owner-Entscheid 2026-09-19): EIN Rechner fuer die Restmenge.
+ *
+ * BEFUND: hier stand die gefaehrlichste der drei Rechnungen. Sie schrieb die
+ * Besetzung EINES Einsatzes in den Bedarf — bei zwei Zeitarbeitsfirmen an
+ * einem Bedarf loeschte die zweite Neuberechnung den Anteil der ersten. Und
+ * ausgeloest wurde sie auch vom blossen LESEN einer Dealakte, weil jede
+ * Staffing-Neuberechnung hier vorbeikommt.
+ *
+ * Die Besetzung eines Einsatzes mit Menschen ist etwas anderes als die
+ * kaufmaennische Deckung des Bedarfs: gedeckt ist er, sobald das Angebot
+ * angenommen ist. Deshalb rechnet jetzt `marketplaceService` ueber ALLE
+ * Quellen, und diese Stelle stoesst die Neuberechnung nur noch an.
+ */
+async function syncDemandCoverage(client, assignment, _staffing) {
   if (!assignment?.demand_request_id) return null;
-
-  const { rows } = await client.query(
-    `SELECT id, status, required_total_count, headcount, fulfilled_at
-     FROM demand_requests
-     WHERE id = $1
-     FOR UPDATE`,
-    [assignment.demand_request_id]
-  );
-  const demand = rows[0];
-  if (!demand || ["closed", "cancelled", "expired"].includes(demand.status)) return demand;
-
-  const required = Math.max(
-    1,
-    toInt(demand.required_total_count ?? demand.headcount ?? staffing.requested_quantity, staffing.requested_quantity)
-  );
-  const committed = clamp(staffing.filled_quantity + staffing.reserved_quantity, 0, required);
-  const remaining = Math.max(required - committed, 0);
-  const nextStatus = committed >= required ? "fulfilled" : "partially_covered";
-
-  const { rows: updatedRows } = await client.query(
-    `UPDATE demand_requests
-     SET currently_committed_count = $2,
-         remaining_open_count = $3,
-         status = $4,
-         fulfilled_at = CASE
-           WHEN $4 = 'fulfilled' THEN COALESCE(fulfilled_at, NOW())
-           ELSE NULL
-         END,
-         updated_at = NOW()
-     WHERE id = $1
-     RETURNING *`,
-    [demand.id, committed, remaining, nextStatus]
-  );
-
-  return updatedRows[0] || demand;
+  const { syncDemandCommercialState } = await import("./marketplaceService.js");
+  return syncDemandCommercialState(client, assignment.demand_request_id);
 }
 
 export function deriveStaffingStatus(assignment, {

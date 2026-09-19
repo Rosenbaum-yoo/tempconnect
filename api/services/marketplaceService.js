@@ -256,8 +256,9 @@ export async function createDemandRequest(pool, requesterId, plan, payload) {
       shifts, requirements, urgency, budget_min, budget_max,
       sla_started_at, sla_minutes, sla_due_at, sla_status,
       required_total_count, remaining_open_count, currently_committed_count,
-      contact_name, contact_phone, requester_org_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
+      contact_name, contact_phone, requester_org_id,
+      partial_fulfillment_allowed, overfill_allowed)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
      RETURNING *`,
     [
       requesterId,
@@ -293,7 +294,11 @@ export async function createDemandRequest(pool, requesterId, plan, payload) {
       /* N2.11 (Migration 218): die Firma, fuer die angelegt wird — Traeger der
        * Kundensperre. Kommt aus der aktiven Firma der Sitzung (`req.orgId`),
        * nie aus dem Rumpf; die Routen setzen sie nach dem Spread. */
-      payload.requester_org_id || null
+      payload.requester_org_id || null,
+      /* N3.0/M5.9: ohne Angabe bleibt es beim Bisherigen — Teilerfuellung
+         erlaubt, Ueberfuellung nicht (die Standardwerte aus Migration 070). */
+      payload.partial_fulfillment_allowed !== undefined ? !!payload.partial_fulfillment_allowed : true,
+      payload.overfill_allowed !== undefined ? !!payload.overfill_allowed : false
     ]
   );
   return rows[0];
@@ -330,27 +335,66 @@ export async function getDemandCommercialStates(pool, demandRequestIds = []) {
     return new Map();
   }
 
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * DER EINE RESTMENGEN-RECHNER (Welle N3.0/M5.1, Owner-Entscheid 2026-09-19)
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * BEFUND: DREI Dienste haben dieselben Spalten geschrieben, jeder mit seiner
+   * eigenen Rechnung — und zwei davon zaehlten nur IHRE Quelle:
+   *   * `assignmentStaffingService.syncDemandCoverage` schrieb die Besetzung
+   *     EINES Einsatzes in den Bedarf. Zwei Firmen an einem Bedarf: die zweite
+   *     Neuberechnung loeschte den Anteil der ersten — und sie lief auch beim
+   *     blossen OEFFNEN einer Dealakte.
+   *   * `emergencyCommitmentService.recalcDemandCoverage` zaehlte nur
+   *     Notdienst-Zusagen und ueberschrieb damit die Angebote.
+   *
+   * Hier steht jetzt die EINE Wahrheit. Zugesagt ist, was drei Quellen
+   * zusammen tragen — und keine davon doppelt:
+   *   1. angenommene ANGEBOTE (die Regel aus zusageFormel.js),
+   *   2. NOTDIENST-ZUSAGEN, aus denen noch kein Angebot geworden ist
+   *      (`agreement_offer_id IS NULL` — sonst zaehlte dieselbe Zusage zweimal),
+   *   3. EINSAETZE am Bedarf, die NICHT aus einem Angebot stammen
+   *      (`offer_id IS NULL` — der manuelle Weg; aus einem Angebot entstandene
+   *      Einsaetze sind ueber Punkt 1 schon gezaehlt).
+   *
+   * DIE ALIASE HEISSEN BEWUSST `ang`, `notd`, `eins` UND NICHT `o`, `c`, `a`:
+   * mehrere Muster-Pools erkennen die Angebots-Abfrage an "FROM offers o" und
+   * haetten dieser Rechnung eine Angebotszeile geantwortet — gemessen beim Bau,
+   * die Deckung kam dann als 0 zurueck. Ein Alias ist billig.
+   */
   const { rows } = await pool.query(
     `SELECT
        dr.id AS demand_request_id,
        GREATEST(COALESCE(dr.required_total_count, dr.headcount, 1), 1)::int AS required_total_count,
-       COALESCE(SUM(
-         CASE
-           WHEN o.status = 'accepted'
-             AND COALESCE(o.agreement_status, 'none') NOT IN ('cancelled', 'expired')
-           THEN GREATEST(COALESCE(o.offered_quantity, dr.headcount, 0), 0)
-           ELSE 0
-         END
-       ), 0)::int AS committed_headcount,
-       COUNT(DISTINCT o.id) FILTER (
-         WHERE o.status = 'accepted'
-           AND COALESCE(o.agreement_status, 'none') NOT IN ('cancelled', 'expired')
-       )::int AS active_offer_count,
-       COALESCE(BOOL_OR(o.capacity_post_id IS NOT NULL), FALSE) AS is_capacity_origin
+       (COALESCE(angebote.menge, 0) + COALESCE(notdienst.menge, 0) + COALESCE(einsaetze.menge, 0))::int AS committed_headcount,
+       COALESCE(angebote.anzahl, 0)::int AS active_offer_count,
+       COALESCE(angebote.aus_kapazitaet, FALSE) AS is_capacity_origin
      FROM demand_requests dr
-     LEFT JOIN offers o ON o.demand_request_id = dr.id
-     WHERE dr.id = ANY($1)
-     GROUP BY dr.id, GREATEST(COALESCE(dr.required_total_count, dr.headcount, 1), 1)`,
+     LEFT JOIN LATERAL (
+       SELECT COALESCE(SUM(GREATEST(COALESCE(ang.offered_quantity, dr.headcount, 0), 0)), 0) AS menge,
+              COUNT(*) AS anzahl,
+              BOOL_OR(ang.capacity_post_id IS NOT NULL) AS aus_kapazitaet
+         FROM offers ang
+        WHERE ang.demand_request_id = dr.id
+          AND ang.status = 'accepted'
+          AND COALESCE(ang.agreement_status, 'none') NOT IN ('cancelled', 'expired')
+     ) angebote ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT COALESCE(SUM(GREATEST(COALESCE(notd.committed_quantity, 0), 0)), 0) AS menge
+         FROM emergency_provider_commitments notd
+        WHERE notd.demand_request_id = dr.id
+          AND notd.status = 'committed'
+          AND notd.agreement_offer_id IS NULL
+     ) notdienst ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT COALESCE(SUM(GREATEST(COALESCE(eins.requested_quantity, eins.worker_count, 1), 0)), 0) AS menge
+         FROM assignments eins
+        WHERE eins.demand_request_id = dr.id
+          AND eins.offer_id IS NULL
+          AND eins.status NOT IN ('cancelled', 'completed')
+     ) einsaetze ON TRUE
+     WHERE dr.id = ANY($1)`,
     [uniqueIds]
   );
 
@@ -694,6 +738,26 @@ export async function notdienstEscalationDemands(pool, batchSize) {
 /* ── offers ──────────────────────────────────────────────────── */
 
 export async function createOffer(pool, supplierCompanyId, demandRequestId, payload) {
+  /*
+   * N3.0/M5.3 + M5.8: die MENGE steht am Angebot, und wer auf seinen eigenen
+   * Bedarf bietet, bekommt hier schon eine Absage.
+   *
+   * `offered_quantity` blieb bisher NULL, und die Deckungsrechnung las ein
+   * NULL als "der ganze Bedarf" (COALESCE auf dr.headcount). Ein Angebot ueber
+   * eine einzelne Kraft galt damit als vollstaendige Deckung — der Bedarf war
+   * nach einem Angebot "erfuellt", und die uebrigen Plaetze verschwanden aus
+   * dem Markt. Ohne Angabe gilt jetzt 1; Altbestand mit NULL bleibt, wie er
+   * gelesen wurde.
+   */
+  const { rows: bedarfsZeilen } = await pool.query(
+    "SELECT requester_company_id FROM demand_requests WHERE id = $1",
+    [demandRequestId]
+  );
+  const besteller = bedarfsZeilen[0]?.requester_company_id || null;
+  if (besteller && String(besteller) === String(supplierCompanyId)) {
+    return { error: "SELF_DEAL_FORBIDDEN" };
+  }
+  const menge = Math.max(1, Number(payload.offered_quantity ?? 1) || 1);
   const { rows } = await pool.query(
     `INSERT INTO offers
      (demand_request_id, supplier_company_id, price_type, price_value, price_min, price_max,
@@ -714,7 +778,7 @@ export async function createOffer(pool, supplierCompanyId, demandRequestId, payl
       payload.notes || null,
       payload.attachments ? JSON.stringify(payload.attachments) : null,
       payload.terms || null,
-      payload.offered_quantity ?? null,
+      menge,
       payload.offered_hourly_rate ?? null,
       payload.start_confirmed || null,
       payload.end_date || null,
@@ -904,6 +968,49 @@ export async function updateOfferStatus(pool, offerId, newStatus, userId) {
           requested_headcount: requestedHeadcount,
           remaining_headcount: capacityState.remaining_headcount
         };
+      }
+    }
+
+    /*
+     * ═══════════════════════════════════════════════════════════════════════
+     * DIE DREI RIEGEL BEIM ANNEHMEN (Welle N3.0/M5, Owner-Entscheid 2026-09-19)
+     * ═══════════════════════════════════════════════════════════════════════
+     *
+     * Bis hierher hatte sie NUR der Notdienst (`emergencyCommitmentService`).
+     * Auf dem Normalweg konnte ein Bedarf ueber 30 Plaetze zweimal 30 annehmen,
+     * ein Unternehmen auf den EIGENEN Bedarf bieten und selbst annehmen, und
+     * `partial_fulfillment_allowed` stand als tote Spalte im Schema.
+     *
+     * Alle drei pruefen VOR dem Schreiben und in derselben Transaktion, in der
+     * der Bedarf gesperrt ist (`FOR UPDATE`) — sonst gewinnt bei zwei
+     * gleichzeitigen Annahmen der Zufall.
+     */
+    if (newStatus === "accepted") {
+      if (offer.supplier_company_id && offer.requester_company_id
+          && String(offer.supplier_company_id) === String(offer.requester_company_id)) {
+        return { error: "SELF_DEAL_FORBIDDEN" };
+      }
+      const { rows: bedarfsZeilen } = await client.query(
+        `SELECT id, headcount, required_total_count, overfill_allowed, partial_fulfillment_allowed
+           FROM demand_requests WHERE id = $1 FOR UPDATE`,
+        [offer.demand_request_id]
+      );
+      const bedarf = bedarfsZeilen[0];
+      if (bedarf) {
+        const stand = buildDemandCommercialState(
+          bedarf,
+          (await getDemandCommercialStates(client, [bedarf.id])).get(bedarf.id)
+        );
+        const menge = Math.max(1, Number(offer.offered_quantity ?? bedarf.headcount ?? 1) || 1);
+        const offen = stand.remaining_open_count;
+        if (bedarf.overfill_allowed !== true && menge > offen) {
+          return { error: "OVERFILL_NOT_ALLOWED", requested_headcount: menge, remaining_open_count: offen };
+        }
+        /* "Alle 30 oder keiner": wer Teilerfuellung ausschliesst, nimmt kein
+           Angebot an, das den Rest NICHT deckt. */
+        if (bedarf.partial_fulfillment_allowed === false && menge < offen) {
+          return { error: "PARTIAL_NOT_ALLOWED", requested_headcount: menge, remaining_open_count: offen };
+        }
       }
     }
 

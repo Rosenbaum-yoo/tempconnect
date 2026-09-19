@@ -468,6 +468,23 @@ Gewerk. Der Ausnahmefall ist also selten; er ist nur heute ausweglos.
 bleibt eine Owner-Aufgabe mit Auslöser („vor dem ersten Abschluss zwischen zwei echten
 Kunden"), sie blockiert den Bau nicht.
 
+> **Teil 1 gebaut am 2026-09-19 (Welle N3.0, Owner-Entscheid „Riegel zuerst").**
+> **M5.1, M5.2, M5.3, M5.8 und M5.9 sind erledigt** — Einzelheiten in
+> `docs/PILOT_GO_LIVE_TODOS.md`, Eintrag „Die Menge stimmt, und drei Riegel halten".
+>
+> | Phase | Stand |
+> |---|---|
+> | M5.1 Restmengen-Rechner | ✅ eine Abfrage über drei Quellen (Angebote, Notdienst-Zusagen ohne Angebot, Einsätze ohne Angebot); die beiden anderen Dienste stoßen sie nur noch an |
+> | M5.2 Überfüllungs-Riegel | ✅ auch auf dem Normalweg, in derselben Transaktion mit `FOR UPDATE`; 409 `OVERFILL_NOT_ALLOWED` |
+> | M5.3 `offered_quantity` | ✅ ohne Angabe gilt 1, nicht mehr „der ganze Bedarf" |
+> | M5.8 Selbstgeschäfts-Riegel | ✅ beim Anbieten **und** beim Annehmen, 403 `SELF_DEAL_FORBIDDEN` |
+> | M5.9 `partial_fulfillment_allowed` | ✅ wählbar beim Anlegen, wirkt beim Annehmen (409 `PARTIAL_NOT_ALLOWED`) |
+> | M5.4 Anbieter-Modus · M5.5 Korb-Ansicht · M5.6 N Verträge · M5.7 Aufstellung | offen — Teil 2 und 3 |
+>
+> **Gemessen beim Bau:** der Staffing-Rechner schrieb die Besetzung EINES Einsatzes in den
+> Bedarf — bei zwei Zeitarbeitsfirmen löschte die zweite Neuberechnung den Anteil der ersten,
+> ausgelöst auch vom bloßen Lesen einer Dealakte. Genau der Fall, den M5.1 beschreibt.
+
 > **Die gute Nachricht der Messung:** der Sammelabschluss ist **kein Neubau**. Endpunkt,
 > Mengenfeld, Restmengen-Buchführung und die Summierung über alle angenommenen Angebote
 > sind gebaut. Was fehlt, ist ein **Anbieter-Modus** in der Bedarfsliste — und drei Riegel.
