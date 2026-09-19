@@ -2,6 +2,53 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-19 — Was die Nachprüfung der Nachprüfung fand (N2.12)
+
+**Status:** erledigt · **Kategorie:** Bug (tote Prüfung) + Wächter-Qualität ·
+**Quelle:** unabhängige Nachprüfung der elf N2.11-Fixes, die in der großen Gegenprüfung über der
+Prüfgrenze lagen (je ein Skeptiker; 8 von 11 kamen durch, 3 fielen ins Wochenlimit)
+
+**Urteil der acht:** sechs Fixes einwandfrei (Preis-Tor, Eingabetaste, Notdienst-Weg,
+Bedarfs-ODER, Leerzustand, Vorschau nach Entwurf), zwei behoben, aber mit Lücken daneben.
+**Ohne Urteil und weiterhin offen: Blättern, Start-Firma, Matching-Route** — die stehen als
+erstes in der nächsten Prüfung.
+
+**1. `PATCH /assignments` verwarf Standort und Abteilung stillschweigend — und die Anlage auch.**
+`createSchema` kannte `location_id` und `department_id` nicht, Zod entfernt unbekannte Schlüssel.
+Beide Felder kamen also nie bei `updateAssignment`/`createAssignment` an, und die drei
+Org-Prüfungen dafür (Route zweimal, Dienst einmal) liefen immer mit `undefined` — sie waren tot.
+`docs/API.md` versprach sie als änderbar. Jetzt stehen beide im Schema, kommen im Datensatz an, und
+ein fremder Standort ist eine **403**, kein 500: der `OrgBoundaryError` wird im Anlagepfad
+abgefangen wie im PATCH.
+
+**2. Nur angeklickte Fähigkeiten zählten nicht mehr als Entwurf.** N2.11 hatte den Markup-Standard
+über `defaultValue` verglichen. Bei `<input type="hidden">` setzt `.value` aber das
+value-**Attribut** selbst, und `defaultValue` gibt genau dieses zurück — für `skill_tags` war
+`v !== defaultValue` deshalb nie wahr. Wer in Schritt 2 Fähigkeiten anklickte und die Seite
+verließ, fand beim Wiederkommen nichts vor. Die Markup-Standards werden jetzt **einmal beim Laden**
+festgehalten. Die Test-Sandbox bildet die Regel für versteckte Felder nach, sonst hätte sie daran
+vorbeigemessen.
+
+**3. Drei Wächter, die nur scheinbar zusicherten** (jeder mit ausgeführter Rückmutation belegt):
+
+| Wächter | Was durchging |
+|---|---|
+| Entwurf nach dem Absenden | Ein `loeschen()` im Sprachwechsel-Hörer **oder** im Fehlerzweig blieb grün — der Befund aus N2.11, nur eine Zeile weiter. Jetzt zählt die Probe die ganze Seite: **genau ein** Aufruf, und der liegt im Erfolgszweig |
+| Leerzustand (`zweigNach`) | Ein Anführungszeichen in einem regulären Ausdruck (`/["]/`) oder ein Apostroph im Kommentar brachte die Klammersuche aus dem Tritt; sie las bis in den Treffer-Zweig. Jetzt werden Kommentare zuerst entfernt, Zeichenklassen übersprungen — und findet sie sich doch im Treffer-Zweig wieder, ist sie **rot** statt still grün |
+| Notdienst-Firma | Nur die Route war gedeckt. Nahm man im Dienst die Ableitung zurück, blieb alles grün. Jetzt belegt eine Probe, dass der **gespeicherte** Bedarf gewinnt, und eine zweite den Rückfall für den Altbestand |
+
+**4. Die API-Doku hängt jetzt am Code.** Kein Test hielt `docs/API.md` fest; der alte Satz „Link a
+deal/requisition to a worker" hätte unbemerkt zurückkehren können. Der neue Wächter ist
+**entdeckend**: jeder Fehlercode aus `assignmentService` und der Route muss im Abschnitt stehen,
+und jedes Feld, das die Doku als änderbar nennt, muss es im Schema geben.
+
+**Beim Bauen gefunden:** die Doku-Probe scheiterte zuerst **still** — `docs/API.md` liegt mit CRLF
+im Baum, die Abschnittssuche fand nichts, und der Fehler fiel im `describe`-Rumpf an, wo ihn der
+Runner nicht mitzählt. Zeilenenden werden jetzt normalisiert, und die Existenz beider Abschnitte
+ist eine eigene, laute Probe.
+
+---
+
 ### 2026-09-16 — Was die große Gegenprüfung fand: 20 Befunde, abgearbeitet (N2.11)
 
 **Status:** erledigt · **Kategorie:** Security (Mandantengrenze) + Bug + Wächter-Qualität ·

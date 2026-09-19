@@ -319,8 +319,17 @@ describe("Erreichbarkeit — die Wege, auf die es ankommt",
     new RegExp('href\\s*=\\s*"[^"]*' + nach.replace(/\./g, "\\."), "i");
 
   /* Der Block, den eine oeffnende Klammer beginnt — bis zur PASSENDEN
-     schliessenden. Klammern in Zeichenketten zaehlen nicht mit. */
-  const zweigNach = (quelle, kopf) => {
+     schliessenden. Klammern in Zeichenketten zaehlen nicht mit.
+
+     N2.12 (Befund der Nachpruefung 2026-09-16): Kommentare und regulaere
+     Ausdruecke koennen ein einzelnes Anfuehrungszeichen tragen (`var rx=/["]/;`
+     oder ein Apostroph in einem Kommentar). Wer sie fuer Text haelt, verliert
+     die Spur und liest ueber das Ende des Zweigs hinaus — die Probe waere dann
+     still gruen. Deshalb werden Kommentare ZUERST entfernt, und der Aufrufer
+     bekommt einen Zweig, der nachweislich dort endet, wo er enden soll. */
+  const ohneKommentare = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+  const zweigNach = (rohquelle, kopf) => {
+    const quelle = ohneKommentare(rohquelle);
     const m = kopf.exec(quelle);
     if (!m) return null;
     let tiefe = 0;
@@ -332,11 +341,28 @@ describe("Erreichbarkeit — die Wege, auf die es ankommt",
         if (z === inText) inText = null;
         continue;
       }
+      /* Ein Anfuehrungszeichen INNERHALB eines regulaeren Ausdrucks ist kein
+         Textanfang. Die Zeichenklasse ueberspringen wir als Ganzes. */
+      if (z === "[" && quelle.slice(Math.max(0, i - 40), i).includes("/")) {
+        const zu = quelle.indexOf("]", i);
+        if (zu > i) { i = zu; continue; }
+      }
       if (z === "'" || z === '"' || z === "`") { inText = z; continue; }
       if (z === "{") tiefe++;
       else if (z === "}" && --tiefe === 0) return quelle.slice(m.index, i + 1);
     }
     return null;
+  };
+
+  /* Der Leerzweig MIT Riegel: verlaeuft sich die Klammersuche doch einmal,
+     endet sie im Treffer-Zweig — und dort steht `matches.forEach`. Dann gibt es
+     hier `null` statt eines zu langen Blocks, und die Probe wird ROT statt
+     still gruen. Beides steht bewusst in EINER Funktion, damit der Selbsttest
+     unten denselben Weg prueft wie die Probe. */
+  const leerzweigVon = (quelle) => {
+    const block = zweigNach(quelle, /matches\.length === 0\)\s*\{/);
+    if (!block || /matches\.forEach/.test(block)) return null;
+    return block;
   };
 
   for (const weg of WEGE) {
@@ -374,20 +400,56 @@ describe("Erreichbarkeit — die Wege, auf die es ankommt",
          `matches.length === 0` ausgeschnitten. Das `} else {` des Treffer-Zweigs
          liegt nach ~750 Zeichen — ein Verweis im TREFFER-Zweig galt damit als
          Leerzustand. Jetzt genau der Block zwischen den passenden Klammern. */
-      const leerzweig = zweigNach(quelle, /matches\.length === 0\)\s*\{/);
-      assert.ok(leerzweig, "der Leerzustand ist nicht mehr auffindbar");
+      const leerzweig = leerzweigVon(quelle);
+      assert.ok(leerzweig,
+        "der Leerzustand ist nicht auffindbar — oder der ausgeschnittene Block reicht bis in den Treffer-Zweig");
       assert.match(leerzweig, verweisMuster(weg.nach),
         "der Leerzustand nennt keinen naechsten Schritt");
     });
 
     it(`der Leerzustand-Waechter zaehlt einen Verweis im Treffer-Zweig NICHT mit (${weg.nach})`, () => {
       /* Selbsttest: genau die Rueckmutation, die die 900-Zeichen-Fassung ueberlebte. */
-      const verschoben = `if (matches.length === 0) { html += '<div class="empty">nichts</div>'; } else { html += '<a href="/public/${weg.nach}">x</a>'; }`;
-      assert.ok(!verweisMuster(weg.nach).test(zweigNach(verschoben, /matches\.length === 0\)\s*\{/)),
+      const verschoben = `if (matches.length === 0) { html += '<div class="empty">nichts</div>'; } else { matches.forEach(function(m) { html += '<a href="/public/${weg.nach}">x</a>'; }); }`;
+      const nurLeerzweig = leerzweigVon(verschoben);
+      assert.ok(nurLeerzweig, "Vorbedingung: der Leerzweig ist sauber begrenzt und wird gefunden");
+      assert.ok(!verweisMuster(weg.nach).test(nurLeerzweig),
         "ein Verweis hinter `} else {` gilt als Leerzustand");
-      const richtig = `if (matches.length === 0) { html += '<a href="/public/${weg.nach}">x</a>'; } else { html += '<b>t</b>'; }`;
-      assert.ok(verweisMuster(weg.nach).test(zweigNach(richtig, /matches\.length === 0\)\s*\{/)),
+      const richtig = `if (matches.length === 0) { html += '<a href="/public/${weg.nach}">x</a>'; } else { matches.forEach(function(m) { html += '<b>t</b>'; }); }`;
+      assert.ok(verweisMuster(weg.nach).test(leerzweigVon(richtig)),
         "ein Verweis IM Leerzustand wird nicht erkannt");
+
+      /*
+       * N2.12 — die zwei Faelle, an denen sich die Klammersuche verlaufen hat.
+       * Der Leerzweig traegt hier ABSICHTLICH keine Zeichenkette: dann bleibt
+       * das einzelne Anfuehrungszeichen aus Kommentar bzw. regulaerem Ausdruck
+       * ohne Gegenstueck, die Suche laeuft bis ins Dateiende — und wer das nicht
+       * bemerkt, haelt den Treffer-Zweig fuer den Leerzustand.
+       */
+      const sauberOhneVerweis = (quelle, was) => {
+        const block = leerzweigVon(quelle);
+        /* Entweder die Suche verlaeuft sich (dann greift der Riegel und liefert
+           null) oder sie liest den Treffer-Zweig mit — beides ist hier rot. */
+        assert.ok(block, `${was}: der Leerzweig wurde gar nicht mehr sauber gefunden`);
+        assert.ok(!verweisMuster(weg.nach).test(block),
+          `${was}: der Leerzweig reicht bis in den Treffer-Zweig`);
+      };
+      sauberOhneVerweis(
+        `if (matches.length === 0) { /* der Kunde's Weg */ html += leer; } else { matches.forEach(function(m) { html += '<a href="/public/${weg.nach}">x</a>'; }); }`,
+        "ein Apostroph im Kommentar");
+      sauberOhneVerweis(
+        `if (matches.length === 0) { var rx=/['"]/; html += leer; } else { matches.forEach(function(m) { html += '<a href="/public/${weg.nach}">x</a>'; }); }`,
+        "ein Anfuehrungszeichen in einem regulaeren Ausdruck");
+
+      /*
+       * UND DER RIEGEL SELBST. Eine geschweifte Klammer in einem regulaeren
+       * Ausdruck (`/\\{/`) zaehlt die Suche mit — dagegen hilft kein
+       * Kommentar-Entfernen. Der Block reicht dann in den Treffer-Zweig, und
+       * genau dafuer gibt es den Riegel: lieber NICHTS liefern (die Probe wird
+       * rot) als den falschen Block (sie bliebe still gruen).
+       */
+      const mitKlammerImRegex = `function zeichne() { if (matches.length === 0) { var rx=/\\{/; html += leer; } else { matches.forEach(function(m) { html += '<a href="/public/${weg.nach}">x</a>'; }); } }`;
+      assert.equal(leerzweigVon(mitKlammerImRegex), null,
+        "die Klammersuche liefert einen zu langen Block, statt ihn zu verweigern — der Riegel fehlt");
     });
 
     it(`der Waechter haelt eine blosse Erwaehnung von ${weg.nach} nicht fuer einen Weg`, () => {

@@ -21,6 +21,9 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createAssignmentsRouter } from "../routes/assignments.js";
 import { NUR_UEBER_DEAL } from "../services/assignmentService.js";
 import { baseDeps, findHandlerExact, mockReq, mockRes } from "./helpers/security-mocks.js";
@@ -44,7 +47,7 @@ const GRUND = { start_date: "2026-10-01" };
  * Ein Pool, der jede Abfrage mitschreibt und nach Stichwort antwortet. Die
  * Welt ist ein Objekt: was darin fehlt, gibt es nicht (leere Zeilen).
  */
-function welt({ anforderung = false, bedarf = false, vertrag = null, partner = false, bestand = null } = {}) {
+function welt({ anforderung = false, bedarf = false, vertrag = null, partner = false, bestand = null, standort = false, abteilung = false } = {}) {
   const calls = [];
   const query = async (sql, params = []) => {
     const text = String(sql);
@@ -55,6 +58,8 @@ function welt({ anforderung = false, bedarf = false, vertrag = null, partner = f
     if (/FROM demand_requests d/.test(text)) return bedarf ? { rows: [{ "?column?": 1 }], rowCount: 1 } : leer;
     if (/FROM contracts WHERE id = \$1 AND buyer_org_id = \$2/.test(text)) return vertrag ? { rows: [vertrag], rowCount: 1 } : leer;
     if (/AS partner/.test(text)) return { rows: [{ partner }], rowCount: 1 };
+    if (/FROM org_locations WHERE id = \$1 AND org_id = \$2/.test(text)) return standort ? { rows: [{ "?column?": 1 }], rowCount: 1 } : leer;
+    if (/FROM org_departments WHERE id = \$1 AND org_id = \$2/.test(text)) return abteilung ? { rows: [{ "?column?": 1 }], rowCount: 1 } : leer;
     if (/INSERT INTO assignments/.test(text)) return { rows: [{ id: ID.einsatz, requisition_id: params[1], supplier_org_id: params[2] }], rowCount: 1 };
     if (/SELECT a\.\*, o\.name AS org_name/.test(text)) return bestand ? { rows: [bestand], rowCount: 1 } : leer;
     if (/UPDATE assignments SET/.test(text)) return { rows: [{ ...bestand, contract_id: params[params.length - 1] }], rowCount: 1 };
@@ -278,5 +283,146 @@ describe("N2.9 — PATCH setzt keinen fremden Vertrag", () => {
     const res = await aendern(pool, { notes: "x" });
     assert.equal(res._status, 200);
     assert.equal(abfrage(pool, /FROM contracts/), undefined);
+  });
+});
+
+describe("N2.12 — die API-Doku sagt dasselbe wie der Code", () => {
+  /*
+   * Befund der Nachpruefung 2026-09-16: docs/API.md wurde in N2.9 neu
+   * geschrieben, aber KEINE Probe haelt sie am Code fest — der alte Satz
+   * ("Link a deal/requisition to a worker.") konnte unbemerkt zurueckkehren,
+   * und der neue Text versprach Felder, die die Route verwirft.
+   *
+   * Entdeckend, nicht aufzaehlend: die Fehlercodes kommen aus Dienst UND Route,
+   * die Felder aus dem Zod-Schema. Wer einen Code ergaenzt oder ein Feld
+   * entfernt, ohne die Doku anzufassen, wird rot.
+   */
+  const HIER = path.dirname(fileURLToPath(import.meta.url));
+  const API = path.resolve(HIER, "..");
+  /* Zeilenenden vereinheitlichen: die Doku liegt mit CRLF im Baum, und eine
+     Suche nach "### …\n" findet dort nichts. Genau daran waere diese Probe
+     STILL gescheitert — der Fehler faellt im describe-Rumpf an und wird nicht
+     mitgezaehlt. Deshalb normalisiert und mit lauter Zusicherung. */
+    const lies = (...teile) => fs.readFileSync(path.resolve(...teile), "utf8").replace(/\r\n/g, "\n");
+  const doku = lies(API, "..", "docs", "API.md");
+  const routeQuelle = lies(API, "routes", "assignments.js");
+  const dienstQuelle = lies(API, "services", "assignmentService.js");
+
+  const abschnitt = (ueberschrift) => {
+    const von = doku.indexOf(`### ${ueberschrift}\n`);
+    if (von < 0) return null;
+    const bis = doku.indexOf("\n### ", von + 1);
+    return doku.slice(von, bis > von ? bis : doku.length);
+  };
+  const postAbschnitt = abschnitt("POST /assignments");
+  const patchAbschnitt = abschnitt("PATCH /assignments/:id");
+
+  it("beide Abschnitte gibt es ueberhaupt — sonst prueft der Rest nichts", () => {
+    assert.ok(postAbschnitt, 'der Doku-Abschnitt "POST /assignments" fehlt');
+    assert.ok(patchAbschnitt, 'der Doku-Abschnitt "PATCH /assignments/:id" fehlt');
+  });
+
+  it("jeder Fehlercode der Verweis-Pruefung steht in der Doku", () => {
+    const codes = new Set();
+    for (const m of dienstQuelle.matchAll(/error: "([A-Z_]+)"/g)) codes.add(m[1]);
+    // Aus der Route nur die Codes der beiden beschriebenen Wege.
+    for (const m of routeQuelle.matchAll(/error: "(ORG_BOUNDARY_VIOLATION|VALIDATION)"/g)) codes.add(m[1]);
+    codes.delete("VALIDATION");   // generisch, in der Doku nicht je Feld beschrieben
+    assert.ok(codes.size >= 4, `zu wenige Codes gefunden (${[...codes].join(", ")}) — die Suche greift nicht mehr`);
+    const beides = String(postAbschnitt) + String(patchAbschnitt);
+    for (const code of codes) {
+      assert.ok(beides.includes(code), `der Fehlercode ${code} fehlt in docs/API.md`);
+    }
+  });
+
+  it("der alte Satz ist weg — ein Deal wird hier nicht mehr verknuepft", () => {
+    assert.equal(/Link a deal\/requisition to a worker/i.test(doku), false,
+      "docs/API.md verspricht wieder den Deal-Weg, den der Endpunkt mit 400 ablehnt");
+    assert.ok(/LINK_VIA_DEAL_ONLY/.test(postAbschnitt), "der Ersatz fehlt");
+  });
+
+  it("jedes Feld, das die Doku als aenderbar nennt, gibt es auch im Schema", () => {
+    const schemaBlock = /const createSchema = z\.object\(\{([\s\S]*?)\n\}\);/.exec(routeQuelle);
+    assert.ok(schemaBlock, "createSchema ist nicht mehr auffindbar");
+    const felder = new Set([...schemaBlock[1].matchAll(/^\s*(\w+):\s*z\./gm)].map((m) => m[1]));
+    assert.ok(felder.has("start_date"), "die Feldsuche greift nicht mehr");
+    /* Die Doku nennt sie in Worten; hier die, die der Befund betraf. */
+    const genannt = [
+      ["Standort", "location_id"],
+      ["Abteilung", "department_id"],
+      ["Stundensatz", "hourly_rate_cents"],
+      ["Notizen", "notes"]
+    ];
+    for (const [wort, feld] of genannt) {
+      if (patchAbschnitt.includes(wort)) {
+        assert.ok(felder.has(feld),
+          `die Doku nennt "${wort}" als aenderbar, aber ${feld} fehlt im Schema — Zod verwirft es stillschweigend`);
+      }
+    }
+  });
+});
+
+describe("N2.12 — Standort und Abteilung kommen an und werden geprueft", () => {
+  /*
+   * Befund der Nachpruefung vom 2026-09-16: `createSchema` kannte weder
+   * `location_id` noch `department_id`. Zod verwirft unbekannte Schluessel —
+   * beide Felder kamen nie an, bei der Anlage nicht und beim PATCH nicht, und
+   * die Org-Pruefungen dafuer liefen mit `undefined`, also nie.
+   *
+   * Geprueft an der Wirkung: der Wert steht im geschriebenen Datensatz, ein
+   * fremder Wert wird VOR dem Schreiben abgewiesen, und zwar mit 403, nicht 500.
+   */
+  const STANDORT = "bbbbbbbb-1111-4111-8111-bbbbbbbbbbbb";
+  const ABTEILUNG = "bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb";
+  const bestand = { id: ID.einsatz, org_id: ORG, supplier_org_id: ZAF, status: "planned" };
+
+  it("Anlage mit eigenem Standort und eigener Abteilung: 201, beide im Datensatz, gegen die Sitzungs-Org geprueft", async () => {
+    const pool = welt({ standort: true, abteilung: true });
+    const res = await anlegen(pool, { location_id: STANDORT, department_id: ABTEILUNG });
+    assert.equal(res._status, 201, JSON.stringify(res._json));
+    const insert = abfrage(pool, /INSERT INTO assignments/);
+    assert.equal(insert.params[7], STANDORT, "der Standort kam nicht im Datensatz an");
+    assert.equal(insert.params[8], ABTEILUNG, "die Abteilung kam nicht im Datensatz an");
+    assert.deepEqual(abfrage(pool, /FROM org_locations/).params, [STANDORT, ORG]);
+    assert.deepEqual(abfrage(pool, /FROM org_departments/).params, [ABTEILUNG, ORG]);
+  });
+
+  for (const [feld, wert, ueber] of [
+    ["location_id", STANDORT, { standort: false, abteilung: true }],
+    ["department_id", ABTEILUNG, { standort: true, abteilung: false }]
+  ]) {
+    it(`Anlage mit fremdem ${feld}: 403, nichts geschrieben — kein 500`, async () => {
+      const pool = welt(ueber);
+      const res = await anlegen(pool, { [feld]: wert });
+      assert.equal(res._status, 403, JSON.stringify(res._json));
+      assert.equal(res._json.error, "ORG_BOUNDARY_VIOLATION");
+      assert.equal(geschrieben(pool), false);
+    });
+
+    it(`PATCH mit fremdem ${feld}: 403, kein UPDATE`, async () => {
+      const pool = welt({ ...ueber, bestand });
+      const res = await aendern(pool, { [feld]: wert });
+      assert.equal(res._status, 403, JSON.stringify(res._json));
+      assert.equal(pool.calls.some((c) => /UPDATE assignments SET/.test(c.sql)), false);
+    });
+  }
+
+  it("PATCH mit eigenem Standort: das UPDATE setzt ihn wirklich", async () => {
+    const pool = welt({ standort: true, bestand });
+    const res = await aendern(pool, { location_id: STANDORT });
+    assert.equal(res._status, 200, JSON.stringify(res._json));
+    const update = abfrage(pool, /UPDATE assignments SET/);
+    assert.ok(update, "das UPDATE lief nicht — der Standort wurde wieder verworfen");
+    assert.match(update.sql, /location_id = \$\d+/);
+    assert.ok(update.params.includes(STANDORT));
+    assert.deepEqual(abfrage(pool, /FROM org_locations/).params, [STANDORT, ORG]);
+  });
+
+  it("PATCH mit null loest den Standort, ohne eine Pruefung auszuloesen", async () => {
+    const pool = welt({ bestand });
+    const res = await aendern(pool, { location_id: null });
+    assert.equal(res._status, 200, JSON.stringify(res._json));
+    assert.match(abfrage(pool, /UPDATE assignments SET/).sql, /location_id = \$\d+/);
+    assert.equal(abfrage(pool, /FROM org_locations/), undefined);
   });
 });

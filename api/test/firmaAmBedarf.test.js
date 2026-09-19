@@ -159,6 +159,33 @@ describe("N2.11 · die Firma wird beim Anlegen gespeichert — aus der Sitzung",
   });
 });
 
+describe("N2.12 · der Notdienst rechnet mit dem GESPEICHERTEN Bedarf", () => {
+  /*
+   * Befund der Nachpruefung 2026-09-16: die Probe oben deckte nur die Route ab.
+   * Nahm man im Dienst die Ableitung zurueck (`payload.requester_org_id || null`),
+   * blieb alles gruen — die Anlage haette dann mit einer anderen Firma gerechnet
+   * als jede spaetere Stelle, die den gespeicherten Bedarf liest.
+   */
+  const RUMPF = { role: "Pflege", skill_tags: [], headcount: 1, start_date: "2026-09-20", location_city: "Münster" };
+
+  it("steht die Firma am gespeicherten Bedarf, gewinnt SIE — nicht der uebergebene Wert", async () => {
+    const p = pool([["INSERT INTO demand_requests", [{ id: "dr1", ...RUMPF, urgency: "notdienst",
+      requester_company_id: "u1", requester_org_id: FIRMA_A }]]]);
+    await notdienstDienst.createEmergencyRequest(p, "u1", "PRO", { ...RUMPF, urgency: "notdienst", requester_org_id: FREMD });
+    assert.deepEqual(kapazitaetsAbfrage(p)?.params, [FIRMA_A],
+      "der Abgleich rechnet mit dem uebergebenen Wert statt mit dem gespeicherten Bedarf");
+  });
+
+  it("traegt der gespeicherte Bedarf keine Firma, gilt der uebergebene Wert (Altbestand)", async () => {
+    const p = pool([["INSERT INTO demand_requests", [{ id: "dr1", ...RUMPF, urgency: "notdienst",
+      requester_company_id: "u1" }]]]);
+    await notdienstDienst.createEmergencyRequest(p, "u1", "PRO", { ...RUMPF, urgency: "notdienst", requester_org_id: FIRMA_A });
+    assert.deepEqual(kapazitaetsAbfrage(p)?.params, [FIRMA_A]);
+    assert.equal(p.finde("SELECT org_id FROM users WHERE id").length, 0,
+      "es wurde zusaetzlich die Start-Firma nachgeladen, obwohl eine Firma vorlag");
+  });
+});
+
 describe("N2.11 · jede spaetere Stelle liest die gespeicherte Firma", () => {
   const BEDARF = { id: "dr1", requester_company_id: "u1", requester_org_id: FIRMA_A, role: "Pflege",
     skill_tags: [], location_city: "Münster", urgency: "normal", status: "open", escalation_level: 0 };

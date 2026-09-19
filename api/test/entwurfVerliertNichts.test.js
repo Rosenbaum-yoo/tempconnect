@@ -66,6 +66,22 @@ function entwurf({ gespeichert = null, jetzt = 1_800_000_000_000, speicherWirft 
     felder[id] = { id, value: standard, defaultValue: standard };
   });
 
+  /*
+   * N2.12 — VERSTECKTE FELDER VERHALTEN SICH ANDERS, und genau daran haette der
+   * Nachbau vorbeigemessen (Befund der Nachpruefung 2026-09-16). Bei
+   * `<input type="hidden">` setzt `.value` das value-ATTRIBUT selbst, und
+   * `defaultValue` gibt dieses Attribut zurueck — der "Standard" waechst also
+   * mit jeder Auswahl mit. `skill_tags` ist ein solches Feld. Wer nur
+   * Faehigkeiten anklickte, erzeugte damit keinen Entwurf mehr: sein Wert war
+   * per Definition nie vom "Standard" verschieden.
+   */
+  const versteckt = /<input[^>]*\bid="skill_tags"[^>]*type="hidden"|<input[^>]*type="hidden"[^>]*\bid="skill_tags"/i.test(html);
+  assert.ok(versteckt, "skill_tags ist kein verstecktes Feld mehr — die Nachbildung unten prueft dann das Falsche");
+  Object.defineProperty(felder.skill_tags, "defaultValue", {
+    get() { return this.value; },
+    configurable: true
+  });
+
   const speicher = { _: gespeichert === null ? {} : { tc_bedarf_entwurf: gespeichert } };
   const sandkasten = {
     document: { getElementById: (id) => felder[id] || null },
@@ -200,6 +216,28 @@ describe("N2.5 · was NICHT als Entwurf zaehlt", { skip: !da && "Seite fehlt" },
     assert.strictEqual(JSON.parse(e.roh()).werte.headcount, "2");
   });
 
+  it("nur angeklickte Faehigkeiten sind ein Stand — auch im versteckten Feld", () => {
+    /*
+     * N2.12 — Befund der Nachpruefung 2026-09-16. `skill_tags` ist versteckt,
+     * und dort folgt `defaultValue` dem gesetzten Wert. Wurde der Standard
+     * LAUFEND aus `defaultValue` gelesen, konnte eine Auswahl nie als Eingabe
+     * zaehlen: wer in Schritt 2 Faehigkeiten anklickte und die Seite verliess,
+     * fand beim Wiederkommen nichts vor. Der Standard wird jetzt EINMAL beim
+     * Laden festgehalten.
+     */
+    const e = entwurf();
+    assert.strictEqual(e.felder.skill_tags.defaultValue, "",
+      "Vorbedingung: das versteckte Feld startet leer");
+    e.felder.location_city.value = "Münster";     // nur Vorbelegung
+    e.felder.skill_tags.value = "Stapler, Lager"; // die einzige echte Eingabe
+    assert.strictEqual(e.felder.skill_tags.defaultValue, "Stapler, Lager",
+      "Vorbedingung: bei einem versteckten Feld waechst defaultValue mit");
+    e.sandkasten._schreiben();
+    const gespeichert = e.roh();
+    assert.ok(gespeichert, "die angeklickten Faehigkeiten wurden nicht als Entwurf gesichert");
+    assert.strictEqual(JSON.parse(gespeichert).werte.skill_tags, "Stapler, Lager");
+  });
+
   it("sobald etwas Eigenes dazukommt, wird gespeichert — mitsamt Ort", () => {
     const e = entwurf();
     e.felder.location_city.value = "Münster";
@@ -294,6 +332,37 @@ describe("N2.5 · nach dem Absenden ist der Entwurf weg", () => {
     const ohneKommentare = html.slice(von, bis).replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
     assert.equal(/__tcEntwurf.*loeschen\(\)/.test(ohneKommentare), false,
       "renderResult loescht den Entwurf wieder — es laeuft auch beim Sprachwechsel");
+  });
+
+  it("und NIRGENDWO sonst — ein zweites Loeschen faellt auf, egal an welcher Stelle", { skip: !da && "Seite fehlt" }, () => {
+    /*
+     * N2.12 — Befund der Nachpruefung 2026-09-16: die Probe oben schneidet nur
+     * `renderResult` aus. Zwei Rueckmutationen ueberlebten sie deshalb, und
+     * beide sind echte Rueckschritte:
+     *   * `loeschen()` im `tc:langchange`-Hoerer — derselbe Befund wie N2.11,
+     *     nur eine Zeile weiter (der Entwurf fuer den NAECHSTEN Bedarf ist weg);
+     *   * `loeschen()` im `.catch` des Absendens — ein 402 oder ein Netzfehler
+     *     wuerfe die Eingaben des Kunden weg, genau wenn er sie braucht.
+     * Deshalb wird jetzt die GANZE Seite gezaehlt: genau EIN Aufruf, und der
+     * liegt im Erfolgszweig zwischen `postDemand(...).then(` und `.catch(`.
+     */
+    const ohneKommentare = html.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    const treffer = [...ohneKommentare.matchAll(/__tcEntwurf\s*\.\s*loeschen\s*\(\s*\)/g)];
+    assert.strictEqual(treffer.length, 1,
+      `der Entwurf wird an ${treffer.length} Stellen geloescht — genau eine ist richtig (der Erfolgszweig)`);
+
+    const beginn = ohneKommentare.indexOf("postDemand(body).then(function(d) {");
+    const fehlerzweig = ohneKommentare.indexOf(".catch(function(err) {", beginn);
+    assert.ok(beginn > 0 && fehlerzweig > beginn, "Erfolgs- und Fehlerzweig des Absendens sind nicht auffindbar");
+    assert.ok(treffer[0].index > beginn && treffer[0].index < fehlerzweig,
+      "das Loeschen liegt nicht im Erfolgszweig des Absendens");
+
+    /* SELBSTTEST: beide Rueckmutationen muessen die Zaehlung wirklich umwerfen. */
+    const zweimal = ohneKommentare.replace(
+      "if (window.__tcEntwurf) window.__tcEntwurf.loeschen();",
+      "if (window.__tcEntwurf) window.__tcEntwurf.loeschen(); window.__tcEntwurf.loeschen();");
+    assert.strictEqual([...zweimal.matchAll(/__tcEntwurf\s*\.\s*loeschen\s*\(\s*\)/g)].length, 2,
+      "die Zaehlung wuerde ein zweites Loeschen gar nicht bemerken");
   });
 
   it("der Entwurf wird vor dem Katalogwaehler wiederhergestellt", { skip: !da && "Seite fehlt" }, () => {

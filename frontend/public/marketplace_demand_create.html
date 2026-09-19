@@ -882,6 +882,20 @@
       "location_city", "location_postal", "radius_km", "budget_min", "budget_max",
       "contact_name", "contact_phone"];
 
+    /* Die Markup-Standards EINMAL beim Laden festhalten — vor dem
+       Wiederherstellen und vor dem Katalogwaehler.
+       N2.12 (Befund der Nachpruefung 2026-09-16): `defaultValue` LAUFEND zu
+       lesen war falsch. Bei `<input type="hidden">` setzt `.value` das
+       value-ATTRIBUT selbst, und `defaultValue` gibt genau dieses Attribut
+       zurueck — es waechst also mit. `skill_tags` ist ein solches Feld: wer nur
+       Faehigkeiten anklickte und die Seite verliess, verlor sie, weil
+       `v !== el.defaultValue` dort nie wahr werden konnte. */
+    var STANDARD = {};
+    FELDER.forEach(function (id) {
+      var el = document.getElementById(id);
+      STANDARD[id] = el ? String(el.defaultValue || "") : "";
+    });
+
     function lesen() {
       try {
         var roh = window.localStorage.getItem(SCHLUESSEL);
@@ -913,7 +927,7 @@
              Eingabe — jeder Seitenaufruf legte einen 7-Tage-Entwurf an, der beim
              naechsten Besuch den alten Ort zurueckholte, auch nach einem
              Standortwechsel. `defaultValue` ist genau dieser Markup-Wert. */
-          if (v.trim() && v !== String(el.defaultValue || "")
+          if (v.trim() && v !== STANDARD[id]
               && id !== "location_city" && id !== "radius_km") etwasDrin = true;
         });
         if (!etwasDrin) { loeschen(); return; }
