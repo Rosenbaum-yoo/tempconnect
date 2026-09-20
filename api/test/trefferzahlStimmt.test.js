@@ -327,12 +327,40 @@ describe("N2.7 · jede Marktseite blaettert richtig", () => {
   });
 
   it("…und ihre Bedarfe blaettern mit OFFSET — Seite 3 beginnt bei 8", async () => {
+    /*
+     * N3.4 hat den Ort des Versatzes verschoben, nicht den Versatz. Gilt der
+     * Rang fuer die Seite, holt der Feed ein Kandidatenfenster ab 0 und
+     * schneidet die Seite NACH der Rangbildung — dann steht der Versatz nicht
+     * mehr in SQL. Wo SQL weiter blaettert (ausdrueckliche Sortierung, oder
+     * jenseits des Fensters), muss er dort stehen, und das prueft diese Probe
+     * unveraendert weiter.
+     */
     const p = feedPool();
-    await browseFeed(p, { viewer_role: "agency", limit: 4, page: 3 });
+    await browseFeed(p, { viewer_role: "agency", limit: 4, page: 3, sort: "newest" });
     const q = p.holBedarfe()[0];
     assert.match(q.sql, /LIMIT \$1 OFFSET \$3/, "die Bedarfsabfrage hat keinen OFFSET — jede Seite beginnt von vorn");
     assert.strictEqual(q.params[0], 4, "das Limit stimmt nicht");
     assert.strictEqual(q.params[2], 8, "der Versatz stimmt nicht");
+  });
+
+  it("…und mit Rangfenster blaettert sie trotzdem: Seite 3 wiederholt Seite 1 nicht", async () => {
+    /*
+     * Die WIRKUNG, um die es N2.7 ging: keine Seite beginnt von vorn. Sie darf
+     * nicht daran haengen, WO der Versatz steht — sonst waere der Waechter mit
+     * dem naechsten Umbau gruen, obwohl die Blaetterung kaputt ist.
+     */
+    const bedarfe = Array.from({ length: 20 }, (_, i) => ({
+      id: `d-${String(i).padStart(2, "0")}`, feed_type: "demand", status: "open",
+      updated_at: `2026-09-${String(i + 1).padStart(2, "0")}`,
+      created_at: `2026-09-${String(i + 1).padStart(2, "0")}`
+    }));
+    const eins = await browseFeed(feedPool({ bedarfe }), { viewer_role: "agency", limit: 4, page: 1 });
+    const drei = await browseFeed(feedPool({ bedarfe }), { viewer_role: "agency", limit: 4, page: 3 });
+    assert.strictEqual(eins.items.length, 4, "die Seite ist keine Seite mehr");
+    assert.strictEqual(drei.items.length, 4);
+    const aufEins = new Set(eins.items.map((i) => i.id));
+    assert.ok(drei.items.every((i) => !aufEins.has(i.id)),
+      "Seite 3 zeigt Zeilen von Seite 1 — die Blaetterung beginnt wieder von vorn");
   });
 
   it("ein Unternehmen holt KEINE Bedarfe — die Einkaufslisten anderer gehen es nichts an", async () => {
@@ -348,8 +376,17 @@ describe("N2.7 · jede Marktseite blaettert richtig", () => {
     const a = p.holAngebote()[0];
     const b = p.holBedarfe()[0];
     assert.ok(a && b, "eine der beiden Seiten wurde nicht geholt");
-    assert.deepStrictEqual(a.params.slice(-2), [12, 0], "das Angebotsfenster ist nicht offset+limit ab 0");
-    assert.deepStrictEqual([b.params[0], b.params[2]], [12, 0], "das Bedarfsfenster ist nicht offset+limit ab 0");
+
+    /* Ohne Rangfenster (ausdrueckliche Sortierung) bleibt es bei offset+limit. */
+    const q = feedPool();
+    await browseFeed(q, { limit: 4, page: 3, sort: "newest" });
+    assert.deepStrictEqual(q.holAngebote()[0].params.slice(-2), [12, 0]);
+    assert.deepStrictEqual([q.holBedarfe()[0].params[0], q.holBedarfe()[0].params[2]], [12, 0]);
+    /* Seit N3.4 ist das Fenster das RANGFENSTER (500) statt offset+limit —
+       beide Seiten holen weiterhin AB 0, und geschnitten wird danach. Genau das
+       ist der Punkt dieser Probe: keine Seite blaettert fuer sich allein. */
+    assert.deepStrictEqual(a.params.slice(-2), [500, 0], "das Angebotsfenster beginnt nicht bei 0");
+    assert.deepStrictEqual([b.params[0], b.params[2]], [500, 0], "das Bedarfsfenster beginnt nicht bei 0");
   });
 
   it("die Naehe gilt ueber BEIDE Seiten — der Bedarf in 200 m steht vor dem Angebot in 100 km", async () => {

@@ -147,6 +147,21 @@ export function createInternalRouter(deps) {
     }
   });
 
+  /* N3.5 — die Handkurbel zur Profil-Rangliste. Derselbe Ablauf wie der Takt
+     um 02:50 (`betriebsTaktLaeufe.profilRangliste`), damit es nicht zwei
+     Fassungen gibt: erst die Momentaufnahmen, dann die Positionen. */
+  router.post("/internal/profil-rangliste", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      const ergebnis = await taktLaeufe.profilRangliste(pool);
+      logger.info({ path: "profil-rangliste", clientIp, ...ergebnis }, "Cron profil-rangliste completed");
+      res.json({ ok: true, ...ergebnis });
+    } catch (e) {
+      logger.error({ err: e, path: "profil-rangliste", clientIp }, "Cron profil-rangliste failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
   router.post("/internal/invoice-overdue-scan", cronRateLimit, checkCronAuth, async (req, res) => {
     const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
     try {

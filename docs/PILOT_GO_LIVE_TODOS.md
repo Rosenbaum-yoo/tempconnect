@@ -2,6 +2,53 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-20 — Der Rang ist ehrlich (N3.4 / N3.5 / N3.6)
+
+**Status:** erledigt · **Kategorie:** Rollen-/Sichtbarkeitslogik (die Reihenfolge ist eine Aussage)
++ Bug-Pattern (ein Rang, der nur für die Seite galt) · **Quelle:** Regel **O-L1** aus
+`docs/features/O_RAHMENBEDINGUNGEN.md`, Abschnitt 4; Messung am Code 2026-09-19
+
+Drei Befunde an derselben Stelle:
+
+1. **Der Rang galt nur für die Seite.** `browseFeed` holte 25 Zeilen nach **Datum** und rangierte
+   danach — also innerhalb einer Zufallsauswahl. Der beste Treffer des Marktes stand auf Seite 3
+   und kam dort nie weg, weil er nur gegen die anderen 24 Zeilen von Seite 3 antrat. Jetzt: ein
+   **Kandidatenfenster von 500**, vollständig rangiert, und **erst danach** die Seite. Jenseits des
+   Fensters bleibt es bei der Datums-Reihenfolge — exakt und überschneidungsfrei, weil das Fenster
+   die erste Datums-Seite bis 500 **ist**. Gesagt wird es trotzdem: `feed_context.rang_fenster`
+   nennt Größe, Kandidatenzahl und ob der Rang für diese Seite gilt.
+
+2. **Bezahlung sortierte mit.** Tarif (12), Platzierung (8) und Premium-Anzeige (15) lagen mit
+   Passung und Reputation in **einer** Summe: bis zu 35 kaufbare Punkte, genug für eine deutlich
+   schlechtere Passung. Das ist genau, was O-L1 verbietet. Jetzt zwei Zahlen: `rank_score`
+   (verdient) und `rank_boost_paid` (bezahlt). Sortiert wird verdient → bezahlt → Kennung; die
+   Hebung entscheidet nur noch bei **Gleichstand**. `rank_erklaerung` nennt jeden Bestandteil mit
+   Punkten und Art. Auf der Karte trägt die Hebung ein eigenes Kennzeichen mit Erklärung — und
+   fällt nicht mehr unter die Kürzung auf drei Gründe, die sie vorher bei den auffälligsten Karten
+   verschluckt hat.
+
+3. **Die Profil-Rangliste existierte nicht.** `runDailySnapshotBatch` und `updateRankPositions`
+   hatten **keinen Aufrufer**. „Ihre Position: #N" in `sla_profil.html` war dauerhaft leer — für
+   eine Fähigkeit, die ab PRO als „Marketplace Visibility" verkauft wird. Jetzt ein Takt
+   (`profil-rangliste`, täglich 02:50, mit interner Handkurbel), der erst die Momentaufnahmen
+   schreibt und dann die Positionen vergibt. Die Ordnung dort folgt ebenfalls O-L1
+   (`ranking_score` vor `premium_boost` statt `effective_rank_score`), und das Tagesdatum kommt aus
+   `todayDE()` statt aus dem UTC-Schnitt — sonst trägt die Momentaufnahme nachts den Vortag und die
+   Liste ist leer.
+
+**Nachweis:** `api/test/rangIstEhrlich.test.js` (18), Ergänzungen in
+`api/test/marketplaceFeedCard.test.js` (4). **18 von 19 Rückmutationen rot.** Die eine überlebende
+ist benannt: der Kennungs-Schritt im Vergleicher ist vorsorglich, weil die Zeilen bereits in einer
+totalen Ordnung ankommen (SQL sortiert nach Kennung, `Array#sort` ist stabil).
+
+**Fixture-Pflege (§0.9, Zusicherungen unverändert):** zwei N2.7-Proben hielten den **Mechanismus**
+der Blätterung fest (SQL-Versatz je Seite). Der Versatz ist mit dem Fenster in den JavaScript-Teil
+gewandert. Beide prüfen den Mechanismus jetzt dort, wo er weiter gilt (ausdrückliche Sortierung),
+**und** zusätzlich die Wirkung: Seite 3 wiederholt Seite 1 nicht.
+
+**Offen, benannt:** Sperrliste und Live-Verfügbarkeit als eigene Rang-Bestandteile (N3.4), die
+positive Hälfte von N3.6 (heutige Abwesenheit senkt den Rang), interne Bewertung Q1.
+
 ### 2026-09-19 — Die Menge stimmt, und drei Riegel halten (N3.0 / M5 Teil 1)
 
 **Status:** erledigt · **Kategorie:** Bug-Pattern (drei Wahrheiten über dieselbe Zahl) + Produktausbau ·

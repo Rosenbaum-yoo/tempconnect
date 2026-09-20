@@ -13,6 +13,7 @@ sie doppelt aus:**
 | `/api/internal/dunning-sweep` | täglich 02:40 |
 | `/api/internal/subscription-lifecycle-tick` | stündlich :05 |
 | `/api/internal/expire-reservations` | stündlich :35 |
+| `/api/internal/profil-rangliste` | täglich 02:50 |
 
 Die Läufe sind idempotent — ein zweiter Aufruf findet die Zeilen des ersten nicht mehr im
 Filter. Der Schaden wäre also nicht Doppelbuchung, sondern **Unklarheit**: zwei Auslöser
@@ -120,6 +121,7 @@ im Runbook-Appendix `docs/enterprise-readiness/PILOT_CUSTOMER_RUNBOOK.md`).
 |---|---|---|---|
 | `POST /api/internal/subscription-lifecycle-tick` | alle 5 Min | — | Request-Expiry/Activation/Cancellation + Trial-End→`past_due` + Hard-Lock (`past_due`+Grace→`canceled`+Org DEMO) |
 | `POST /api/internal/invoice-overdue-scan` | täglich | — | Fällige Rechnungen (`issued` + `due_at < NOW`) → `overdue` |
+| `POST /api/internal/profil-rangliste` | täglich 02:50 | — | Momentaufnahme je Organisation mit genehmigtem öffentlichem Profil, danach die Rangpositionen. Ohne diesen Lauf bleibt „Ihre Position: #N" im Anbieterprofil dauerhaft leer — bis 2026-09-19 hatte der Dienst keinen Aufrufer (N3.5) |
 | `POST /api/internal/pilot-expiry` | täglich | — | Abgelaufene Pilots (> 3 Monate) → `customer_stage=live`, `pilot_status=ended` |
 | `POST /api/internal/recurring-billing` | täglich | `RECURRING_BILLING_ENABLED` | Folge-Rechnung am Periodenende für aktive bezahlte Subs + `active→past_due` (No-Op bis Flag AN) |
 | `POST /api/internal/dunning-sweep` | täglich | `DUNNING_ENABLED` | Gestaffelte Zahlungserinnerungen (Mahnstufe 1/2/3) für überfällige Rechnungen (No-Op bis Flag AN) |

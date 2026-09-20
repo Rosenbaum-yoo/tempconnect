@@ -148,3 +148,67 @@ suite("marketplaceFeed — Welle 5 Angebots-Styling", () => {
     assert.match(html, /Demenzbetreuung/);
   });
 });
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   N3.5 / O-L1 — WAS GEHOBEN IST, IST SICHTBAR GEKENNZEICHNET
+   ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Der Rang-Grund "Bezahlt hervorgehoben" steht als LETZTER in `rank_labels`,
+ * und die Karte kuerzte die Liste auf drei. Bei einem Eintrag mit vielen
+ * Gruenden — also genau bei den auffaelligsten Karten — fiel die
+ * Kennzeichnung damit raus. Eine Kennzeichnung, die bei Gedraenge
+ * verschwindet, ist keine.
+ */
+
+suite("marketplaceFeed — O-L1: bezahlte Hebung ist gekennzeichnet", () => {
+  const hooks = AVAILABLE ? loadHooks() : null;
+
+  it("die Kennzeichnung ueberlebt die Kuerzung auf drei Rang-Gruende", () => {
+    const html = hooks.renderCard(baseSupply({
+      rank_labels: ["Fuer Sie priorisiert", "Premium-Anzeige", "Top-Treffer", "Premium", "Bezahlt hervorgehoben"],
+      rank_boost_paid: 27
+    }));
+    assert.match(html, /Bezahlt hervorgehoben/,
+      "die Kennzeichnung wurde abgeschnitten — sie steht als letzter Grund im Feld");
+    assert.match(html, /data-rang="bezahlt"/, "die Kennzeichnung hat kein eigenes Merkmal");
+    assert.match(html, /steht nie vor einem besser passenden Treffer/,
+      "ohne die Erklaerung ist der Hinweis eine Floskel");
+    /* Und genau EINMAL: bliebe der Grund zusaetzlich in der grauen Liste,
+       staende die Kennzeichnung zweimal auf der Karte — einmal davon ohne
+       Erklaerung und ohne Merkmal. */
+    assert.doesNotMatch(html, /ds-badge--neutral"[^>]*>Bezahlt hervorgehoben</,
+      "die Kennzeichnung steht zusaetzlich als grauer Rang-Grund — doppelt und stumm");
+  });
+
+  it("ohne bezahlte Hebung erscheint die Kennzeichnung nicht", () => {
+    const html = hooks.renderCard(baseSupply({
+      rank_labels: ["Fuer Sie priorisiert", "Top-Treffer"], rank_boost_paid: 0
+    }));
+    assert.doesNotMatch(html, /Bezahlt hervorgehoben/,
+      "ein Eintrag ohne Hebung wird als bezahlt ausgewiesen");
+    assert.doesNotMatch(html, /data-rang="bezahlt"/);
+  });
+
+  it("die Kennzeichnung haengt an der Zahl, nicht nur am Text aus dem Feld", () => {
+    /* Kaeme `rank_labels` einmal gekuerzt oder in einer anderen Sprache an,
+       bliebe die Karte trotzdem ehrlich: `rank_boost_paid` entscheidet mit. */
+    const html = hooks.renderCard(baseSupply({ rank_labels: ["Top-Treffer"], rank_boost_paid: 15 }));
+    assert.match(html, /data-rang="bezahlt"/,
+      "eine gekuerzte Gruende-Liste laesst die Kennzeichnung verschwinden");
+  });
+
+  it("bei wenigen Gruenden steht sie trotzdem nur einmal", () => {
+    /*
+     * Der Gegenfall zur Probe oben: hier passt der Grund IN die Kuerzung. Wer
+     * die Kennzeichnung nicht aus der Liste nimmt, zeigt sie dann doppelt —
+     * einmal grau und stumm, einmal mit Erklaerung. Beide Faelle zusammen
+     * halten die Regel fest, einer allein nicht.
+     */
+    const html = hooks.renderCard(baseSupply({
+      rank_labels: ["Top-Treffer", "Bezahlt hervorgehoben"], rank_boost_paid: 15
+    }));
+    assert.match(html, /data-rang="bezahlt"/);
+    assert.doesNotMatch(html, /ds-badge--neutral"[^>]*>Bezahlt hervorgehoben</,
+      "die Kennzeichnung steht doppelt — grau ohne Erklaerung und daneben mit");
+  });
+});

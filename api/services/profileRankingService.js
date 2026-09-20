@@ -25,6 +25,14 @@ import {
   computeScoreGrade
 } from './reputationService.js';
 import { getApprovedPublicOrgIds } from './profileVisibilityService.js';
+/* N3.5 — `new Date().toISOString().slice(0,10)` ist UTC. Der Takt laeuft um
+   02:50 Berliner Zeit, also 00:50 oder 01:50 UTC — dasselbe Kalenderdatum, das
+   ganze Jahr ueber? Nein: im Sommer ist Berlin UTC+2, der Lauf um 01:30 Ortszeit
+   traegt dann das Datum des VORTAGS. Die Momentaufnahme landet auf dem falschen
+   Tag, die Rangpositionen werden fuer einen anderen Tag berechnet als der, den
+   die Liste liest — und die Liste ist leer. Genau der Bug, gegen den es
+   `todayDE()` gibt. */
+import { todayDE } from '../utils/dateDE.js';
 
 /* ── Snapshot schreiben ───────────────────────────────── */
 
@@ -46,7 +54,7 @@ import { getApprovedPublicOrgIds } from './profileVisibilityService.js';
  * @returns {Promise<Object|null>}
  */
 export async function saveRankingSnapshot(pool, orgId, data) {
-  const date = data.snapshotDate || new Date().toISOString().slice(0, 10);
+  const date = data.snapshotDate || todayDE();
   try {
     const { rows } = await pool.query(
       `INSERT INTO profile_ranking_snapshots
@@ -188,14 +196,21 @@ export async function runDailySnapshotBatch(pool) {
  * @returns {Promise<number>} Anzahl aktualisierter Snapshots
  */
 export async function updateRankPositions(pool, snapshotDate) {
-  const date = snapshotDate || new Date().toISOString().slice(0, 10);
+  const date = snapshotDate || todayDE();
   try {
     const { rowCount } = await pool.query(
       `UPDATE profile_ranking_snapshots prs
        SET rank_position = ranks.pos
        FROM (
          SELECT id,
-                ROW_NUMBER() OVER (ORDER BY COALESCE(effective_rank_score, 0) DESC, created_at ASC) AS pos
+                /* O-L1 (docs/features/O_RAHMENBEDINGUNGEN.md): sortiert wird nach der
+                   VERDIENTEN Zahl. effective_rank_score ist Basis PLUS bezahlter
+                   Hebung — wer danach ordnet, laesst die Hebung ueber eine bessere
+                   Reputation steigen. Sie entscheidet jetzt erst bei Gleichstand,
+                   und created_at haelt die Reihenfolge stabil. */
+                ROW_NUMBER() OVER (ORDER BY COALESCE(ranking_score, 0) DESC,
+                                            COALESCE(premium_boost, 0) DESC,
+                                            created_at ASC) AS pos
          FROM profile_ranking_snapshots
          WHERE snapshot_date = $1
        ) ranks
@@ -222,7 +237,7 @@ export async function updateRankPositions(pool, snapshotDate) {
  * @returns {Promise<Object[]>}
  */
 export async function getPublicRanking(pool, { limit = 100, segment = null, snapshotDate } = {}) {
-  const date = snapshotDate || new Date().toISOString().slice(0, 10);
+  const date = snapshotDate || todayDE();
   try {
     const params = [date, limit];
     const segmentClause = segment ? `AND prs.rank_segment = $3` : '';
@@ -233,6 +248,7 @@ export async function getPublicRanking(pool, { limit = 100, segment = null, snap
          prs.org_id,
          prs.rank_position,
          prs.ranking_score,
+         prs.premium_boost,
          prs.effective_rank_score,
          prs.rank_segment,
          prs.reputation_score,
@@ -258,7 +274,12 @@ export async function getPublicRanking(pool, { limit = 100, segment = null, snap
        WHERE prs.snapshot_date = $1
          ${segmentClause}
        ORDER BY COALESCE(prs.rank_position, 99999) ASC,
-                COALESCE(prs.effective_rank_score, 0) DESC
+                /* O-L1 auch im Rueckfall: solange keine Position berechnet ist,
+                   ordnet diese Zeile die Liste. Stand hier effective_rank_score,
+                   sortierte genau dann die bezahlte Hebung, wenn der Takt einmal
+                   ausgefallen ist — die Ausnahme haette die Regel ausgehebelt. */
+                COALESCE(prs.ranking_score, 0) DESC,
+                COALESCE(prs.premium_boost, 0) DESC
        LIMIT $2`,
       params
     );

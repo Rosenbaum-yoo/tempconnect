@@ -99,6 +99,13 @@ export const TAKTE = Object.freeze({
    * wird, was in 48 Stunden ablaeuft, und genau einmal. */
   "einladung-erinnerung": { intervall_min: 1440, zweck: "Nicht angenommene Einladungen erinnern" },
 
+  /* Die oeffentliche Profil-Rangliste (N3.5). Taeglich 02:50 — nach der
+   * Nachtwirtschaft, vor den Kapazitaets-Sweeps. Bis zum 2026-09-19 hatte der
+   * Dienst gar keinen Ausloeser: kein Lauf, keine Momentaufnahme, keine
+   * Rangposition. "Ihre Position: #N" im Anbieterprofil blieb deshalb leer,
+   * obwohl die Faehigkeit ab PRO verkauft wird. */
+  "profil-rangliste": { intervall_min: 1440, zweck: "Momentaufnahme und Position der oeffentlichen Profil-Rangliste" },
+
   /* Die vier BullMQ-Takte, die es schon vor dieser Phase gab. Sie laufen — aber
    * niemand konnte es bisher nachweisen. Sie stehen als EINZIGE mit Praefix in
    * dieser Registratur, weil es fuer sie keinen internen Endpunkt gibt; die

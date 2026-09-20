@@ -36,6 +36,7 @@ import * as invoiceService from "./invoiceService.js";
 import * as recurringBillingService from "./recurringBillingService.js";
 import * as subscriptionLifecycle from "./subscriptionLifecycleService.js";
 import * as workerService from "./workerService.js";
+import * as profileRankingService from "./profileRankingService.js";
 import * as auditLog from "./auditLog.js";
 import * as stateMachine from "./stateMachine.js";
 
@@ -203,6 +204,44 @@ export async function einladungErinnerung(pool, { config, logger, sendMail } = {
 }
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DIE RANGLISTE, DIE NIEMAND SCHRIEB (N3.5, 2026-09-19)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * `profileRankingService` ist vollstaendig: Momentaufnahme je Organisation,
+ * Rangposition, oeffentliche Liste, Route `/api/profile-rankings`, und
+ * `sla_profil.html` rendert "Ihre Position: #N" samt Segment.
+ *
+ * Gemessen am 2026-09-19: `runDailySnapshotBatch` hat KEINEN Aufrufer, und
+ * `updateRankPositions` ebenfalls nicht. Es gab also nie eine Momentaufnahme
+ * und nie eine Position. Die Zeile im Profil blieb dauerhaft leer — sie ist an
+ * `rank_segment` gebunden und `rank_segment` war immer NULL. Fuer eine
+ * Faehigkeit, die als "Marketplace Visibility" ab PRO verkauft wird, ist das
+ * kein Schoenheitsfehler: der Kunde bezahlt eine Rangliste, die es nicht gibt.
+ *
+ * REIHENFOLGE, und sie ist keine Geschmacksfrage: erst alle Momentaufnahmen
+ * schreiben, DANN die Positionen vergeben. Umgekehrt nummeriert der Lauf den
+ * Stand von gestern.
+ *
+ * 02:50 ist bewusst gewaehlt: nach der Nachtwirtschaft (02:10/02:20/02:40),
+ * vor den Kapazitaets-Sweeps (03:00). Die Rangzahl speist sich aus
+ * `supplier_reputation`, und die wird von `recompute-supplier-metrics`
+ * fortgeschrieben — eine Rangliste vor der Kennzahl waere einen Tag alt.
+ */
+export async function profilRangliste(pool) {
+  const { processed, errors } = await profileRankingService.runDailySnapshotBatch(pool);
+  const positionen = await profileRankingService.updateRankPositions(pool);
+  if (processed > 0) {
+    await auditLog.writeAudit(pool, {
+      action: "profile_ranking.snapshot_batch",
+      entity_type: "profile_ranking_snapshot",
+      details: { processed, errors, positionen }
+    });
+  }
+  return { processed, errors, positionen };
+}
+
+/**
  * Der Auftragsname aus `betriebsTaktService.TAKTE` auf den Lauf abbilden.
  *
  * Bewusst hier und nicht im Arbeiter: so gibt es EINEN Ort, an dem sichtbar ist,
@@ -215,5 +254,6 @@ export const LAEUFE = Object.freeze({
   "recurring-billing": recurringBilling,
   "dunning-sweep": dunningSweep,
   "subscription-lifecycle-tick": subscriptionLifecycleTick,
-  "einladung-erinnerung": einladungErinnerung
+  "einladung-erinnerung": einladungErinnerung,
+  "profil-rangliste": profilRangliste
 });

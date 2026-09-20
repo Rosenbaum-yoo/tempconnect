@@ -145,7 +145,7 @@ Kunden Verträge abschließen zu müssen").
 | O3.1 | **Wert je Paarung, absteigend sortiert** | Beste Passung steht oben — an echten Zeilen belegt |
 | O3.2 | **Immer mit Begründung**: wie viele Bedingungen passen, welche nicht | Keine nackte Zahl |
 | O3.3 | **Stabil**: gleiche Eingaben, gleicher Wert | Zweimal abrufen → identisch |
-| O3.4 | **O-L1 erzwungen**: bezahlte Hebung bricht nur Gleichstand und ist gekennzeichnet | **Rückmutation:** Hebung über die Passung stellen → Probe rot |
+| O3.4 | **O-L1 erzwungen**: bezahlte Hebung bricht nur Gleichstand und ist gekennzeichnet | ✅ **2026-09-19 im Marktplatz-Feed und in der Profil-Rangliste** (Welle N3.5). Die Rangzahl ist geteilt: `rank_score` verdient (Marktseite, Reputation, Passung, Dringlichkeit, Aktualität), `rank_boost_paid` bezahlt (Tarif, Platzierung, Hervorhebung). Sortiert wird verdient → bezahlt → Kennung. Auf der Karte trägt die Hebung ein eigenes Kennzeichen mit Erklärung und fällt nicht mehr unter die Kürzung auf drei Gründe. **Rückmutationen rot:** Hebung zurück in die verdiente Summe, Gleichstands-Schritt entfernt, Kennzeichnung entfernt, Kennzeichnung doppelt, Positionen wieder nach `effective_rank_score`. **Offen bleibt die Paarungs-Trefferquote aus O3.1/O3.2** — sie existiert noch nicht, O-L1 gilt dort ab Bau |
 
 ### O4 · Der Rahmenvertrag entsteht
 

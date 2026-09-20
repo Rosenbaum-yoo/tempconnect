@@ -836,6 +836,40 @@ export async function browseFeed(pool, opts = {}) {
   const limit = Math.min(100, opts.limit || 25);
   const offset = (page - 1) * limit;
 
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * N3.4 — ERST DAS FENSTER, DANN DER RANG, DANN DIE SEITE
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Der Rang wurde bisher NACH dem LIMIT gerechnet — also nur ueber die 25
+   * Zeilen, die die Datums-Sortierung zufaellig auf diese Seite gelegt hatte.
+   * Das ist keine Rangliste, das ist eine Umsortierung innerhalb einer
+   * Zufallsauswahl: der beste Treffer des Marktes steht auf Seite 3 und kommt
+   * dort auch nicht weg, weil er auf Seite 3 nur gegen die anderen 24 Zeilen
+   * von Seite 3 antritt. "Beste Passung oben" war damit unwahr, und zwar
+   * unabhaengig davon, wie gut die Rangformel darunter ist.
+   *
+   * Jetzt: ein KANDIDATENFENSTER von 500 Eintraegen wird geholt (die
+   * aktuellsten, in der totalen Ordnung aus N2.11), vollstaendig rangiert, und
+   * ERST DANN wird die Seite herausgeschnitten.
+   *
+   * Warum 500 und nicht "alle": der Rang braucht Reputation, Tarif und
+   * Passung — drei Nachladeabfragen und eine Bewertung je Eintrag. Ueber
+   * einem unbegrenzten Markt waechst das mit dem Bestand (§0.3, 10 -> 300
+   * Kunden). 500 deckt bei 25 pro Seite die ersten 20 Seiten ab; gemessen am
+   * 2026-09-19 hat der gesamte Markt 40 Bedarfe und 6 Angebote.
+   *
+   * Was JENSEITS des Fensters liegt, bleibt nach Aktualitaet sortiert — und
+   * das ist exakt, sich nicht ueberschneidend: das Fenster IST die erste
+   * Datums-Seite bis 500, also liefert ein Versatz >= 500 genau die
+   * Eintraege, die NICHT im Fenster stehen. Keine Dublette, keine Luecke.
+   * Gesagt wird es trotzdem: `feed_context.rang_fenster` nennt Groesse,
+   * Kandidatenzahl und ob der Rang fuer diese Seite ueberhaupt gilt. Eine
+   * stille Kuerzung liest sich wie Vollstaendigkeit.
+   */
+  const RANG_FENSTER = 500;
+  const rangFensterAktiv = !umkreis && !opts.sort && (offset + limit) <= RANG_FENSTER;
+
   /* Die Zaehl-Parameter werden VOR dem Merk-Push eingefroren: die Zaehl-Query
    * referenziert nur die WHERE-Parameter. Ein ueberzaehliger Parameter ist
    * fuer Postgres ein Protokollfehler (08P01 "bind message supplies N") —
@@ -991,8 +1025,10 @@ export async function browseFeed(pool, opts = {}) {
    * in Zaehlung und Abfrage.
    */
   const beideSeiten = supplyGesehen && demandGesehen;
-  const fenster = beideSeiten ? offset + limit : limit;
-  const versatz = beideSeiten ? 0 : offset;
+  /* N3.4: gilt der Rang fuer diese Seite, wird das FENSTER geholt (von vorn) —
+     sonst bleibt es bei der Seitenlogik aus N2.7. */
+  const fenster = rangFensterAktiv ? RANG_FENSTER : (beideSeiten ? offset + limit : limit);
+  const versatz = rangFensterAktiv ? 0 : (beideSeiten ? 0 : offset);
 
   /*
    * N2.11 — EINE TOTALE ORDNUNG. Bis hier sortierten beide Seiten nur nach
@@ -1043,7 +1079,7 @@ export async function browseFeed(pool, opts = {}) {
   }
 
   let items = [...supplyRows, ...demandRows];
-  if (beideSeiten) {
+  if (beideSeiten || rangFensterAktiv) {
     /* Gemeinsam sortieren, DANN schneiden. Bei Umkreissuche entscheidet die
        Naehe ueber beide Seiten; sonst die Aktualitaet — dieselben Schluessel,
        nach denen jede Seite in SQL sortiert wurde. */
@@ -1052,7 +1088,13 @@ export async function browseFeed(pool, opts = {}) {
     items.sort(umkreis
       ? (a, b) => (naehe(a) - naehe(b)) || (zeit(b) - zeit(a)) || kennungAbsteigend(a, b)
       : (a, b) => (zeit(b) - zeit(a)) || kennungAbsteigend(a, b));
-    items = items.slice(offset, offset + limit);
+    /* N3.4: mit Fenster wird hier NICHT die Seite geschnitten, sondern das
+       Fenster begrenzt — geschnitten wird nach dem Rang. Holen beide Seiten je
+       500, sind es zusammen bis zu 1000; die ersten 500 in der Datums-Ordnung
+       sind das Fenster. */
+    items = rangFensterAktiv
+      ? items.slice(0, RANG_FENSTER)
+      : items.slice(offset, offset + limit);
   }
 
   /*
@@ -1258,17 +1300,56 @@ export async function browseFeed(pool, opts = {}) {
     const featuredActive = !!(item.featured_until && new Date(item.featured_until).getTime() > now);
     const featuredBoost = featuredActive ? 15 : 0;
 
-    // Gesamtscore: hierarchisch aufgebaut
+    /*
+     * ═════════════════════════════════════════════════════════════════════════
+     * N3.5 / O-L1 — BEZAHLTE HEBUNG BRICHT NUR GLEICHSTAND
+     * ═════════════════════════════════════════════════════════════════════════
+     *
+     * Hier stand EINE Summe: Passung, Reputation und Aktualitaet wurden mit
+     * Tarif (12), Platzierung (8) und Premium-Anzeige (15) zusammengezaehlt.
+     * Bis zu 35 Punkte waren also kaufbar — genug, um eine deutlich bessere
+     * Passung zu ueberholen. Damit war "die beste Trefferquote steht oben"
+     * unwahr, und das Unternehmen konnte nicht unterscheiden, ob der erste
+     * Treffer am besten passt oder am meisten gezahlt hat
+     * (docs/features/O_RAHMENBEDINGUNGEN.md, Regel O-L1).
+     *
+     * Jetzt zwei Zahlen statt einer:
+     *   rank_score       — VERDIENT: Gegenseite, Reputation, Passung,
+     *                      Dringlichkeit, Aktualitaet. Danach wird sortiert.
+     *   rank_boost_paid  — BEZAHLT: Tarif, Platzierung, Hervorhebung. Sie
+     *                      entscheidet erst, wenn die verdiente Zahl gleich
+     *                      ist — und sie ist gekennzeichnet.
+     *
+     * Reputation bleibt bewusst verdient: sie entsteht aus abgeschlossenen
+     * Geschaeften und Antwortzeiten, nicht aus einer Rechnung.
+     *
+     * `rank_score_total` bleibt als ANZEIGE-Wert erhalten (die alte Summe),
+     * damit niemand die bezahlte Hebung fuer verschwunden haelt. Sortiert wird
+     * damit nicht.
+     */
+    const bezahlteHebung = planPoints + placementBoost + featuredBoost;
     item.rank_score = Math.max(0, Math.round(
       counterpartyScore +    // Stufe 1: max 45
       reputationPoints +     // Stufe 2: max 25
       matchScore +           // Passung: variabel
       urgencyBoost +         // Dringlichkeit: max 12
-      planPoints +           // Stufe 3: max 12
-      placementBoost +       // Stufe 4: max 8 (gedeckelt!)
-      featuredBoost +        // Premium-Anzeige: 15
       recencyBoost           // Aktualitaet: max 10
     ));
+    item.rank_boost_paid = Math.max(0, Math.round(bezahlteHebung));
+    item.rank_score_total = item.rank_score + item.rank_boost_paid;
+
+    /* N3.5 "erklaerbar": jede Position nennt ihren Grund. Nur Bestandteile mit
+       Wirkung, absteigend — eine Liste mit lauter Nullen erklaert nichts. */
+    item.rank_erklaerung = [
+      { grund: "Passung", punkte: Math.round(matchScore), art: "verdient" },
+      { grund: "Marktseite", punkte: counterpartyScore, art: "verdient" },
+      { grund: "Reputation", punkte: reputationPoints, art: "verdient" },
+      { grund: "Dringlichkeit", punkte: urgencyBoost, art: "verdient" },
+      { grund: "Aktualitaet", punkte: recencyBoost, art: "verdient" },
+      { grund: "Tarif", punkte: planPoints, art: "bezahlt" },
+      { grund: "Platzierung", punkte: placementBoost, art: "bezahlt" },
+      { grund: "Hervorhebung", punkte: featuredBoost, art: "bezahlt" }
+    ].filter((teil) => teil.punkte > 0).sort((a, b) => b.punkte - a.punkte);
     item.subscription_plan = plan;
     item.reputation_grade = rep?.grade || null;
     item.reputation_score = repScore;
@@ -1294,6 +1375,11 @@ export async function browseFeed(pool, opts = {}) {
     else if (itemRole === "company") rankLabels.push("Von Unternehmen");
     if (plan === "INDIVIDUELL" || plan === "ENTERPRISE") rankLabels.push("Individueller Tarif");
     else if (plan === "PRO" || plan === "PLUS") rankLabels.push("Premium");
+    /* O-L1, Punkt 3: was gehoben ist, ist als solches gekennzeichnet — sichtbar,
+       nicht im Kleingedruckten. "Premium-Anzeige" nannte bisher nur die
+       auffaelligste der drei bezahlten Hebungen; Tarif und Platzierung wirkten
+       ungenannt. */
+    if (item.rank_boost_paid > 0) rankLabels.push("Bezahlt hervorgehoben");
     item.rank_labels = rankLabels;
   }
 
@@ -1308,7 +1394,15 @@ export async function browseFeed(pool, opts = {}) {
       const aPreferred = a.counterparty_priority === "preferred" ? 1 : 0;
       const bPreferred = b.counterparty_priority === "preferred" ? 1 : 0;
       if (bPreferred !== aPreferred) return bPreferred - aPreferred;
-      return (b.rank_score || 0) - (a.rank_score || 0);
+      /* O-L1: zuerst die VERDIENTE Zahl. Erst bei Gleichstand entscheidet die
+         bezahlte Hebung — nie darueber hinweg. Und am Ende die Kennung, damit
+         die Reihenfolge stabil ist (N3.5: gleiche Eingaben, gleicher Rang);
+         ohne sie haengt sie bei Gleichstand an der Einlesereihenfolge. */
+      const verdient = (b.rank_score || 0) - (a.rank_score || 0);
+      if (verdient !== 0) return verdient;
+      const bezahlt = (b.rank_boost_paid || 0) - (a.rank_boost_paid || 0);
+      if (bezahlt !== 0) return bezahlt;
+      return kennungAbsteigend(a, b);
     });
   }
 
@@ -1320,6 +1414,10 @@ export async function browseFeed(pool, opts = {}) {
     items.sort((a, b) => (b.headcount || 0) - (a.headcount || 0));
   }
 
+  /* N3.4: JETZT die Seite — nach dem Rang, nicht davor. */
+  const kandidaten = items.length;
+  if (rangFensterAktiv) items = items.slice(offset, offset + limit);
+
   return {
     items,
     total,
@@ -1328,7 +1426,15 @@ export async function browseFeed(pool, opts = {}) {
     feed_context: {
       viewer_role: viewerRole || null,
       inter_agency_enabled: interAgencyEnabled,
-      inter_agency_supply_visible: interAgencySupplyVisible
+      inter_agency_supply_visible: interAgencySupplyVisible,
+      /* Keine stille Kuerzung (§0.12): die Seite sagt, ob der Rang fuer sie
+         gilt und ueber wie viele Kandidaten er gerechnet wurde. */
+      rang_fenster: {
+        aktiv: rangFensterAktiv,
+        groesse: RANG_FENSTER,
+        kandidaten,
+        vollstaendig: rangFensterAktiv && total <= kandidaten
+      }
     }
   };
 }

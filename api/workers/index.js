@@ -132,6 +132,12 @@ function scheduleBetriebsWirtschaft() {
    * dass jemand seine Frist verpasst. */
   q.upsertJobScheduler("einladung-erinnerung-daily", { pattern: "0 9 * * *" }, { name: "einladung-erinnerung" })
     .catch((e) => logger.warn({ err: e.message }, "Could not schedule einladung-erinnerung"));
+
+  /* N3.5 — die Profil-Rangliste. 02:50: nach der Nachtwirtschaft, vor den
+   * Kapazitaets-Sweeps um 03:00. Bis zum 2026-09-19 lief sie nie; der Dienst
+   * war vollstaendig, hatte aber keinen Ausloeser. */
+  q.upsertJobScheduler("profil-rangliste-daily", { pattern: "50 2 * * *" }, { name: "profil-rangliste" })
+    .catch((e) => logger.warn({ err: e.message }, "Could not schedule profil-rangliste"));
 }
 
 export function startWorkers(deps = {}) {

@@ -158,6 +158,8 @@
     'feed.prio.notdienst': 'Notdienst',
     'feed.prio.urgent': 'Dringend',
     'feed.prio.elevated': 'Erhoeht',
+    'feed.rank.paid': 'Bezahlt hervorgehoben',
+    'feed.rank.paidHint': 'Bezahlt hervorgehoben. Diese Anzeige steht nie vor einem besser passenden Treffer — bezahlte Hebung entscheidet nur bei Gleichstand.',
     'feed.kind.poolSingle': 'Sammelangebot',
     'feed.kind.poolMulti': 'Sammelangebot · Multi-Skill',
     'feed.kind.bundle': 'Komplettprofil (mehrere Skills)',
@@ -292,6 +294,8 @@
     'feed.prio.notdienst': 'Emergency',
     'feed.prio.urgent': 'Urgent',
     'feed.prio.elevated': 'Elevated',
+    'feed.rank.paid': 'Paid placement',
+    'feed.rank.paidHint': 'Paid placement. This listing never ranks above a better match — paid boosts only break ties.',
     'feed.kind.poolSingle': 'Pool offer',
     'feed.kind.poolMulti': 'Pool offer · multi-skill',
     'feed.kind.bundle': 'Full profile (multiple skills)',
@@ -600,7 +604,17 @@
     }
 
     var isDemandCard = e.feed_type === 'demand';
-    var rankLabels = Array.isArray(e.rank_labels) ? e.rank_labels.slice(0, 3) : [];
+    /*
+     * O-L1 (docs/features/O_RAHMENBEDINGUNGEN.md, Punkt 3): was gehoben ist,
+     * ist SICHTBAR gekennzeichnet. Der Hinweis steht als letzter Rang-Grund im
+     * Feld — `slice(0, 3)` haette ihn genau dann abgeschnitten, wenn ein
+     * Eintrag viele Gruende traegt, also bei den auffaelligsten Karten. Deshalb
+     * wird er aus der Kuerzung herausgenommen und eigenstaendig gezeigt.
+     */
+    var BEZAHLT_LABEL = 'Bezahlt hervorgehoben';
+    var alleRangGruende = Array.isArray(e.rank_labels) ? e.rank_labels : [];
+    var istBezahltGehoben = Number(e.rank_boost_paid) > 0 || alleRangGruende.indexOf(BEZAHLT_LABEL) >= 0;
+    var rankLabels = alleRangGruende.filter(function (l) { return l !== BEZAHLT_LABEL; }).slice(0, 3);
     // Typ-Akzent (Arbeitsplatzangebot) als Klasse statt Inline-Style, damit das
     // Editorial-Theme die Karte erden + de-orangen kann (siehe .ce-card--demand).
     var demandCls = isDemandCard ? ' ce-card--demand' : '';
@@ -664,11 +678,15 @@
          + (istGemerkt ? '&#9733; ' : '&#9734; ')
          + esc(t(istGemerkt ? 'feed.card.saved' : 'feed.card.save')) + '</button>';
     html += '</div></div>';
-    if (rankLabels.length) {
+    if (rankLabels.length || istBezahltGehoben) {
       html += '<div class="ce-card__meta" style="margin-bottom:var(--ds-space-2)">';
       rankLabels.forEach(function(lbl) {
         html += '<span class="ds-badge ds-badge--neutral">' + esc(lbl) + '</span>';
       });
+      if (istBezahltGehoben) {
+        html += '<span class="ds-badge ds-badge--warning" data-rang="bezahlt" title="'
+          + esc(t('feed.rank.paidHint')) + '">' + esc(t('feed.rank.paid')) + '</span>';
+      }
       html += '</div>';
     }
 
