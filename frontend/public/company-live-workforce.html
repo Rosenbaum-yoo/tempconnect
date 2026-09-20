@@ -299,6 +299,8 @@
   <script>
     if (document.getElementById('tc-shell-nc') && window.TC && TC.shell) { try { TC.shell.init({ target: '#tc-shell-nc' }); } catch(e){} }
   </script>
+  <!-- TC.api — muss vor dem Seitenskript stehen (Waechter: apiClientGeladen.test.js) -->
+  <script src="/public/js/api.js"></script>
   <script src="/public/js/pages/companyLiveWorkforce.js"></script>
   <script src="/public/js/contextHints.js"></script>
   <script src="/public/js/notifications.js"></script>
