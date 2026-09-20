@@ -49,6 +49,17 @@
       card.appendChild(badge);
       badge.addEventListener("mouseenter", function () { showTooltip(badge); });
       badge.addEventListener("mouseleave", hideTooltip);
+      /* NUR DIE ZAHL SPRINGT ZUR QUELLE (Owner 2026-09-20).
+       * Vorher kaperte die ganze Kachel den Klick: wer "Deals & Einsaetze"
+       * anklickte, landete auf einer fremden Seite, weil dort die neueste
+       * Benachrichtigung herkam. Die Kachel fuehrt jetzt immer dorthin, wo
+       * sie draufsteht; der Sprung zur Quelle haengt an der kleinen Zahl. */
+      badge.setAttribute("role", "button");
+      badge.setAttribute("tabindex", "0");
+      badge.addEventListener("click", onBadgeActivate);
+      badge.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") onBadgeActivate(e);
+      });
     }
     return badge;
   }
@@ -108,7 +119,7 @@
         card.classList.add("ds-hub-card--active");
         var badge = ensureBadge(card);
         badge.textContent = n > 99 ? "99+" : String(n);
-        badge.setAttribute("aria-label", n + " neue Hinweise — zum Ansehen draufzeigen");
+        badge.setAttribute("aria-label", n + " neue Hinweise — anklicken, um zur Quelle zu springen");
         badge._tcItems = info.items;
         applyDeepLink(card, true);
       } else {
@@ -141,19 +152,21 @@
   async function getCsrf() {
     try { var r = await fetch("/api/csrf", { credentials: "include" }); var d = await r.json(); return d.csrfToken || d.token || ""; } catch (e) { return ""; }
   }
-  function bindClicks() {
-    var cards = document.querySelectorAll(HUB_SELECTOR);
-    for (var i = 0; i < cards.length; i++) cards[i].addEventListener("click", onCardClick);
-  }
-  function onCardClick(e) {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; // Neuer-Tab/Modifier normal lassen
-    var card = e.currentTarget;
-    if (!card.classList.contains("ds-hub-card--active")) return; // nur leuchtende Cards abfangen
+  /* Die Kachel bekommt KEINEN eigenen Klick-Fang mehr — sie folgt ihrem href.
+   * Angeklickt wird die Zahl; sie sitzt im <a> der Kachel, deshalb muessen
+   * Vorgabe-Navigation und Weiterreichen gestoppt werden. */
+  function onBadgeActivate(e) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || (e.type === "click" && e.button)) return;
+    var badge = e.currentTarget;
+    var card = badge.closest ? badge.closest(HUB_SELECTOR) : badge.parentNode;
+    if (!card) return;
     var types = TYPES_BY_SURFACE[card.getAttribute("data-surface")];
     if (!types || !types.length) return;
     e.preventDefault();
+    e.stopPropagation();
     markReadAndGo(card, types);
   }
+
   // Holt die ungelesenen Notifications dieser Surface, springt zur konkreten Quelle
   // (link_path der neuesten) und markiert alle als gelesen -> beim naechsten Mal kein Glow.
   async function markReadAndGo(card, types) {
@@ -182,7 +195,6 @@
 
   function start() {
     if (!document.querySelector(HUB_SELECTOR)) return; // nur auf Hub-Seiten aktiv
-    bindClicks();
     refresh();
     setInterval(refresh, POLL_MS);
     window.TC = window.TC || {};
