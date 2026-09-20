@@ -24,14 +24,24 @@
 | Baustein | Stand |
 |---|---|
 | Mitgliedschaften und Rollen | `org_memberships.role_key`, Einladungen mit Rolle (Mig 129), HR-Attribute (Mig 144) |
-| Standorte | Mehrstandort-Spalten (Mig 112); `assertLocationBelongsToOrg` in **4** Routendateien |
+| Standorte | Mehrstandort-Spalten (Mig 112). **Korrigiert 2026-09-20 durch die bauende Sitzung:** `location_id` wird in **11** Routendateien angenommen, die Prüfung `assertLocationBelongsToOrg` liegt in **6 Diensten** — Rate Cards, Bedarfe, Lieferantenpool und Organisationen sind darüber abgesichert, `me.js` prüft inline (`WHERE id=$1 AND org_id=$2`). Meine erste Zahl (4 Routendateien) zählte die Aufrufer der Prüfung, nicht die abgesicherten Wege |
 | Unternehmens-Provisionierung | `api/routes/scim.js` |
 | Org-Kontext | `middleware/orgContext.js` — Rückfall auf die primäre Mitgliedschaft, nie leer (C-11) |
 | Profilseiten | `company_profile_public.html`, `worker-profile-public.html`, `sla_profil.html` |
 | Audit je Firma | Welle I (8.1.1): Firmen sehen nur das eigene Audit |
 
-**Offen gemessen werden muss (U0):** wie viele Routen `location_id` lesen, aber nicht über
-`assertLocationBelongsToOrg` prüfen — 4 Dateien sind verdächtig wenig.
+**Gefunden am 2026-09-20 (bauende Sitzung), noch nicht abschließend gemessen:**
+
+> **`rbacService.addMember` und `updateMemberScope` schreiben `location_id` und `department_id`
+> nach `org_memberships`, ohne zu prüfen, dass der Standort dieser Organisation gehört.**
+> Erreichbar über `POST /organizations/:id/members` und den Scope-Weg. Ein Org-Admin könnte
+> seinem Mitglied damit einen **fremden** Standort eintragen.
+>
+> Was daraus folgt, hängt an drei Fragen, die vor jeder Änderung zu messen sind: greift ein
+> Fremdschlüssel? Wie wird `req.locationId` daraus aufgelöst? Und was tun die standortgebundenen
+> Abfragen mit einem fremden Wert — filtern sie ins Leere oder liefern sie fremde Daten?
+> **Erst die Antwort entscheidet, ob das ein Sicherheitsbefund oder eine Unsauberkeit ist.**
+> Die Prüfung gehört in beide Schreibwege, nicht in die Routen.
 
 ---
 
@@ -104,8 +114,9 @@
 
 **U0 → U2.4 → U1 → U5 → U2 → U3 → U4.**
 
-> **U2.4 steht vor allem anderen**, weil U0.2 einen Sicherheitsbefund liefern kann. Eine
-> Standortgrenze, die in 4 von vielleicht 30 Routen geprüft wird, ist keine Grenze.
+> **U2.4 steht vor allem anderen**, weil U0.2 bereits eine Lücke geliefert hat: nicht in den
+> Routen, sondern **im Schreibweg** (`rbacService`). Eine Grenze, die beim Lesen gilt und beim
+> Schreiben nicht, ist keine Grenze.
 
 ---
 
