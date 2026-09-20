@@ -57,6 +57,39 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **W** | Support Center für Mengen, Repo-Hygiene (Owner-Abschnitte 18, 19) | geplant. **W5 zuerst:** das Owner-Dokument liegt ungetrackt im öffentlichen Repo. Externer Support erst nach Standardvertragsklauseln (Indien ohne Angemessenheitsbeschluss) |
 | **X** | Lohnvorschau im Einsatzportal | geplant. Brutto genau, netto als Spanne, **keine** Steuerdaten; **nie** aus dem Verrechnungssatz |
 
+## Die Reihenfolge der offenen Arbeit *(Owner-Auftrag 2026-09-20: K1 arbeitet alles ab)*
+
+**Gewichtet nach Schaden, wenn es fehlt** — nicht danach, was zuletzt besprochen wurde. Die
+bauende Sitzung geht von oben nach unten; wer etwas vorzieht, schreibt den Grund dazu.
+
+| # | Was | Warum hier |
+|---|---|---|
+| 1 | **U0.2 + U2.4** — Standortgrenze messen und entdeckend absichern | Möglicher **Sicherheitsbefund**: `assertLocationBelongsToOrg` steht in nur 4 Routendateien. Sicherheit geht vor Funktion, immer |
+| 2 | **W5 + W4.2** — Office-Dateien und Schlüsselmuster als Wächter | Zwei kleine Proben gegen einen großen Schaden: das Repo ist öffentlich, die Owner-Unterlagen liegen darin |
+| 3 | **S1 + S4** — `npm install` läuft glatt, Hauptbaum-Ablauf nach dem Merge | Jeder Merge und jedes neue Paket steht sonst wieder vor einem Container, der nicht startet |
+| 4 | **N8.1** — Katalog statt Freitext in „Personal finden" | Solange eine Marktseite Freitext nimmt, **kann** das Matching dort nicht treffen. Alles darüber baut darauf auf |
+| 5 | **M4b + M4.8/M4.9** — der Marktplatz füllt sich selbst | Die Owner-Vorgabe „voluminös" entscheidet, ob eine Vorführung überhaupt etwas zeigt |
+| 6 | **N3, N5, N6** — Rangfolge, Korb, Abschluss | Vervollständigt den Weg, den N2 begonnen hat |
+| 7 | **N8.2** — der Stundenzettel kennt seinen Kunden | Schließt K-2 zwischen Zeitarbeitsfirma und Kunde; `buyer_org_id` liegt bereits vor |
+| 8 | **N8.7** — „Anmeldung erforderlich" nur bei echter 401 | Kein Ausfall, aber ein **Diagnoseschaden**: falsche Meldungen verstecken die nächste Ursache |
+| 9 | **E7** — Beispielansicht im Leerzustand | Der erste Eindruck einer leeren Live-Belegschaft, klein und sichtbar |
+| 10 | **O** — harte Bedingungen (Verleiherlaubnis, Haftpflicht, AV-Vertrag) | Muss stehen, **bevor** echte Buchungen laufen |
+| 11 | **N8.3** — „Aktueller Plan: ?" nach dem Schnellstart | Widerspricht M-E2; ein Interessent sieht eine Sperre statt des Markts |
+| 12 | **Q** — Zuverlässigkeit, Zeugnis, Abwesenheit | Rechtlich heikel, deshalb sorgfältig statt schnell |
+| 13 | **R** — die Sicht der Zeitarbeitsfirma: ein Ort, ein Tag | 17 Flächen, 4 in der Navigation — tägliche Arbeit, kein Ausfall |
+| 14 | **N8.4** — Umkreis bundesweit (Owner-Entscheid) | Erweiterung, kein Defekt |
+| 15 | **N8.6** — Wächter für Kachel und Zahl | Verhalten steht bereits (`5aa7c0b`), nur der Wächter fehlt |
+| 16 | **V6 + V7** — Betriebsarten: Komplettsystem oder angedockt | Groß und strategisch; **vor** jedem Adapter, aber nach dem Kern |
+| 17 | **T** — das monatliche Audit | Misst, was die Schritte davor geschaffen haben; vorher misst es wenig |
+| 18 | **U1–U5** — Rollen, Standorte, Profilsichtbarkeit | Wird gebraucht, sobald Kunden mehrere Menschen und Standorte haben |
+| 19 | **X** — Lohnvorschau | Angenehm für den Arbeiter, nichts hängt davon ab |
+| 20 | **P Klasse A**, **W1/W2**, **V2–V4**, **M5–M11** | Aufräumen, Support-Mengen, Adapter (warten auf Anbieter-Zugang), Ausbau |
+
+> **Nicht in dieser Liste, weil es dem Owner gehört:** Abschnitt 21 (Go-Live), die Überführung
+> des OCC ins Staff CC und die Freigabe externer Support-Kräfte.
+
+---
+
 > **Der wichtigste Befund der M-Messung, weil er alles andere betrifft:**
 > **Die Marktplatz-Automatik läuft nicht.** Der Mechanismus ist vollständig gebaut
 > (Mig 200/201, „Verfügbarkeit ist das Angebot"), aber `sweepMarktpraesenz` hat genau
