@@ -417,9 +417,9 @@ einzigen Aufrufer.**
 |---|---|---|
 | N3.1 | **Gebündelt bei mehreren**, einzeln bei einem | 14 gesucht → ein Bündel über 3 Firmen; 1 gesucht → Profile |
 | N3.2 | **Merkmale und Herkunft werden gezeigt** — die API liefert sie heute an jeden, gerendert werden sie auf **einer** Fläche | „aus Live-Belegschaft" steht überall |
-| N3.4 | **Die Sortierung speist sich aus mehr als der Passung** (Owner-Vorgabe 2026-09-06): **Sperrliste** (N4), **Verfügbarkeit aus der Live-Belegschaft**, **interne Bewertung** (Q1). Vorhandene Regeln zuerst prüfen — `profileRankingService` führt bereits `ranking_score`, `reputation_score`, `activity_score`, `premium_boost`, `effective_rank_score` und `rank_segment` | Je Bestandteil ein belegtes Gewicht. **Kein Bestandteil ohne Begründung im Code** |
-| N3.5 | **„Hart und unzerstörbar"** — die Reihenfolge ist **stabil** (gleiche Eingaben, gleicher Rang), **erklärbar** (jede Position nennt ihren Grund) und **nicht kaufbar**: bezahlte Hebung bricht höchstens Gleichstand (**O-L1**) | **Rückmutation:** `premium_boost` über eine bessere Passung stellen → Probe rot |
-| N3.6 | **Verfügbarkeit zählt, Krankheit nicht.** Wer heute abwesend ist, steht nicht oben — aber die **Zahl** der Abwesenheiten fließt **nirgends** in den Rang ein (Q1.1: Gesundheitsdaten werden nicht bewertet) | Abwesenheitstabelle in die Rangabfrage aufnehmen → **Probe rot** |
+| N3.4 | **Die Sortierung speist sich aus mehr als der Passung** (Owner-Vorgabe 2026-09-06): **Sperrliste** (N4), **Verfügbarkeit aus der Live-Belegschaft**, **interne Bewertung** (Q1). Vorhandene Regeln zuerst prüfen — `profileRankingService` führt bereits `ranking_score`, `reputation_score`, `activity_score`, `premium_boost`, `effective_rank_score` und `rank_segment` | ⚠️ **Teilweise 2026-09-19.** Erledigt ist die **Voraussetzung**: der Rang gilt jetzt über ein **Kandidatenfenster von 500** statt über die zufällige Datums-Seite (vorher rangierte der Feed 25 Zeilen, die die Datums-Sortierung auf diese Seite gelegt hatte — der beste Treffer auf Seite 3 kam dort nie weg). Jeder Bestandteil trägt seine Begründung: `rank_erklaerung` nennt Passung, Marktseite, Reputation, Dringlichkeit, Aktualität je mit Punkten, und eine Probe hält die Liste geschlossen. **Offen:** Sperrliste und Live-Verfügbarkeit als eigene Bestandteile, interne Bewertung (Q1) |
+| N3.5 | **„Hart und unzerstörbar"** — die Reihenfolge ist **stabil** (gleiche Eingaben, gleicher Rang), **erklärbar** (jede Position nennt ihren Grund) und **nicht kaufbar**: bezahlte Hebung bricht höchstens Gleichstand (**O-L1**) | ✅ **2026-09-19.** `rank_score` trägt nur noch **Verdientes**, `rank_boost_paid` das **Bezahlte** (Tarif 12, Platzierung 8, Hervorhebung 15 — bis dahin bis zu 35 kaufbare Punkte in derselben Summe). Sortiert wird verdient, dann bezahlt, dann Kennung. Gekennzeichnet auf der Karte, aus der Kürzung auf drei Gründe herausgenommen. Auch die **Profil-Rangliste** ordnet jetzt nach `ranking_score` statt nach Basis-plus-Hebung. **18 Rückmutationen rot**, u. a. „Hebung über die Passung" und „Kennzeichnung entfernt" |
+| N3.6 | **Verfügbarkeit zählt, Krankheit nicht.** Wer heute abwesend ist, steht nicht oben — aber die **Zahl** der Abwesenheiten fließt **nirgends** in den Rang ein (Q1.1: Gesundheitsdaten werden nicht bewertet) | ⚠️ **Halb 2026-09-19.** Die **Verneinung** ist gesichert: ein Wächter liest den Rang-Block und die Profil-Rangliste und wird rot, sobald dort `worker_absences`, „krank" oder „abwesen" auftaucht. **Offen** bleibt die positive Hälfte — heutige Abwesenheit senkt den Rang noch nicht, weil die Live-Belegschaft noch nicht im Rang hängt (gehört zu N3.4) |
 | N3.3 | **Kein Bündel, das die Menge nicht deckt**, ohne es zu sagen: „12 von 14 gedeckt — 2 offen" | Teildeckung ist sichtbar, nicht geschönt |
 
 ### N4 · Gesperrt heißt unsichtbar
@@ -568,6 +568,34 @@ stehen. **Auf Rückfrage entschieden: bundesweit für alle**, nicht nur für Mon
 | N8.4b | **Bundesweit heißt: kein Umkreisfilter — nicht ein sehr großer Radius.** Ein Radius von 1000 km würde wieder am Anker rechnen und das Blättern (N2.7) belasten | Treffer ohne Distanzbedingung, Anker bleibt verborgen (M-E4) |
 | N8.4c | **Das Ranking gewichtet Nähe weiter** — bundesweit verfügbar heißt nicht gleich gut für jeden Ort. Wer näher ist, steht bei gleicher Passung vorn | Gleiche Passung, 20 km vs. 400 km → der nähere zuerst |
 | N8.4d | **Die Passungszahl nennt die Nähe als Bestandteil**, damit „83 % statt 70 %" nachvollziehbar bleibt (Owner: *„immer wieder erinnern"*) | Aufschlüsselung der Prozentzahl sichtbar |
+
+### N8.6 · Kachel und Zahl sind zwei Ziele *(Owner-Ergänzung 2026-09-20)*
+
+> *„Es soll nur eine Weiterleitung erfolgen, wenn man auf die kleine Zahl klickt. Kachel soll
+> nicht weiterleiten auf die Seite, von welcher die Benachrichtigung kommt."*
+
+**Umgestellt am 2026-09-20** (`hubCardBadges.js`, Commit `5aa7c0b`): die Kachel folgt ihrem `href`,
+der Sprung zur Quelle samt Als-gelesen-Markieren hängt an der Zahl. **Der Wächter fehlt noch — das
+ist der Auftrag.**
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| N8.6a | **Ausgeführte Probe, nicht Quelltextsuche:** Klick auf die Zahl → Sprung zum `link_path` der neuesten Benachrichtigung dieser Fläche; Klick auf die Kachel → ihr eigenes `href`. DOM-Attrappe wie in `apiClientGeladen.test.js` | Zwei Rückmutationen: Handler von der Zahl auf die Kachel zurückverlegen → rot; `preventDefault` entfernen → rot |
+| N8.6b | **Die Zahl ist bedienbar ohne Maus** — `role="button"`, `tabindex`, Enter und Leertaste | Tastatur-Ereignis löst denselben Weg aus |
+| N8.6c | **Gelesen wird nur, was man angesehen hat:** Als-gelesen-Markieren hängt am Klick auf die Zahl, nicht am Besuch der Kachel | Kachel anklicken → Zahl bleibt stehen |
+| N8.6d | **Kein toter Sprung:** hat die neueste Benachrichtigung kein `link_path`, führt die Zahl auf die Kachelseite statt ins Leere | Benachrichtigung ohne Ziel → Rückfall belegt |
+
+### N8.7 · „Anmeldung erforderlich" darf nur eine echte 401 sein
+
+**Beim Stundenzettel-Befund aufgefallen** (Commit `ea106f6`): in `timesheets.js`,
+`companyTimesheets.js` und `companyLiveWorkforce.js` macht ein `catch` aus **jedem** Fehler die
+Meldung „Anmeldung erforderlich" — auch aus 429, 500 oder einem Netzfehler. Genau das hat den
+Befund wochenlang verdeckt: wer die Meldung liest, meldet sich an und sucht nicht weiter.
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| N8.7a | **Nach `err.status` unterscheiden** (api.js setzt ihn): 401 → Anmeldung; alles andere → ehrliche Fehlerfläche mit „Erneut laden" | Probe je Fall |
+| N8.7b | **Entdeckender Wächter:** kein `catch` an einem `/me`-Aufruf zeigt eine Anmeldeaufforderung, ohne den Status zu prüfen | Neuer Sammel-`catch` → rot |
 
 ### N8.5 · Kreislauf und Verdrahtung
 
