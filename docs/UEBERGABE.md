@@ -57,6 +57,24 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **W** | Support Center für Mengen, Repo-Hygiene (Owner-Abschnitte 18, 19) | geplant. **W5 zuerst:** das Owner-Dokument liegt ungetrackt im öffentlichen Repo. Externer Support erst nach Standardvertragsklauseln (Indien ohne Angemessenheitsbeschluss) |
 | **X** | Lohnvorschau im Einsatzportal | geplant. Brutto genau, netto als Spanne, **keine** Steuerdaten; **nie** aus dem Verrechnungssatz |
 
+## Der Zeitplan *(Owner 2026-09-20)*
+
+| Wann | Was |
+|---|---|
+| **Dezember 2026** | **Livegang** auf Hetzner und Cloudflare, danach **Pilotkunden sammeln** |
+| **01.03. oder 01.04.2027** | **Marktstart** |
+
+**Was das für die Reihenfolge bedeutet:** bis Dezember zählt, was ein echter Kunde anfasst und
+was ihn schützt — Mandanten- und Standortgrenzen, Geheimnisse, ein Marktplatz mit Inhalt, der
+Weg bis zum Abschluss, Stundenzettel und Rechnung. Alles, was erst bei vielen Kunden oder
+vielen Anfragen zählt (Support-Mengen, externe Support-Kräfte, Adapter zu Fremdsystemen,
+Tragfähigkeit), gehört **nach** den Livegang — es kostet jetzt Zeit, die der Pilot braucht.
+
+> **Die Posten 1 bis 11 der Rangfolge unten sind die Dezember-Liste.** Ab Posten 12 ist es
+> Ausbau: wichtig, aber nicht zwischen heute und dem ersten zahlenden Kunden.
+
+---
+
 ## Die Reihenfolge der offenen Arbeit *(Owner-Auftrag 2026-09-20: K1 arbeitet alles ab)*
 
 **Gewichtet nach Schaden, wenn es fehlt** — nicht danach, was zuletzt besprochen wurde. Die
