@@ -187,6 +187,17 @@ export async function createDepartment(pool, orgId, data) {
 }
 
 export async function updateDepartment(pool, deptId, orgId, data) {
+  /* U0.2 — DIESELBE GRENZE BEIM AENDERN WIE BEIM ANLEGEN.
+   * `createDepartment` (drei Zeilen weiter oben) prueft den Standort seit jeher;
+   * hier fehlte die Pruefung. Gemessen am 2026-09-20 ueber alle 967 Wege: der
+   * fremde Standort erreichte von hier aus die schreibende Abfrage
+   * (`UPDATE org_departments SET ... location_id = $4`), und der Fremdschluessel
+   * faengt ihn NICHT — er zeigt auf `org_locations(id)`, nicht auf
+   * `(id, org_id)`, und prueft damit nur die Existenz.
+   * Eine Grenze, die beim Anlegen gilt und beim Aendern nicht, ist keine. */
+  if (data.location_id) {
+    await assertLocationBelongsToOrg(pool, data.location_id, orgId);
+  }
   const allowed = ['name', 'cost_center', 'location_id', 'is_active'];
   const fields = [];
   const values = [deptId, orgId];

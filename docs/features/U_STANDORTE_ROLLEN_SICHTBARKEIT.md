@@ -63,7 +63,7 @@
 | Phase | Inhalt | Nachweis |
 |---|---|---|
 | U0.1 | Welche Rollen gibt es, welche Rechte trägt jede, wo werden sie geprüft | Tabelle mit Fundstellen |
-| U0.2 | **Routen, die `location_id` annehmen** — und ob sie die Zugehörigkeit prüfen | Liste; jede Lücke ist ein Sicherheitsbefund |
+| U0.2 | **Routen, die `location_id` annehmen** — und ob sie die Zugehörigkeit prüfen | ✅ **2026-09-20 gemessen, drei Lücken geschlossen.** Gemessen wurde am **Verhalten**, nicht am Quelltext: alle **967** Wege bekamen einen fremden Standort in Körper, Abfrage und Pfad, ein Spion schrieb jede Datenbankabfrage mit. **24** Wege fassen einen Standort an; **298** weisen vor der ersten Abfrage ab (über die sagt der Durchlauf nichts — deshalb die Dienste zusätzlich einzeln). **Befunde:** `PUT /organizations/:id/departments/:deptId` und `POST /organizations/:id/members` schrieben einen fremden Standort ungeprüft, `updateMemberScope` ebenso (die Route prüfte, der Dienst nicht — zweite Tür). Geschlossen in `organizationService.updateDepartment`, `rbacService.addMember`, `rbacService.updateMemberScope`. **8 Rückmutationen, alle rot** |
 | U0.3 | Wo verwaltet ein Firmen-Admin heute Mitglieder und Rollen — Seite, Endpunkte, Klickpfad | Befund, bevor etwas gebaut wird |
 
 ### U1 · Der Firmen-Admin verwaltet sein Team
@@ -79,10 +79,13 @@
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|
+| U2.0 | **Alle Standorte zuerst** *(Owner-Vorgabe 2026-09-20)*: wer mehrere Standorte hat, trägt sie **vorab vollständig** ein — bevor Mitarbeiter, Bedarfe oder Einsätze einem Standort zugeordnet werden. Ein geführter Schritt bei der Einrichtung (Name, Anschrift, optional Kostenstelle), Liste mit „noch einen hinzufügen", und erst danach die standortgebundenen Flächen | Ohne mindestens einen Standort fragt die Plattform danach, statt still org-weit zu arbeiten |
+| U2.0b | **Nachträglich bleibt möglich, aber sichtbar:** ein später angelegter Standort erscheint in der Einrichtungsliste mit Datum — niemand muss raten, warum alte Einsätze keinen Standort tragen | Neuer Standort → bestehende Daten bleiben unberührt und unzugeordnet, nicht stillschweigend zugeordnet |
+| U2.0c | **Einer genügt für den Einstieg:** wer nur einen Standort hat, sieht den Schritt als einzelne vorbelegte Zeile und klickt weiter — die Mehrstandort-Führung darf den einfachen Fall nicht verteuern | Einzelstandort-Firma: ein Klick, keine zusätzliche Pflege |
 | U2.1 | Standorte anlegen, umbenennen, archivieren (nie löschen, wenn Einsätze daran hängen) | Archivierter Standort bleibt in Historie lesbar |
 | U2.2 | **Standortrolle:** eine Standortleitung sieht nur ihren Standort; org-weite Flächen sind für sie `hidden_location_scope` | Fremder Standort → 403 |
 | U2.3 | Drilldowns tragen `location_id` weiter (Pfeiler 7) | Wächter über alle Drilldown-Links |
-| U2.4 | **Entdeckender Wächter:** jede Route, die `location_id` liest, prüft die Zugehörigkeit | Neue Route ohne Prüfung → rot |
+| U2.4 | **Entdeckender Wächter:** jede Route, die `location_id` liest, prüft die Zugehörigkeit | ✅ **2026-09-20** — `api/test/standortGrenze.test.js`. Drei Teile: (A) der Durchlauf über alle Wege, der über die **erste Abfrage mit dem fremden Standort** urteilt — schreibend heißt ungeprüft geschrieben, lesend ohne die eigene Org heißt ungebunden; (B) jeder Schreibweg **direkt am Dienst**, fail-closed und mit Gegenprobe (ein eigener Standort darf nicht werfen); (C) die **Wirkung**: eine Mitgliedschaft mit fremdem Standort löst sich nicht auf und fällt auf `locationScope: 'org'` zurück — **gebunden wird still org-weit**. Eine neue Route ohne Prüfung fällt in (A) auf |
 
 ### U3 · „Wer darf was" — sichtbar für den Firmen-Admin
 

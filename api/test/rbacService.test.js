@@ -329,14 +329,33 @@ describe("addMember", () => {
   });
 
   it("passes optional department_id and location_id", async () => {
-    const pool = mockPool({ rows: [MEMBERSHIP] });
+    /* FIXTURE-PFLEGE (U0.2, 2026-09-20): vor dem INSERT steht jetzt die
+       Eigentumspruefung (`SELECT 1 FROM org_locations ...`). Der Pool
+       beantwortet sie, und die Zusicherungen greifen die SCHREIBENDE Abfrage
+       statt `queries[0]` — inhaltlich unveraendert. */
+    const pool = mockPool((sql) => (
+      /FROM\s+org_locations|FROM\s+org_departments/i.test(sql)
+        ? { rows: [{ ok: 1 }] }
+        : { rows: [MEMBERSHIP] }));
     await addMember(pool, "org-1", "user-4", "recruiter", {
       department_id: "dept-1",
       location_id: "loc-1"
     });
-    const params = pool.queries[0].params;
+    const params = pool.queries.find((q) => /INSERT INTO org_memberships/i.test(q.sql)).params;
     assert.strictEqual(params[3], "dept-1");
     assert.strictEqual(params[4], "loc-1");
+  });
+
+  it("weist einen FREMDEN Standort ab, bevor die Mitgliedschaft entsteht", async () => {
+    /* Der Fremdschluessel zeigt auf `org_locations(id)`, nicht auf
+       `(id, org_id)` — die Datenbank faengt das nicht. Und eine Bindung, die
+       sich nicht aufloesen laesst, wirkt org-weit statt gebunden. */
+    const pool = mockPool((sql) => (/FROM\s+org_locations/i.test(sql) ? { rows: [] } : { rows: [MEMBERSHIP] }));
+    await assert.rejects(
+      () => addMember(pool, "org-1", "user-4", "recruiter", { location_id: "loc-fremd" }),
+      (err) => err.name === "OrgBoundaryError" || /OrgBoundary/.test(String(err)));
+    assert.equal(pool.queries.find((q) => /INSERT INTO org_memberships/i.test(q.sql)), undefined,
+      "die Mitgliedschaft wurde geschrieben, bevor abgewiesen wurde");
   });
 
   it("defaults optional fields to null", async () => {
@@ -644,8 +663,42 @@ describe("getAllowedLocationsForMembership", () => {
 describe("updateMemberScope", () => {
   const ROW = { id: "m1", org_id: "org-1", location_id: "loc-a", department_id: "dep-1" };
 
+  /*
+   * FIXTURE-PFLEGE (U0.2, 2026-09-20): seit der Dienst die Eigentumsgrenze
+   * selbst prueft, ist die ERSTE Abfrage nicht mehr das UPDATE, sondern
+   * `SELECT 1 FROM org_locations WHERE id = $1 AND org_id = $2`. Die
+   * Zusicherungen darunter sind unveraendert — sie greifen nur nicht mehr
+   * ueber `queries[0]`, sondern ueber die Abfrage, die sie MEINEN.
+   *
+   * Das war keine Formsache: "bindet die Aenderung an die Organisation" waere
+   * gruen geblieben, weil auch die Pruefabfrage `org_id = $2` enthaelt — die
+   * Probe haette ab sofort den Stellvertreter geprueft statt die Sache.
+   */
+  const schreibende = (pool) => pool.queries.find((q) => /^\s*UPDATE/i.test(q.sql));
+  /** Pool, dessen Eigentumspruefung gelingt; `rows` beantwortet das UPDATE. */
+  function poolMitPruefung(rows) {
+    return mockPool((sql) => {
+      if (/FROM\s+org_locations|FROM\s+org_departments/i.test(sql)) return { rows: [{ ok: 1 }] };
+      return { rows };
+    });
+  }
+
+  it("weist einen FREMDEN Standort ab, bevor irgendetwas geschrieben wird", async () => {
+    /* U0.2: der Fremdschluessel zeigt auf `org_locations(id)`, nicht auf
+       `(id, org_id)` — die Datenbank faengt einen fremden Standort also nicht.
+       Und eine Bindung, die sich spaeter nicht aufloesen laesst, wirkt
+       org-weit statt gebunden (middleware/orgContext.js). */
+    const pool = mockPool((sql) => (/FROM\s+org_locations/i.test(sql) ? { rows: [] } : { rows: [ROW] }));
+    await assert.rejects(
+      () => updateMemberScope(pool, "org-1", "m1", { location_id: "loc-fremd", department_id: null }),
+      (err) => err.name === "OrgBoundaryError" || /OrgBoundary/.test(String(err)),
+      "ein fremder Standort wird in die Mitgliedschaft geschrieben");
+    assert.equal(schreibende(pool), undefined,
+      "es wurde bereits geschrieben, bevor abgewiesen wurde");
+  });
+
   it("schreibt Standort und Abteilung wirklich", async () => {
-    const pool = mockPool({ rows: [ROW] });
+    const pool = poolMitPruefung([ROW]);
     const result = await updateMemberScope(pool, "org-1", "m1", {
       location_id: "loc-a", department_id: "dep-1"
     });
@@ -657,33 +710,35 @@ describe("updateMemberScope", () => {
      * Standortbindung und wird org-weit, ohne dass jemand eine Rolle aendert.
      * Ohne diese Zusicherung faellt das keinem Test auf.
      */
-    assert.strictEqual(pool.queries[0].params[2], "loc-a",
+    assert.strictEqual(schreibende(pool).params[2], "loc-a",
       "der Standort muss geschrieben werden, nicht null");
-    assert.strictEqual(pool.queries[0].params[3], "dep-1",
+    assert.strictEqual(schreibende(pool).params[3], "dep-1",
       "die Abteilung ebenso");
   });
 
   it("bindet die Aenderung an die Organisation", async () => {
-    const pool = mockPool({ rows: [ROW] });
+    const pool = poolMitPruefung([ROW]);
     await updateMemberScope(pool, "org-1", "m1", { location_id: "loc-a", department_id: null });
-    assert.ok(pool.queries[0].sql.includes("org_id = $2"),
+    assert.ok(schreibende(pool).sql.includes("org_id = $2"),
       "ohne Org-Bedingung liesse sich der Scope eines fremden Mitglieds aendern");
-    assert.strictEqual(pool.queries[0].params[1], "org-1");
-    assert.ok(pool.queries[0].sql.includes("is_active = TRUE"),
+    assert.strictEqual(schreibende(pool).params[1], "org-1");
+    assert.ok(schreibende(pool).sql.includes("is_active = TRUE"),
       "eine deaktivierte Mitgliedschaft wird nicht stillschweigend wiederbelebt");
   });
 
   it("macht aus 'kein Standort' ein echtes NULL, nicht undefined", async () => {
-    const pool = mockPool({ rows: [{ ...ROW, location_id: null, department_id: null }] });
+    const pool = poolMitPruefung([{ ...ROW, location_id: null, department_id: null }]);
     await updateMemberScope(pool, "org-1", "m1", {});
-    assert.strictEqual(pool.queries[0].params[2], null);
-    assert.strictEqual(pool.queries[0].params[3], null);
+    assert.strictEqual(schreibende(pool).params[2], null);
+    assert.strictEqual(schreibende(pool).params[3], null);
   });
 
   it("gibt null zurueck, wenn nichts getroffen wurde", async () => {
-    // Fremde Org oder inaktive Mitgliedschaft: das UPDATE trifft keine Zeile.
-    const pool = mockPool({ rows: [] });
-    const result = await updateMemberScope(pool, "org-fremd", "m1", { location_id: "loc-a" });
+    /* Inaktive Mitgliedschaft: das UPDATE trifft keine Zeile. Der Standort
+       gehoert hier zur Org — sonst wiese schon die Eigentumspruefung ab, und
+       die Probe pruefte etwas anderes, als ihr Name sagt. */
+    const pool = poolMitPruefung([]);
+    const result = await updateMemberScope(pool, "org-1", "m1", { location_id: "loc-a" });
     assert.strictEqual(result, null,
       "ein stiller Erfolg waere hier das gefaehrlichste Ergebnis");
   });

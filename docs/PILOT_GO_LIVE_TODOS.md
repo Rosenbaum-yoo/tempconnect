@@ -2,6 +2,57 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-20 — Die Standortgrenze, entdeckend geprüft (U0.2 / U2.4)
+
+**Status:** erledigt · **Kategorie:** Rollen-/Sichtbarkeitslogik mit Sicherheitswirkung ·
+**Quelle:** Owner-Reihenfolge 2026-09-20, Posten 1 (`docs/UEBERGABE.md`)
+
+Der Plan U vermutete einen Sicherheitsbefund: `assertLocationBelongsToOrg` stehe in nur vier
+Routendateien. **In der Zahl war die Vermutung falsch, in der Sache richtig.**
+
+Falsch in der Zahl: die Prüfung liegt eine Schicht tiefer. Elf Routendateien nehmen einen
+Standort an, **sechs Dienste** tragen die Prüfung — wer in `routes/` zählt, zählt die falsche
+Schicht.
+
+Richtig in der Sache: gemessen am **Verhalten** über alle **967** Wege (jeder Handler bekam
+einen fremden Standort, ein Spion schrieb jede Abfrage mit) erreichte der fremde Standort von
+**drei** Wegen aus die Datenbank, ohne dass ihn jemand geprüft hätte:
+
+| Weg | Abfrage |
+|---|---|
+| `PUT /organizations/:id/departments/:deptId` | `UPDATE org_departments SET ... location_id` |
+| `POST /organizations/:id/members` | `INSERT INTO org_memberships` |
+| `updateMemberScope` | `UPDATE org_memberships` — die Route prüft, der **Dienst** nicht (zweite Tür) |
+
+**Der Fremdschlüssel fängt das nicht:** er zeigt auf `org_locations(id)`, nicht auf
+`(id, org_id)` (Migration 019/112) — er prüft nur, dass es die Zeile *irgendwo* gibt.
+
+**Warum das ein Sicherheitsbefund ist und keine Unsauberkeit:** `middleware/orgContext.js` löst
+`req.locationId` über `resolveLocation(pool, req.orgId, …)` auf; ein fremder Standort liefert
+dort nichts. Wenige Zeilen später steht „if no location resolved, user sees org-wide". Eine
+Mitgliedschaft, die formal **an einen Standort gebunden** ist, wirkt damit **org-weit** — die
+Umkehrung dessen, wofür eine Standortleitung existiert, und lautlos, weil nirgends ein Fehler
+entsteht. Teil C der Probe stellt genau das nach.
+
+**Geschlossen** in den Schreibwegen, nicht in den Routen: `rbacService.addMember`,
+`rbacService.updateMemberScope`, `organizationService.updateDepartment`. Die Routen sind nur
+zwei von mehreren Türen; `addMember` hängt auch an der Einladungsstrecke.
+
+**Nachweis:** `api/test/standortGrenze.test.js` (11) — (A) entdeckender Durchlauf über alle
+Wege, (B) jeder Schreibweg direkt am Dienst mit Gegenprobe, (C) die Wirkung im Kontext.
+**8 Rückmutationen, alle rot**, darunter drei, die sowohl (A) als auch (B) rot färben — der
+Durchlauf beißt also selbst und nicht nur die Einzelproben.
+
+**Fixture-Pflege (§0.9, Zusicherungen unverändert):** vier Proben in `rbacService.test.js`
+griffen `queries[0]`; davor steht jetzt die Eigentumsprüfung. Sie greifen nun die **schreibende**
+Abfrage. Eine davon wäre sonst **grün geblieben und hätte den Stellvertreter geprüft**: auch die
+Prüfabfrage enthält `org_id = $2`.
+
+**Offen, benannt:** ein zusammengesetzter Fremdschlüssel `(id, org_id)` auf
+`org_locations`/`org_departments` würde die Grenze in der Datenbank verankern statt nur im Dienst.
+Das ist eine Migration mit Rückwärtsprüfung bestehender Zeilen — eigener Posten, nicht in dieser
+Welle.
+
 ### 2026-09-20 — Der Rang ist ehrlich (N3.4 / N3.5 / N3.6)
 
 **Status:** erledigt · **Kategorie:** Rollen-/Sichtbarkeitslogik (die Reihenfolge ist eine Aussage)
