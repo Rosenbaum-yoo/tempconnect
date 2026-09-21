@@ -162,3 +162,18 @@ docs/launch/*
 !docs/launch/H_ARCHITEKTUR-ROADMAP.md
 docs/aktuellesitzung/
 TempConnect_UG-Gruendung*.pdf
+
+# ── Owner-Unterlagen in der Wurzel (W5.1) ───────────────────────────────────
+# Diese vier Zeilen standen bis 2026-09-21 NUR in `.git/info/exclude`. Das ist
+# eine Datei, die nicht mitwandert: sie schuetzt genau einen Arbeitsplatz. Ein
+# frischer Klon — anderer Rechner, CI, neue Mitarbeit — hatte die Regel nicht,
+# und das Repo ist oeffentlich. Eine Sperre, die nur lokal existiert, ist im
+# Zweifel keine.
+#
+# `/` am Anfang heisst: nur in der Wurzel. Wer eine Testvorlage unter
+# `api/test/fixtures/` ablegen muss, kann das weiterhin — bewusst und sichtbar.
+# `~$*` sind die Sperrdateien, die Word neben jedes geoeffnete Dokument legt.
+/*.docx
+/*.xlsx
+/*.pptx
+/~$*

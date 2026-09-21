@@ -80,14 +80,14 @@ Das ist Sache des Owners mit rechtlicher Beratung — **W2 baut die Technik, sch
 | Phase | Inhalt | Nachweis |
 |---|---|---|
 | W4.1 | **Rotationsliste vor dem Go-Live** — welche Schlüssel (Sitzung, Datenbank, Stripe, Mail-Versand, API-Signatur), **ohne Werte**. Der Owner rotiert am Server | Datum je Schlüssel im Betriebsbuch |
-| W4.2 | **Wächter:** kein Schlüsselmuster (z. B. `sk_live_`, `-----BEGIN … PRIVATE KEY`, `tc_live_`) in getrackten Dateien | Muster in einer Datei → rot. Rückmutation |
+| W4.2 | **Wächter:** kein Schlüsselmuster (z. B. `sk_live_`, `-----BEGIN … PRIVATE KEY`, `tc_live_`) in getrackten Dateien | ✅ **2026-09-21** — `api/test/repoHygiene.test.js`. **Nichts neu erfunden:** die Regel, was ein *echter* Zugangswert ist, steht seit der Release-Prüfung in `scripts/lib/secretScan.mjs` (Anbieter-Präfix mit strengem Format, sonst Länge **und** Entropie — an echten Werten gemessen, deshalb ohne die 18 Fehlalarme der Vorgängerregel). Sie lief bisher nur gegen das **Release-Paket**; jetzt zusätzlich gegen alle **1911** getrackten Dateien: 0 Treffer. Mit Gegenprobe (zwei gepflanzte Werte **werden** gefunden) — sonst wäre eine blind gewordene Regel still grün |
 
 ### W5 · Geschäftsunterlagen
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|
-| W5.1 | `.gitignore` für Office-Dateien in der Wurzel und Word-Sperrdateien (`~$*`), dazu `docs/launch/` | `git status` zeigt das Owner-Dokument nicht mehr |
-| W5.2 | **Wächter:** keine `.docx`/`.xlsx`/`.pptx` getrackt; PDFs nur in benannten Pfaden (Testvorlagen) | Office-Datei getrackt → rot |
+| W5.1 | `.gitignore` für Office-Dateien in der Wurzel und Word-Sperrdateien (`~$*`), dazu `docs/launch/` | ✅ **2026-09-21 — und der Befund war ein anderer als erwartet:** die Regeln existierten bereits, aber in **`.git/info/exclude`**. Diese Datei **wandert nicht mit** — sie schützt genau einen Arbeitsplatz; ein frischer Klon (anderer Rechner, CI, neue Mitarbeit) hatte sie nicht. Jetzt in `.gitignore`, also versioniert. `docs/launch/*` war bereits dort (mit zwei bewussten Ausnahmen) |
+| W5.2 | **Wächter:** keine `.docx`/`.xlsx`/`.pptx` getrackt; PDFs nur in benannten Pfaden (Testvorlagen) | ✅ **2026-09-21** — über `git ls-files`, also über genau das, was veröffentlicht wird. Heute: **0** Office-Dateien, **0** PDFs getrackt. Mit Gegenprobe an einer erfundenen Liste, weil beide Proben sonst auch mit einer Einstufung grün wären, die nichts mehr erkennt. **5 Rückmutationen, alle rot** |
 
 ### W6 · Altlasten
 

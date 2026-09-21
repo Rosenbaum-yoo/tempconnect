@@ -2,6 +2,41 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-21 — Zwei Wächter gegen einen großen Schaden (W5.1 / W5.2 / W4.2)
+
+**Status:** erledigt · **Kategorie:** Security (Repo-Hygiene) ·
+**Quelle:** Owner-Reihenfolge 2026-09-20, Posten 2
+
+Das Repository ist öffentlich, und die Unterlagen des Owners liegen im selben Baum.
+
+**Der Befund war ein anderer als der Plan vermutete.** Die Sperre für Office-Dateien in der
+Wurzel existierte bereits — aber in **`.git/info/exclude`**. Diese Datei **wandert nicht mit**:
+sie schützt genau einen Arbeitsplatz. Ein frischer Klon (anderer Rechner, CI, neue Mitarbeit)
+hatte die Regel nicht, und dort wäre die nächste Owner-Unterlage in einer Wurzel gelandet, die
+sie nicht mehr ignoriert. Eine Sperre, die nur lokal existiert, ist im Zweifel keine. Sie steht
+jetzt in `.gitignore`, und eine Probe hält sie dort fest.
+
+**Gemessen:** 0 Office-Dateien und 0 PDFs getrackt, 1911 von 1914 getrackten Dateien auf
+Zugangswerte geprüft — **0 Treffer**.
+
+**W4.2 erfindet nichts neu.** Die Regel, was ein *echter* Zugangswert ist, steht seit der
+Release-Prüfung in `scripts/lib/secretScan.mjs`: Anbieter-Präfix mit strengem Format, sonst
+Länge **und** Entropie — an echten Werten gemessen, deshalb ohne die 18 Fehlalarme, an denen die
+Vorgängerregel gescheitert ist. Sie lief bisher nur gegen das **Release-Paket**. Jetzt läuft
+dieselbe Regel gegen die getrackten Dateien: was im Paket nicht liegen darf, darf erst recht
+nicht in der Historie liegen — aus der bekommt man es nicht mehr heraus.
+
+**Nachweis:** `api/test/repoHygiene.test.js` (7), **5 Rückmutationen, alle rot**. Beide
+Gegenproben sind der eigentliche Wert: die Positiv-Proben sind heute grün, *weil* nichts
+Verbotenes getrackt ist — sie wären es auch mit einer Einstufung, die nichts mehr erkennt.
+
+**Beim Bauen gefunden:** die Datei trug ein echtes NUL-Byte im Quelltext (aus der NUL-Escape-Sequenz in einem
+JSON-Schreibvorgang wurde das Zeichen selbst). `git` stufte sie damit als binär ein — ausgerechnet
+die Probe, die Repo-Hygiene prüft. Auf Byte-Ebene ersetzt.
+
+**Offen, benannt:** W4.1 (Rotationsliste) bleibt bewusst zuletzt — Rotieren ergibt erst
+unmittelbar vor dem Go-Live Sinn.
+
 ### 2026-09-20 — Die Standortgrenze, entdeckend geprüft (U0.2 / U2.4)
 
 **Status:** erledigt · **Kategorie:** Rollen-/Sichtbarkeitslogik mit Sicherheitswirkung ·
