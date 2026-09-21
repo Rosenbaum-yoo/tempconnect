@@ -2,6 +2,58 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-21 — Ein Klient statt zwei, und der Stand ist ablesbar (S1 / S2 / S3 / S4)
+
+**Status:** erledigt · **Kategorie:** Technik (Abhängigkeiten) + Betrieb ·
+**Quelle:** Owner-Reihenfolge 2026-09-20, Posten 3
+
+**Gemessen zuerst (S1), wie der Plan es verlangt:**
+
+| Frage | Antwort |
+|---|---|
+| Was macht `rateLimit.js` mit Redis? | `createClient` aus `redis` (node-redis v4), als `sendCommand` an `rate-limit-redis` gereicht. Ohne `RATE_LIMIT_STORE=redis`: ein Zähler **je Instanz** im Arbeitsspeicher |
+| Läuft der Begrenzer überhaupt mit Redis? | **Ja.** Beide Compose-Dateien setzen `RATE_LIMIT_STORE: ${RATE_LIMIT_STORE:-redis}` — Redis ist der Standard im Container. Die Umstellung betraf also den **laufenden** Begrenzer |
+| Weitere Redis-Nutzer? | **Genau einer.** `rateLimit.js` war der einzige Aufrufer von `redis`; einen direkten Aufrufer von `ioredis` gab es **nicht** — es kam unausgesprochen über BullMQ herein |
+
+**Der Preis der zweiten Bibliothek war nicht nur ein Paket:** `bullmq@5` führt
+`peerOptional redis@">=5.0.0"`, die Wurzel pinnte `redis@^4.6.13`. Jedes `npm install`
+endete mit ERESOLVE, und der Ausweg hieß `--legacy-peer-deps` — ein Schalter, der
+Abhängigkeiten ausdrücklich *potenziell kaputt* auflöst und dabei jede künftige **echte**
+Warnung mitverschluckt. Auf genau diesem Weg ist `@pdf-lib/fontkit` einmal mit `--no-save`
+im Baum gelandet, ohne je im Lockfile zu stehen.
+
+**Umgestellt:** der Ratenbegrenzer benutzt jetzt `ioredis` — denselben Klienten wie die
+Warteschlangen, aus **derselben** Zugangsdefinition (`queue/connection.js`). Der Unterschied
+zwischen den beiden Bibliotheken sitzt an **einer** Stelle: node-redis nimmt die Befehlsteile
+als *ein Feld*, ioredis als *einzelne Argumente*. Deshalb steht die Umrechnung als eigene,
+**ausgeführte** Funktion `befehlsBruecke()`: verwechselt man sie, gibt es beim Start keinen
+Fehler — der Begrenzer zählt erst im Betrieb falsch und lässt dann alles durch oder nichts.
+
+**Damit läuft `npm install` wieder ohne Schalter** — geprüft mit `--dry-run`, und auch
+`npm ci --omit=dev` (der Weg des Abbilds) läuft sauber. Das `--legacy-peer-deps` im
+`api/Dockerfile` ist entfernt.
+
+**S4 — der Hauptbaum als Betriebsumgebung:** der Container bedient den **Hauptbaum**, nicht
+den Arbeitsbaum. Ein grüner Testlauf im Worktree sagt deshalb nichts über den laufenden
+Container. Neu: `APP_COMMIT` als Bauargument, von beiden Compose-Dateien weitergereicht und
+im **Startprotokoll** neben Port, Node-Version und Umgebung. Fehlt der Wert, steht *unbekannt*
+da — auch das ist eine Aussage. Dazu ein Ablauf in vier Schritten zum Abtippen
+(`docs/features/S_ABHAENGIGKEITEN.md`, Abschnitt 4a).
+
+**Nachweis:** `api/test/einKlientFuerRedis.test.js` (13), **6 Rückmutationen, alle rot**.
+
+**Beim Bauen gefunden — und dann dauerhaft bewacht:** dreimal an einem Tag wurde eine
+Escape-Sequenz beim Schreiben zum **Zeichen**: ein NUL-Byte in einer Probendatei (git stufte
+sie als binär ein), ein NUL in einer Commit-Nachricht (git verweigerte sie) und ein
+BACKSPACE **in einer Regex** — die Probe war grün und verglich gegen ein Zeichen, das im
+Zieltext nie vorkommt. Sie hätte **nie** etwas gefangen. Beim Messen dafür kamen vier alte
+Vorkommen in zwei Planungsdokumenten zutage, ausgerechnet an der Stelle, an der beide Texte
+diese Falle **beschreiben**; sie sind mitrepariert. Neu in `api/test/repoHygiene.test.js`:
+keine getrackte Textdatei trägt noch ein Steuerzeichen.
+
+**Offen, benannt:** S3.1/S3.2 (Register *eine Bibliothek je Aufgabe* mit entdeckendem
+Wächter) und S2.4 — die Übrigen der S-Welle.
+
 ### 2026-09-21 — Zwei Wächter gegen einen großen Schaden (W5.1 / W5.2 / W4.2)
 
 **Status:** erledigt · **Kategorie:** Security (Repo-Hygiene) ·

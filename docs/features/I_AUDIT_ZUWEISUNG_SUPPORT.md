@@ -402,7 +402,7 @@ ausgeliefert; sie ist das Anmeldegeheimnis.
 
 ### Beim Bauen in die eigene Falle gelaufen
 
-`` wurde beim Erzeugen des Codes zum **Backspace-Zeichen** (0x08) statt zur
+`\b` wurde beim Erzeugen des Codes zum **Backspace-Zeichen** (0x08) statt zur
 Wortgrenze. Die Muster trafen fast nichts: ein iPhone galt als „rechner", jeder
 Browser als „unbekannt". Genau die Falle, die `docs/UEBERGABE.md` seit dem
 2026-08-19 beschreibt — damals traf es den Org-Grenzen-Wächter, der deshalb

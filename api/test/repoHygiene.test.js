@@ -166,3 +166,75 @@ describe("W4.2 · kein echter Zugangswert in getrackten Dateien", () => {
       `die Regel hat ${funde.length} von 2 gepflanzten Werten gefunden — sie ist blind geworden`);
   });
 });
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   KEINE STEUERZEICHEN IN TEXTDATEIEN
+   ═══════════════════════════════════════════════════════════════════════════
+ *
+ * NICHT AUSGEDACHT, SONDERN DREIMAL AN EINEM TAG PASSIERT (2026-09-21):
+ * Eine Escape-Sequenz, die durch mehrere Werkzeugschichten geschrieben wird,
+ * kommt als das ZEICHEN an, nicht als die zwei Zeichen. Getroffen hat es
+ *
+ *   - eine Probendatei, die dadurch ein NUL-Byte trug: `git` stufte sie als
+ *     BINAER ein — ausgerechnet die Probe fuer Repo-Hygiene;
+ *   - eine Commit-Nachricht: `git` verweigerte sie rundheraus
+ *     ("a NUL byte in commit log message not allowed");
+ *   - eine Regex in einer Probe, in der aus der Wortgrenze ein
+ *     BACKSPACE-Byte wurde. Die Probe war gruen, verglich aber gegen ein
+ *     Zeichen, das im Zieltext nie vorkommt — sie haette NIE etwas gefangen.
+ *
+ * Beim Messen fuer diesen Waechter kamen ausserdem VIER alte Vorkommen in zwei
+ * Planungsdokumenten zutage, an genau der Stelle, an der beide Texte diese
+ * Falle BESCHREIBEN. Sie sind mitreparaturiert.
+ *
+ * Das letzte ist das gefaehrlichste: ein Steuerzeichen faellt in keinem
+ * Editor auf, ueberlebt jede Durchsicht und macht eine Pruefung still wertlos.
+ */
+
+const TEXT_ENDUNGEN = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".json", ".md", ".sql",
+  ".html", ".css", ".yml", ".yaml", ".sh", ".txt", ".env", ".xml", ".svg", ".conf"]);
+const TEXT_OHNE_ENDUNG = new Set(["Dockerfile", ".gitignore", ".dockerignore",
+  ".gitattributes", ".editorconfig"]);
+/* Tabulator, Zeilenvorschub und Wagenruecklauf sind erlaubt — alles andere
+   unterhalb von 0x20 hat in einer Textdatei nichts verloren. */
+const VERBOTENE_BYTES = [0x00, 0x07, 0x08, 0x0b, 0x0c, 0x1b];
+
+describe("Repo-Hygiene · keine Steuerzeichen in Textdateien", () => {
+  before(() => { if (!dateien.length) dateien = getrackteDateien(); });
+
+  it("keine getrackte Textdatei traegt ein Steuerzeichen", () => {
+    const befunde = [];
+    let geprueft = 0;
+    for (const rel of dateien) {
+      const name = path.basename(rel);
+      const endung = path.extname(name).toLowerCase();
+      if (!TEXT_ENDUNGEN.has(endung) && !TEXT_OHNE_ENDUNG.has(name)) continue;
+      let roh;
+      try { roh = fs.readFileSync(path.join(REPO_ROOT, rel)); } catch { continue; }
+      geprueft++;
+      for (const byte of VERBOTENE_BYTES) {
+        let anzahl = 0;
+        for (const b of roh) if (b === byte) anzahl++;
+        if (anzahl) befunde.push(`${rel}: 0x${byte.toString(16).padStart(2, "0")} x${anzahl}`);
+      }
+    }
+    assert.ok(geprueft > 1500, `nur ${geprueft} Textdateien geprueft — der Waechter liest ins Leere`);
+    assert.deepStrictEqual(befunde, [],
+      "Steuerzeichen in einer Textdatei. Sie entstehen, wenn eine Escape-Sequenz durch "
+      + "mehrere Werkzeugschichten geschrieben wird und als ZEICHEN ankommt. In keinem "
+      + "Editor sichtbar, und eine Pruefung, die so ein Zeichen enthaelt, faengt nie etwas.");
+  });
+
+  it("GEGENPROBE: die Einstufung erkennt ein Steuerzeichen", () => {
+    /* Ohne sie bestuende die Probe oben auch mit einer leeren Byte-Liste. */
+    const mitZeichen = Buffer.from([0x61, 0x00, 0x62]);
+    const gefunden = VERBOTENE_BYTES.some((byte) => mitZeichen.includes(byte));
+    assert.ok(gefunden, "die Byte-Liste erkennt kein Steuerzeichen mehr");
+    /* Tabulator (9) und Zeilenvorschub (10) ueber die Zeichenwerte gebaut: als
+       Escape-Sequenz geschrieben landen sie als ZEICHEN in dieser Datei — genau
+       der Fehler, den diese Probe bewacht. */
+    const harmlos = Buffer.from("normal" + String.fromCharCode(9) + "text" + String.fromCharCode(10));
+    assert.ok(!VERBOTENE_BYTES.some((byte) => harmlos.includes(byte)),
+      "Tabulator oder Zeilenvorschub gelten als verboten — dann ist jede Datei ein Befund");
+  });
+});

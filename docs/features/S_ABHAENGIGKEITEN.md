@@ -76,17 +76,17 @@ begründet**, nicht als stille Dauerregel.
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|
-| S1.1 | **Was macht `rateLimit.js` mit Redis?** Welche Aufrufe, welche Datenstrukturen, welches Verhalten ohne Redis | Eine Seite Befund. **Vor jeder Änderung** |
-| S1.2 | **Läuft der Ratenbegrenzer heute überhaupt mit Redis?** Redis ist in diesem Aufbau optional (`getConnectionOpts()` kann `null` liefern) — dann greift vermutlich ein Rückfall im Arbeitsspeicher | Wenn er im Betrieb nie mit Redis läuft, ändert das die ganze Abwägung |
-| S1.3 | **Gibt es weitere Redis-Nutzer**, die die Suche nicht gefunden hat? Sitzungen, Zwischenspeicher, Sperren | Vollständige Liste mit Beleg |
+| S1.1 | **Was macht `rateLimit.js` mit Redis?** | ✅ **2026-09-21.** `createClient` aus `redis` (node-redis v4), als `sendCommand` an `rate-limit-redis` gereicht. Nur wenn `RATE_LIMIT_STORE=redis`; sonst ein Zähler **je Instanz** im Arbeitsspeicher. Fehlt bei `=redis` die `REDIS_URL`, beendet sich der Dienst absichtlich (`process.exit(1)`) |
+| S1.2 | **Läuft der Ratenbegrenzer heute überhaupt mit Redis?** | ✅ **Ja — und das war die entscheidende Antwort.** Beide Compose-Dateien setzen `RATE_LIMIT_STORE: ${RATE_LIMIT_STORE:-redis}`, Redis ist also der **Standard** im Container. Die Umstellung war damit kein Papierwechsel, sondern ein Eingriff am laufenden Begrenzer — entsprechend eng geprüft: die Befehlsbrücke wird **ausgeführt**, nicht gelesen |
+| S1.3 | **Gibt es weitere Redis-Nutzer**, die die Suche nicht gefunden hat? | ✅ **2026-09-21: genau einer.** `middleware/rateLimit.js` war der **einzige** Aufrufer von `redis` im ganzen Dienst, und es gab **keinen** direkten Aufrufer von `ioredis` — das kam unausgesprochen über BullMQ herein |
 
 ### S2 · Ein Klient statt zwei
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|
-| S2.1 | **`ioredis` als direkte Abhängigkeit deklarieren** — heute hängt es unausgesprochen an `bullmq`. Fällt `bullmq` weg, verschwindet es unbemerkt mit | Es steht in `package.json`, mit Version |
-| S2.2 | **`rateLimit.js` auf `ioredis` umstellen** | Ratenbegrenzung wirkt unverändert — mit Redis **und** in ihrem Rückfall |
-| S2.3 | **`redis` aus `package.json` entfernen** | Kein Vorkommen mehr im Quelltext. `npm ls redis` findet es nicht mehr als direkte Abhängigkeit |
+| S2.1 | **`ioredis` als direkte Abhängigkeit deklarieren** | ✅ **2026-09-21** — `ioredis` steht mit Version in `api/package.json`, per Probe festgehalten |
+| S2.2 | **`rateLimit.js` auf `ioredis` umstellen** | ✅ **2026-09-21.** Der Unterschied sitzt an **einer** Stelle: node-redis nimmt die Befehlsteile als *ein Feld*, ioredis als *einzelne Argumente*. Deshalb steht die Umrechnung als eigene, **ausgeführte** Funktion `befehlsBruecke()` — verwechselt man sie, gibt es beim Start keinen Fehler, und der Begrenzer zählt erst im Betrieb falsch. Der Zugang kommt aus **derselben** Definition wie die Warteschlangen (`queue/connection.js`) |
+| S2.3 | **`redis` aus `package.json` entfernen** | ✅ **2026-09-21** — aus `package.json` **und** aus dem Lockfile (`npm install --package-lock-only`, ohne `node_modules` anzufassen). Ein entdeckender Wächter meldet jede neue Einbindung |
 | S2.4 | **`npm install` läuft ohne Zusatzschalter durch** | **Das ist die Abnahme dieser Welle.** Frisches `node_modules`, `npm install`, Rückgabewert 0 |
 
 ### S3 · Es bleibt glatt
@@ -95,7 +95,7 @@ begründet**, nicht als stille Dauerregel.
 |---|---|---|
 | S3.1 | **Wächter: `npm install --dry-run` muss ohne `--legacy-peer-deps` durchlaufen** — sonst rot | Peer-Konflikt künstlich einbauen → Probe rot. **Ohne diese Rückmutation zählt S2.4 nicht** |
 | S3.2 | **Wächter: keine zwei Klienten für dieselbe Sache.** Ein Register nennt je Aufgabe genau eine Bibliothek (Redis, HTTP, PDF, Datum); ein zweiter Eintrag wird rot | Entdeckend, nicht aufzählend — die nächste Doppelung fällt von selbst auf |
-| S3.3 | **`@pdf-lib/fontkit` sauber nachziehen** — heute mit `--no-save` installiert, also **nicht in `package-lock.json`** | Frische Installation bringt es mit, ohne Handgriff |
+| S3.3 | **`@pdf-lib/fontkit` sauber nachziehen** | ✅ **2026-09-21 nachgemessen: bereits in Ordnung** — es steht in `package.json` *und* im Lockfile. Eine Probe hält beides fest, damit es nicht wieder herausfällt |
 
 ### S4 · Der Hauptbaum als Betriebsumgebung
 
@@ -103,11 +103,43 @@ begründet**, nicht als stille Dauerregel.
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|
-| S4.1 | **Der Container bedient den Hauptbaum** — gemessen: `…/12_tempconnect_docker(D)/api → /app`. Sein `node_modules` ist **nicht** dasselbe wie das eines Worktrees | Dokumentiert, damit niemand wieder aus einem grünen Worktree auf einen laufenden Container schließt |
-| S4.2 | **Nach jedem Merge in den Hauptbaum: `npm install` und Neustart** — als Ablauf, nicht als Erinnerung | Eine Anleitung, die man befolgen kann, ohne sie zu kennen |
-| S4.3 | **Der Container sagt selbst, wenn er auf altem Stand läuft** — Startprotokoll mit Commit-Kennung | Ein Blick genügt, statt `ps -o etime` und Dateivergleich |
+| S4.1 | **Der Container bedient den Hauptbaum** | ✅ **2026-09-21 dokumentiert** — Abschnitt 4a. Gemessen: `…/12_tempconnect_docker(D)/api` ist nach `/app` eingehängt; das `node_modules` eines Worktrees ist **nicht** dasselbe |
+| S4.2 | **Nach jedem Merge in den Hauptbaum: `npm install` und Neustart** | ✅ **2026-09-21** — Abschnitt 4a, vier Schritte zum Abtippen |
+| S4.3 | **Der Container sagt selbst, wenn er auf altem Stand läuft** | ✅ **2026-09-21** — `APP_COMMIT` als Bauargument (`api/Dockerfile`), von beiden Compose-Dateien weitergereicht, im Startprotokoll neben Port, Node-Version und Umgebung. Fehlt der Wert, steht *unbekannt* da — auch das ist eine Aussage, und eine ehrlichere als gar keine Zeile |
 
 ---
+
+---
+
+## 4a. Der Hauptbaum als Betriebsumgebung (S4)
+
+**Der Container bedient den HAUPTBAUM, nicht den Arbeitsbaum.** Gemessen:
+`…/12_tempconnect_docker(D)/api` ist nach `/app` eingehängt. Das `node_modules` eines
+Worktrees ist **nicht** dasselbe wie das des Hauptbaums — ein grüner Testlauf im Worktree
+sagt deshalb nichts darüber, ob der laufende Container dieselben Pakete hat.
+
+### Nach jedem Merge in den Hauptbaum — vier Schritte
+
+```bash
+cd "/c/Users/DennisStegemann/Desktop/12_tempconnect_docker(D)"
+git -C . log --oneline -1                       # 1. welcher Stand liegt jetzt im Hauptbaum?
+cd api && npm install --omit=dev && cd ..       # 2. Pakete nachziehen (ohne Schalter, siehe S3)
+docker compose build --build-arg APP_COMMIT=$(git rev-parse --short HEAD) api
+docker compose up -d api                        # 3. neu bauen und starten
+docker logs tempconnect_api 2>&1 | head -5      # 4. der Container nennt seinen Stand
+```
+
+Schritt 4 ist der Beleg: im Startprotokoll steht `commit` neben Port, Node-Version und
+Umgebung. Steht dort `unbekannt`, wurde ohne `--build-arg` gebaut — dann ist der Stand
+**nicht** überprüfbar, und Schritt 3 gehört wiederholt.
+
+### Was dieser Ablauf verhindert
+
+Ein Container, der auf altem Stand läuft, sieht von außen aus wie einer auf neuem: gleiche
+Antworten, gleiche Gesundheitsprüfung, gleicher Port. Bis genau die Zeile fehlt, an der man
+gerade gearbeitet hat. Ohne die Commit-Kennung blieb nur `ps -o etime` und ein
+Dateivergleich — beides Verfahren, die man kennen muss, bevor man sie anwenden kann.
+
 
 ## 5. Reihenfolge
 

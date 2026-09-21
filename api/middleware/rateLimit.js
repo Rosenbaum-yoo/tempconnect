@@ -4,7 +4,32 @@
 
 import rateLimit from "express-rate-limit";
 import RedisStore from "rate-limit-redis";
-import { createClient as createRedisClient } from "redis";
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * S2 — EIN KLIENT STATT ZWEI
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Hier stand `createClient` aus `redis` (node-redis). Das war der EINZIGE
+ * Aufrufer dieses Pakets im ganzen Dienst — und es kostete mehr als eine
+ * Abhaengigkeit:
+ *
+ *   `bullmq@5` fuehrt `peerOptional redis@">=5.0.0"`, die Wurzel pinnte
+ *   `redis@^4.6.13`. Damit scheiterte JEDES `npm install` mit ERESOLVE, und
+ *   der Ausweg war `--legacy-peer-deps` — ein Schalter, der Abhaengigkeiten
+ *   "potenziell kaputt" aufloest und dabei jede kuenftige echte Warnung
+ *   mitverschluckt. Genau daran ist `@pdf-lib/fontkit` einmal mit
+ *   `--no-save` im Baum gelandet, ohne je im Lockfile zu stehen.
+ *
+ * `ioredis` liegt ohnehin im Baum: BullMQ baut seine Verbindungen damit. Zwei
+ * Klienten fuer dieselbe Datenbank sind kein Komfort, sondern zwei
+ * Fehlerquellen mit unterschiedlichem Verhalten bei Abriss und Wiederaufbau.
+ *
+ * `rate-limit-redis` erwartet `sendCommand(args)`. node-redis hat genau diese
+ * Methode; bei ioredis heisst sie `call(befehl, ...argumente)` — deshalb die
+ * Aufspreizung unten. Die Zaehlung selbst (Lua-Skript im Store) ist dieselbe.
+ */
+import IORedis from "ioredis";
+import { getConnectionOpts } from "../queue/connection.js";
 import crypto from "node:crypto";
 
 /**
@@ -23,6 +48,23 @@ export function apiKeyAwareKeyGenerator(req) {
     return "key:" + crypto.createHash("sha256").update(String(rawKey)).digest("hex").slice(0, 24);
   }
   return req.ip;
+}
+
+/**
+ * Die Bruecke zwischen `rate-limit-redis` und dem Klienten.
+ *
+ * Eigene Funktion, weil genau hier der Unterschied zwischen den beiden
+ * Klienten sitzt und nirgends sonst: node-redis nimmt die Befehlsteile als EIN
+ * Feld (`sendCommand(["SET", "k", "1"])`), ioredis als EINZELNE Argumente
+ * (`call("SET", "k", "1")`). Wer das verwechselt, bekommt keinen Fehler beim
+ * Start — die Zaehlung schlaegt erst im Betrieb fehl, und der Ratenbegrenzer
+ * laesst dann entweder alles durch oder nichts.
+ *
+ * @param {{call: (...teile: any[]) => Promise<any>}} klient
+ * @returns {(...teile: any[]) => Promise<any>}
+ */
+export function befehlsBruecke(klient) {
+  return (...teile) => klient.call(...teile);
 }
 
 export async function createRateLimiters(config, logger) {
@@ -60,10 +102,22 @@ export async function createRateLimiters(config, logger) {
       logger.fatal("RATE_LIMIT_STORE=redis, aber REDIS_URL fehlt");
       process.exit(1);
     }
-    redisClient = createRedisClient({ url: config.REDIS_URL });
+    /* DIESELBE Zugangsdefinition wie die Warteschlangen (`queue/connection.js`) —
+       eine zweite Auslegung von REDIS_URL waere genau die Sorte Abweichung, die
+       erst im Betrieb auffaellt. ioredis verbindet von selbst; ein
+       `await connect()` wie bei node-redis gibt es nicht und ist nicht noetig. */
+    /*
+     * WO Redis liegt, steht an EINER Stelle; WIE lange gewartet wird, haengt am
+     * Zweck. `getConnectionOpts()` setzt `maxRetriesPerRequest: null`, weil
+     * BullMQ das verlangt — fuer eine Warteschlange ist "warte, bis Redis
+     * wieder da ist" richtig. Fuer einen Ratenbegrenzer waere es falsch: jede
+     * Anfrage haengt dann im Begrenzer fest, solange der Ausfall dauert, und
+     * die API SIEHT tot aus, obwohl nur die Zaehlung fehlt. Drei Versuche, dann
+     * ein Fehler — der ist sichtbar und behandelbar.
+     */
+    redisClient = new IORedis({ ...getConnectionOpts(), maxRetriesPerRequest: 3 });
     redisClient.on("error", (err) => logger.error({ err: err.message }, "Redis-Client Fehler (Rate-Limit)"));
-    await redisClient.connect();
-    logger.info("Rate-Limit Store: Redis aktiv");
+    logger.info("Rate-Limit Store: Redis aktiv (ioredis)");
   } else {
     logger.info("Rate-Limit Store: Memory (pro Instanz)");
   }
@@ -71,7 +125,7 @@ export async function createRateLimiters(config, logger) {
   /** Jeder Limiter braucht eine eigene Store-Instanz (express-rate-limit v7). */
   function makeStore(prefix) {
     if (!redisClient) return {};
-    return { store: new RedisStore({ sendCommand: (...args) => redisClient.sendCommand(args), prefix }) };
+    return { store: new RedisStore({ sendCommand: befehlsBruecke(redisClient), prefix }) };
   }
 
   const commonLimiterConfig = {
