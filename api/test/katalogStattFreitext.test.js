@@ -140,26 +140,79 @@ describe("N8.1 · ein Freitext-Begriff wird gegen den Katalog gehalten", () => {
    B) ENTDECKEND — kein Rollenfeld ohne Katalog
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Seiten des Marktplatz-/Such-/Belegschaftsbereichs. */
-const SEITEN_MUSTER = /(capacity|marketplace|sla_|company-|mitarbeiter|angebote)/i;
-/* Wonach ein Feld aussieht, das eine Taetigkeit meint. */
-const ROLLEN_MUSTER = /(role|rolle|taetigkeit|skill|beruf|position)/i;
+/*
+ * ALLE Flaechen, nicht nur der Marktplatz (Owner-Entscheid 2026-09-22:
+ * "keine Freitexte mehr, alles katalogbunden, um maximal integriert zu sein").
+ *
+ * Der erste Entwurf dieses Waechters sah nur Marktplatzseiten — und uebersah
+ * damit die Rolle im Konditionsrahmen, die Rolle am Bedarf aus dem
+ * Anforderungsformular und den Nachweistyp im Arbeiter-Bereich. Eine Grenze,
+ * die nur dort gilt, wo man zuerst hingesehen hat, ist keine.
+ */
+const SEITEN_MUSTER = /\.html$/i;
+
+/* Wonach ein Feld aussieht, das eine Taetigkeit, eine Faehigkeit, eine
+   Qualifikation oder einen Nachweis benennt. Der Platzhaltertext zaehlt mit:
+   `newQualName` heisst nicht nach Katalog, sein Platzhalter sagt aber
+   "z.B. Staplerschein". */
+const ROLLEN_MUSTER = /(role|rolle|taetigkeit|skill|faehigkeit|beruf|position|qualifi|nachweis|zertifikat|schein)/i;
 
 /*
  * BENANNTE AUSNAHMEN, je mit Grund. Eine Ausnahme ohne Grund ist eine Luecke
- * mit besserer Presse.
+ * mit besserer Presse. Die Gruende zerfallen in vier Klassen:
+ *
+ *   UEBERSCHRIFT  benennt einen Vorgang, keine Taetigkeit
+ *   PROSA         ein Satz an einen Menschen, kein Schluessel
+ *   ANDERE WELT   ein Vokabular, das der Faehigkeitskatalog nicht fuehrt
+ *   AUSWEG        genau das Feld, das fuer FEHLENDE Katalogbegriffe da ist
  */
 const AUSNAHMEN = {
   "capacity_search.html#searchJobTitle":
-    "Ueberschrift eines Suchauftrags ('Pflegefachkraft Berlin, ab Montag') — keine Taetigkeit. "
+    "UEBERSCHRIFT eines Suchauftrags ('Pflegefachkraft Berlin, ab Montag') — keine Taetigkeit. "
     + "Ein Katalog dafuer waere eine Zwangsjacke ohne Nutzen fuers Matching.",
   "capacity_search.html#editJobTitle":
-    "dasselbe Feld im Bearbeiten-Formular."
+    "UEBERSCHRIFT — dasselbe Feld im Bearbeiten-Formular.",
+  "capacity_exchange_form.html#f-qualifications":
+    "PROSA: 'Zusammenfassung relevanter Qualifikationen und Erfahrungen', gespeichert als "
+    + "`qualification_summary`. Die STRUKTURIERTE Wahrheit steht im Feld daneben (`f-skills`, "
+    + "katalogfest). Eine Zusammenfassung an den Katalog zu haengen hiesse, sie zu verstuemmeln "
+    + "oder das Skill-Feld zu verdoppeln.",
+  "capacity_exchange_form.html#f-certifications":
+    "PROSA, gespeichert als `certifications_summary` — dieselbe Begruendung wie beim "
+    + "Qualifikationsprofil daneben.",
+  "capacity_exchange_detail.html#im-requirements":
+    "PROSA: Freitext einer Nachricht an die Gegenseite ('Schicht, Zertifikate, Startfenster').",
+  "company_profile_public.html#scr-message":
+    "PROSA: die Nachricht einer Kontaktaufnahme.",
+  "enterprise_anfrage.html#fStrategicCollabMessage":
+    "PROSA: die Nachricht einer Anfrage.",
+  "mitarbeiter.html#mpNotiz":
+    "PROSA: eine Notiz zur Marktpraesenz ('seit einer Woche abwesend ohne Rueckmeldung').",
+  "deal_management.html#dm-search-input":
+    "ANDERE WELT: eine Freitextsuche UEBER Deals, Referenzen und Gegenseiten — sie sucht "
+    + "nicht nach einer Taetigkeit, sondern quer ueber mehrere Gegenstaende.",
+  "enterprise_anfrage.html#fContactRole":
+    "ANDERE WELT: die Funktion eines Ansprechpartners in seiner Firma ('Einkauf', 'HR', "
+    + "'Geschaeftsfuehrung') — kein Vokabular, das der Faehigkeitskatalog fuehrt oder fuehren soll.",
+  "sso_config.html#cfgCertificate":
+    "ANDERE WELT: ein PEM-Zertifikat fuer die Anmeldung per SSO. Das Wort 'Zertifikat' "
+    + "bedeutet hier etwas voellig anderes als ein Staplerschein.",
+  "einsatzportal-profil.html#docTitle":
+    "ANDERE WELT: die Bezeichnung einer hochgeladenen DATEI ('Staplerschein PDF'). Den "
+    + "Katalogbezug traegt das Feld daneben (`docQualification`), und genau das ist gebunden.",
+  "mitarbeiter.html#workerDocumentTitle":
+    "ANDERE WELT: dieselbe Dateibezeichnung auf der Firmenseite; gebunden ist der "
+    + "Nachweistyp daneben.",
+  "einsatzportal-profil.html#ownSkillInput":
+    "AUSWEG: dieses Feld EXISTIERT fuer Begriffe, die der Katalog noch nicht kennt. Es "
+    + "schickt an `POST /skills/propose`, das zuerst gegen Aliase prueft und dem Arbeiter "
+    + "ehrlich sagt, ob seine Eingabe sofort zaehlt oder erst nach einer Pruefung. Es an den "
+    + "Katalog zu binden hiesse, den einzigen Weg zu schliessen, auf dem der Katalog waechst."
 };
 
 function inputsDerSeite(html) {
   const raus = [];
-  const muster = /<input\b[^>]*>/gi;
+  const muster = /<(?:input|textarea)\b[^>]*>/gi;
   let m;
   while ((m = muster.exec(html))) {
     const roh = m[0];
@@ -167,7 +220,8 @@ function inputsDerSeite(html) {
     if (typ !== "text" && typ !== "search" && typ !== "") continue;
     const id = (/\bid="([^"]+)"/i.exec(roh) || [, null])[1];
     const name = (/\bname="([^"]+)"/i.exec(roh) || [, ""])[1];
-    if (!ROLLEN_MUSTER.test(`${id || ""} ${name}`)) continue;
+    const platzhalter = (/\bplaceholder="([^"]*)"/i.exec(roh) || [, ""])[1];
+    if (!ROLLEN_MUSTER.test(`${id || ""} ${name} ${platzhalter}`)) continue;
     raus.push({ id, name, roh });
   }
   return raus;
@@ -223,10 +277,10 @@ describe("N8.1d · kein Rollenfeld auf Marktplatzseiten ohne Katalog", () => {
   it("die Erhebung findet ueberhaupt Seiten und Felder", () => {
     /* Ohne diese Probe waere der Waechter lautlos gruen, sobald der Pfad
        nicht mehr stimmt: eine leere Menge besteht jede Schleife. */
-    assert.ok(seiten.length >= 8, `nur ${seiten.length} Marktplatzseiten gefunden`);
+    assert.ok(seiten.length >= 40, `nur ${seiten.length} Flaechen gefunden — der Durchlauf sieht zu wenig`);
     const felder = seiten.flatMap((s) => inputsDerSeite(fs.readFileSync(path.join(PUB, s), "utf8")));
-    assert.ok(felder.length >= 10,
-      `nur ${felder.length} Rollenfelder erkannt — erwartet mindestens 10`);
+    assert.ok(felder.length >= 25,
+      `nur ${felder.length} katalogwuerdige Felder erkannt — erwartet mindestens 25`);
     const alleBindungen = seiten.reduce((n, s) => n + gebundeneKennungen(seitenQuelle(s)).size, 0);
     assert.ok(alleBindungen >= 8, `nur ${alleBindungen} Bindungen ueber alle Seiten gefunden`);
   });
@@ -377,6 +431,27 @@ describe("N8.1 · die Bindung fasst das Feld wirklich an", () => {
       "ohne `change` erfaehrt die Seite nichts von der Uebernahme (die Trefferzahl haengt daran)");
   });
 
+  it("eine Flaeche mit eigenem Zugang bekommt den Katalog ueber ihren Lader", async () => {
+    /*
+     * Der Arbeiter-Bereich spricht ueber `PortalApi` (eigene Sitzung), nicht
+     * ueber `fetch` mit Sitzungskeks. Ohne den Haken `holen` saehe ein Arbeiter
+     * dort "Katalog nicht erreichbar" und tippte wieder Freitext — also genau
+     * das, was N8.1 abschafft.
+     */
+    const { modul, feld } = sandkastenMitDom([]);
+    let gerufen = 0;
+    const eigenerLader = function () {
+      gerufen++;
+      return Promise.resolve({ categories: [{ skills: [{ name: "Staplerschein", aliases: ["Stapler"] }] }] });
+    };
+    const griff = modul.binde({ input: "ff-role", holen: eigenerLader });
+    const r = await griff.uebernehmen("Stapler");
+
+    assert.ok(gerufen > 0, "der eigene Lader wurde nie gerufen — die Flaeche haette keinen Katalog");
+    assert.equal(r.name, "Staplerschein", "der Alias wurde nicht ueber den eigenen Lader aufgeloest");
+    assert.equal(feld.value, "Staplerschein");
+  });
+
   it("ein unbekannter Begriff bleibt im Feld stehen — der Link bricht nicht", async () => {
     const { modul, feld } = sandkastenMitDom([{ name: "Bauhelfer:in", aliases: [] }]);
     const griff = modul.binde({ input: "ff-role" });
@@ -385,5 +460,89 @@ describe("N8.1 · die Bindung fasst das Feld wirklich an", () => {
     assert.equal(r.art, "unbekannt");
     assert.equal(feld.value, "ljoj",
       "der Wert wurde geleert — ein alter Link liefert damit ploetzlich alles statt wenig");
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   D) N8.1b-6 — DIE ALTBEZEICHNUNGEN: KENNZEICHNEN, NICHT LOESCHEN
+   ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Seit N8.1 kommt kein Freitext mehr in ein Rollenfeld. Was VORHER hineinkam,
+ * steht weiter da: 19 von 44 Rollen treffen den Katalog nie. Geloescht wird
+ * nichts — an ihnen haengen Angebote und Bedarfe. Sie werden GEZEIGT, mit der
+ * Zahl der Eintraege, damit die Reihenfolge der Aufraeumarbeit aus den Daten
+ * kommt und nicht aus dem Gefuehl.
+ */
+
+import { katalogfremdeRollen } from "../services/marktpraesenzService.js";
+
+function abfragePool(zeilen, fehler) {
+  const gesehen = [];
+  return {
+    gesehen,
+    async query(sql, params) {
+      gesehen.push({ sql: String(sql), params });
+      if (fehler) throw new Error("Datenbank weg");
+      return { rows: zeilen };
+    }
+  };
+}
+
+describe("N8.1b-6 · die Altbezeichnungen werden gezeigt, nicht geloescht", () => {
+
+  it("die Abfrage liest BEIDE Marktseiten und schliesst Katalog UND Aliase aus", async () => {
+    const pool = abfragePool([]);
+    await katalogfremdeRollen(pool);
+    const sql = pool.gesehen[0].sql;
+
+    assert.ok(/FROM capacity_posts/.test(sql), "die Angebotsseite fehlt");
+    assert.ok(/FROM demand_requests/.test(sql), "die Bedarfsseite fehlt - die Haelfte der Rollen waere unsichtbar");
+    assert.ok(/platform_skills/.test(sql), "der Katalog wird nicht gegengehalten");
+    assert.ok(/unnest/.test(sql) && /aliases/.test(sql),
+      "die Aliase werden nicht geprueft - dann gilt jede bekannte Schreibvariante als fremd");
+    assert.ok(/is_active/.test(sql),
+      "ein stillgelegter Katalogeintrag wuerde eine Rolle weiterhin als bekannt ausweisen");
+    assert.ok(!/\b(UPDATE|DELETE)\b/i.test(sql),
+      "die Messung greift in fremde Ausschreibungen ein - das ist eine Owner-Entscheidung");
+  });
+
+  it("die Gesamtzahl kommt aus den Zeilen, nicht aus einer zweiten Abfrage", async () => {
+    const pool = abfragePool([
+      { rolle: "ljoj", eintraege: 3, seiten: ["angebot"] },
+      { rolle: "Bauhelfer", eintraege: 7, seiten: ["angebot", "bedarf"] }
+    ]);
+    const erg = await katalogfremdeRollen(pool);
+
+    assert.equal(erg.verfuegbar, true);
+    assert.equal(erg.anzahl, 2);
+    assert.equal(erg.eintraege, 10,
+      "Kopfzahl und Liste laufen auseinander - eine Kennzahl, die ihrer eigenen "
+      + "Aufschluesselung widerspricht, ist keine");
+    assert.equal(pool.gesehen.length, 1, "eine zweite Abfrage waere eine zweite Wahrheit");
+    assert.equal(erg.rollen[1].rolle, "Bauhelfer");
+    assert.deepEqual(erg.rollen[1].seiten, ["angebot", "bedarf"]);
+  });
+
+  it("ein Datenbankfehler reisst die Aufsichtsseite nicht mit", async () => {
+    const erg = await katalogfremdeRollen(abfragePool([], true));
+    assert.equal(erg.verfuegbar, false, "ein Fehler muss als nicht verfuegbar ankommen");
+    assert.equal(erg.anzahl, 0);
+    assert.deepEqual(erg.rollen, []);
+  });
+
+  it("ohne Pool liefert sie einen leeren Stand statt zu werfen", async () => {
+    const erg = await katalogfremdeRollen(null);
+    assert.equal(erg.verfuegbar, false);
+  });
+
+  it("die Staff-Route liefert beide Messungen in EINER Antwort", () => {
+    const quelle = fs.readFileSync(path.join(API_ROOT, "routes", "staffControlCenter.js"), "utf8");
+    const i = quelle.indexOf('router.get("/markt-sichtbarkeit"');
+    assert.ok(i > 0, "die Route ist nicht mehr auffindbar");
+    const block = quelle.slice(i, i + 1200);
+    assert.ok(/katalogfremdeRollen/.test(block),
+      "die Altbezeichnungen stehen nicht mehr in der Antwort");
+    assert.ok(/katalogfremde_rollen/.test(block),
+      "das Feld heisst anders - die Oberflaeche findet es dann nicht");
   });
 });

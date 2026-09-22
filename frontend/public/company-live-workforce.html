@@ -313,7 +313,11 @@
      Das Feld bleibt die Quelle der Wahrheit; der Waehler schreibt nur hinein. */
   (function () {
     function start() {
-      if (!window.TCKatalogFeld) return;
+      if (!window.TCKatalogFeld) {
+        /* Kein stiller Rueckfall: fehlt die Datei, bleibt das Feld Freitext - und das faellt sonst niemandem auf. */
+        console.error("[N8.1] js/katalogFeld.js fehlt - das Rollenfeld bleibt Freitext");
+        return;
+      }
       TCKatalogFeld.binde({ input: "avRole", showAvailability: false });
     }
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);

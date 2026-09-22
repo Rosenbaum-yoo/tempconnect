@@ -8,11 +8,22 @@
  * Leitentscheidung M-L9: **Kein Automatismus gilt als geliefert, solange nicht
  * messbar ist, wann er zuletzt lief.**
  *
- * Der Anlass ist gemessen (M0, 2026-09-01): `sweepMarktpraesenz` hat genau
- * einen Aufrufer, der ist ein HTTP-Endpunkt, und im ganzen Stack ruft den
+ * Der Anlass war gemessen (M0, 2026-09-01): `sweepMarktpraesenz` hatte genau
+ * einen Aufrufer, der war ein HTTP-Endpunkt, und im ganzen Stack rief den
  * niemand. Die Marktplatz-Automatik war vollstaendig gebaut und lief nie — ein
  * Jahr lang, ohne dass es irgendwo aufgefallen waere. Es gab keinen Ort, an dem
  * ihr SCHWEIGEN sichtbar wurde.
+ *
+ * NACHGEMESSEN AM 2026-09-22, und der Satz oben stimmt nicht mehr: seit M1.2
+ * ruft `workers/staffingWorker.js` den Sweep im Auftrag `staffing-maintenance`
+ * (Takt 15 Minuten), dazu die Handkurbel in `routes/internal.js`. Der Befund
+ * ist BEHOBEN, nicht widerlegt — der Absatz bleibt stehen, weil er erklaert,
+ * warum es diesen Dienst gibt.
+ *
+ * Der Nachtrag steht hier aus einem eigenen Grund: eine Messung hat ein
+ * Haltbarkeitsdatum. Ein Befund, der als Gegenwart formuliert im Quelltext
+ * stehen bleibt, kostet den Naechsten eine Stunde — er sucht eine Luecke, die
+ * jemand laengst geschlossen hat.
  *
  * ═══════════════════════════════════════════════════════════════════════════
  * DIE REGISTRATUR IST DAS SOLL — UND SIE LIEGT IM CODE

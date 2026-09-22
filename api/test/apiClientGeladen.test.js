@@ -50,8 +50,41 @@ const ROOT = findeWurzel();
 const vorhanden = ROOT !== null;
 const PUB = vorhanden ? path.join(ROOT, "frontend/public") : null;
 
-/** Ein echter Aufruf — nicht die abgesicherte Pruefung `TC.api && typeof TC.api.x`. */
-const AUFRUF = /TC\.api\.(get|post|put|patch|delete|upload)\s*\(/;
+/**
+ * DIE REGISTRATUR: globaler Name -> Datei, die ihn liefert.
+ *
+ * ERWEITERT AM 2026-09-22, und der Anlass ist derselbe Fehler in neuem Gewand.
+ * Welle N8.1 hat Rollenfelder an `TCKatalogFeld` gehaengt. Nimmt man einer
+ * Seite die Datei `js/katalogFeld.js` weg, bleibt der Aufruf stehen, faellt
+ * still durch `if (!window.TCKatalogFeld) return;` - und das Feld ist wieder
+ * Freitext. Kein Fehler, keine Meldung, nur ein Matching, das nicht trifft.
+ *
+ * Das ist Zeichen fuer Zeichen die Bauart, die drei Stundenzettel-Seiten
+ * lahmgelegt hat: eine Seite benutzt einen globalen Namen, den sie nicht laedt.
+ * Deshalb steht hier keine zweite Probe, sondern ein zweiter EINTRAG.
+ *
+ * Wer einen neuen globalen Namen einfuehrt, traegt ihn hier ein - und die
+ * naechste Seite, die ihn benutzt, ohne ihn zu laden, faellt beim Bauen auf.
+ */
+const REGISTRATUR = [
+  {
+    name: "TC.api",
+    datei: /\/js\/api\.js(\?|$)/,
+    /** Ein echter Aufruf — nicht die abgesicherte Pruefung `TC.api && typeof TC.api.x`. */
+    aufruf: /TC\.api\.(get|post|put|patch|delete|upload)\s*\(/,
+    folge: "TypeError im init(), und der catch zeigt 'Anmeldung erforderlich'."
+  },
+  {
+    name: "TCKatalogFeld",
+    datei: /\/js\/katalogFeld\.js(\?|$)/,
+    aufruf: /TCKatalogFeld\.binde\s*\(/,
+    folge: "das Rollenfeld bleibt Freitext, und das Matching trifft nicht (N8.1)."
+  }
+];
+
+/* Der erste Eintrag bleibt unter seinem alten Namen erreichbar: die Proben
+   weiter unten pruefen ihn namentlich. */
+const AUFRUF = REGISTRATUR[0].aufruf;
 
 /**
  * Prueft EINE Seite. Reine Funktion, damit der Selbsttest sie mit erfundenem
@@ -62,15 +95,18 @@ const AUFRUF = /TC\.api\.(get|post|put|patch|delete|upload)\s*\(/;
  *
  * @returns {{ nutzer: string|null, apiVorher: boolean }}
  */
-function pruefeSeite(html, lesePublic) {
+function pruefeSeite(html, lesePublic, eintrag) {
+  const regel = eintrag || REGISTRATUR[0];
   const skripte = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
   let apiGesehen = false;
   for (const [, attr, rumpf] of skripte) {
     const src = (/\bsrc="([^"]+)"/i.exec(attr) || [])[1] || null;
-    if (src && /\/js\/api\.js(\?|$)/.test(src)) { apiGesehen = true; continue; }
+    if (src && regel.datei.test(src)) { apiGesehen = true; continue; }
     let inhalt = rumpf;
+    /* Seitenskripte werden mitgelesen; gemeinsame Skripte pruefen den Namen
+       selbst ab, bevor sie ihn benutzen. */
     if (src) inhalt = src.includes("/js/pages/") ? lesePublic(src) : "";
-    if (AUFRUF.test(inhalt)) return { nutzer: src || "inline", apiVorher: apiGesehen };
+    if (regel.aufruf.test(inhalt)) return { nutzer: src || "inline", apiVorher: apiGesehen };
   }
   return { nutzer: null, apiVorher: apiGesehen };
 }
@@ -105,6 +141,40 @@ describe("TC.api — jede Seite, die es aufruft, laedt api.js vorher",
     assert.deepEqual(verstoesse, [],
       "Diese Seiten rufen TC.api auf, laden aber /public/js/api.js nicht davor.\n"
       + "  Folge: TypeError im init(), und der catch zeigt 'Anmeldung erforderlich'.\n  "
+      + verstoesse.join("\n  "));
+  });
+
+  it("JEDER Name der Registratur wird von jeder Seite, die ihn benutzt, auch geladen", () => {
+    /*
+     * DER BEFUND, DER DIESEN EINTRAG ERZWUNGEN HAT (Parallel-Sitzung,
+     * 2026-09-22): in `capacity_exchange_form.html` wurde das Skript-Tag von
+     * `katalogFeld.js` entfernt - nur die Datei, nicht der Aufruf. Der
+     * Katalog-Waechter aus N8.1 blieb gruen, weil er den AUFRUF sieht. Das
+     * Feld war wieder Freitext, und niemand haette es gemerkt.
+     */
+    const seiten = fs.readdirSync(PUB).filter((f) => f.endsWith(".html"));
+    const verstoesse = [];
+    const nutzerJeName = {};
+
+    for (const eintrag of REGISTRATUR) {
+      nutzerJeName[eintrag.name] = [];
+      for (const seite of seiten) {
+        const erg = pruefeSeite(fs.readFileSync(path.join(PUB, seite), "utf8"), lesePublic, eintrag);
+        if (!erg.nutzer) continue;
+        nutzerJeName[eintrag.name].push(seite);
+        if (!erg.apiVorher) {
+          verstoesse.push(`${seite} benutzt ${eintrag.name} (${erg.nutzer}) - Folge: ${eintrag.folge}`);
+        }
+      }
+      /* Jeder Eintrag muss mindestens einen Nutzer haben. Ein Name, den
+         niemand benutzt, prueft nichts - und eine leere Menge besteht jede
+         Schleife. */
+      assert.ok(nutzerJeName[eintrag.name].length > 0,
+        `kein einziger Nutzer von ${eintrag.name} gefunden - der Eintrag prueft nichts`);
+    }
+
+    assert.deepStrictEqual(verstoesse, [],
+      "Diese Seiten benutzen einen globalen Namen, ohne die liefernde Datei vorher zu laden:\n  "
       + verstoesse.join("\n  "));
   });
 

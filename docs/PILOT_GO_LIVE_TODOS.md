@@ -2,6 +2,59 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-22 — Kein Freitext mehr, wo ein Katalog existiert (N8.1b)
+
+**Status:** erledigt · **Kategorie:** Produktausbau mit Matching-Wirkung + Security-nahe
+Wächter · **Quelle:** Owner-Entscheid 2026-09-22 (*"keine Freitexte mehr, alles katalogbunden,
+um maximal integriert zu sein"*), plus ein überlebender Mutant aus der Gegenprüfung
+
+**Der Anlass war ein Befund an meiner eigenen Arbeit.** Die gegenprüfende Sitzung entfernte auf
+`capacity_exchange_form.html` das Skript-Tag von `katalogFeld.js` — nur die Datei, nicht den
+Aufruf. Mein Katalog-Wächter blieb **grün**: er sieht den Aufruf, nicht die Lieferung. Der
+Aufruf fiel still durch `if (!window.TCKatalogFeld) return;`, das Feld war wieder Freitext, und
+nichts sagte es. Dieselbe Bauart, die drei Stundenzettel-Seiten lahmgelegt hat — damals
+`TC.api`, jetzt `TCKatalogFeld`.
+
+**Sechs Teile, alle gebaut:**
+
+| | |
+|---|---|
+| **b-1** | `rate-cards.html`: Rolle im Konditionsrahmen **und** im Filter |
+| **b-2** | `einsatzportal-profil.html`: Nachweistyp — mit **eigenem Lader**, weil der Arbeiter-Bereich über `PortalApi` spricht |
+| **b-3** | Der stille Rückfall sagt jetzt, dass er aussteigt (`console.error`). Der Riegel bleibt: die Seite soll nicht zerbrechen, sie soll es **sagen** |
+| **b-4** | Die Probe der Partnersitzung führt jetzt eine **Registratur** *globaler Name → liefernde Datei* statt eines fest verdrahteten Namens |
+| **b-5** | Der entdeckende Durchlauf geht über **alle** Flächen, liest `<textarea>` und den **Platzhaltertext** mit |
+| **b-6** | Die Altbezeichnungen werden **gezeigt, nicht gelöscht** |
+
+**Der neue Wächter hat beim ersten Lauf sofort einen echten Fehler gefunden — meinen:** auf
+`capacity_search.html` standen die Skript-Tags **hinter** dem Inline-Block, der sie benutzt. Die
+vier Rollenfelder dieser Seite waren also nie gebunden. Genau dafür war der Wächter gedacht, und
+er hat sich in derselben Stunde bezahlt gemacht, in der er entstand.
+
+**Gemessen für b-5:** 20 freie Felder plattformweit, davon **6 gebunden** und **14 begründet
+ausgenommen** — in vier Klassen: *Überschrift* (der Titel eines Suchauftrags ist keine
+Tätigkeit), *Prosa* (Nachrichten, Notizen, Zusammenfassungen neben einem bereits katalogfesten
+Skill-Feld), *andere Welt* (die Funktion eines Ansprechpartners, ein PEM-Zertifikat, eine
+Dateibezeichnung), *Ausweg* (`ownSkillInput` existiert genau für Begriffe, die der Katalog noch
+nicht kennt — es an den Katalog zu binden hieße, den einzigen Weg zu schließen, auf dem der
+Katalog wächst).
+
+**Gemessen für b-6, gegen die laufende Datenbank:** **19** katalogfremde Bezeichnungen mit
+**54** Einträgen. Nach Gewicht sortiert steht *Lagerhelfer* mit **20** Einträgen ganz oben —
+eine reine Schreibvariante von *Lagerhelfer:in*. Damit kommt die Reihenfolge der Aufräumarbeit
+aus den Daten und nicht aus dem Gefühl. Gelöscht wird nichts: an diesen Rollen hängen Angebote
+und Bedarfe, ein UPDATE wäre ein Eingriff in fremde Ausschreibungen — Owner-Entscheidung, nicht
+Nebenwirkung eines Wächters.
+
+**Nachweis:** `api/test/katalogStattFreitext.test.js` (21) und `api/test/apiClientGeladen.test.js`
+(5), **10 Rückmutationen, alle rot**.
+
+**Mitgenommen:** der M0-Satz im Kopf von `betriebsTaktService.js` behauptete weiterhin, die
+Marktplatz-Automatik laufe nicht. Sie läuft seit M1.2 im 15-Minuten-Takt. Der Absatz bleibt
+stehen — er erklärt, warum es den Dienst gibt — bekommt aber einen datierten Nachtrag. Eine
+Messung hat ein Haltbarkeitsdatum; ein Befund, der als Gegenwart im Quelltext stehen bleibt,
+kostet den Nächsten eine Stunde.
+
 ### 2026-09-22 — Katalog statt Freitext, auf beiden Marktseiten (N8.1)
 
 **Status:** erledigt · **Kategorie:** Produktausbau mit Matching-Wirkung ·

@@ -184,6 +184,12 @@
 
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
+  <!-- N8.1: die Rollenfelder dieser Seite haengen am Katalog. VOR dem
+       Inline-Skript, das `TCKatalogFeld.binde` aufruft — stand es weiter
+       unten, lief der Aufruf ins Leere und die Felder blieben Freitext.
+       Gefunden vom Waechter in api/test/apiClientGeladen.test.js. -->
+  <script src="/public/js/skillPicker.js"></script>
+  <script src="/public/js/katalogFeld.js"></script>
   <div id="requestModal" class="modal" aria-hidden="true">
     <div class="panel">
       <h2 data-i18n="srch.req.title">Anfrage senden</h2>
@@ -1089,9 +1095,6 @@
       applyTerminology(lastOrgType);
     })();
   </script>
-  <!-- N8.1: die Rollenfelder dieser Seite haengen am Katalog. -->
-  <script src="/public/js/skillPicker.js"></script>
-  <script src="/public/js/katalogFeld.js"></script>
   <script src="/public/js/pageShell.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>

@@ -1629,7 +1629,17 @@ export function createStaffControlCenterRouter(deps) {
    * Owner-Entscheid vom 2026-08-27 ohnehin gesperrt.
    */
   router.get("/markt-sichtbarkeit", requireStaff, async (_req, res) => {
-    res.json({ success: true, data: await marktpraesenzService.marktSichtbarkeit(pool) });
+    /*
+     * N8.1b-6: die Altbezeichnungen kommen in DERSELBEN Antwort. Eine zweite
+     * Route haette eine zweite Kachel gebraucht, die jemand aufrufen muss —
+     * und die Zahl, die man nicht sieht, raeumt niemand auf. Beides gehoert
+     * zur selben Frage: warum steht im Markt weniger, als da sein muesste.
+     */
+    const [sichtbarkeit, altbezeichnungen] = await Promise.all([
+      marktpraesenzService.marktSichtbarkeit(pool),
+      marktpraesenzService.katalogfremdeRollen(pool)
+    ]);
+    res.json({ success: true, data: { ...sichtbarkeit, katalogfremde_rollen: altbezeichnungen } });
   });
 
   // ── Support Cases — Liste (filterbar) ───────────────────────

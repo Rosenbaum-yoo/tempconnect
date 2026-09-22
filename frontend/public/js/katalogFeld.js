@@ -68,21 +68,44 @@
       .trim();
   }
 
-  function katalogHolen() {
+  /**
+   * Den Katalog holen.
+   *
+   * `opt.holen` ist der Weg fuer Flaechen mit EIGENEM Zugang: der
+   * Arbeiter-Bereich spricht ueber `PortalApi` (eigene Sitzung, eigener
+   * Kopfzeilen-Satz), nicht ueber `fetch` mit Sitzungskeks. Ohne diesen Haken
+   * saehe ein Arbeiter dort "Katalog nicht erreichbar" — und wuerde wieder
+   * Freitext tippen, also genau das, was N8.1 abschafft.
+   *
+   * Der Zwischenspeicher gilt je Lader: zwei Flaechen mit verschiedenen
+   * Zugaengen duerfen sich nicht gegenseitig eine leere Antwort vererben.
+   */
+  function katalogHolen(holen) {
+    if (typeof holen === "function") {
+      if (!holen._tcKatalog) {
+        holen._tcKatalog = Promise.resolve(holen())
+          .then(flachziehen)
+          .catch(function () { return []; });
+      }
+      return holen._tcKatalog;
+    }
     if (katalogVersprechen) return katalogVersprechen;
     katalogVersprechen = fetch("/api/skills/catalog", { credentials: "include" })
       .then(function (r) { return r.ok ? r.json() : { categories: [] }; })
-      .then(function (d) {
-        var flach = [];
-        (d && d.categories ? d.categories : []).forEach(function (k) {
-          (k.skills || k.items || []).forEach(function (s) {
-            flach.push({ name: s.name || s, aliases: s.aliases || [] });
-          });
-        });
-        return flach;
-      })
+      .then(flachziehen)
       .catch(function () { return []; });
     return katalogVersprechen;
+  }
+
+  /** Die Antwort des Katalogs auf eine flache Liste bringen. */
+  function flachziehen(d) {
+    var flach = [];
+    (d && d.categories ? d.categories : []).forEach(function (k) {
+      (k.skills || k.items || []).forEach(function (s) {
+        flach.push({ name: s.name || s, aliases: s.aliases || [] });
+      });
+    });
+    return flach;
   }
 
   /**
@@ -228,7 +251,7 @@
       tippZeit = setTimeout(function () {
         var roh = String(feld.value || "").trim();
         if (roh.length < 2) { meldung("", false); return; }
-        katalogHolen().then(function (flach) {
+        katalogHolen(opt.holen).then(function (flach) {
           var r = aufloesen(roh, flach);
           if (r.art === "exakt" || r.art === "alias" || r.art === "praefix") {
             if (r.name !== roh) meldung(t("kf.meant", "Gemeint ist: ") + r.name, false);
@@ -247,7 +270,7 @@
      * Gibt das Ergebnis zurueck, damit der Aufrufer es pruefen kann.
      */
     function uebernehmen(text) {
-      return katalogHolen().then(function (flach) {
+      return katalogHolen(opt.holen).then(function (flach) {
         var r = aufloesen(text, flach);
         if (r.art === "exakt" || r.art === "alias" || r.art === "praefix") {
           if (r.name !== text) {

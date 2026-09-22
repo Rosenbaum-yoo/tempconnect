@@ -329,5 +329,25 @@
     });
   })();
   </script>
+  <script src="/public/js/katalogFeld.js"></script>
+<script>
+  /* N8.1b - kein Freitext, wo ein Katalog existiert (Owner-Entscheid
+     2026-09-22): die Rolle AM BEDARF. Pflichtfeld, und die Nachfrageseite des Matchings.
+     Gemessen am 2026-09-21: 19 der 44 Rollen im Markt treffen den Katalog nie.
+     Das Feld bleibt die Quelle der Wahrheit; der Waehler schreibt nur hinein. */
+  (function () {
+    function start() {
+      if (!window.TCKatalogFeld) {
+        /* Kein stiller Rueckfall: fehlt die Datei, bleibt das Feld Freitext -
+           und das faellt sonst niemandem auf. */
+        console.error("[N8.1] js/katalogFeld.js fehlt - das Feld bleibt Freitext");
+        return;
+      }
+      TCKatalogFeld.binde({ input: "cRole", showAvailability: false });
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
+  })();
+</script>
 </body>
 </html>

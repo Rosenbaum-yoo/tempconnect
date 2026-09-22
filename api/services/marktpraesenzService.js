@@ -667,3 +667,86 @@ export async function marktSichtbarkeit(pool) {
     hinweis: SICHTBARKEIT_HINWEIS
   };
 }
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * N8.1b-6 — DIE ALTBEZEICHNUNGEN: KENNZEICHNEN, NICHT LOESCHEN
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Seit N8.1 kommt kein Freitext mehr in ein Rollenfeld. Was VORHER hineinkam,
+ * steht weiterhin da — gemessen am 2026-09-21: von 44 verschiedenen Rollen im
+ * Markt treffen 19 den Katalog nie. Darunter Schreibvarianten, die sich
+ * auflösen lassen ("Bauhelfer" gegen "Bauhelfer:in", "Lagerhelfer",
+ * "CNC-Bediener"), und Unbrauchbares ("lager", "helfer", "ljoj", "IJF)IE").
+ *
+ * GELOESCHT WIRD NICHTS. An diesen Rollen haengen Angebote und Bedarfe; ein
+ * UPDATE waere ein Eingriff in fremde Ausschreibungen, und das ist eine
+ * Owner-Entscheidung, keine Nebenwirkung eines Waechters.
+ *
+ * Diese Funktion LISTET sie stattdessen — mit der Zahl der Eintraege, die
+ * daran haengen, damit die Reihenfolge der Aufraeumarbeit aus den Daten kommt
+ * und nicht aus dem Gefuehl. Wer "Bauhelfer" sieht, traegt es als Alias bei
+ * "Bauhelfer:in" nach; wer "ljoj" sieht, weiss, dass dort nichts zu retten ist.
+ *
+ * WARUM PLATTFORMWEIT UND IM STAFF CC: der Katalog betrifft die Plattform als
+ * Ganzes (docs/FLAECHEN.md, Antwort 3) — nicht einen Kunden.
+ *
+ * Wirft nie: eine Aufsichtszahl darf die Seite nicht mitreissen.
+ */
+export async function katalogfremdeRollen(pool) {
+  const leer = { verfuegbar: false, anzahl: 0, eintraege: 0, rollen: [] };
+  if (!pool || typeof pool.query !== "function") return leer;
+
+  let zeilen = [];
+  try {
+    const { rows } = await pool.query(`
+      WITH rollen AS (
+        SELECT role, 'angebot'::text AS seite, COUNT(*)::int AS anzahl
+          FROM capacity_posts
+         WHERE role IS NOT NULL AND btrim(role) <> ''
+         GROUP BY role
+        UNION ALL
+        SELECT role, 'bedarf'::text, COUNT(*)::int
+          FROM demand_requests
+         WHERE role IS NOT NULL AND btrim(role) <> ''
+         GROUP BY role
+      )
+      SELECT r.role                              AS rolle,
+             SUM(r.anzahl)::int                  AS eintraege,
+             array_agg(DISTINCT r.seite)         AS seiten
+        FROM rollen r
+       WHERE NOT EXISTS (
+               SELECT 1
+                 FROM platform_skills s
+                WHERE s.is_active
+                  AND (lower(s.name) = lower(btrim(r.role))
+                       OR EXISTS (SELECT 1 FROM unnest(s.aliases) a
+                                   WHERE lower(a) = lower(btrim(r.role))))
+             )
+       GROUP BY r.role
+       ORDER BY 2 DESC, 1 ASC`);
+    zeilen = rows || [];
+  } catch (e) {
+    logger.warn({ err: e?.message }, "Katalogfremde Rollen konnten nicht gelesen werden");
+    return leer;
+  }
+
+  const rollen = zeilen.map((r) => ({
+    rolle: String(r.rolle || ""),
+    eintraege: Number(r.eintraege) || 0,
+    seiten: Array.isArray(r.seiten) ? r.seiten : []
+  }));
+
+  return {
+    verfuegbar: true,
+    anzahl: rollen.length,
+    /* Die Summe aus den ZEILEN, nicht getrennt abgefragt — sonst koennen Kopf
+       und Liste auseinanderlaufen. */
+    eintraege: rollen.reduce((n, r) => n + r.eintraege, 0),
+    rollen,
+    hinweis: "Diese Bezeichnungen stammen aus der Zeit vor dem Katalogzwang (N8.1). "
+      + "Sie werden NICHT geloescht — an ihnen haengen Angebote und Bedarfe. Wer eine "
+      + "Schreibvariante erkennt, traegt sie als Alias am passenden Katalogeintrag nach; "
+      + "danach verschwindet sie von selbst aus dieser Liste."
+  };
+}
