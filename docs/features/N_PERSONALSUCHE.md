@@ -526,10 +526,10 @@ Katalog in Bedarfsanlage und Angebotsformular gebracht. Freitext steht noch hier
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|
-| N8.1a | **Denselben Katalogwähler** (`js/skillPicker.js`) einsetzen — kein zweiter | Auswahl erzeugt Katalogschlüssel, nie Freitext |
-| N8.1b | **Tippen bleibt möglich, aber als Suche IM Katalog** („pfle" → Pflege-Einträge), Präfixsuche | Kein Wert ohne Katalogschlüssel verlässt das Formular |
-| N8.1c | **Alte Freitext-Links** (`?role=pflege`) auf Katalogschlüssel abbilden, nicht brechen | Bestehender Link liefert dieselben Treffer |
-| N8.1d | **Wächter, entdeckend:** jedes `<input>` für Rolle/Tätigkeit/Skill auf Marktplatzseiten muss am Katalog hängen | Neues Freitextfeld → rot. Rückmutation |
+| N8.1a | **Denselben Katalogwähler** (`js/skillPicker.js`) einsetzen — kein zweiter | ✅ **2026-09-22.** `skillPicker` hat eine **Einzelauswahl** bekommen (eine Suche fragt nach *einer* Tätigkeit, eine Ausschreibung nach mehreren — ein Unterschied in der Anzahl, nicht in der Sache). Die Verbindung zu einem bestehenden Feld macht `js/katalogFeld.js`: **kein zweiter Wähler**, nur eine Bindung |
+| N8.1b | **Tippen bleibt möglich, aber als Suche IM Katalog**, Präfixsuche | ✅ **2026-09-22.** Getippt wird weiter; nach 250 ms hält die Bindung den Text gegen den Katalog und sagt, was sie sieht: *Gemeint ist: Bauhelfer:in* — *3 Treffer, bitte wählen* — *Nicht im Katalog, die Suche findet damit wenig*. Exakt, Alias und eindeutiges Präfix werden übernommen |
+| N8.1c | **Alte Freitext-Links** (`?role=pflege`) auf Katalogschlüssel abbilden, nicht brechen | ✅ **2026-09-22.** Beim Laden wird der mitgebrachte Wert aufgelöst; **ein unbekannter Begriff bleibt stehen** statt gelöscht zu werden — ein Link, der plötzlich nichts mehr findet, ist schlimmer als einer, der ehrlich sagt, warum er wenig findet. Probe dafür ist eine der 15 |
+| N8.1d | **Wächter, entdeckend:** jedes `<input>` für Rolle/Tätigkeit/Skill auf Marktplatzseiten muss am Katalog hängen | ✅ **2026-09-22** — `api/test/katalogStattFreitext.test.js`. **Gefunden hat er mehr als der Plan nannte:** nicht 6, sondern **13** freie Felder über 8 Seiten — darunter die Rolle **am Angebot** (`capacity_exchange_form`) und **am Bedarf** (`marketplace_demand_create`), also genau die beiden Seiten, zwischen denen das Matching stattfindet. Alle gebunden; zwei Ausnahmen mit Grund (Überschrift eines Suchauftrags ist keine Tätigkeit). Die Bindungen werden **je Seite** gezählt — global gezählt hätte eine Seite von der Bindung einer anderen gelebt (als Rückmutation gemessen). **13 Rückmutationen, alle rot** |
 
 ### N8.2 · Der Stundenzettel kennt seinen Kunden
 

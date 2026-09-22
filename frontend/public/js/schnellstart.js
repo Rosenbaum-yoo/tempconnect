@@ -282,6 +282,19 @@
         '<button type="button" class="tc-qs__btn tc-qs__btn--ja" data-qs="los">' + esc(t("los")) + "</button>" +
         '<button type="button" class="tc-qs__btn tc-qs__btn--link" data-qs="nein">' + esc(t("ueberspringen")) + "</button>" +
         "</div>";
+      /*
+       * N8.1 — AUCH HIER KATALOG STATT FREITEXT.
+       *
+       * Der Schnellstart ist fuer viele der ERSTE Kontakt mit der Suche. Wer
+       * hier "helfer" tippt, bekommt eine leere Liste und schliesst daraus auf
+       * einen leeren Markt — dabei fuehrt der Katalog "Bauhelfer:in",
+       * "Lagerhelfer:in" und "Allrounder / Aushilfe". Der Waehler haengt am
+       * bestehenden Feld; getippt werden darf weiter, es ist dann eine Suche
+       * IM Katalog.
+       */
+      if (window.TCKatalogFeld) {
+        TCKatalogFeld.binde({ input: box.querySelector("#qs-was"), showAvailability: true });
+      }
       var erstes = box.querySelector("#qs-was");
       if (erstes) erstes.focus();
     }

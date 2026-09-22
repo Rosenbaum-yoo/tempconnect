@@ -962,6 +962,28 @@
         el.innerHTML = html;
       });
     }
+    /*
+     * N8.1 — DREI ROLLENFELDER, EIN KATALOG.
+     *
+     * `role` (Suche), `searchJobRole` (Suchauftrag) und `req_role`
+     * (Anfrage-Modal) nahmen Freitext. Gemessen: 19 der 44 Rollen im Markt
+     * treffen den Katalog nie — ein Suchauftrag auf "helfer" meldet nie einen
+     * Treffer, und niemand sieht, warum.
+     *
+     * `searchJobTitle` bleibt BEWUSST Freitext: das ist die Ueberschrift eines
+     * Suchauftrags ("Pflegefachkraft Berlin, ab Montag"), keine Taetigkeit. Ein
+     * Katalog dafuer waere eine Zwangsjacke ohne Nutzen fuer das Matching.
+     */
+    if (window.TCKatalogFeld) {
+      /* Einzeln aufgeschrieben statt in einer Schleife: der Waechter (N8.1d)
+         sucht je Feld nach seiner Bindung. Eine Schleife ueber eine Liste waere
+         fuer einen Menschen dasselbe, fuer die Pruefung aber ein Ratespiel. */
+      TCKatalogFeld.binde({ input: "role", showAvailability: false });
+      TCKatalogFeld.binde({ input: "searchJobRole", showAvailability: false });
+      TCKatalogFeld.binde({ input: "req_role", showAvailability: false });
+      TCKatalogFeld.binde({ input: "editJobRole", showAvailability: false });
+    }
+
     // Lade Suchaufträge + Alert-Badge
     loadSavedJobs();
     function loadAlertBadge() {
@@ -988,7 +1010,11 @@
 
     function openRequestModal(capacityId, role, region) {
       document.getElementById("req_capacity_id").value = capacityId;
-      document.getElementById("req_role").value = role || "";
+      var reqRole = document.getElementById("req_role");
+      reqRole.value = role || "";
+      /* Ein per Skript gesetzter Wert loest kein Ereignis aus — die Bindung
+         erfuehre davon sonst nie und zeigte den Stand der letzten Anfrage. */
+      if (reqRole.tcKatalog && role) reqRole.tcKatalog.uebernehmen(role);
       document.getElementById("req_region").value = region || "";
       document.getElementById("modalCapacityInfo").textContent = TCi18n.t('srch.req.capacityInfo', { role: role || "–", region: region || "–" });
       document.getElementById("requestModal").classList.add("show");
@@ -1063,6 +1089,9 @@
       applyTerminology(lastOrgType);
     })();
   </script>
+  <!-- N8.1: die Rollenfelder dieser Seite haengen am Katalog. -->
+  <script src="/public/js/skillPicker.js"></script>
+  <script src="/public/js/katalogFeld.js"></script>
   <script src="/public/js/pageShell.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>

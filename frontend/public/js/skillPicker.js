@@ -241,11 +241,25 @@
     function umschalten(name) {
       if (istGewaehlt(name)) {
         gewaehlt = gewaehlt.filter(function (g) { return schluessel(g) !== schluessel(name); });
+      } else if (opt.einzeln) {
+        /*
+         * N8.1 - EINZELAUSWAHL, derselbe Waehler.
+         *
+         * Eine SUCHE fragt nach EINER Taetigkeit ("Welche Taetigkeit?"), eine
+         * Ausschreibung nach mehreren Faehigkeiten. Das ist ein Unterschied in
+         * der Anzahl, nicht in der Sache: derselbe Katalog, dieselben Aliase,
+         * derselbe gefuehrte Ausweg fuer unbekannte Begriffe. Ein zweiter
+         * Waehler nur fuer "eins statt viele" waere eine zweite Wahrheit
+         * darueber, was ein gueltiger Begriff ist - und genau die schafft
+         * Welle N1 gerade ab.
+         */
+        gewaehlt = [name];
       } else {
         gewaehlt.push(name);
       }
       schreibeZurueck();
       zeichnen();
+      if (opt.einzeln && typeof opt.onPick === "function" && gewaehlt.length) opt.onPick(gewaehlt[0]);
     }
 
     /* ── Bestandszahlen ─────────────────────────────────────────────── */

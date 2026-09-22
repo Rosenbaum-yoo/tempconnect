@@ -2,6 +2,54 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-22 — Katalog statt Freitext, auf beiden Marktseiten (N8.1)
+
+**Status:** erledigt · **Kategorie:** Produktausbau mit Matching-Wirkung ·
+**Quelle:** Owner-Reihenfolge 2026-09-20, Posten 4; Owner-Dokument 2026-09-14
+
+**Gemessen zuerst, gegen die laufende Datenbank:**
+
+| | |
+|---|---|
+| Katalog (`platform_skills`, aktiv) | **162** Einträge |
+| verschiedene Rollen im Markt | **44** (28 an Angeboten, 16 an Bedarfen) |
+| davon treffen den Katalog **nie** | **19** |
+
+Die 19 sind zwei Sorten Schaden. **Schreibvarianten:** *Bauhelfer* (der Katalog führt
+*Bauhelfer:in*), *Lagerhelfer*, *Produktionshelfer*, *CNC-Bediener*. Und **Unbrauchbares**:
+*lager*, *helfer*, *spezial*, *KI*, *Bau*, *ljoj*, *IJF)IE*, *Schwei??er* (kaputte Kodierung).
+Solange eine Marktseite Freitext nimmt, **kann** das Matching dort nicht treffen — das ist
+keine Frage der Rangformel, sondern des Vokabulars.
+
+**Der Wächter hat mehr gefunden als der Plan nannte:** nicht 6 freie Felder, sondern **13**
+über 8 Seiten. Darunter die Rolle **am Angebot** (`capacity_exchange_form`) und **am Bedarf**
+(`marketplace_demand_create`) — also genau die beiden Seiten, zwischen denen das Matching
+stattfindet. Nur die Suchfelder zu binden hätte die Hälfte des Problems stehen lassen.
+
+**Gebaut:** `js/katalogFeld.js` hängt ein **bestehendes** Feld an den **vorhandenen** Wähler
+(`skillPicker`, neu mit Einzelauswahl). Das Feld bleibt die Quelle der Wahrheit — `loadFeed()`
+liest es, der Filter-Speicher schreibt es, die Treffer-Vorschau hört auf `change`. Ein Bauteil,
+das das Feld *ersetzt*, hätte all das nachbauen müssen.
+
+**Alte Links brechen nicht:** exakt/Alias/eindeutiges Präfix werden übernommen (sichtbar),
+Mehrdeutiges öffnet den Wähler mit vorbelegter Suche, und ein **unbekannter Begriff bleibt
+stehen** statt gelöscht zu werden.
+
+**Nachweis:** `api/test/katalogStattFreitext.test.js` (15) in drei Teilen — die Auflösung
+ausgeführt, der entdeckende Durchlauf über alle Marktplatzseiten, und die **Verdrahtung** an
+einer DOM-Attrappe (das Feld bleibt dasselbe Element, bekommt einen Griff, eine Übernahme
+schreibt hinein **und** meldet es). **13 Rückmutationen, alle rot.**
+
+**Zwei eigene Fehler, beide gemessen statt übersehen:** der erste Entwurf des Wächters zählte
+die Bindungen **global** — dann genügt *eine* Seite, die `role` bindet, damit das gleichnamige
+Feld auf *jeder* anderen als gebunden gilt; die Rückmutation blieb grün. Und die Probe für die
+Einzelauswahl suchte die Zeichenkette `opt.einzeln`, die nach der Rückmutation zwei Zeilen
+tiefer noch stand. Beide prüfen jetzt die Stelle, an der es wirkt.
+
+**Offen, benannt:** N8.1 macht das Vokabular einheitlich; die **bestehenden** 19 Freitext-Rollen
+in der Datenbank bleiben, wie sie sind — eine Umschreibung alter Zeilen ist eine Migration mit
+Owner-Entscheid, kein Nebeneffekt dieser Welle.
+
 ### 2026-09-21 — Ein Klient statt zwei, und der Stand ist ablesbar (S1 / S2 / S3 / S4)
 
 **Status:** erledigt · **Kategorie:** Technik (Abhängigkeiten) + Betrieb ·

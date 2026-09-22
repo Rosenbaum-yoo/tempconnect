@@ -228,5 +228,20 @@
     };
   })();
   </script>
+  <script src="/public/js/skillPicker.js"></script>
+  <script src="/public/js/katalogFeld.js"></script>
+<script>
+  /* N8.1 - Katalog statt Freitext: Notdienst-Bedarf: hier zaehlt jede Minute, ein Tippfehler kostet den Treffer.
+     Gemessen am 2026-09-21: 19 der 44 Rollen im Markt treffen den Katalog nie.
+     Das Feld bleibt die Quelle der Wahrheit; der Waehler schreibt nur hinein. */
+  (function () {
+    function start() {
+      if (!window.TCKatalogFeld) return;
+      TCKatalogFeld.binde({ input: "nd-role", showAvailability: false });
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
+  })();
+</script>
 </body>
 </html>

@@ -1007,6 +1007,25 @@
   document.getElementById("btn-prev").addEventListener("click", function() { if (currentPage > 1) loadFeed(currentPage - 1); });
   document.getElementById("btn-next").addEventListener("click", function() { loadFeed(currentPage + 1); });
 
+  /*
+   * N8.1 — DER ROLLENFILTER HAENGT AM KATALOG.
+   *
+   * Gemessen am 2026-09-21: 19 der 44 Rollen im Markt treffen den Katalog nie
+   * ("Bauhelfer" gegen "Bauhelfer:in", dazu "lager", "helfer", "ljoj"). Wer
+   * hier Freitext tippt, sucht an einem Vokabular vorbei, das die Gegenseite
+   * gar nicht benutzt.
+   *
+   * Das FELD bleibt: `loadFeed()` liest es, der Filter-Speicher schreibt es,
+   * die Enter-Taste haengt daran. Der Waehler schreibt nur hinein.
+   */
+  if (window.TCKatalogFeld) {
+    TCKatalogFeld.binde({
+      input: "ff-role",
+      showAvailability: false,     // die Trefferzahl steht schon ueber der Liste
+      onPick: function () { loadFeed(1); }
+    });
+  }
+
   // Enter key triggers search
   ["ff-role","ff-city","ff-headcount","ff-avail-from"].forEach(function(id) {
     document.getElementById(id).addEventListener("keydown", function(e) { if (e.key === "Enter") loadFeed(1); });

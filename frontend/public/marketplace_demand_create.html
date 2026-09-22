@@ -1489,5 +1489,19 @@
 <script src="/public/js/demoBanner.js" defer></script>
 <script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/notifications.js" defer></script>
 <script src="/public/js/breadcrumb.js" defer></script>
+  <script src="/public/js/katalogFeld.js"></script>
+<script>
+  /* N8.1 - Katalog statt Freitext: die Rolle AM BEDARF - ohne sie trifft das Matching auf der Nachfrageseite nicht.
+     Gemessen am 2026-09-21: 19 der 44 Rollen im Markt treffen den Katalog nie.
+     Das Feld bleibt die Quelle der Wahrheit; der Waehler schreibt nur hinein. */
+  (function () {
+    function start() {
+      if (!window.TCKatalogFeld) return;
+      TCKatalogFeld.binde({ input: "role", showAvailability: false });
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
+  })();
+</script>
 </body>
 </html>
