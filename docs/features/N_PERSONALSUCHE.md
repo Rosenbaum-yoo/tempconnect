@@ -531,6 +531,23 @@ Katalog in Bedarfsanlage und Angebotsformular gebracht. Freitext steht noch hier
 | N8.1c | **Alte Freitext-Links** (`?role=pflege`) auf Katalogschlüssel abbilden, nicht brechen | ✅ **2026-09-22.** Beim Laden wird der mitgebrachte Wert aufgelöst; **ein unbekannter Begriff bleibt stehen** statt gelöscht zu werden — ein Link, der plötzlich nichts mehr findet, ist schlimmer als einer, der ehrlich sagt, warum er wenig findet. Probe dafür ist eine der 15 |
 | N8.1d | **Wächter, entdeckend:** jedes `<input>` für Rolle/Tätigkeit/Skill auf Marktplatzseiten muss am Katalog hängen | ✅ **2026-09-22** — `api/test/katalogStattFreitext.test.js`. **Gefunden hat er mehr als der Plan nannte:** nicht 6, sondern **13** freie Felder über 8 Seiten — darunter die Rolle **am Angebot** (`capacity_exchange_form`) und **am Bedarf** (`marketplace_demand_create`), also genau die beiden Seiten, zwischen denen das Matching stattfindet. Alle gebunden; zwei Ausnahmen mit Grund (Überschrift eines Suchauftrags ist keine Tätigkeit). Die Bindungen werden **je Seite** gezählt — global gezählt hätte eine Seite von der Bindung einer anderen gelebt (als Rückmutation gemessen). **13 Rückmutationen, alle rot** |
 
+### N8.1b · Kein Freitext mehr, plattformweit *(Owner-Entscheid 2026-09-22)*
+
+> *„keine Freitexte mehr, alles katalogbunden, um maximal integriert zu sein."*
+
+N8.1 hat die acht Marktflächen gebunden. Der Owner erweitert das auf **alle** Flächen. Meine
+Messung nach N8.1 fand zwei Felder, die außerhalb lagen — und ein drittes Problem, das
+gefährlicher ist als beide:
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| N8.1b-1 | **`rate-cards.html`, Feld `fRole`** — die Rolle im Konditionsrahmen ist Freitext und wird in Zeile 1293 ins Anlageformular übernommen. Preise je Rolle, die nicht am Katalog hängen, lassen sich mit katalogfesten Angeboten nicht zusammenführen | Konditionsrahmen und Angebot treffen sich über denselben Schlüssel |
+| N8.1b-2 | **`einsatzportal-profil.html`, Feld `docQualification`** („Qualifikation / Nachweistyp" beim Hochladen) — ein Staplerschein, der nicht am Katalog hängt, belegt keinen Katalog-Skill. Das ist die Arbeiterseite desselben Problems und der Grund, warum ein Nachweis überhaupt etwas wert ist | Hochgeladener Nachweis hängt am selben Schlüssel wie das Angebot, das ihn verlangt |
+| N8.1b-3 | **Der stille Rückfall muss weg.** `capacity_exchange_form.html` ruft `TCKatalogFeld.binde(...)` hinter `if (!window.TCKatalogFeld) return;`. **Gemessen am 2026-09-22 per Rückmutation:** Skript-Tag entfernt → Feld wieder Freitext, Wächter bleibt **grün**. Ein stiller Skip an der Stelle, die das Vokabular sichert | Datei fehlt → die Seite fällt auf, statt lautlos Freitext anzunehmen |
+| N8.1b-4 | **Registratur „globaler Name → liefernde Datei"** in `apiClientGeladen.test.js` verallgemeinern: heute `TC.api` → `js/api.js`, dazu `TCKatalogFeld` → `js/katalogFeld.js`. Wer den Namen benutzt, muss die Datei vorher laden | Skript-Tag entfernen → rot. **Rückmutation** |
+| N8.1b-5 | **Entdeckender Durchlauf über ALLE Flächen:** jedes Eingabefeld, dessen Name oder Beschriftung eine Tätigkeit, Rolle, Fähigkeit, Qualifikation oder einen Nachweis benennt, hängt am Katalog — oder steht mit Begründung in einer benannten Ausnahmeliste | Neues Freitextfeld dieser Art → rot, ohne dass jemand den Wächter anfasst |
+| N8.1b-6 | **Die Altbestände bereinigen:** die 19 Rollenbezeichnungen, die den Katalog nie treffen, werden zugeordnet (Alias) oder als unbrauchbar gekennzeichnet — nicht stillschweigend gelöscht, es hängen Angebote daran | Zuordnungstabelle; danach trifft jede aktive Bezeichnung den Katalog |
+
 ### N8.2 · Der Stundenzettel kennt seinen Kunden
 
 **Owner:** *„Die Plattform sollte schon wissen, an welchen Kunden der Stundenzettel eingereicht
