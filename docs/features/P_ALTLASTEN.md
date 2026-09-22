@@ -121,6 +121,13 @@ Eine ungetrackte Arbeitsdatei im Baum, aus einem früheren Mutationslauf. Gehör
 
 ## 3. Klasse B — anschließen, **nicht** entfernen
 
+> **Nach dem 2026-09-21 neu messen, bevor hier etwas eingestuft wird.** In der laufenden
+> Datenbank fehlten bis dahin **15 Migrationen** (204–218): der Takt-Herzschlag, die Feed-Kopie,
+> der sichtbare Rabatt und weitere. Ein Dienst, der „vollständig gebaut, tut aber nichts"
+> aussah, war möglicherweise **doppelt tot** — kein Aufrufer *und* kein Schema. Seit die 235
+> Migrationen angewandt sind, liest sich ein Teil dieses Registers womöglich anders. **Jede
+> Einstufung hier stammt aus der Zeit davor.**
+
 **Diese sieben sehen tot aus und sind es nicht.** Jeder Posten nennt die Phase, die ihn
 vorsieht. Wer hier aufräumt, löscht geplante Fähigkeiten.
 
