@@ -23,6 +23,7 @@ import * as orgSuspension from "../services/orgAccessSuspensionService.js";
 /* Markt-Sichtbarkeit (2026-09-02): derselbe Dienst, der die Angebote
  * materialisiert, misst dabei seine eigene Luecke mit — hier wird sie lesbar. */
 import * as marktpraesenzService from "../services/marktpraesenzService.js";
+import * as skillCatalogService from "../services/skillCatalogService.js";
 import * as staffBilling from "../services/staffBillingOverviewService.js";
 import * as staffMail from "../services/staffMailCenterService.js";
 import * as staffIncidents from "../services/staffIncidentService.js";
@@ -1635,12 +1636,91 @@ export function createStaffControlCenterRouter(deps) {
      * und die Zahl, die man nicht sieht, raeumt niemand auf. Beides gehoert
      * zur selben Frage: warum steht im Markt weniger, als da sein muesste.
      */
-    const [sichtbarkeit, altbezeichnungen] = await Promise.all([
+    const [sichtbarkeit, altbezeichnungen, vorschlaege] = await Promise.all([
       marktpraesenzService.marktSichtbarkeit(pool),
-      marktpraesenzService.katalogfremdeRollen(pool)
+      marktpraesenzService.katalogfremdeRollen(pool),
+      skillCatalogService.listeVorschlaege(pool)
     ]);
-    res.json({ success: true, data: { ...sichtbarkeit, katalogfremde_rollen: altbezeichnungen } });
+    res.json({
+      success: true,
+      data: {
+        ...sichtbarkeit,
+        katalogfremde_rollen: altbezeichnungen,
+        /* N8.1b-7: die offenen Vorschlaege stehen daneben, weil es DIESELBE
+           Frage ist — welches Vokabular kennt die Plattform, und welches nicht.
+           Die Altbezeichnungen sagen, was falsch drin steht; die Vorschlaege
+           sagen, was noch fehlt. Wer beides zusammen sieht, erkennt sofort,
+           dass der haeufigste Fall eine ZUORDNUNG ist. */
+        faehigkeits_vorschlaege: vorschlaege
+      }
+    });
   });
+
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * N8.1b-7 — DAS VENTIL WIRD GELEERT
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * Gemessen am 2026-09-22: `status='proposed'` wurde von KEINER Zeile im
+   * ganzen Stack gelesen. Der Arbeiter hoerte "wird geprueft", und geprueft
+   * wurde nie. Unter dem Owner-Entscheid "keine Freitexte mehr" ist der
+   * Vorschlagsweg das EINZIGE Ventil — und ein Ventil, das niemand leert,
+   * laeuft ueber.
+   *
+   * WARUM BESTAETIGUNG UND BEGRUENDUNG: der Katalog ist plattformweite
+   * Wahrheit. Eine Zuordnung haengt fremde Faehigkeiten um, eine Ablehnung
+   * nimmt einem Menschen einen Begriff, den er eingetragen hat. Beides ohne
+   * Grund im Protokoll waere eine Aenderung ohne Verantwortlichen.
+   *
+   * KEIN Step-up HIGH: hier geht es nicht um Geld und nicht um Zugaenge,
+   * sondern um Vokabularpflege. Eine Huerde, die zur Aufgabe nicht passt,
+   * wird umgangen statt beachtet.
+   */
+  router.post("/faehigkeits-vorschlaege/:id/entscheiden",
+    requireStaff, requireConfirmAndReason,
+    async (req, res) => {
+      const entscheidung = String(req.body?.entscheidung || "").trim();
+      const zielSkillId = req.body?.ziel_skill_id ? String(req.body.ziel_skill_id).trim() : null;
+
+      try {
+        const ergebnis = await skillCatalogService.entscheideVorschlag(pool, {
+          vorschlagId: String(req.params.id || "").trim(),
+          entscheidung,
+          zielSkillId,
+          grund: req.sccReason,
+          actorId: req.session?.userId || null
+        });
+
+        res.locals.audit = {
+          action: "skill_catalog.proposal_decided",
+          entity_type: "platform_skill",
+          entity_id: String(req.params.id || ""),
+          details: {
+            entscheidung: ergebnis.entscheidung,
+            name: ergebnis.name,
+            ziel_skill_id: ergebnis.ziel?.id || null,
+            ziel_name: ergebnis.ziel?.name || null,
+            umgehaengte_zuordnungen: ergebnis.umgehaengt,
+            grund: req.sccReason
+          }
+        };
+        res.json({ success: true, data: ergebnis });
+      } catch (err) {
+        /* Die Ablehnung sagt, WELCHE Bedingung fehlt — das ist der Schutz,
+           nicht die Huerde. */
+        const bekannt = {
+          VORSCHLAG_FEHLT: 400, UNBEKANNTE_ENTSCHEIDUNG: 400, BEGRUENDUNG_FEHLT: 400,
+          ZIEL_FEHLT: 400, ZIEL_UNGUELTIG: 422, ZIEL_IST_VORSCHLAG: 422,
+          NICHT_GEFUNDEN: 404, SCHON_ENTSCHIEDEN: 409
+        };
+        const code = err?.code && bekannt[err.code];
+        if (code) {
+          return res.status(code).json({ success: false, error: { code: err.code, message: err.message } });
+        }
+        logger?.error({ err, vorschlag: req.params.id }, "SCC faehigkeits-vorschlag entscheiden");
+        res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+      }
+    });
 
   // ── Support Cases — Liste (filterbar) ───────────────────────
   router.get("/support/cases", requireStaff, async (req, res) => {

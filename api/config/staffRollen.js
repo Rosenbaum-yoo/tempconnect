@@ -116,6 +116,18 @@ export const BEREICH_JE_PFAD = Object.freeze({
    * ausgerechnet fuer die Rolle, die den Befund abstellen kann.
    */
   "markt-sichtbarkeit": "audit",
+
+  /*
+   * N8.1b-7 — die Kuratierung der Faehigkeits-Vorschlaege.
+   *
+   * Ebenfalls "audit", und aus demselben Grund wie die Markt-Sichtbarkeit
+   * daneben: es ist Vokabularpflege, keine kaufmaennische Entscheidung. Der
+   * Betrieb erkennt eine Schreibvariante ("Lagerhelfer" gehoert zu
+   * "Lagerhelfer:in"), der Vertrieb saehe nur einen Begriff. Unter
+   * "commercial" waere die Liste fuer staff_ops unsichtbar — ausgerechnet
+   * fuer die Rolle, die den Katalog kennt.
+   */
+  "faehigkeits-vorschlaege": "audit",
 });
 
 /**

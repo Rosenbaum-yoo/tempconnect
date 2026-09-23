@@ -3398,6 +3398,12 @@
           "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
         },
         {
+          "methode": "post",
+          "pfad": "/faehigkeits-vorschlaege/:id/entscheiden",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen. Hier zusaetzlich: der Faehigkeitskatalog ist PLATTFORMWEITE Referenz, keine Mandantendatei (docs/FLAECHEN.md, Antwort 3). Eine Org-Grenze waere hier nicht nur falsch, sie waere schaedlich - ein Begriff, den nur eine Firma sehen darf, kann kein gemeinsames Vokabular sein (N8.1b-7)."
+        },
+        {
           "methode": "get",
           "pfad": "/inbox/:id",
           "urteil": "bewusste-ausnahme",

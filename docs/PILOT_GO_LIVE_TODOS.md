@@ -2,6 +2,57 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-23 — Das Ventil wird geleert (N8.1b-7)
+
+**Status:** erledigt · **Kategorie:** Produktausbau + Datenqualität ·
+**Quelle:** Messung der gegenprüfenden Sitzung, 2026-09-22
+
+**Der Befund:** der Vorschlagsweg ist seit Migration 160 gebaut — und richtig gebaut. Ein
+vorgeschlagener Begriff erreicht den Markt **nie** ungeprüft: `proposeSkill` schreibt
+`status='proposed'`, der Katalog liefert nur `approved`, die Angebotserzeugung verlangt
+dasselbe. Genau deshalb ist er unter dem Owner-Entscheid *keine Freitexte mehr* das **einzige
+Ventil**.
+
+**Gemessen:** `status='proposed'` wird von **keiner Zeile** im ganzen Stack gelesen.
+`merged_into_skill_id` schreibt niemand. Offene Vorschläge: **0** — und diese Null ist die
+wichtigere Zahl. Sie heißt nicht *alles erledigt*, sondern *der Weg wurde bisher nicht
+benutzt*, und das ändert sich mit dem Katalogzwang. Der Arbeiter hört *wird geprüft*, und
+geprüft wird nie.
+
+**Drei Ausgänge, und die Reihenfolge ist Absicht:**
+
+| | |
+|---|---|
+| **zuordnen** | Es gibt ihn schon, anders geschrieben. **Zuerst**, weil es der häufigste Fall ist: 20 von 54 katalogfremden Einträgen sind allein *Lagerhelfer* gegen *Lagerhelfer:in* |
+| **annehmen** | Der Begriff fehlte wirklich → Katalogeintrag |
+| **ablehnen** | Kein Gewerk, Tippfehler → stillgelegt, **nicht gelöscht** (an einem Vorschlag können Zuordnungen hängen) |
+
+Eine Oberfläche, die *annehmen* zuerst anbietet, lässt den Katalog wachsen, wo er nur
+präziser werden sollte.
+
+**Warum die Zuordnung mehr ist als Aufräumen:** sie macht den vorgeschlagenen Namen zum
+**Alias** am Zieleintrag. Beim nächsten Mal trifft `proposeSkill` sofort über ihn, und es
+entsteht gar kein Vorschlag mehr. Aus einer Einmal-Aufräumung wird eine Regel.
+
+**Alles in einer Transaktion**, weil drei Schreibvorgänge zusammenhängen: Alias setzen,
+Dubletten entfernen (die Eindeutigkeit `(worker_profile_id, skill_id)` schlägt sonst zu),
+Zuordnungen umhängen. Bricht einer ab, hätte der Arbeiter seine Fähigkeit an einem
+stillgelegten Eintrag — also verloren.
+
+**Migration 219** macht `status='merged'` erst möglich: der CHECK kannte nur *approved*,
+*proposed*, *rejected*. Der Unterschied ist keine Feinheit — *abgelehnt* sagt dem Menschen
+„das ist keine Fähigkeit", *zugeordnet* sagt „die gibt es schon, sie heißt Lagerhelfer:in".
+
+**Die Rückmeldung an den Menschen** (`merged_von`) ist kein Beiwerk: wer einmal nicht erfährt,
+was aus seinem Vorschlag wurde, schlägt beim nächsten Mal nichts mehr vor — dann bewirkt der
+Katalogzwang das Gegenteil dessen, wofür er da ist. Die Abfrage grenzt dabei auf den **eigenen**
+Vorschlag ein; niemand sieht, welchen Begriff ein anderer eingetragen hat.
+
+**Nachweis:** `api/test/vorschlagWirdEntschieden.test.js` (20), **14 Rückmutationen, alle rot**.
+Eine davon überlebte zuerst: der Muster-Pool liefert `merged_von` unabhängig davon, was die
+Abfrage *tut* — die Probe sah einen Wert, den sie selbst hineingelegt hatte. Jetzt ist jeder
+Bestandteil der Abfrage einzeln gepinnt.
+
 ### 2026-09-22 — Kein Freitext mehr, wo ein Katalog existiert (N8.1b)
 
 **Status:** erledigt · **Kategorie:** Produktausbau mit Matching-Wirkung + Security-nahe

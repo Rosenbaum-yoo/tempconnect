@@ -1406,9 +1406,31 @@ export async function getWorkerSkills(pool, workerProfileId) {
     // ps.status (Mig 160): selbst eingetragene Faehigkeiten warten ggf. noch auf
     // Kuratierung. Der Arbeiter soll das an seinem Profil SEHEN, statt sich zu
     // wundern, warum die Faehigkeit nirgends auftaucht.
+    /*
+     * N8.1b-7 — DIE RUECKMELDUNG AN DEN MENSCHEN.
+     *
+     * `ps.status` stand hier schon: der Arbeiter soll sehen, dass seine
+     * Faehigkeit noch geprueft wird. Was fehlte, war der Ausgang DANACH.
+     *
+     * Wird ein Vorschlag ZUGEORDNET (es gab ihn schon, anders geschrieben),
+     * wandert die Zuordnung auf den Katalogeintrag — der Arbeiter saehe dann
+     * einfach einen anderen Namen und wuesste nicht, warum. `merged_von`
+     * traegt seinen urspruenglichen Begriff mit, damit die Oberflaeche sagen
+     * kann: "Ihre Angabe 'Lagerhelfer' gehoert zu 'Lagerhelfer:in'".
+     *
+     * Ohne diese Rueckmeldung schlaegt beim naechsten Mal niemand mehr etwas
+     * vor — man tippt irgendetwas, und der Katalogzwang bewirkt genau das
+     * Gegenteil dessen, wofuer er da ist.
+     */
     `SELECT wps.id, wps.skill_id, ps.name, ps.category, ps.status,
             wps.proficiency, wps.years_experience, wps.is_primary,
-            wps.certified, wps.certificate_ref, wps.source
+            wps.certified, wps.certificate_ref, wps.source,
+            (SELECT array_agg(alt.name)
+               FROM platform_skills alt
+              WHERE alt.merged_into_skill_id = ps.id
+                AND alt.proposed_by_user_id = (
+                      SELECT wp.user_id FROM worker_profiles wp WHERE wp.id = $1
+                    )) AS merged_von
        FROM worker_profile_skills wps
        JOIN platform_skills ps ON ps.id = wps.skill_id
       WHERE wps.worker_profile_id = $1
@@ -1426,7 +1448,10 @@ export async function getWorkerSkills(pool, workerProfileId) {
     is_primary: r.is_primary === true,
     certified: r.certified === true,
     certificate_ref: r.certificate_ref,
-    source: r.source
+    source: r.source,
+    /* Leer, solange nichts zugeordnet wurde — der Normalfall. Traegt es etwas,
+       ist es der Begriff, den DIESER Mensch eingetragen hat. */
+    merged_von: Array.isArray(r.merged_von) ? r.merged_von : []
   }));
 }
 
