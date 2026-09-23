@@ -586,6 +586,81 @@ Kunden"), sie blockiert den Bau nicht.
 | M11.7 | **Index auf `worker_assignment_links(org_id)`** (Rang 10) | Lastprobe: 300 Kunden |
 | M11.8 | **Frontend-Erreichbarkeit als Wächter** | Neue Seite ohne Klickpfad → rot |
 
+
+---
+
+### M4c · Der Markt wirkt voll — ohne einen Menschen doppelt zu verkaufen
+
+> **Posten 5 der Reihenfolge**, zugeteilt am 2026-09-23. **Zuerst messen, dann bauen:** seit dem
+> Nachziehen der 15 fehlenden Migrationen (204–218, am 2026-09-21) und seit N8.1b steht ein
+> anderer Ist-Stand als bei der M0-Messung. Wer hier nach dem alten Befund baut, baut Vorhandenes
+> nach.
+
+**Was am 2026-09-23 bereits läuft, gemessen:**
+
+| Baustein | Stand |
+|---|---|
+| `marktpraesenzService` | ✅ **materialisiert automatisch** je markt-präsenter Kraft mit Katalog-Skills die fehlenden **Einzelskill-Angebote** (`offer_kind 'single_skill'`, `quelle 'live_belegschaft'`) — als ganz normale Einträge, kein zweiter Marktplatz |
+| Auslöser | ✅ `workers/staffingWorker.js:46` im Auftrag `staffing-maintenance`, Takt **15 Minuten** — der M0-Befund „niemand ruft es" ist seit M1 überholt |
+| Doppel-Angebote | ✅ Dedup-Index (Mig 145) |
+| Reservierung | ✅ `workerOfferReservationService` pausiert, solange die Kraft gebunden ist, und gibt frei, sobald sie es nicht mehr ist |
+| Katalogpflicht | ✅ seit N8.1b: nur freigegebene Katalog-Fähigkeiten erzeugen Angebote |
+| **Sammelangebote** | **offen** — `buildBundleOfferData`, `buildPoolSuggestion` und `createPoolOffer` existieren, aber der Takt erzeugt **nur** Einzelangebote. Bündel entstehen nur, wenn ein Mensch sie anlegt |
+
+**Damit ist die Aufgabe eine andere als „Selbstbefüllung bauen".** Sie lautet: **die Lücke
+zwischen automatischen Einzelangeboten und den Sammelangeboten schließen — und dabei den
+Betrugsriegel halten.** Die Owner-Vorgabe dazu ist eindeutig: *„ein Mensch, fünfmal gebucht,
+wäre Betrug."* Volumen entsteht durch **Darstellungen**, nie durch mehrfache Verfügbarkeit.
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| M4c.0 | **Neu messen, bevor etwas gebaut wird:** wie viele Kräfte sind markt-präsent, wie viele Angebote je Art stehen im Feed, wie viele Kräfte sind unsichtbar — und an welcher der fünf Bedingungen aus M4.9 scheitern sie heute? Der alte Ausgangsbefund („30 von 33 unsichtbar") stammt von vor dem Migrations-Nachzug | Eine Tabelle mit Zahlen von heute. **Keine Phase unten wird gebaut, bevor diese Zahl steht** |
+| M4c.1 | **Das Gesamtangebot je Kraft entsteht mit.** Owner: *„bei 10 Skills 10 Angebote plus eines für alle Skills"*. Der Takt erzeugt es wie die Einzelangebote — aus denselben freigegebenen Katalog-Fähigkeiten, über dieselbe Schiene | Kraft mit 4 Fähigkeiten → 4 Einzel + 1 Bündel. **Rückmutation:** Bündelerzeugung entfernen → rot |
+| M4c.2 | **Das firmenübergreifende Sammelangebot** für die Nachfrage *„30 Pflegekräfte"*: viele Kräfte, ein Skill — und viele Kräfte, mehrere Skills. Es entsteht **aus der Nachfrage**, nicht auf Vorrat: sonst stehen Bündel im Markt, die niemand gesucht hat | Suche nach 30 Kräften bündelt über Firmen hinweg (N5-Korb); ohne Nachfrage entsteht kein Vorrats-Bündel |
+| M4c.3 | **Ein Mensch, eine Bindung — über alle Darstellungen.** Wird eine Kraft gebucht, verschwinden **Einzel- und Bündelangebote** derselben Person gemeinsam. Die Reservierung kennt heute nur Einzelangebote | Kraft buchen → beide Arten weg. **Rückmutation:** Bündel von der Pausierung ausnehmen → rot. **Das ist die wichtigste Probe dieser Welle** |
+| M4c.4 | **Die Zahl im Markt zählt Menschen, nicht Angebote.** „128 verfügbare Kräfte" darf nicht entstehen, weil 32 Menschen je vier Fähigkeiten tragen | Zählung gegen `COUNT(DISTINCT worker_profile_id)` gepinnt. **Rückmutation:** auf Angebote zählen → rot |
+| M4c.5 | **Die fünf Bedingungen aus M4.9 schließen**, soweit M4c.0 sie noch offen zeigt: zwei sind Feld-Material (Pflicht), drei sind Zustände (lesbarer Grund). **Niemand fällt wortlos aus dem Markt** | Je Grund ein Satz, den der Mensch versteht; kein stilles Fehlen |
+| M4c.6 | **Das Staff CC sieht, warum jemand nicht im Markt steht** — dieselbe Antwort, die schon die katalogfremden Rollen und die Vorschläge trägt (b-6, b-7). Drei Zahlen, eine Fläche | Eine unsichtbare Kraft ist in unter einer Minute erklärt |
+| M4c.7 | **Verdrahtung nach der Prüfliste** aus `V_SCHNITTSTELLEN.md`, Abschnitt 3c — besonders Glied 6 (Klickpfad) und Glied 9 (Eingriff im Staff CC) | Kein Endpunkt ohne Aufrufer, keine Fläche ohne Weg |
+
+**Reihenfolge: M4c.0 → M4c.3 → M4c.1 → M4c.4 → M4c.2 → M4c.5 → M4c.6 → M4c.7.**
+
+> **M4c.3 steht vor der Erzeugung, nicht danach.** Wer zuerst Bündel erzeugt und die
+> Pausierung nachzieht, hat in der Zwischenzeit einen Markt, in dem dieselbe Person mehrfach
+> buchbar ist. Das ist genau der Zustand, den der Owner Betrug nennt — und er entsteht
+> unbemerkt, weil jede einzelne Buchung für sich gültig aussieht.
+
+**Woran gegengeprüft wird**
+
+| # | Frage |
+|---|---|
+| 1 | Kann dieselbe Person nach dem Bau über zwei Darstellungen gleichzeitig gebucht werden? |
+| 2 | Zählt die Marktzahl Menschen oder Angebote? |
+| 3 | Entstehen Vorrats-Bündel, die niemand gesucht hat? |
+| 4 | Steht die Messung aus M4c.0 im Plan — mit Zahlen von heute, nicht von vor dem Migrations-Nachzug? |
+| 5 | Fällt noch jemand wortlos aus dem Markt? |
+
+**Was M4c nicht tut**
+
+- **Einen zweiten Marktplatz bauen.** Alles läuft über `capacity_posts` und den vorhandenen Feed.
+- **Verfügbarkeit vervielfachen.** Mehr Darstellungen, nie mehr Menschen.
+- **Angebote ohne Katalogbezug erzeugen.** Seit N8.1b ist das ausgeschlossen; M4c hält es.
+- **Die Reservierungslogik neu schreiben.** Sie wird auf Bündel ausgedehnt, nicht ersetzt.
+
+**Zwei Zahlen, die die bauende Sitzung am 2026-09-23 schon gemessen hat** — sie ändern die
+Reihenfolge innerhalb von M4c.5: **33 Profile, alle aktiv, aber nur 3 Menschen tragen überhaupt
+eine Fähigkeit** (23 Zuordnungen), und **6 aktive Einträge** stehen 162 Katalogeinträgen gegenüber.
+Die „30 von 33 unsichtbar" stimmen also weiter — **aber nicht wegen des Veröffentlichungswegs,
+sondern weil 30 Menschen gar keine Fähigkeit haben.** Damit wirkt **M4.9 (Pflichtfeld) vor
+M4.8 (Anstoß)**: ein Anstoß, der zum Veröffentlichen auffordert, läuft ins Leere, solange nichts
+da ist, das veröffentlicht werden könnte.
+
+### Nachtrag zu b-7 aus der Gegenprüfung (2026-09-23)
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| b-7.1 | **Der Alias-Schreibvorgang ist nicht festgenagelt.** Gemessen per Rückmutation: den `SET aliases = …`-Vorgang in `skillCatalogService` unwirksam gemacht → **alle Proben bleiben grün**. Genau dieser Vorgang macht aus der Zuordnung eine Dauerregel (beim nächsten Mal trifft `proposeSkill` sofort über den Alias). Fällt er bei einem Umbau weg, merkt es niemand — die Kuratierung hört einfach auf, sich zu lohnen | **Form-Probe je Bestandteil** des Schreibvorgangs (`SET aliases`, `unnest`, die Doppelten-Bedingung) plus Bindungsprobe der Parameter — dieselbe Antwort wie bei `merged_von`, nur auf der Schreibseite |
+
 ---
 
 ## 7. Reihenfolge
