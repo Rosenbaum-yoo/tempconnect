@@ -559,6 +559,13 @@ export function createInternalRouter(deps) {
       const offerReservation = await workerOfferReservationService.sweepReservations(pool);
       result.offers_reserved = offerReservation.reserved;
       result.offers_released = offerReservation.released;
+      /* M4c.3: Sammelangebote getrennt ausgewiesen, nicht in die Zahl oben gefaltet.
+       * Die beiden Mechaniken greifen unterschiedlich — personengebunden pausiert bei
+       * EINEM gebundenen Menschen, ein Sammelangebot erst, wenn KEIN Mitglied mehr frei
+       * ist. Eine gemeinsame Zahl liesse nicht mehr erkennen, welche der beiden
+       * gearbeitet hat. */
+      result.pool_offers_reserved = offerReservation.pools_reserved;
+      result.pool_offers_released = offerReservation.pools_released;
       /* Antwortfrist (Migration 193 + 195): Verfall und Erinnerung fuer
        * Ersatz-Anfragen (4 h / 2 h) UND regulaere Zuweisungen (72 h gedeckelt
        * am Einsatzbeginn, Erinnerung bei der Haelfte). Dritter Aufruf im selben

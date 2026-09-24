@@ -674,10 +674,15 @@ describe("browseFeed", () => {
     const abfrage = pool.calls.find((c) => c.sql.includes("AS sort_date") && c.sql.includes("FROM capacity_posts cp"));
     for (const [name, q] of [["Zaehlung", zaehlung], ["Abfrage", abfrage]]) {
       assert.ok(q, `${name} lief nicht`);
-      assert.match(q.sql, /cp\.status <> 'active' OR GREATEST\(cp\.headcount - COALESCE\(zusage\.zugesagt, 0\), 0\) > 0/,
+      assert.match(q.sql, /cp\.status <> 'active' OR LEAST\(GREATEST\(cp\.headcount - COALESCE\(zusage\.zugesagt, 0\), 0\), pool_frei\.frei\) > 0/,
         `${name}: ein aktives Angebot ohne freien Platz wird nicht ausgeschlossen`);
       assert.match(q.sql, /LEFT JOIN LATERAL[\s\S]*FROM offers o_zu[\s\S]*\) zusage ON TRUE/,
         `${name}: die zugesagte Kopfzahl wird nicht berechnet`);
+      /* M4c.3: dieselbe Zusage fuer Sammelangebote — ein Angebot, dessen
+         Mitglieder alle anderswo gebunden sind, hat keinen freien Platz mehr
+         und steht damit ebenfalls nicht im Feed. */
+      assert.match(q.sql, /LEFT JOIN LATERAL[\s\S]*FROM capacity_post_pool_members m[\s\S]*\) pool_frei ON TRUE/,
+        `${name}: die freien Mitglieder eines Sammelangebots werden nicht berechnet`);
     }
   });
 

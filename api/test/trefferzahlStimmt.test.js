@@ -494,7 +494,7 @@ describe("N2.8 · die freie Kopfzahl filtert in SQL", () => {
     const abfrage = p.calls.find((c) => /AS sort_date/.test(c.sql));
     for (const [name, q] of [["Zaehlung", zaehlung], ["Abfrage", abfrage]]) {
       assert.ok(q, name + " lief nicht");
-      const m = /GREATEST\(cp\.headcount - COALESCE\(zusage\.zugesagt, 0\), 0\) >= \$(\d+)/.exec(q.sql);
+      const m = /LEAST\(GREATEST\(cp\.headcount - COALESCE\(zusage\.zugesagt, 0\), 0\), pool_frei\.frei\) >= \$(\d+)/.exec(q.sql);
       assert.ok(m, `${name}: der Mindestfilter prueft nicht die freie Kopfzahl`);
       assert.notStrictEqual(Number(m[1]), 1, `${name}: der Mindestfilter haengt an $1 — dort steht der Betrachter`);
       assert.strictEqual(q.params[Number(m[1]) - 1], 4, `${name}: der Platzhalter traegt nicht den Mindestwert`);
@@ -541,8 +541,71 @@ describe("N2.8 · die freie Kopfzahl filtert in SQL", () => {
        Umbenennung durch, und jede Feed-Abfrage waere in Postgres gescheitert. */
     assert.match(b, /\)::int AS zugesagt(?![A-Za-z0-9_])/, "die Spalte heisst nicht `zugesagt`");
     assert.ok(/\)\s*zusage ON TRUE\s*$/.test(b), "der Block heisst nicht `zusage`");
-    assert.strictEqual(_FUER_PROBEN.FREIE_KOPFZAHL_SQL, "GREATEST(cp.headcount - COALESCE(zusage.zugesagt, 0), 0)",
+    assert.strictEqual(
+      _FUER_PROBEN.FREIE_KOPFZAHL_SQL,
+      "LEAST(GREATEST(cp.headcount - COALESCE(zusage.zugesagt, 0), 0), pool_frei.frei)",
       "die freie Kopfzahl liest nicht aus dem Block");
+  });
+
+  it("M4c.3: ein Sammelangebot wirbt nie mit mehr Menschen, als frei sind", () => {
+    /*
+     * Die Zusage-Rechnung oben zieht ab, was auf DIESEM Angebot zugesagt wurde.
+     * Ein Mitglied kann aber ANDERSWO gebunden sein — über sein eigenes
+     * Einzelangebot, ein zweites Sammelangebot, eine Zuweisung ausserhalb des
+     * Marktplatzes. Gemessen am 2026-09-24 gegen die Entwicklungsdatenbank stand
+     * derselbe Mensch gleichzeitig in einem aktiven Sammelangebot UND in einem
+     * aktiven Einzelangebot.
+     *
+     * Der Sweep (workerOfferReservationService) pausiert erst, wenn KEIN Mitglied
+     * mehr frei ist. Die Teilbelegung — 30 beworben, 29 gebunden — faengt nur
+     * diese Deckelung. Ohne sie wirbt das Angebot weiter mit 30.
+     */
+    const b = _FUER_PROBEN.POOL_FREI_JOIN;
+    assert.ok(b.includes("capacity_post_pool_members"), "die Mitglieder werden nicht gelesen");
+    assert.ok(b.includes("m.capacity_post_id = cp.id"),
+      "die Mitglieder sind nicht an DIESES Angebot gebunden");
+    assert.ok(b.includes("walm.is_active = TRUE"), "ein beendeter Einsatz bindet weiter");
+    assert.ok(b.includes("walm.end_date IS NULL OR walm.end_date >= CURRENT_DATE"),
+      "die Datumsregel fehlt — die Bindung liefe nie ab");
+    assert.ok(b.includes("NOT EXISTS"), "gezaehlt werden die gebundenen statt der freien Mitglieder");
+    /*
+     * SUM statt COUNT trennt "alle Mitglieder gebunden" von "gar keine
+     * Mitglieder". Migration 146 erlaubt ausdruecklich "pauschal N Helfer ohne
+     * konkrete Personen". Ueber null Zeilen liefert SUM in Postgres NULL, COUNT
+     * dagegen 0 — mit COUNT deckelte LEAST jedes pauschale Sammelangebot der
+     * Plattform auf null freie Plaetze, und es verschwaende aus dem Feed. Ein
+     * stiller Totalausfall, den keine Fehlermeldung anzeigt.
+     *
+     * Die Rueckmutation dazu ist genau ein Wort: SUM -> COUNT.
+     */
+    assert.ok(b.includes("SUM(CASE WHEN NOT EXISTS"),
+      "ohne SUM liefert der Block 0 statt NULL — pauschale Sammelangebote verschwinden");
+    assert.ok(!/COUNT\(/.test(b),
+      "COUNT im Block macht aus 'keine Mitglieder' ein 'null frei'");
+    assert.ok(/\)\s*pool_frei ON TRUE\s*$/.test(b), "der Block heisst nicht `pool_frei`");
+    assert.match(b, /\)::int AS frei(?![A-Za-z0-9_])/, "die Spalte heisst nicht `frei`");
+    assert.ok(_FUER_PROBEN.FREIE_KOPFZAHL_SQL.includes("pool_frei.frei"),
+      "die freie Kopfzahl liest die Deckelung nicht");
+  });
+
+  it("M4c.3: die Deckelung steht in BEIDEN Abfragen — Zaehlung und Seite", async () => {
+    /*
+     * Stuende sie nur in der Seite, zaehlte die Trefferzahl Angebote mit, die die
+     * Seite dann weglaesst — derselbe Auseinanderlauf, den N2.8 behoben hat, nur
+     * eine Ebene tiefer. Und stuende sie hinter dem WHERE, waere das Postgres
+     * ungueltiges SQL, waehrend eine reine Teilzeichenketten-Probe gruen bliebe.
+     */
+    const p = kopfzahlPool();
+    await browseFeed(p, { viewer_role: "company", limit: 10 });
+    const block = _FUER_PROBEN.POOL_FREI_JOIN;
+    const ziele = p.calls.filter((c) => /FROM capacity_posts cp/.test(c.sql) && (/COUNT\(\*\)/.test(c.sql) || /AS sort_date/.test(c.sql)));
+    assert.strictEqual(ziele.length, 2, "Zaehlung und Abfrage wurden nicht beide gefunden");
+    for (const q of ziele) {
+      const stelle = q.sql.indexOf(block);
+      assert.ok(stelle >= 0, "eine Abfrage traegt die Deckelung nicht oder abgewandelt");
+      const where = q.sql.indexOf("WHERE", stelle + block.length);
+      assert.ok(where > stelle, "die Deckelung steht nicht vor dem WHERE");
+    }
   });
 
   it("hinter dem LIMIT wird NICHT mehr nach Kopfzahl gefiltert — die Zahl bleibt stimmig", async () => {
@@ -570,7 +633,7 @@ describe("N2.8 · die freie Kopfzahl filtert in SQL", () => {
        geprueft zu haben — eine leere Schleife sichert nichts zu. */
     assert.strictEqual(ziele.length, 2, "Zaehlung und Abfrage wurden nicht beide gefunden");
     for (const q of ziele) {
-      assert.match(q.sql, /\(cp\.status <> 'active' OR GREATEST\(cp\.headcount - COALESCE\(zusage\.zugesagt, 0\), 0\) > 0\)/);
+      assert.match(q.sql, /\(cp\.status <> 'active' OR LEAST\(GREATEST\(cp\.headcount - COALESCE\(zusage\.zugesagt, 0\), 0\), pool_frei\.frei\) > 0\)/);
     }
   });
 

@@ -103,9 +103,54 @@ const FREIE_KOPFZAHL_JOIN = `
      WHERE o_zu.capacity_post_id = cp.id
   ) zusage ON TRUE
 `;
-const FREIE_KOPFZAHL_SQL = "GREATEST(cp.headcount - COALESCE(zusage.zugesagt, 0), 0)";
+/*
+ * M4c.3 — EIN SAMMELANGEBOT KANN NIE MEHR MENSCHEN LIEFERN, ALS FREI SIND.
+ *
+ * Die Zusage-Rechnung oben zieht ab, was auf DIESEM Angebot zugesagt wurde. Was sie
+ * nicht sieht: ein Mitglied des Sammelangebots kann ANDERSWO gebunden sein — über
+ * sein eigenes Einzelangebot, über ein zweites Sammelangebot, über eine Zuweisung
+ * ausserhalb des Marktplatzes. Gemessen am 2026-09-24: derselbe Mensch stand
+ * gleichzeitig in einem aktiven Sammelangebot und in einem aktiven Einzelangebot.
+ * Ohne diese Deckelung wirbt ein Sammelangebot mit 30 Kraeften weiter, waehrend 29
+ * davon bereits arbeiten — und der Owner nennt genau das Betrug.
+ *
+ * Der Sweep (workerOfferReservationService) pausiert erst, wenn KEIN Mitglied mehr
+ * frei ist. Die Teilbelegung dazwischen faengt nur diese Zahl.
+ *
+ * `SUM` statt `COUNT` ist hier der Unterschied zwischen "alle gebunden" und "gar keine
+ * Mitglieder" — und keine Geschmacksfrage. Ein Sammelangebot ohne Mitglieder ist der
+ * von Migration 146 erlaubte Fall "pauschal N Helfer ohne konkrete Personen". Ueber
+ * null Zeilen liefert SUM in Postgres NULL, COUNT dagegen 0. Mit COUNT waere jedes
+ * pauschale Sammelangebot der Plattform auf null freie Plaetze gedeckelt und aus dem
+ * Feed verschwunden — ein stiller Totalausfall. Mit SUM ist `pool_frei.frei` dort NULL,
+ * und LEAST laesst NULL in Postgres fallen, statt selbst NULL zu werden. Die Deckelung
+ * greift also genau dort, wo es Menschen zu zaehlen gibt.
+ *
+ * Der Alias heisst `poolwp` und NICHT `wpm`: `wpm` ist oben schon der Arbeiterprofil-Join
+ * des personengebundenen Angebots (Welle J9). Innerhalb des Lateral-Blocks waere die
+ * Doppelbelegung zwar gueltig — der innere Name gewinnt —, aber sie ist genau die Sorte
+ * Kollision, ueber die spaeter jemand stolpert: gelesen wuerde hier klammheimlich das
+ * Profil des Pool-MITGLIEDS, waehrend zwei Zeilen weiter oben derselbe Name das Profil
+ * des Angebots-INHABERS meint.
+ */
+const POOL_FREI_JOIN = `
+  LEFT JOIN LATERAL (
+    SELECT SUM(CASE WHEN NOT EXISTS (
+               SELECT 1
+                 FROM worker_assignment_links walm
+                WHERE walm.worker_user_id = poolwp.user_id
+                  AND walm.is_active = TRUE
+                  AND (walm.end_date IS NULL OR walm.end_date >= CURRENT_DATE)
+             ) THEN 1 ELSE 0 END)::int AS frei
+      FROM capacity_post_pool_members m
+      JOIN worker_profiles poolwp ON poolwp.id = m.worker_profile_id
+     WHERE m.capacity_post_id = cp.id
+  ) pool_frei ON TRUE
+`;
+const FREIE_KOPFZAHL_SQL =
+  "LEAST(GREATEST(cp.headcount - COALESCE(zusage.zugesagt, 0), 0), pool_frei.frei)";
 
-export const _FUER_PROBEN = Object.freeze({ zugesagtJeAngebotSql, FREIE_KOPFZAHL_JOIN, FREIE_KOPFZAHL_SQL });
+export const _FUER_PROBEN = Object.freeze({ zugesagtJeAngebotSql, FREIE_KOPFZAHL_JOIN, POOL_FREI_JOIN, FREIE_KOPFZAHL_SQL });
 
 const EMPTY_CAPACITY_COMMERCIAL_STATE = Object.freeze({
   committed_headcount: 0,
@@ -906,6 +951,7 @@ export async function browseFeed(pool, opts = {}) {
            ${supplyGemerkt} AS gemerkt
     ${ENTRY_JOINS}
     ${FREIE_KOPFZAHL_JOIN}
+    ${POOL_FREI_JOIN}
     WHERE ${where.join(' AND ')}`;
 
   // Demand CTE (commercially open, no user filters applied)
@@ -954,7 +1000,7 @@ export async function browseFeed(pool, opts = {}) {
 
   // Count: supply + demand separately (avoids UNION column mismatch)
   const { rows: supplyCount } = await pool.query(
-    `SELECT COUNT(*)::int AS cnt ${ENTRY_JOINS} ${FREIE_KOPFZAHL_JOIN} WHERE ${where.join(' AND ')}`, countParams);
+    `SELECT COUNT(*)::int AS cnt ${ENTRY_JOINS} ${FREIE_KOPFZAHL_JOIN} ${POOL_FREI_JOIN} WHERE ${where.join(' AND ')}`, countParams);
   const demandCountSql = (viewerRole === "agency" && !interAgencyEnabled)
     ? `SELECT COUNT(*)::int AS cnt
          FROM demand_requests dr
