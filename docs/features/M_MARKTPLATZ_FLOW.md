@@ -647,13 +647,84 @@ wäre Betrug."* Volumen entsteht durch **Darstellungen**, nie durch mehrfache Ve
 - **Angebote ohne Katalogbezug erzeugen.** Seit N8.1b ist das ausgeschlossen; M4c hält es.
 - **Die Reservierungslogik neu schreiben.** Sie wird auf Bündel ausgedehnt, nicht ersetzt.
 
-**Zwei Zahlen, die die bauende Sitzung am 2026-09-23 schon gemessen hat** — sie ändern die
-Reihenfolge innerhalb von M4c.5: **33 Profile, alle aktiv, aber nur 3 Menschen tragen überhaupt
-eine Fähigkeit** (23 Zuordnungen), und **6 aktive Einträge** stehen 162 Katalogeinträgen gegenüber.
-Die „30 von 33 unsichtbar" stimmen also weiter — **aber nicht wegen des Veröffentlichungswegs,
-sondern weil 30 Menschen gar keine Fähigkeit haben.** Damit wirkt **M4.9 (Pflichtfeld) vor
-M4.8 (Anstoß)**: ein Anstoß, der zum Veröffentlichen auffordert, läuft ins Leere, solange nichts
-da ist, das veröffentlicht werden könnte.
+### M4c.0 · Die bindende Messung (2026-09-24, Entwicklungsdatenbank, nur lesend)
+
+Die Zahl steht. Sie widerlegt zwei Annahmen des Plans und legt einen Riegel frei, den
+niemand gesucht hat.
+
+**Die fünf Bedingungen aus M4.9, über alle 33 Profile:**
+
+| Bedingung | erfüllt |
+|---|---|
+| Profil aktiv | 33 von 33 |
+| Marktpräsenz eingeschaltet | 33 von 33 |
+| Wohnort hinterlegt | 33 von 33 |
+| heute nicht abwesend | 32 von 33 |
+| Organisation hat einen Agentur-Nutzer | 33 von 33 |
+| **freigegebene Katalog-Fähigkeit** | **3 von 33** |
+| **alle fünf zugleich** | **2 von 33** |
+
+**Erste fehlende Bedingung je Mensch:** 30 × „ohne Fähigkeit", 3 × „sichtbar", sonst nichts.
+Der fehlende Wohnort ist heute **kein** Blocker — der Hinweistext in `PRAESENZ_BEDINGUNGEN`
+nennt ihn „die häufigste stille Ursache", und das trifft auf diese Datenbank nicht zu. Auch
+der fehlende Agentur-Nutzer erklärt nichts: **0 von 33** Kräften fehlt er.
+
+**Angebote im Feed je Art, Herkunft und Zustand:**
+
+| Art | Herkunft | Zustand | Anzahl |
+|---|---|---|---|
+| `single_skill` | `live_belegschaft` | archiviert | 12 |
+| `legacy` | manuell | besetzt | 6 |
+| `single_skill` | manuell | **Entwurf** | **6** |
+| `legacy` | manuell | reserviert | 5 |
+| `legacy` | manuell | abgelaufen | 5 |
+| `legacy` | manuell | aktiv | 4 |
+| `bundle` | manuell | Entwurf | 2 |
+| `pool_multi_skill` | manuell | aktiv | 1 |
+| `single_skill` | manuell | aktiv | 1 |
+| `legacy` / `pool_single_skill` / `legacy` | manuell | Entwurf / Entwurf / pausiert | je 1 |
+
+**Die Antwort auf die Frage nach der Automatik: keines der 6 aktiven Angebote stammt aus
+`live_belegschaft`.** Die Automatik hat 12 Einträge erzeugt — alle für **einen** Menschen
+(16 Fähigkeiten, 6 Rollen doppelt, angelegt am 2026-08-26), und alle archiviert, weil genau
+diese Person heute abwesend ist. Das ist **richtiges** Verhalten, kein Defekt: die Automatik
+arbeitet, sie hat nur niemanden, für den sie arbeiten könnte.
+
+**M4c.4 ist deutlicher bestätigt als das Beispiel im Plan:** hinter den **6 aktiven Angeboten
+steht genau 1 Mensch**. Nicht 128 aus 32 — sondern 6 aus 1.
+
+#### Der Befund, den die Messung freigelegt hat: der Entwurfs-Riegel
+
+Die zwei Menschen, die alle fünf Bedingungen erfüllen, tragen zusammen **7 freigegebene
+Katalog-Fähigkeiten** — und zu **jeder einzelnen** existiert bereits ein manueller
+`single_skill`-Eintrag vom 2026-07-20/21. Davon ist **einer aktiv, sechs sind Entwürfe**.
+
+`MATERIALISIEREN_SQL` schließt in seinem `NOT EXISTS` die Zustände
+`('draft', 'active', 'paused')` aus. Gemessen: der Takt legt heute **0** Einträge an. Das ist
+so gewollt — er soll nichts doppeln.
+
+Die Wirkung ist trotzdem ein Loch:
+
+- Ein **Entwurf ist im Markt unsichtbar** — aber er besetzt den Platz, den die Automatik
+  füllen würde.
+- Damit ist ein Mensch **weder im Markt noch materialisierbar**, auf unbegrenzte Zeit. Es
+  gibt kein Ereignis, das diesen Zustand von selbst auflöst.
+- Und `offeneGruende()` überspringt ihn mit `if (!gruende.length) continue`, kommentiert mit
+  *„steht im Markt — keine Zeile nötig"*. Der Bericht **behauptet das Gegenteil dessen, was
+  gilt**. Keine der sechs Bedingungen kennt den Entwurfs-Riegel.
+- Betroffen sind **zwei von zwei** markt-fähigen Menschen. Das ist keine Randlage, das ist
+  der Normalfall dieser Datenbank.
+
+**Folge für die Reihenfolge:** der Riegel gehört in **M4c.5** („niemand fällt wortlos aus dem
+Markt") und ist dort die erste Bedingung, die zu ergänzen ist — als siebte Zeile in
+`PRAESENZ_BEDINGUNGEN`, mit `wer: "firma"`: beheben kann es nur, wer den Entwurf
+veröffentlicht oder verwirft. Die Reihenfolge **M4c.0 → M4c.3 → M4c.1 → M4c.4 → M4c.2 →
+M4c.5 → M4c.6 → M4c.7** bleibt unberührt.
+
+**Was der bisherige Befund richtig hatte:** „30 von 33 unsichtbar" gilt weiter, und die
+Ursache ist die fehlende Fähigkeit, nicht der Veröffentlichungsweg. Damit wirkt **M4.9
+(Pflichtfeld) vor M4.8 (Anstoß)**: ein Anstoß, der zum Veröffentlichen auffordert, läuft ins
+Leere, solange nichts da ist, das veröffentlicht werden könnte.
 
 ### Nachtrag zu b-7 aus der Gegenprüfung (2026-09-23)
 
