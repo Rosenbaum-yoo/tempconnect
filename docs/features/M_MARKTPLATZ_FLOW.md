@@ -625,6 +625,26 @@ wäre Betrug."* Volumen entsteht durch **Darstellungen**, nie durch mehrfache Ve
 | M4c.8 | **Der Entwurfs-Riegel** *(gefunden 2026-09-24 bei M4c.0, nachgemessen von der planenden Sitzung)*. `MATERIALISIEREN_SQL` schließt über `NOT EXISTS … cp.status IN ('draft','active','paused')` (`marktpraesenzService.js:264`) auch **Entwürfe** aus — richtig, damit nichts doppelt entsteht. **Die Wirkung ist trotzdem ein Loch:** ein Entwurf ist im Markt unsichtbar, besetzt aber den Platz, den die Automatik füllen würde. Der Mensch ist dann **weder im Markt noch materialisierbar**, unbegrenzt, und kein Ereignis löst das auf. Betroffen: **2 von 2** markt-fähigen Menschen — der Normalfall dieser Datenbank, keine Randlage. **Entscheidung: der Riegel bleibt** (Doppelangebote wären schlimmer), **aber er wird sichtbar und endlich** | Der Zustand hat einen Namen und eine Frist: nach Ablauf meldet der Takt ihn, statt ihn auszusitzen |
 | M4c.9 | **Der Bericht hört auf, das Gegenteil zu behaupten.** `offeneGruende()` überspringt genau diese Menschen mit `if (!gruende.length) continue;` — kommentiert mit „steht im Markt — keine Zeile nötig" (`:221`). Keine der sechs Bedingungen kennt den Riegel. **Der Entwurf wird die siebte Bedingung**, mit lesbarem Grund: „6 Entwürfe blockieren 6 Angebote" | Mensch mit Entwürfen erscheint im Bericht **mit** Grund. **Rückmutation:** die siebte Bedingung entfernen → rot. Eine Aufsicht, die Unsichtbares als sichtbar meldet, ist schlimmer als gar keine |
 
+> **Korrektur an M4c.3 (2026-09-24, gemessen von der bauenden Sitzung, nachgeprüft von der
+> planenden).** Mein Satz „die Reservierung kennt heute nur Einzelangebote" war **falsch**.
+> Im committeten Stand deckt `workerOfferReservationService` bereits
+> `offer_kind IN ('single_skill', 'bundle')` ab — die dort vorgeschlagene Rückmutation wäre
+> von Anfang an grün durchgelaufen.
+>
+> **Die Lücke liegt eine Ebene weiter: bei den Sammelangeboten (`pool_*`).** Der Sweep greift
+> über `cp.worker_profile_id IS NOT NULL` — und genau diese Spalte hat ein Sammelangebot nicht.
+> `capacity_post_pool_members` (Mig 146) wurde ausdrücklich „für die spätere Reservierung"
+> angelegt und ist seither **geschrieben, aber nie gelesen** worden: ein Schreiber, null Leser.
+>
+> **Live gemessen:** ein Mensch stand gleichzeitig in einem aktiven Sammelangebot **und** einem
+> aktiven Einzelangebot — zweimal buchbar. Zwei Sammelangebote warben mit je zwei Köpfen und
+> teilten sich **dieselben zwei Menschen**.
+>
+> Wieder das Muster, das diese Welle prägt: **beide Seiten sehen für sich richtig aus.** Der
+> Sweep schützt personengebundene Angebote. Sammelangebote soll er nicht sperren, weil ein
+> belegter Mensch dort nur die Anzahl senken soll. Nur wurde das Senken nie gebaut — und es
+> entsteht kein Fehler, an dem es auffiele.
+
 **Reihenfolge: M4c.0 → M4c.3 → M4c.1 → M4c.4 → M4c.2 → M4c.5 → M4c.6 → M4c.7.**
 
 > **M4c.3 steht vor der Erzeugung, nicht danach.** Wer zuerst Bündel erzeugt und die

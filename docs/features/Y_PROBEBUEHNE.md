@@ -78,6 +78,7 @@ sehen."* Genau das ist heute nicht möglich.
 | Y2.4 | **Ein Mensch für den Betrugsriegel** (M4c.3): eine Kraft, die als Einzelangebot **und** im Sammelangebot steht | Die wichtigste Probe aus M4c lässt sich von Hand nachvollziehen |
 | Y2.5 | **Eine Sperre**: dieselbe Kraft bei Kunde A gesperrt, bei Kunde B sichtbar | Die zentrale Zusage der Sperrliste wird vorführbar |
 | Y2.6 | **Ein offener Fähigkeits-Vorschlag** und **eine katalogfremde Schreibvariante** | Die Kuratierfläche aus b-6/b-7 ist nicht leer, wenn man sie zeigt |
+| Y2.7 | **Sammelangebote mit eigenen Mitgliedern.** Gemessen am 2026-09-24: die beiden vorhandenen Sammelangebote teilen sich **dieselben zwei Menschen**, und einer davon steht zusätzlich in einem Einzelangebot. Eine Bühne, die Sammelangebote vorführen soll, braucht Mitglieder, die sonst nirgends stehen — sonst führt sie genau die Doppelbuchung vor, die sie widerlegen soll | Ein Sammelangebot mit 4 Mitgliedern, die in keinem Einzelangebot vorkommen; dazu **ein** bewusst doppelt geführter Mensch für die Probe aus M4c.3 |
 
 ### Y3 · Das Einsatzportal
 
