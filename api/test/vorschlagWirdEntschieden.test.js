@@ -235,7 +235,36 @@ describe("N8.1b-7 · die drei Ausgaenge tun, was sie sagen", () => {
     assert.equal(geschrieben.length, 4,
       "erwartet: Alias setzen, Dubletten entfernen, Zuordnungen umhaengen, Vorschlag stilllegen");
 
-    assert.ok(/aliases/.test(geschrieben[0].sql), "der Name wird nicht zum Alias");
+    /*
+     * FORM-PROBE JE BESTANDTEIL, und sie ist hier nicht Beiwerk (b-7.1).
+     *
+     * Die Zeile darunter pruefte urspruenglich nur, dass das Wort `aliases`
+     * vorkommt. Eine Rueckmutation, die den Schreibvorgang UNWIRKSAM machte
+     * und seine Form behielt, blieb deshalb gruen — gefunden von der
+     * gegenpruefenden Sitzung. Dasselbe war mir auf der Leseseite
+     * (`merged_von`) schon einmal passiert.
+     *
+     * Und es ist der teuerste Schritt zum Uebersehen: er macht aus der
+     * Zuordnung eine DAUERREGEL. Faellt er weg, bleibt alles gruen, die
+     * Kuratierung laeuft weiter — sie hoert nur auf, sich zu lohnen, weil
+     * beim naechsten Mal wieder ein Vorschlag entsteht.
+     */
+    const aliasSql = geschrieben[0].sql;
+    assert.ok(/SET aliases/.test(aliasSql), "der Name wird nicht zum Alias");
+    assert.ok(/unnest\(COALESCE\(aliases/.test(aliasSql),
+      "die vorhandenen Aliase werden nicht mitgenommen — der neue wuerde sie ersetzen");
+    assert.ok(/\|\|\s*ARRAY\[\$2::text\]/.test(aliasSql),
+      "der neue Name wird gar nicht angehaengt — der Schreibvorgang ist eine leere Huelle");
+    assert.ok(/DISTINCT/.test(aliasSql),
+      "ohne DISTINCT sammelt sich derselbe Alias bei jeder Zuordnung erneut an");
+    assert.ok(/NOT EXISTS/.test(aliasSql) && /LOWER\(a\) = LOWER\(\$2\)/.test(aliasSql),
+      "die Doppelten-Bedingung fehlt — dieselbe Schreibweise laendet mehrfach im Feld");
+
+    /* BINDUNGS-PROBE: die Form allein genuegt nicht. Stuenden die Parameter
+       vertauscht, schriebe die Abfrage den Namen des ZIELS als Alias an den
+       Vorschlag — formal dieselbe Anweisung, genau verkehrt herum. */
+    assert.deepEqual(geschrieben[0].params, ["k1", "Lagerhelfer"],
+      "Ziel und Name sind vertauscht oder falsch gebunden");
     assert.ok(/DELETE FROM worker_profile_skills/i.test(geschrieben[1].sql),
       "Dubletten werden nicht entfernt — die Eindeutigkeit (worker_profile_id, skill_id) schlaegt dann zu");
     assert.ok(/UPDATE worker_profile_skills SET skill_id/i.test(geschrieben[2].sql),
