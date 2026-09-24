@@ -87,6 +87,7 @@ bauende Sitzung geht von oben nach unten; wer etwas vorzieht, schreibt den Grund
 | 3 | **S1 + S4** — `npm install` läuft glatt, Hauptbaum-Ablauf nach dem Merge | Jeder Merge und jedes neue Paket steht sonst wieder vor einem Container, der nicht startet |
 | 4 | **N8.1** — Katalog statt Freitext in „Personal finden" | Solange eine Marktseite Freitext nimmt, **kann** das Matching dort nicht treffen. Alles darüber baut darauf auf |
 | 5 | **M4b + M4.8/M4.9** — der Marktplatz füllt sich selbst | Die Owner-Vorgabe „voluminös" entscheidet, ob eine Vorführung überhaupt etwas zeigt |
+| 5b | **Y — Die Probebühne** (`Y_PROBEBUEHNE.md`) | Vor dem Livegang die einzige Art, die Zusagen zu prüfen, die kein Test abdeckt. **Gemessen: 1 von 2566 Organisationen hat mehr als einen Standort, 3 von 33 Kräften haben Fähigkeiten** — Welle U und ein voller Marktplatz sind heute gar nicht durchspielbar. Direkt nach M4c, weil die Bühne den gefüllten Markt braucht |
 | 6 | **N3, N5, N6** — Rangfolge, Korb, Abschluss | Vervollständigt den Weg, den N2 begonnen hat |
 | 7 | **N8.2** — der Stundenzettel kennt seinen Kunden | Schließt K-2 zwischen Zeitarbeitsfirma und Kunde; `buyer_org_id` liegt bereits vor |
 | 8 | **N8.7** — „Anmeldung erforderlich" nur bei echter 401 | Kein Ausfall, aber ein **Diagnoseschaden**: falsche Meldungen verstecken die nächste Ursache |
