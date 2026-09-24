@@ -133,6 +133,20 @@ describe("workerOfferReservationService.sweepReservations", () => {
     const s = svc._FUER_PROBEN.POOL_RESERVE_SQL;
     assert.ok(s.includes("EXISTS (SELECT 1 FROM capacity_post_pool_members m0"),
       "die Bedingung 'hat überhaupt Mitglieder' fehlt");
+    /*
+     * NICHT PER TEILZEICHENKETTE. Die erste Fassung endete hier — und blieb in der
+     * Gegenpruefung gruen, als `EXISTS` zu `NOT EXISTS` umgedreht wurde: der
+     * kuerzere Name steckt im laengeren. Umgedreht bedeutete die Bedingung das
+     * Gegenteil (nur noch PAUSCHALE Sammelangebote wuerden gesperrt, und die mit
+     * Mitgliedern nie), und kein Nachweis haette es gemeldet.
+     */
+    const h = svc._FUER_PROBEN.POOL_HAT_MITGLIEDER_SQL;
+    assert.ok(h.trimStart().startsWith("EXISTS ("),
+      "die Bedingung beginnt nicht mit EXISTS — umgedreht sperrt sie genau die falschen");
+    assert.ok(!/NOT\s+EXISTS/.test(h),
+      "die Bedingung ist verneint: pauschale Sammelangebote wuerden gesperrt, bemannte nie");
+    assert.ok(s.includes(`AND ${h}`),
+      "die Bedingung haengt nicht als eigene UND-Bedingung in der Reserve-Abfrage");
   });
 
   it("die Gebunden-Regel der Mitglieder ist dieselbe wie die der Personen", () => {
@@ -143,6 +157,19 @@ describe("workerOfferReservationService.sweepReservations", () => {
      * kein SQL aus, eine Probe gegen die eigene Antwort merkt den Wegfall nicht.
      */
     const f = svc._FUER_PROBEN.POOL_FREIE_MITGLIEDER_SQL;
+    /*
+     * DIE QUELLE ZUERST. Die erste Fassung dieser Probe prueffte jeden Bestandteil
+     * der Bedingung — aber nicht, WORUEBER gezaehlt wird. In der Gegenpruefung
+     * wurde `capacity_post_pool_members` durch einen nicht existierenden Namen
+     * ersetzt: alle drei Probendateien blieben gruen. Die beiden Schwellen-Proben
+     * halfen nicht, denn sie vergleichen diese Zeichenkette mit sich selbst
+     * (`s.includes(frei + " = 0")`) — eine Probe, die ihren eigenen Gegenstand
+     * mitbringt, kann seine Aenderung nicht bemerken.
+     */
+    assert.ok(f.includes("FROM capacity_post_pool_members m"),
+      "gezaehlt wird nicht ueber die Mitgliedertabelle");
+    assert.ok(f.includes("JOIN worker_profiles poolwp"),
+      "das Mitglied wird nicht mit einem Arbeiterprofil verbunden");
     assert.ok(f.includes("worker_assignment_links"), "das Einsatz-Signal fehlt");
     assert.ok(f.includes("walm.is_active = TRUE"), "ein beendeter Einsatz bindet weiter");
     assert.ok(f.includes("walm.end_date IS NULL OR walm.end_date >= CURRENT_DATE"),
