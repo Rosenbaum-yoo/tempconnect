@@ -700,6 +700,45 @@ Abschluss" und trägt M4c.2 als Verbraucher gleich mit.
 **Live gemessen nach dem Bau:** 8 überfällige Entwürfe, 2 betroffene Menschen — bei genau
 2 markt-fähigen Menschen. Der Entwurfs-Riegel ist kein theoretischer Fall.
 
+#### Nachgeholte Gegenprüfung (planende Sitzung, 2026-09-27)
+
+**M4c.14 ist bestätigt.** Drei eigene Rückmutationen, alle rot: Zähler `failed++` entfernt
+(8 Proben rot), `continue` → `break` (3 rot), Audit-Zeile umbenannt (1 rot). Damit sind Zählung,
+Fortsetzung **und** Sichtbarkeit einzeln belegt — genau die drei, die zusammen nur scheinbar
+geprüft waren.
+
+**M4c.8/M4c.9 vollständig bestätigt.** Zusätzlich zu Frist und `nurDiagnose`: die **Zahl** im
+Grund entfernt → rot; das Maß `entwuerfe_ueberfaellig` auf 0 festgenagelt → rot.
+
+**Die datenbankgebundenen Proben laufen auch ohne Container:** die Datenbank liegt auf
+`127.0.0.1:5432`. Mit `DATABASE_URL` aus der `.env` laufen sie direkt vom Rechner — der Umweg
+über ein Verzeichnis im Container ist nicht nötig.
+
+**Die vier lange roten Ablaufproben, neu gemessen:**
+
+| Probe | Stand | |
+|---|---|---|
+| `g4bKundenMeldung` | **8/8 grün** | **geheilt durch Migration 221** — es war der abgewiesene Benachrichtigungstyp |
+| `kollegenZugriff` | 6/7, einer rot | *„D-M5: die Kollegin der Kundenfirma darf ein Angebot annehmen"* — sie bekommt `AGENCY_ORG_REQUIRED`. **Zuerst messen, ob Produkt oder Prüfaufbau:** wenn die Route wirklich eine Agentur-Org verlangt, ist es ein Rechtefehler an einer Stelle, die jeder zweite Kunde trifft |
+| `offer.counterpartyFirst` | 1/1 rot | ungemessen |
+| `workerOpenDealAssignments` | 1/1 rot | ungemessen |
+
+**M4c.2 — die Entscheidung, präzise.** Die Abnahme nennt den „N5-Korb", und dabei sind zwei
+Dinge verwechselt: **N5** ist die *Bestätigung mit Wirkung*, der **Korb** ist **M5.5**. Gemessen:
+**beide sind nicht gebaut**, und im Code gibt es keinen Korb (kein Treffer für `korb`, `basket`,
+`poolSuggestion` in Diensten und Routen).
+
+> **Entschieden: erst der Verbraucher, dann der Sammler — M5.5 und N5 vor M4c.2.**
+> M4c.2 erzeugt ein firmenübergreifendes Bündel. Ohne Korb sieht es niemand, ohne Bestätigung
+> bucht es niemand: ein Endpunkt ohne Aufrufer, genau das, was `P_ALTLASTEN` Klasse B nennt.
+> Die Abnahme von M4c.2 wird auf **M5.5** umgeschrieben, sobald der Korb steht.
+
+**Reihenfolge für die bauende Sitzung, sobald ihr Kontingent zurück ist:**
+1. `kollegenZugriff` D-M5 messen und entscheiden (möglicher Rechtefehler im Kundenalltag)
+2. `offer.counterpartyFirst` und `workerOpenDealAssignments` messen
+3. M4c.5 · M4c.6 · M4c.7 (frei, M4c.5 zur Hälfte erledigt)
+4. M5.5 + N5, danach M4c.2
+
 **Reihenfolge: M4c.0 → M4c.3 → M4c.1 → M4c.4 → M4c.2 → M4c.5 → M4c.6 → M4c.7.**
 
 > **M4c.3 steht vor der Erzeugung, nicht danach.** Wer zuerst Bündel erzeugt und die
