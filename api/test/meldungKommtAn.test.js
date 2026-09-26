@@ -174,7 +174,7 @@ describe("M4c.13 · die Dringlichkeitsstufen ebenso", () => {
 
 describe("M4c.14 · der geschluckte Fehlschlag wird gezaehlt", () => {
   /** Ein Muster-Zugang, der das Schreiben von Benachrichtigungen scheitern laesst. */
-  function pool({ scheitertBei = () => true } = {}) {
+  function pool({ scheitertBei = () => true, schonAuditiert = false } = {}) {
     const abfragen = [];
     return {
       abfragen,
@@ -186,10 +186,16 @@ describe("M4c.14 · der geschluckte Fehlschlag wird gezaehlt", () => {
           }
           return { rows: [{ id: "n1", type: "x", title: "t", created_at: new Date(0) }] };
         }
+        /* Die Stunden-Schranke: liegt in diesem Fenster schon eine Zeile zu
+           diesem Ereignis, darf keine zweite entstehen (M4c.14b). */
+        if (/FROM audit_log/i.test(sql)) return { rows: schonAuditiert ? [{ }] : [] };
         return { rows: [] };
       }
     };
   }
+
+  /** Die Audit-Schreibvorgaenge eines Laufs. */
+  const auditZeilen = (p) => p.abfragen.filter((a) => /INSERT INTO audit_log/i.test(a.sql));
 
   const KONTEXT = {
     recipientUserIds: ["u1"],
@@ -245,7 +251,7 @@ describe("M4c.14 · der geschluckte Fehlschlag wird gezaehlt", () => {
   it("der Fehlschlag wird als Audit-Zeile sichtbar, mit Ereignis und Fehlercode", async () => {
     const p = pool();
     await assert.rejects(() => dispatch(p, "worker.skills_awaiting_release", KONTEXT));
-    const audit = p.abfragen.filter((a) => /INSERT INTO audit_log/i.test(a.sql));
+    const audit = auditZeilen(p);
     assert.equal(audit.length, 1, `${audit.length} Audit-Zeilen, erwartet 1`);
     const params = audit[0].params || [];
     assert.ok(params.includes("notification.dispatch_failed"), "die Aktion fehlt");
@@ -261,6 +267,56 @@ describe("M4c.14 · der geschluckte Fehlschlag wird gezaehlt", () => {
     assert.equal(details.error_code, "23514", "ohne Fehlercode weiss niemand, WAS zu tun ist");
     assert.ok(!JSON.stringify(details).includes("CHECK"),
       "der Fehlertext steht in den Details — er kann Nutzdaten der Zeile tragen");
+  });
+
+
+  it("FUENF abgewiesene Empfaenger sind EIN Vorfall, nicht fuenf Zeilen", async () => {
+    /*
+     * Hier stand die Audit-Zeile IN der Empfaengerschleife: je Empfaenger und je
+     * Speichern eine. Bei einem systematisch abgewiesenen Typ — dem Fall aus
+     * M4c.12, der drei Wochen lief — waeren daraus Tausende geworden. Ein Audit,
+     * in dem das Wichtige untergeht, ist derselbe Fehler eine Ebene hoeher als
+     * eine Protokollzeile, die niemand liest.
+     */
+    const p = pool();
+    await assert.rejects(() => dispatch(p, "worker.skills_awaiting_release",
+      { ...KONTEXT, recipientUserIds: ["u1", "u2", "u3", "u4", "u5"] }));
+    const audit = auditZeilen(p);
+    assert.equal(audit.length, 1, `${audit.length} Audit-Zeilen fuer einen Vorfall, erwartet 1`);
+    const details = audit[0].params.find((x) => x && typeof x === "object" && "event_key" in x)
+      || audit[0].params.map((x) => { try { return JSON.parse(x); } catch { return null; } })
+                        .find((x) => x && x.event_key);
+    assert.equal(details.failed, 5, "die Zahl der Fehlschlaege steht nicht IN der Zeile");
+    assert.equal(details.recipients_total, 5, "ohne Gesamtzahl ist die Zahl nicht deutbar");
+    assert.equal(details.error_code, "23514", "ohne Fehlercode misst der naechste Mensch von vorn");
+  });
+
+  it("liegt in derselben Stunde schon eine Zeile, entsteht keine zweite", async () => {
+    /*
+     * Die zweite Schranke. Ohne sie schreibt ein systematischer Fehlschlag bei
+     * JEDEM Speichern erneut — dieselbe Zeile, tausendfach. Dasselbe
+     * Stunden-Fenster, mit dem `dispatch` schon die Benachrichtigungen selbst
+     * entdoppelt: kein neues Muster, nur konsequent angewandt.
+     */
+    const p = pool({ schonAuditiert: true });
+    await assert.rejects(() => dispatch(p, "worker.skills_awaiting_release", KONTEXT));
+    assert.equal(auditZeilen(p).length, 0,
+      "es entsteht eine zweite Zeile im selben Fenster — das Audit laeuft voll");
+    const schranke = p.abfragen.find((a) => /FROM audit_log/i.test(a.sql));
+    assert.ok(schranke, "die Stunden-Schranke wird nicht abgefragt");
+    assert.ok(/INTERVAL '1 hour'/.test(schranke.sql), "das Fenster ist keine Stunde");
+    assert.ok(/details->>'event_key' = \$1/.test(schranke.sql),
+      "die Schranke greift nicht je EREIGNIS — dann verdeckt ein Fehlschlag alle anderen");
+    assert.deepEqual(schranke.params, ["worker.skills_awaiting_release"]);
+  });
+
+  it("die Zeile wird NICHT fortgeschrieben — ein Audit-Eintrag ist ein Vorgang", async () => {
+    /* Einen Zaehlerstand im Audit hochzuzaehlen hiesse, die Spur anzufassen, die
+       er belegen soll. Hoechstens eine neue Zeile je Fenster, nie ein UPDATE. */
+    const p = pool();
+    await assert.rejects(() => dispatch(p, "worker.skills_awaiting_release", KONTEXT));
+    const aenderungen = p.abfragen.filter((a) => /UPDATE audit_log/i.test(a.sql));
+    assert.equal(aenderungen.length, 0, "eine vorhandene Audit-Zeile wird veraendert");
   });
 
   it("ein Fehlschlag beim Audit gefaehrdet den Rest nicht", async () => {

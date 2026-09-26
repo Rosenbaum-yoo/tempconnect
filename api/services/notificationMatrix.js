@@ -568,6 +568,7 @@ export async function dispatch(pool, eventKey, context = {}) {
   let sent = 0;
   /* M4c.14: was NICHT entstanden ist, wird gezaehlt — nicht nur protokolliert. */
   let failed = 0;
+  let fehlerCode = null;
   for (const userId of recipientIds) {
     // Check user preferences (unless caller already checked)
     let prefInApp = true;
@@ -627,34 +628,17 @@ export async function dispatch(pool, eventKey, context = {}) {
          * Funktion schon den SSE-Push an sich gezogen hat.
          */
         failed++;
+        /* Der ERSTE Fehlercode genuegt: bei einem systematischen Fehlschlag ist er
+           bei jedem Empfaenger derselbe, und er ist das, was zu tun sagt
+           (23514 = CHECK, 23503 = Fremdschluessel). */
+        if (!fehlerCode) fehlerCode = err.code || null;
         logger.error({ eventKey, type: config.type, severity: config.severity, code: err.code,
                        err: err.message }, 'Benachrichtigung konnte nicht geschrieben werden');
-        try {
-          const auditLog = await import('./auditLog.js');
-          await auditLog.writeAudit(pool, {
-            action: 'notification.dispatch_failed',
-            entity_type: context.entityType || 'notification',
-            entity_id: context.entityId || null,
-            org_id: context.orgId || null,
-            status: 'FAILURE',
-            details: {
-              event_key: eventKey,
-              notification_type: config.type,
-              severity: config.severity,
-              recipient_user_id: userId,
-              error_code: err.code || null,
-              /* Kein Fehlertext in die Details: er kann Nutzdaten der Zeile
-                 tragen, und sensible Daten gehoeren nicht ins Audit. Der Code
-                 (23514 = CHECK, 23503 = Fremdschluessel) sagt, was zu tun ist. */
-              hinweis: 'Die Meldung entstand NICHT. Der Aufrufer schluckt den Fehler bewusst.'
-            }
-          });
-        } catch (auditErr) {
-          /* Die Sichtbarkeit darf das Beobachtete nie gefaehrden — und schon gar
-             nicht den Rest der Empfaenger. */
-          logger.error({ eventKey, err: auditErr.message },
-            'Audit-Zeile zum Meldungs-Fehlschlag konnte nicht geschrieben werden');
-        }
+        /* DIE AUDIT-ZEILE ENTSTEHT NACH DER SCHLEIFE, nicht hier. Hier stand sie
+         * je Empfaenger — und damit je Speichern. Ein systematisch abgewiesener
+         * Typ haette in drei Wochen Tausende Zeilen erzeugt (genau der Fall aus
+         * M4c.12), und ein Audit, in dem das Wichtige untergeht, ist derselbe
+         * Fehler eine Ebene hoeher. Die Zaehlung steht jetzt IN der einen Zeile. */
         /* WEITER MIT DEN ANDEREN EMPFAENGERN. Vorher flog der Fehler beim
          * ERSTEN Fehlschlag hinaus, und von fuenf Berechtigten bekam nur der
          * erste eine Chance. Ob am Ende ueberhaupt niemand erreicht wurde,
@@ -730,6 +714,73 @@ export async function dispatch(pool, eventKey, context = {}) {
       }).catch(e => logger.warn({ err: e.message }, 'Integration dispatch failed (non-blocking)'));
     } catch (e) {
       logger.warn({ err: e.message }, 'Integration module not available');
+    }
+  }
+
+  /*
+   * ═════════════════════════════════════════════════════════════════════════
+   * EINE AUDIT-ZEILE JE EREIGNIS UND STUNDE — NICHT JE EMPFAENGER (M4c.14b)
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * Die erste Fassung schrieb die Zeile IN der Empfaengerschleife: je Empfaenger
+   * und je Speichern eine. Bei einem systematisch abgewiesenen Typ — genau dem
+   * Fall aus M4c.12, der drei Wochen lief — waeren daraus Tausende Zeilen
+   * geworden. Ein Audit, in dem das Wichtige untergeht, ist derselbe Fehler eine
+   * Ebene hoeher als eine Protokollzeile, die niemand liest.
+   *
+   * ZWEI SCHRANKEN, und beide braucht es:
+   *
+   *   Eine Zeile je DISPATCH-AUFRUF, mit `failed` als Zahl darin. Fuenf
+   *   abgewiesene Empfaenger sind ein Vorfall, nicht fuenf.
+   *
+   *   Eine Zeile je EREIGNIS UND STUNDE. Ein systematischer Fehlschlag schreibt
+   *   sonst bei jedem Speichern erneut. Dasselbe Fenster, mit dem `dispatch` schon
+   *   die Benachrichtigungen selbst entdoppelt — kein neues Muster.
+   *
+   * DIE ZEILE WIRD NICHT FORTGESCHRIEBEN, sondern hoechstens einmal je Fenster
+   * angelegt. Ein Audit-Eintrag ist ein Vorgang, kein Zaehlerstand; ihn spaeter zu
+   * veraendern hiesse, die Spur anzufassen, die er belegen soll.
+   *
+   * DIE ZEILE NENNT EREIGNIS, TYP UND FEHLERCODE. Steht dort nur
+   * "fehlgeschlagen", weiss der naechste Mensch, DASS etwas kaputt war, und misst
+   * von vorn. Der Code 23514 war genau deshalb in Minuten auffindbar.
+   */
+  if (failed > 0) {
+    try {
+      const auditLog = await import('./auditLog.js');
+      const { rows: schon } = await pool.query(
+        `SELECT 1 FROM audit_log
+          WHERE action = 'notification.dispatch_failed'
+            AND details->>'event_key' = $1
+            AND created_at > NOW() - INTERVAL '1 hour'
+          LIMIT 1`,
+        [eventKey]
+      );
+      if (!schon.length) {
+        await auditLog.writeAudit(pool, {
+          action: 'notification.dispatch_failed',
+          entity_type: context.entityType || 'notification',
+          entity_id: context.entityId || null,
+          org_id: context.orgId || null,
+          status: 'FAILURE',
+          details: {
+            event_key: eventKey,
+            notification_type: config.type,
+            severity: config.severity,
+            failed,
+            recipients_total: recipientIds.length,
+            error_code: fehlerCode,
+            /* Kein Fehlertext in die Details: er kann Nutzdaten der Zeile tragen,
+               und sensible Daten gehoeren nicht ins Audit. */
+            hinweis: 'Die Meldung entstand NICHT. Der Aufrufer schluckt den Fehler bewusst. '
+              + 'Hoechstens eine Zeile je Ereignis und Stunde — die Zahl steht in `failed`.'
+          }
+        });
+      }
+    } catch (auditErr) {
+      /* Die Sichtbarkeit darf das Beobachtete nie gefaehrden. */
+      logger.error({ eventKey, err: auditErr.message },
+        'Audit-Zeile zum Meldungs-Fehlschlag konnte nicht geschrieben werden');
     }
   }
 
