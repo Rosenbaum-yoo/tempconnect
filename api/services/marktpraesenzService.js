@@ -118,6 +118,9 @@ const AGENTUR_NUTZER_SQL = `
  * wer ihn beheben kann (M4.9: was der Mensch selbst ausfuellen kann, wird
  * Pflicht; was ein Zustand ist, wird erklaert).
  */
+/* Ohne Rueckstrich-Literal: die Werkzeugkette kollabiert doppelte Rueckstriche. */
+const NEUE_ZEILE = String.fromCharCode(10);
+
 export const PRAESENZ_BEDINGUNGEN = Object.freeze([
   {
     schluessel: "profil_inaktiv",
@@ -164,12 +167,82 @@ export const PRAESENZ_BEDINGUNGEN = Object.freeze([
     wer: "mensch",
     grund: "Keine freigegebene Katalog-Faehigkeit.",
     hinweis: "Ein Vorschlag zaehlt nicht — er wartet auf Kuratierung (M4b.3)."
+  },
+  {
+    /*
+     * ═══════════════════════════════════════════════════════════════════════
+     * DIE SIEBTE BEDINGUNG: DER ENTWURFS-RIEGEL (M4c.8/M4c.9, 2026-09-26)
+     * ═══════════════════════════════════════════════════════════════════════
+     *
+     * Gefunden bei der Messung zu M4c.0 und von der planenden Sitzung
+     * nachgemessen. `MATERIALISIEREN_SQL` schliesst ueber sein `NOT EXISTS` auch
+     * ENTWUERFE aus — richtig, damit nichts doppelt entsteht. Die Wirkung ist
+     * trotzdem ein Loch:
+     *
+     *   Ein Entwurf ist im Markt UNSICHTBAR, besetzt aber den Platz, den die
+     *   Automatik fuellen wuerde. Der Mensch ist damit WEDER im Markt NOCH
+     *   materialisierbar — unbegrenzt, und kein Ereignis loest das auf.
+     *
+     * Betroffen waren 2 von 2 markt-faehigen Menschen: der Normalfall dieser
+     * Datenbank, keine Randlage. Owner-Entscheid: der Riegel BLEIBT
+     * (Doppelangebote waeren schlimmer als Unsichtbarkeit), aber er wird sichtbar.
+     *
+     * UND `offeneGruende()` BEHAUPTETE DAS GEGENTEIL. Es ueberspringt jeden, der
+     * keine Gruende hat, mit dem Kommentar "steht im Markt — keine Zeile
+     * noetig". Keine der sechs Bedingungen kannte den Riegel, also stand da:
+     * alles in Ordnung. Eine Aufsicht, die Unsichtbares als sichtbar meldet, ist
+     * schlimmer als gar keine.
+     *
+     * NUR 'draft', NICHT 'paused'. Ein pausiertes Angebot ist die Arbeit des
+     * Reservierungs-Sweeps: die Kraft ist gebunden, und es kommt von selbst
+     * zurueck. Ein Entwurf ist unfertige Arbeit eines Menschen und loest sich
+     * nie auf. Wer 'paused' mitzaehlte, meldete jede gebuchte Kraft als Problem.
+     */
+    schluessel: "entwurf_blockiert",
+    nurDiagnose: true,
+    sql: `NOT EXISTS (
+       SELECT 1 FROM capacity_posts cpe
+        WHERE cpe.worker_profile_id = wp.id
+          AND cpe.status = 'draft'
+          AND cpe.offer_kind IN ('single_skill', 'bundle')
+     )`,
+    zahlSql: `(SELECT COUNT(*) FROM capacity_posts cpz
+                WHERE cpz.worker_profile_id = wp.id
+                  AND cpz.status = 'draft'
+                  AND cpz.offer_kind IN ('single_skill', 'bundle'))`,
+    wer: "firma",
+    grund: "Entwuerfe blockieren die automatische Veroeffentlichung.",
+    hinweis: "Ein Entwurf ist im Marktplatz unsichtbar, haelt aber den Platz besetzt — "
+      + "die Automatik legt daneben nichts an. Veroeffentlichen oder verwerfen loest es."
   }
 ]);
 
-/** Die WHERE-Klausel der Materialisierung, aus derselben Liste. */
+/**
+ * Die WHERE-Klausel der Materialisierung, aus derselben Liste — aber OHNE die
+ * Eintraege, die `nurDiagnose` tragen.
+ *
+ * DAS IST EINE AUSDRUECKLICHE AUSNAHME ZUM PRINZIP DIESER DATEI, und sie braucht
+ * ihre Begruendung, weil das Prinzip gut ist: eine Diagnose, die ihre
+ * Bedingungen selbst formuliert, laeuft von der Materialisierung weg.
+ *
+ * Der Entwurfs-Riegel ist keine Bedingung dafuer, dass jemand im Markt ERSCHEINEN
+ * darf — er ist die Erklaerung dafuer, dass die Automatik einen bestimmten PLATZ
+ * nicht fuellt. Stuende er in der WHERE-Klausel, haette ein einziger
+ * Einzelskill-Entwurf den Menschen komplett von der Materialisierung
+ * ausgeschlossen: auch von seinen UEBRIGEN Faehigkeiten und von seinem
+ * Gesamtangebot. Ein Entwurf fuer "MS Office" haette die Pflegekraft ganz aus dem
+ * Markt genommen. Das `NOT EXISTS` der Materialisierung arbeitet dagegen je
+ * (Mensch, Faehigkeit) — dort gehoert die Genauigkeit hin.
+ *
+ * Damit die Ausnahme nicht zur Hintertuer wird, prueft
+ * `api/test/entwurfsRiegel.test.js`, dass die Materialisierung GENAU die
+ * Bedingungen ohne `nurDiagnose` traegt.
+ */
 function praesenzWhereSql() {
-  return PRAESENZ_BEDINGUNGEN.map((b) => `(${b.sql})`).join("\n     AND ");
+  return PRAESENZ_BEDINGUNGEN
+    .filter((b) => !b.nurDiagnose)
+    .map((b) => "(" + b.sql + ")")
+    .join(NEUE_ZEILE + "     AND ");
 }
 
 /**
@@ -202,8 +275,14 @@ export async function unsichtbareKraefte(pool, supplierOrgId, opts = {}) {
      danach in JavaScript — so steht die Bedeutung an EINER Stelle (der Liste)
      und nicht verteilt ueber SQL-Ausdruecke und Anzeigetexte. */
   const spalten = PRAESENZ_BEDINGUNGEN
-    .map((b, i) => `(${b.sql}) AS b${i}`)
-    .join(",\n           ");
+    .map((b, i) => {
+      /* Traegt eine Bedingung eine ZAHL, reist sie mit: "6 Entwuerfe blockieren
+         6 Angebote" sagt der Firma, wie gross die Aufgabe ist. Ein Grund ohne
+         Groesse ist eine Ahnung, kein Arbeitsauftrag (M4c.9). */
+      const wert = "(" + b.sql + ") AS b" + i;
+      return b.zahlSql ? wert + ", (" + b.zahlSql + ")::int AS z" + i : wert;
+    })
+    .join("," + NEUE_ZEILE + "           ");
 
   const { rows } = await pool.query(
     `SELECT wp.id AS worker_profile_id,
@@ -219,9 +298,25 @@ export async function unsichtbareKraefte(pool, supplierOrgId, opts = {}) {
   const offen = [];
   for (const zeile of rows) {
     const gruende = PRAESENZ_BEDINGUNGEN
-      .map((b, i) => (zeile[`b${i}`] === true ? null : {
-        schluessel: b.schluessel, grund: b.grund, hinweis: b.hinweis, wer: b.wer
-      }))
+      .map((b, i) => {
+        if (zeile[`b${i}`] === true) return null;
+        const eintrag = {
+          schluessel: b.schluessel, grund: b.grund, hinweis: b.hinweis, wer: b.wer
+        };
+        /* Die Zahl steht IM Grund, nicht nur daneben: die Oberflaeche zeigt den
+           Grund, und wer sie nur in ein Zusatzfeld legt, verliert sie dort. */
+        const zahl = b.zahlSql ? Number(zeile[`z${i}`]) : null;
+        if (Number.isFinite(zahl) && zahl > 0) {
+          eintrag.anzahl = zahl;
+          /* Die Mehrzahl von "Entwurf" ist "Entwuerfe" — ein angehaengtes "e"
+             ergaebe "Entwurfe". Eine Zahl mit falschem Wort liest sich wie eine
+             Maschine, und genau diese Zeile soll ein Mensch verstehen. */
+          const einer = zahl === 1;
+          eintrag.grund = `${zahl} ${einer ? "Entwurf" : "Entwuerfe"} `
+            + `${einer ? "blockiert" : "blockieren"} ${zahl} ${einer ? "Angebot" : "Angebote"}.`;
+        }
+        return eintrag;
+      })
       .filter(Boolean);
     if (!gruende.length) continue;      // steht im Markt — keine Zeile noetig
     offen.push({
@@ -679,6 +774,34 @@ export const SICHTBARKEIT_HINWEIS =
   + "Abwesenheit und ein fehlender Agentur-Nutzer schliessen zusaetzlich aus.";
 
 /**
+ * DIE FRIST DES ENTWURFS-RIEGELS (M4c.8).
+ *
+ * Owner-Entscheid: der Riegel bleibt — Doppelangebote waeren schlimmer als
+ * Unsichtbarkeit. Aber er darf nicht ausgesessen werden. Ein Entwurf ist die
+ * unfertige Arbeit eines Menschen; nach einer Woche ist er keine Arbeit mehr,
+ * sondern ein Zustand, und der Platz, den er besetzt, bleibt leer.
+ *
+ * SIEBEN TAGE, nicht drei und nicht dreissig: kurz genug, dass der Platz nicht
+ * einen Monat brachliegt, lang genug, dass eine Agentur ueber ein Wochenende und
+ * einen Urlaubstag hinweg an ihrem Entwurf arbeiten kann, ohne gemahnt zu werden.
+ * Dieselbe Groessenordnung wie die Bestaetigungsfrist der Angebote (F27).
+ *
+ * Die Zahl geht in die Antwort des Sweeps — dorthin, wo schon
+ * `unsichtbar_ohne_skill` und `unsichtbar_ohne_ort` stehen. Sie speist damit
+ * dieselbe Aufsicht (Welle J6) und denselben Hinweis auf der Agenturtafel.
+ */
+export const ENTWURFS_FRIST_TAGE = 7;
+
+const ENTWUERFE_UEBERFAELLIG_SQL = `
+  SELECT COUNT(*)::int AS ueberfaellig,
+         COUNT(DISTINCT cp.worker_profile_id)::int AS betroffene_menschen
+    FROM capacity_posts cp
+   WHERE cp.status = 'draft'
+     AND cp.offer_kind IN ('single_skill', 'bundle')
+     AND cp.worker_profile_id IS NOT NULL
+     AND COALESCE(cp.updated_at, cp.created_at) < NOW() - INTERVAL '${ENTWURFS_FRIST_TAGE} days'`;
+
+/**
  * Vollstaendiger Sweep: (1) Ruecknahme abgeschalteter Kraefte,
  * (2) Wiederkehr wieder eingeschalteter, (3) Horizont spiegeln,
  * (4) fehlende Angebote anlegen.
@@ -722,6 +845,10 @@ export async function sweepMarktpraesenz(pool) {
       COUNT(*) FILTER (WHERE ${OHNE_ORT_SQL})::int AS ohne_ort
       FROM worker_profiles wp
      WHERE ${PRAESENT_SQL}`);
+  /* M4c.8: derselbe Gedanke wie bei den zwei Luecken darueber — der Riegel wird
+     MITGEMESSEN. Ein Platz, der seit einer Woche von einem Entwurf besetzt ist,
+     ist kein Wartezustand mehr, sondern ein Befund. */
+  const entwuerfe = await pool.query(ENTWUERFE_UEBERFAELLIG_SQL);
   return {
     zurueckgenommen: zurueck.rowCount || 0,
     wiederhergestellt: wieder.rowCount || 0,
@@ -732,7 +859,10 @@ export async function sweepMarktpraesenz(pool) {
     buendel_materialisiert: buendelNeu.rowCount || 0,
     buendel_nachgefuehrt: buendelAktuell.rowCount || 0,
     unsichtbar_ohne_skill: luecke.rows[0]?.ohne_skill || 0,
-    unsichtbar_ohne_ort: luecke.rows[0]?.ohne_ort || 0
+    unsichtbar_ohne_ort: luecke.rows[0]?.ohne_ort || 0,
+    entwuerfe_ueberfaellig: entwuerfe.rows[0]?.ueberfaellig || 0,
+    entwuerfe_betroffene_menschen: entwuerfe.rows[0]?.betroffene_menschen || 0,
+    entwurfs_frist_tage: ENTWURFS_FRIST_TAGE
   };
 }
 

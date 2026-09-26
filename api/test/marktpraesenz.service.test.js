@@ -62,7 +62,7 @@ const WIEDERKEHR = (s) => /SET status = 'active'/.test(s) && !IST_BUENDEL(s);
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 describe("Marktpraesenz · Teil A — Form", () => {
-  it("der Sweep sind GENAU neun Abfragen — sechs wie bisher, dazu die drei des Gesamtangebots", async () => {
+  it("der Sweep sind GENAU zehn Abfragen — neun wie bisher, dazu die Frist des Entwurfs-Riegels", async () => {
     /* Fixture-Pflege 2026-08-27 (Welle J9): der Horizont-Spiegel kam als
      * vierter Schritt dazu. Fixture-Pflege 2026-09-25 (M4c.3b): das Zaehlen der
      * AUFGEHALTENEN Wiederherstellungen kam dazu — eine Kraft, deren Rueckkehr
@@ -72,10 +72,13 @@ describe("Marktpraesenz · Teil A — Form", () => {
      * und nicht eine, steht am Bauplan: ein Buendel traegt eine Momentaufnahme
      * (Zahl im Titel, Liste, Leitfaehigkeit) und veraltet bei JEDER Aenderung.
      * Die Zaehlung waechst mit, die Regel dahinter (set-basiert, keine Schleife)
-     * bleibt dieselbe: neun feste Abfragen, keine je Kraft. */
+     * bleibt dieselbe. Fixture-Pflege 2026-09-26 (M4c.8): die Zaehlung der
+     * ueberfaelligen Entwuerfe kam dazu — ein Platz, der seit einer Woche von
+     * einem Entwurf besetzt ist, ist kein Wartezustand mehr, sondern ein Befund.
+     * Zehn feste Abfragen, keine je Kraft. */
     const pool = aufzeichnenderPool();
     await sweepMarktpraesenz(pool);
-    assert.equal(pool.calls.length, 9,
+    assert.equal(pool.calls.length, 10,
       "mehr Abfragen hiesse: jemand hat eine Schleife eingebaut — der Sweep ist set-basiert");
   });
 
