@@ -556,16 +556,18 @@ export async function dispatch(pool, eventKey, context = {}) {
   const config = MATRIX[eventKey];
   if (!config) {
     logger.warn({ eventKey }, 'Unknown notification event — skipped');
-    return { sent: 0 };
+    return { sent: 0, failed: 0 };
   }
 
   const recipientIds = context.recipientUserIds || [];
   if (recipientIds.length === 0) {
     logger.debug({ eventKey }, 'No recipients for notification');
-    return { sent: 0 };
+    return { sent: 0, failed: 0 };
   }
 
   let sent = 0;
+  /* M4c.14: was NICHT entstanden ist, wird gezaehlt — nicht nur protokolliert. */
+  let failed = 0;
   for (const userId of recipientIds) {
     // Check user preferences (unless caller already checked)
     let prefInApp = true;
@@ -584,7 +586,9 @@ export async function dispatch(pool, eventKey, context = {}) {
     // In-app notification (if preference allows)
     if (prefInApp) {
       const linkPath = context.linkPath || config.linkPath || null;
-      const { rows: erzeugt } = await pool.query(
+      let erzeugt;
+      try {
+        ({ rows: erzeugt } = await pool.query(
         `INSERT INTO notifications (user_id, org_id, type, title, message, entity_type, entity_id, severity, link_path)
          SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9
          WHERE NOT EXISTS (
@@ -599,7 +603,64 @@ export async function dispatch(pool, eventKey, context = {}) {
           context.entityType || null, context.entityId || null,
           config.severity, linkPath
         ]
-      );
+        ));
+      } catch (err) {
+        /*
+         * M4c.14 — DER GESCHLUCKTE FEHLER WIRD GEZAEHLT.
+         *
+         * Hier war der INSERT ungeschuetzt, und der Fehler flog zum Aufrufer.
+         * Der faengt ihn bewusst: eine gescheiterte Meldung darf das Speichern
+         * der Faehigkeiten nicht gefaehrden, und das bleibt richtig. Die Folge
+         * war trotzdem, dass ein ganzer Meldeweg drei Wochen lang tot war, ohne
+         * dass es jemand sah — `worker.skills_awaiting_release` traf auf einen
+         * Typ, den der CHECK nicht kannte (M4c.12).
+         *
+         * GESCHLUCKT BLEIBT GESCHLUCKT, SICHTBAR WIRD ES TROTZDEM. Die Zaehlung
+         * faehrt im Rueckgabewert mit (`failed`), und jeder Fehlschlag bekommt
+         * eine Audit-Zeile. Eine Protokollzeile allein hat drei Wochen lang
+         * niemand gelesen; das Audit liest die Aufsicht ohnehin.
+         *
+         * HIER UND NICHT AM AUFRUFER: `dispatch` ist die Stelle, durch die JEDE
+         * Benachrichtigung geht. Am Aufrufer waere die Zaehlung eine Sorgfalt,
+         * die man vergessen kann — und dann waere wieder nur der eine Weg
+         * sichtbar, an den jemand gedacht hat. Dasselbe Argument, mit dem diese
+         * Funktion schon den SSE-Push an sich gezogen hat.
+         */
+        failed++;
+        logger.error({ eventKey, type: config.type, severity: config.severity, code: err.code,
+                       err: err.message }, 'Benachrichtigung konnte nicht geschrieben werden');
+        try {
+          const auditLog = await import('./auditLog.js');
+          await auditLog.writeAudit(pool, {
+            action: 'notification.dispatch_failed',
+            entity_type: context.entityType || 'notification',
+            entity_id: context.entityId || null,
+            org_id: context.orgId || null,
+            status: 'FAILURE',
+            details: {
+              event_key: eventKey,
+              notification_type: config.type,
+              severity: config.severity,
+              recipient_user_id: userId,
+              error_code: err.code || null,
+              /* Kein Fehlertext in die Details: er kann Nutzdaten der Zeile
+                 tragen, und sensible Daten gehoeren nicht ins Audit. Der Code
+                 (23514 = CHECK, 23503 = Fremdschluessel) sagt, was zu tun ist. */
+              hinweis: 'Die Meldung entstand NICHT. Der Aufrufer schluckt den Fehler bewusst.'
+            }
+          });
+        } catch (auditErr) {
+          /* Die Sichtbarkeit darf das Beobachtete nie gefaehrden — und schon gar
+             nicht den Rest der Empfaenger. */
+          logger.error({ eventKey, err: auditErr.message },
+            'Audit-Zeile zum Meldungs-Fehlschlag konnte nicht geschrieben werden');
+        }
+        /* WEITER MIT DEN ANDEREN EMPFAENGERN. Vorher flog der Fehler beim
+         * ERSTEN Fehlschlag hinaus, und von fuenf Berechtigten bekam nur der
+         * erste eine Chance. Ob am Ende ueberhaupt niemand erreicht wurde,
+         * entscheidet die Auswertung unten — nicht der erste Stolperstein. */
+        continue;
+      }
       if (erzeugt.length > 0) {
         sent++;
         /* ── Sofort zustellen, nicht erst beim naechsten Laden (Welle G4) ──
@@ -672,7 +733,45 @@ export async function dispatch(pool, eventKey, context = {}) {
     }
   }
 
-  return { sent };
+  /*
+   * ═════════════════════════════════════════════════════════════════════════
+   * WANN DER FEHLSCHLAG HINAUSFLIEGT — UND WARUM NICHT IMMER GESCHLUCKT WIRD
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * Die erste Fassung von M4c.14 schluckte JEDEN Fehlschlag und meldete ihn nur
+   * ueber `failed` und das Audit. Das war falsch, und eine vorhandene Probe hat
+   * es gefangen: `stupseNutzerAn` (Bounty-Anstupser) BRAUCHT den Fehler. Es setzt
+   * vorher einen Wochen-Vermerk und nimmt ihn im Fehlerfall zurueck — sonst
+   * stuende die Wochensperre, obwohl nichts zugestellt wurde, und der Anstupser
+   * waere bis Montag blockiert. Ein geschluckter Fehler haette diesen Aufrufer
+   * stillschweigend um seine Ruecknahme gebracht.
+   *
+   * Die Unterscheidung ist deshalb nicht "schlucken oder nicht", sondern:
+   *
+   *   Ein TEIL der Empfaenger scheitert  -> weitermachen, zaehlen, auditieren.
+   *                                         Die anderen haben ihre Meldung, und
+   *                                         niemandem ist geholfen, wenn sie
+   *                                         wegen eines Fremden verschwindet.
+   *   KEIN Empfaenger wurde erreicht     -> der Aufrufer erfaehrt es. Er allein
+   *                                         weiss, was er zurueckzunehmen hat.
+   *
+   * Der Fehler TRAEGT die Zahlen (`sent`, `failed`): ein Aufrufer, der nur
+   * aufraeumen will, faengt ihn wie bisher; einer, der genauer hinsehen will,
+   * liest sie ab. `workerPortal` faengt ihn weiterhin und laesst das Speichern
+   * der Faehigkeiten unberuehrt — dort war die Entscheidung von Anfang an
+   * richtig. Was M4c.14 hinzufuegt, ist nicht das Schlucken, sondern die
+   * SICHTBARKEIT: eine Audit-Zeile je Fehlschlag statt einer Protokollzeile, die
+   * drei Wochen lang niemand gelesen hat.
+   */
+  if (sent === 0 && failed > 0) {
+    const err = new Error('NOTIFICATION_DISPATCH_FAILED');
+    err.code = 'NOTIFICATION_DISPATCH_FAILED';
+    err.sent = sent;
+    err.failed = failed;
+    err.eventKey = eventKey;
+    throw err;
+  }
+  return { sent, failed };
 }
 
 /**

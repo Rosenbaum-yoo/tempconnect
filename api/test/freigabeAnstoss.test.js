@@ -227,18 +227,46 @@ describe("M4.8 · speichert der Mensch, erfaehrt es die Firma", () => {
      * die Firma einen Hinweis bekommt.
      */
     const warnungen = [];
-    const { res } = await speichereFaehigkeiten({
+    const { res, pool } = await speichereFaehigkeiten({
       anzahl: 2,
       regeln: [{ match: /INSERT INTO notifications/i,
-                 rows: () => { throw new Error("Benachrichtigung kaputt"); } }],
+                 rows: () => { const e = new Error("Benachrichtigung kaputt"); e.code = "23514"; throw e; } }],
       logger: { info() {}, error() {}, debug() {}, warn: (a, b) => warnungen.push({ a, b }) }
     });
     assert.equal(res._json?.ok, true,
       "das Speichern ist an der Benachrichtigung gescheitert");
     assert.equal(res._status, 200);
-    assert.ok(warnungen.length >= 1,
+
+    /*
+     * M4c.14 — DIE SICHTBARKEIT IST UMGEZOGEN UND STAERKER GEWORDEN.
+     *
+     * Hier stand `warnungen.length >= 1`: der Fehler flog zum Aufrufer, der ihn
+     * fing und eine Warnung protokollierte. Die Zusicherung war richtig und hat
+     * trotzdem nichts verhindert — `worker.skills_awaiting_release` war drei
+     * Wochen lang tot, und die Protokollzeile hat niemand gelesen (M4c.12).
+     *
+     * Seit M4c.14 faengt `dispatch` den Fehlschlag SELBST, zaehlt ihn und
+     * schreibt eine Audit-Zeile. Der Aufrufer sieht deshalb keinen Fehler mehr —
+     * seine Warnung entfaellt, und genau darum zeigt diese Probe jetzt auf die
+     * Stelle, an der die Sichtbarkeit wirklich entsteht. Geprueft wird das
+     * Audit, nicht das Protokoll: eine Zeile, die die Aufsicht ohnehin liest,
+     * statt einer, die in der naechsten Rotation verschwindet.
+     */
+    const auditZeilen = pool.abfragen.filter((a) => /INSERT INTO audit_log/i.test(a.sql));
+    assert.ok(auditZeilen.length >= 1,
       "der Fehlschlag wurde geschluckt UND verschwiegen — dann faellt nie auf, "
       + "dass die Firma seit Wochen keine Hinweise mehr bekommt");
+    const params = auditZeilen[0].params || [];
+    assert.ok(params.includes("notification.dispatch_failed"),
+      "die Audit-Zeile nennt nicht den Fehlschlag der Meldung: " + JSON.stringify(params.slice(0, 4)));
+    const details = params.find((x) => x && typeof x === "object" && "event_key" in x)
+      || params.map((x) => { try { return JSON.parse(x); } catch { return null; } })
+              .find((x) => x && x.event_key);
+    assert.ok(details, "die Audit-Zeile traegt keine Details");
+    assert.equal(details.event_key, "worker.skills_awaiting_release",
+      "die Audit-Zeile nennt das falsche Ereignis");
+    assert.equal(details.notification_type, "worker_marktpraesenz");
+    assert.equal(details.error_code, "23514", "der Fehlercode fehlt — dann weiss niemand, WAS zu tun ist");
   });
 });
 
