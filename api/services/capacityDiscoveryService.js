@@ -5,6 +5,10 @@
  */
 
 import { zugesagtJeAngebotSql } from "./zusageFormel.js";
+/* M4c.4 — die EINE Formel fuer "wie viele MENSCHEN". Bis hierher summierte
+   jedes der fuenf Aggregate die Kopfzahl der ANGEBOTE; seit M4c.1 traegt eine
+   Kraft mit vier Faehigkeiten fuenf Darstellungen. */
+import { verfuegbareKoepfeSql } from "./koepfeFormel.js";
 
 /* Die Formel kommt aus `zusageFormel.js` (N2.8) — hier stand eine eigene
    Abschrift, eine von dreien. Die Zahlen "N Kraefte verfuegbar" rechnen
@@ -96,11 +100,17 @@ export async function aggregateBySkill(pool, filters = {}) {
   const { rows } = await pool.query(
     `SELECT je.skill,
             COUNT(*)::int AS entry_count,
-            SUM(je.rest)::int AS total_headcount,
+            ${verfuegbareKoepfeSql("je.rest", "je.worker_profile_id")} AS total_headcount,
             ARRAY_AGG(DISTINCT je.location_city) FILTER (WHERE je.location_city IS NOT NULL) AS cities
        FROM (
          SELECT TRIM(t.skill) AS skill,
                 cp.location_city,
+                /* M4c.4: das Profil reist mit, damit die Gruppe Menschen zaehlen
+                   kann statt Zeilen. Ohne es zaehlte ein Mensch mit vier
+                   Faehigkeiten unter JEDER seiner Faehigkeiten doppelt — einmal
+                   fuer sein Einzelangebot und einmal fuer sein Gesamtangebot,
+                   das alle vier Faehigkeiten traegt. */
+                cp.worker_profile_id,
                 ${REMAINING_HEADCOUNT_SQL} AS rest
            FROM capacity_posts cp
            ${COMMERCIAL_COMMITMENT_JOIN}
@@ -152,7 +162,7 @@ export async function aggregateByRole(pool, filters = {}) {
     `SELECT
        cp.role,
        COUNT(*)::int AS entry_count,
-       SUM(${REMAINING_HEADCOUNT_SQL})::int AS total_headcount,
+       ${verfuegbareKoepfeSql(REMAINING_HEADCOUNT_SQL)} AS total_headcount,
        ROUND(AVG(${REMAINING_HEADCOUNT_SQL}), 1) AS avg_headcount,
        ARRAY_AGG(DISTINCT cp.location_city) FILTER (WHERE cp.location_city IS NOT NULL) AS cities
      FROM capacity_posts cp
@@ -302,7 +312,7 @@ export async function aggregateByRegion(pool, filters = {}) {
        cp.location_city AS city,
        LEFT(cp.location_postal, 2) AS postal_prefix,
        COUNT(*)::int AS entry_count,
-       SUM(${REMAINING_HEADCOUNT_SQL})::int AS total_headcount,
+       ${verfuegbareKoepfeSql(REMAINING_HEADCOUNT_SQL)} AS total_headcount,
        ARRAY_AGG(DISTINCT cp.role) AS roles
      FROM capacity_posts cp
      ${COMMERCIAL_COMMITMENT_JOIN}
@@ -341,7 +351,7 @@ export async function aggregateByCategory(pool, filters = {}) {
     `SELECT
        cp.worker_category AS category,
        COUNT(*)::int AS entry_count,
-       SUM(${REMAINING_HEADCOUNT_SQL})::int AS total_headcount,
+       ${verfuegbareKoepfeSql(REMAINING_HEADCOUNT_SQL)} AS total_headcount,
        ARRAY_AGG(DISTINCT cp.location_city) FILTER (WHERE cp.location_city IS NOT NULL) AS cities,
        ARRAY_AGG(DISTINCT cp.role) AS roles
      FROM capacity_posts cp
@@ -384,7 +394,7 @@ export async function getAvailabilitySummary(pool, filters = {}) {
     `SELECT
        cp.role,
        cp.location_city AS city,
-       SUM(${REMAINING_HEADCOUNT_SQL})::int AS total_headcount,
+       ${verfuegbareKoepfeSql(REMAINING_HEADCOUNT_SQL)} AS total_headcount,
        MIN(cp.availability_from) AS earliest_available,
        COUNT(*)::int AS entry_count,
        COUNT(DISTINCT cp.supplier_company_id)::int AS supplier_count
@@ -393,7 +403,12 @@ export async function getAvailabilitySummary(pool, filters = {}) {
      WHERE ${where.join(' AND ')}
        AND ${REMAINING_HEADCOUNT_SQL} > 0
      GROUP BY cp.role, cp.location_city
-     HAVING SUM(${REMAINING_HEADCOUNT_SQL}) > 0
+     /* M4c.4: DERSELBE Ausdruck wie in der Anzeige. Ein Filter, der Angebote
+        zaehlt, waehrend die Spalte daneben Menschen zaehlt, laesst Gruppen durch,
+        die die Anzeige dann mit einer anderen Zahl beschreibt — genau das
+        Auseinanderlaufen von Zaehlung und Seite, das N2.8 an anderer Stelle
+        behoben hat. */
+     HAVING ${verfuegbareKoepfeSql(REMAINING_HEADCOUNT_SQL)} > 0
      ORDER BY total_headcount DESC
      LIMIT $${idx}`,
     params
