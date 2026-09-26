@@ -645,6 +645,38 @@ wäre Betrug."* Volumen entsteht durch **Darstellungen**, nie durch mehrfache Ve
 > belegter Mensch dort nur die Anzahl senken soll. Nur wurde das Senken nie gebaut — und es
 > entsteht kein Fehler, an dem es auffiele.
 
+> **M4c.3 erfüllte seine Abnahme nicht — obwohl alle Proben grün waren (2026-09-25).**
+> Der adversariale Durchlauf der bauenden Sitzung hat zwei Befunde geliefert, beide von der
+> planenden Sitzung im Code nachgeprüft:
+>
+> **1. Der Takt rief die Reservierung nie.** `staffingWorker.js` rief `runStaffingMaintenance`
+> und `sweepMarktpraesenz` — `sweepReservations` hatte genau einen Aufrufer, den internen
+> Endpunkt, und den stößt niemand an. Beim Umzug in den Takt (M1.2) sind **zwei von vier
+> Schritten** mitgenommen worden. **Welle 4b und M4c.3 liefen seit ihrem Bau nicht.** Beleg aus
+> der Datenbank: eine Kraft mit aktiver, unbefristeter Einsatz-Verknüpfung seit dem 2026-07-29
+> stand mit sechs Automatik-Angeboten **12 Tage aktiv und buchbar**, bis erst eine Abwesenheit
+> sie archivierte.
+>
+> **2. Eine Buchung bindet niemanden.** „Gebunden" heißt im ganzen System nur: aktive
+> `worker_assignment_links`-Zeile. `accept-deal` legt keine an und ruft `syncWorkerReservation`
+> nicht — nachgemessen: der Name kommt in `routes/marketplace.js` **nicht vor**. Bis jemand von
+> Hand zuweist, ist derselbe Mensch über **jede** andere Darstellung buchbar. Und der Takt legt
+> für die gebuchte Fähigkeit einen Zwilling an, weil `reserved` für sein `NOT EXISTS` kein
+> belegter Platz ist — eine spätere Stornierung kollidiert dann mit dem Zwilling.
+>
+> **Die Lehre wiegt schwerer als beide Befunde:** die Proben prüften die *Einsatz-Verknüpfung*,
+> nicht die *Buchung*. Sie prüften damit **ihren eigenen Begriff von „gebunden" statt den des
+> Owners** — und waren grün, während die Zusage „ein Mensch, fünfmal gebucht, wäre Betrug"
+> nicht galt.
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| M4c.3b-1 | **Eine Definition von „gebunden"** (`bindungSql.js`, gebaut wie `zusageFormel.js`): laufender Einsatz **oder** angenommene Buchung auf einer personengebundenen Zeile vor dem Einsatz. `activated` bindet dort **nicht** — ab dann bindet der Einsatz mit Datum, sonst bliebe ein Mensch nach einem unbefristeten Deal für immer unsichtbar | Eingesetzt an **allen drei** Stellen, die heute je eine eigene Abschrift tragen: Reservierung personengebunden, Reservierung Sammelangebot, Kopfzahl im Feed |
+| M4c.3b-2 | **Der Takt ruft die Reservierung** — über **eine** Funktion, die Takt und Endpunkt teilen | Takt und Endpunkt können nicht mehr auseinanderlaufen. **Rückmutation:** Schritt aus der Kette nehmen → rot |
+| M4c.3b-3 | **`accept-deal` synchronisiert die Reservierung in derselben Transaktion** | Buchen → die übrigen Darstellungen desselben Menschen verschwinden **sofort**, nicht erst nach einer Handzuweisung |
+| M4c.3b-4 | **`reserved` zählt als belegter Platz**, der Takt legt für einen gebundenen Menschen nichts an | Kein Zwilling nach der Buchung; eine Stornierung läuft ohne Kollision zurück |
+| M4c.3b-5 | **Die Abnahme prüft den Begriff des Owners**, nicht den der Umsetzung: eine **Buchung** (nicht eine Verknüpfung) lässt Einzel-, Bündel- und Sammelangebot desselben Menschen verschwinden | Genau dieser Weg als Probe. **Ohne sie wäre M4c.3 wieder grün und trotzdem unwahr** |
+
 **Reihenfolge: M4c.0 → M4c.3 → M4c.1 → M4c.4 → M4c.2 → M4c.5 → M4c.6 → M4c.7.**
 
 > **M4c.3 steht vor der Erzeugung, nicht danach.** Wer zuerst Bündel erzeugt und die
