@@ -109,16 +109,26 @@ describe("Markt-Profil · Teil B — der Schreibweg", () => {
      */
     const pool = aufzeichnenderPool();
     await sweepMarktpraesenz(pool);
-    const sql = (muster, name) => {
-      const treffer = pool.calls.filter((c) => muster.test(c.sql));
+    /* Die Art gehoert in den Pruefer: seit M4c.1 traegt der Sweep auch die drei
+       Anweisungen des Gesamtangebots, und `INSERT INTO capacity_posts` trifft
+       beide Anlagen. */
+    const istBuendel = (s) => /cp\.offer_kind = 'bundle'/.test(s) || /'bundle', 'normal'/.test(s);
+    const sql = (pruefer, name) => {
+      const treffer = pool.calls.filter((c) => pruefer(c.sql));
       assert.equal(treffer.length, 1, `${name}: ${treffer.length} passende Anweisungen statt genau einer`);
       return treffer[0].sql;
     };
-    assert.match(sql(/SET availability_to = wp\.einsetzbar_bis/, "der Horizont-Spiegel"),
+    assert.match(sql((s) => /SET availability_to = wp\.einsetzbar_bis/.test(s), "der Horizont-Spiegel"),
       /SET availability_to = wp\.einsetzbar_bis/,
       "eine Wahrheit: das Profil fuehrt, die Angebote folgen");
-    assert.match(sql(/INSERT INTO capacity_posts/, "die Anlage"), /wp\.einsetzbar_bis/,
+    assert.match(sql((s) => /INSERT INTO capacity_posts/.test(s) && !istBuendel(s), "die Anlage"),
+      /wp\.einsetzbar_bis/,
       "auch NEUE Angebote entstehen gleich mit dem Horizont");
+    /* M4c.1: das Gesamtangebot spiegelt den Horizont ebenso — sonst waere es das
+       einzige Angebot, das nach dem Einsatzende noch im Markt steht. */
+    assert.match(sql((s) => /INSERT INTO capacity_posts/.test(s) && istBuendel(s), "die Buendel-Anlage"),
+      /wp\.einsetzbar_bis/,
+      "das Gesamtangebot entsteht ohne Horizont");
   });
 });
 

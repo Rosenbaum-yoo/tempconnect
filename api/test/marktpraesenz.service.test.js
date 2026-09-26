@@ -39,27 +39,43 @@ function aufzeichnenderPool(antworten = {}) {
    Name sagt — und bleibt dabei gruen. Mehrdeutigkeit ist hier ein Fehler, kein
    "nimm die erste": zwei passende Anweisungen hiessen, dass die Zusicherung
    nicht mehr weiss, wovon sie redet. */
-function anweisung(pool, muster, name) {
-  const treffer = pool.calls.filter((c) => muster.test(c.sql));
+function anweisung(pool, pruefer, name) {
+  const fn = typeof pruefer === "function" ? pruefer : (s) => pruefer.test(s);
+  const treffer = pool.calls.filter((c) => fn(c.sql));
   assert.equal(treffer.length, 1, `${name}: ${treffer.length} passende Anweisungen statt genau einer`);
   return treffer[0].sql;
 }
+
+/*
+ * Seit M4c.1 gibt es jede Art von Anweisung zweimal — einmal fuer Einzelangebote
+ * und einmal fuer Gesamtangebote. Die Pruefer benennen deshalb die ART, nicht die
+ * Form allein: `SET status = 'archived'` trifft sonst beide Ruecknahmen, und eine
+ * Probe, die "die Ruecknahme" sagt, wuesste nicht mehr, welche sie geprueft hat.
+ */
+const IST_BUENDEL = (s) => /cp\.offer_kind = 'bundle'/.test(s) || /'bundle', 'normal'/.test(s);
+const EINZEL_ANLAGE = (s) => /INSERT INTO capacity_posts/.test(s) && !IST_BUENDEL(s);
+const EINZEL_RUECKNAHME = (s) => /SET status = 'archived'/.test(s) && !IST_BUENDEL(s);
+const WIEDERKEHR = (s) => /SET status = 'active'/.test(s) && !IST_BUENDEL(s);
 
 /* ═══════════════════════════════════════════════════════════════════════════
  *  Teil A — die Form der Abfragen
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 describe("Marktpraesenz · Teil A — Form", () => {
-  it("der Sweep sind GENAU sechs Abfragen — Ruecknahme, Wiederkehr, Aufgehaltenes, Horizont, Anlage, Lueckenmass", async () => {
+  it("der Sweep sind GENAU neun Abfragen — sechs wie bisher, dazu die drei des Gesamtangebots", async () => {
     /* Fixture-Pflege 2026-08-27 (Welle J9): der Horizont-Spiegel kam als
      * vierter Schritt dazu. Fixture-Pflege 2026-09-25 (M4c.3b): das Zaehlen der
      * AUFGEHALTENEN Wiederherstellungen kam dazu — eine Kraft, deren Rueckkehr
      * dauerhaft an einem besetzten Platz haengt, faellt sonst lautlos aus dem
-     * Markt. Die Zaehlung waechst mit, die Regel dahinter (set-basiert, keine
-     * Schleife) bleibt dieselbe: sechs feste Abfragen, keine je Kraft. */
+     * Markt. Fixture-Pflege 2026-09-26 (M4c.1): das Gesamtangebot kam mit drei
+     * eigenen Anweisungen dazu — zuruecknehmen, anlegen, nachfuehren. Warum drei
+     * und nicht eine, steht am Bauplan: ein Buendel traegt eine Momentaufnahme
+     * (Zahl im Titel, Liste, Leitfaehigkeit) und veraltet bei JEDER Aenderung.
+     * Die Zaehlung waechst mit, die Regel dahinter (set-basiert, keine Schleife)
+     * bleibt dieselbe: neun feste Abfragen, keine je Kraft. */
     const pool = aufzeichnenderPool();
     await sweepMarktpraesenz(pool);
-    assert.equal(pool.calls.length, 6,
+    assert.equal(pool.calls.length, 9,
       "mehr Abfragen hiesse: jemand hat eine Schleife eingebaut — der Sweep ist set-basiert");
   });
 
@@ -78,7 +94,7 @@ describe("Marktpraesenz · Teil A — Form", () => {
   it("die Anlage traegt Herkunft, Anonymitaet und den Ausschalter", async () => {
     const pool = aufzeichnenderPool();
     await sweepMarktpraesenz(pool);
-    const sql = anweisung(pool, /INSERT INTO capacity_posts/, "die Anlage");
+    const sql = anweisung(pool, EINZEL_ANLAGE, "die Anlage");
     assert.match(sql, /'live_belegschaft'/, "ohne Herkunft kann die Ruecknahme nicht unterscheiden");
     assert.match(sql, /marktpraesenz_deaktiviert = FALSE/, "der Ausschalter (Mig 200) muss greifen");
     assert.match(sql, /wp\.is_active = TRUE/, "inaktive Profile werden nie angeboten");
@@ -91,7 +107,7 @@ describe("Marktpraesenz · Teil A — Form", () => {
   it("die Ruecknahme fasst NUR eigene, offene Zeilen an — nie laufende Geschaefte", async () => {
     const pool = aufzeichnenderPool();
     await sweepMarktpraesenz(pool);
-    const sql = anweisung(pool, /SET status = 'archived'/, "die Ruecknahme");
+    const sql = anweisung(pool, EINZEL_RUECKNAHME, "die Ruecknahme");
     assert.match(sql, /quelle = 'live_belegschaft'/,
       "ein von Hand gepflegtes Angebot ist die Entscheidung der Agentur und bleibt stehen");
     assert.match(sql, /status IN \('draft', 'active', 'paused'\)/,
@@ -119,12 +135,12 @@ describe("Marktpraesenz · Teil A — Form", () => {
      * Gesucht wird ueber die FORM, nicht ueber die Position: sonst zeigt diese
      * Probe nach dem naechsten neuen Schritt auf eine andere Anweisung und
      * prueft still etwas anderes, als ihr Name sagt (M4c.3b). */
-    for (const [name, muster] of [
-      ["Ruecknahme", /SET status = 'archived'/],
-      ["Wiederkehr", /SET status = 'active'/],
-      ["Anlage", /INSERT INTO capacity_posts/]
+    for (const [name, pruefer] of [
+      ["Ruecknahme", EINZEL_RUECKNAHME],
+      ["Wiederkehr", WIEDERKEHR],
+      ["Anlage", EINZEL_ANLAGE]
     ]) {
-      const sql = anweisung(pool, muster, name);
+      const sql = anweisung(pool, pruefer, name);
       assert.match(sql, /worker_absences/, name + " kennt die Abwesenheit nicht");
       assert.match(sql, /ab\.zustand = 'wirksam'/,
         name + ": nur WIRKSAME Abwesenheit zaehlt — eine erst beantragte Selbstmeldung ist eine " +
@@ -152,9 +168,11 @@ describe("Marktpraesenz · Teil A — Form", () => {
     const ergebnis = await setzeMarktpraesenz(pool, "org-a", "wp-1", true);
     assert.equal(ergebnis.marktpraesenz_deaktiviert, true);
     /* Fixture-Pflege 2026-09-25 (M4c.3b): das Zaehlen der aufgehaltenen
-       Wiederherstellungen kam als vierte Folge dazu — dieselbe Erweiterung wie
-       im Cron, denn beide Reichweiten kommen seither aus EINEM Bauplan. */
-    assert.equal(pool.calls.length, 5, "Schalter + vier kraftgebundene Folgen — wer abschaltet, wartet nicht auf den Cron");
+       Wiederherstellungen kam als vierte Folge dazu. 2026-09-26 (M4c.1): die drei
+       Anweisungen des Gesamtangebots. Beides dieselbe Erweiterung wie im Cron,
+       denn beide Reichweiten kommen aus EINEM Bauplan — genau darum ist die Zahl
+       hier und dort um dasselbe gewachsen. */
+    assert.equal(pool.calls.length, 8, "Schalter + sieben kraftgebundene Folgen — wer abschaltet, wartet nicht auf den Cron");
     /* Der Org-Grenzen-Waechter hat die erste Fassung abgewiesen: sie liess
      * nach dem UPDATE den GLOBALEN Sweep laufen. Seitdem gilt: JEDE
      * Anweisung dieses Weges traegt Profil UND Org in den Parametern —

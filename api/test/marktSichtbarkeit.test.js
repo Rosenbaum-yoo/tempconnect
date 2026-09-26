@@ -315,26 +315,33 @@ describe("M0/F27 · die Materialisierung setzt last_confirmed_at", () => {
   const HIER = path.dirname(fileURLToPath(import.meta.url));
   const dienst = quelle("services/marktpraesenzService.js");
 
-  /** Der Einfuegeweg — seit M4c.3b gibt es nur noch einen. */
+  /*
+   * Die Einfuegewege: EINER je Angebotsart, nicht einer je Reichweite.
+   *
+   * Hier stand erst 2 (Sweep und Praesenz-Schalter trugen je eine Abschrift),
+   * dann 1 (M4c.3b: ein Bauplan fuer beide Reichweiten), jetzt wieder 2 — aber
+   * aus einem anderen Grund, und der ist der Unterschied: es sind zwei
+   * VERSCHIEDENE Arten (Einzelangebot und Gesamtangebot), keine zwei Fassungen
+   * derselben Sache. Jede Art hat genau einen Bauplan, und jeder gilt fuer beide
+   * Reichweiten.
+   *
+   * Unterschieden werden sie an der Art, die sie schreiben — nicht an der
+   * Reihenfolge im Text: wer hier zaehlt, statt zu benennen, weiss beim
+   * naechsten Zuwachs nicht mehr, wovon er redet.
+   */
   const einfuegen = [...dienst.matchAll(/INSERT INTO capacity_posts \(([\s\S]*?)DO (NOTHING|UPDATE[\s\S]*?)`/g)];
+  const einzelWeg = einfuegen.filter((m) => /'single_skill',/.test(m[0]));
+  const buendelWeg = einfuegen.filter((m) => /'bundle',/.test(m[0]));
 
-  it("es gibt GENAU EINEN Einfuegeweg — sonst prueft der Rest nichts", () => {
-    /*
-     * Hier stand 2: der Sweep und das einzelne Nachziehen je Profil
-     * (`setzeMarktpraesenz`) trugen je eine eigene, von Hand abgeschriebene
-     * Anweisung. Die Abschrift war schon auseinandergelaufen — sie schrieb die
-     * Praesenz-Bedingungen selbst hin, statt sie aus `PRAESENZ_BEDINGUNGEN` zu
-     * bauen, und jeder Riegel, den der Cron bekam, fehlte ihr.
-     *
-     * Seit M4c.3b baut EIN Bauplan beide Reichweiten; der Unterschied ist ein
-     * Zusatz-Ausdruck. Die Zusicherung kehrt sich damit um und wird schaerfer:
-     * nicht mehr "beide Wege tun dasselbe", sondern "es gibt nur einen Weg, der
-     * es tun koennte". Waechst die Zahl wieder auf 2, ist eine zweite Wahrheit
-     * entstanden — und genau dann soll diese Probe rot werden.
-     */
-    assert.equal(einfuegen.length, 1,
-      `${einfuegen.length} INSERT INTO capacity_posts gefunden, erwartet 1 `
-      + "(der gemeinsame Bauplan). Sind es mehr, ist wieder eine Abschrift entstanden.");
+  it("es gibt GENAU EINEN Einfuegeweg JE ART — sonst prueft der Rest nichts", () => {
+    assert.equal(einzelWeg.length, 1,
+      `${einzelWeg.length} Einfuegewege fuer Einzelangebote gefunden, erwartet 1. `
+      + "Sind es mehr, ist wieder eine Abschrift entstanden.");
+    assert.equal(buendelWeg.length, 1,
+      `${buendelWeg.length} Einfuegewege fuer Gesamtangebote gefunden, erwartet 1 (M4c.1).`);
+    assert.equal(einfuegen.length, 2,
+      `${einfuegen.length} INSERT INTO capacity_posts gefunden, erwartet 2 — `
+      + "einer je Art. Ein dritter waere eine Abschrift oder eine unbenannte Art.");
   });
 
   it("beide setzen die Bestaetigung beim Anlegen", () => {
@@ -347,25 +354,37 @@ describe("M0/F27 · die Materialisierung setzt last_confirmed_at", () => {
     });
   });
 
-  it("beide erneuern sie im Konfliktfall — sonst heilt kein Bestand", () => {
+  it("das Einzelangebot erneuert die Bestaetigung im Konfliktfall — sonst heilt kein Bestand", () => {
     /*
      * Der Teil, der die sechs vorhandenen Zeilen heilt. `DO NOTHING` liesse sie
      * fuer immer leer: der Dedup-Index verhindert das Neuanlegen, und niemand
      * ruehrt die alte Zeile an.
      */
-    einfuegen.forEach((m, i) => {
-      assert.ok(/DO UPDATE SET last_confirmed_at = NOW\(\)/.test(m[0]),
-        `Einfuegeweg ${i + 1}: DO NOTHING statt DO UPDATE — die bestehenden `
-        + "Zeilen blieben ohne Bestaetigung und melden weiter taeglich");
-    });
+    assert.ok(/DO UPDATE SET last_confirmed_at = NOW\(\)/.test(einzelWeg[0][0]),
+      "DO NOTHING statt DO UPDATE — die bestehenden Zeilen blieben ohne "
+      + "Bestaetigung und melden weiter taeglich");
+  });
+
+  it("das Gesamtangebot fuehrt seinen Inhalt in EIGENER Anweisung nach, nicht im Konfliktfall", () => {
     /*
-     * OHNE KOMMENTARE. Der erste Anlauf pruefte den rohen Text und traf den
-     * ERKLAERENDEN KOMMENTAR ueber der Aenderung, in dem "DO NOTHING" als das
-     * beschrieben steht, was dort NICHT mehr stehen soll. Eine Probe, die ihre
-     * eigene Begruendung liest, misst sich selbst.
+     * HIER IST `DO NOTHING` RICHTIG, und das ist kein Widerspruch zur Probe
+     * darueber. Ein Buendel traegt eine Momentaufnahme (Zahl im Titel, Liste,
+     * Leitfaehigkeit) und muss nachgefuehrt werden, nicht nur bestaetigt.
+     *
+     * Ein `DO UPDATE` waere dafuer der falsche Ort — und zwar nachweislich: der
+     * `DO UPDATE`-Zweig des Einzelangebots FEUERT NIE, weil das `NOT EXISTS`
+     * davor genau die Schluessel herausfiltert, auf die der Index anspringen
+     * wuerde (Audit-Befund F7, 2026-09-24). Derselbe Bau haette hier ein Buendel
+     * ergeben, dessen Titel bei der Anlage einfriert. Deshalb `DO NOTHING` beim
+     * Anlegen und eine ausdrueckliche UPDATE-Anweisung fuer den Inhalt.
      */
-    assert.ok(!/DO NOTHING/.test(ohneKommentare(quelle("services/marktpraesenzService.js"))),
-      "irgendwo steht noch DO NOTHING — dann heilt dieser Weg nichts");
+    assert.ok(/DO NOTHING/.test(buendelWeg[0][0]),
+      "das Gesamtangebot traegt ein DO UPDATE — das feuert hinter dem NOT EXISTS nie");
+    const ohne = ohneKommentare(quelle("services/marktpraesenzService.js"));
+    assert.ok(/SET title = /.test(ohne),
+      "es gibt keine eigene Anweisung, die den Inhalt des Gesamtangebots nachfuehrt");
+    assert.ok(/IS DISTINCT FROM b\.namen/.test(ohne),
+      "das Nachfuehren schreibt ohne Abweichung — updated_at und damit die Feed-Sortierung springen dauernd");
   });
 
   it("aber NUR die eigenen Zeilen — ein Angebot von Hand bleibt bestaetigungspflichtig", () => {
@@ -375,9 +394,26 @@ describe("M0/F27 · die Materialisierung setzt last_confirmed_at", () => {
      * von Hand angelegtes Angebot mitbestaetigen — und genau dort ist die
      * Bestaetigung durch einen Menschen gewollt.
      */
-    einfuegen.forEach((m, i) => {
-      assert.ok(/WHERE capacity_posts\.quelle = 'live_belegschaft'/.test(m[0]),
-        `Einfuegeweg ${i + 1}: das Erneuern trifft auch manuelle Angebote`);
-    });
+    assert.ok(/WHERE capacity_posts\.quelle = 'live_belegschaft'/.test(einzelWeg[0][0]),
+      "das Erneuern des Einzelangebots trifft auch manuelle Angebote");
+    /*
+     * Das Gesamtangebot erneuert nichts im Konfliktfall (es traegt `DO NOTHING`,
+     * siehe die Probe darueber), also gibt es dort kein Erneuern, das zu weit
+     * greifen koennte. Die gleiche Zusage gilt aber fuer seine EIGENEN
+     * Anweisungen — Nachfuehren und Ruecknahme fassen nur eigene Zeilen an. Ohne
+     * diese Bedingung wuerde der Takt ein von Hand angelegtes Buendel
+     * ueberschreiben oder zurueckziehen; gemessen am 2026-09-24 gab es genau zwei
+     * handgemachte Buendel auf der Plattform, und beide gehoeren ihrer Agentur.
+     */
+    const ohne = ohneKommentare(quelle("services/marktpraesenzService.js"));
+    const buendelAnweisungen = [...ohne.matchAll(/UPDATE capacity_posts cp[\s\S]*?`/g)]
+      .map((m) => m[0])
+      .filter((s) => /cp\.offer_kind = 'bundle'/.test(s));
+    assert.equal(buendelAnweisungen.length, 2,
+      `${buendelAnweisungen.length} Buendel-Anweisungen gefunden, erwartet 2 (Nachfuehren, Ruecknahme)`);
+    for (const s of buendelAnweisungen) {
+      assert.ok(/cp\.quelle = 'live_belegschaft'/.test(s),
+        "eine Buendel-Anweisung fasst auch handgemachte Angebote an: " + s.slice(0, 80));
+    }
   });
 });

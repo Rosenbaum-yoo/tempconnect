@@ -5,6 +5,8 @@ import { katalogTorSql } from "./skillCatalogService.js";
 /* M4c.3b — die EINE Antwort auf "ist dieser Mensch gebunden?". Vorher kannte
    dieser Dienst die Frage gar nicht: er legte auch fuer gebuchte Kraefte an. */
 import { gebundenSql } from "./bindungSql.js";
+/* M4c.1 — der EINE Titel eines Gesamtangebots, fuer Hand UND Takt. */
+import { buendelTitelSql } from "./buendelTitel.js";
 
 const logger = createServiceLogger("marktpraesenz");
 
@@ -341,6 +343,136 @@ const materialisierenSql = (zusatz = "") => `
 
 const MATERIALISIEREN_SQL = materialisierenSql();
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * DAS GESAMTANGEBOT ENTSTEHT MIT (M4c.1, Owner: "bei 10 Skills 10 Angebote
+ * plus eines fuer alle Skills")
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Bis hierher erzeugte der Takt nur Einzelangebote. Buendel gab es, wenn ein
+ * Mensch sie von Hand anlegte — gemessen am 2026-09-24: zwei auf der ganzen
+ * Plattform, beide Entwuerfe, also im Markt unsichtbar.
+ *
+ * WARUM DREI ANWEISUNGEN UND NICHT EINE. Ein Buendel traegt eine MOMENTAUFNAHME:
+ * die Zahl im Titel, die Liste der Faehigkeiten, die Leitfaehigkeit. Ein
+ * Einzelangebot traegt genau eine Faehigkeit und veraltet nur, wenn die Kraft sie
+ * verliert — dann greift die Ruecknahme. Ein Buendel veraltet bei JEDER
+ * Aenderung:
+ *
+ *   anlegen      wo noch keines offen ist
+ *   nachfuehren  wenn die Faehigkeiten sich geaendert haben
+ *   zuruecknehmen wenn weniger als zwei uebrig sind — ein "Allround-Kraft mit
+ *                1 Faehigkeit" ist kein Buendel, sondern eine Luege
+ *
+ * Ohne das Nachfuehren wirbt der Markt mit "4 Faehigkeiten", waehrend zwei davon
+ * laengst weg sind.
+ *
+ * DAS NACHFUEHREN IST BEWUSST EINE EIGENE ANWEISUNG UND KEIN `ON CONFLICT DO
+ * UPDATE`. Der Audit vom 2026-09-24 hat gezeigt, warum: bei den Einzelangeboten
+ * steht ein `DO UPDATE`, das NIE feuert — das `NOT EXISTS` davor filtert genau
+ * die Schluessel heraus, auf die der Index anspringen wuerde. Der Zweig ist
+ * toter Code, und die Bestaetigung, die er schreiben sollte, bleibt aus (Befund
+ * F7). Derselbe Bau haette hier dasselbe Ergebnis gehabt: ein Buendel, dessen
+ * Titel bei der Anlage einfriert. Deshalb `DO NOTHING` beim Anlegen und ein
+ * ausdrueckliches UPDATE fuer den Inhalt.
+ *
+ * `IS DISTINCT FROM` haelt das Nachfuehren leerlauf-frei: ohne echte Abweichung
+ * schreibt es nichts. Sonst berührte es alle vierundzwanzigmal am Tag jede Zeile
+ * und liesse `updated_at` — die Sortierung des Feeds — dauernd springen.
+ */
+const BUENDEL_SKILLS_SQL = `
+  SELECT COUNT(*)::int AS anzahl,
+         ARRAY_AGG(s.name ORDER BY s.is_primary DESC, s.name) AS namen,
+         (ARRAY_AGG(s.name     ORDER BY s.is_primary DESC, s.name))[1] AS leit_name,
+         (ARRAY_AGG(s.id       ORDER BY s.is_primary DESC, s.name))[1] AS leit_skill_id,
+         (ARRAY_AGG(s.category ORDER BY s.is_primary DESC, s.name))[1] AS leit_kategorie
+    FROM (
+      /* Der Cast auf text ist Pflicht, nicht Kosmetik: platform_skills.name ist
+         varchar, capacity_posts.skill_tags ist text[]. Ohne ihn scheitert schon
+         der Vergleich IS DISTINCT FROM in Postgres mit
+         "operator does not exist: text[] = character varying[]" — und zwar zur
+         LAUFZEIT, nicht beim Lesen des Codes. Und Backticks haben in einem
+         SQL-Kommentar innerhalb eines Template-Literals nichts verloren: sie
+         beenden es. Dritter Fall derselben Falle in dieser Datei. */
+      SELECT ps.id, ps.name::text AS name, ps.category::text AS category, wps.is_primary
+        FROM worker_profile_skills wps
+        JOIN platform_skills ps ON ps.id = wps.skill_id AND ${katalogTorSql("ps")}
+       WHERE wps.worker_profile_id = wp.id
+    ) s`;
+
+/* Die Leitfaehigkeit wird GENAUSO gewaehlt wie auf dem Weg von Hand
+   (`loadWorkerSkills`: ORDER BY is_primary DESC, name). Eine andere Wahl hiesse:
+   dasselbe Buendel traegt je nach Entstehungsweg eine andere Rolle. */
+const BUENDEL_MINDESTZAHL = 2;
+
+const buendelMaterialisierenSql = (zusatz = "") => `
+  INSERT INTO capacity_posts (
+    supplier_company_id, title, role, skill_tags, headcount,
+    availability_from, availability_to, location_city, location_postal, worker_category,
+    status, is_active, org_id, worker_profile_id, primary_skill_id,
+    offer_kind, priority_level, placement_boost_level, is_anonymous, quelle,
+    last_confirmed_at
+  )
+  SELECT
+    (${AGENTUR_NUTZER_SQL}),
+    ${buendelTitelSql("b.anzahl")}, b.leit_name, b.namen, 1,
+    CURRENT_DATE, wp.einsetzbar_bis, wp.city, wp.postal_code, b.leit_kategorie,
+    'active', TRUE, wp.supplier_org_id, wp.id, b.leit_skill_id,
+    'bundle', 'normal', 0, TRUE, 'live_belegschaft',
+    NOW()
+    FROM worker_profiles wp
+    JOIN LATERAL (${BUENDEL_SKILLS_SQL}) b ON TRUE
+   WHERE ${praesenzWhereSql()}${zusatz}
+     AND NOT ${gebundenSql("wp.id")}
+     AND b.anzahl >= ${BUENDEL_MINDESTZAHL}
+     AND NOT EXISTS (
+       SELECT 1 FROM capacity_posts cp
+        WHERE cp.worker_profile_id = wp.id
+          AND cp.offer_kind = 'bundle'
+          AND cp.status IN (${alsListe(BELEGENDE_ZUSTAENDE)})
+     )
+  ON CONFLICT DO NOTHING`;
+
+const buendelAktualisierenSql = (zusatz = "") => `
+  UPDATE capacity_posts cp
+     SET title = ${buendelTitelSql("b.anzahl")},
+         role = b.leit_name,
+         skill_tags = b.namen,
+         worker_category = b.leit_kategorie,
+         primary_skill_id = b.leit_skill_id,
+         last_confirmed_at = NOW(),
+         updated_at = NOW()
+    FROM worker_profiles wp
+    JOIN LATERAL (${BUENDEL_SKILLS_SQL}) b ON TRUE
+   WHERE wp.id = cp.worker_profile_id
+     AND cp.quelle = 'live_belegschaft'
+     AND cp.offer_kind = 'bundle'
+     AND cp.status IN (${alsListe(OFFENE_ZUSTAENDE)})${zusatz}
+     AND b.anzahl >= ${BUENDEL_MINDESTZAHL}
+     AND (
+       cp.skill_tags IS DISTINCT FROM b.namen
+       OR cp.primary_skill_id IS DISTINCT FROM b.leit_skill_id
+       OR cp.role IS DISTINCT FROM b.leit_name
+       OR cp.title IS DISTINCT FROM ${buendelTitelSql("b.anzahl")}
+     )`;
+
+/* Unter zwei Faehigkeiten ist ein Gesamtangebot keines mehr. Nur EIGENE Zeilen:
+   ein von Hand angelegtes Buendel ist die Entscheidung der Agentur. */
+const buendelZuruecknehmenSql = (zusatz = "") => `
+  UPDATE capacity_posts cp
+     SET status = 'archived', is_active = FALSE, updated_at = NOW()
+   WHERE cp.quelle = 'live_belegschaft'
+     AND cp.offer_kind = 'bundle'
+     AND cp.status IN (${alsListe(OFFENE_ZUSTAENDE)})${zusatz}
+     AND (
+       SELECT COUNT(*) FROM worker_profile_skills wps
+         JOIN platform_skills ps ON ps.id = wps.skill_id AND ${katalogTorSql("ps")}
+        WHERE wps.worker_profile_id = cp.worker_profile_id
+     ) < ${BUENDEL_MINDESTZAHL}`;
+
+const BUENDEL_MATERIALISIEREN_SQL = buendelMaterialisierenSql();
+const BUENDEL_AKTUALISIEREN_SQL = buendelAktualisierenSql();
+const BUENDEL_ZURUECKNEHMEN_SQL = buendelZuruecknehmenSql();
+
 /* Eine WIRKSAME Abwesenheit, die HEUTE gilt (Owner 2026-08-26: das Unternehmen
  * muss erkennen, "ob er wirklich verfuegbar ist"). Dieselben Bedingungen wie
  * die Kundentafel (H1): nur 'wirksam' — eine erst BEANTRAGTE Selbstmeldung ist
@@ -565,6 +697,18 @@ export async function sweepMarktpraesenz(pool) {
   const aufgehalten = await pool.query(WIEDERHERSTELLUNG_AUFGEHALTEN_SQL);
   const horizont = await pool.query(`${HORIZONT_SQL} RETURNING cp.id`);
   const neu = await pool.query(`${MATERIALISIEREN_SQL} RETURNING id`);
+  /* M4c.1 — das Gesamtangebot, in dieser Reihenfolge:
+   *
+   *   zuruecknehmen  ZUERST: wer unter zwei Faehigkeiten gefallen ist, gibt den
+   *                  Platz frei — sonst haelt sein veraltetes Buendel den Riegel
+   *                  der Anlage besetzt und nichts Neues entsteht.
+   *   anlegen        dann, wo keines offen ist.
+   *   nachfuehren    zuletzt: das gerade Angelegte traegt seinen Inhalt schon,
+   *                  also findet das Nachfuehren dort nichts zu tun. Umgekehrt
+   *                  liefe es ins Leere. */
+  const buendelZurueck = await pool.query(`${BUENDEL_ZURUECKNEHMEN_SQL} RETURNING cp.id`);
+  const buendelNeu = await pool.query(`${BUENDEL_MATERIALISIEREN_SQL} RETURNING id`);
+  const buendelAktuell = await pool.query(`${BUENDEL_AKTUALISIEREN_SQL} RETURNING cp.id`);
   /* Die Luecke wird MITGEMESSEN, nicht verschluckt (Plan J §0.12, "No silent
    * caps"): eine aktive, praesente Kraft ohne Katalog-Skill oder ohne Ort
    * kann nicht materialisiert werden — sie ist am Markt unsichtbar, und
@@ -583,6 +727,9 @@ export async function sweepMarktpraesenz(pool) {
     wiederherstellung_aufgehalten: aufgehalten.rows[0]?.aufgehalten || 0,
     horizont_gespiegelt: horizont.rowCount || 0,
     materialisiert: neu.rowCount || 0,
+    buendel_zurueckgenommen: buendelZurueck.rowCount || 0,
+    buendel_materialisiert: buendelNeu.rowCount || 0,
+    buendel_nachgefuehrt: buendelAktuell.rowCount || 0,
     unsichtbar_ohne_skill: luecke.rows[0]?.ohne_skill || 0,
     unsichtbar_ohne_ort: luecke.rows[0]?.ohne_ort || 0
   };
@@ -672,13 +819,29 @@ export async function setzeMarktpraesenz(pool, supplierOrgId, workerProfileId, d
   const aufgehalten = await pool.query(aufgehaltenSql(NUR_DIESE_KRAFT_AN_CP), kennung);
   const neu = await pool.query(
     `${materialisierenSql(NUR_DIESE_KRAFT_AN_WP)} RETURNING id`, kennung);
+  /* M4c.1 — DAS GESAMTANGEBOT GEHOERT HIERHER EBENFALLS.
+   *
+   * Der Schalter gibt das Versprechen "wer abschaltet, wartet nicht auf den
+   * Cron". Liesse er die Buendel aus, hielte das Versprechen nur zur Haelfte:
+   * beim Einschalten entstuenden die Einzelangebote sofort und das
+   * Gesamtangebot erst in bis zu 15 Minuten. Genau so entsteht die Doppelung,
+   * die diese Datei gerade losgeworden ist — nur in der anderen Richtung. */
+  const buendelZurueck = await pool.query(
+    `${buendelZuruecknehmenSql(NUR_DIESE_KRAFT_AN_CP)} RETURNING cp.id`, kennung);
+  const buendelNeu = await pool.query(
+    `${buendelMaterialisierenSql(NUR_DIESE_KRAFT_AN_WP)} RETURNING id`, kennung);
+  const buendelAktuell = await pool.query(
+    `${buendelAktualisierenSql(NUR_DIESE_KRAFT_AN_CP)} RETURNING cp.id`, kennung);
   return {
     worker_profile_id: rows[0].id,
     marktpraesenz_deaktiviert: rows[0].marktpraesenz_deaktiviert,
     zurueckgenommen: zurueck.rowCount || 0,
     wiederhergestellt: wieder.rowCount || 0,
     wiederherstellung_aufgehalten: aufgehalten.rows[0]?.aufgehalten || 0,
-    materialisiert: neu.rowCount || 0
+    materialisiert: neu.rowCount || 0,
+    buendel_zurueckgenommen: buendelZurueck.rowCount || 0,
+    buendel_materialisiert: buendelNeu.rowCount || 0,
+    buendel_nachgefuehrt: buendelAktuell.rowCount || 0
   };
 }
 
