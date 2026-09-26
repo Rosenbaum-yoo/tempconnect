@@ -719,7 +719,7 @@ Grund entfernt → rot; das Maß `entwuerfe_ueberfaellig` auf 0 festgenagelt →
 | Probe | Stand | |
 |---|---|---|
 | `g4bKundenMeldung` | **8/8 grün** | **geheilt durch Migration 221** — es war der abgewiesene Benachrichtigungstyp |
-| `kollegenZugriff` | 6/7, einer rot | *„D-M5: die Kollegin der Kundenfirma darf ein Angebot annehmen"* — sie bekommt `AGENCY_ORG_REQUIRED`. **Zuerst messen, ob Produkt oder Prüfaufbau:** wenn die Route wirklich eine Agentur-Org verlangt, ist es ein Rechtefehler an einer Stelle, die jeder zweite Kunde trifft |
+| `kollegenZugriff` | 6/7, einer rot | **Gemessen 2026-09-27, und es ist ein Prüfaufbau-Fehler, kein Produktfehler.** Der Fall scheitert nicht an einer Berechtigung — die Kollegin *darf* —, sondern an `OVERFILL_NOT_ALLOWED`. Ursache: die Prüfdaten legen einen Bedarf mit `headcount = 2` an, **ohne `required_total_count`**; damit rechnet `remaining_open_count` auf 0, und ein Angebot über 2 gilt als Überfüllung. **In der Wirklichkeit tritt das nicht auf: 0 von 41 echten Bedarfen fehlt das Feld.** Die Prüfdaten müssen es setzen wie die Anwendung; die Zusicherung bleibt unangetastet — dieselbe Form wie bei `freieKopfzahl` |
 | `offer.counterpartyFirst` | 1/1 rot | ungemessen |
 | `workerOpenDealAssignments` | 1/1 rot | ungemessen |
 
@@ -734,7 +734,7 @@ Dinge verwechselt: **N5** ist die *Bestätigung mit Wirkung*, der **Korb** ist *
 > Die Abnahme von M4c.2 wird auf **M5.5** umgeschrieben, sobald der Korb steht.
 
 **Reihenfolge für die bauende Sitzung, sobald ihr Kontingent zurück ist:**
-1. `kollegenZugriff` D-M5 messen und entscheiden (möglicher Rechtefehler im Kundenalltag)
+1. ~~`kollegenZugriff` messen~~ ✅ **gemessen 2026-09-27: Prüfaufbau.** Bleibt als kleine Korrektur der Prüfdaten (`required_total_count` setzen), nicht als Produktarbeit
 2. `offer.counterpartyFirst` und `workerOpenDealAssignments` messen
 3. M4c.5 · M4c.6 · M4c.7 (frei, M4c.5 zur Hälfte erledigt)
 4. M5.5 + N5, danach M4c.2
