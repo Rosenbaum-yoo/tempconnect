@@ -45,7 +45,7 @@ for all future migrations.
 
 ## Rule: Next migration number
 
-**Next migration MUST start at: 221**
+**Next migration MUST start at: 222**
 
 Format: `<NNN>_<short_description>.sql` (three-digit zero-padded)
 
@@ -121,8 +121,8 @@ alphabetical order within the number (e.g. `064_capacity_…` before `064_strate
 
 ## Checklist for new migrations
 
-1. Use the next sequential number (currently **221**)
-2. File name: `221_<short_snake_case>.sql`
+1. Use the next sequential number (currently **222**)
+2. File name: `222_<short_snake_case>.sql`
 3. Wrap DDL in a transaction if the DB supports transactional DDL
 4. Include a `-- Migration NNN:` comment header with a brief description
 5. Use `SET client_min_messages TO WARNING;` to suppress noise
