@@ -48,8 +48,20 @@ const createPool = () => new Pool(
       }
 );
 
-describe("M4c.3b — ein Mensch, eine Bindung, am realen Schema",
-  { skip: !hasDb && "Keine Datenbank konfiguriert" }, () => {
+/*
+ * DER UEBERSPRUNG IST SICHTBAR, und das ist eine Korrektur:
+ *
+ * Hier stand `describe(..., { skip: !hasDb })`. Eine uebersprungene GRUPPE
+ * meldet `tests 0, skipped 0` — die Datei erscheint im Tor weder als Zahl noch
+ * als Luecke. Gemessen am 2026-09-26 in der Gegenpruefung: genau deshalb blieben
+ * Rueckmutationen gruen, die das Verhalten grob verletzen. Ein stiller Uebersprung
+ * ist kein gruenes Ergebnis.
+ *
+ * Jede Probe ueberspringt sich jetzt SELBST. Der Lauf zaehlt sie dann als
+ * `skipped`, und die Luecke steht im Ergebnis. Die Zusicherungen selbst sind
+ * unveraendert; was sich aendert, ist die Sichtbarkeit ihres Fehlens.
+ */
+describe("M4c.3b — ein Mensch, eine Bindung, am realen Schema", () => {
 
   let pool;
   let client;
@@ -57,6 +69,7 @@ describe("M4c.3b — ein Mensch, eine Bindung, am realen Schema",
   let kraft = null;
 
   before(async () => {
+    if (!hasDb) return;
     pool = createPool();
     client = await pool.connect();
     await client.query("BEGIN");
@@ -161,11 +174,13 @@ describe("M4c.3b — ein Mensch, eine Bindung, am realen Schema",
     [kraft.id, skillId, [...BELEGENDE_ZUSTAENDE]])).rows[0].n;
 
   it("es gibt eine Kraft, an der sich die Bindung zeigen laesst", (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) t.skip("keine praesente Kraft mit >= 2 freigegebenen Katalog-Faehigkeiten");
     assert.ok(kraft);
   });
 
   it("eine BUCHUNG bindet den Menschen — seine uebrigen Angebote verschwinden", async (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) return t.skip("kein Gegenstand");
     const gebucht = await angebotAnlegen(kraft.skills[0]);
     const anderes = await angebotAnlegen(kraft.skills[1]);
@@ -184,6 +199,7 @@ describe("M4c.3b — ein Mensch, eine Bindung, am realen Schema",
   });
 
   it("der Takt legt fuer einen gebuchten Platz KEINEN Zwilling an", async (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) return t.skip("kein Gegenstand");
     const gebucht = await angebotAnlegen(kraft.skills[0]);
     await buchen(gebucht);
@@ -203,6 +219,7 @@ describe("M4c.3b — ein Mensch, eine Bindung, am realen Schema",
   });
 
   it("ein GEBUNDENER Mensch bekommt auch fuer eine noch leere Faehigkeit nichts Neues", async (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) return t.skip("kein Gegenstand");
     /*
      * Diese Probe trennt zwei Riegel, die sich sonst gegenseitig decken. Die
@@ -231,6 +248,7 @@ describe("M4c.3b — ein Mensch, eine Bindung, am realen Schema",
   });
 
   it("eine BESETZTE Zeile schuetzt ihren Platz, auch wenn der Mensch frei ist", async (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) return t.skip("kein Gegenstand");
     /*
      * Die Gegenrichtung zur Probe darueber, und der zweite der beiden Riegel.
@@ -271,6 +289,7 @@ describe("M4c.3b — ein Mensch, eine Bindung, am realen Schema",
   });
 
   it("die Wiederherstellung laeuft nicht in einen besetzten Platz — und bricht nichts ab", async (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) return t.skip("kein Gegenstand");
     /* Der Ablauf aus dem Audit: das Auto-Angebot ist archiviert (Abwesenheit),
        die Agentur legt in der Zwischenzeit von Hand eine offene Zeile fuer
@@ -289,6 +308,7 @@ describe("M4c.3b — ein Mensch, eine Bindung, am realen Schema",
   });
 
   it("zwei archivierte Zeilen desselben Platzes kehren NICHT gemeinsam zurueck", async (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) return t.skip("kein Gegenstand");
     /* Genau der Bestand, der am 2026-09-24 gemessen wurde: Paare archivierter
        Auto-Zeilen je Faehigkeit. Ohne den Riegel setzte EINE Anweisung beide
@@ -305,6 +325,7 @@ describe("M4c.3b — ein Mensch, eine Bindung, am realen Schema",
   });
 
   it("der Takt laeuft beide Schritte — und ein gescheiterter haelt den anderen nicht auf", async (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) return t.skip("kein Gegenstand");
     const ergebnis = await runMarktTakt(client);
     assert.deepEqual(ergebnis.fehler, [], `der Takt meldet Fehler: ${JSON.stringify(ergebnis.fehler)}`);
@@ -313,6 +334,7 @@ describe("M4c.3b — ein Mensch, eine Bindung, am realen Schema",
   });
 
   it("zweimal laufen aendert nichts — der Takt ist folgenlos wiederholbar", async (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) return t.skip("kein Gegenstand");
     await runMarktTakt(client);
     const zweiter = await runMarktTakt(client);

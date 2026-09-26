@@ -469,6 +469,7 @@ const buendelZuruecknehmenSql = (zusatz = "") => `
         WHERE wps.worker_profile_id = cp.worker_profile_id
      ) < ${BUENDEL_MINDESTZAHL}`;
 
+
 const BUENDEL_MATERIALISIEREN_SQL = buendelMaterialisierenSql();
 const BUENDEL_AKTUALISIEREN_SQL = buendelAktualisierenSql();
 const BUENDEL_ZURUECKNEHMEN_SQL = buendelZuruecknehmenSql();
@@ -1007,3 +1008,24 @@ export async function katalogfremdeRollen(pool) {
       + "danach verschwindet sie von selbst aus dieser Liste."
   };
 }
+
+/*
+ * FUER DIE PROBEN, und das ist kein Zugestaendnis, sondern eine Notwendigkeit:
+ * die Ablauf-Nachweise dieser Datei brauchen eine Datenbank und laufen deshalb
+ * im Tor NICHT — sie melden dort `tests 0`, nicht einmal einen Uebersprung. Eine
+ * Zusicherung, die nur mit Container rot werden kann, ist im Tor keine.
+ * Gegengeprueft am 2026-09-26: zwei Rueckmutationen (Mindestzahl 2 -> 1, die
+ * Ruecknahme stillgelegt) blieben ohne Datenbank gruen. Die Form der Anweisungen
+ * ist deshalb von aussen lesbar.
+ */
+export const _FUER_PROBEN = Object.freeze({
+  BUENDEL_MINDESTZAHL,
+  buendelMaterialisierenSql,
+  buendelAktualisierenSql,
+  buendelZuruecknehmenSql,
+  materialisierenSql,
+  zuruecknehmenSql,
+  wiederherstellenSql,
+  NUR_DIESE_KRAFT_AN_CP,
+  NUR_DIESE_KRAFT_AN_WP
+});

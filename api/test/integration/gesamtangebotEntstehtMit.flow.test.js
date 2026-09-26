@@ -44,14 +44,27 @@ const createPool = () => new Pool(
       }
 );
 
-describe("M4c.1 — das Gesamtangebot entsteht mit, am realen Schema",
-  { skip: !hasDb && "Keine Datenbank konfiguriert" }, () => {
+/*
+ * DER UEBERSPRUNG IST SICHTBAR, und das ist eine Korrektur:
+ *
+ * Hier stand `describe(..., { skip: !hasDb })`. Eine uebersprungene GRUPPE
+ * meldet `tests 0, skipped 0` — die Datei erscheint im Tor weder als Zahl noch
+ * als Luecke. Gemessen am 2026-09-26 in der Gegenpruefung: genau deshalb blieben
+ * Rueckmutationen gruen, die das Verhalten grob verletzen. Ein stiller Uebersprung
+ * ist kein gruenes Ergebnis.
+ *
+ * Jede Probe ueberspringt sich jetzt SELBST. Der Lauf zaehlt sie dann als
+ * `skipped`, und die Luecke steht im Ergebnis. Die Zusicherungen selbst sind
+ * unveraendert; was sich aendert, ist die Sichtbarkeit ihres Fehlens.
+ */
+describe("M4c.1 — das Gesamtangebot entsteht mit, am realen Schema", () => {
 
   let pool;
   let client;
   let kraft = null;
 
   before(async () => {
+    if (!hasDb) return;
     pool = createPool();
     client = await pool.connect();
     await client.query("BEGIN");
@@ -120,11 +133,13 @@ describe("M4c.1 — das Gesamtangebot entsteht mit, am realen Schema",
     [kraft.id, skillId]);
 
   it("es gibt eine Kraft mit mindestens zwei freigegebenen Faehigkeiten", (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) t.skip("keine praesente Kraft mit >= 2 freigegebenen Katalog-Faehigkeiten");
     assert.ok(kraft);
   });
 
   it("N Faehigkeiten ergeben N Einzelangebote UND genau EIN Gesamtangebot", async (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) return t.skip("kein Gegenstand");
     const n = kraft.skills.length;
 
@@ -162,6 +177,7 @@ describe("M4c.1 — das Gesamtangebot entsteht mit, am realen Schema",
   });
 
   it("ein GEBUCHTES Gesamtangebot haelt den Platz — auch wenn der Index es nicht sieht", async (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) return t.skip("kein Gegenstand");
     /*
      * Der Eindeutigkeits-Index (Mig 220) deckt nur draft/active/paused. Ein
@@ -195,6 +211,7 @@ describe("M4c.1 — das Gesamtangebot entsteht mit, am realen Schema",
   });
 
   it("Titel und Liste des Gesamtangebots sind dieselben wie auf dem Weg von Hand", async (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) return t.skip("kein Gegenstand");
     await sweepMarktpraesenz(client);
     const [b] = await buendel();
@@ -226,6 +243,7 @@ describe("M4c.1 — das Gesamtangebot entsteht mit, am realen Schema",
   });
 
   it("faellt eine Faehigkeit weg, zieht das Gesamtangebot nach", async (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft || kraft.skills.length < 3) return t.skip("weniger als drei Faehigkeiten");
     await sweepMarktpraesenz(client);
     const [vorher] = await buendel();
@@ -243,6 +261,7 @@ describe("M4c.1 — das Gesamtangebot entsteht mit, am realen Schema",
   });
 
   it("unter zwei Faehigkeiten verschwindet das Gesamtangebot", async (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) return t.skip("kein Gegenstand");
     await sweepMarktpraesenz(client);
     assert.equal((await buendel()).length, 1, "kein Gesamtangebot zum Zurueckziehen");
@@ -257,6 +276,7 @@ describe("M4c.1 — das Gesamtangebot entsteht mit, am realen Schema",
   });
 
   it("ein Gesamtangebot VON HAND haelt den Platz — der Takt legt kein zweites an", async (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) return t.skip("kein Gegenstand");
     await client.query(`
       INSERT INTO capacity_posts (
@@ -276,6 +296,7 @@ describe("M4c.1 — das Gesamtangebot entsteht mit, am realen Schema",
   });
 
   it("ein GEBUNDENER Mensch bekommt kein Gesamtangebot", async (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) return t.skip("kein Gegenstand");
     /* Gebucht heisst gebunden (M4c.3b). Ohne diesen Riegel erschiene ein bereits
        verkaufter Mensch 15 Minuten spaeter mit einem Gesamtangebot neu im Markt —
@@ -305,6 +326,7 @@ describe("M4c.1 — das Gesamtangebot entsteht mit, am realen Schema",
   });
 
   it("zweimal laufen legt kein zweites an und schreibt nichts neu", async (t) => {
+    if (!hasDb) return t.skip("Keine Datenbank konfiguriert");
     if (!kraft) return t.skip("kein Gegenstand");
     await sweepMarktpraesenz(client);
     const [erst] = await buendel();
