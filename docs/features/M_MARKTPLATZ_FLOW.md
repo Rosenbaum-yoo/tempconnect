@@ -681,6 +681,25 @@ wäre Betrug."* Volumen entsteht durch **Darstellungen**, nie durch mehrfache Ve
 | M4c.3b-4 | **`reserved` zählt als belegter Platz**, der Takt legt für einen gebundenen Menschen nichts an | Kein Zwilling nach der Buchung; eine Stornierung läuft ohne Kollision zurück |
 | M4c.3b-5 | **Die Abnahme prüft den Begriff des Owners**, nicht den der Umsetzung: eine **Buchung** (nicht eine Verknüpfung) lässt Einzel-, Bündel- und Sammelangebot desselben Menschen verschwinden | Genau dieser Weg als Probe. **Ohne sie wäre M4c.3 wieder grün und trotzdem unwahr** |
 
+### Stand am 2026-09-27 — beide Sitzungen am Nutzungslimit
+
+**M4c.8 ist bestätigt.** Die bauende Sitzung hatte es als *unbestätigt* übergeben, weil die
+Rückmutationen fehlten. Nachgeholt von der planenden Sitzung, beide rot:
+Frist `7 → 999` Tage (nichts wird je überfällig) → 2 Proben rot; `nurDiagnose` entfernt
+(der Riegel würde Menschen ganz aus dem Markt nehmen) → 2 Proben rot.
+
+**M4c.2 ist blockiert und braucht eine Entscheidung, keine Umgehung.** Seine Abnahme verweist
+auf den **N5-Korb**, und N5 ist nicht gebaut. Den Sammler ohne seinen Verbraucher zu bauen wäre
+ein Endpunkt ohne Aufrufer. Zwei Wege: **N5 zuerst bauen**, oder **M4c.2 auf das umformulieren,
+was ohne Korb belegbar ist** (die Bündelung entsteht, die Buchung bleibt offen). Die planende
+Sitzung empfiehlt **N5 zuerst** — der Korb ist Teil der Owner-Kette „30 Kräfte in einem
+Abschluss" und trägt M4c.2 als Verbraucher gleich mit.
+
+**Frei und ungeblockt:** M4c.5 (zur Hälfte durch M4c.8/9 erledigt), M4c.6, M4c.7.
+
+**Live gemessen nach dem Bau:** 8 überfällige Entwürfe, 2 betroffene Menschen — bei genau
+2 markt-fähigen Menschen. Der Entwurfs-Riegel ist kein theoretischer Fall.
+
 **Reihenfolge: M4c.0 → M4c.3 → M4c.1 → M4c.4 → M4c.2 → M4c.5 → M4c.6 → M4c.7.**
 
 > **M4c.3 steht vor der Erzeugung, nicht danach.** Wer zuerst Bündel erzeugt und die
