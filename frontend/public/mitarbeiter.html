@@ -204,6 +204,7 @@
     <div class="tabs">
       <button class="tab-btn active" data-tab="list" onclick="showTab('list')"><span data-i18n="mit.tab.list">Mitarbeiter</span> <span class="badge" id="workerCount">0</span></button>
       <button class="tab-btn" data-tab="live" onclick="showTab('live')" data-i18n="mit.tab.live">Live-Belegschaft</button>
+      <button class="tab-btn" data-tab="unsichtbar" onclick="showTab('unsichtbar')"><span data-i18n="mit.tab.unsichtbar">Nicht im Markt</span> <span class="badge" id="unsichtbarCount">0</span></button>
       <button class="tab-btn" data-tab="skills" onclick="showTab('skills')" data-i18n="mit.tab.skills">Profil &amp; Talent Hub</button>
       <button class="tab-btn" data-tab="create" onclick="showTab('create')" data-i18n="mit.tab.create">Manuell anlegen</button>
       <button class="tab-btn" data-tab="invite" onclick="showTab('invite')" data-i18n="mit.tab.invite">Einladen</button>
@@ -226,6 +227,27 @@
       <div id="workerList">
         <div class="empty-state" data-i18n="mit.list.loading">Mitarbeiter werden geladen...</div>
       </div>
+    </div>
+
+    <!-- Panel: Nicht im Markt (M4c.5) -->
+    <!--
+      Der Bericht "Deine Kraefte, die niemand findet" gab es seit N7.3 als
+      Endpunkt — mit sieben Bedingungen, je Grund einem lesbaren Satz und einem
+      naechsten Schritt. Gemessen am 2026-09-26: KEIN Aufrufer im Frontend. Die
+      Antwort auf "warum ist niemand im Markt" lag fertig da und wurde nie
+      gestellt. Genau hier wird sie gestellt.
+    -->
+    <div id="panel-unsichtbar" class="panel">
+      <div class="ds-alert ds-alert--info" style="margin-bottom:12px">
+        <div>
+          <strong data-i18n="mit.unsichtbar.title">Warum diese Kraefte im Marktplatz nicht erscheinen</strong>
+          <div style="font-size:13px;margin-top:4px" data-i18n="mit.unsichtbar.lead">
+            Je Mensch steht hier, welche Bedingung fehlt — und was sie behebt.
+            Wer alle erfuellt, steht im Markt und erscheint hier nicht.
+          </div>
+        </div>
+      </div>
+      <div id="unsichtbarList"><div class="empty-state" data-i18n="mit.unsichtbar.loading">Wird geladen...</div></div>
     </div>
 
     <!-- Panel: Live-Belegschaft (Disposition) -->

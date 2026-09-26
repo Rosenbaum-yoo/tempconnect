@@ -23,6 +23,18 @@ TCi18n.register('de', {
   'mit.page.createCta': '+ Anlegen',
   'mit.tab.list': 'Mitarbeiter',
   'mit.tab.live': 'Live-Belegschaft',
+  'mit.tab.unsichtbar': 'Nicht im Markt',
+  'mit.unsichtbar.title': 'Warum diese Kraefte im Marktplatz nicht erscheinen',
+  'mit.unsichtbar.lead': 'Je Mensch steht hier, welche Bedingung fehlt — und was sie behebt. Wer alle erfuellt, steht im Markt und erscheint hier nicht.',
+  'mit.unsichtbar.loading': 'Wird geladen...',
+  'mit.unsichtbar.error': 'Der Bericht konnte nicht geladen werden.',
+  'mit.unsichtbar.empty': 'Alle Kraefte erfuellen die Bedingungen und stehen im Marktplatz.',
+  'mit.unsichtbar.ohneName': 'Ohne Namen',
+  'mit.unsichtbar.oeffnen': 'Profil oeffnen',
+  'mit.unsichtbar.wer.mensch': 'Die Kraft selbst',
+  'mit.unsichtbar.wer.firma': 'Ihre Firma',
+  'mit.unsichtbar.wer.organisation': 'Ihre Organisation',
+  'mit.unsichtbar.wer.zeitlich': 'Loest sich von selbst',
   'mit.tab.skills': 'Profil & Talent Hub',
   'mit.tab.create': 'Manuell anlegen',
   'mit.tab.invite': 'Einladen',
@@ -687,6 +699,18 @@ TCi18n.register('en', {
   'mit.page.createCta': '+ Add',
   'mit.tab.list': 'Workers',
   'mit.tab.live': 'Live workforce',
+  'mit.tab.unsichtbar': 'Not on the market',
+  'mit.unsichtbar.title': 'Why these workers do not appear on the marketplace',
+  'mit.unsichtbar.lead': 'For each person: which condition is missing, and what fixes it. Anyone meeting all of them is on the market and not listed here.',
+  'mit.unsichtbar.loading': 'Loading...',
+  'mit.unsichtbar.error': 'The report could not be loaded.',
+  'mit.unsichtbar.empty': 'All workers meet the conditions and appear on the marketplace.',
+  'mit.unsichtbar.ohneName': 'Unnamed',
+  'mit.unsichtbar.oeffnen': 'Open profile',
+  'mit.unsichtbar.wer.mensch': 'The worker',
+  'mit.unsichtbar.wer.firma': 'Your company',
+  'mit.unsichtbar.wer.organisation': 'Your organisation',
+  'mit.unsichtbar.wer.zeitlich': 'Resolves by itself',
   'mit.tab.skills': 'Profile & talent hub',
   'mit.tab.create': 'Add manually',
   'mit.tab.invite': 'Invite',
@@ -1529,6 +1553,7 @@ function showTab(name) {
   // eingeloest — vorher gibt es die Option noch nicht, die gesetzt werden soll.
   if (name === "skills") populateSkillsWorkerSelect().then(applyPendingHubWorker);
   if (name === "live") startLiveBoard(); else stopLiveBoard();
+  if (name === "unsichtbar") ladeUnsichtbar();
 }
 
 /* ── Live-Belegschaft (Disposition) ─────────────────────
@@ -1929,6 +1954,7 @@ function renderLiveList(workers) {
  * Gesamtliste. Ein Deep-Link, der nur in die Naehe fuehrt, laesst den Nutzer
  * die Suche ein zweites Mal machen; genau das soll er verhindern. */
 var _fokusPerson = null;
+var _zeigeUnsichtbarBeimLaden = false;
 
 /** Liest ?person= aus der Adresse. Einmalig beim Laden — danach ist der Wert
  *  verbraucht, sonst spraenge die Ansicht bei jedem Polling-Lauf zurueck. */
@@ -1937,7 +1963,17 @@ function leseFokusAusAdresse() {
     var such = new URLSearchParams(window.location.search || "");
     var p = such.get("person");
     if (p) _fokusPerson = String(p);
+    /* M4c.5: `?freigabe=offen` ist der Link, den die Benachrichtigung aus M4c.12
+       verschickt ("Faehigkeiten eingetragen — Freigabe fuer den Marktplatz
+       offen"). Er zeigte auf DIESE Seite, und die Seite kannte den Parameter
+       nicht: wer klickte, landete auf der Gesamtliste und suchte selbst. Genau
+       dieselbe Luecke wie bei `?person=` eine Ebene darueber. */
+    if (such.get("freigabe") === "offen") _zeigeUnsichtbarBeimLaden = true;
   } catch (_) { /* alte Browser ohne URLSearchParams: kein Fokus, kein Fehler */ }
+  if (_zeigeUnsichtbarBeimLaden) {
+    _zeigeUnsichtbarBeimLaden = false;
+    showTab("unsichtbar");
+  }
 }
 
 function fokussierePerson() {
@@ -4340,6 +4376,8 @@ document.addEventListener("tc:langchange", function() {
   updatePublicProfileControls();
   populateSkillsWorkerSelect();
   if (_liveTimer) loadLiveBoard();
+  var up = document.getElementById("panel-unsichtbar");
+  if (up && up.classList.contains("active")) ladeUnsichtbar();
   if (_csvData.headers.length) csvBuildMapping();
   if (_csvData.validated.length) csvRenderValidationTable();
 });
@@ -4551,3 +4589,103 @@ window.openErsatzModal = openErsatzModal;
 window.closeErsatzModal = closeErsatzModal;
 window.waehleErsatz = waehleErsatz;
 window.bestaetigeErsatz = bestaetigeErsatz;
+
+/* ── Nicht im Markt: warum jemand nicht erscheint (M4c.5) ──────────────────
+ *
+ * DER BERICHT EXISTIERTE UND WURDE NIE GELESEN.
+ *
+ * `GET /api/workers/marktpraesenz/unsichtbar` liefert seit N7.3 je Mensch, welche
+ * der sieben Praesenz-Bedingungen fehlt — jede mit einem lesbaren Grund und einem
+ * naechsten Schritt. Gemessen am 2026-09-26: kein Aufrufer im Frontend. Die
+ * Antwort auf "warum ist niemand im Markt" lag fertig da, und die Frage wurde
+ * nie gestellt. Gemessen am 2026-09-24 betraf das 30 von 33 Kraeften.
+ *
+ * DIE ZAHL IST DAS SIGNAL, nicht die Liste. Sie steht deshalb am Reiter: wer die
+ * Seite oeffnet, sieht "Nicht im Markt: 30", bevor er irgendwo hinklickt. Eine
+ * Liste, die man erst suchen muss, wird nicht gelesen.
+ *
+ * SORTIERT KOMMT SIE VOM SERVER — was der Mensch oder die Firma beheben kann,
+ * steht oben, vor dem, was sich von selbst loest (Abwesenheit). Die Oberflaeche
+ * sortiert NICHT um: sonst haette dieselbe Wahrheit zwei Reihenfolgen.
+ */
+var _unsichtbarLaeuft = false;
+
+function ladeUnsichtbar() {
+  if (_unsichtbarLaeuft) return;
+  var box = document.getElementById("unsichtbarList");
+  if (!box) return;
+  _unsichtbarLaeuft = true;
+  box.innerHTML = '<div class="empty-state">' + esc(TCi18n.t("mit.unsichtbar.loading")) + "</div>";
+  api("/workers/marktpraesenz/unsichtbar?limit=200")
+    .then(function(r) { zeigeUnsichtbar(r && r.items ? r.items : []); })
+    .catch(function(e) {
+      /* Der Fehlerfall ist ein eigener Zustand, kein leerer: eine leere Liste
+         heisst "alle im Markt" und waere hier eine Luege. */
+      box.innerHTML = '<div class="ds-alert ds-alert--warning">'
+        + esc(TCi18n.t("mit.unsichtbar.error"))
+        + " " + esc(e && e.message ? e.message : "") + "</div>";
+      setzeUnsichtbarZahl(null);
+    })
+    .finally(function() { _unsichtbarLaeuft = false; });
+}
+
+function setzeUnsichtbarZahl(n) {
+  var badge = document.getElementById("unsichtbarCount");
+  if (badge) badge.textContent = (n === null || n === undefined) ? "?" : String(n);
+}
+
+function zeigeUnsichtbar(items) {
+  var box = document.getElementById("unsichtbarList");
+  if (!box) return;
+  setzeUnsichtbarZahl(items.length);
+  if (!items.length) {
+    box.innerHTML = '<div class="empty-state">'
+      + esc(TCi18n.t("mit.unsichtbar.empty"))
+      + "</div>";
+    return;
+  }
+  var WER = {
+    mensch: TCi18n.t("mit.unsichtbar.wer.mensch"),
+    firma: TCi18n.t("mit.unsichtbar.wer.firma"),
+    organisation: TCi18n.t("mit.unsichtbar.wer.organisation"),
+    zeitlich: TCi18n.t("mit.unsichtbar.wer.zeitlich")
+  };
+  box.innerHTML = items.map(function(e) {
+    var gruende = (e.gruende || []).map(function(g) {
+      return '<li style="margin-bottom:6px">'
+        + '<span class="badge" style="margin-right:6px">' + esc(WER[g.wer] || g.wer) + "</span>"
+        + "<strong>" + esc(g.grund) + "</strong>"
+        + (g.hinweis ? '<div style="font-size:12px;color:var(--wk-text-muted);margin-top:2px">'
+            + esc(g.hinweis) + "</div>" : "")
+        + "</li>";
+    }).join("");
+    /* Sprung auf DIESEN Menschen, nicht auf die allgemeine Liste: wer einen Grund
+       liest, will ihn dort beheben, wo er entsteht. Ueber `oeffneUnsichtbar`, das
+       den vorhandenen Weg in die Personalakte benutzt — ein eigener
+       `?worker=`-Link waere ein zweites Muster fuer dieselbe Sache. */
+    return '<div class="ds-card" style="margin-bottom:10px;padding:12px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
+      + "<strong>" + esc(e.name || TCi18n.t("mit.unsichtbar.ohneName")) + "</strong>"
+      + '<button class="btn" onclick="oeffneUnsichtbar(\'' + esc(e.worker_profile_id) + '\')">'
+      + esc(TCi18n.t("mit.unsichtbar.oeffnen")) + "</button>"
+      + "</div>"
+      + '<ul style="margin:8px 0 0;padding-left:18px">' + gruende + "</ul>"
+      + "</div>";
+  }).join("");
+}
+
+/**
+ * Aus dem Bericht in die Personalakte (M4c.5).
+ *
+ * `openWorkerDetail` erwartet eine Kennung, die in der Hub-Auswahl steht — das
+ * ist die NUTZER-Kennung, waehrend der Bericht die PROFIL-Kennung liefert. Steht
+ * der Mensch in der geladenen Liste, wird umgeschluesselt; sonst uebernimmt
+ * `applyPendingHubWorker` das Melden ("nicht gefunden") statt wortlos auf dem
+ * Platzhalter zu landen.
+ */
+function oeffneUnsichtbar(profileId) {
+  var w = (_workers || []).filter(function(x) { return x.id === profileId; })[0]
+       || (_liveWorkers || []).filter(function(x) { return x.id === profileId; })[0];
+  _pendingHubWorker = String((w && (w.user_id || w.id)) || profileId);
+  showTab("skills");
+}
