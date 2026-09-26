@@ -2,6 +2,9 @@ import { createServiceLogger } from "../utils/logger.js";
 /* M4b.1 — das gemeinsame Katalog-Tor. Vorher stand hier nur `is_active`,
    und die Automatik nahm damit unkuratierte Vorschlaege mit in den Markt. */
 import { katalogTorSql } from "./skillCatalogService.js";
+/* M4c.3b — die EINE Antwort auf "ist dieser Mensch gebunden?". Vorher kannte
+   dieser Dienst die Frage gar nicht: er legte auch fuer gebuchte Kraefte an. */
+import { gebundenSql } from "./bindungSql.js";
 
 const logger = createServiceLogger("marktpraesenz");
 
@@ -237,7 +240,71 @@ export async function unsichtbareKraefte(pool, supplierOrgId, opts = {}) {
   return offen.sort((a, b) => gewicht(a) - gewicht(b) || b.gruende.length - a.gruende.length);
 }
 
-const MATERIALISIEREN_SQL = `
+/* ═══════════════════════════════════════════════════════════════════════════
+ * WELCHE ZUSTAENDE EINEN PLATZ BELEGEN (M4c.3b, 2026-09-25)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Hier stand die Liste ('draft', 'active', 'paused') dreimal als eigene
+ * Abschrift: im NOT EXISTS der Materialisierung, im ON CONFLICT und im
+ * Eindeutigkeits-Index (Mig 145). Der Audit vom 2026-09-24 hat gezeigt, was die
+ * Auslassung kostet:
+ *
+ *   Ein gebuchtes Angebot steht auf 'reserved'. Das war fuer das NOT EXISTS
+ *   KEIN belegter Platz — der Takt legte fuer dieselbe Kraft und dieselbe
+ *   Faehigkeit einen ZWILLING an. Derselbe Mensch stand damit zweimal im Markt:
+ *   einmal reserviert fuer den Kaeufer, einmal aktiv fuer alle anderen. Und
+ *   wurde die Buchung spaeter storniert, kollidierte die Rueckkehr des
+ *   Originals auf 'active' mit dem Zwilling — 23505 mitten in der
+ *   Storno-Transaktion, die damit vollstaendig zurueckrollte.
+ *
+ * OFFENE_ZUSTAENDE ist der Satz des Index: nur diese Zeilen koennen kollidieren.
+ * BELEGENDE_ZUSTAENDE ist ECHT GROESSER — 'reserved' und 'filled' tragen ein
+ * laufendes Geschaeft. Der Takt darf dort nichts anlegen, aber der Index
+ * verbietet es nicht. Die Trennung ist Absicht und keine Redundanz: ein
+ * belegter Platz ist nicht dasselbe wie ein kollidierender.
+ */
+export const OFFENE_ZUSTAENDE = Object.freeze(["draft", "active", "paused"]);
+export const BELEGENDE_ZUSTAENDE = Object.freeze([...OFFENE_ZUSTAENDE, "reserved", "filled"]);
+
+const alsListe = (zustaende) => zustaende.map((z) => `'${z}'`).join(", ");
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * EINE ANWEISUNG, ZWEI REICHWEITEN (M4c.3b, 2026-09-25)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Die vier Anweisungen des Sweeps existierten ZWEIMAL: einmal plattformweit
+ * (der Cron) und einmal von Hand abgeschrieben fuer eine einzelne Kraft (der
+ * Praesenz-Schalter der Agenturtafel, `setzeMarktpraesenz`). Die Abschrift war
+ * schon auseinandergelaufen: sie schrieb die fuenf Praesenz-Bedingungen selbst
+ * hin, statt sie aus `PRAESENZ_BEDINGUNGEN` zu bauen — genau die Doppelung,
+ * gegen die der Kopf dieser Datei argumentiert ("Eine Diagnose, die ihre
+ * Bedingungen selbst formuliert, laeuft von der Materialisierung weg").
+ *
+ * Die Folge war nicht theoretisch: jeder Riegel, den der Audit im Cron gefunden
+ * hat, fehlte in der Abschrift ebenfalls — und dort trifft der Fehler einen
+ * Menschen sofort, mitten in einem Klick auf der Agenturtafel, mit einer 500
+ * und ohne Audit-Zeile, nachdem der Schalter schon umgelegt war.
+ *
+ * Jetzt baut EIN Bauplan beide Reichweiten. Der Unterschied ist ein
+ * Zusatz-Ausdruck, nichts weiter. Ein neuer Riegel wirkt sofort auf beiden
+ * Seiten; einer, der nur auf einer wirkt, ist nicht mehr moeglich.
+ *
+ * DIE MANDANTENGRENZE STEHT IN JEDER ANWEISUNG, nicht im Vertrauen auf die
+ * Pruefung davor. In der ersten Fassung hing der Ruecknahme-Zweig fuer eine
+ * ABWESENDE Kraft nur an `worker_profile_id` — die Org kam ausschliesslich im
+ * anderen Zweig des ODER vor. Im Ergebnis richtig (der Aufrufer hatte die Kraft
+ * vorher org-gebunden geprueft), als Grenze aber nicht an der Anweisung
+ * ablesbar. Der Spion-Pool-Waechter hat genau diese Bauart schon einmal zu
+ * Recht abgewiesen.
+ */
+const NUR_DIESE_KRAFT_AN_CP = `
+     AND cp.worker_profile_id = $1
+     AND EXISTS (SELECT 1 FROM worker_profiles owp
+                  WHERE owp.id = $1 AND owp.supplier_org_id = $2)`;
+const NUR_DIESE_KRAFT_AN_WP = `
+     AND wp.id = $1 AND wp.supplier_org_id = $2`;
+
+const materialisierenSql = (zusatz = "") => `
   INSERT INTO capacity_posts (
     supplier_company_id, title, role, skill_tags, headcount,
     availability_from, availability_to, location_city, location_postal, worker_category,
@@ -255,21 +322,24 @@ const MATERIALISIEREN_SQL = `
     FROM worker_profiles wp
     JOIN worker_profile_skills wps ON wps.worker_profile_id = wp.id
     JOIN platform_skills ps ON ps.id = wps.skill_id AND ${katalogTorSql('ps')}
-   WHERE ${praesenzWhereSql()}
+   WHERE ${praesenzWhereSql()}${zusatz}
+     AND NOT ${gebundenSql("wp.id")}
      AND NOT EXISTS (
        SELECT 1 FROM capacity_posts cp
         WHERE cp.worker_profile_id = wp.id
           AND cp.primary_skill_id = ps.id
           AND cp.offer_kind = 'single_skill'
-          AND cp.status IN ('draft', 'active', 'paused')
+          AND cp.status IN (${alsListe(BELEGENDE_ZUSTAENDE)})
      )
   ON CONFLICT (worker_profile_id, primary_skill_id)
     WHERE offer_kind = 'single_skill'
       AND worker_profile_id IS NOT NULL
       AND primary_skill_id IS NOT NULL
-      AND status IN ('draft', 'active', 'paused')
+      AND status IN (${alsListe(OFFENE_ZUSTAENDE)})
   DO UPDATE SET last_confirmed_at = NOW()
     WHERE capacity_posts.quelle = 'live_belegschaft'`;
+
+const MATERIALISIEREN_SQL = materialisierenSql();
 
 /* Eine WIRKSAME Abwesenheit, die HEUTE gilt (Owner 2026-08-26: das Unternehmen
  * muss erkennen, "ob er wirklich verfuegbar ist"). Dieselben Bedingungen wie
@@ -293,11 +363,11 @@ function abwesendHeuteSql(profilSpalte) {
  * Kraft ist heute wirksam abwesend. NUR eigene Zeilen (quelle), NUR offene
  * Zustaende — 'reserved' und 'filled' tragen laufende Geschaefte und bleiben
  * unberuehrt. */
-const ZURUECKNEHMEN_SQL = `
+const zuruecknehmenSql = (zusatz = "") => `
   UPDATE capacity_posts cp
      SET status = 'archived', is_active = FALSE, updated_at = NOW()
    WHERE cp.quelle = 'live_belegschaft'
-     AND cp.status IN ('draft', 'active', 'paused')
+     AND cp.status IN (${alsListe(OFFENE_ZUSTAENDE)})${zusatz}
      AND (
        EXISTS (
          SELECT 1 FROM worker_profiles wp
@@ -307,24 +377,106 @@ const ZURUECKNEHMEN_SQL = `
        OR ${abwesendHeuteSql("cp.worker_profile_id")}
      )`;
 
+const ZURUECKNEHMEN_SQL = zuruecknehmenSql();
+
 /* Wiederkehr: der Ausschalter wurde zurueckgenommen. Nur eigene, von der
  * Ruecknahme archivierte Zeilen kommen zurueck — und zwar auf 'active'; ob
  * die Kraft gerade gebunden ist, entscheidet unmittelbar danach der
  * Reservierungs-Sweep. worker_reserved-Zeilen gehoeren dem Sweep und werden
  * hier nicht angefasst. */
-const WIEDERHERSTELLEN_SQL = `
-  UPDATE capacity_posts cp
-     SET status = 'active', is_active = TRUE, updated_at = NOW()
+/* ═══════════════════════════════════════════════════════════════════════════
+ * DER ZWILLINGS-RIEGEL (M4c.3b, Audit-Befund F1, 2026-09-24)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Hier fehlte die Bedingung, die verhindert, dass eine zurueckkehrende Zeile in
+ * einen besetzten Platz laeuft. Der Ablauf war gewoehnlich, nicht exotisch:
+ *
+ *   Die Kraft wird abwesend, die Ruecknahme archiviert ihr Auto-Angebot. Die
+ *   Agentur legt waehrend der Abwesenheit von Hand einen Entwurf fuer dieselbe
+ *   Faehigkeit an — der Angebots-Erzeuger zeigt sie als frei, denn er sieht nur
+ *   offene Zeilen, und der Eindeutigkeits-Index erlaubt den Entwurf, weil das
+ *   Original archiviert ist. Die Abwesenheit endet. Diese Anweisung setzt das
+ *   Original auf 'active' und trifft den Entwurf: 23505.
+ *
+ * UND DANN IST ES KEIN EINZELFALL MEHR. Die Anweisung ist mengenbasiert: EINE
+ * kollidierende Zeile laesst das GANZE UPDATE zurueckrollen — fuer jede Kraft
+ * jeder Organisation. Der Sweep laeuft ohne Transaktion, also ist die Ruecknahme
+ * davor schon festgeschrieben, waehrend Horizont und Materialisierung danach
+ * nie laufen. Der Markt leert sich in eine Richtung, alle 15 Minuten neu, bis
+ * jemand die Zeile von Hand aufloest. Kein Fehler, den ein Kunde sieht — nur
+ * Wirkung weg.
+ *
+ * ZWEI RIEGEL, nicht einer:
+ *
+ *   (1) Kein besetzter Platz: eine offene Zeile fuer dieselbe Kraft und
+ *       dieselbe Faehigkeit haelt die Rueckkehr auf. Von Hand hat Vorrang —
+ *       dieselbe Zusage, die das ON CONFLICT der Materialisierung schon gibt.
+ *   (2) Nicht zwei auf einmal: im Bestand liegen PAARE archivierter Auto-Zeilen
+ *       (gemessen am 2026-09-24: fuer jede der sechs Faehigkeiten einer Kraft
+ *       genau zwei, eine mit worker_reserved, eine ohne). Ohne (2) setzte EINE
+ *       Anweisung beide auf 'active' und scheiterte an sich selbst. Der
+ *       juengste Stand gewinnt.
+ *
+ * Was hier NICHT stillschweigend geschieht: die aufgehaltene Zeile wird
+ * GEZAEHLT (`wiederherstellung_aufgehalten`). Eine Kraft, deren Rueckkehr
+ * dauerhaft an einem Zwilling haengt, waere sonst genau der Fall aus M4c.8 —
+ * nicht im Markt, kein Fehler, niemand sieht es.
+ */
+const ZWILLING_OFFEN_SQL = `
+  EXISTS (
+    SELECT 1 FROM capacity_posts zw
+     WHERE zw.worker_profile_id = cp.worker_profile_id
+       AND zw.offer_kind = cp.offer_kind
+       AND zw.primary_skill_id IS NOT DISTINCT FROM cp.primary_skill_id
+       AND zw.id <> cp.id
+       AND zw.status IN (${alsListe(BELEGENDE_ZUSTAENDE)})
+  )`;
+
+/* Von mehreren archivierten Zeilen desselben Platzes kehrt nur die juengste
+   zurueck. `id` als letztes Merkmal, damit die Wahl auch bei gleicher Zeit
+   eindeutig ist — sonst haengt das Ergebnis an der Lesereihenfolge. */
+const JUENGSTE_JE_PLATZ_SQL = `
+  cp.id = (
+    SELECT j.id FROM capacity_posts j
+     WHERE j.quelle = 'live_belegschaft'
+       AND j.status = 'archived'
+       AND j.worker_reserved = FALSE
+       AND j.worker_profile_id = cp.worker_profile_id
+       AND j.offer_kind = cp.offer_kind
+       AND j.primary_skill_id IS NOT DISTINCT FROM cp.primary_skill_id
+     ORDER BY j.updated_at DESC NULLS LAST, j.created_at DESC NULLS LAST, j.id DESC
+     LIMIT 1
+  )`;
+
+const wiederherstellenBasisSql = (zusatz = "") => `
    WHERE cp.quelle = 'live_belegschaft'
      AND cp.status = 'archived'
-     AND cp.worker_reserved = FALSE
+     AND cp.worker_reserved = FALSE${zusatz}
      AND EXISTS (
        SELECT 1 FROM worker_profiles wp
         WHERE wp.id = cp.worker_profile_id
           AND wp.marktpraesenz_deaktiviert = FALSE
           AND wp.is_active = TRUE
      )
-     AND NOT ${abwesendHeuteSql("cp.worker_profile_id")}`;
+     AND NOT ${abwesendHeuteSql("cp.worker_profile_id")}
+     AND NOT ${gebundenSql("cp.worker_profile_id")}`;
+
+const wiederherstellenSql = (zusatz = "") => `
+  UPDATE capacity_posts cp
+     SET status = 'active', is_active = TRUE, updated_at = NOW()
+  ${wiederherstellenBasisSql(zusatz)}
+     AND NOT ${ZWILLING_OFFEN_SQL}
+     AND ${JUENGSTE_JE_PLATZ_SQL}`;
+
+/* Was die beiden Riegel aufgehalten haben — nicht verschluckt, gezaehlt. */
+const aufgehaltenSql = (zusatz = "") => `
+  SELECT COUNT(*)::int AS aufgehalten
+    FROM capacity_posts cp
+  ${wiederherstellenBasisSql(zusatz)}
+     AND (${ZWILLING_OFFEN_SQL} OR NOT ${JUENGSTE_JE_PLATZ_SQL})`;
+
+const WIEDERHERSTELLEN_SQL = wiederherstellenSql();
+const WIEDERHERSTELLUNG_AUFGEHALTEN_SQL = aufgehaltenSql();
 
 /* Horizont-Spiegel (Welle J9): `einsetzbar_bis` des Profils ist die Wahrheit,
  * `availability_to` der eigenen Auto-Angebote ihr Spiegel. So rechnet ALLES
@@ -339,7 +491,7 @@ const HORIZONT_SQL = `
     FROM worker_profiles wp
    WHERE wp.id = cp.worker_profile_id
      AND cp.quelle = 'live_belegschaft'
-     AND cp.status IN ('draft', 'active', 'paused')
+     AND cp.status IN (${alsListe(OFFENE_ZUSTAENDE)})
      AND cp.availability_to IS DISTINCT FROM wp.einsetzbar_bis`;
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -407,6 +559,10 @@ export const SICHTBARKEIT_HINWEIS =
 export async function sweepMarktpraesenz(pool) {
   const zurueck = await pool.query(`${ZURUECKNEHMEN_SQL} RETURNING cp.id`);
   const wieder = await pool.query(`${WIEDERHERSTELLEN_SQL} RETURNING cp.id`);
+  /* NACH der Wiederherstellung gezaehlt: was jetzt noch aufgehalten ist, ist
+     wirklich aufgehalten — vorher waere die Zahl um die gerade Zurueckgekehrten
+     zu hoch. */
+  const aufgehalten = await pool.query(WIEDERHERSTELLUNG_AUFGEHALTEN_SQL);
   const horizont = await pool.query(`${HORIZONT_SQL} RETURNING cp.id`);
   const neu = await pool.query(`${MATERIALISIEREN_SQL} RETURNING id`);
   /* Die Luecke wird MITGEMESSEN, nicht verschluckt (Plan J §0.12, "No silent
@@ -424,6 +580,7 @@ export async function sweepMarktpraesenz(pool) {
   return {
     zurueckgenommen: zurueck.rowCount || 0,
     wiederhergestellt: wieder.rowCount || 0,
+    wiederherstellung_aufgehalten: aufgehalten.rows[0]?.aufgehalten || 0,
     horizont_gespiegelt: horizont.rowCount || 0,
     materialisiert: neu.rowCount || 0,
     unsichtbar_ohne_skill: luecke.rows[0]?.ohne_skill || 0,
@@ -461,7 +618,7 @@ export async function setzeMarktProfil(pool, supplierOrgId, workerProfileId, { m
         SET availability_to = $3, updated_at = NOW()
       WHERE cp.worker_profile_id = $1
         AND cp.quelle = 'live_belegschaft'
-        AND cp.status IN ('draft', 'active', 'paused')
+        AND cp.status IN (${alsListe(OFFENE_ZUSTAENDE)})
         AND cp.availability_to IS DISTINCT FROM $3
         AND EXISTS (
           SELECT 1 FROM worker_profiles wp
@@ -504,86 +661,23 @@ export async function setzeMarktpraesenz(pool, supplierOrgId, workerProfileId, d
   );
   if (!rows[0]) return null;
 
+  /* DIESELBEN Anweisungen wie der Cron, nur auf eine Kraft eingegrenzt. Vorher
+     standen sie hier als Abschrift — mit selbst hingeschriebenen
+     Praesenz-Bedingungen und ohne jeden Riegel, den der Cron inzwischen hat. */
   const kennung = [workerProfileId, supplierOrgId];
   const zurueck = await pool.query(
-    `UPDATE capacity_posts cp
-        SET status = 'archived', is_active = FALSE, updated_at = NOW()
-      WHERE cp.quelle = 'live_belegschaft'
-        AND cp.worker_profile_id = $1
-        AND cp.status IN ('draft', 'active', 'paused')
-        AND (
-          EXISTS (
-            SELECT 1 FROM worker_profiles wp
-             WHERE wp.id = $1 AND wp.supplier_org_id = $2
-               AND (wp.marktpraesenz_deaktiviert = TRUE OR wp.is_active = FALSE)
-          )
-          OR ${abwesendHeuteSql("cp.worker_profile_id")}
-        )
-      RETURNING cp.id`,
-    kennung
-  );
+    `${zuruecknehmenSql(NUR_DIESE_KRAFT_AN_CP)} RETURNING cp.id`, kennung);
   const wieder = await pool.query(
-    `UPDATE capacity_posts cp
-        SET status = 'active', is_active = TRUE, updated_at = NOW()
-      WHERE cp.quelle = 'live_belegschaft'
-        AND cp.worker_profile_id = $1
-        AND cp.status = 'archived'
-        AND cp.worker_reserved = FALSE
-        AND EXISTS (
-          SELECT 1 FROM worker_profiles wp
-           WHERE wp.id = $1 AND wp.supplier_org_id = $2
-             AND wp.marktpraesenz_deaktiviert = FALSE AND wp.is_active = TRUE
-        )
-        AND NOT ${abwesendHeuteSql("cp.worker_profile_id")}
-      RETURNING cp.id`,
-    kennung
-  );
+    `${wiederherstellenSql(NUR_DIESE_KRAFT_AN_CP)} RETURNING cp.id`, kennung);
+  const aufgehalten = await pool.query(aufgehaltenSql(NUR_DIESE_KRAFT_AN_CP), kennung);
   const neu = await pool.query(
-    `INSERT INTO capacity_posts (
-       supplier_company_id, title, role, skill_tags, headcount,
-       availability_from, availability_to, location_city, location_postal, worker_category,
-       status, is_active, org_id, worker_profile_id, primary_skill_id,
-       offer_kind, priority_level, placement_boost_level, is_anonymous, quelle,
-       last_confirmed_at
-     )
-     SELECT
-       (${AGENTUR_NUTZER_SQL}),
-       ps.name, ps.name, ARRAY[ps.name], 1,
-       CURRENT_DATE, wp.einsetzbar_bis, wp.city, wp.postal_code, ps.category,
-       'active', TRUE, wp.supplier_org_id, wp.id, ps.id,
-       'single_skill', 'normal', 0, TRUE, 'live_belegschaft',
-       NOW()
-       FROM worker_profiles wp
-       JOIN worker_profile_skills wps ON wps.worker_profile_id = wp.id
-       JOIN platform_skills ps ON ps.id = wps.skill_id AND ${katalogTorSql('ps')}
-      WHERE wp.id = $1 AND wp.supplier_org_id = $2
-        AND wp.is_active = TRUE
-        AND wp.marktpraesenz_deaktiviert = FALSE
-        AND wp.city IS NOT NULL AND wp.city <> ''
-        AND NOT ${abwesendHeuteSql("wp.id")}
-        AND (${AGENTUR_NUTZER_SQL}) IS NOT NULL
-        AND NOT EXISTS (
-          SELECT 1 FROM capacity_posts cp
-           WHERE cp.worker_profile_id = wp.id
-             AND cp.primary_skill_id = ps.id
-             AND cp.offer_kind = 'single_skill'
-             AND cp.status IN ('draft', 'active', 'paused')
-        )
-     ON CONFLICT (worker_profile_id, primary_skill_id)
-       WHERE offer_kind = 'single_skill'
-         AND worker_profile_id IS NOT NULL
-         AND primary_skill_id IS NOT NULL
-         AND status IN ('draft', 'active', 'paused')
-     DO UPDATE SET last_confirmed_at = NOW()
-       WHERE capacity_posts.quelle = 'live_belegschaft'
-     RETURNING id`,
-    kennung
-  );
+    `${materialisierenSql(NUR_DIESE_KRAFT_AN_WP)} RETURNING id`, kennung);
   return {
     worker_profile_id: rows[0].id,
     marktpraesenz_deaktiviert: rows[0].marktpraesenz_deaktiviert,
     zurueckgenommen: zurueck.rowCount || 0,
     wiederhergestellt: wieder.rowCount || 0,
+    wiederherstellung_aufgehalten: aufgehalten.rows[0]?.aufgehalten || 0,
     materialisiert: neu.rowCount || 0
   };
 }

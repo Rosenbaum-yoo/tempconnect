@@ -10,8 +10,10 @@ import * as productAnalyticsService from "../services/productAnalyticsService.js
 import * as workerService from "../services/workerService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
-import * as workerOfferReservationService from "../services/workerOfferReservationService.js";
-import * as marktpraesenzService from "../services/marktpraesenzService.js";
+/* M4c.3b: statt der beiden Dienste einzeln — die gemeinsame Reihenfolge. Wer
+   hier wieder direkt auf einen der beiden greift, kann den anderen vergessen;
+   genau so ist die Reservierung aus dem 15-Minuten-Takt gefallen. */
+import * as marktTaktService from "../services/marktTakt.js";
 import * as infrastructureSnapshotService from "../services/infrastructureSnapshotService.js";
 import * as documentCenterService from "../services/documentCenterService.js";
 import * as dealFeedbackService from "../services/dealFeedbackService.js";
@@ -548,17 +550,26 @@ export function createInternalRouter(deps) {
        * danach die Angebote gebundener Kraefte, bevor irgendjemand den Feed
        * liest. Vierter Aufruf im selben Handler statt eines neuen Endpunkts —
        * derselbe Takt, kein neuer Weg im Wachen-Register. */
-      const marktpraesenz = await marktpraesenzService.sweepMarktpraesenz(pool);
+      /* M4c.3b: Befuellung und Reservierung laufen ueber `runMarktTakt` — EINE
+       * Reihenfolge fuer diesen Endpunkt und den 15-Minuten-Takt. Hier standen
+       * die beiden Aufrufe einzeln, und der Takt hatte nur den ersten
+       * uebernommen; die Reservierung lief deshalb nie (Audit-Befund F3). */
+      const takt = await marktTaktService.runMarktTakt(pool);
+      const marktpraesenz = takt.marktpraesenz || {};
       result.marktpraesenz_materialisiert = marktpraesenz.materialisiert;
       result.marktpraesenz_zurueckgenommen = marktpraesenz.zurueckgenommen;
       result.marktpraesenz_wiederhergestellt = marktpraesenz.wiederhergestellt;
+      result.marktpraesenz_wiederherstellung_aufgehalten = marktpraesenz.wiederherstellung_aufgehalten;
       result.marktpraesenz_unsichtbar_ohne_skill = marktpraesenz.unsichtbar_ohne_skill;
       result.marktpraesenz_unsichtbar_ohne_ort = marktpraesenz.unsichtbar_ohne_ort;
       // Hard-Reserve (Welle 4b): worker-spezifische Angebote im-Einsatz-Arbeiter pausieren,
       // frei gewordene reaktivieren. Set-basiert + idempotent, greift nicht in den Deal-Flow ein.
-      const offerReservation = await workerOfferReservationService.sweepReservations(pool);
+      const offerReservation = takt.reservierung || {};
       result.offers_reserved = offerReservation.reserved;
       result.offers_released = offerReservation.released;
+      /* Ein gescheiterter Schritt haelt die anderen nicht mehr auf — er faehrt
+         sichtbar in der Antwort mit, statt den ganzen Lauf zu verschlucken. */
+      if (takt.fehler?.length) result.markt_takt_fehler = takt.fehler;
       /* M4c.3: Sammelangebote getrennt ausgewiesen, nicht in die Zahl oben gefaltet.
        * Die beiden Mechaniken greifen unterschiedlich — personengebunden pausiert bei
        * EINEM gebundenen Menschen, ein Sammelangebot erst, wenn KEIN Mitglied mehr frei

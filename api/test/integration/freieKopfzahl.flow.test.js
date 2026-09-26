@@ -58,7 +58,17 @@ describe("N2.8 — die freie Kopfzahl am realen Schema",
     client = await pool.connect();
     await client.query("BEGIN");
     const start = await browseFeed(client, { viewer_role: "company", limit: 100 });
-    angebot = start.items.find((i) => Number(i.headcount) >= 3) || null;
+    /* Der Gegenstand muss OHNE vorhandene Zusage sein. Die erste Fassung nahm
+       das erste Angebot mit Kopfzahl >= 3 — und am 2026-09-24 trug genau dieses
+       bereits vier fremde Zusagen: die Probe rechnete mit H-1 = 19 und fand 23,
+       ihre eigene Buchung liess den freien Rest unter null fallen. Beide
+       Zusicherungen wurden rot, ohne dass am Code etwas falsch war — und niemand
+       sah es, weil das Tor diese Datei ohne Datenbank ueberspringt. Die
+       Zusicherungen bleiben unveraendert; geaendert ist nur, WORAN sie gemessen
+       werden (§0.9: Pflege des Gegenstands, nicht der Pruefung). */
+    const kandidaten = start.items.filter((i) => Number(i.headcount) >= 3);
+    const zustaende = await getCapacityCommercialStates(client, kandidaten.map((i) => i.id));
+    angebot = kandidaten.find((i) => (zustaende.get(i.id)?.committed_headcount ?? 0) === 0) || null;
     const { rows } = await client.query("SELECT id FROM demand_requests LIMIT 1");
     bedarfId = rows[0]?.id || null;
   });

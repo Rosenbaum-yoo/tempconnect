@@ -33,19 +33,31 @@ export function startStaffingWorker() {
      * (`quelle`: 'takt' gegen 'intern').
      */
     if (job.name === "staffing-maintenance") {
-      const [{ runStaffingMaintenance }, { sweepMarktpraesenz }] = await Promise.all([
+      const [{ runStaffingMaintenance }, { runMarktTakt }] = await Promise.all([
         import("../services/assignmentStaffingService.js"),
-        import("../services/marktpraesenzService.js")
+        import("../services/marktTakt.js")
       ]);
       const wartung = await runStaffingMaintenance(pool, {
         limit: job.data?.limit || 25,
         cooldownMinutes: job.data?.cooldownMinutes || 15
       });
-      /* Die Marktbefuellung laeuft NACH der Wartung: sie soll den Bestand
-       * sehen, den die Wartung gerade freigegeben hat. */
-      const markt = await sweepMarktpraesenz(pool);
+      /*
+       * M4c.3b — HIER FEHLTE DIE RESERVIERUNG.
+       *
+       * Hier stand `sweepMarktpraesenz(pool)` allein. Der interne Endpunkt ruft
+       * VIER Schritte; dieser Takt nahm bei seiner Entstehung (M1.2) zwei davon
+       * mit. Gemessen am 2026-09-24: `sweepReservations` hatte nur den Endpunkt
+       * als Aufrufer, und den ruft niemand — eine Kraft mit aktivem Einsatz
+       * stand zwoelf Tage buchbar im Markt. Die Reservierung war nicht kaputt,
+       * sie lief nie.
+       *
+       * `runMarktTakt` haelt die Reihenfolge jetzt an einer Stelle, fuer Takt
+       * UND Endpunkt. Die Marktbefuellung laeuft weiterhin NACH der Wartung:
+       * sie soll den Bestand sehen, den die Wartung gerade freigegeben hat.
+       */
+      const markt = await runMarktTakt(pool);
       logger.info({ jobId: job.id, ...wartung, markt }, "Staffing maintenance tick completed");
-      return { ...wartung, marktpraesenz: markt };
+      return { ...wartung, marktpraesenz: markt.marktpraesenz, reservierung: markt.reservierung, markt_fehler: markt.fehler };
     }
 
     /* Vorgabe unveraendert: der Zustellweg. */

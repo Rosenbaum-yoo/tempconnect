@@ -34,18 +34,32 @@ function aufzeichnenderPool(antworten = {}) {
   };
 }
 
+/* Sucht EINE Anweisung ueber ihre Form. Eine Probe, die auf `calls[3]` zeigt,
+   prueft nach dem naechsten eingefuegten Schritt lautlos etwas anderes als ihr
+   Name sagt — und bleibt dabei gruen. Mehrdeutigkeit ist hier ein Fehler, kein
+   "nimm die erste": zwei passende Anweisungen hiessen, dass die Zusicherung
+   nicht mehr weiss, wovon sie redet. */
+function anweisung(pool, muster, name) {
+  const treffer = pool.calls.filter((c) => muster.test(c.sql));
+  assert.equal(treffer.length, 1, `${name}: ${treffer.length} passende Anweisungen statt genau einer`);
+  return treffer[0].sql;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
  *  Teil A — die Form der Abfragen
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 describe("Marktpraesenz · Teil A — Form", () => {
-  it("der Sweep sind GENAU fuenf Abfragen — Ruecknahme, Wiederkehr, Horizont, Anlage, Lueckenmass", async () => {
+  it("der Sweep sind GENAU sechs Abfragen — Ruecknahme, Wiederkehr, Aufgehaltenes, Horizont, Anlage, Lueckenmass", async () => {
     /* Fixture-Pflege 2026-08-27 (Welle J9): der Horizont-Spiegel kam als
-     * vierter Schritt dazu — die Zaehlung waechst mit, die Regel dahinter
-     * (set-basiert, keine Schleife) bleibt dieselbe. */
+     * vierter Schritt dazu. Fixture-Pflege 2026-09-25 (M4c.3b): das Zaehlen der
+     * AUFGEHALTENEN Wiederherstellungen kam dazu — eine Kraft, deren Rueckkehr
+     * dauerhaft an einem besetzten Platz haengt, faellt sonst lautlos aus dem
+     * Markt. Die Zaehlung waechst mit, die Regel dahinter (set-basiert, keine
+     * Schleife) bleibt dieselbe: sechs feste Abfragen, keine je Kraft. */
     const pool = aufzeichnenderPool();
     await sweepMarktpraesenz(pool);
-    assert.equal(pool.calls.length, 5,
+    assert.equal(pool.calls.length, 6,
       "mehr Abfragen hiesse: jemand hat eine Schleife eingebaut — der Sweep ist set-basiert");
   });
 
@@ -54,14 +68,17 @@ describe("Marktpraesenz · Teil A — Form", () => {
     await sweepMarktpraesenz(pool);
     assert.match(pool.calls[0].sql, /SET status = 'archived'/, "zuerst die Ruecknahme");
     assert.match(pool.calls[1].sql, /SET status = 'active'/, "dann die Wiederkehr");
-    assert.match(pool.calls[2].sql, /SET availability_to = wp\.einsetzbar_bis/, "dann der Horizont-Spiegel (J9)");
-    assert.match(pool.calls[3].sql, /INSERT INTO capacity_posts/, "dann die Anlage");
+    /* NACH der Wiederkehr gezaehlt: was jetzt noch aufgehalten ist, ist wirklich
+       aufgehalten — vorher waere die Zahl um die gerade Zurueckgekehrten zu hoch. */
+    assert.match(pool.calls[2].sql, /SELECT COUNT\(\*\)::int AS aufgehalten/, "dann das Aufgehaltene (M4c.3b)");
+    assert.match(pool.calls[3].sql, /SET availability_to = wp\.einsetzbar_bis/, "dann der Horizont-Spiegel (J9)");
+    assert.match(pool.calls[4].sql, /INSERT INTO capacity_posts/, "dann die Anlage");
   });
 
   it("die Anlage traegt Herkunft, Anonymitaet und den Ausschalter", async () => {
     const pool = aufzeichnenderPool();
     await sweepMarktpraesenz(pool);
-    const sql = pool.calls[3].sql;
+    const sql = anweisung(pool, /INSERT INTO capacity_posts/, "die Anlage");
     assert.match(sql, /'live_belegschaft'/, "ohne Herkunft kann die Ruecknahme nicht unterscheiden");
     assert.match(sql, /marktpraesenz_deaktiviert = FALSE/, "der Ausschalter (Mig 200) muss greifen");
     assert.match(sql, /wp\.is_active = TRUE/, "inaktive Profile werden nie angeboten");
@@ -74,7 +91,7 @@ describe("Marktpraesenz · Teil A — Form", () => {
   it("die Ruecknahme fasst NUR eigene, offene Zeilen an — nie laufende Geschaefte", async () => {
     const pool = aufzeichnenderPool();
     await sweepMarktpraesenz(pool);
-    const sql = pool.calls[0].sql;
+    const sql = anweisung(pool, /SET status = 'archived'/, "die Ruecknahme");
     assert.match(sql, /quelle = 'live_belegschaft'/,
       "ein von Hand gepflegtes Angebot ist die Entscheidung der Agentur und bleibt stehen");
     assert.match(sql, /status IN \('draft', 'active', 'paused'\)/,
@@ -97,17 +114,25 @@ describe("Marktpraesenz · Teil A — Form", () => {
      * Anlage lassen sie draussen, bis die Abwesenheit endet. */
     const pool = aufzeichnenderPool();
     await sweepMarktpraesenz(pool);
-    /* Index 2 ist der Horizont-Spiegel (J9) — er kennt bewusst keine
-     * Abwesenheit: ein Datum spiegeln ist keine Verfuegbarkeitsaussage. */
-    for (const [name, i] of [["Ruecknahme", 0], ["Wiederkehr", 1], ["Anlage", 3]]) {
-      assert.match(pool.calls[i].sql, /worker_absences/, name + " kennt die Abwesenheit nicht");
-      assert.match(pool.calls[i].sql, /ab\.zustand = 'wirksam'/,
+    /* Der Horizont-Spiegel (J9) ist bewusst NICHT dabei — er kennt keine
+     * Abwesenheit: ein Datum spiegeln ist keine Verfuegbarkeitsaussage.
+     * Gesucht wird ueber die FORM, nicht ueber die Position: sonst zeigt diese
+     * Probe nach dem naechsten neuen Schritt auf eine andere Anweisung und
+     * prueft still etwas anderes, als ihr Name sagt (M4c.3b). */
+    for (const [name, muster] of [
+      ["Ruecknahme", /SET status = 'archived'/],
+      ["Wiederkehr", /SET status = 'active'/],
+      ["Anlage", /INSERT INTO capacity_posts/]
+    ]) {
+      const sql = anweisung(pool, muster, name);
+      assert.match(sql, /worker_absences/, name + " kennt die Abwesenheit nicht");
+      assert.match(sql, /ab\.zustand = 'wirksam'/,
         name + ": nur WIRKSAME Abwesenheit zaehlt — eine erst beantragte Selbstmeldung ist eine " +
         "Entscheidung, die beim Arbeitgeber noch aussteht (H1-Linie)");
-      assert.match(pool.calls[i].sql, /ab\.aufgehoben_am IS NULL/, name + ": eine zurueckgenommene Meldung sperrt nicht");
-      assert.match(pool.calls[i].sql, /ab\.bis IS NULL OR ab\.bis >= CURRENT_DATE/,
+      assert.match(sql, /ab\.aufgehoben_am IS NULL/, name + ": eine zurueckgenommene Meldung sperrt nicht");
+      assert.match(sql, /ab\.bis IS NULL OR ab\.bis >= CURRENT_DATE/,
         name + ": am Tag nach dem Bis-Datum kehrt die Kraft von selbst zurueck");
-      assert.ok(!/ab\.art/.test(pool.calls[i].sql),
+      assert.ok(!/ab\.art/.test(sql),
         name + ": DASS-nicht-WARUM — die ART der Abwesenheit hat im Marktplatz-SQL nichts verloren");
     }
   });
@@ -126,7 +151,10 @@ describe("Marktpraesenz · Teil A — Form", () => {
     });
     const ergebnis = await setzeMarktpraesenz(pool, "org-a", "wp-1", true);
     assert.equal(ergebnis.marktpraesenz_deaktiviert, true);
-    assert.equal(pool.calls.length, 4, "Schalter + drei kraftgebundene Folgen — wer abschaltet, wartet nicht auf den Cron");
+    /* Fixture-Pflege 2026-09-25 (M4c.3b): das Zaehlen der aufgehaltenen
+       Wiederherstellungen kam als vierte Folge dazu — dieselbe Erweiterung wie
+       im Cron, denn beide Reichweiten kommen seither aus EINEM Bauplan. */
+    assert.equal(pool.calls.length, 5, "Schalter + vier kraftgebundene Folgen — wer abschaltet, wartet nicht auf den Cron");
     /* Der Org-Grenzen-Waechter hat die erste Fassung abgewiesen: sie liess
      * nach dem UPDATE den GLOBALEN Sweep laufen. Seitdem gilt: JEDE
      * Anweisung dieses Weges traegt Profil UND Org in den Parametern —

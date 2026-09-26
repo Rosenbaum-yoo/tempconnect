@@ -98,13 +98,26 @@ describe("Markt-Profil · Teil B — der Schreibweg", () => {
     assert.equal(r.markt_merkmale[0], "zuverlaessig");
   });
 
-  it("der Sweep spiegelt den Horizont ebenfalls — als eigener, vierter Schritt", async () => {
+  it("der Sweep spiegelt den Horizont ebenfalls — als eigener Schritt", async () => {
+    /*
+     * Gesucht wird ueber die FORM, nicht ueber die Position. Die erste Fassung
+     * zeigte auf `calls[2]` und `calls[3]`; als M4c.3b das Zaehlen der
+     * aufgehaltenen Wiederherstellungen einschob, zeigten beide auf die
+     * falschen Anweisungen. Eine Probe, die an einer Nummer haengt, prueft nach
+     * dem naechsten eingefuegten Schritt lautlos etwas anderes als ihr Name
+     * sagt — und kann dabei sogar gruen bleiben.
+     */
     const pool = aufzeichnenderPool();
     await sweepMarktpraesenz(pool);
-    assert.equal(pool.calls.length, 5, "Ruecknahme, Wiederkehr, Horizont, Anlage, Lueckenmass");
-    assert.match(pool.calls[2].sql, /SET availability_to = wp\.einsetzbar_bis/,
+    const sql = (muster, name) => {
+      const treffer = pool.calls.filter((c) => muster.test(c.sql));
+      assert.equal(treffer.length, 1, `${name}: ${treffer.length} passende Anweisungen statt genau einer`);
+      return treffer[0].sql;
+    };
+    assert.match(sql(/SET availability_to = wp\.einsetzbar_bis/, "der Horizont-Spiegel"),
+      /SET availability_to = wp\.einsetzbar_bis/,
       "eine Wahrheit: das Profil fuehrt, die Angebote folgen");
-    assert.match(pool.calls[3].sql, /wp\.einsetzbar_bis/,
+    assert.match(sql(/INSERT INTO capacity_posts/, "die Anlage"), /wp\.einsetzbar_bis/,
       "auch NEUE Angebote entstehen gleich mit dem Horizont");
   });
 });

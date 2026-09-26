@@ -479,9 +479,34 @@ describe("M1.1 · der Herzschlag haengt VOR den Routen, nicht in ihnen", () => {
     const sw = quelle("workers/staffingWorker.js");
     assert.ok(sw.includes('job.name === "staffing-maintenance"'),
       "der Arbeiter muss den Takt von einem Zustelljob unterscheiden");
-    assert.ok(sw.includes("sweepMarktpraesenz"),
-      "die Marktbefuellung ist der Grund fuer diesen Takt");
+    /*
+     * M4c.3b — DIESE PROBE HAETTE DEN BEFUND FANGEN MUESSEN, UND KONNTE ES NICHT.
+     *
+     * Hier stand `sw.includes("sweepMarktpraesenz")`. Das war erfuellt — und der
+     * Takt war trotzdem halb. Der interne Endpunkt ruft die Marktbefuellung UND
+     * die Reservierung; dieser Arbeiter nahm bei seiner Entstehung (M1.2) nur
+     * die erste mit. Gemessen am 2026-09-24: eine Kraft mit aktivem Einsatz seit
+     * dem 2026-07-29 stand zwoelf Tage buchbar im Markt. Die Reservierung war
+     * nicht kaputt, sie lief nie — und keine Probe sagte etwas, weil jede nur
+     * nach dem fragte, was DA war, nie nach dem, was FEHLTE.
+     *
+     * Deshalb haengt die Zusicherung jetzt an `runMarktTakt` — der Stelle, die
+     * die Reihenfolge fuer beide Aufrufer haelt — und an den beiden Schritten
+     * selbst. Wer einen davon herausnimmt, macht diese Probe rot.
+     */
+    assert.ok(sw.includes("runMarktTakt"),
+      "der Takt laeuft nicht ueber die gemeinsame Reihenfolge — dann kann ihm wieder ein Schritt fehlen");
+    assert.ok(!sw.includes("sweepMarktpraesenz("),
+      "der Takt ruft die Marktbefuellung direkt und umgeht damit die Reservierung");
     assert.ok(sw.includes("runStaffingMaintenance"));
+
+    const takt = quelle("services/marktTakt.js");
+    assert.ok(takt.includes("sweepMarktpraesenz"), "die Marktbefuellung ist der Grund fuer diesen Takt");
+    assert.ok(takt.includes("sweepReservations"),
+      "die Reservierung fehlt im Takt — gebundene Kraefte blieben buchbar (Audit-Befund F3)");
+    const reihenfolge = takt.indexOf("sweepReservations") > takt.indexOf("sweepMarktpraesenz");
+    assert.ok(reihenfolge,
+      "die Reservierung laeuft vor der Befuellung — dann steht das gerade Angelegte bis zum naechsten Takt offen");
   });
 
   it("der Takt ruft die Dienste direkt, nicht den eigenen HTTP-Endpunkt", () => {

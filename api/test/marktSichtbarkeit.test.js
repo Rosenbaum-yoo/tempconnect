@@ -315,13 +315,26 @@ describe("M0/F27 · die Materialisierung setzt last_confirmed_at", () => {
   const HIER = path.dirname(fileURLToPath(import.meta.url));
   const dienst = quelle("services/marktpraesenzService.js");
 
-  /** Beide Einfuegewege: der Sweep und das einzelne Nachziehen je Profil. */
+  /** Der Einfuegeweg — seit M4c.3b gibt es nur noch einen. */
   const einfuegen = [...dienst.matchAll(/INSERT INTO capacity_posts \(([\s\S]*?)DO (NOTHING|UPDATE[\s\S]*?)`/g)];
 
-  it("es gibt ueberhaupt zwei Einfuegewege — sonst prueft der Rest nichts", () => {
-    assert.equal(einfuegen.length, 2,
-      `${einfuegen.length} INSERT INTO capacity_posts gefunden, erwartet 2 `
-      + "(Sweep und Einzelnachzug). Aendert sich die Zahl, gehoert diese Probe mit.");
+  it("es gibt GENAU EINEN Einfuegeweg — sonst prueft der Rest nichts", () => {
+    /*
+     * Hier stand 2: der Sweep und das einzelne Nachziehen je Profil
+     * (`setzeMarktpraesenz`) trugen je eine eigene, von Hand abgeschriebene
+     * Anweisung. Die Abschrift war schon auseinandergelaufen — sie schrieb die
+     * Praesenz-Bedingungen selbst hin, statt sie aus `PRAESENZ_BEDINGUNGEN` zu
+     * bauen, und jeder Riegel, den der Cron bekam, fehlte ihr.
+     *
+     * Seit M4c.3b baut EIN Bauplan beide Reichweiten; der Unterschied ist ein
+     * Zusatz-Ausdruck. Die Zusicherung kehrt sich damit um und wird schaerfer:
+     * nicht mehr "beide Wege tun dasselbe", sondern "es gibt nur einen Weg, der
+     * es tun koennte". Waechst die Zahl wieder auf 2, ist eine zweite Wahrheit
+     * entstanden — und genau dann soll diese Probe rot werden.
+     */
+    assert.equal(einfuegen.length, 1,
+      `${einfuegen.length} INSERT INTO capacity_posts gefunden, erwartet 1 `
+      + "(der gemeinsame Bauplan). Sind es mehr, ist wieder eine Abschrift entstanden.");
   });
 
   it("beide setzen die Bestaetigung beim Anlegen", () => {

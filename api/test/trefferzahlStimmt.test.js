@@ -54,6 +54,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 import { browseFeed, getCapacityCommercialStates, _FUER_PROBEN } from "../services/capacityExchangeService.js";
+import { gebundenSql } from "../services/bindungSql.js";
 
 /* Ein Muster-Pool, der die beiden Zaehlabfragen unterscheidbar beantwortet. */
 function pool({ angebote = 6, bedarfe = 17 } = {}) {
@@ -564,10 +565,17 @@ describe("N2.8 · die freie Kopfzahl filtert in SQL", () => {
     assert.ok(b.includes("capacity_post_pool_members"), "die Mitglieder werden nicht gelesen");
     assert.ok(b.includes("m.capacity_post_id = cp.id"),
       "die Mitglieder sind nicht an DIESES Angebot gebunden");
-    assert.ok(b.includes("walm.is_active = TRUE"), "ein beendeter Einsatz bindet weiter");
-    assert.ok(b.includes("walm.end_date IS NULL OR walm.end_date >= CURRENT_DATE"),
-      "die Datumsregel fehlt — die Bindung liefe nie ab");
-    assert.ok(b.includes("NOT EXISTS"), "gezaehlt werden die gebundenen statt der freien Mitglieder");
+    /*
+     * Hier standen die Bestandteile der Bindungs-Regel einzeln. Das sicherte
+     * AEHNLICHKEIT zu — und genau daran lag der Befund: diese Fassung kannte die
+     * BUCHUNG nicht, also zaehlte ein bereits verkaufter Mensch hier weiter als
+     * freier Kopf (Audit F5, 2026-09-24). Seit M4c.3b gibt es die Regel einmal;
+     * zugesichert wird deshalb IDENTITAET, nicht Aehnlichkeit. Ihre Bestandteile
+     * pinnt `bindungSql.test.js` — sie hier zu wiederholen hiesse, die Abschrift
+     * durch die Hintertuer wieder einzufuehren.
+     */
+    assert.ok(b.includes(`NOT ${gebundenSql("m.worker_profile_id")}`),
+      "die Kopfzahl benutzt eine eigene Fassung der Bindung — sie laeuft von der Reservierung weg");
     /*
      * SUM statt COUNT trennt "alle Mitglieder gebunden" von "gar keine
      * Mitglieder". Migration 146 erlaubt ausdruecklich "pauschal N Helfer ohne
@@ -578,7 +586,7 @@ describe("N2.8 · die freie Kopfzahl filtert in SQL", () => {
      *
      * Die Rueckmutation dazu ist genau ein Wort: SUM -> COUNT.
      */
-    assert.ok(b.includes("SUM(CASE WHEN NOT EXISTS"),
+    assert.ok(/SUM\(CASE WHEN NOT\b/.test(b),
       "ohne SUM liefert der Block 0 statt NULL — pauschale Sammelangebote verschwinden");
     assert.ok(!/COUNT\(/.test(b),
       "COUNT im Block macht aus 'keine Mitglieder' ein 'null frei'");

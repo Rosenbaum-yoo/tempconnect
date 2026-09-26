@@ -28,6 +28,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { setzeMarktpraesenz } from "../services/marktpraesenzService.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -258,23 +259,44 @@ describe("M4.8 · der Weg ist im Quelltext verankert", () => {
       + "die Meldung, der freigeben darf");
   });
 
-  it("der Veroeffentlichungsweg ist SYNCHRON — kein Warten auf den Takt", () => {
+  it("der Veroeffentlichungsweg ist SYNCHRON — kein Warten auf den Takt", async () => {
     /*
      * Die Abnahme verlangt ausdruecklich "ohne auf den 15-Minuten-Takt zu
      * warten". Waere `setzeMarktpraesenz` nur eine Markierung und der Eintrag
      * entstuende erst im Sweep, waere der OK-Klick eine Absichtserklaerung.
      */
-    const dienst = fs.readFileSync(path.join(API, "services", "marktpraesenzService.js"), "utf8");
-    const fn = /export async function setzeMarktpraesenz[\s\S]*?\n\}/.exec(dienst);
-    assert.ok(fn, "setzeMarktpraesenz wurde nicht gefunden");
     /*
-     * `\s*\(` gehoert dazu, und zwar nach einer ueberlebenden Rueckmutation:
-     * ohne die Klammer passt das Muster auch auf `capacity_posts_X` — der
-     * Tabellenname liesse sich austauschen, und die Probe bliebe gruen. Vierter
-     * Fall dieser Falle an zwei Tagen (Vorlagen-Waechter, `truncated` im
-     * Audit-Eintrag, der Staff-Praefix der Nachbarsitzung, jetzt hier).
+     * M4c.3b — DIESE PROBE HING AM QUELLTEXT UND HAENGT JETZT AN DER WIRKUNG.
+     *
+     * Hier wurde der Rumpf von `setzeMarktpraesenz` gelesen und nach
+     * `INSERT INTO capacity_posts (` durchsucht. Das war richtig, solange die
+     * Funktion ihre Anweisung selbst hinschrieb — und genau das war das
+     * Problem: sie trug eine von Hand abgeschriebene Zweitfassung des ganzen
+     * Sweeps, inklusive eigener Praesenz-Bedingungen. Seit die Anweisung aus
+     * dem gemeinsamen Bauplan kommt, steht im Rumpf kein INSERT mehr — die
+     * Probe waere rot geworden, obwohl der Klick MEHR tut als vorher.
+     *
+     * Gemessen wird deshalb, was die Funktion TUT: sie wird mit einem
+     * Muster-Pool aufgerufen, und unter ihren Anweisungen muss ein Einfuegen in
+     * `capacity_posts` sein. Das ueberlebt jeden Umbau, der die Wirkung
+     * erhaelt, und faellt bei jedem, der sie wegnimmt.
+     *
+     * `\s*\(` gehoert weiterhin dazu, und zwar nach einer ueberlebenden
+     * Rueckmutation: ohne die Klammer passt das Muster auch auf
+     * `capacity_posts_X` — der Tabellenname liesse sich austauschen, und die
+     * Probe bliebe gruen.
      */
-    assert.match(fn[0], /INSERT INTO capacity_posts\s*\(/i,
+    const anweisungen = [];
+    const musterPool = {
+      query: async (sql) => {
+        anweisungen.push(sql);
+        return /UPDATE worker_profiles/.test(sql)
+          ? { rows: [{ id: "wp-1", marktpraesenz_deaktiviert: false }], rowCount: 1 }
+          : { rows: [{ aufgehalten: 0 }], rowCount: 0 };
+      }
+    };
+    await setzeMarktpraesenz(musterPool, "org-1", "wp-1", false);
+    assert.ok(anweisungen.some((s) => /INSERT INTO capacity_posts\s*\(/i.test(s)),
       "der Klick legt keinen Eintrag mehr an — dann wartet der Mensch auf den Sweep");
   });
 });

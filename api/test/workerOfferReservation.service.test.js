@@ -28,6 +28,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as svc from "../services/workerOfferReservationService.js";
+import { gebundenSql } from "../services/bindungSql.js";
 
 const PAUSIERT = "SET status = 'paused'";
 const AKTIVIERT = "SET status = 'active'";
@@ -149,36 +150,35 @@ describe("workerOfferReservationService.sweepReservations", () => {
       "die Bedingung haengt nicht als eigene UND-Bedingung in der Reserve-Abfrage");
   });
 
-  it("die Gebunden-Regel der Mitglieder ist dieselbe wie die der Personen", () => {
+  it("die Gebunden-Regel der Mitglieder ist BUCHSTAEBLICH dieselbe wie die der Personen", () => {
     /*
-     * Liefe hier eine andere Regel, wäre derselbe Mensch über zwei Darstellungen
-     * unterschiedlich gebunden — und genau daraus entsteht die Doppelbuchung
-     * wieder. Jeder Bestandteil einzeln, nicht als Block: der Mock-Pool führt
-     * kein SQL aus, eine Probe gegen die eigene Antwort merkt den Wegfall nicht.
+     * Hier standen die Bestandteile der Regel einzeln: `worker_assignment_links`,
+     * `is_active`, die Datumsregel. Das sicherte AEHNLICHKEIT zu — zwei Fassungen,
+     * die sich gleich lesen und trotzdem auseinanderlaufen koennen, sobald jemand
+     * nur eine anfasst. Genau so war es: die Fassung hier kannte die BUCHUNG
+     * nicht, die des Feeds auch nicht, und ein gebuchter Mensch zaehlte in einem
+     * Sammelangebot weiter als freier Kopf (Audit-Befund F5).
+     *
+     * Seit M4c.3b gibt es die Regel einmal (`bindungSql.js`). Die Zusicherung
+     * lautet deshalb nicht mehr "sieht gleich aus", sondern "IST dieselbe": der
+     * Ausdruck muss buchstaeblich der geteilte sein, auf die Spalte des
+     * Mitglieds angewandt. Ihre Bestandteile pinnt `bindungSql.test.js` — hier
+     * zu wiederholen hiesse, die Abschrift durch die Hintertuer wieder
+     * einzufuehren.
      */
     const f = svc._FUER_PROBEN.POOL_FREIE_MITGLIEDER_SQL;
-    /*
-     * DIE QUELLE ZUERST. Die erste Fassung dieser Probe prueffte jeden Bestandteil
-     * der Bedingung — aber nicht, WORUEBER gezaehlt wird. In der Gegenpruefung
-     * wurde `capacity_post_pool_members` durch einen nicht existierenden Namen
-     * ersetzt: alle drei Probendateien blieben gruen. Die beiden Schwellen-Proben
-     * halfen nicht, denn sie vergleichen diese Zeichenkette mit sich selbst
-     * (`s.includes(frei + " = 0")`) — eine Probe, die ihren eigenen Gegenstand
-     * mitbringt, kann seine Aenderung nicht bemerken.
-     */
     assert.ok(f.includes("FROM capacity_post_pool_members m"),
       "gezaehlt wird nicht ueber die Mitgliedertabelle");
-    assert.ok(f.includes("JOIN worker_profiles poolwp"),
-      "das Mitglied wird nicht mit einem Arbeiterprofil verbunden");
-    assert.ok(f.includes("worker_assignment_links"), "das Einsatz-Signal fehlt");
-    assert.ok(f.includes("walm.is_active = TRUE"), "ein beendeter Einsatz bindet weiter");
-    assert.ok(f.includes("walm.end_date IS NULL OR walm.end_date >= CURRENT_DATE"),
-      "die Datumsregel fehlt — die Bindung liefe nie ab");
-    assert.ok(f.includes("NOT EXISTS"), "gezählt werden die gebundenen statt der freien Mitglieder");
     assert.ok(f.includes("m.capacity_post_id = cp.id"),
       "die Mitglieder sind nicht an DIESES Angebot gebunden");
-    assert.ok(f.includes("poolwp.id = m.worker_profile_id"),
-      "das Mitglied ist nicht mit seinem Profil verbunden");
+    assert.ok(f.includes(`NOT ${gebundenSql("m.worker_profile_id")}`),
+      "die Mitglieder-Regel ist nicht die geteilte Bindung — eine zweite Fassung laeuft von ihr weg");
+
+    /* Und dieselbe Regel auf der personengebundenen Seite, auf deren Spalte. */
+    assert.ok(svc._FUER_PROBEN.RESERVE_SQL.includes(gebundenSql("cp.worker_profile_id")),
+      "die personengebundene Reserve benutzt eine eigene Fassung der Bindung");
+    assert.ok(svc._FUER_PROBEN.RELEASE_SQL.includes(`NOT ${gebundenSql("cp.worker_profile_id")}`),
+      "die Freigabe benutzt eine eigene Fassung der Bindung");
   });
 
   it("syncWorkerReservation grenzt auf einen Arbeiter ein — auch über die Mitgliedschaft", async () => {

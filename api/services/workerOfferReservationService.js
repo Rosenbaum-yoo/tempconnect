@@ -39,22 +39,34 @@
  *     erlaubte Fall "pauschal N Helfer ohne konkrete Personen". Dort gibt es niemanden,
  *     der gebunden sein könnte — es wird nicht angefasst.
  */
+import { gebundenSql } from "./bindungSql.js";
 
-// Ein Arbeiter gilt als "im Einsatz", wenn er mindestens einen aktiven
-// worker_assignment_link hat (dasselbe Signal wie die Pool-"frei"-Erkennung).
-// Datum-bewusst (P1): reserviert, solange ein aktiver Einsatz läuft ODER noch nicht
-// abgelaufen ist. Am Tag NACH end_date (CURRENT_DATE > end_date, DB = Europe/Berlin)
-// fällt die Reservierung weg → Arbeiter taucht automatisch wieder im Marktplatz auf.
-const BUSY_EXISTS_SQL = `
-  EXISTS (
-    SELECT 1
-      FROM worker_profiles wp2
-      JOIN worker_assignment_links wal
-        ON wal.worker_user_id = wp2.user_id
-       AND wal.is_active = TRUE
-       AND (wal.end_date IS NULL OR wal.end_date >= CURRENT_DATE)
-     WHERE wp2.id = cp.worker_profile_id
-  )`;
+/*
+ * M4c.3b — "GEBUNDEN" HIESS HIER NUR "IM EINSATZ", UND DAS WAR ZU WENIG.
+ *
+ * Hier stand eine eigene Fassung: ein Arbeiter gilt als im Einsatz, wenn er
+ * mindestens einen aktiven `worker_assignment_link` hat. Der Audit vom
+ * 2026-09-24 hat gezeigt, was daraus folgt — eine BUCHUNG bindet niemanden:
+ *
+ *   `accept-deal` sperrt genau die gebuchte Zeile, prueft nur deren freie
+ *   Kopfzahl, legt ein angenommenes Angebot an und setzt diese Zeile auf
+ *   'reserved'. Eine Einsatz-Verknuepfung entsteht erst, wenn jemand spaeter von
+ *   Hand zuweist. Bis dahin blieb derselbe Mensch ueber JEDE andere Darstellung
+ *   buchbar — seine uebrigen Einzelangebote, sein Gesamtangebot, jedes
+ *   Sammelangebot mit ihm als Mitglied.
+ *
+ * Die Abnahme von M4c.3 lautet "Kraft buchen → beide Arten weg". Die erste
+ * Fassung hat sie NICHT erfuellt, und alle Proben waren gruen: sie prueften die
+ * Einsatz-Verknuepfung — also den eigenen Begriff von gebunden — und nicht den
+ * des Owners. Dieselbe Klasse wie `merged_von`, nur eine Ebene hoeher.
+ *
+ * Die Antwort steht jetzt in `bindungSql.js`, einmal, fuer alle drei Stellen,
+ * die sie brauchen: Reservierung personengebunden, Reservierung Sammelangebot,
+ * freie Kopfzahl im Feed. Datum-bewusst wie vorher: am Tag NACH `end_date`
+ * (DB = Europe/Berlin) faellt die Bindung weg, und die Kraft taucht von selbst
+ * wieder im Marktplatz auf.
+ */
+const BUSY_EXISTS_SQL = gebundenSql("cp.worker_profile_id");
 
 const RESERVE_SQL = `
   UPDATE capacity_posts cp
@@ -72,22 +84,16 @@ const RELEASE_SQL = `
      AND cp.worker_profile_id IS NOT NULL
      AND NOT ${BUSY_EXISTS_SQL}`;
 
-/* Dieselbe "im Einsatz"-Regel wie oben, nur an ein POOL-MITGLIED gehängt statt an
- * cp.worker_profile_id. Bewusst derselbe Wortlaut in den Bedingungen: liefe hier eine
- * andere Datums- oder is_active-Regel, wäre derselbe Mensch über zwei Darstellungen
- * unterschiedlich gebunden — und genau daraus entsteht die Doppelbuchung wieder. */
+/* Dieselbe Bindungs-Regel wie oben, nur an ein POOL-MITGLIED gehängt statt an
+ * cp.worker_profile_id — und zwar buchstäblich dieselbe, aus `bindungSql.js`.
+ * Liefe hier eine eigene Fassung, wäre derselbe Mensch über zwei Darstellungen
+ * unterschiedlich gebunden — und genau daraus entsteht die Doppelbuchung wieder.
+ * Bis M4c.3b war es eine Abschrift, und sie kannte die Buchung nicht. */
 const POOL_FREIE_MITGLIEDER_SQL = `
   (SELECT COUNT(*)
      FROM capacity_post_pool_members m
-     JOIN worker_profiles poolwp ON poolwp.id = m.worker_profile_id
     WHERE m.capacity_post_id = cp.id
-      AND NOT EXISTS (
-        SELECT 1
-          FROM worker_assignment_links walm
-         WHERE walm.worker_user_id = poolwp.user_id
-           AND walm.is_active = TRUE
-           AND (walm.end_date IS NULL OR walm.end_date >= CURRENT_DATE)
-      ))`;
+      AND NOT ${gebundenSql("m.worker_profile_id")})`;
 
 const POOL_HAT_MITGLIEDER_SQL = `
   EXISTS (SELECT 1 FROM capacity_post_pool_members m0 WHERE m0.capacity_post_id = cp.id)`;

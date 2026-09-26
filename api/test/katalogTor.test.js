@@ -74,9 +74,17 @@ describe("M4b.1 · beide Wege in den Markt gehen durch dasselbe Tor", () => {
     /*
      * Das war der Weg, der LAEUFT — alle 15 Minuten, und beim OK-Klick sofort.
      * Genau er nahm den Vorschlag mit.
+     *
+     * Fixture-Pflege 2026-09-25 (M4c.3b): hier stand 2 — der Sweep und der
+     * Einzelnachzug im Praesenz-Schalter hatten je eine eigene, von Hand
+     * abgeschriebene Einfuegeanweisung. Beide kommen jetzt aus EINEM Bauplan
+     * (`materialisierenSql`), also gibt es das Tor nur noch einmal. Die Zusage
+     * wird dadurch staerker, nicht schwaecher: ein Weg, der am Tor vorbeikommt,
+     * ist nicht mehr bloss unwahrscheinlich, sondern nicht mehr baubar. Dass es
+     * wirklich nur EINEN Weg gibt, sichert `marktSichtbarkeit.test.js` zu.
      */
-    assert.equal(AUTOMATIK.match(/katalogTorSql\('ps'\)/g)?.length, 2,
-      "nicht beide Einfuegewege der Automatik gehen durch das Tor");
+    assert.equal(AUTOMATIK.match(/katalogTorSql\('ps'\)/g)?.length, 1,
+      "der Einfuegeweg der Automatik geht nicht durch das Tor");
     assert.ok(!/AND ps\.is_active = TRUE\b(?!.*status)/.test(AUTOMATIK.replace(/\n/g, " ")),
       "es steht wieder eine eigene `is_active`-Bedingung im Veroeffentlichungsweg");
   });

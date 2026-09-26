@@ -8,6 +8,8 @@ import { Router } from "express";
 import * as marketplaceService from "../services/marketplaceService.js";
 import * as emergencyService from "../services/emergencyStaffingService.js";
 import * as capacityExchangeService from "../services/capacityExchangeService.js";
+/* M4c.3b: die Buchung bindet den Menschen in derselben Transaktion (siehe accept-deal). */
+import * as workerOfferReservationService from "../services/workerOfferReservationService.js";
 import * as matchingEngine from "../services/matchingEngine.js";
 import * as dealProgressHelper from "../services/dealProgressHelper.js";
 import * as eventTracking from "../services/eventTrackingService.js";
@@ -684,6 +686,29 @@ export function createMarketplaceRouter(deps) {
         const syncedDemand = await marketplaceService.syncDemandCommercialState(client, demand.id);
 
         const syncedCapacity = await capacityExchangeService.syncCapacityCommercialState(client, cap.id);
+
+        /*
+         * M4c.3b — DIE BUCHUNG BINDET DEN MENSCHEN, SOFORT UND IN DIESER
+         * TRANSAKTION.
+         *
+         * Bis hierher band sie nur die eine gebuchte ZEILE ('reserved'). Der
+         * Mensch dahinter blieb ueber jede andere Darstellung buchbar: seine
+         * uebrigen Einzelangebote, sein Gesamtangebot, jedes Sammelangebot mit
+         * ihm als Mitglied. Gebunden war er erst, wenn jemand spaeter von Hand
+         * zuwies — bis dahin konnten beliebig viele Unternehmen denselben
+         * Menschen kaufen, und jede Buchung sah fuer sich gueltig aus. Genau
+         * das nennt der Owner Betrug.
+         *
+         * IN DERSELBEN TRANSAKTION, nicht danach: ein Aufruf nach dem Commit
+         * haette ein Fenster gelassen, in dem die Buchung steht und die anderen
+         * Darstellungen noch offen sind — und bei einem Fehler waere der Mensch
+         * gebucht und nicht gebunden. Der 15-Minuten-Takt holt es ohnehin nach;
+         * dieser Aufruf sorgt dafuer, dass es keine 15 Minuten dauert.
+         */
+        if (cap.worker_profile_id) {
+          await workerOfferReservationService.syncWorkerReservation(client, cap.worker_profile_id);
+        }
+
         return {
           aueg: auegAuskunft,
           cap,

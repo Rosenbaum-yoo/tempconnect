@@ -8,6 +8,8 @@
 import * as capacityWorkflow from "./capacityWorkflow.js";
 import { scoreMatch } from "./matchingEngine.js";
 import { zugesagtJeAngebotSql } from "./zusageFormel.js";
+/* M4c.3b — die EINE Antwort auf "ist dieser Mensch gebunden?" (siehe POOL_FREI_JOIN). */
+import { gebundenSql } from "./bindungSql.js";
 import { loadSkillIndex, expandTags } from "./skillNormalizationService.js";
 import * as auditLog from "./auditLog.js";
 import { computePremiumBoost } from "./reputationService.js";
@@ -126,24 +128,24 @@ const FREIE_KOPFZAHL_JOIN = `
  * und LEAST laesst NULL in Postgres fallen, statt selbst NULL zu werden. Die Deckelung
  * greift also genau dort, wo es Menschen zu zaehlen gibt.
  *
- * Der Alias heisst `poolwp` und NICHT `wpm`: `wpm` ist oben schon der Arbeiterprofil-Join
- * des personengebundenen Angebots (Welle J9). Innerhalb des Lateral-Blocks waere die
- * Doppelbelegung zwar gueltig — der innere Name gewinnt —, aber sie ist genau die Sorte
- * Kollision, ueber die spaeter jemand stolpert: gelesen wuerde hier klammheimlich das
- * Profil des Pool-MITGLIEDS, waehrend zwei Zeilen weiter oben derselbe Name das Profil
- * des Angebots-INHABERS meint.
+ * M4c.3b — WAS "FREI" HEISST, STEHT NICHT MEHR HIER. Diese Stelle trug eine eigene
+ * Fassung der Bindungs-Regel (aktive `worker_assignment_links`-Zeile), und die kannte
+ * die BUCHUNG nicht: ein Mitglied, das ein Unternehmen gerade gebucht hatte, zaehlte
+ * weiter als freier Kopf. Gemessen am 2026-09-24 stand genau so ein Mensch in einem
+ * aktiven Sammelangebot UND in einem aktiven Einzelangebot. Die Regel kommt jetzt aus
+ * `bindungSql.js` — dieselbe, die auch die Reservierung benutzt. Eine zweite Fassung
+ * hier waere derselbe Mensch mit zwei Wahrheiten.
+ *
+ * Nebenwirkung des Umbaus, und eine gute: der Verbund auf `worker_profiles` entfaellt.
+ * Er hiess `poolwp` und NICHT `wpm`, weil `wpm` oben schon der Arbeiterprofil-Join des
+ * personengebundenen Angebots ist (Welle J9) — innerhalb des Lateral-Blocks waere die
+ * Doppelbelegung gueltig gewesen, aber genau die Sorte Kollision, ueber die spaeter
+ * jemand stolpert. Jetzt gibt es sie gar nicht mehr.
  */
 const POOL_FREI_JOIN = `
   LEFT JOIN LATERAL (
-    SELECT SUM(CASE WHEN NOT EXISTS (
-               SELECT 1
-                 FROM worker_assignment_links walm
-                WHERE walm.worker_user_id = poolwp.user_id
-                  AND walm.is_active = TRUE
-                  AND (walm.end_date IS NULL OR walm.end_date >= CURRENT_DATE)
-             ) THEN 1 ELSE 0 END)::int AS frei
+    SELECT SUM(CASE WHEN NOT ${gebundenSql("m.worker_profile_id")} THEN 1 ELSE 0 END)::int AS frei
       FROM capacity_post_pool_members m
-      JOIN worker_profiles poolwp ON poolwp.id = m.worker_profile_id
      WHERE m.capacity_post_id = cp.id
   ) pool_frei ON TRUE
 `;
