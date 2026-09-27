@@ -80,7 +80,10 @@ describe("getNextAction — unknown status", () => {
 // getDealProgress — with mock pool
 // ─────────────────────────────────────────────────────────────
 
+let _letzteZeitleistenAbfrage = null;
+
 function mockPool(status, { notFound = false, transitionRows = [] } = {}) {
+  _letzteZeitleistenAbfrage = null;
   return {
     query: async (sql, params) => {
       if (sql.includes("FROM requests")) {
@@ -96,7 +99,11 @@ function mockPool(status, { notFound = false, transitionRows = [] } = {}) {
           }]
         };
       }
-      if (sql.includes("state_transitions")) {
+      /* Z3: die Zeitleiste kommt aus `audit_log`, nicht aus `state_transitions`
+         (die Tabelle gab es nie). Reine Fixture-Pflege: der Schluessel folgt der
+         geaenderten Quelle, die Zusicherungen darunter sind unberuehrt. */
+      if (sql.includes("audit_log")) {
+        _letzteZeitleistenAbfrage = { sql, params };
         return { rows: transitionRows };
       }
       return { rows: [] };
@@ -176,5 +183,46 @@ describe("getDealProgress — timeline", () => {
     const result = await getDealProgress(pool, "d1");
     assert.ok(Array.isArray(result.timeline));
     assert.strictEqual(result.timeline.length, 0);
+    /* Z3: DAS fehlte, und genau daran lag der Befund. Eine leere Zeitleiste und
+       eine nicht ladbare sahen von aussen gleich aus - die Oberflaeche zeigte
+       "es ist nichts passiert", wo "wir wissen es nicht" richtig gewesen waere. */
+    assert.strictEqual(result.timeline_available, false,
+      "der Fehlschlag ist von aussen nicht zu erkennen - dann ist die leere Zeitleiste eine falsche Auskunft");
+  });
+
+  it("Z3: gelingt die Abfrage, sagt die Antwort das auch", async () => {
+    const pool = mockPool("ACCEPTED", { transitionRows: [] });
+    const result = await getDealProgress(pool, "deal-1");
+    assert.deepEqual(result.timeline, []);
+    assert.strictEqual(result.timeline_available, true,
+      "eine geglueckte, leere Zeitleiste wird als nicht verfuegbar gemeldet");
+  });
+
+  it("Z3: die Zeitleiste fragt das Audit-Log, entdoppelt und nennt die alte Tabelle nicht mehr", async () => {
+    /* FORM- UND BINDUNGS-PROBE. Der Muster-Pool kann die Abfrage nicht
+       AUSFUEHREN - genau deshalb ist der Befund lange unentdeckt geblieben.
+       Ausgefuehrt wird sie in
+       test/integration/dealZeitleisteKommtAn.flow.test.js. */
+    const pool = mockPool("ACCEPTED", { transitionRows: [] });
+    await getDealProgress(pool, "deal-77");
+    const q = _letzteZeitleistenAbfrage;
+    assert.ok(q, "es wurde ueberhaupt keine Zeitleisten-Abfrage gestellt");
+    const sql = q.sql;
+    assert.ok(sql.includes("FROM audit_log"), "die Zeitleiste liest nicht aus dem Audit-Log");
+    assert.ok(sql.includes("entity_type = 'request'"),
+      "der Filter nennt nicht den Wert, den stateMachine.logTransition wirklich schreibt (ENTITY_TYPE_MAP bildet DEAL auf request ab)");
+    assert.equal(sql.includes("'DEAL'"), false,
+      "der alte Filterwert ist zurueck - kein Schreiber hinterlaesst ihn, die Zeitleiste bliebe leer");
+    assert.equal(sql.includes("state_transitions"), false,
+      "die Abfrage nennt wieder eine Tabelle, die es nicht gibt");
+    for (const teil of ["state_machine.transition", "request.status_change"]) {
+      assert.ok(sql.includes(teil), "die Abfrage kennt den Schreiber " + teil + " nicht");
+    }
+    assert.ok(sql.includes("DISTINCT ON"),
+      "ohne Entdopplung stuende jede Station doppelt: beide Schreiber protokollieren denselben Wechsel");
+    assert.ok(sql.includes("(action = 'state_machine.transition') DESC"),
+      "bei zwei Zeilen fuer denselben Wechsel bleibt nicht die des kanonischen Schreibers");
+    assert.deepEqual(q.params, ["deal-77"],
+      "die Abfrage ist nicht an die uebergebene Anfrage gebunden");
   });
 });

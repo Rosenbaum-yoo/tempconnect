@@ -698,10 +698,19 @@ const BESTAND = new Set([
    * eines Lieferantenpools werfen beim Schreiben UND beim Lesen. */
   "services/vendorPoolService.js::vendor_pool_history",
   "services/vendorPoolService.js::vendor_pool_notes",
-  /* state_transitions: fehlt; der Aufruf steht in try/catch und liefert damit
-   * stumm eine LEERE Zeitleiste statt eines Fehlers — die gefaehrlichste
-   * Variante, weil die Oberflaeche plausibel aussieht. */
-  "services/dealProgressHelper.js::state_transitions",
+  /* state_transitions: am 2026-09-27 BEHOBEN (Welle Z, Z3) — die Tabelle wurde
+   * NICHT angelegt, der LESER wurde auf die Wahrheit gerichtet. `audit_log`
+   * fuehrt jeden Wechsel einer Anfrage schon mit genau den vier Feldern, die
+   * die Zeitleiste braucht (details->>'from', details->>'to', actor_id,
+   * created_at); `dealDossierService` liest seine Zeitleiste bereits so. Die
+   * Abfrage war UEBRIGENS ZWEIFACH falsch: sie filterte zusaetzlich
+   * entity_type='DEAL', einen Wert, den kein Schreiber hinterlaesst —
+   * stateMachine.logTransition bildet DEAL und REQUEST beide auf 'request'
+   * ab. Neu ist auch, dass der Fehlschlag nicht mehr stumm ist
+   * (timeline_available: false, logger.error statt debug): "konnte nicht
+   * geladen werden" ist eine andere Auskunft als "es ist nichts passiert".
+   * Entdoppelt wird per DISTINCT ON, weil beide Schreiber denselben Wechsel
+   * protokollieren. Eintrag gestrichen. */
 
   /* ── DSGVO: Auskunft UND Loeschsperre in dataGovernanceService sind am
    * 2026-09-15 behoben (Welle N2.10) — alle zehn Eintraege gestrichen. Die

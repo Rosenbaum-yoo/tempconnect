@@ -129,6 +129,22 @@ export const WERTE = [
     befehl: "ls e2e/tests/ | wc -l",
     rechne: (w) => zaehle(w, "e2e/tests", () => true),
   },
+  {
+    /*
+     * Z3 (2026-09-27): DIESE ZAHL FEHLTE, und ihr Fehlen war nicht harmlos. Das
+     * Register sagte "belegt sind nur die N Testdateien" und meinte damit
+     * `api/test/*.test.js` — die datenbankgebundenen Ablaufproben unter
+     * `api/test/integration/` zaehlten NICHT mit. Genau sie sind aber die, die
+     * das Schema beweisen: ein Muster-Pool kann SQL nicht ausfuehren, und alle
+     * Befunde der Welle Z (Spalten, die es nicht gibt) waren an ihm vorbei
+     * gruen. Ein Register, das die Proben nicht fuehrt, die den Beweis tragen,
+     * beschreibt seinen eigenen Nachweis zu klein.
+     */
+    marke: "ablaufproben",
+    titel: "Ablauf-Proben (datenbankgebunden)",
+    befehl: "ls api/test/integration/*.flow.test.js | wc -l",
+    rechne: (w) => zaehle(w, "api/test/integration", (f) => f.endsWith(".flow.test.js")),
+  },
 ];
 
 /** `<!--zahl:id-->WERT<!--/zahl-->` — Leerzeichen in den Marken sind erlaubt. */

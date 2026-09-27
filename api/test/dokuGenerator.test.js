@@ -77,6 +77,11 @@ const REGISTER = ROOT ? path.join(ROOT, "docs", "PLATTFORM_REGISTER.md") : null;
  * eine veraltete Zahl — es saehe naemlich frisch aus. */
 const MIN_BACKEND_TESTS = 300;
 const MIN_E2E_TESTS = 10;
+/* Z3 (2026-09-27): die datenbankgebundenen Ablauf-Proben sind die, die das
+   Schema wirklich beweisen - ein Muster-Pool nimmt jede Abfrage an. Die Grenze
+   ist bewusst niedrig: sie faengt einen falschen Pfad (0 Treffer), nicht eine
+   bewusst kleine Zahl. */
+const MIN_ABLAUFPROBEN = 20;
 
 /**
  * Die unabhaengige Gegenrechnung. Bewusst hier ausgeschrieben und NICHT aus dem
@@ -88,6 +93,9 @@ const ERWARTET = {
   "backend-testdateien": (w) =>
     fs.readdirSync(path.join(w, "api", "test")).filter((f) => f.endsWith(".test.js")).length,
   "e2e-testdateien": (w) => fs.readdirSync(path.join(w, "e2e", "tests")).length,
+  "ablaufproben": (w) =>
+    fs.readdirSync(path.join(w, "api", "test", "integration"))
+      .filter((f) => f.endsWith(".flow.test.js")).length,
 };
 
 describe("Doku-Generator (W3) — die Zahlen im Register und der Wirkungsbereich", () => {
@@ -126,6 +134,11 @@ describe("Doku-Generator (W3) — die Zahlen im Register und der Wirkungsbereich
         `nur ${backend} Backend-Testdateien gezaehlt (erwartet >= ${MIN_BACKEND_TESTS}) — ` +
         "vermutlich zeigt der Pfad woandershin. Der Generator wuerde diese Zahl schreiben.");
       assert.ok(e2e >= MIN_E2E_TESTS, `nur ${e2e} E2E-Dateien gezaehlt`);
+      const ablauf = ERWARTET["ablaufproben"](ROOT);
+      assert.ok(ablauf >= MIN_ABLAUFPROBEN,
+        `nur ${ablauf} Ablauf-Proben gezaehlt (erwartet >= ${MIN_ABLAUFPROBEN}) \u2014 ` +
+        "vermutlich zeigt der Pfad woandershin, oder die Namenskonvention *.flow.test.js " +
+        "wurde verlassen. Der Generator wuerde diese Zahl ins Register schreiben.");
     });
 
   /* ═══════════════════════════════════════════════════════════════════════
@@ -251,17 +264,29 @@ describe("Doku-Generator (W3) — die Zahlen im Register und der Wirkungsbereich
       fs.mkdirSync(path.join(sandkasten, "docs"), { recursive: true });
       fs.mkdirSync(path.join(sandkasten, "api", "test"), { recursive: true });
       fs.mkdirSync(path.join(sandkasten, "e2e", "tests"), { recursive: true });
+      /* Z3: die Ablauf-Proben liegen in einem eigenen Verzeichnis - ohne es
+         zaehlt der Generator gegen ein fehlendes Verzeichnis. */
+      fs.mkdirSync(path.join(sandkasten, "api", "test", "integration"), { recursive: true });
 
       for (const n of ["a", "b", "c"]) {
         fs.writeFileSync(path.join(sandkasten, "api", "test", `${n}.test.js`), "// leer\n");
       }
       fs.writeFileSync(path.join(sandkasten, "api", "test", "keintest.js"), "// zaehlt nicht\n");
       fs.writeFileSync(path.join(sandkasten, "e2e", "tests", "eins.spec.js"), "// leer\n");
+      for (const n of ["eins", "zwei"]) {
+        fs.writeFileSync(
+          path.join(sandkasten, "api", "test", "integration", `${n}.flow.test.js`), "// leer\n");
+      }
+      /* Zaehlt NICHT mit: die Namenskonvention ist *.flow.test.js, und genau das
+         soll die Attrappe beweisen. */
+      fs.writeFileSync(
+        path.join(sandkasten, "api", "test", "integration", "nureintest.test.js"), "// leer\n");
 
       fs.writeFileSync(path.join(sandkasten, "docs", "PLATTFORM_REGISTER.md"),
         "# Attrappe\n\n" + "Fuellzeile.\n".repeat(600) +
         "\n| Backend-Testdateien | <!--zahl:backend-testdateien-->999<!--/zahl--> | x |\n" +
         "| E2E-Testdateien | <!--zahl:e2e-testdateien-->999<!--/zahl--> | x |\n" +
+        "| Ablauf-Proben | <!--zahl:ablaufproben-->999<!--/zahl--> | x |\n" +
         "\nStand: <!--zahl:stand-->1999-01-01<!--/zahl-->\n" +
         "\nHandgeschrieben: 999 bleibt hier stehen.\n");
     });
