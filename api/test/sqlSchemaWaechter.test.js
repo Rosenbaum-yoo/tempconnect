@@ -708,10 +708,15 @@ const BESTAND = new Set([
    * Auskunft hatte wegen users.plan/is_active fuer JEDEN Nutzer null geliefert;
    * der Rechnungs-Riegel (invoices.created_by) hat nie gegriffen. ─────────── */
 
-  /* ── Passwort-Zuruecksetzen: users hat weder reset_token noch
-   * reset_token_expires. Der komplette Ablauf wirft. ───────────────────────── */
-  "services/authService.js::users.reset_token",
-  "services/authService.js::users.reset_token_expires",
+  /* ── Passwort-Zuruecksetzen: am 2026-09-27 BEHOBEN (Welle Z, Z1). Migration 222
+   * legt `reset_token` und `reset_token_expires` an — der Code war richtig, nur
+   * das Schema fehlte. Bauart wie `users.verification_token` (Feld am Konto, beim
+   * Gebrauch genullt), weil das das GELTENDE Muster ist:
+   * `email_verification_tokens` ist eine Waise, die echte Bestaetigung laeuft
+   * ueber das Feld. Ein Index kam dazu, den die Vorlage nicht hat — ohne ihn ist
+   * jeder Versuch ein vollstaendiger Durchlauf der Nutzertabelle. Ob das Token
+   * gehasht gehoert, ist eine Sicherheitsfrage, betrifft `verification_token`
+   * genauso und liegt beim Owner. Beide Eintraege gestrichen. ───────────────── */
 
   /* ── supplier_reputation: DREI Services schreiben/lesen gegen drei
    * verschiedene, jeweils nicht existierende Formen dieser Tabelle. Real sind
