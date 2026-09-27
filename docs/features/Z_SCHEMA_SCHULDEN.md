@@ -76,6 +76,7 @@ den Migrationen — im Kopf der Datei steht der Satz, der diese ganze Welle erkl
 | Z8 | **Die Bestandsliste schrumpft sichtbar.** Je behobener Gruppe fällt ihr Eintrag aus `BESTAND` | Der Wächter zählt weniger Ausnahmen; seine Probe gegen das Verrotten bleibt grün |
 | Z9 | **Eine Zeile, die es nicht geben dürfte** *(gemeldet von der bauenden Sitzung, nachgemessen 2026-09-27: genau 1)*. In `worker_time_submissions` steht eine Einreichung mit `status='accepted_into_timesheet'` **und** `timesheet_id IS NULL`, obwohl der Code beides zusammen setzt. Entweder Altdaten aus einer früheren Fassung oder **ein zweiter Schreibweg daneben** | Erst messen, welcher Weg sie erzeugt haben kann (Datum, Urheber), **dann** entscheiden: Altlast bereinigen oder Lücke schließen. Wenn ein zweiter Weg existiert, ist die Zeile die Spitze und nicht der Fall |
 | Z10 | **Das Token im Klartext** *(entschieden oben)*. Drei Teile, weil das Hashen zwei weitere Befunde aufdeckt: **(a)** `reset_token` und `verification_token` als SHA-256 ablegen und vergleichen; der Teilindex aus Z1 behält seine Form, er steht dann auf dem Hash. **(b)** **Die beiden Wiederversand-Pfade müssen erneuern statt wiederverwenden.** `routes/auth.js:248` und `internalControlCenterService.js:153` lesen heute das *gespeicherte* Token, um denselben Link nochmals zu schicken — gehasht ist das unmöglich. Ein neues Token je Versand ist ohnehin das bessere Verfahren, weil der alte Link damit erlischt. **(c)** **`verification_token` hat überhaupt keine Ablaufzeit.** Der Reset verfällt nach einer Stunde, ein Bestätigungslink von vor acht Monaten wirkt heute noch | Offene Token werden beim Ausrollen genullt — sie sind kurzlebig, niemand verliert etwas. **Rückmutation:** Klartext zurückschreiben → die Probe, die den *gespeicherten* Wert gegen den *versendeten* hält, wird rot. Dazu eine Probe, die den Wiederversand zweimal aufruft: das zweite Token ist ein anderes, und das erste wirkt nicht mehr |
+| Z11 | **Vier leere Waisen** *(gemessen 2026-09-27: `agency_api_keys`, `reviews`, `usage_counters`, `email_verification_tokens` — alle **0 Zeilen**, keine Fundstelle im Produktionscode)*. Sie stammen aus zusammengeführten Alt-Migrationen: die Dateien wurden entfernt, die Tabellen blieben in der laufenden Datenbank **und** in `_migrations` stehen. Eine frische Installation legt sie nicht an, und niemand merkt es — das ist der harmlose Teil derselben Ursache wie 059 | Dokumentierte Aufräumung, risikofrei weil leer. **`email_verification_tokens` erst nach Z10 fallen lassen:** sie ist der einzige Ort im Schema, an dem die Absicht „gehasht, ausdrücklich einmalig" überhaupt aufgeschrieben ist, und Z10 setzt genau die an der Spalte um. Verweis in den Kopf der Z10-Migration, dann darf die Waise weg, ohne dass die Begründung heimatlos wird |
 
 > **Z4 ist gebaut und gegengeprüft (2026-09-27, planende Sitzung gegen die laufende
 > Datenbank):** `feature_overrides.id` ist `integer` mit `nextval` — die Bauart von 059, auf die
@@ -93,6 +94,24 @@ den Migrationen — im Kopf der Datei steht der Satz, der diese ganze Welle erkl
 > deklariert, und sichert zu, dass er ihn meldet; der Lauf über den echten Baum muss grün sein und
 > wirkt als Rückfall-Wächter. Ein Wächter ohne offenen Schaden bleibt wertvoll — aber nur mit
 > künstlichem Nachweis.
+> **Ein Livegang-Blocker, den es nicht gibt — die Meldung bleibt als Lehrstück stehen (2026-09-27).**
+> Eine Messung ergab, `timesheets` und `timesheet_entries` seien von **keiner** Migration
+> deklariert; eine frische Hetzner-Installation wäre also ohne den Kern der Stundenzettel
+> gestartet. **Falsch.** `027b_timesheets.sql` legt beide an — das Messmuster `^[0-9]{3}_` schloss
+> die Datei wegen des Buchstaben-Zusatzes aus, während `sql/migrate.sh` schlicht
+> `ls /migrations/*.sql | sort` nimmt. Unabhängig nachgemessen: **genau zwei** Dateien weichen vom
+> Muster ab, `027b` und `045b`. Aufgefallen ist es an einem Widerspruch zu einer dritten Quelle —
+> `sql/test-fresh-install.sh` prüft `timesheets` ausdrücklich.
+>
+> **Berichtigter Stand:** **197** Tabellen und **eine Sicht** in der laufenden Datenbank
+> (`activity_feed` ist `relkind='v'`, deklariert in `025_enterprise_foundation.sql:45`);
+> **0** deklarierte Objekte fehlen nach 223/224; **7** existieren ohne Deklaration —
+> `session` und `staff_session` (`connect-pg-simple` mit `createTableIfMissing`), `_migrations`
+> (von `migrate.sh` selbst) und die vier leeren Waisen aus Z11.
+>
+> **Drei Klassen sind daraus in die eisernen Regeln gewandert:** eine nachgebildete Auswahl misst
+> ein anderes Projekt; zwei gleichgerichtete Fehler sehen wie eine Bestätigung aus; eine Zählung
+> nennt ihr Prädikat, oder sie zählt etwas anderes.
 > **Arbeitsteilung in dieser Welle (Owner-Vorgabe 2026-09-27):** die **bauende** Sitzung macht
 > Welle Z **vollständig** — die Migrationen **und** den Z4-Wächter. Die planende Sitzung misst,
 > entscheidet (Z10) und prüft gegen; sie baut nicht und sie verteilt nicht.
@@ -106,7 +125,7 @@ den Migrationen — im Kopf der Datei steht der Satz, der diese ganze Welle erkl
 
 ## 5. Reihenfolge
 
-**Z7 → Z1 → Z2 → Z3 → Z4 → Z5 → Z6 → Z9 → Z10**, Z8 fortlaufend.
+**Z7 → Z1 → Z2 → Z3 → Z4 → Z5 → Z6 → Z9 → Z10 → Z11**, Z8 fortlaufend.
 
 > **Z9 ist eine Messung, keine Migration** — erst wissen, welcher Weg die Zeile erzeugt haben
 > kann, dann entscheiden. **Z10 steht am Ende der Welle und trotzdem vor dem Livegang:** es
