@@ -33,6 +33,7 @@ import { getApprovedPublicOrgIds } from './profileVisibilityService.js';
    die Liste liest — und die Liste ist leer. Genau der Bug, gegen den es
    `todayDE()` gibt. */
 import { todayDE } from '../utils/dateDE.js';
+import { swallow } from '../utils/logger.js';
 
 /* ── Snapshot schreiben ───────────────────────────────── */
 
@@ -124,14 +125,26 @@ export async function buildSnapshotForOrg(pool, orgId) {
               sr.deal_success_rate, sr.ranking_score AS legacy_ranking_score,
               o.plan AS org_plan
        FROM organizations o
-       LEFT JOIN org_memberships om ON om.org_id = o.id AND om.role = 'owner'
+       -- Z5 (2026-09-27): hier stand om.role = 'owner'. Die Spalte heisst
+       -- role_key (gemessen: 201 Zeilen mit owner); role gibt es nicht. Die
+       -- Abfrage warf damit JEDES MAL, das catch darunter machte daraus
+       -- rep = null, und buildSnapshotForOrg gab null zurueck - also nie eine
+       -- Momentaufnahme und nie eine Rangposition. Das ist die zweite Ursache
+       -- fuer die dauerhaft leere Zeile "Ihre Position: #N" in sla_profil.html
+       -- (die erste, fehlende Aufrufer, ist am 2026-09-19 behoben worden). Ein
+       -- Kunde bezahlt ab PRO eine Rangliste; ein Wort hat sie verhindert.
+       LEFT JOIN org_memberships om ON om.org_id = o.id AND om.role_key = 'owner'
        LEFT JOIN supplier_reputation sr ON sr.supplier_id = om.user_id
        WHERE o.id = $1
        LIMIT 1`,
       [orgId]
     );
     rep = rows[0] || null;
-  } catch { /* org oder supplier_reputation nicht gefunden */ }
+  } catch (e) {
+    /* Z5: nicht mehr stumm. "Keine Reputation" und "die Abfrage ist kaputt"
+       sahen hier gleich aus — genau deshalb hat es niemand gemerkt. */
+    swallow("profileRankingService.buildSnapshotForOrg")(e);
+  }
 
   if (!rep) return null;
 

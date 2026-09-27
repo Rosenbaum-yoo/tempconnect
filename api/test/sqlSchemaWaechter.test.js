@@ -734,19 +734,30 @@ const BESTAND = new Set([
    * gehasht gehoert, ist eine Sicherheitsfrage, betrifft `verification_token`
    * genauso und liegt beim Owner. Beide Eintraege gestrichen. ───────────────── */
 
-  /* ── supplier_reputation: DREI Services schreiben/lesen gegen drei
-   * verschiedene, jeweils nicht existierende Formen dieser Tabelle. Real sind
-   * supplier_id, reputation_score, completed_deals, total_deals. ──────────── */
-  "services/assignmentService.js::supplier_reputation.supplier_org_id",
-  "services/assignmentService.js::supplier_reputation.score",
-  "services/assignmentService.js::supplier_reputation.completed_assignments",
-  "services/assignmentService.js::supplier_reputation.cancelled_assignments",
-  "services/assignmentService.js::supplier_reputation.total_assignments",
-  "services/assignmentService.js::supplier_reputation.avg_duration_days",
-  "services/capacityExchangeService.js::supplier_reputation.supplier_org_id",
-  "services/capacityExchangeService.js::supplier_reputation.score",
-  "services/instantMatchService.js::supplier_reputation.org_id",
-  "services/instantMatchService.js::supplier_reputation.overall_score",
+  /* supplier_reputation: alle zehn Eintraege am 2026-09-27 BEHOBEN (Welle Z, Z5)
+   * — KEINE Spalte wurde angelegt. Die Tabelle hat einen EIGENTUEMER:
+   * `reputationService` (Zeile ~497) setzt alle fuenfzehn echten Spalten in EINEM
+   * Upsert, geschluesselt auf `supplier_id` (NOT NULL, Fremdschluessel auf
+   * `users`). Die drei Befunde waren zweite Schreiber/Leser mit erfundener Form:
+   *
+   *   assignmentService (6): schrieb org-geschluesselt mit eigener 1-5-Skala neben
+   *     `reputation_score` 0-100. Eine org-geschluesselte Zeile ist dort
+   *     STRUKTURELL unmoeglich — es fehlten nicht Spalten, es fehlte die Tabelle,
+   *     die dieser Code meinte. Der Weg ist entfernt; dass damit ein
+   *     assignment-basiertes Signal FEHLT (der Eigentuemer rechnet aus
+   *     `requests`), steht offen an der Stelle und gehoert dem Owner vorgelegt,
+   *     weil es Rangplaetze in einer ab PRO verkauften Faehigkeit verschiebt.
+   *   capacityExchangeService (2): las den Rueckfall, den nur dieser Schreiber
+   *     befuellt haette. Entfernt — samt einer Probe, die den unmoeglichen Pfad
+   *     mit score 55 beglaubigt hat (Paragraph 0.9, dokumentierter Ausnahmefall:
+   *     sie kodierte einen Bruch als Soll).
+   *   instantMatchService (2): las `org_id`/`overall_score`; richtig sind
+   *     `supplier_id`/`reputation_score`. Der Parametername `orgIds` log
+   *     ebenfalls: gemessen uebergibt der Aufrufer
+   *     `capacity_posts.supplier_company_id`, und diese Spalte hat einen
+   *     Fremdschluessel auf `users(id)` — trotz ihres Namens NUTZER. Die Karte
+   *     war also nicht nur falsch benannt, sie war immer leer; jetzt findet sie
+   *     (gemessen 2 von 6 Anbietern). Eintraege gestrichen. */
 
   /* ── Stundenzettel-Vorlagen: is_default gibt es nicht (weder Lesen noch
    * Schreiben), timesheet_template_fields heisst field_label statt label und

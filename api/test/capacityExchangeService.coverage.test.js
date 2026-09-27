@@ -888,7 +888,24 @@ describe("computeTrustSignals", () => {
     assert.equal(pool.calls.some((c) => c.sql.includes("FROM compliance_documents")), false);
   });
 
-  it("falls back to org-level reputation when supplier_id has no row", async () => {
+  /*
+   * Z5 (2026-09-27): HIER STAND "falls back to org-level reputation when
+   * supplier_id has no row", UND SIE WAR GRUEN, OBWOHL DER WEG NICHT EXISTIEREN
+   * KONNTE.
+   *
+   * Die Probe hat eine Abfrage auf `supplier_org_id` mit `{ score: 55 }`
+   * beantwortet. Beide Spalten gibt es nicht, und es kann sie auch nicht geben:
+   * `supplier_reputation.supplier_id` ist NOT NULL mit einem Fremdschluessel auf
+   * `users(id)` — eine org-geschluesselte Zeile ist dort strukturell unmoeglich.
+   * Der Muster-Pool hat einen unmoeglichen Pfad beglaubigt. Nebenbei war die 55
+   * auch im falschen Massstab: der (tote) Schreiber erzeugte 1.0-5.0, das Feld
+   * ist 0-100.
+   *
+   * Nach Paragraph 0.9 ist das der dokumentierte Ausnahmefall: die Probe kodierte
+   * einen Bruch als Soll. Sie wird ERSETZT, nicht geloescht - und die neue
+   * Zusicherung ist strenger, weil sie die Abwesenheit des Weges festnagelt.
+   */
+  it("Z5: ohne Reputationszeile bleibt der Wert leer - und es wird KEIN org-Rueckfall versucht", async () => {
     const pool = trackingPool((sql) => {
       if (sql.includes("FROM proofs")) return { rows: [{ cnt: 0 }] };
       if (sql.includes("FROM users u WHERE u.id = $1")) {
@@ -897,12 +914,16 @@ describe("computeTrustSignals", () => {
       if (sql.includes("FROM compliance_documents")) return { rows: [{ total: 0, verified: 0 }] };
       if (sql.includes("FROM requests")) return { rows: [{ cnt: 0 }] };
       if (sql.includes("last_confirmed_at > NOW()")) return { rows: [{ cnt: 0 }] };
-      if (sql.includes("supplier_id = $1")) return { rows: [] }; // no per-supplier row
-      if (sql.includes("supplier_org_id = $1")) return { rows: [{ score: 55 }] };
+      if (sql.includes("supplier_id = $1")) return { rows: [] }; // keine Zeile fuer diesen Anbieter
       return { rows: [] };
     });
     const s = await svc.computeTrustSignals(pool, "sup");
-    assert.equal(s.reputation_score, 55, "org-level fallback used");
+    assert.equal(s.reputation_score, undefined,
+      "es wird ein Reputationswert gemeldet, obwohl es keine Zeile gibt");
+    const rueckfall = pool.calls.filter((c) => c.sql.includes("supplier_org_id"));
+    assert.deepEqual(rueckfall, [],
+      "der org-geschluesselte Rueckfall wird wieder abgefragt - die Spalten existieren nicht, "
+      + "die Abfrage kann nur werfen: " + JSON.stringify(rueckfall.map((c) => c.sql)));
   });
 });
 

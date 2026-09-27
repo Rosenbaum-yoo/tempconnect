@@ -375,43 +375,42 @@ export async function transitionAssignment(pool, id, newStatus, actorId, opts = 
 }
 
 export async function completeAssignment(pool, id, actorId, opts = {}) {
-  const result = await transitionAssignment(pool, id, 'completed', actorId, opts);
-  // Auto-update supplier reputation on successful completion
-  if (result.assignment && result.assignment.supplier_org_id) {
-    try {
-      await updateSupplierReputation(pool, result.assignment.supplier_org_id, 'completed');
-    } catch (_e) {
-      // Non-critical — reputation update should not block completion
-    }
-  }
-  return result;
-}
-
-export async function updateSupplierReputation(pool, supplierOrgId, _eventType) {
-  // Upsert reputation stats for the supplier org
-  const { rows: stats } = await pool.query(
-    `SELECT
-       COUNT(*) FILTER (WHERE status = 'completed')::int AS completed_count,
-       COUNT(*) FILTER (WHERE status = 'cancelled')::int AS cancelled_count,
-       COUNT(*)::int AS total_count,
-       AVG(EXTRACT(EPOCH FROM (COALESCE(completed_at, NOW()) - created_at)) / 86400)::numeric(6,1) AS avg_duration_days
-     FROM assignments WHERE supplier_org_id = $1`,
-    [supplierOrgId]
-  );
-  const s = stats[0] || {};
-  const completionRate = s.total_count > 0 ? (s.completed_count / s.total_count) : 0;
-  const score = Math.min(5.0, Math.max(1.0,
-    2.5 + (completionRate * 2.0) - (s.cancelled_count * 0.3)
-  ));
-
-  await pool.query(
-    `INSERT INTO supplier_reputation (supplier_org_id, score, completed_assignments, cancelled_assignments, total_assignments, avg_duration_days, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, NOW())
-     ON CONFLICT (supplier_org_id) DO UPDATE SET
-       score = $2, completed_assignments = $3, cancelled_assignments = $4,
-       total_assignments = $5, avg_duration_days = $6, updated_at = NOW()`,
-    [supplierOrgId, Math.round(score * 10) / 10, s.completed_count || 0, s.cancelled_count || 0, s.total_count || 0, s.avg_duration_days || 0]
-  );
+  /*
+   * ══════════════════════════════════════════════════════════════════════════
+   * Z5 (2026-09-27): HIER STAND EIN ZWEITER SCHREIBER AUF supplier_reputation
+   * ══════════════════════════════════════════════════════════════════════════
+   *
+   * `updateSupplierReputation(pool, supplier_org_id, 'completed')` rechnete aus
+   * `assignments` vier Kennzahlen und schrieb sie nach
+   *
+   *     INSERT INTO supplier_reputation (supplier_org_id, score,
+   *       completed_assignments, cancelled_assignments, total_assignments,
+   *       avg_duration_days) ... ON CONFLICT (supplier_org_id)
+   *
+   * SECHS dieser Spalten existieren nicht, und die siebte Annahme auch nicht:
+   * `supplier_reputation` ist auf `supplier_id` geschluesselt, mit
+   * `NOT NULL` und einem Fremdschluessel auf `users(id)`. Eine org-geschluesselte
+   * Zeile ist dort STRUKTURELL unmoeglich — es fehlten also nicht Spalten, es
+   * fehlte die Tabelle, die dieser Code meinte.
+   *
+   * Der Wurf lief in ein leeres catch mit dem Vermerk "Non-critical". Jede
+   * abgeschlossene Zuweisung hat seit immer stumm nichts aktualisiert.
+   *
+   * DIE TABELLE HAT EINEN EIGENTUEMER: `reputationService` (Zeile ~497) setzt
+   * ALLE fuenfzehn echten Spalten in EINEM Upsert, geschluesselt auf
+   * `supplier_id`. Ein zweiter Schreiber mit eigenem Schluessel und eigener
+   * Skala (1–5 neben `reputation_score` 0–100) waere auch mit Spalten falsch.
+   *
+   * WAS DAMIT NICHT MEHR GESCHIEHT, offen gesagt: der kanonische Dienst rechnet
+   * Abschluesse aus `requests` (FINALIZED/COMPLETED), nicht aus `assignments`.
+   * Ein Signal "diese Agentur bringt Einsaetze zu Ende" ist heute also NICHT im
+   * Score. Es war es nie — aber jetzt steht es hier, statt in einem toten Pfad
+   * zu behaupten, es sei da. Gehoert es hinein, dann in den Eigentuemer der
+   * Tabelle und mit einer Entscheidung ueber die Gewichtung: das verschiebt
+   * Rangplaetze in einer Faehigkeit, die ab PRO verkauft wird, und ist damit
+   * eine Owner-Entscheidung, keine Aufraeumarbeit.
+   */
+  return transitionAssignment(pool, id, 'completed', actorId, opts);
 }
 
 export function cancelAssignment(pool, id, actorId, reason) {

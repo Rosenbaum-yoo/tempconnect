@@ -726,7 +726,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | davon für keinen Nutzer erreichbar | **0** | war 1 (timesheet-templates.html); am 26.08. entfernt — siehe Liste A, A1 |
 | Backend-Testdateien | <!--zahl:backend-testdateien-->494<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
 | E2E-Testdateien | <!--zahl:e2e-testdateien-->17<!--/zahl--> | `ls e2e/tests/ \| wc -l` |
-| Ablauf-Proben (datenbankgebunden) | <!--zahl:ablaufproben-->50<!--/zahl--> | `ls api/test/integration/*.flow.test.js \| wc -l` |
+| Ablauf-Proben (datenbankgebunden) | <!--zahl:ablaufproben-->51<!--/zahl--> | `ls api/test/integration/*.flow.test.js \| wc -l` |
 | Rollen im Rechtemodell | 12 | `ROLE_HIERARCHY` in `api/services/rbacService.js:9-22` |
 | Benannte Berechtigungen | 63 | `PERMISSIONS` in `api/services/rbacService.js:25 ff.` |
 | Benachrichtigungs-Ereignistypen | 46 | Schlüssel in `MATRIX`, `api/services/notificationMatrix.js` |
@@ -744,7 +744,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 > **Eine Zahl, die hier bewusst fehlt:** die Gesamtzahl grüner Tests. Sie steht in mehreren
 > Projektdokumenten (3979+), wurde für dieses Register aber **nicht** nachgerechnet, weil das
 > einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die <!--zahl:backend-testdateien-->494<!--/zahl--> Testdateien,
-> <!--zahl:e2e-testdateien-->17<!--/zahl--> E2E-Dateien und <!--zahl:ablaufproben-->50<!--/zahl--> datenbankgebundene Ablauf-Proben. Wer die Testzahl in ein
+> <!--zahl:e2e-testdateien-->17<!--/zahl--> E2E-Dateien und <!--zahl:ablaufproben-->51<!--/zahl--> datenbankgebundene Ablauf-Proben. Wer die Testzahl in ein
 > Investorendokument schreibt, muss sie vorher unter `api/scripts/run-tests.js`
 > real erzeugen.
 >

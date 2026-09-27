@@ -5,6 +5,7 @@
  * auto-expiry, interactions, supplier dashboard stats.
  */
 
+import { logger } from "../config/index.js";
 import * as capacityWorkflow from "./capacityWorkflow.js";
 import { scoreMatch } from "./matchingEngine.js";
 import { zugesagtJeAngebotSql } from "./zusageFormel.js";
@@ -1844,17 +1845,31 @@ export async function computeTrustSignals(pool, supplierId) {
       // Pre-aggregated ranking score
       signals.ranking_score = rep.ranking_score != null ? Number(rep.ranking_score) : null;
     }
-    // Fallback: assignment-based reputation (supplier_org_id via user's org)
-    if (signals.reputation_score == null && user?.org_id) {
-      const { rows: orgRep } = await pool.query(
-        `SELECT score FROM supplier_reputation WHERE supplier_org_id = $1`,
-        [user.org_id]
-      );
-      if (orgRep.length > 0 && orgRep[0].score != null) {
-        signals.reputation_score = Number(orgRep[0].score);
-      }
-    }
-  } catch (_) { /* table may not exist yet */ }
+    /*
+     * Z5 (2026-09-27): HIER STAND EIN RUECKFALL, DEN NIEMAND BEFUELLEN KONNTE.
+     *
+     *     SELECT score FROM supplier_reputation WHERE supplier_org_id = $1
+     *
+     * Weder `score` noch `supplier_org_id` existieren. Die Tabelle ist auf
+     * `supplier_id` geschluesselt (NOT NULL, Fremdschluessel auf `users`) — eine
+     * org-geschluesselte Zeile ist strukturell unmoeglich. Geschrieben haette sie
+     * nur `assignmentService.updateSupplierReputation`, und der Weg war aus
+     * demselben Grund tot; er ist in Z5 entfernt worden.
+     *
+     * Der Rueckfall war ausserdem ein MASSSTABSFEHLER: `score` war 1–5
+     * (Sterne-artig), `signals.reputation_score` ist 0–100. Haette er je
+     * gegriffen, waere aus einer guten Agentur eine mit 4 von 100 geworden.
+     * Dieselbe Verwechslung steckt noch in der Zeile darueber, die `avg_stars`
+     * (1–5) als Rueckfall fuer `reputation_score` (0–100) nimmt — das ist ein
+     * eigener Befund und wird NICHT nebenbei geaendert, weil es Rangplaetze
+     * verschiebt.
+     */
+  } catch (e) {
+    /* Z5: nicht mehr stumm. Die Tabelle existiert; ein Wurf heisst jetzt, dass
+       wirklich etwas kaputt ist, und darf nicht wie "keine Reputation"
+       aussehen. */
+    logger.warn({ err: e?.message, supplier_id: supplierId }, "Reputationssignale nicht lesbar");
+  }
 
   return signals;
 }

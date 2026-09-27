@@ -40,17 +40,39 @@ async function loadComplianceMap(pool, supplierOrgIds) {
   } catch { return new Map(); }
 }
 
-async function loadReputationMap(pool, orgIds) {
-  if (!orgIds.length) return new Map();
+/*
+ * Z5 (2026-09-27): DIESE KARTE WAR IMMER LEER, UND ZWAR LAUTLOS.
+ *
+ * Sie fragte `SELECT org_id, overall_score ... WHERE org_id = ANY($1)`. KEINE
+ * dieser beiden Spalten existiert: die Tabelle traegt `supplier_id` und
+ * `reputation_score`. Der Wurf lief in `catch { return new Map(); }` — eine
+ * leere Karte sieht im Abgleich genauso aus wie "niemand hat Reputation", also
+ * hat nie jemand einen Reputationsbonus bekommen.
+ *
+ * Der Parametername `orgIds` war ebenfalls irrefuehrend. Gemessen: der Aufrufer
+ * uebergibt `capacity_posts.supplier_company_id`, und diese Spalte hat einen
+ * Fremdschluessel auf `users(id)` — trotz ihres Namens sind es NUTZER. Damit
+ * passt sie genau auf `supplier_reputation.supplier_id`, und die Karte
+ * funktioniert nach der Korrektur wirklich (gemessen: 2 der 6 Anbieter haben
+ * eine Reputationszeile).
+ */
+async function loadReputationMap(pool, supplierUserIds) {
+  if (!supplierUserIds.length) return new Map();
   try {
     const { rows } = await pool.query(
-      `SELECT org_id, overall_score FROM supplier_reputation WHERE org_id = ANY($1)`,
-      [orgIds]
+      `SELECT supplier_id, reputation_score FROM supplier_reputation WHERE supplier_id = ANY($1)`,
+      [supplierUserIds]
     );
     const map = new Map();
-    for (const r of rows) map.set(r.org_id, Number(r.overall_score) || 0);
+    for (const r of rows) map.set(r.supplier_id, Number(r.reputation_score) || 0);
     return map;
-  } catch { return new Map(); }
+  } catch (e) {
+    /* Z5: nicht mehr stumm — eine leere Karte und ein Fehler sehen im Ergebnis
+       gleich aus, und genau daran ist der Befund jahrelang vorbeigelaufen.
+       `swallow` ist das Werkzeug des Projekts fuer genau diesen Fall. */
+    swallow("instantMatchService.loadReputationMap")(e);
+    return new Map();
+  }
 }
 
 async function loadVendorPoolMap(pool, buyerOrgId, supplierOrgIds) {
@@ -103,19 +125,42 @@ async function loadSmartRankMap(pool, supplierIds, demandRole) {
   if (!supplierIds.length) return new Map();
   const map = new Map();
   try {
-    // Metrics + Reputation in einem Query
+    /*
+     * Z5 (2026-09-27): DIESE ABFRAGE LIEFERTE IMMER NULL ZEILEN, OHNE FEHLER.
+     *
+     * Sie stand auf `FROM organizations o WHERE o.id = ANY($1)` — bekommt aber
+     * `capacity_posts.supplier_company_id`, und diese Spalte hat einen
+     * Fremdschluessel auf `users(id)`. Nutzer-Kennungen gegen die Org-Tabelle:
+     * null Treffer (gemessen, und zwar per Regel, nicht per Zufall der Daten).
+     * Kein Wurf, keine Warnung — die Karte blieb leer, und `timesheet_quality`
+     * sowie `platform_activity` fehlten in JEDEM Smart-Rank. Die zweite Abfrage
+     * dieser Funktion (Rollen-Erfahrung) schluesselt uebrigens richtig, auf
+     * `requests.receiver_id` → `users`. Innerhalb einer Funktion zwei
+     * Schluesselwelten, eine davon falsch.
+     *
+     * Jetzt ist der Anker der ANBIETER (Nutzer), und die org-gebundenen
+     * Kennzahlen kommen ueber dieselbe Bruecke, die `profileRankingService`
+     * benutzt: `org_memberships` mit `role_key = 'owner'`. Gemessen: 6 von 6
+     * Anbietern finden darueber ihre Organisation.
+     *
+     * OFFEN UND HIER NICHT ZU LOESEN: `supplier_metrics` ist LEER (0 Zeilen).
+     * Die drei Kennzahlen bleiben also 0, bis `recompute-supplier-metrics`
+     * wirklich gelaufen ist. Der Unterschied ist trotzdem wesentlich: vorher
+     * konnte die Abfrage nichts finden, jetzt findet sie, was da ist.
+     */
     const { rows } = await pool.query(
       `SELECT
-         o.id AS supplier_id,
+         u.id AS supplier_id,
          COALESCE(sm.requests_received, 0)::int AS requests_received,
          COALESCE(sm.requests_accepted, 0)::int AS requests_accepted,
          COALESCE(sm.sla_breaches, 0)::int AS sla_breaches,
          sr.timesheet_reliability_score,
          sr.activity_score
-       FROM organizations o
-       LEFT JOIN supplier_metrics sm ON sm.agency_id = o.id AND sm.window_days = 30
-       LEFT JOIN supplier_reputation sr ON sr.supplier_id = o.id
-       WHERE o.id = ANY($1)`,
+       FROM users u
+       LEFT JOIN org_memberships om ON om.user_id = u.id AND om.role_key = 'owner'
+       LEFT JOIN supplier_metrics sm ON sm.agency_id = om.org_id AND sm.window_days = 30
+       LEFT JOIN supplier_reputation sr ON sr.supplier_id = u.id
+       WHERE u.id = ANY($1)`,
       [supplierIds]
     );
     for (const r of rows) {
@@ -127,7 +172,12 @@ async function loadSmartRankMap(pool, supplierIds, demandRole) {
         platform_activity: r.activity_score != null ? Number(r.activity_score) : null
       });
     }
-  } catch { /* graceful degradation */ }
+  } catch (e) {
+    /* Z5: hier stand `catch { }` mit dem Vermerk "graceful degradation". Die
+       Abfrage darueber hat null Zeilen geliefert, ohne zu werfen — aber wenn sie
+       kuenftig wirft, darf das nicht wie "keine Signale" aussehen. */
+    swallow("instantMatchService.loadSmartRankMap")(e);
+  }
 
   // Role expertise: count completed deals per supplier for the demand role
   if (demandRole) {
