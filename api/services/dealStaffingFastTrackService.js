@@ -1,3 +1,4 @@
+import { logger } from "../config/index.js";
 import { checkOverride } from "./featureOverrideService.js";
 import { dispatch } from "./notificationMatrix.js";
 import { hasPermission, listOrgMembers } from "./rbacService.js";
@@ -10,8 +11,22 @@ export async function isStaffingFastTrackEnabled(pool, orgId) {
   try {
     const override = await checkOverride(pool, STAFFING_READY_FAST_TRACK_FEATURE_KEY, orgId || null);
     if (override?.overridden) return override.enabled === true;
-  } catch {
-    // non-critical: additive fast-track stays available unless explicitly disabled
+  } catch (e) {
+    /*
+     * Z4 (2026-09-27): DER FAENGER BLEIBT, ABER NICHT MEHR STUMM.
+     *
+     * Die Entscheidung "der zusaetzliche Weg bleibt offen, solange ihn niemand
+     * ausdruecklich schliesst" ist richtig und bleibt. Was falsch war: hier
+     * stand ein leeres `catch`. Zwei Jahre lang warf `checkOverride` bei JEDEM
+     * Aufruf, weil `feature_overrides` nicht existierte — und niemand konnte es
+     * sehen. Ein Owner, der die Funktion fuer einen Kunden abschaltete, hat
+     * nichts abgeschaltet, und nichts hat ihm widersprochen.
+     *
+     * Seit Migration 223 gibt es die Tabelle. Ein Wurf heisst ab jetzt: etwas
+     * ist wirklich kaputt. Das gehoert ins Log, nicht in die Stille.
+     */
+    logger.warn({ err: e?.message, org_id: orgId || null, feature_key: STAFFING_READY_FAST_TRACK_FEATURE_KEY },
+      "Freischalt-Hebel nicht lesbar - der zusaetzliche Weg bleibt offen");
   }
   return true;
 }

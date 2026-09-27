@@ -14,6 +14,16 @@ import * as pilotPolicyService from "../services/pilotPolicyService.js";
 import { buildAdminControlCenter } from "../services/adminControlCenterService.js";
 import { buildAuditReport as buildVisibilityAuditReport } from "../services/visibilityAuditService.js";
 
+/*
+ * Z4 (2026-09-27): Bezeichner dieses Projekts sind UUIDs — `organizations.id`
+ * und `users.id` gemessen als `uuid`. Drei Stellen der Feature-Override-Routen
+ * haben sie mit `parseInt` gelesen und damit `NaN` erhalten: der Org-Filter
+ * konnte nie greifen, und DELETE endete wegen `if (!id)` immer in einer 400. Das
+ * Muster dieses Projekts ist ein lokales `UUID_RE` je Modul
+ * (`middleware/orgBoundary.js`, `orgContext.js`, `utils/metrics.js`).
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function createAdminRouter(deps) {
   const { pool, requireAuth, logger, config, getUserAndPlan, requestLimiter } = deps;
   // exportLimiter: applies to GETs (unlike apiLimiter which skips them).
@@ -875,7 +885,11 @@ export function createAdminRouter(deps) {
     if (!nurPlattform(req, res)) return;
     try {
       const { listOverrides } = await import("../services/featureOverrideService.js");
-      const orgId = req.query.org_id ? parseInt(req.query.org_id, 10) : null;
+      /* Z4: `parseInt` auf einer UUID ergibt NaN — der Filter konnte nie greifen. */
+      const orgId = req.query.org_id ? String(req.query.org_id) : null;
+      if (orgId && !UUID_RE.test(orgId)) {
+        return res.status(400).json({ success: false, error: { code: "INVALID_ORG_ID" } });
+      }
       const limit = Math.min(200, parseInt(req.query.limit) || 100);
       const offset = parseInt(req.query.offset) || 0;
       const result = await listOverrides(pool, { orgId, limit, offset });
@@ -889,8 +903,19 @@ export function createAdminRouter(deps) {
     if (!nurPlattform(req, res)) return;
     try {
       const { upsertOverride } = await import("../services/featureOverrideService.js");
-      const { feature_key, org_id, enabled, reason, expires_at } = req.body;
+      const { org_id, enabled, reason, expires_at } = req.body;
+      /* Z4: hier stand `if (!feature_key)` auf dem rohen Wert — `"   "` kam
+         damit durch. Ein Hebel auf Leerzeichen steht in der Liste, sperrt den
+         echten Schluessel nicht und wirkt nie, weil `checkOverride` am
+         Schluessel sucht. Die Datenbank haelt dieselbe Regel (Migration 223). */
+      const feature_key = typeof req.body.feature_key === "string" ? req.body.feature_key.trim() : "";
       if (!feature_key) return res.status(400).json({ success: false, error: { code: "MISSING_FEATURE_KEY" } });
+      /* Z4: ohne Pruefung wuerde eine unbrauchbare Org-Kennung erst am
+         Fremdschluessel scheitern — also als 500 statt als 400, und der Owner
+         saehe "Serverfehler", wo "diese Kennung stimmt nicht" gemeint ist. */
+      if (org_id && !UUID_RE.test(String(org_id))) {
+        return res.status(400).json({ success: false, error: { code: "INVALID_ORG_ID" } });
+      }
       const override = await upsertOverride(pool, {
         featureKey: feature_key,
         orgId: org_id || null,
@@ -914,6 +939,12 @@ export function createAdminRouter(deps) {
     if (!nurPlattform(req, res)) return;
     try {
       const { deleteOverride } = await import("../services/featureOverrideService.js");
+      /* Z4: `parseInt` ist hier RICHTIG und bleibt. `feature_overrides.id` ist
+         `SERIAL` (Migration 059, nachgetragen von 223) — anders als fast alle
+         juengeren Tabellen dieses Projekts, die UUIDs tragen. Meine erste
+         Fassung des Nachtrags hatte die Tabelle auf UUID umgestellt und diese
+         Zeile mitgeaendert; das waere eine zweite Definition derselben Tabelle
+         gewesen. Ein Nachtrag richtet sich nach dem, was er nachtraegt. */
       const id = parseInt(req.params.id, 10);
       if (!id) return res.status(400).json({ success: false, error: { code: "INVALID_ID" } });
       const deleted = await deleteOverride(pool, id);

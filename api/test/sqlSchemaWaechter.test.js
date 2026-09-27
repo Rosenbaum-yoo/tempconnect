@@ -688,12 +688,19 @@ export function pruefeQuelle(rel, src, zaehler) {
 
 const BESTAND = new Set([
   /* ── Fehlende Tabellen ──────────────────────────────────────────────────
-   * feature_overrides: Migration 059 existiert UND ist im Ledger _migrations
-   * als angewandt verbucht — die Tabelle fehlt trotzdem (sql/migrate.sh
-   * dokumentiert die Ursache: vor ON_ERROR_STOP=1 wurden fehlgeschlagene
-   * Migrationen faelschlich als applied eingetragen). Aufrufer:
-   * routes/admin.js (Liste/Anlegen/Loeschen), dealStaffingFastTrackService. */
-  "services/featureOverrideService.js::feature_overrides",
+   * feature_overrides: am 2026-09-27 BEHOBEN (Welle Z, Z4) — Migration 223 traegt
+   * nach, was 059 versprochen und nicht gehalten hat. Die Buchung von 059 bleibt
+   * stehen (in einem Protokoll wird nicht radiert), der Nachtrag laeuft unter
+   * neuer Nummer. Der Aufbau ist ABSICHTLICH der von 059, bis auf zwei
+   * begruendete Abweichungen: der eindeutige Index traegt NULLS NOT DISTINCT
+   * (ohne das greift ON CONFLICT beim GLOBALEN Hebel nicht, die Zeilen vermehren
+   * sich stumm und checkOverride nimmt mit LIMIT 1 eine davon), und ein leerer
+   * Funktionsschluessel ist verboten. Insbesondere bleibt `id` SERIAL: eine erste
+   * Fassung hatte auf UUID umgestellt und damit eine zweite Definition derselben
+   * Tabelle geschaffen, samt gebrochener Loeschroute. Zusaetzlich behoben: der
+   * leere catch in dealStaffingFastTrackService (der Hebel war unbedienbar UND
+   * unsichtbar), die Zaehlabfrage mit $3 bei einem Parameter und parseInt auf
+   * der Org-UUID. Eintrag gestrichen. */
   /* vendor_pool_history / vendor_pool_notes: nie angelegt. Verlauf und Notizen
    * eines Lieferantenpools werfen beim Schreiben UND beim Lesen. */
   "services/vendorPoolService.js::vendor_pool_history",

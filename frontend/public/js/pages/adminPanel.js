@@ -2054,7 +2054,10 @@ TCi18n.register('en', {
       reason: el('foReason').value || null
     };
     var orgId = el('foOrgId').value;
-    if (orgId) body.org_id = parseInt(orgId, 10);
+    // Z4: Org-Kennungen sind UUIDs — `parseInt` hat daraus NaN gemacht und der
+    // Server bekam `null`. Eine Ausnahme fuer EINEN Kunden liess sich damit
+    // ueberhaupt nicht anlegen, nur eine globale.
+    if (orgId) body.org_id = String(orgId).trim();
     var expires = el('foExpires').value;
     if (expires) body.expires_at = new Date(expires).toISOString();
     try {
