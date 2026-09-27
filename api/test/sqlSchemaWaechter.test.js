@@ -735,7 +735,11 @@ const BESTAND = new Set([
   "services/staffControlService.js::audit_log.user_id",        // richtig: actor_id — identisch zu Fund 2
   "services/timesheetService.js::timesheets.worker_signed_at", // Arbeiter-Unterschrift wird nirgends gespeichert
   "services/timesheetService.js::timesheets.worker_signed_ip",
-  "services/emergencyStaffingService.js::demand_requests.response_window_minutes",
+  /* demand_requests.response_window_minutes: am 2026-09-27 BEHOBEN (M4c.16) —
+   * der Schreibvorgang ist entfallen, nicht die Spalte nachgezogen. Niemand las
+   * sie; das Antwortfenster haengt allein an `urgency` und steht in
+   * URGENCY_CONFIG. Gespeichert waere es eine zweite Wahrheit, die bei jeder
+   * Aenderung der Konfiguration von ihr abweicht. Eintrag gestrichen. */
   "services/instantMatchService.js::compliance_documents.supplier_org_id", // richtig: org_id
   "services/instantMatchService.js::organizations.is_verified",
   "services/platformMetricsService.js::ratings.overall_score",

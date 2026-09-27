@@ -198,10 +198,26 @@ describe("emergencyStaffingService — createEmergencyRequest", () => {
     // Demand INSERT actually happened
     assert.strictEqual(pool.find("INSERT INTO demand_requests").length, 1);
 
-    // Response window (NOTDIENST = 15) was set on the new demand id
-    const rw = pool.last("response_window_minutes");
-    assert.ok(rw, "expected response_window_minutes UPDATE");
-    assert.deepStrictEqual(rw.params, [15, "dem-1"]);
+    /*
+     * M4c.16 — HIER WURDE EIN SCHREIBVORGANG AUF EINE NICHT EXISTIERENDE SPALTE
+     * FESTGENAGELT.
+     *
+     * Hier stand: es MUSS ein `UPDATE ... response_window_minutes` geben. Die
+     * Spalte gibt es in der Datenbank nicht (gemessen 2026-09-27), der Muster-Pool
+     * nahm die Abfrage aber an — die Probe war gruen, waehrend der Notdienst-Weg
+     * in Produktion in einer 500 endete. Eine Probe, die einen Fehler als Soll
+     * festhaelt, ist nach §0.9 der Fall, in dem der TEST korrigiert wird.
+     *
+     * Zugesichert wird jetzt das, was gelten soll: das Antwortfenster ist aus der
+     * Dringlichkeit ABLEITBAR und wird nicht gespeichert. Der Wert steht in der
+     * Antwort (`urgency_config`), damit der Aufrufer ihn hat, ohne dass eine
+     * zweite Wahrheit in der Datenbank entsteht.
+     */
+    assert.strictEqual(result.urgency_config.responseWindow, 15,
+      "das Antwortfenster fehlt in der Antwort — dann braeuchte der Aufrufer doch eine Spalte");
+    assert.strictEqual(pool.last("response_window_minutes"), undefined,
+      "es wird wieder auf demand_requests.response_window_minutes geschrieben — "
+      + "die Spalte existiert nicht, und der Notdienst endet in einer 500");
   });
 
   it("normalizes urgency=critical and feeds it into the demand payload", async () => {

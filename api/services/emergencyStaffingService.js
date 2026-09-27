@@ -199,13 +199,38 @@ export async function createEmergencyRequest(pool, userId, plan, payload) {
 
   const demand = await createDemandRequest(pool, userId, plan, demandPayload);
 
-  // Response-Window setzen
-  if (cfg.responseWindow) {
-    await pool.query(
-      `UPDATE demand_requests SET response_window_minutes = $1 WHERE id = $2`,
-      [cfg.responseWindow, demand.id]
-    );
-  }
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * HIER STAND EIN SCHREIBVORGANG AUF EINE SPALTE, DIE ES NICHT GIBT (M4c.16)
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   *   UPDATE demand_requests SET response_window_minutes = $1 WHERE id = $2
+   *
+   * `demand_requests.response_window_minutes` steht in keiner Migration und
+   * existiert in der Datenbank nicht (gemessen am 2026-09-27: 0 Treffer in
+   * information_schema). Der Schreibvorgang wirft, und weil er NACH dem Anlegen
+   * des Bedarfs laeuft, endet der ganze Notdienst-Weg in einer 500 — der Weg, den
+   * der Owner als USP fuehrt. `test/sqlSchemaWaechter.test.js` fuehrt den Fall
+   * seit laengerem in seiner Bestandsliste; was fehlte, war die Behebung.
+   *
+   * ENTSCHIEDEN WURDE GEGEN DIE MIGRATION, und zwar aus zwei Gruenden:
+   *
+   *   NIEMAND LIEST DIE SPALTE. Die einzige Auswertung, die das Antwortfenster
+   *   braucht (`reportingService`, Dringlichkeits-Punktzahl), liest
+   *   `urgencyConfig.responseWindow` aus DIESER Konfiguration — nicht aus der
+   *   Datenbank.
+   *
+   *   SIE WAERE EINE ZWEITE WAHRHEIT. Der Wert haengt allein an `urgency`, und
+   *   `urgency` steht am Bedarf. Waere er zusaetzlich gespeichert, trueg eine
+   *   alte Zeile weiter 15 Minuten, nachdem NOTDIENST auf 10 geaendert wurde —
+   *   waehrend die Auswertung 10 sagt. Genau die Sorte Schattenwahrheit, die das
+   *   Projekt an anderer Stelle mit `zusageFormel` und `koepfeFormel` beseitigt
+   *   hat.
+   *
+   * `GET /emergency/config` gibt `response_window_minutes` weiter aus. Das ist
+   * richtig: dort beschreibt es die FAEHIGKEIT einer Dringlichkeitsstufe, nicht
+   * den Zustand einer Zeile.
+   */
 
   // 2. SLA starten
   if (demand.sla_status === "RUNNING") {
