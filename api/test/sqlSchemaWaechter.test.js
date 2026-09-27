@@ -738,8 +738,22 @@ const BESTAND = new Set([
 
   /* ── Einzelbefunde ──────────────────────────────────────────────────────── */
   "services/staffControlService.js::audit_log.user_id",        // richtig: actor_id — identisch zu Fund 2
-  "services/timesheetService.js::timesheets.worker_signed_at", // Arbeiter-Unterschrift wird nirgends gespeichert
-  "services/timesheetService.js::timesheets.worker_signed_ip",
+  /* timesheets.worker_signed_at/_ip: am 2026-09-27 BEHOBEN (Welle Z, Z2) — der
+   * WEG ist entfallen, die Spalten wurden NICHT nachgezogen. Drei Messungen
+   * tragen das: (1) `worker_time_submissions` fuehrt den Vorgang der Kraft
+   * vollstaendig (worker_user_id, submitted_at/_by, customer_confirmed_at/_by,
+   * posted_to_timesheet_at) und der Zettel traegt dafuer
+   * source='worker_submission' (Mig 156) — die Frage war also schon
+   * beantwortet; (2) `timesheets` kennt den Menschen nur als Text, es gibt kein
+   * worker_user_id, die Route unterschrieb aber mit der Sitzung und der
+   * Firmen-Berechtigung timesheet.submit — angelegt haette das Feld eine
+   * Unterschrift belegen koennen, die jemand anders geleistet hat; (3) die
+   * Doku, gegen die der Code geschrieben wurde, nennt eine "Migration 031:
+   * Digital Signature Columns", die es nie gab (031 ist 031_rls_prep.sql).
+   * Der schwerere Teil des Befunds war der Leseweg: die Spalte stand in einem
+   * FILTER, also warf die GANZE Abfrage — GET /timesheets/worker-summary
+   * lieferte immer eine 500. Die Kennzahl heisst jetzt
+   * worker_confirmed_count und zaehlt an source. Eintraege gestrichen. */
   /* demand_requests.response_window_minutes: am 2026-09-27 BEHOBEN (M4c.16) —
    * der Schreibvorgang ist entfallen, nicht die Spalte nachgezogen. Niemand las
    * sie; das Antwortfenster haengt allein an `urgency` und steht in

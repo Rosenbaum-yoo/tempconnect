@@ -127,3 +127,32 @@ alphabetical order within the number (e.g. `064_capacity_…` before `064_strate
 4. Include a `-- Migration NNN:` comment header with a brief description
 5. Use `SET client_min_messages TO WARNING;` to suppress noise
 6. Test on a fresh schema before committing (see `sql/test-fresh-install.sh`)
+
+## Die Luecken 111 und 117 — gemessen, nicht vermutet (2026-09-27)
+
+`sql/migrations/` hat 110 und 112, aber keine 111; ebenso fehlt 117. Seit der
+Finalisierungsphase stand dazu die Owner-Frage **OE-05: „Bewusst uebersprungen
+oder Fehler?"** offen (`docs/releases/FINALIZATION_SCOPE.md`,
+`docs/releases/OPEN_BLOCKERS.md` P2-04). Sie ist jetzt beantwortet, und zwar
+durch Messung:
+
+| Frage | Messung am 2026-09-27 | Folge |
+|---|---|---|
+| Wurde je etwas unter 111 angewandt? | Die Buchhaltung `_migrations` fuehrt **keinen** Eintrag `111…` | Nichts ist verloren. Es gab nie eine Datei, die gelaufen ist. |
+| Ist das ein Einzelfall? | **Sieben** Nummern sind **doppelt** belegt: 064, 070, 074, 075, 086, 130, 140 | Nummernkollisionen waren Alltag. Eine uebersprungene Nummer ist dasselbe Phaenomen mit umgekehrtem Vorzeichen. |
+| Und 117? | Steht in `docs/enterprise-readiness/TENANT_ISOLATION_EVIDENCE.md` und `docs/security/SECURITY_OVERVIEW.md` ausdruecklich als **Roadmap** („RLS auf ~60 weitere Tabellen, Owner-Entscheidung ausstehend") | Kein Fehler, sondern ein Vorausverweis auf eine Entscheidung. |
+
+**Damit ist 111 eine Luecke ohne Inhalt.** Sie braucht keine Nachtrags-Migration:
+eine Nummer ist ein Ordnungsmerkmal, kein Inventar. Was sie braucht, ist genau
+diese Zeile — damit der naechste Leser nicht wieder sucht.
+
+Erzwungen wird das ab jetzt von `api/test/dokuMigrationen.test.js`: eine in
+einem Dokument genannte Migrationsnummer muss als Datei existieren oder dort im
+Register `GEPLANT` mit Grund stehen. Beide Nummern stehen darin — mit genau
+dieser Messung als Grund, und der Waechter wird rot, sobald eine von ihnen
+angelegt wird und der Eintrag bleibt.
+
+> Anmerkung zur Buchhaltung: `_migrations` fuehrt 239 Buchungen, das Verzeichnis
+> 224 Dateien. Die Differenz ist ein eigener Gegenstand (Buchungen aus aelteren
+> Namensschemata, z. B. `sql_005_reviews_pgcrypto.sql`) und wird getrennt
+> geprueft — sie beruehrt die Antwort auf OE-05 nicht.

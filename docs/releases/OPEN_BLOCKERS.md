@@ -306,11 +306,24 @@ Marktstart.
 - **Status:** OFFEN (P2-B in CLAUDE.md)
 - **Wave:** WAVE 08
 
-### P2-04 🟡 Migration-Lücke 111 dokumentieren
-- **Status:** OFFEN
+### P2-04 ✅ Migration-Lücke 111 dokumentiert (2026-09-27)
+- **Status:** ERLEDIGT — dokumentiert in `sql/migrations/NUMBERING.md`, Abschnitt
+  „Die Lücken 111 und 117".
 - **Problem:** sql/migrations/ hat 110 und 112 aber keine 111
 - **Wave:** WAVE 04 (DB)
-- **Verify:** Owner-Entscheidung OE-05 vorher klären
+- **Antwort auf OE-05 („bewusst übersprungen oder Fehler?"), gemessen statt
+  vermutet:** die Buchhaltung `_migrations` führt **keinen** Eintrag 111 — es ist
+  also nie etwas unter dieser Nummer gelaufen, nichts ist verloren. Dass
+  Nummernkollisionen Alltag waren, zeigt die Gegenrichtung: **sieben** Nummern
+  sind doppelt belegt (064, 070, 074, 075, 086, 130, 140). Eine übersprungene
+  Nummer ist dasselbe Phänomen mit umgekehrtem Vorzeichen. Eine
+  Nachtrags-Migration wäre sinnlos: eine Nummer ist ein Ordnungsmerkmal, kein
+  Inventar.
+- **Bleibt beim Owner:** nur noch 117 — und das als Sachfrage, nicht als Lücke:
+  RLS auf ~60 weitere Tabellen (Roadmap, `TENANT_ISOLATION_EVIDENCE.md`).
+- **Erzwungen:** `api/test/dokuMigrationen.test.js` — beide Nummern stehen dort
+  als geplant mit Grund; der Wächter wird rot, sobald eine existiert und der
+  Eintrag stehenbleibt.
 
 ### P2-05 🟡 `app_notdienst.html` Plan-Gate
 - **Status:** OFFEN — Owner-Entscheidung OE-06 required

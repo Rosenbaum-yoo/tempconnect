@@ -52,16 +52,30 @@ Worker/Disponent wählt Assignment + KW → System erstellt automatisch:
 }
 ```
 
-## Digitale Unterschrift
+## Bestätigung durch die Kraft — wo sie wirklich steht
 
-Endpoint: `POST /timesheets/:id/sign`
+`POST /timesheets/:id/sign` **gibt es nicht mehr** (entfernt am 2026-09-27,
+Welle Z / Z2). Dieser Abschnitt beschrieb sechs Spalten an `timesheets`:
+`worker_signed_at`, `worker_signed_ip`, `agency_confirmed_at`,
+`agency_confirmed_by`, `customer_signed_by`, `customer_signed_at`. **Keine
+einzige davon existiert** — gemessen am 2026-09-27 hat `timesheets` 26 Spalten,
+und die Route warf bei jedem Aufruf eine 500. Die Doku hat einen Weg
+beschrieben, den es nie gab; das ist die Lehre, nicht ein Nebensatz.
 
-- Nur möglich in Status `draft` oder `submitted`
-- Speichert: `worker_signed_at` (Zeitstempel) + `worker_signed_ip` (Client-IP)
-- Einmalig — erneutes Signieren gibt `ALREADY_SIGNED` zurück
-- Zusätzliche Spalten für Agency/Customer-Bestätigung:
-  - `agency_confirmed_at`, `agency_confirmed_by`
-  - `customer_signed_by`, `customer_signed_at`
+Die Bestätigung der Kraft liegt an ihrem eigenen Vorgang, nicht am Zettel:
+
+| Frage | Wahrheit |
+|---|---|
+| Hat die Kraft ihre Stunden selbst gemeldet? | `timesheets.source = 'worker_submission'` (Mig 156) |
+| Wann, und von welchem Konto? | `worker_time_submissions.submitted_at` / `submitted_by` / `worker_user_id` |
+| Hat der Kunde bestätigt? | `worker_time_submissions.customer_confirmed_at` / `customer_confirmed_by` |
+| Wann wurde daraus ein Zettel? | `worker_time_submissions.posted_to_timesheet_at`, `timesheet_id` |
+
+Warum nicht am Zettel: `timesheets` kennt den Menschen nur als Text
+(`worker_name`, `worker_identifier`) — es gibt dort kein `worker_user_id`. Eine
+Unterschrift auf dieser Zeile hätte von jemand anderem getragen sein können als
+von der Kraft, deren Name darauf steht. Ausführliche Begründung im Quelltext:
+`services/timesheetService.js`, an der Stelle der entfernten `signTimesheet`.
 
 ## ArbZG §4 Pausenvalidierung
 
@@ -109,7 +123,9 @@ Endpoint: `GET /timesheets/worker-summary?worker_name=X&supplier_org_id=Y`
 Liefert:
 - `total_timesheets`, `draft_count`, `submitted_count`, `approved_count`, `rejected_count`
 - `approved_hours_total`, `approved_hours_this_month`, `overtime_hours_this_month`
-- `signed_count`
+- `worker_confirmed_count` — Zettel mit `source='worker_submission'`, also mit einer Meldung der Kraft dahinter.
+  Hier stand `signed_count` auf `worker_signed_at`; die Spalte existiert nicht, und weil sie in einem
+  FILTER stand, warf die GANZE Abfrage — der Endpunkt lieferte also nie eine Kennzahl, sondern eine 500.
 
 ## Benachrichtigungen
 
@@ -141,7 +157,6 @@ Alle Events sind in `EVENT_CATEGORY_MAP` als `timesheet_updates` kategorisiert.
 | POST    | /timesheets/:id/cancel            | timesheet.submit   | Stornieren                |
 | POST    | /timesheets/:id/return-to-draft   | timesheet.edit     | Zurück zu Draft           |
 | POST    | /timesheets/prefill               | timesheet.create   | Pre-Fill aus Assignment   |
-| POST    | /timesheets/:id/sign              | timesheet.submit   | Digitale Unterschrift     |
 | POST    | /timesheets/batch-approve         | timesheet.approve  | Batch-Genehmigung         |
 | POST    | /timesheets/batch-reject          | timesheet.reject   | Batch-Ablehnung           |
 | GET     | /timesheets/status-meta           | —                  | Status-Labels/Farben      |
@@ -208,11 +223,23 @@ Praktische Folge:
 ### Migration 027: `timesheets` + `timesheet_entries`
 - Basis-Tabellen mit Status-Lifecycle, Org-Boundary, Worker-Daten
 
-### Migration 031: Digital Signature Columns
-- `worker_signed_at`, `worker_signed_ip`
-- `agency_confirmed_at`, `agency_confirmed_by`
-- `customer_signed_by`, `customer_signed_at`
-- Index: `idx_timesheets_signed` auf `worker_signed_at`
+### ~~Migration 031: Digital Signature Columns~~ — DIESE MIGRATION HAT ES NIE GEGEBEN
+
+Hier stand, Migration 031 lege sechs Unterschriftsspalten und den Index
+`idx_timesheets_signed` an. Gemessen am 2026-09-27: `031` ist
+`031_rls_prep.sql`, und **keine** Migration des Projekts nennt
+`worker_signed_at`. Weder die Spalten noch der Index existieren.
+
+**Das ist die Ursache des Befunds, nicht sein Protokoll.** Der Code wurde gegen
+diese Doku geschrieben — `signTimesheet` und der Zähler `signed_count` haben
+Spalten benutzt, die nur hier standen. Eine Doku, die eine Migration erfindet,
+ist keine veraltete Notiz, sondern eine Bauanleitung ins Leere. Erzwungen wird
+das jetzt von `test/dokuMigrationen.test.js`: jede in einem Dokument genannte
+Migrationsnummer muss als Datei existieren, und ein Abschnitt darf keine Spalte
+versprechen, die die zugehörige Migration nicht anlegt.
+
+Wo die Bestätigung der Kraft wirklich steht: Abschnitt „Bestätigung durch die
+Kraft" oben.
 
 ### Migration 033: `timesheet_templates`
 - Template-Management mit 3-Tier-Fallback (Assignment → Org → Default)

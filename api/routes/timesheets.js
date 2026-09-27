@@ -411,21 +411,21 @@ export function createTimesheetsRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  /* POST /timesheets/:id/sign – Digitale Unterschrift (Worker) */
-  router.post("/timesheets/:id/sign", ...base, requireScope("write:timesheets"), rperm("timesheet.submit"), async (req, res, next) => {
-    try {
-      const ts = await timesheetService.getTimesheet(pool, req.params.id);
-      if (!ts) return res.status(404).json({ error: "NOT_FOUND" });
-      if (!checkOrgBoundary(ts, req.orgId)) return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
-
-      const result = await timesheetService.signTimesheet(pool, req.params.id, req.session.userId, {
-        ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null
-      });
-      if (result.error) return res.status(result.error === 'NOT_FOUND' ? 404 : 409).json(result);
-      res.locals.audit = { action: "timesheet.sign", entity_type: "timesheet", entity_id: req.params.id };
-      res.json(result.timesheet);
-    } catch (err) { next(err); }
-  });
+  /*
+   * POST /timesheets/:id/sign – ENTFERNT (Welle Z, Z2, 2026-09-27)
+   *
+   * Die Route schrieb `timesheets.worker_signed_at/_ip` — zwei Spalten, die es
+   * nicht gibt. Jeder Aufruf endete in einer 500; der Weg hat nie
+   * funktioniert. Die Begruendung, warum die Spalten NICHT angelegt werden,
+   * steht vollstaendig in `services/timesheetService.js` an der Stelle der
+   * entfernten `signTimesheet` — kurz: die Kraft steht ueber
+   * `worker_time_submissions` + `timesheets.source='worker_submission'` hinter
+   * ihren Stunden, und der Zettel kennt den Menschen nur als Text, haette die
+   * Unterschrift also von jemand anderem tragen koennen.
+   *
+   * Wer die Bestaetigung der Kraft braucht: `GET /timesheets/worker-summary`
+   * liefert `worker_confirmed_count`, und der Zettel selbst traegt `source`.
+   */
 
   /* POST /timesheets/batch-approve – Mehrere Timesheets genehmigen */
   router.post("/timesheets/batch-approve", ...base, requireScope("write:timesheets"), rperm("timesheet.approve"), async (req, res, next) => {

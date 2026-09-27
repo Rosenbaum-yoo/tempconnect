@@ -164,5 +164,5 @@ Marktstart                   =  GO (kein Conditional GO)
 | OE-02 | `meine(agb).html` umbenennen? Externe Links? | WAVE 01 |
 | OE-03 | SSO: Okta-Dev oder Azure AD als Testlauf, oder vollständig soft-locken? | WAVE 09 |
 | OE-04 | OCC React-Build in CI, oder erst nach Phase 3? | WAVE 03 |
-| OE-05 | Migration 111: Bewusst übersprungen oder Fehler? | WAVE 04 |
+| OE-05 | Migration 111: ✅ **Beantwortet 2026-09-27** — uebersprungen, nichts verloren: `_migrations` fuehrt keinen Eintrag 111, und sieben Nummern sind doppelt belegt (064/070/074/075/086/130/140). Einzelheiten: `sql/migrations/NUMBERING.md`, Abschnitt „Die Luecken 111 und 117“. | WAVE 04 |
 | OE-06 | `app_notdienst.html` — aktiv oder Coming Soon? | WAVE 07 |
