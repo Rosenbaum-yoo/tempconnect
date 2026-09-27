@@ -77,12 +77,15 @@ den Migrationen — im Kopf der Datei steht der Satz, der diese ganze Welle erkl
 | Z9 | **Eine Zeile, die es nicht geben dürfte** *(gemeldet von der bauenden Sitzung, nachgemessen 2026-09-27: genau 1)*. In `worker_time_submissions` steht eine Einreichung mit `status='accepted_into_timesheet'` **und** `timesheet_id IS NULL`, obwohl der Code beides zusammen setzt. Entweder Altdaten aus einer früheren Fassung oder **ein zweiter Schreibweg daneben** | Erst messen, welcher Weg sie erzeugt haben kann (Datum, Urheber), **dann** entscheiden: Altlast bereinigen oder Lücke schließen. Wenn ein zweiter Weg existiert, ist die Zeile die Spitze und nicht der Fall |
 | Z10 | **Das Token im Klartext** *(entschieden oben)*. Drei Teile, weil das Hashen zwei weitere Befunde aufdeckt: **(a)** `reset_token` und `verification_token` als SHA-256 ablegen und vergleichen; der Teilindex aus Z1 behält seine Form, er steht dann auf dem Hash. **(b)** **Die beiden Wiederversand-Pfade müssen erneuern statt wiederverwenden.** `routes/auth.js:248` und `internalControlCenterService.js:153` lesen heute das *gespeicherte* Token, um denselben Link nochmals zu schicken — gehasht ist das unmöglich. Ein neues Token je Versand ist ohnehin das bessere Verfahren, weil der alte Link damit erlischt. **(c)** **`verification_token` hat überhaupt keine Ablaufzeit.** Der Reset verfällt nach einer Stunde, ein Bestätigungslink von vor acht Monaten wirkt heute noch | Offene Token werden beim Ausrollen genullt — sie sind kurzlebig, niemand verliert etwas. **Rückmutation:** Klartext zurückschreiben → die Probe, die den *gespeicherten* Wert gegen den *versendeten* hält, wird rot. Dazu eine Probe, die den Wiederversand zweimal aufruft: das zweite Token ist ein anderes, und das erste wirkt nicht mehr |
 
-> **Arbeitsteilung in dieser Welle (2026-09-27):** die **bauende** Sitzung nimmt die
-> Migrationen (Z3 → Z6), eine **dritte** Sitzung baut den **Z4-Wächter** (Objekte statt Namen),
-> die **planende** prüft gegen und hat Z10 entschieden. So schreiben nicht zwei Sitzungen an
-> derselben Stelle — die Regel „ein volles Tor über einen Baum, an dem zwei schreiben, beweist
-> nichts" gilt auch für das Bauen, nicht nur für das Prüfen.
-
+> **Arbeitsteilung in dieser Welle (Owner-Vorgabe 2026-09-27):** die **bauende** Sitzung macht
+> Welle Z **vollständig** — die Migrationen **und** den Z4-Wächter. Die planende Sitzung misst,
+> entscheidet (Z10) und prüft gegen; sie baut nicht und sie verteilt nicht.
+>
+> *Eine Zuteilung des Wächters an eine dritte Sitzung war ein Fehler und wurde noch am selben
+> Tag zurückgezogen. Sie bleibt hier stehen, weil sie eine Regel belegt: zwei bauende Sitzungen
+> an einer Welle verletzen genau den Satz, der über ihnen steht — „ein volles Tor über einen
+> Baum, an dem zwei schreiben, beweist nichts". Und Arbeit zu verteilen, die niemand verteilt
+> haben wollte, kostet mehr als sie spart.*
 ---
 
 ## 5. Reihenfolge
