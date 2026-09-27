@@ -701,10 +701,30 @@ const BESTAND = new Set([
    * leere catch in dealStaffingFastTrackService (der Hebel war unbedienbar UND
    * unsichtbar), die Zaehlabfrage mit $3 bei einem Parameter und parseInt auf
    * der Org-UUID. Eintrag gestrichen. */
-  /* vendor_pool_history / vendor_pool_notes: nie angelegt. Verlauf und Notizen
-   * eines Lieferantenpools werfen beim Schreiben UND beim Lesen. */
-  "services/vendorPoolService.js::vendor_pool_history",
-  "services/vendorPoolService.js::vendor_pool_notes",
+  /* vendor_pool_history / vendor_pool_notes: am 2026-09-27 BEHOBEN (Welle Z, Z6)
+   * — und zwar UNTERSCHIEDLICH, weil die beiden Faelle verschieden sind:
+   *
+   *   `vendor_pool_history` wurde NICHT angelegt. Die Aenderungen stehen schon im
+   *     Audit-Log: die Routen schreiben `vendor_pool.tier_change` bzw.
+   *     `status_change` mit Akteur, altem und neuem Wert und Grund (alt und Grund
+   *     in Z6 ergaenzt). `getHistory` und die Uebersicht lesen jetzt dort. Eine
+   *     zweite Verlaufstabelle daneben waere die Parallelstruktur, die dieses
+   *     Projekt verbietet — und beim Streit um eine Sperrung (Tier BLOCKED) waere
+   *     die Frage, welcher der beiden Verlaeufe stimmt.
+   *   `vendor_pool_notes` wurde ANGELEGT (Migration 224). Eine Notiz ist INHALT,
+   *     kein Protokoll: das Audit-Log haelt fest, DASS eine Notiz entstand, und
+   *     schneidet den Text bei 200 Zeichen ab. `vendor_pool.notes` (eine
+   *     Textspalte, existiert) traegt EINEN Text ohne Verfasser und ohne
+   *     Reihenfolge — die Routen und die Doku beschreiben einen chronologischen
+   *     Verlauf mit Autor.
+   *
+   * Beim Messen dazu gefunden und mitbehoben: NEUN Abfragen der
+   * Lieferantenverwaltung verbanden `supplier_reputation.supplier_id` (ein NUTZER,
+   * per Fremdschluessel) mit `vendor_pool.supplier_org_id` (eine ORGANISATION, per
+   * Fremdschluessel). Ein LEFT JOIN, der nie trifft: kein Fehler, nur lauter NULL,
+   * und die Liste der schwaechsten Lieferanten (mit `WHERE sr.reputation_score IS
+   * NOT NULL`) war dauerhaft leer. Der Weg ueber den Eigentuemer steht jetzt
+   * EINMAL in `services/reputationSql.js`. Eintraege gestrichen. */
   /* state_transitions: am 2026-09-27 BEHOBEN (Welle Z, Z3) — die Tabelle wurde
    * NICHT angelegt, der LESER wurde auf die Wahrheit gerichtet. `audit_log`
    * fuehrt jeden Wechsel einer Anfrage schon mit genau den vier Feldern, die
