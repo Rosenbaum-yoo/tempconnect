@@ -718,15 +718,16 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | davon Staff Control Center | 104 | `api/routes/staffControlCenter.js` — größte Einzeldatei |
 | Router-Dateien | 83 | `ls api/routes/ \| wc -l` (inkl. Verzeichnis `api/routes/occ/`) |
 | Service-Dateien | 200 | `ls api/services/ \| wc -l` |
-| Datenbanktabellen (deklariert) | **188** | Nachgerechnet am 2026-09-27, und die Regel steht hier, damit die Zahl reproduzierbar ist: `CREATE TABLE`-Namen am ZEILENANFANG in `sql/init.sql` + `sql/migrations/NNN_*.sql`, eindeutig, minus die per `DROP TABLE` wieder entfernten (genau eine: `reports`, Befund P1-19). Der Zeilenanfang schliesst den Treffer aus einem deutschen Kommentar aus, der die alte Zahl von Hand bereinigen musste. **Die laufende Datenbank hat 198 Tabellen** — die Differenz ist kein Rundungsfehler, siehe die Zeile darunter |
-| davon in der Datenbank, aber von KEINER Migration deklariert | **10** | Gemessen am 2026-09-27: `_migrations` (die Buchhaltung selbst, erwartet) sowie `activity_feed`, `agency_api_keys`, `email_verification_tokens`, `reviews`, `session`, `staff_session`, `timesheet_entries`, `timesheets`, `usage_counters`. Ihre Namen entsprechen den 13 Altbuchungen in `_migrations` (`002_marketplace.sql`, `003_usage_counters.sql`, `004_email_verification.sql` …), deren Dateien beim Zusammenfuehren entfernt wurden. Folge: eine FRISCHE Installation aus dem heutigen Stand legt sie nicht an — darunter `timesheets` und `timesheet_entries`, den Kern der Stundenzettel. Offen, eigener Posten |
-| davon deklariert, aber in der Datenbank fehlend | **0** | Gemessen am 2026-09-27, nach Migration 223 (`feature_overrides`) und 224 (`vendor_pool_notes`). Diese Richtung ist damit sauber |
+| Datenbanktabellen (deklariert) | **190** | Nachgerechnet am 2026-09-27. Die Regel steht hier, damit die Zahl reproduzierbar ist: `CREATE TABLE`-Namen am Zeilenanfang in **allen** Dateien, die `sql/migrate.sh` anwendet (`ls /migrations/*.sql \| sort`) plus `sql/init.sql`, eindeutig, in Aussage-Reihenfolge, minus die per `DROP TABLE` wieder entfernten (genau eine: `reports`, Migration 191). Zwei Fallen, in die eine erste Messung beide getappt ist und die deshalb hier stehen: (1) **nicht** `^[0-9]{3}_` als Dateimuster erfinden — `027b_timesheets.sql` und `045b_reputation_visibility.sql` tragen einen Buchstaben und fielen heraus, wodurch `timesheets` als undeklariert erschien; (2) CREATE und DROP in der Reihenfolge lesen, in der sie im Text stehen — wer erst alle CREATEs und dann alle DROPs verarbeitet, macht aus einer Neuanlage (`DROP IF EXISTS x; CREATE x`) eine Entfernung |
+| davon deklariert, aber in der Datenbank fehlend | **0** | Gemessen am 2026-09-27, nach Migration 223 (`feature_overrides`) und 224 (`vendor_pool_notes`). Genau die Richtung, die Welle Z abarbeitet — sie ist damit leer |
+| Tabellen in der laufenden Datenbank | **198** | Aus `api/test/fixtures/schema.json` (erzeugt von `api/scripts/schema-snapshot.js`) |
+| davon von keiner Migration deklariert | **8**, alle erklaert | **Kein Befund, aber aufschreibenswert.** Drei entstehen ausserhalb des Migrationswegs und sollen es: `session` und `staff_session` legt `connect-pg-simple` mit `createTableIfMissing: true` an (`api/app.js`), `_migrations` legt `migrate.sh` selbst an. Fuenf sind Waisen aus zusammengefuehrten Alt-Migrationen, die **kein Produktionscode** anfasst (gemessen: 0 Fundstellen in services/routes/middleware/workers): `activity_feed` — der einzige Treffer ist eine URL-Zeichenkette in `admin.js` —, `agency_api_keys`, `reviews`, `usage_counters`, `email_verification_tokens` (die Waise aus Z1). Eine frische Installation legt diese fuenf nicht an, und niemand merkt es. Kandidaten fuer eine dokumentierte Aufraeumung, kein Livegang-Blocker |
 | Migrationsdateien | **228** | `ls sql/migrations/*.sql \| wc -l` — nummeriert `001_ratings.sql` bis `224_notizen_am_lieferanten.sql`; neun Nummern sind doppelt belegt (`027`/`027b`, `045`/`045b`, `064`, `070`, `074`, `075`, `086`, `130`, `140`). `NUMBERING.md` ist keine Migration |
 | Nutzerflächen | **90** | 78 in `frontend/public/*.html` + 6 `legal/` + 4 `trust/` + `frontend/landing.html` + `frontend/demo.html`. Am 26.08. nachgezählt: die vorherige **89** hinkte der eigenen Liste nach (A1 des Wächters bestand, nur die Summe war alt) — die Korrektur ist größer als der Abzug für die gelöschte Vorlagenseite |
 | davon reine Weiterleitungen | 9 | je 14 nicht-leere Zeilen, reiner Meta-Refresh |
 | davon Attrappen | 3 | `sla_nachweise.html`, `impressum.html`, `datenschutz.html` (Wurzel) |
 | davon für keinen Nutzer erreichbar | **0** | war 1 (timesheet-templates.html); am 26.08. entfernt — siehe Liste A, A1 |
-| Backend-Testdateien | <!--zahl:backend-testdateien-->495<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
+| Backend-Testdateien | <!--zahl:backend-testdateien-->496<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
 | E2E-Testdateien | <!--zahl:e2e-testdateien-->17<!--/zahl--> | `ls e2e/tests/ \| wc -l` |
 | Ablauf-Proben (datenbankgebunden) | <!--zahl:ablaufproben-->52<!--/zahl--> | `ls api/test/integration/*.flow.test.js \| wc -l` |
 | Rollen im Rechtemodell | 12 | `ROLE_HIERARCHY` in `api/services/rbacService.js:9-22` |
@@ -745,7 +746,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 >
 > **Eine Zahl, die hier bewusst fehlt:** die Gesamtzahl grüner Tests. Sie steht in mehreren
 > Projektdokumenten (3979+), wurde für dieses Register aber **nicht** nachgerechnet, weil das
-> einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die <!--zahl:backend-testdateien-->495<!--/zahl--> Testdateien,
+> einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die <!--zahl:backend-testdateien-->496<!--/zahl--> Testdateien,
 > <!--zahl:e2e-testdateien-->17<!--/zahl--> E2E-Dateien und <!--zahl:ablaufproben-->52<!--/zahl--> datenbankgebundene Ablauf-Proben. Wer die Testzahl in ein
 > Investorendokument schreibt, muss sie vorher unter `api/scripts/run-tests.js`
 > real erzeugen.
@@ -961,7 +962,7 @@ Ehrlichkeit über die eigenen Grenzen gehört in ein Dokument, das später an In
    `docs-consistency`-Test existiert, der tote Verweise und verwaiste Dateien rot werden lässt,
    veraltet diese Datei still. Vorbild für die Mechanik: `api/test/flaechenZuordnung.test.js`.
 
-2. **Die Testzahl ist nicht nachgerechnet.** Belegt sind <!--zahl:backend-testdateien-->495<!--/zahl--> Backend-Testdateien und <!--zahl:e2e-testdateien-->17<!--/zahl-->
+2. **Die Testzahl ist nicht nachgerechnet.** Belegt sind <!--zahl:backend-testdateien-->496<!--/zahl--> Backend-Testdateien und <!--zahl:e2e-testdateien-->17<!--/zahl-->
    E2E-Dateien. Die in mehreren Projektdokumenten genannte Gesamtzahl grüner Tests (3979+)
    wurde für dieses Register **nicht** verifiziert — dazu wäre ein vollständiger Suite-Lauf
    unter `api/scripts/run-tests.js` nötig gewesen. Wer sie in eine Investorendarstellung
