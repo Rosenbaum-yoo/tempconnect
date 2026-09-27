@@ -77,6 +77,22 @@ den Migrationen — im Kopf der Datei steht der Satz, der diese ganze Welle erkl
 | Z9 | **Eine Zeile, die es nicht geben dürfte** *(gemeldet von der bauenden Sitzung, nachgemessen 2026-09-27: genau 1)*. In `worker_time_submissions` steht eine Einreichung mit `status='accepted_into_timesheet'` **und** `timesheet_id IS NULL`, obwohl der Code beides zusammen setzt. Entweder Altdaten aus einer früheren Fassung oder **ein zweiter Schreibweg daneben** | Erst messen, welcher Weg sie erzeugt haben kann (Datum, Urheber), **dann** entscheiden: Altlast bereinigen oder Lücke schließen. Wenn ein zweiter Weg existiert, ist die Zeile die Spitze und nicht der Fall |
 | Z10 | **Das Token im Klartext** *(entschieden oben)*. Drei Teile, weil das Hashen zwei weitere Befunde aufdeckt: **(a)** `reset_token` und `verification_token` als SHA-256 ablegen und vergleichen; der Teilindex aus Z1 behält seine Form, er steht dann auf dem Hash. **(b)** **Die beiden Wiederversand-Pfade müssen erneuern statt wiederverwenden.** `routes/auth.js:248` und `internalControlCenterService.js:153` lesen heute das *gespeicherte* Token, um denselben Link nochmals zu schicken — gehasht ist das unmöglich. Ein neues Token je Versand ist ohnehin das bessere Verfahren, weil der alte Link damit erlischt. **(c)** **`verification_token` hat überhaupt keine Ablaufzeit.** Der Reset verfällt nach einer Stunde, ein Bestätigungslink von vor acht Monaten wirkt heute noch | Offene Token werden beim Ausrollen genullt — sie sind kurzlebig, niemand verliert etwas. **Rückmutation:** Klartext zurückschreiben → die Probe, die den *gespeicherten* Wert gegen den *versendeten* hält, wird rot. Dazu eine Probe, die den Wiederversand zweimal aufruft: das zweite Token ist ein anderes, und das erste wirkt nicht mehr |
 
+> **Z4 ist gebaut und gegengeprüft (2026-09-27, planende Sitzung gegen die laufende
+> Datenbank):** `feature_overrides.id` ist `integer` mit `nextval` — die Bauart von 059, auf die
+> der vorhandene Code mit `parseInt(req.params.id)` rechnet. Der Riegel `feature_overrides_org_key_uidx`
+> trägt `indnullsnotdistinct = true`; der globale Hebel kann sich nicht mehr vervielfachen.
+> `_migrations` führt 059 **einmal** und 223 **einmal** — die zurückgenommene Fassung hat keine
+> Doppelbuchung hinterlassen.
+>
+> **Folge für den Z4-Wächter, und sie kehrt seinen Nachweis um:** mit der behobenen Tabelle hat er
+> **keinen lebenden Fall** mehr. `state_transitions`, `vendor_pool_history` und `vendor_pool_notes`
+> taugen nicht als Beleg — **keine Migration deklariert sie**, sie existierten nur im Code, und
+> dafür ist der bestehende `sqlSchemaWaechter` zuständig. Der neue Wächter wäre beim ersten Lauf
+> grün und hätte nichts bewiesen. **Deshalb: der Erkenner wird gegen einen künstlichen Fall
+> geprüft** — eine Probe füttert ihn mit einem Migrations-Text, der `CREATE TABLE gibt_es_nicht`
+> deklariert, und sichert zu, dass er ihn meldet; der Lauf über den echten Baum muss grün sein und
+> wirkt als Rückfall-Wächter. Ein Wächter ohne offenen Schaden bleibt wertvoll — aber nur mit
+> künstlichem Nachweis.
 > **Arbeitsteilung in dieser Welle (Owner-Vorgabe 2026-09-27):** die **bauende** Sitzung macht
 > Welle Z **vollständig** — die Migrationen **und** den Z4-Wächter. Die planende Sitzung misst,
 > entscheidet (Z10) und prüft gegen; sie baut nicht und sie verteilt nicht.
