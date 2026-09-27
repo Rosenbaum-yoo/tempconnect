@@ -56,6 +56,7 @@ den Migrationen — im Kopf der Datei steht der Satz, der diese ganze Welle erkl
 | Frage | Entscheidung | Warum |
 |---|---|---|
 | Notdienst-Fenster: Spalte anlegen oder Schreibweg entfernen? | **Schreibweg entfernen** (bauende Sitzung, von der planenden nachgemessen) | **Niemand liest die Spalte.** `reportingService.js:349` liest `urgencyConfig?.responseWindow` aus der **Konfiguration**. Sie zu speichern wäre eine zweite Wahrheit: ändert der Owner den Notdienst von 15 auf 10 Minuten, trügen alte Zeilen weiter 15, während die Auswertung 10 sagt |
+| Reset- und Verifikations-Token: Klartext oder gehasht? | **Gehasht** — entschieden von der planenden Sitzung 2026-09-27 als eigene Phase **Z10**, nach den kundenwirksamen Punkten. Die bauende Sitzung hat die Frage bewusst offengelassen und nicht nebenbei auf einem Anmeldeweg geändert; das war richtig | Drei Messungen tragen die Entscheidung: **(1)** Beide Token sind `crypto.randomBytes(32)` — 256 Bit. Ein einfacher SHA-256 genügt damit, Raten ist ausgeschlossen; bcrypt wäre nur langsam, nicht sicherer. **(2)** Das Projekt **hatte es selbst schon so vorgesehen:** die Waise `email_verification_tokens` trägt `token_hash`. Gehasht ist keine dritte Bauart, sondern der eigene, liegengebliebene Plan. **(3)** Im Klartext ist jede Kopie der Datenbank — Sicherung, Dump, ein lesender Fehler, eine Support-Ansicht — ein Hauptschlüssel für jedes Konto mit offenem Reset. Der Hash kostet zwei Zeilen und macht die Kopie wertlos |
 | Reihenfolge? | **Nach Kundenwirkung**, nicht nach Aufwand | Vor dem Livegang zählt, was ein echter Mensch anfasst. Passwort und Stundenzettel schlagen Reputation und Lieferantenhistorie |
 | Anlegen oder entfernen? | **Je Gruppe einzeln entschieden und begründet** | Eine Spalte anzulegen, die niemand liest, vergrößert die Schuld statt sie zu tilgen |
 
@@ -74,12 +75,17 @@ den Migrationen — im Kopf der Datei steht der Satz, der diese ganze Welle erkl
 | Z7 | **Notdienst** (Gruppe 7): Schreibweg entfernen | `offer.counterpartyFirst` grün |
 | Z8 | **Die Bestandsliste schrumpft sichtbar.** Je behobener Gruppe fällt ihr Eintrag aus `BESTAND` | Der Wächter zählt weniger Ausnahmen; seine Probe gegen das Verrotten bleibt grün |
 | Z9 | **Eine Zeile, die es nicht geben dürfte** *(gemeldet von der bauenden Sitzung, nachgemessen 2026-09-27: genau 1)*. In `worker_time_submissions` steht eine Einreichung mit `status='accepted_into_timesheet'` **und** `timesheet_id IS NULL`, obwohl der Code beides zusammen setzt. Entweder Altdaten aus einer früheren Fassung oder **ein zweiter Schreibweg daneben** | Erst messen, welcher Weg sie erzeugt haben kann (Datum, Urheber), **dann** entscheiden: Altlast bereinigen oder Lücke schließen. Wenn ein zweiter Weg existiert, ist die Zeile die Spitze und nicht der Fall |
+| Z10 | **Das Token im Klartext** *(entschieden oben)*. Drei Teile, weil das Hashen zwei weitere Befunde aufdeckt: **(a)** `reset_token` und `verification_token` als SHA-256 ablegen und vergleichen; der Teilindex aus Z1 behält seine Form, er steht dann auf dem Hash. **(b)** **Die beiden Wiederversand-Pfade müssen erneuern statt wiederverwenden.** `routes/auth.js:248` und `internalControlCenterService.js:153` lesen heute das *gespeicherte* Token, um denselben Link nochmals zu schicken — gehasht ist das unmöglich. Ein neues Token je Versand ist ohnehin das bessere Verfahren, weil der alte Link damit erlischt. **(c)** **`verification_token` hat überhaupt keine Ablaufzeit.** Der Reset verfällt nach einer Stunde, ein Bestätigungslink von vor acht Monaten wirkt heute noch | Offene Token werden beim Ausrollen genullt — sie sind kurzlebig, niemand verliert etwas. **Rückmutation:** Klartext zurückschreiben → die Probe, die den *gespeicherten* Wert gegen den *versendeten* hält, wird rot. Dazu eine Probe, die den Wiederversand zweimal aufruft: das zweite Token ist ein anderes, und das erste wirkt nicht mehr |
 
 ---
 
 ## 5. Reihenfolge
 
-**Z7 → Z1 → Z2 → Z3 → Z4 → Z5 → Z6**, Z8 fortlaufend.
+**Z7 → Z1 → Z2 → Z3 → Z4 → Z5 → Z6 → Z9 → Z10**, Z8 fortlaufend.
+
+> **Z9 ist eine Messung, keine Migration** — erst wissen, welcher Weg die Zeile erzeugt haben
+> kann, dann entscheiden. **Z10 steht am Ende der Welle und trotzdem vor dem Livegang:** es
+> berührt den Anmeldeweg, und der wird nicht angefasst, solange daneben noch Spalten fehlen.
 
 > **Z7 zuerst, weil es schon in Arbeit und klein ist** — ein entfernter Schreibweg, kein Schema.
 > Danach die beiden, die einen Menschen unmittelbar treffen: **niemand kommt ins Konto zurück**,
@@ -94,6 +100,7 @@ den Migrationen — im Kopf der Datei steht der Satz, der diese ganze Welle erkl
 | 2 | Wurde eine Spalte angelegt, die niemand liest? |
 | 3 | Bleibt irgendwo ein stiller `catch` stehen, der das Fehlen verdeckt? |
 | 4 | Stimmt das Migrationsverzeichnis nach Z4 wieder mit dem Schema überein? |
+| 5 | Liegt nach Z10 noch irgendwo ein Token im Klartext — in einer Spalte, einer Antwort, einer Protokollzeile? |
 
 ## 7. Was Welle Z **nicht** tut
 
