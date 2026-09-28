@@ -112,9 +112,33 @@ export function pruefeQuelle(rel, src, zaehler) {
   const gesehen = new Set();
   for (const lit of jsLiterale(src)) {
     const sql = normalisiere(lit.text);
-    /* NUR die Luecke: mehrrelationale SELECTs. Einrelationale deckt der
-       Schema-Waechter ab, und zwar gruendlicher (er kennt auch INSERT/UPDATE). */
-    if (!/\bJOIN\b/i.test(sql) || !/\bSELECT\b/i.test(sql)) continue;
+    /*
+     * Z19 (2026-09-28): KEIN Filter auf JOIN mehr.
+     *
+     * Bis hierher stand: "nur mehrrelationale SELECTs, einrelationale deckt der
+     * Schema-Waechter ab". Der zweite Halbsatz stimmt, der Filter war trotzdem zu
+     * eng — eine Abfrage kann OHNE Join mehrrelational sein, naemlich durch eine
+     * Unterabfrage. Genau dort standen noch zwei echte Fehler, die BEIDE Wachen
+     * durchgelassen haben:
+     *
+     *   routes/companyTimesheets.js   u.first_name / u.last_name
+     *       Die Abfrage steht in einem Promise.all. Sie warf, also warf das
+     *       Promise.all: die Benachrichtigung an die Zeitarbeitsfirma ueber einen
+     *       gesperrten Stundenzettel ging NIE raus.
+     *   routes/vendorPool.js          o.org_type  (die Spalte heisst `type`)
+     *       Die Lieferantensuche lieferte nichts — man konnte keinen
+     *       Vorzugslieferanten hinzufuegen, weil man keinen finden konnte.
+     *
+     * Beide entgingen dem Schema-Waechter, weil eine Unterabfrage sie
+     * mehrrelational macht, und dieser Datei, weil kein JOIN darin steht. Eine
+     * Luecke ZWISCHEN zwei Wachen ist teurer als eine offene, weil beide gruen
+     * melden und das Fehlen deshalb wie Abdeckung aussieht.
+     *
+     * Doppelmeldungen mit dem Schema-Waechter sind ausdruecklich in Kauf
+     * genommen: zwei Wachen, die dasselbe melden, kosten eine Zeile Lesezeit —
+     * eine Luecke zwischen ihnen kostet einen Kundenausfall.
+     */
+    if (!/\b(SELECT|INSERT|UPDATE|DELETE)\b/i.test(sql)) continue;
     zaehler.literale++;
     const karte = aliasKarte(sql);
     SPALTENBEZUG.lastIndex = 0;
@@ -156,7 +180,7 @@ function zeige(b) {
          (nah.length ? `\n      es gibt dort: ${nah.join(", ")}` : "");
 }
 
-describe("Spalten im Verbund — Spaltennamen in Abfragen MIT Join", () => {
+describe("Spalten im Verbund — Spaltennamen gegen den aufgeloesten Alias", () => {
   it("die Momentaufnahme traegt Tabellen und Sichten", () => {
     /* Notbremse: ohne Momentaufnahme prueft diese Datei nichts und meldet
        trotzdem gruen. */
@@ -167,11 +191,11 @@ describe("Spalten im Verbund — Spaltennamen in Abfragen MIT Join", () => {
 
   it("der Korpus wird wirklich gelesen", () => {
     assert.ok(zaehler.dateien >= 100, `nur ${zaehler.dateien} Quelldateien`);
-    assert.ok(zaehler.literale >= 200, `nur ${zaehler.literale} SQL-Literale mit Join`);
-    assert.ok(zaehler.geprueft >= 3000, `nur ${zaehler.geprueft} Spaltenpruefungen`);
+    assert.ok(zaehler.literale >= 900, `nur ${zaehler.literale} SQL-Literale`);
+    assert.ok(zaehler.geprueft >= 6000, `nur ${zaehler.geprueft} Spaltenpruefungen`);
   });
 
-  it("kein NEUER Spaltenfehler in einer Abfrage mit Join", () => {
+  it("kein NEUER Spaltenfehler in einer Abfrage mit aufloesbarem Alias", () => {
     assert.deepEqual(
       neu.map((b) => b.schluessel),
       [],
@@ -206,6 +230,32 @@ describe("Spalten im Verbund — Spaltennamen in Abfragen MIT Join", () => {
       const z = { dateien: 0, literale: 0, geprueft: 0 };
       const b = pruefeQuelle("nachbildung.js", "const q = `" + sql + "`;", z);
       assert.ok(b.some((x) => `${x.tab}.${x.spalte}` === name), `nicht erkannt: ${name}`);
+    }
+
+    /*
+     * Z19: die SCHREIBENDEN Formen, und sie brauchen diese Probe dringender als
+     * die lesenden.
+     *
+     * `aliasKarte` loest seit Z19 auch `UPDATE x y`, `DELETE ... USING x y` und
+     * `INSERT INTO x y` auf. Gemessen stehen in den 138 schreibenden Abfragen des
+     * Bestands KEINE Fehler — die Erweiterung wird also von keinem echten Fund
+     * gedeckt, und eine Rueckmutation, die sie zuruecknimmt, blieb gruen. Eine
+     * Erweiterung, deren Wirkung nichts belegt, ist eine Behauptung: sie kann
+     * jederzeit still zurueckgenommen werden, und niemand merkt es.
+     *
+     * Deshalb wird sie hier an einer Nachbildung belegt. Dass der Bestand heute
+     * sauber ist, ist der Grund FUER diese Probe, nicht dagegen.
+     */
+    const schreibend = [
+      ["UPDATE", "UPDATE users u SET u.gibtsnicht = 1 WHERE u.id = $1"],
+      ["DELETE USING", "DELETE FROM assignments a USING users u WHERE u.gibtsnicht = a.id"],
+      ["INSERT INTO", "INSERT INTO organizations o (o.gibtsnicht) SELECT 1"]
+    ];
+    for (const [form, sql] of schreibend) {
+      const z = { dateien: 0, literale: 0, geprueft: 0 };
+      const b = pruefeQuelle("nachbildung.js", "const q = `" + sql + "`;", z);
+      assert.ok(b.some((x) => x.spalte === "gibtsnicht"),
+        `${form} wird nicht aufgeloest — aliasKarte deckt die Form nicht mehr`);
     }
 
     /* Gegenprobe: richtige Abfragen duerfen nicht melden — und vor allem darf

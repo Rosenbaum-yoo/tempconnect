@@ -201,7 +201,14 @@ const KEIN_TABELLENNAME = new Set([
 
 export function aliasKarte(sql) {
   const karte = new Map();
-  const re = /\b(?:FROM|JOIN)\s+([a-z_][a-z0-9_]*)\s+(?:AS\s+)?([a-z_][a-z0-9_]*)\b/gi;
+  /*
+   * Z19 (2026-09-28): auch UPDATE x y, DELETE ... USING x y und INSERT INTO x y.
+   * Ohne sie war die Aufloesung auf lesende Abfragen beschraenkt — gemessen sind
+   * das 138 schreibende Abfragen mit FROM/USING, die sonst gar nicht geprueft
+   * werden. (Dort fand sich nichts; das ist ein Ergebnis, kein Grund, nicht
+   * hinzusehen.)
+   */
+  const re = /\b(?:FROM|JOIN|UPDATE|USING|INTO)\s+([a-z_][a-z0-9_]*)\s+(?:AS\s+)?([a-z_][a-z0-9_]*)\b/gi;
   let m;
   while ((m = re.exec(sql))) {
     const tab = m[1].toLowerCase();

@@ -79,7 +79,13 @@ export function createVendorPoolRouter(deps) {
     if (q.length < 2) return res.json({ items: [] });
     try {
       const { rows } = await pool.query(
-        `SELECT o.id, o.name, o.org_type,
+        /* Z19: hier stand o.org_type. Die Spalte heisst type (gemessen);
+           org_type ist der Name, unter dem sie ANDERSWO ausgegeben wird
+           (o.type AS org_type). Die Abfrage warf - die Lieferantensuche lieferte
+           also nichts, und ohne Suche laesst sich kein Vorzugslieferant
+           hinzufuegen. Der Ausgabename bleibt org_type, damit der Aufrufer
+           unveraendert bleibt. */
+        `SELECT o.id, o.name, o.type AS org_type,
                 (SELECT COUNT(*)::int FROM org_memberships om WHERE om.org_id = o.id AND om.is_active = TRUE) AS member_count
          FROM organizations o
          WHERE o.is_active = TRUE

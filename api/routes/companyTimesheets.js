@@ -138,7 +138,13 @@ export function createCompanyTimesheetsRouter(deps) {
         const [recipients, ctx] = await Promise.all([
           findOrgMembersWithPermission(pool, supplierOrgId, "worker.manage"),
           pool.query(
-            `SELECT (u.first_name || ' ' || u.last_name) AS worker_name,
+            /* Z19 (2026-09-28): hier stand (u.first_name || ' ' || u.last_name).
+               Beide Spalten gibt es in users nicht (gemessen) - der Mensch steht
+               dort als contact_person. Die Abfrage warf, und sie steht in einem
+               Promise.all: also warf das Promise.all, und die Benachrichtigung an
+               die Zeitarbeitsfirma ueber einen gesperrten Stundenzettel ging NIE
+               raus. Kein Fehler war sichtbar, nur eine Nachricht, die ausblieb. */
+            `SELECT NULLIF(TRIM(COALESCE(u.contact_person, '')), '') AS worker_name,
                     (SELECT name FROM organizations WHERE id = $2) AS company_name
                FROM users u WHERE u.id = $1`,
             [workerUserId, req.orgId]

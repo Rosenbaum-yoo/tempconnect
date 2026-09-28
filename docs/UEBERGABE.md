@@ -83,7 +83,7 @@ bauende Sitzung geht von oben nach unten; wer etwas vorzieht, schreibt den Grund
 | # | Was | Warum hier |
 |---|---|---|
 | 1 | **U0.2 + U2.4** — Standortgrenze messen und entdeckend absichern | Möglicher **Sicherheitsbefund**: `assertLocationBelongsToOrg` steht in nur 4 Routendateien. Sicherheit geht vor Funktion, immer |
-| 1b | **Z — die Schema-Schulden** (`Z_SCHEMA_SCHULDEN.md`) | **Fast fertig.** Z1–Z9 und Z16–Z17 sind gebaut; die Bestandsliste in `sqlSchemaWaechter.test.js` ist **leer**, zum ersten Mal. Offen bleibt allein **Z10 — die Token im Klartext**, ein Sicherheitsposten, der **vor** dem Livegang steht und dem Owner gehört, sowie Z11 (vier verwaiste Tabellen, ebenfalls owner-gebunden). **Z18 gleich mit erledigt:** dreizehn Spaltenfehler, die erst der Verbund-Wächter sichtbar gemacht hat — darunter die stumme DSGVO-Liste und die unsichtbaren Einsatz-Einladungen (Abschnitt unten) |
+| 1b | **Z — die Schema-Schulden** (`Z_SCHEMA_SCHULDEN.md`) | **Fast fertig.** Z1–Z9 und Z16–Z17 sind gebaut; die Bestandsliste in `sqlSchemaWaechter.test.js` ist **leer**, zum ersten Mal. Offen bleibt allein **Z10 — die Token im Klartext**, ein Sicherheitsposten, der **vor** dem Livegang steht und dem Owner gehört, sowie Z11 (vier verwaiste Tabellen, ebenfalls owner-gebunden). **Z18 und Z19 gleich mit erledigt:** fünfzehn Spaltenfehler, die erst der Verbund-Wächter sichtbar gemacht hat — darunter die stumme DSGVO-Liste, die unsichtbaren Einsatz-Einladungen und eine Lieferantensuche, die nichts fand (Abschnitt unten) |
 | 2 | **W5 + W4.2** — Office-Dateien und Schlüsselmuster als Wächter | Zwei kleine Proben gegen einen großen Schaden: das Repo ist öffentlich, die Owner-Unterlagen liegen darin |
 | 3 | **S1 + S4** — `npm install` läuft glatt, Hauptbaum-Ablauf nach dem Merge | Jeder Merge und jedes neue Paket steht sonst wieder vor einem Container, der nicht startet |
 | 4 | **N8.1** — Katalog statt Freitext in „Personal finden" | Solange eine Marktseite Freitext nimmt, **kann** das Matching dort nicht treffen. Alles darüber baut darauf auf |
@@ -3553,7 +3553,7 @@ dass es benutzt wird.* Und: **jede neue Verdrahtung bekommt eine Probe, die den
 echten Handler durchläuft** — nicht nur den Dienst darunter.
 
 
-### Z16, Z17 und Z18 sind gebaut *(2026-09-28)* — eine falsche Zeile in einem Kommentar hat sechs Fehler geschuetzt
+### Z16 bis Z19 sind gebaut *(2026-09-28)* — eine falsche Zeile in einem Kommentar hat sechs Fehler geschuetzt
 
 **Die Bestandsliste der Schema-Schulden ist leer.** Z16 hat die letzten fuenf
 Spaltenfehler behoben, Z17 den allerletzten. Das ist die kleinere Haelfte der
@@ -3685,6 +3685,42 @@ nicht. Wer nach Spaltennamen sucht statt nach aufgeloesten Aliassen, haette hier
 vier richtige Abfragen gebrochen. Eine Rueckmutation sichert das ab.
 
 Rueckmutationen Z18: **10 von 10 gefangen.**
+
+#### Z19 — die Luecke lag ZWISCHEN den beiden Wachen
+
+Der Verbund-Waechter prueft nach Z18 nicht mehr nur `SELECT` mit `JOIN`. Der
+Filter war zu eng, und zwar auf eine Art, die man leicht uebersieht: **eine
+Abfrage kann ohne Join mehrrelational sein** — durch eine Unterabfrage. Genau
+dort standen zwei weitere echte Fehler, die **beide** Wachen durchgelassen haben
+— der Schema-Waechter, weil die Unterabfrage die Abfrage mehrrelational macht,
+und der Verbund-Waechter, weil kein `JOIN` darin steht:
+
+- **`routes/companyTimesheets.js`** — `u.first_name || ' ' || u.last_name`. Die
+  Abfrage steht in einem `Promise.all`. Sie warf, also warf das `Promise.all`:
+  die **Benachrichtigung an die Zeitarbeitsfirma** ueber einen gesperrten
+  Stundenzettel ging **nie** raus. Kein Fehler war sichtbar, nur eine Nachricht,
+  die ausblieb.
+- **`routes/vendorPool.js`** — `o.org_type` (die Spalte heisst `type`; `org_type`
+  ist nur der Name, unter dem sie anderswo ausgegeben wird). Die
+  **Lieferantensuche** lieferte nichts — und ohne Suche laesst sich kein
+  Vorzugslieferant hinzufuegen.
+
+**Eine Luecke zwischen zwei Wachen ist teurer als eine offene**, weil beide gruen
+melden und das Fehlen dadurch wie Abdeckung aussieht. Der Waechter nimmt jetzt
+Doppelmeldungen mit dem Schema-Waechter ausdruecklich in Kauf: zwei Wachen, die
+dasselbe melden, kosten eine Zeile Lesezeit — eine Luecke zwischen ihnen kostet
+einen Kundenausfall.
+
+`aliasKarte` loest seither auch `UPDATE x y`, `DELETE … USING x y` und
+`INSERT INTO x y` auf. In den 138 schreibenden Abfragen des Bestands steht
+**nichts** — das ist ein Ergebnis, kein Grund, nicht hinzusehen. Weil eine
+Erweiterung ohne echten Fund von keiner Rueckmutation gedeckt wird (sie blieb
+gruen), ist sie an einer Nachbildung belegt: **eine Erweiterung, deren Wirkung
+nichts beweist, ist eine Behauptung** und kann still zurueckgenommen werden.
+
+Rueckmutationen Z19: **4 von 4 gefangen.** Beide reparierten Abfragen an der
+laufenden Datenbank nachgefahren — sie warfen vorher, jetzt liefern sie 5 bzw.
+20 Zeilen.
 
 #### Verifikation
 
