@@ -814,11 +814,25 @@ const BESTAND = new Set([
   /* searchService: Altbestand aus der Zeit vor der Org-Umstellung — users hat
    * weder type noch legal_name noch plan_id, capacity_posts weder description
    * noch hourly_rate. */
-  "services/searchService.js::users.type",
-  "services/searchService.js::users.legal_name",
-  "services/searchService.js::users.plan_id",
-  "services/searchService.js::capacity_posts.description",
-  "services/searchService.js::capacity_posts.hourly_rate"
+  /* searchService: alle fuenf am 2026-09-28 BEHOBEN (P1-15) — und die Behebung war
+   * NICHT die Spaltenkorrektur, sondern erst die Kopplung daneben. Der Reihenfolge
+   * wegen festgehalten, weil sie die Lehre ist:
+   *
+   * Die Reindex-Abfragen lasen `users.type/legal_name/plan_id` (die Firmenwahrheit
+   * liegt auf `organizations`) und `capacity_posts.description/hourly_rate` (dort
+   * heisst es `notes` und `price_type/min/max`). Sie warfen also. Und WEIL sie
+   * warfen, ist nie aufgefallen, dass keine einzige von ihnen den
+   * Sichtbarkeitsfilter ihres Datenbank-Gegenstuecks trug: `companies`/`suppliers`
+   * ohne Opt-in-Pruefung, `capacity_posts` ohne aktiv/nicht-privat/nicht-abgelaufen,
+   * und `requisitions` voellig ohne WHERE — die Anforderungen ALLER Mandanten in
+   * einem gemeinsamen Index. Ein Fehler war der einzige Schutz.
+   *
+   * Wer die Spalten allein richtiggestellt haette, haette die Veroeffentlichung
+   * scharf geschaltet. Behoben ist deshalb beides zusammen: Spalten richtig,
+   * Filter gespiegelt, `requisitions` gar nicht mehr indiziert (Owner entscheidet,
+   * ob je Organisation ein eigener Index kommt). Erzwungen von
+   * `test/suchindexKenntDieGrenze.test.js` — eine Notiz stand seit Langem in
+   * searchService Zeile ~181 und hat nichts verhindert. Eintraege gestrichen. */
 ]);
 
 /* ═══════════════════════════════════════════════════════════════════════════

@@ -178,9 +178,46 @@ ohne die Filter mitzubringen, schaltet die Veröffentlichung scharf.
    Organisation oder gar kein Index für org-private Daten. Ein Filterattribut
    ist keine Mandantengrenze.
 
-Solange (3) offen ist, bleibt der Reindex besser kaputt als halb reparariert.
-Der Schema-Wächter führt die fünf Spalten weiter, damit der Befund nicht aus dem
-Blick fällt.
+**Stand 2026-09-28, abends — behoben durch eine KOPPLUNG statt durch eine Notiz:**
+
+Der Vorschlag aus der Gegenprüfung war der richtige: nicht dokumentieren, sondern
+den gefährlichen Zustand unmöglich machen. Umgesetzt, und jede Änderung ist
+einschränkend oder neutral — der Index kann danach nur enthalten, was der
+Datenbankweg ohnehin öffentlich zeigt:
+
+- `companies` und `suppliers` tragen jetzt denselben Opt-in-Filter wie ihr
+  Datenbank-Gegenstück (`profile_visibility_settings.is_public` **und**
+  `status='approved'`) und lesen aus `organizations` statt aus `users`.
+- `capacity_posts` trägt aktiv / nicht-privat / nicht-abgelaufen und die echten
+  Spalten (`notes`, `price_type/min/max`). Die **Sperrliste** bleibt bewusst
+  draußen: sie hängt am fragenden Unternehmen, ist also keine Eigenschaft des
+  Dokuments und muss beim Suchen angewandt werden — wer den Index aktiviert, muss
+  sie im Suchpfad nachziehen.
+- `requisitions` wird **gar nicht mehr indiziert** (`reindexQuery: null`, wie
+  `skills`). Die org-private Suche läuft über den gefilterten Datenbankweg.
+- **Erzwungen von `api/test/suchindexKenntDieGrenze.test.js`** (DB-frei, läuft im
+  Tor): jede vorhandene Reindex-Abfrage muss die Bestandteile des Filters ihres
+  Gegenstücks tragen; `requisitions` darf nur mit Org-Bindung im Dokument wieder
+  befüllt werden; keine Abfrage darf eine der fünf nicht existierenden Spalten
+  nennen. Fünf Rückmutationen, alle rot — darunter „Opt-in entfernt“ und
+  „requisitions wieder indiziert“.
+- Die fünf Spalten sind damit **aus der Bestandsliste gestrichen**. Das war das
+  eigentliche Dilemma: eine Liste, die laut eigener Regel nur schrumpfen darf,
+  taugt nicht als Merker — jemand hätte sie zum Schrumpfen entfernt und damit
+  genau die Lücke geöffnet. Der Merker ist jetzt die Kopplung.
+
+**Was beim Owner bleibt (Punkt 3, unverändert):** ob org-private Anforderungen
+überhaupt in einen Suchindex gehören. Sauber wäre ein Index **je** Organisation;
+ein gemeinsamer mit Filterattribut ist es nicht. Bis dahin: kein Index.
+
+**Und der Grund, warum es überhaupt so weit kam, gehört festgehalten:** in
+`searchService` stand seit Langem der Hinweis „Vor Aktivierung von Meilisearch:
+pro-Index-Filter ergaenzen (requisitions org_id, …)“. Das Wissen war da und hat
+nichts verhindert. Dazu die Messung aus der Gegenprüfung: `MEILISEARCH_URL` ist in
+beiden Beispiel-Umgebungen auskommentiert und im compose-Verbund gibt es keinen
+Dienst — **die Gefahr lag also nicht im Code, sondern in der Aktivierung**, und die
+sieht wie Konfiguration aus, nicht wie ein Eingriff. Dort schaut niemand nach
+Mandantengrenzen.
 
 ### Nachtrag 2026-08-08 — zwei neue Punkte aus P9/A1
 

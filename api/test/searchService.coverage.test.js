@@ -259,13 +259,23 @@ describe("searchService — client-null branches (no MEILISEARCH_URL)", () => {
     assert.equal(out.error, "Not available");
   });
 
-  it("reindexAllIndexes skips skills and returns empty/not-available map", async () => {
+  it("reindexAllIndexes ueberspringt skills UND requisitions", async () => {
+    /*
+     * P1-15 (2026-09-28): `requisitions` steht jetzt ebenfalls auf
+     * `reindexQuery: null` und wird damit uebersprungen. Das ist kein
+     * Nebeneffekt, sondern der Zweck: org-private Anforderungen gehoeren nicht
+     * in einen gemeinsamen Index, und `org_id` als filterbares Attribut ist
+     * keine Mandantengrenze. Die Zusicherung unten ist deshalb strenger als
+     * vorher - sie haelt fest, dass der Index NICHT gefuellt wird.
+     */
     const pool = trackingPool(() => ({ rows: [] }));
     const out = await svc.reindexAllIndexes(pool);
-    // skills has reindexQuery=null -> excluded from the result map
+    // reindexQuery=null -> aus der Ergebniskarte ausgeschlossen
     assert.ok(!("skills" in out));
-    // the four reindexable indexes are present, each Not-available (no client)
-    for (const name of ["companies", "suppliers", "capacity_posts", "requisitions"]) {
+    assert.ok(!("requisitions" in out),
+      "requisitions wird wieder indiziert - das legt die Anforderungen aller Mandanten in EINEN Index");
+    // die drei indizierbaren sind da, jeder Not-available (kein Client)
+    for (const name of ["companies", "suppliers", "capacity_posts"]) {
       assert.ok(name in out, `${name} present`);
       assert.equal(out[name].error, "Not available");
     }
