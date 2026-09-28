@@ -542,6 +542,31 @@ applyStaticCardLocks selektiert [data-feature] und rendert daraus Schloss-Symbol
 
 PATCH /suppliers/:id/categorize (:119) setzt Kategorie und Notiz mit Audit-Eintrag, hat aber keinen Aufrufer; die Scorecard-Seite nutzt nur /suppliers/enriched, /suppliers/:id/scorecard und /suppliers/:id/notes. Die Kategorie, nach der /preferred-vendors und der Vendor-Pool filtern, kann im Produkt nie gesetzt werden.
 
+### Zwei Routenfamilien über einem Feld: `/vendor-pool` lebt, `/preferred-vendors` nicht
+
+**Beleg:** `api/routes/preferredVendors.js` gegen `api/routes/vendorPool.js`  ·  **Aufwand:** Owner-Entscheidung
+
+**Gemessen am 2026-09-28** (Entscheidungsgrundlage, nicht Empfehlung): beide Familien
+sind montiert, nutzen **denselben** Dienst (`vendorPoolService`) und dieselbe
+Berechtigung (`vendor_pool.view` / `.manage`). Sie überlappen in Liste, Anlegen und
+Löschen und haben je eigene Wege — `/preferred-vendors` bringt `summary`, `coverage`,
+`suggest`, `capacity`, `bulk`; `/vendor-pool` bringt `tier`, `status`, `from-deal`,
+`stats`, `supplier-lookup`, `my`.
+
+| Familie | Aufrufstellen im Frontend |
+|---|---|
+| `/vendor-pool` | **19** in vier Dateien (12 allein in `js/pages/vendorPool.js`, dazu `deal_management.html`, `offer_detail.html`, `api-docs.html`) |
+| `/preferred-vendors` | **0** — die einzigen Treffer stehen in Dokumenten (`api/docs/PREFERRED_VENDOR.md`, `docs/api/API_SURFACE.md`, `docs/PLATTFORM_REGISTER.md`) |
+
+`/preferred-vendors` hat also eine eigene Feature-Doku, einen Eintrag in der
+API-Fläche (als PRO+) und acht Endpunkte — und keine Oberfläche ruft einen davon.
+Entweder ist es eine bewusst reine API-Fläche für Partner (dann gehört das in die
+Doku, nicht in die Vermutung), oder es ist der Vorgänger von `/vendor-pool`, der
+stehen geblieben ist. **Verschmelzen oder Entfernen ist ein Eingriff in die
+veröffentlichte API-Fläche und damit Owner-Sache**; hier steht nur, was gemessen
+ist. Zusammen mit dem Befund darüber ergibt sich ein stimmiges Bild: die
+Kategorie, nach der beide Familien filtern, ist ohnehin nie setzbar.
+
 ### Admin-Panel: Sichtbarkeits-Audit, Pilot-Policy und Aktionstyp-Filter nicht verdrahtet
 
 **Beleg:** `api/routes/admin.js:96`  ·  **Aufwand:** klein
