@@ -161,6 +161,48 @@ dort ein, statt einen eigenen Weg zu bauen.
 
 ---
 
+### T6 · Die Owner-Frage vom 2026-09-27 — und warum sie bewusst wartet
+
+> **Owner, 2026-09-27:** *„Gibt es noch etwas, was das gesamte Arbeitsdokument komplett macht?
+> Was würdest du ergänzen, wo siehst du Schwachstellen, wie würde es Marktführer machen? Denke
+> daran, alles so auszurichten, dass es ein ganzes System sein kann und auch an zvoove und Co
+> generell andocken kann."*
+>
+> **Und unmittelbar danach, ebenfalls Owner:** *„Ja gerne deine Empfehlungen — also jetzt noch
+> nicht, erst wenn alle Grundlagen dazu stimmen."*
+
+Die zweite Anweisung ist die wichtigere, und sie deckt sich mit der Begründung, aus der Welle T
+ohnehin an Platz 17 steht: **ein Audit vor den Grundlagen misst wenig.** Eine Liste von
+Marktführer-Ideen über einem Schema, das noch Schulden trägt, liest sich stark und ist wertlos —
+sie würde auf Fähigkeiten aufbauen, deren Fundament gerade erst geflickt wird.
+
+Damit die Frage nicht verrottet, steht hier **beides** fest: die vier Achsen, die sie beantwortet,
+und der **messbare Auslöser**, ab dem sie beantwortet wird.
+
+**Die vier Achsen (in dieser Reihenfolge, weil jede die nächste trägt):**
+
+| # | Achse | Leitfrage | Warum sie nicht weggelassen werden darf |
+|---|---|---|---|
+| 1 | **Vollständigkeit** | Welche Produktfläche hat **überhaupt keinen** Plan — keine Welle, kein Register-Eintrag, keinen Wächter? | Eine Lücke ohne Dokument ist unsichtbar. Sie fällt erst dem Kunden auf |
+| 2 | **Schwachstellen** | Wo widerspricht sich das Arbeitsdokument, welche Zahl ist **ungewacht**, welche Owner-Entscheidung fehlt, welcher Plan ist überholt? | Eine verrottete Zahl ist schlimmer als keine: sie wird geglaubt. Gemessen an der handgepflegten „180" |
+| 3 | **Marktführerschaft** | Was erwartet ein Käufer, der zvoove oder Fieldglass kennt, das in **keinem** Plan steht? Gesetzliche Pflichten, Tarifwerke, Abrechnungs- und Aufbewahrungsformate | Der Vergleich findet beim Kunden statt, nicht bei uns. Was dort selbstverständlich ist, ist bei uns kein Bonus, sondern die Eintrittskarte |
+| 4 | **Ein ganzes System **und** andockbar** | Funktioniert **jede** Fähigkeit in **beiden** Betriebsarten — Komplettsystem und angedockt (§3a)? Und trägt jeder Kreislauf K-1…K-7 in beiden? | Eine Fähigkeit, die nur im Komplettsystem trägt, ist keine Fähigkeit, sondern eine Insel. Andocken ist kein Adapter am Rand, es ist eine Eigenschaft **jeder** Fähigkeit |
+
+**Der Auslöser — objektiv, damit „wenn die Grundlagen stimmen" nicht zu „irgendwann" wird.**
+T6 läuft, sobald **alle drei** Punkte belegt sind:
+
+1. **Welle Z ist abgeschlossen:** Z1–Z11 gebaut, die Richtung „deklariert, aber fehlt" ist **0**,
+   und der Z4-Wächter ist grün **mit** künstlichem Nachweis (siehe `Z_SCHEMA_SCHULDEN.md`).
+2. **Die Dezember-Liste ist abgearbeitet:** Posten 1 bis 11 der Rangfolge in `../UEBERGABE.md`.
+3. **Ein voller Prüflauf auf dem Host ist grün:** `fail 0`, `cancelled 0`, Rückgabewert `0`.
+
+**Und eine Methodenvorgabe, die aus dieser Woche stammt:** T6 beantwortet überwiegend
+**Abwesenheits-Fragen** („welche Fläche hat *keinen* Plan"). Abwesenheit ist nur durch eine
+**unabgeschnittene** Suche belegbar — kein `head`, kein `limit`, kein gedachtes Dateimuster
+anstelle des echten. Wo die Menge zu groß für einen Kopf ist, wird **breit parallel** gesucht,
+mit je Ausschnitt einem eigenen Prüfer und je Befund einer nachvollziehbaren Suche, die der
+Prüfende wiederholen kann. Beides steht als eiserne Regel in `../UEBERGABE.md`.
+
 ## 6. Reihenfolge
 
 ```

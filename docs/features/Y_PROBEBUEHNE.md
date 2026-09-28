@@ -146,3 +146,122 @@ Welle Y baut keinen Kreislauf — sie macht **alle sieben begehbar**
 (`V_SCHNITTSTELLEN.md`, Abschnitt 3b). Damit ist sie die Voraussetzung dafür, das Monatsaudit
 aus Welle T ehrlich zu lesen: **eine Fähigkeit, die niemand durchspielen kann, ist auch im
 Audit nur eine Behauptung.**
+
+---
+
+## 9. Wie der Owner selbst prüft — Reihenfolge, Liste, Abbruchregel
+
+> **Owner-Frage 2026-09-27:** *„Ich prüfe das gesamte Dokument auch nochmal — kannst du mir dazu
+> eine Checkliste geben, damit ich es auch gegen das Frontend prüfen kann, und wie sollte ich
+> vorgehen?"*
+
+### 9.0 Die unbequeme Antwort zuerst: das Dokument ist die falsche Reihenfolge
+
+Das Arbeitsdokument ist nach **Wellen** geordnet (A–Z), die Oberfläche nach **Fläche und Rolle**.
+Wer das Dokument von oben nach unten abklickt, öffnet dieselbe Seite vierzehnmal und übersieht
+trotzdem ganze Bereiche — weil keine Welle eine Seite vollständig beschreibt und keine Seite zu
+genau einer Welle gehört.
+
+**Also umgekehrt: die Oberfläche ist der Weg, das Dokument ist die Antwortliste.** Man geht die
+Flächen ab und fragt bei jedem Halt: *welche Zusage muss hier sichtbar sein?* Die Zusagen stehen
+im Dokument — aber sie werden **nachgeschlagen**, nicht abgelaufen.
+
+### 9.1 Stufe 0 — nicht klicken, vorbereiten (15 Minuten, spart Stunden)
+
+| # | Vorbereitung | Warum sie nicht optional ist |
+|---|---|---|
+| 1 | **Konsole und Netzwerk-Tab offen** (F12), die ganze Zeit | Eine Seite kann vollständig aussehen und im Hintergrund in einer 401-Schleife laufen. Ohne Konsole prüft man die halbe Seite |
+| 2 | **Notizblatt mit vier Spalten:** Fläche · Rolle/Abo · erwartet · gesehen | Ein Befund ohne diese vier kostet beim Nachstellen mehr Zeit als beim Beheben. Drei Wörter mehr beim Notieren sparen eine halbe Stunde |
+| 3 | **Ein Blick auf die Uhr:** jedes Datum muss `Europe/Berlin` sein | Der Off-by-one-Fehler bei Datumswerten sieht wie ein Tippfehler aus und ist einer der teuersten |
+| 4 | **Zwei Browser-Profile** (oder ein privates Fenster) | Rollenwechsel ohne Abmelden. Sonst verbringt man den Abend auf Anmeldeseiten |
+
+### 9.2 Stufe 1 — die Besetzung, und sie ist heute ein **Blocker**
+
+Gemessen am 2026-09-24 (Abschnitt 2): **eine** Organisation von 2566 hat mehr als einen Standort,
+**3 von 33** Arbeitern haben Fähigkeiten, PRO hat **drei** Abos — und es gibt **keine benannte
+Besetzung**, in die man sich anmelden kann.
+
+**Damit sind drei Dinge heute grundsätzlich nicht prüfbar**, egal wie gut die Liste ist:
+Abo-Sperren über alle fünf Stufen, Standort- und Rollensichtbarkeit, und die volle Wirkung des
+Marktplatzes. Wer es trotzdem versucht, prüft nicht das Produkt, sondern die Lückenhaftigkeit der
+Entwicklungsdaten.
+
+> **Empfehlung: Y1 und Y5.1–Y5.3 vor dem ersten Prüfabend bauen lassen.** Das ist dieselbe Regel,
+> die der Owner für die Marktführer-Empfehlungen gesetzt hat — *erst wenn die Grundlagen stimmen* —
+> angewandt auf die eigene Prüfzeit. Ohne Besetzung ist ein Prüfabend kein Nachweis, sondern eine
+> Stichprobe mit unbekannter Abdeckung.
+>
+> **Bis dahin sinnvoll prüfbar:** alles in Stufe 2 mit den eigenen bekannten Konten, Stufe 4
+> vollständig (die Sperren brauchen keine Besetzung), und Stufe 5.
+
+### 9.3 Stufe 2 — sechs Fragen je Halt (die Verdrahtungskette auf Menschenmaß)
+
+An jeder Fläche, in dieser Reihenfolge. Die ersten fünf sind schnell, die sechste ist die wertvolle.
+
+| # | Frage | Was ein Fehler hier bedeutet |
+|---|---|---|
+| 1 | Lädt sie **ohne roten Konsolenfehler**? | `TypeError`, `is not a function`, 401-Schleife — die Seite ist gebrochen, auch wenn sie aussieht wie fertig |
+| 2 | Stehen **echte** Daten drin — keine Platzhalter, keine Striche, keine Nullen ohne Grund? | Eine Kachel, die immer „0" zeigt, ist kein Leerzustand, sondern ein toter Draht |
+| 3 | Ist der **Leerzustand ehrlich**? „Noch keine Daten" — nicht Spinner für immer, nicht leere Fläche | Ein ewiger Spinner ist die schlimmste Auskunft: er verspricht, dass noch etwas kommt |
+| 4 | Tut **jeder** Knopf etwas — und sagt er vorher, was er tut? | Ein toter Knopf kostet Vertrauen dauerhaft, nicht einmal |
+| 5 | Führt **jeder** Verweis zum **konkreten** Ziel (Detailseite, gefilterte Liste) — nicht zur Übersicht? | Eine Benachrichtigung, die auf die Startseite führt, ist eine Sackgasse mit Umweg |
+| 6 | **Nach einer Änderung: erscheint sie an allen anderen Stellen?** | Das ist die Frage, die **kein Test** abdeckt — und die Mehrzahl der Fehler dieser Woche hätte sie gefunden |
+
+**Frage 6 im Konkreten:** eine Kraft auf „krank" setzen → verschwindet sie aus dem Marktplatz,
+ändert sich die Live-Belegschaft, entsteht eine Benachrichtigung, bleibt der Stundenzettel
+stimmig? Genau das sind die Kreisläufe **K-1 bis K-7** (`V_SCHNITTSTELLEN.md`, Abschnitt 3b).
+
+### 9.4 Stufe 3 — die drei Matrizen (hier liegt das Gold)
+
+| Matrix | Vorgehen | Worauf es ankommt |
+|---|---|---|
+| **A · Rollen** | Dieselbe Seite als Arbeiter · Zeitarbeitsfirma · Unternehmen · Staff · Owner | **Nicht was sichtbar ist, sondern was NICHT.** Eine Kachel, die einer falschen Rolle erscheint, ist ein Sicherheitsbefund, kein Schönheitsfehler |
+| **B · Abos** | Dieselbe Fähigkeit in DEMO · BASIS · PLUS · PRO · INDIVIDUELL | Jede Sperre muss einen **konkreten** Aufstiegspfad nennen. „Nicht verfügbar" ohne Ziel ist eine verlorene Verkaufsgelegenheit an der Stelle, an der der Kunde gerade zahlen wollte |
+| **C · Richtungen** | Jede Sache aus **beiden** Richtungen: was die Zeitarbeitsfirma sendet, muss das Unternehmen sehen — und umgekehrt | Einseitig geprüfte Wege sind der häufigste Fund: die sendende Hälfte ist fast immer fertig, die empfangende nicht |
+
+### 9.5 Stufe 4 — absichtlich falsch klicken (findet man nur von Hand)
+
+| # | Versuch | Erwartung |
+|---|---|---|
+| 1 | Aus der Kundenplattform einen Weg ins **Staff CC**, **OCC**, **Support Center** oder **Einsatzportal** suchen | **Es gibt keinen.** Kein Menüpunkt, keine Kachel, kein Link, keine erratene Adresse |
+| 2 | Mit einem **Arbeiterkonto** eine Plattformseite aufrufen; mit einem **Firmenkonto** das Portal | Beides abgewiesen — und zwar mit einer Auskunft, nicht mit einem Absturz |
+| 3 | In der Adresszeile eine **fremde Kennung** einsetzen (andere Organisation, anderer Einsatz) | **403.** Niemals 200 mit fremden Daten, niemals eine leere Seite, die wie „nichts da" aussieht |
+| 4 | Eine Aktion **ohne Begründung** absenden, wo eine Begründung Pflicht ist | Abgewiesen, mit klarem Hinweis — nicht stillschweigend gespeichert |
+| 5 | **Zurück-Knopf und Neuladen** mitten in einem mehrstufigen Vorgang | Kein doppelter Datensatz, kein halber Zustand |
+
+### 9.6 Stufe 5 — die Zusagen, die verkaufen
+
+Nicht Technik, sondern Marktposition: die **drei gesetzlichen Fristen** als Kaufgrund, die
+Lebendigkeit der Fläche (Live-Überwachung aktiver Einsätze auf **beiden** Seiten), der Tonfall der
+Texte, und dass kein Platzhalter mehr sichtbar ist. Wer hier etwas findet, findet es vor dem
+ersten Pilotkunden — und genau dafür ist die Bühne da.
+
+### 9.7 Die 82 Kundenseiten in 9 begehbaren Gruppen
+
+Eine Liste von 82 Seiten wird nicht abgearbeitet, neun Gruppen schon. Je Gruppe **ein** Durchgang
+mit den sechs Fragen, dann Matrix A für die Gruppe.
+
+| Gruppe | Flächen (Auswahl) | Kreislauf |
+|---|---|---|
+| 1 · **Eintritt & Konto** | `onboarding`, `pricing`, `org-invite`, `organization`, `mitarbeiter`, `sso_config`, `credits` | — |
+| 2 · **Bedarf** | `marketplace_demand_list/_detail/_create`, `demand_create`, `requisitions`, `requisition_create`, `matching_results`, `capacity_search` | K-1 |
+| 3 · **Angebot** | `capacity_exchange*` (7 Seiten), `angebote_verwalten`, `offer_detail`, `schaufenster` | K-1 |
+| 4 · **Deal & Verbindlichkeit** | `deal_management`, `request_detail`, `company_requests`, `approvals`, `agency_inbox` | K-3 |
+| 5 · **Einsatz & Live** | `company-live-workforce`, `monatsplan`, `notdienst_leitstand`, `app_notdienst` | K-4 |
+| 6 · **Zeit & Geld** | `timesheets`, `company-timesheets`, `worker-timesheet`, `worker-submissions-review`, `spend-analytics`, `rate-cards`, `sla_abo`, `bounties` | K-2 |
+| 7 · **Einsatzportal** | die acht `einsatzportal-*`-Seiten, `worker-portal`, `worker-login`, `worker-profile-public` | K-5 |
+| 8 · **Lieferanten & Nachweise** | `vendor_pool`, `supplier_scorecard`, `compliance_overview`, `documents-center`, `sla_nachweise`, `sla_profil` | K-6 |
+| 9 · **Getrennte Flächen** | `admin_panel`, `internal_control_center`, `executive_dashboard`, `system-health`, `data-governance` | K-7 |
+
+### 9.8 Abbruchregel und Zeitökonomie
+
+> **Mehr als drei Befunde auf einer Fläche: aufhören, notieren, weitergehen.** Eine Fläche mit
+> vier Befunden ist nicht „schlecht geprüft", sie ist **unfertig** — sie gehört zurück in die
+> Bauliste, nicht weiter unter die Lupe. Sonst wird die Liste ein Haufen, und ein Haufen wird
+> nicht abgearbeitet.
+
+**Und was der Owner NICHT prüfen sollte, weil ein Tor es beweist:** Rollen-403 an der
+Schnittstelle, SQL-Form, Migrationsreihenfolge, Rechenwege, Mandantengrenzen im Backend. Dort ist
+Handarbeit reine Doppelung. **Unersetzlich ist die Hand nur, wo kein Test hinkommt:** sichtbare
+Wahrheit, Verdrahtung über Seitengrenzen, Rollen-**Un**sichtbarkeit, ehrliche Leerzustände,
+Rechtstexte, Tonfall — und Frage 6.

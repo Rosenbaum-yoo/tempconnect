@@ -100,7 +100,7 @@ bauende Sitzung geht von oben nach unten; wer etwas vorzieht, schreibt den Grund
 | 14 | **N8.4** — Umkreis bundesweit (Owner-Entscheid) | Erweiterung, kein Defekt |
 | 15 | **N8.6** — Wächter für Kachel und Zahl | Verhalten steht bereits (`5aa7c0b`), nur der Wächter fehlt |
 | 16 | **V6 + V7** — Betriebsarten: Komplettsystem oder angedockt | Groß und strategisch; **vor** jedem Adapter, aber nach dem Kern |
-| 17 | **T** — das monatliche Audit | Misst, was die Schritte davor geschaffen haben; vorher misst es wenig |
+| 17 | **T** — das monatliche Audit | Misst, was die Schritte davor geschaffen haben; vorher misst es wenig. **Enthält seit 2026-09-27 den Posten T6** — die Owner-Frage nach Vollständigkeit, Schwachstellen, Marktführerschaft und „ein ganzes System **und** andockbar". Sie wartet auf **messbaren** Auslöser (Welle Z fertig, Dezember-Liste abgearbeitet, voller Prüflauf grün), nicht auf Zuruf |
 | 18 | **U1–U5** — Rollen, Standorte, Profilsichtbarkeit | Wird gebraucht, sobald Kunden mehrere Menschen und Standorte haben |
 | 19 | **X** — Lohnvorschau | Angenehm für den Arbeiter, nichts hängt davon ab |
 | 20 | **P Klasse A**, **W1/W2**, **V2–V4**, **M5–M11** | Aufräumen, Support-Mengen, Adapter (warten auf Anbieter-Zugang), Ausbau |
