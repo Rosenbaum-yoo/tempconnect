@@ -52,7 +52,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | **T** | Das monatliche Marktaudit + Wertermittlung | geplant. Antwortet **in Fähigkeiten statt Zahlen**, führt die **Schulden daneben**, beziffert **Wiederherstellungsaufwand** statt Plattformwert |
 | **N8** | Nachtrag aus dem Owner-Dokument (2026-09-14) | geplant. Katalog statt Freitext auch in „Personal finden" und `capacity_search.html`; Stundenzettel nutzt die bekannte `buyer_org_id`; Fehler „Aktueller Plan: ?" (widerspricht M-E2); **Umkreis bundesweit für alle** (erweitert M-E4) |
 | **E7** | Beispielansicht im Leerzustand der Live-Belegschaft | geplant. **Nur** bei 200 ohne Einträge, gekennzeichnet; bei 500/401 nie |
-| **U** | Standorte, Rollen, Profilsichtbarkeit (Owner-Abschnitte 11, 24) | geplant. **Zuerst U0.2/U2.4:** `assertLocationBelongsToOrg` steht in nur 4 Routendateien — möglicher Sicherheitsbefund |
+| **U** | Standorte, Rollen, Profilsichtbarkeit (Owner-Abschnitte 11, 24) | geplant. **U0.2/U2.4 ist ERLEDIGT** (2026-09-20, `docs/PILOT_GO_LIVE_TODOS.md`): 967 Wege entdeckend geprüft, drei Lecks geschlossen, `api/test/standortGrenze.test.js` hält sie. Offen bleibt daraus nur der zusammengesetzte Fremdschlüssel `(id, org_id)` |
 | **V** | **Komplettsystem oder angedockt** (zvoove, SAP Fieldglass), Schnittstellen, **Kreislaufkarte K-1…K-7**, Verdrahtungskette für alle neuen Wellen | geplant. Kern: „führendes System je Objekt" (V6) **vor** jedem Adapter. Adapter warten auf Anbieter-Zugang. **Preis entschieden (V6.5):** zvoove ab PRO für 249 €/Monat + 490 € Einrichtung, Fieldglass nur INDIVIDUELL |
 | **W** | Support Center für Mengen, Repo-Hygiene (Owner-Abschnitte 18, 19) | geplant. **W5 zuerst:** das Owner-Dokument liegt ungetrackt im öffentlichen Repo. Externer Support erst nach Standardvertragsklauseln (Indien ohne Angemessenheitsbeschluss) |
 | **X** | Lohnvorschau im Einsatzportal | geplant. Brutto genau, netto als Spanne, **keine** Steuerdaten; **nie** aus dem Verrechnungssatz |
@@ -80,13 +80,25 @@ Tragfähigkeit), gehört **nach** den Livegang — es kostet jetzt Zeit, die der
 **Gewichtet nach Schaden, wenn es fehlt** — nicht danach, was zuletzt besprochen wurde. Die
 bauende Sitzung geht von oben nach unten; wer etwas vorzieht, schreibt den Grund dazu.
 
+> **Durchgestrichene Posten sind erledigt** und bleiben stehen, damit die Nummern der
+> Owner-Reihenfolge vom 2026-09-20 lesbar bleiben — die Einträge in
+> `docs/PILOT_GO_LIVE_TODOS.md` nennen sie wörtlich als Quelle.
+>
+> Am **2026-09-28** standen die Posten **1 bis 4 alle vier** noch als offen, obwohl sie
+> zwischen dem 20. und 22. September abgearbeitet worden waren. Eine Sitzung, die wie
+> vorgeschrieben von oben nach unten geht, greift dann vier erledigte Posten nacheinander
+> auf — einer davon hat genau das gekostet, bevor es auffiel. **Eine Arbeitsanweisung, die
+> auf Erledigtes zeigt, sieht aus wie Arbeit und nicht wie ein Fehler.** Erzwungen wird die
+> Übereinstimmung jetzt von `api/test/reihenfolgeIstAktuell.test.js`.
+
 | # | Was | Warum hier |
 |---|---|---|
-| 1 | **U0.2 + U2.4** — Standortgrenze messen und entdeckend absichern | Möglicher **Sicherheitsbefund**: `assertLocationBelongsToOrg` steht in nur 4 Routendateien. Sicherheit geht vor Funktion, immer |
-| 1b | **Z — die Schema-Schulden** (`Z_SCHEMA_SCHULDEN.md`) | **Fast fertig.** Z1–Z9 und Z16–Z17 sind gebaut; die Bestandsliste in `sqlSchemaWaechter.test.js` ist **leer**, zum ersten Mal. Offen bleibt allein **Z10 — die Token im Klartext**, ein Sicherheitsposten, der **vor** dem Livegang steht und dem Owner gehört, sowie Z11 (vier verwaiste Tabellen, ebenfalls owner-gebunden). **Z18–Z20 gleich mit erledigt:** fünfzehn Spaltenfehler, die erst der Verbund-Wächter sichtbar gemacht hat — darunter die stumme DSGVO-Liste, die unsichtbaren Einsatz-Einladungen und eine Lieferantensuche, die nichts fand — sowie drei Wächter-Lücken im gemeinsamen Korpus (Abschnitt unten) |
-| 2 | **W5 + W4.2** — Office-Dateien und Schlüsselmuster als Wächter | Zwei kleine Proben gegen einen großen Schaden: das Repo ist öffentlich, die Owner-Unterlagen liegen darin |
-| 3 | **S1 + S4** — `npm install` läuft glatt, Hauptbaum-Ablauf nach dem Merge | Jeder Merge und jedes neue Paket steht sonst wieder vor einem Container, der nicht startet |
-| 4 | **N8.1** — Katalog statt Freitext in „Personal finden" | Solange eine Marktseite Freitext nimmt, **kann** das Matching dort nicht treffen. Alles darüber baut darauf auf |
+| ~~1~~ | ~~**U0.2 + U2.4** — Standortgrenze messen und entdeckend absichern~~ **ERLEDIGT am 2026-09-20** | Die Vermutung war **in der Zahl falsch, in der Sache richtig**: die Prüfung liegt eine Schicht tiefer (sechs Dienste, nicht vier Routen) — wer in `routes/` zählt, zählt die falsche Schicht. Gemessen am Verhalten über **967 Wege** erreichte ein fremder Standort von **drei** aus die Datenbank; alle drei sind geschlossen, `api/test/standortGrenze.test.js` (11 Proben, 8 rote Rückmutationen) hält sie. **Diese Zeile stand bis zum 2026-09-28 unverändert hier und hat eine Sitzung den vollen Umweg gekostet** — eine Arbeitsanweisung, die auf Erledigtes zeigt, sieht aus wie Arbeit, nicht wie ein Fehler. **Offen daraus:** Posten 1c |
+| 1b | **Z — die Schema-Schulden** (`Z_SCHEMA_SCHULDEN.md`) | **Bis auf die Owner-Punkte fertig.** Z1–Z9 und **Z16–Z20** sind gebaut; **beide** Bestandslisten sind **leer** — die in `sqlSchemaWaechter.test.js` zum ersten Mal überhaupt, die in `spaltenImVerbund.test.js` einen Tag nach ihrer Entstehung. 36 Rückmutationen, alle gefangen. Offen bleibt allein **Z10 — die Token im Klartext**, ein Sicherheitsposten, der **vor** dem Livegang steht und dem Owner gehört, sowie Z11 (vier verwaiste Tabellen, ebenfalls owner-gebunden). **Z18–Z20 gleich mit erledigt:** fünfzehn Spaltenfehler, die erst der Verbund-Wächter sichtbar gemacht hat — darunter die stumme DSGVO-Liste, die unsichtbaren Einsatz-Einladungen und eine Lieferantensuche, die nichts fand — sowie drei Wächter-Lücken im gemeinsamen Korpus (Abschnitt unten) |
+| 1c | **Zusammengesetzter Fremdschlüssel `(id, org_id)`** auf `org_locations` / `org_departments` — **gemessen 2026-09-28, wartet auf Owner** | Der benannte Rest aus U0.2. Heute zeigt der Schlüssel nur auf `org_locations(id)` und prüft damit bloß, dass die Zeile *irgendwo* existiert — die Grenze hängt allein am Dienst. **Umfang: 13 Fremdschlüssel in 7 Tabellen** (`assignments`, `capacity_posts`, `org_departments`, `org_memberships`, `rate_cards`, `requisitions`, `vendor_pool`), dazu zwei fehlende `UNIQUE (id, org_id)` als Voraussetzung. **Risiko heute: null** — alle dreizehn Beziehungen auf verletzende Zeilen geprüft, überall 0; nur eine ist überhaupt belegt (`org_departments.location_id`, 3 Zeilen). Es gibt also nichts zu bereinigen. **Warum trotzdem Owner:** große DB-Änderung mit Sicherheitswirkung (CLAUDE.md), und später ist sie teurer als heute |
+| ~~2~~ | ~~**W5 + W4.2** — Office-Dateien und Schlüsselmuster als Wächter~~ **ERLEDIGT am 2026-09-21** | „Zwei Wächter gegen einen großen Schaden“ (W5.1 / W5.2 / W4.2), `docs/PILOT_GO_LIVE_TODOS.md`. Der Eintrag nennt als Quelle ausdrücklich „Owner-Reihenfolge 2026-09-20, Posten 2“ |
+| ~~3~~ | ~~**S1 + S4** — `npm install` läuft glatt, Hauptbaum-Ablauf nach dem Merge~~ **ERLEDIGT am 2026-09-21** | „Ein Klient statt zwei, und der Stand ist ablesbar“ (S1 / S2 / S3 / S4). Quelle im Eintrag: „Owner-Reihenfolge 2026-09-20, Posten 3“ |
+| ~~4~~ | ~~**N8.1** — Katalog statt Freitext in „Personal finden"~~ **ERLEDIGT am 2026-09-22** | „Katalog statt Freitext, auf beiden Marktseiten“ (N8.1). Quelle im Eintrag: „Owner-Reihenfolge 2026-09-20, Posten 4“ |
 | 5 | **M4b + M4.8/M4.9** — der Marktplatz füllt sich selbst | Die Owner-Vorgabe „voluminös" entscheidet, ob eine Vorführung überhaupt etwas zeigt |
 | 5b | **Y — Die Probebühne** (`Y_PROBEBUEHNE.md`) | Vor dem Livegang die einzige Art, die Zusagen zu prüfen, die kein Test abdeckt. **Gemessen: 1 von 2566 Organisationen hat mehr als einen Standort, 3 von 33 Kräften haben Fähigkeiten** — Welle U und ein voller Marktplatz sind heute gar nicht durchspielbar. Direkt nach M4c, weil die Bühne den gefüllten Markt braucht |
 | 6 | **N3, N5, N6** — Rangfolge, Korb, Abschluss | Vervollständigt den Weg, den N2 begonnen hat |
@@ -3787,6 +3799,44 @@ damit die Entscheidung ueberpruefbar ist und niemand sie neu messen muss.**
 
 Einer war meiner und ist behoben: `reputationSql.js` verwies auf
 `test/nutzerSchluesselGegenOrg.test.js` — eine Datei, die es nie gab.
+
+#### Der teuerste Fund dieser Sitzung stand in der Arbeitsanweisung selbst
+
+Beim Aufgreifen von **Posten 1** (`U0.2 + U2.4` — Standortgrenze, als *möglicher
+Sicherheitsbefund* markiert) stellte sich heraus: **er war seit dem 2026-09-20 erledigt.** Und
+zwar gründlicher als jede Sitzung ihn neu messen würde — 967 Wege entdeckend geprüft, drei
+Lecks geschlossen, `api/test/standortGrenze.test.js` mit 11 Proben und 8 roten
+Rückmutationen. Der Eintrag widerlegt sogar ausdrücklich die Zahl, mit der die Anweisung
+begründet war („nur 4 Routendateien" — die Prüfung liegt eine Schicht tiefer, in sechs
+Diensten).
+
+**Es war nicht der einzige.** Eine Messung über die ganze Tabelle: **die Posten 1, 2, 3 und 4
+standen alle vier als offen**, obwohl sie zwischen dem 20. und 22. September abgearbeitet
+worden waren — W5/W4.2 am 21., S1/S4 am 21., N8.1 am 22. Jeder dieser Einträge nennt seine
+Herkunft wörtlich („Quelle: Owner-Reihenfolge 2026-09-20, Posten N"). **Die Kopplung war die
+ganze Zeit da, sie wurde nur nie gezogen.**
+
+Eine Sitzung, die der Anweisung folgt — *„die bauende Sitzung geht von oben nach unten"* —
+greift damit vier erledigte Posten nacheinander auf. Diese hier hat genau das getan, bis ein
+Kommentar im Dienst die Messung von 2026-09-20 erwähnte.
+
+**Das ist die teuerste Sorte Doku-Fäulnis, weil sie nicht wie ein Fehler aussieht, sondern wie
+Arbeit.** Ein toter Link fällt auf; ein Posten, der auf Erledigtes zeigt, wird abgearbeitet.
+
+Erzwungen wird die Übereinstimmung jetzt von **`api/test/reihenfolgeIstAktuell.test.js`**.
+Teilweise erledigte Posten bleiben offen und stehen mit Grund in `TEILWEISE` — der erste
+Eintrag dort ist **1b** (Welle Z): Z16–Z20 sind fertig, aber **Z10** (Token im Klartext),
+**Z11** (verwaiste Tabellen) und die Frage, wann die Reputation neu gerechnet wird, gehören
+dem Owner.
+
+**Die Wache hätte sich selbst durchgelassen.** Ihre erste Fassung las nur Ziffern — und als
+diese Welle ihren eigenen Eintrag schrieb („Posten 1b"), blieb sie grün, obwohl 1b offen
+stand. Aufgefallen ist es nur, weil die Welle ihre Wache **herausgefordert** hat, statt ihr zu
+glauben. Dieselbe Lehre traf die Rückmutationen: die erste Fassung tauschte nur `~~4~~` gegen
+`4` und ließ das Wort ERLEDIGT in derselben Zeile stehen — alle vier blieben grün, nicht weil
+die Wache blind war, sondern weil die Mutation ihren Gegenstand gar nicht hergestellt hatte.
+
+Rückmutationen: **6 von 6 gefangen.**
 
 #### Verifikation
 

@@ -2,6 +2,77 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-28 — Die Schema-Schulden sind bezahlt, und drei Wachen kamen dazu (Z16–Z20)
+
+**Status:** erledigt · **Kategorie:** Bug-Pattern mit Kundenwirkung + Test/Wächter ·
+**Quelle:** Owner-Reihenfolge 2026-09-20, Posten 1b (`Z_SCHEMA_SCHULDEN.md`)
+
+**Beide Bestandslisten sind leer** — die von `sqlSchemaWaechter` zum ersten Mal überhaupt,
+die von `spaltenImVerbund` einen Tag nach ihrer Entstehung.
+
+**Der teuerste Einzelfund** war nicht die fehlende Spalte, die den letzten Eintrag ausmachte,
+sondern was daneben stand: `/matching/smart-explain/:supplierId` nimmt eine **Organisation**,
+und alle **vier** Datenquellen der Route sind nutzer-geschlüsselt (`supplier_reputation.
+supplier_id`, `supplier_metrics.agency_id`, `requests.receiver_id`,
+`capacity_posts.supplier_company_id` — jede per Fremdschlüssel belegt). Alle vier wurden mit
+`o.id` verglichen. Gegenprobe an echten Daten: **direkt 0 Treffer, über den Eigentümer 9.**
+Drei der vier Wege sind LEFT JOIN oder `catch` — die Route antwortete also mit **200 und
+einem Smart-Rank-Score, der ausschließlich auf Nullen beruhte.** Eine erklärbare Bewertung,
+die nichts erklärt, gelistet in der öffentlichen API-Doku.
+
+**Zwei Fehler in der eigenen Arbeit**, beide beim Nachmessen gefunden:
+
+1. In `services/reputationSql.js` stand seit Welle Z6 eine **ungemessene Warnung**
+   („`supplier_metrics.agency_id` zeigt selbst auf `organizations` … wer sie mitkorrigiert,
+   bricht sie"). Der Fremdschlüssel sagt `REFERENCES users(id)`. Diese eine Zeile hat **sechs**
+   falsche Leser geschützt. *Ein falscher Riegel hält länger als falscher Code, weil ihn
+   niemand ausführt und deshalb niemand widerlegt.*
+2. Die Brücke dort **vervielfachte Zeilen**, sobald eine Organisation zwei Eigentümer hat
+   (gemessen: eine von 200; über alle Organisationen 2859 Zeilen statt 2858). Jetzt
+   `LEFT JOIN LATERAL` mit `LIMIT 1`, festem `ORDER BY` und `is_active`.
+
+**Was stumm ausgefallen war**, jeder Fall an der laufenden Datenbank verifiziert:
+
+| Was | Ursache |
+|---|---|
+| Die **DSGVO-Anfragenliste** war dauerhaft leer, während die gesetzlichen Fristen liefen | `users.first_name`/`last_name` gibt es nicht |
+| Ein Arbeiter sah seine **Einsatz-Einladungen gar nicht** | `assignment_staffing_invites.created_at` gibt es nicht (richtig: `sent_at`) |
+| `GET /preferred-vendors/capacity` antwortete **immer mit 500** | `workers_count` statt `headcount` — und dahinter versteckt ein toter Join |
+| Das **öffentliche Firmenprofil** lud nie; die **Abo-Benachrichtigung** erreichte den Eigentümer nie | `om.role` statt `role_key`, drei Stellen |
+| Die **Lieferantensuche** fand nichts; die **Stundenzettel-Benachrichtigung** ging nie raus | `o.org_type` bzw. `u.first_name` |
+| Kein Anbieter galt je als **verifiziert**; die **Nachweise** flossen nie in den Abgleich | falsche Tabelle bzw. falscher Schlüssel |
+
+**Der Fall `getWorkforceCapacity` ist die Lehre**, und es ist dieselbe wie bei P1-15 im
+Suchindex: dort standen **zwei** Fehler, und der erste hat den zweiten versteckt. Wer nur die
+Spalte richtiggestellt hätte, hätte aus einem ehrlichen 500er eine **200 mit lauter Nullen**
+gemacht — „dieser Lieferant hat keine Kapazität" statt „hier ist etwas kaputt".
+
+**Drei neue Wachen**, weil der Schema-Wächter diese Klasse nicht sehen kann (bei ihr existieren
+alle Spalten — falsch ist, *worauf* sie zeigen):
+
+- `test/identitaetenNichtVermischen.test.js` — Nutzer-Kennung gegen Org-Kennung. Speist sich
+  aus dem neuen Abschnitt `fremdschluessel` der Schema-Momentaufnahme. Gemessen zeigen **86
+  Spaltennamen auf `users`, 18 auf `organizations`, keiner auf beides.** Die Falle: Namen mit
+  „company" darin zeigen auf **Nutzer**.
+- `test/spaltenImVerbund.test.js` — Spaltennamen gegen den aufgelösten Alias, also auch in
+  Abfragen mit Join oder Unterabfrage. Fand **dreizehn** echte Fehler.
+- Die Probe auf den **Korpus selbst**: er nannte ein Verzeichnis, das es nicht gibt (`jobs`),
+  und ließ zwei mit SQL aus (`scripts`, `workers`) — alle drei Wachen lasen dort nie hin.
+
+**Verifikation:** 36 Rückmutationen, alle gefangen. Volles Tor jeweils Ende 0
+(12 197 Tests, 12 180 grün; die roten Dateien sind der bekannte libuv-Windows-Race beim
+Prozessende, kein Einzeltest rot).
+
+**Zwei Dinge bewusst NICHT gebaut**, beide mit Zahlen in `docs/UEBERGABE.md`: die
+Verallgemeinerung des Identitäts-Wächters auf alle Fremdschlüssel-Ziele (903 Vergleiche, **ein**
+Befund, und der war ein Fehlalarm) und ein Wächter für Pfadverweise in Kommentaren (zwölf
+Ausnahmen für sechs Korrekturen).
+
+**Offen und owner-gebunden — deshalb bleibt Posten 1b stehen:** **Z10** (Passwort- und
+Bestätigungs-Token im Klartext; eine Sicherheitsentscheidung, die eine zweite Sitzung nicht
+treffen kann), **Z11** (vier verwaiste Tabellen löschen) und die Frage, *wann* die Reputation
+neu gerechnet wird (P1-14).
+
 ### 2026-09-23 — Das Ventil wird geleert (N8.1b-7)
 
 **Status:** erledigt · **Kategorie:** Produktausbau + Datenqualität ·
