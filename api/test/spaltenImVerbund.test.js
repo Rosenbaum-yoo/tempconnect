@@ -43,8 +43,9 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
-  jsLiterale, normalisiere, quellDateien, SCHEMA_DATEI, API_DIR, aliasKarte
+  jsLiterale, normalisiere, quellDateien, SCHEMA_DATEI, API_DIR, aliasKarte, KORPUS
 } from "./lib/sqlScanner.mjs";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -187,6 +188,50 @@ describe("Spalten im Verbund — Spaltennamen gegen den aufgeloesten Alias", () 
     assert.ok(schemaVorhanden, `Momentaufnahme fehlt: ${SCHEMA_DATEI}`);
     assert.ok(Object.keys(TABELLEN).length >= 150,
       `nur ${Object.keys(TABELLEN).length} Relationen — npm run schema:snapshot laufen lassen`);
+  });
+
+  it("der Korpus ist vollstaendig — kein Verzeichnis mit SQL bleibt ungesehen", () => {
+    /*
+     * Z20 (2026-09-28): DIE WACHE BEWACHT IHREN EIGENEN BLINDEN FLECK.
+     *
+     * Gemessen stand in KORPUS ein Verzeichnis, das es nicht gibt ("jobs"), und
+     * es fehlten zwei, die es gibt und die SQL enthalten ("scripts" mit sechs
+     * Dateien, "workers" mit einer). Beides war lautlos: ein Eintrag ins Leere
+     * wird uebersprungen, ein fehlender Eintrag gar nicht erst gesucht. Alle
+     * DREI Wachen dieses Projekts lesen denselben Korpus - die Luecke war also
+     * dreifach.
+     *
+     * Dort stand nichts Falsches. Das ist der Grund FUER diese Probe: waere dort
+     * etwas gewesen, haette es jemand irgendwann bemerkt. So merkt es niemand.
+     */
+    const api = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+    assert.equal(path.basename(api), "api", "Pfadaufloesung stimmt nicht — die Probe prueft nichts");
+
+    /* (a) Jeder Eintrag zeigt auf ein Verzeichnis, das es gibt. */
+    const tot = KORPUS.filter((d) => !fs.existsSync(path.join(api, d)));
+    assert.deepEqual(tot, [], `diese Korpus-Eintraege zeigen ins Leere: ${tot.join(", ")}`);
+
+    /* (b) Jedes Verzeichnis, in dem SQL steht, ist im Korpus. */
+    const AUSGENOMMEN = new Set([
+      "node_modules",
+      "test"        // dort steht in den Selbstproben absichtlich falsches SQL
+    ]);
+    const SQL = /\b(SELECT\s|INSERT\s+INTO|DELETE\s+FROM|UPDATE\s+[a-z_]+\s+SET)/i;
+    const fehlt = [];
+    for (const e of fs.readdirSync(api, { withFileTypes: true })) {
+      if (!e.isDirectory() || AUSGENOMMEN.has(e.name) || e.name.startsWith(".")) continue;
+      if (KORPUS.includes(e.name)) continue;
+      let hatSql = false;
+      for (const f of fs.readdirSync(path.join(api, e.name), { withFileTypes: true })) {
+        if (!f.isFile() || !/\.(js|mjs)$/.test(f.name)) continue;
+        if (SQL.test(fs.readFileSync(path.join(api, e.name, f.name), "utf8"))) { hatSql = true; break; }
+      }
+      if (hatSql) fehlt.push(e.name);
+    }
+    assert.deepEqual(fehlt, [],
+      `\nin diesen Verzeichnissen steht SQL, aber KEINE Wache sieht sie an:\n  ${fehlt.join("\n  ")}\n` +
+      `Entweder in KORPUS aufnehmen (test/lib/sqlScanner.mjs) oder mit Grund in\n` +
+      `AUSGENOMMEN eintragen. Stillschweigen ist keine der beiden Moeglichkeiten.\n`);
   });
 
   it("der Korpus wird wirklich gelesen", () => {

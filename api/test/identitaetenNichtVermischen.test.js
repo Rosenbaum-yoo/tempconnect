@@ -70,6 +70,29 @@ for (const spalten of Object.values(FK)) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+ * WARUM NUR users GEGEN organizations — und nicht jedes Ziel gegen jedes
+ *
+ * Die naheliegende Verallgemeinerung waere: JEDES Fremdschluessel-Ziel gegen
+ * jedes andere. 180 der 183 Spaltennamen mit Fremdschluessel haben genau ein
+ * Ziel, die Daten waeren also da. Gemessen am 2026-09-28 ueber den ganzen
+ * Bestand: 903 Vergleiche, EIN Befund — und der war ein Fehlalarm.
+ *
+ *     services/vendorPoolService.js:312   av.vendor_id = vp.supplier_org_id
+ *
+ * `av` ist dort eine ABGELEITETE Tabelle: `JOIN (SELECT DISTINCT vendor_id FROM
+ * (SELECT rc.supplier_org_id AS vendor_id …)) av`. Ihre Spalte heisst zufaellig
+ * wie eine, die anderswo auf `support_vendors` zeigt — traegt aber in Wahrheit
+ * eine Org-Kennung. Ein Spaltenname aus einer abgeleiteten Relation hat keine
+ * Fremdschluessel-Information; die Methode kann das nicht wissen.
+ *
+ * Also: null echte Funde, ein Fehlalarm, und ein dauerhaftes Fehlalarm-Risiko
+ * genau dort, wo dieses Projekt viel mit Unterabfragen arbeitet. Die enge
+ * Fassung (users gegen organizations) fand dagegen SECHS echte Fehler. Das
+ * Ergebnis ist hier festgehalten, damit es niemand ein zweites Mal misst — und
+ * damit klar ist, dass die Enge eine Entscheidung ist und kein Versaeumnis.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
  * 2. BEGRUENDETE AUSNAHMEN
  *
  * Schluessel: "<datei>::<linke seite> = <rechte seite>". Jeder Eintrag braucht

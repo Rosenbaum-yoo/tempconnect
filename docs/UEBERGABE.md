@@ -83,7 +83,7 @@ bauende Sitzung geht von oben nach unten; wer etwas vorzieht, schreibt den Grund
 | # | Was | Warum hier |
 |---|---|---|
 | 1 | **U0.2 + U2.4** — Standortgrenze messen und entdeckend absichern | Möglicher **Sicherheitsbefund**: `assertLocationBelongsToOrg` steht in nur 4 Routendateien. Sicherheit geht vor Funktion, immer |
-| 1b | **Z — die Schema-Schulden** (`Z_SCHEMA_SCHULDEN.md`) | **Fast fertig.** Z1–Z9 und Z16–Z17 sind gebaut; die Bestandsliste in `sqlSchemaWaechter.test.js` ist **leer**, zum ersten Mal. Offen bleibt allein **Z10 — die Token im Klartext**, ein Sicherheitsposten, der **vor** dem Livegang steht und dem Owner gehört, sowie Z11 (vier verwaiste Tabellen, ebenfalls owner-gebunden). **Z18 und Z19 gleich mit erledigt:** fünfzehn Spaltenfehler, die erst der Verbund-Wächter sichtbar gemacht hat — darunter die stumme DSGVO-Liste, die unsichtbaren Einsatz-Einladungen und eine Lieferantensuche, die nichts fand (Abschnitt unten) |
+| 1b | **Z — die Schema-Schulden** (`Z_SCHEMA_SCHULDEN.md`) | **Fast fertig.** Z1–Z9 und Z16–Z17 sind gebaut; die Bestandsliste in `sqlSchemaWaechter.test.js` ist **leer**, zum ersten Mal. Offen bleibt allein **Z10 — die Token im Klartext**, ein Sicherheitsposten, der **vor** dem Livegang steht und dem Owner gehört, sowie Z11 (vier verwaiste Tabellen, ebenfalls owner-gebunden). **Z18–Z20 gleich mit erledigt:** fünfzehn Spaltenfehler, die erst der Verbund-Wächter sichtbar gemacht hat — darunter die stumme DSGVO-Liste, die unsichtbaren Einsatz-Einladungen und eine Lieferantensuche, die nichts fand — sowie drei Wächter-Lücken im gemeinsamen Korpus (Abschnitt unten) |
 | 2 | **W5 + W4.2** — Office-Dateien und Schlüsselmuster als Wächter | Zwei kleine Proben gegen einen großen Schaden: das Repo ist öffentlich, die Owner-Unterlagen liegen darin |
 | 3 | **S1 + S4** — `npm install` läuft glatt, Hauptbaum-Ablauf nach dem Merge | Jeder Merge und jedes neue Paket steht sonst wieder vor einem Container, der nicht startet |
 | 4 | **N8.1** — Katalog statt Freitext in „Personal finden" | Solange eine Marktseite Freitext nimmt, **kann** das Matching dort nicht treffen. Alles darüber baut darauf auf |
@@ -3553,7 +3553,7 @@ dass es benutzt wird.* Und: **jede neue Verdrahtung bekommt eine Probe, die den
 echten Handler durchläuft** — nicht nur den Dienst darunter.
 
 
-### Z16 bis Z19 sind gebaut *(2026-09-28)* — eine falsche Zeile in einem Kommentar hat sechs Fehler geschuetzt
+### Z16 bis Z20 sind gebaut *(2026-09-28)* — eine falsche Zeile in einem Kommentar hat sechs Fehler geschuetzt
 
 **Die Bestandsliste der Schema-Schulden ist leer.** Z16 hat die letzten fuenf
 Spaltenfehler behoben, Z17 den allerletzten. Das ist die kleinere Haelfte der
@@ -3721,6 +3721,44 @@ nichts beweist, ist eine Behauptung** und kann still zurueckgenommen werden.
 Rueckmutationen Z19: **4 von 4 gefangen.** Beide reparierten Abfragen an der
 laufenden Datenbank nachgefahren — sie warfen vorher, jetzt liefern sie 5 bzw.
 20 Zeilen.
+
+#### Z20 — die Wache bewacht ihren eigenen blinden Fleck
+
+Alle drei Wachen lesen denselben Korpus. Gemessen stand darin ein Verzeichnis,
+**das es nicht gibt** (`jobs`), und es fehlten zwei, die es gibt und die SQL
+enthalten: `scripts` (sechs Dateien) und `workers` (eine). Beides war lautlos —
+ein Eintrag ins Leere wird uebersprungen, ein fehlender gar nicht erst gesucht.
+Die Luecke war damit **dreifach**.
+
+Dort stand nichts Falsches (28 SQL-Literale, 38 Spaltenpruefungen, null Befunde).
+Das ist der Grund **fuer** die Schranke, nicht dagegen: waere dort etwas gewesen,
+haette es irgendwann jemand bemerkt — so bemerkt es niemand.
+
+Neu ist deshalb eine Probe, die den **Korpus selbst** prueft: (a) zeigt jeder
+Eintrag auf ein vorhandenes Verzeichnis, (b) ist jedes Verzeichnis mit SQL
+erfasst. `test/` bleibt ausdruecklich draussen — dort steht in den Selbstproben
+absichtlich falsches SQL.
+
+Beim Erweitern fiel ein **Fehlalarm** des Schema-Waechters auf: der Schema-Abzug
+in `scripts/` fragt sechs PostgreSQL-Systemkataloge ab (`pg_class`,
+`pg_constraint`, `pg_namespace`, `pg_attribute`, `pg_proc`, `pg_type`), und der
+Waechter meldete sie als fehlende Tabellen — er kannte nur die *qualifizierte*
+Form `pg_catalog.x`, und die schreibt niemand. Die Ausnahme ist praezise und
+keine Abschwaechung: PostgreSQL **reserviert** das Praefix `pg_` fuer
+Systemkataloge.
+
+Rueckmutationen Z20: **4 von 4 gefangen.**
+
+#### Was bewusst NICHT gebaut wurde
+
+Die naheliegende Verallgemeinerung des Identitaets-Waechters — **jedes**
+Fremdschluessel-Ziel gegen jedes andere statt nur `users` gegen `organizations`
+— ist gemessen und **verworfen**: 903 Vergleiche, **ein** Befund, und der war
+ein Fehlalarm (eine abgeleitete Tabelle, deren Spalte zufaellig wie ein
+Fremdschluessel anderswo heisst). Die enge Fassung fand dagegen sechs echte
+Fehler. Das Ergebnis steht im Waechter selbst, damit es niemand ein zweites Mal
+misst — und damit klar ist, dass die Enge eine Entscheidung ist und kein
+Versaeumnis.
 
 #### Verifikation
 

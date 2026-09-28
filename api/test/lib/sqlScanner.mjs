@@ -45,7 +45,27 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MODUL_API_DIR = path.resolve(__dirname, "..", "..");
 
 
-export const KORPUS = ["services", "routes", "routes/occ", "middleware", "jobs", "db", "config", "utils"];
+/*
+ * DER KORPUS - was die Wachen ueberhaupt ansehen.
+ *
+ * Z20 (2026-09-28): hier stand "jobs", und dieses Verzeichnis gibt es nicht.
+ * Ein Korpus-Eintrag, der ins Leere zeigt, faellt niemandem auf: der Scanner
+ * ueberspringt ihn stumm. Umgekehrt fehlten "scripts" (6 Dateien mit SQL) und
+ * "workers" (1) - die wurden also NIE geprueft, von keiner der drei Wachen.
+ *
+ * Gemessen stand dort nichts Falsches (28 SQL-Literale, 38 Spaltenpruefungen,
+ * null Befunde). Das ist ein Ergebnis, kein Grund, es dabei zu belassen: der
+ * Fehler, den niemand sucht, ist der, der bleibt.
+ *
+ * "test" gehoert ABSICHTLICH nicht dazu: dort steht in den Selbstproben
+ * absichtlich falsches SQL. Eine Wache, die ihre eigenen Nachbildungen anklagt,
+ * macht gruendliche Proben zur Last.
+ *
+ * Beides ist jetzt bewacht - siehe "der Korpus ist vollstaendig" in
+ * test/spaltenImVerbund.test.js.
+ */
+export const KORPUS = ["services", "routes", "routes/occ", "middleware", "db",
+                       "config", "utils", "scripts", "workers", "queue"];
 
 export function hatQuellen(apiDir) {
   try {

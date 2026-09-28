@@ -429,6 +429,21 @@ export function pruefeQuelle(rel, src, zaehler) {
        * lag Fund 2 (INSERT INTO audit_log (user_id, …)). */
       if (klausel !== "INSERT INTO" && klausel !== "UPDATE" && /^\s*\(/.test(rest)) { tabellenFunktion = true; continue; }
       if (fremdSchema === "information_schema" || fremdSchema === "pg_catalog") continue;
+      /*
+       * Z20 (2026-09-28): auch UNQUALIFIZIERT. Die Zeile darueber faengt
+       * `pg_catalog.pg_class`, aber `FROM pg_class c` schreibt niemand mit
+       * Praefix — der Suchpfad hat pg_catalog immer drin. Aufgefallen ist es,
+       * als der Korpus um `scripts` erweitert wurde: dort steht der
+       * Schema-Abzug selbst und fragt sechs Systemkataloge ab (pg_class,
+       * pg_constraint, pg_namespace, pg_attribute, pg_proc, pg_type). Alle
+       * sechs meldete der Waechter als fehlende Tabellen.
+       *
+       * Die Regel ist praezise und keine Abschwaechung: PostgreSQL RESERVIERT
+       * das Praefix `pg_` fuer Systemkataloge und verweigert benutzerdefinierte
+       * Relationen mit diesem Namen. Ein `pg_*`, das es nicht gibt, kann also
+       * keine Tabelle dieses Projekts sein.
+       */
+      if (name.startsWith("pg_")) continue;
       if (name.includes(M_I)) continue;
       relationen.push({ name, ende: m2.index + m2[0].length, fremdSchema });
       if (ctes.has(name) || abgeleitet.has(name)) continue;

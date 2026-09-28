@@ -57,7 +57,11 @@
  * Schema gehoert gemessen, auch (und gerade) wenn sie in einem Kommentar steht,
  * der andere vom Anfassen abhalten soll. Ein falscher Riegel haelt laenger als
  * ein falscher Code, weil ihn niemand ausfuehrt und deshalb niemand widerlegt.
- * Der Waechter dazu: `test/nutzerSchluesselGegenOrg.test.js`.
+ * Der Waechter dazu: `test/identitaetenNichtVermischen.test.js` — der Name hier
+ * war bis zum 2026-09-28 falsch (`nutzerSchluesselGegenOrg`, eine Datei, die es
+ * nie gab). Ein toter Verweis in einem Kommentar, der zur Wache schicken soll,
+ * ist dieselbe Klasse Fehler wie der falsche Riegel darueber: er wird gelesen
+ * und befolgt, nie ausgefuehrt und deshalb nie widerlegt.
  *
  * Deshalb traegt diese Bruecke jetzt BEIDE nutzer-geschluesselten Tabellen, und
  * zwar ueber EINEN Knoten: ein zweiter `org_memberships`-Join fuer dieselbe
