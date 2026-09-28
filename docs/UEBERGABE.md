@@ -3760,6 +3760,34 @@ Fehler. Das Ergebnis steht im Waechter selbst, damit es niemand ein zweites Mal
 misst — und damit klar ist, dass die Enge eine Entscheidung ist und kein
 Versaeumnis.
 
+#### Gemessen und NICHT gebaut: ein Waechter fuer Pfadverweise in Kommentaren
+
+Dieses Projekt begruendet seine Entscheidungen ausfuehrlich im Quelltext und
+nennt dabei staendig Dateien. **Gemessen am 2026-09-28: 903 Pfadverweise in
+Kommentaren, 644 verschiedene Ziele, 18 zeigen ins Leere.** Von den 18 sind die
+meisten erklaerbar — absichtliche Platzhalter in Selbstproben (`api/routes/x.js`,
+`public/x.html`, `test/attrappe.test.js`), laufzeit-erzeugte Dateien
+(`coverage/…`, `reports/mutation/…`, `staff/assets/index-*.js`) und eine Datei,
+die `docsConsistency` bereits als "nicht in diesem Checkout" fuehrt.
+
+**Sechs sind echte Irrefuehrer:** `frontend/public/login.html` (es gibt nur
+`worker-login.html`), `frontend/public/meine-agb.html`, `frontend/staff/index.html`
+(die Oberflaeche liegt unter `public/staff/`),
+`sql/migrations/187_audit_log_mandant_an_der_quelle.sql` (187 heisst
+`187_die_rechnung_braucht_eine_anschrift.sql`) sowie zwei Testdateien, die es
+nicht gibt.
+
+**Bewusst nicht gebaut**, weil die Rechnung nicht aufgeht: Ein Waechter bräuchte
+zwölf begründete Ausnahmen für sechs Korrekturen, und ein toter Verweis fuehrt
+einen Leser in die Irre — er bricht nichts. Gemessen gegen das, was dieselbe
+Sitzung sonst gefunden hat (eine DSGVO-Liste, die waehrend laufender Fristen leer
+blieb; Einsatz-Einladungen, die ein Arbeiter nie sah; drei Routen, die immer 500
+antworteten), ist das die schlechtere Investition. **Die Zahlen stehen hier,
+damit die Entscheidung ueberpruefbar ist und niemand sie neu messen muss.**
+
+Einer war meiner und ist behoben: `reputationSql.js` verwies auf
+`test/nutzerSchluesselGegenOrg.test.js` — eine Datei, die es nie gab.
+
 #### Verifikation
 
 **Rueckmutationen: 22 von 22 gefangen, keine Luecke.** Die eine, die zuerst
