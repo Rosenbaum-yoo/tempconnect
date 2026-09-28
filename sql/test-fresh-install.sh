@@ -12,6 +12,23 @@
 #   - Docker (docker CLI in PATH, daemon running)
 #   - Port 5499 temporarily free  (changes PGPORT to avoid collisions)
 #
+# WINDOWS / GIT BASH (gemessen am 2026-09-28): ohne `MSYS_NO_PATHCONV=1` unten
+# kann dieses Gate auf einem Windows-Rechner NICHT laufen — und es sah dabei aus
+# wie ein dramatischer Befund statt wie ein Werkzeugfehler:
+#
+#   1. Git Bash uebersetzt jedes Argument, das wie ein absoluter Unix-Pfad
+#      aussieht, in einen Windows-Pfad. Aus `sh /migrate.sh` wurde
+#      `sh 'C:/Program Files/Git/migrate.sh'` — "can't open".
+#   2. Dieselbe Uebersetzung trifft die `-v`-Zeichenkette: aus
+#      `-v /c/…/migrate.sh:/migrate.sh:ro` wird ein Ziel, das der Container nicht
+#      kennt, und die Einbindung greift nicht.
+#
+# Danach meldete das Skript ALLE Kerntabellen als fehlend und RLS als inaktiv.
+# Wer das fuer einen Befund haelt, sucht tagelang am Schema. `MSYS_NO_PATHCONV=1`
+# schaltet die Uebersetzung ab; unter Linux und in CI ist die Variable ohne
+# Wirkung. Belegt am 2026-09-28: mit ihr bindet der Git-Bash-Pfad
+# (`/c/Users/…`) einwandfrei ein.
+#
 # Exit codes:
 #   0  All migrations applied, schema checks passed
 #   1  Migration failure or schema check failed
@@ -20,6 +37,10 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -e
+
+# Siehe Kopf. Ohne dies verbiegt Git Bash auf Windows die `-v`-Zeichenketten und
+# die Container-Pfade; auf Linux und in CI ist die Variable ohne Wirkung.
+export MSYS_NO_PATHCONV=1
 
 CONTAINER="tc_fresh_install_test_$$"
 TEST_PORT=5499
@@ -82,12 +103,24 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 info "Starting fresh postgres:16-alpine (container: $CONTAINER, port: $TEST_PORT) …"
+# `init.sql` MUSS mit, und das war der Grund, warum dieses Gate nie gruen werden
+# konnte (gemessen am 2026-09-28): es legt in Zeile 6
+# `CREATE EXTENSION "uuid-ossp"` an, und schon `001_ratings.sql` ruft
+# `uuid_generate_v4()`. Ohne die Erweiterung bricht die ERSTE Migration ab, und
+# danach meldet das Gate folgerichtig jede Kerntabelle als fehlend.
+#
+# Im Betrieb uebernimmt das Postgres selbst: `docker-compose.yml` bindet
+# `./sql/init.sql` nach `/docker-entrypoint-initdb.d/` ein, und das Abbild fuehrt
+# alles dort beim ERSTEN Start aus — vor jeder Migration. Genau dieselbe
+# Einbindung gehoert in dieses Gate, sonst prueft es einen Start, den es im
+# Betrieb nicht gibt.
 docker run -d \
   --name "$CONTAINER" \
   -e POSTGRES_DB="$TEST_DB" \
   -e POSTGRES_USER="$TEST_USER" \
   -e POSTGRES_PASSWORD="$TEST_PASS" \
   -p "${TEST_PORT}:5432" \
+  -v "$(cd "$(dirname "$0")" && pwd)/init.sql:/docker-entrypoint-initdb.d/init.sql:ro" \
   postgres:16-alpine \
   >/dev/null
 
@@ -176,7 +209,13 @@ check_table "audit_log"
 check_table "_migrations"
 
 # OCC tables (migration 107+)
-check_table "owner_access_grants"
+# HINWEIS (2026-09-28): zuvor check_table "owner_access_grants" — eine Tabelle
+# dieses Namens wird im gesamten Migrationsbaum NIE angelegt. Migration 107 legt
+# `occ_owner_access` an. Derselbe Fehler wie beim alten `deals`-Check zwei Zeilen
+# darueber: ein Gate, das auf einen nie existierenden Namen prueft, ist dauerhaft
+# rot — und ein dauerhaft rotes Gate wird uebersprungen. Gefunden beim ersten
+# LAUF dieses Gates, nicht beim Lesen.
+check_table "occ_owner_access"
 
 # Multi-location (migration 112)
 check_table "org_locations"
