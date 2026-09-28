@@ -394,7 +394,12 @@ export async function getInboxItemDetail(pool, id) {
   // ── Enterprise Request (strategic_collaboration_requests) ───
   const { rows: scrRows } = await pool.query(
     `SELECT s.*,
-            o.name AS org_name, o.type AS org_type, o.email AS org_contact_email,
+            o.name AS org_name, o.type AS org_type,
+            -- Z18: organizations hat kein email (gemessen) - die Kontaktwege heissen
+            -- billing_email / billing_contact / billing_phone. Beide Abfragen dieser
+            -- Datei warfen, und damit fiel die Detailansicht des Staff-Posteingangs
+            -- aus: die Liste lud, das Oeffnen eines Vorgangs nicht.
+            o.billing_email AS org_contact_email,
             (SELECT a.staff_id FROM staff_customer_request_assignments a
              WHERE a.request_id = s.id AND a.released_at IS NULL
              ORDER BY a.assigned_at DESC LIMIT 1) AS assigned_staff_id
@@ -463,7 +468,12 @@ export async function getInboxItemDetail(pool, id) {
   // ── Subscription Request ─────────────────────────────────────
   const { rows: subRows } = await pool.query(
     `SELECT sr.*,
-            o.name AS org_name, o.type AS org_type, o.email AS org_contact_email,
+            o.name AS org_name, o.type AS org_type,
+            -- Z18: organizations hat kein email (gemessen) - die Kontaktwege heissen
+            -- billing_email / billing_contact / billing_phone. Beide Abfragen dieser
+            -- Datei warfen, und damit fiel die Detailansicht des Staff-Posteingangs
+            -- aus: die Liste lud, das Oeffnen eines Vorgangs nicht.
+            o.billing_email AS org_contact_email,
             ts.email AS assignee_email, ts.display_name AS assignee_display_name
        FROM subscription_requests sr
        LEFT JOIN organizations o ON o.id = sr.org_id

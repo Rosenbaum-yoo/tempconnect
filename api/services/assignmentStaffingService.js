@@ -3182,7 +3182,13 @@ export function listWorkerStaffingRequests(pool, workerUserId, { limit = 25, mar
       `SELECT i.id, i.assignment_id, i.campaign_id, i.worker_user_id, i.status, i.score,
               i.score_reasons, i.personal_message, i.sent_at, i.viewed_at,
               i.responded_at, i.accepted_at, i.declined_at, i.response_note,
-              i.expires_at, i.created_at, i.request_snapshot,
+              -- Z18 (2026-09-28): hier stand i.created_at. Die Spalte gibt es in
+              -- assignment_staffing_invites nicht; der fachlich richtige Zeitpunkt ist
+              -- sent_at (wann wurde eingeladen) - die Abfrage sortiert unten ohnehin
+              -- danach. Der Ausgabename bleibt, damit der Aufrufer unveraendert bleibt.
+              -- Wirkung: die Abfrage warf, ein Arbeiter hat seine Einsatz-Einladungen
+              -- GAR NICHT gesehen.
+              i.expires_at, i.sent_at AS created_at, i.request_snapshot,
               i.delivery_status, i.delivery_attempt_count, i.delivery_last_attempt_at,
               i.delivery_last_success_at, i.delivery_last_error,
               i.remind_after, i.reminder_requested_at, i.last_reminder_sent_at,
@@ -3197,7 +3203,14 @@ export function listWorkerStaffingRequests(pool, workerUserId, { limit = 25, mar
               buyer.name AS client_org_name,
               COALESCE(NULLIF(r.role, ''), NULLIF(dr.role, ''), NULLIF(dr.title, ''), a.worker_description, 'Einsatz') AS request_title,
               COALESCE(NULLIF(r.role, ''), NULLIF(dr.role, ''), NULLIF(dr.title, '')) AS request_role,
-              COALESCE(r.location_city, dr.location_city) AS location_city
+              -- Z18: hier ist r = requests, und die Tabelle hat kein location_city -
+              -- dort heisst es location_text. demand_requests hat es. Geschrieben war
+              -- es, als haetten beide dieselbe Spalte.
+              -- ABSICHTLICH NICHT MITGEAENDERT: die vier Stellen weiter oben mit
+              -- r.location_city, denn dort ist r = requisitions, und DIE hat die
+              -- Spalte. Derselbe Aliasbuchstabe, zwei Tabellen - wer hier pauschal
+              -- ersetzt, bricht vier richtige Abfragen.
+              COALESCE(NULLIF(r.location_text, ''), dr.location_city) AS location_city
        FROM assignment_staffing_invites i
        JOIN assignments a ON a.id = i.assignment_id
        LEFT JOIN assignment_staffing_campaigns c ON c.id = i.campaign_id

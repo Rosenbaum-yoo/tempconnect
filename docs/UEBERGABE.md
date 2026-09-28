@@ -83,7 +83,7 @@ bauende Sitzung geht von oben nach unten; wer etwas vorzieht, schreibt den Grund
 | # | Was | Warum hier |
 |---|---|---|
 | 1 | **U0.2 + U2.4** — Standortgrenze messen und entdeckend absichern | Möglicher **Sicherheitsbefund**: `assertLocationBelongsToOrg` steht in nur 4 Routendateien. Sicherheit geht vor Funktion, immer |
-| 1b | **Z — die Schema-Schulden** (`Z_SCHEMA_SCHULDEN.md`) | **Fast fertig.** Z1–Z9 und Z16–Z17 sind gebaut; die Bestandsliste in `sqlSchemaWaechter.test.js` ist **leer**, zum ersten Mal. Offen bleibt allein **Z10 — die Token im Klartext**, ein Sicherheitsposten, der **vor** dem Livegang steht und dem Owner gehört, sowie Z11 (vier verwaiste Tabellen, ebenfalls owner-gebunden). **Neu daneben:** zehn Spaltenfehler, die erst der Verbund-Wächter sichtbar gemacht hat (Abschnitt unten) |
+| 1b | **Z — die Schema-Schulden** (`Z_SCHEMA_SCHULDEN.md`) | **Fast fertig.** Z1–Z9 und Z16–Z17 sind gebaut; die Bestandsliste in `sqlSchemaWaechter.test.js` ist **leer**, zum ersten Mal. Offen bleibt allein **Z10 — die Token im Klartext**, ein Sicherheitsposten, der **vor** dem Livegang steht und dem Owner gehört, sowie Z11 (vier verwaiste Tabellen, ebenfalls owner-gebunden). **Z18 gleich mit erledigt:** dreizehn Spaltenfehler, die erst der Verbund-Wächter sichtbar gemacht hat — darunter die stumme DSGVO-Liste und die unsichtbaren Einsatz-Einladungen (Abschnitt unten) |
 | 2 | **W5 + W4.2** — Office-Dateien und Schlüsselmuster als Wächter | Zwei kleine Proben gegen einen großen Schaden: das Repo ist öffentlich, die Owner-Unterlagen liegen darin |
 | 3 | **S1 + S4** — `npm install` läuft glatt, Hauptbaum-Ablauf nach dem Merge | Jeder Merge und jedes neue Paket steht sonst wieder vor einem Container, der nicht startet |
 | 4 | **N8.1** — Katalog statt Freitext in „Personal finden" | Solange eine Marktseite Freitext nimmt, **kann** das Matching dort nicht treffen. Alles darüber baut darauf auf |
@@ -3553,7 +3553,7 @@ dass es benutzt wird.* Und: **jede neue Verdrahtung bekommt eine Probe, die den
 echten Handler durchläuft** — nicht nur den Dienst darunter.
 
 
-### Z16 und Z17 sind gebaut *(2026-09-28)* — eine falsche Zeile in einem Kommentar hat sechs Fehler geschuetzt
+### Z16, Z17 und Z18 sind gebaut *(2026-09-28)* — eine falsche Zeile in einem Kommentar hat sechs Fehler geschuetzt
 
 **Die Bestandsliste der Schema-Schulden ist leer.** Z16 hat die letzten fuenf
 Spaltenfehler behoben, Z17 den allerletzten. Das ist die kleinere Haelfte der
@@ -3660,12 +3660,31 @@ einem ehrlichen 500er eine **200 mit lauter Nullen** geworden — „dieser Lief
 hat keine Kapazitaet" statt „hier ist etwas kaputt". Das waere die schlechtere
 Auskunft gewesen.
 
-**Die uebrigen zehn stehen als begruendeter BESTAND** in
-`test/spaltenImVerbund.test.js` — `users.plan` (2x), `users.first_name`/
-`last_name` (4x), `assignments.title`, `organizations.email`,
-`requests.location_city`, `assignment_staffing_invites.created_at`. Sie stehen
-dort und nicht in einem Ticket, weil ein Ticket nicht rot wird, wenn jemand einen
-elften dazulegt. Wer eine davon anfasst, streicht den Eintrag.
+**Die uebrigen zehn sind noch am selben Tag behoben** (Z18) — die Bestandsliste
+in `test/spaltenImVerbund.test.js` ist damit ebenfalls **leer**:
+
+- **`users.first_name`/`last_name`** (4x im Staff Control Center, 1x im
+  Staff-Dienst; `users` kennt den Menschen als `contact_person`) — darunter die
+  **Liste der DSGVO-Anfragen**, sortiert nach Frist. Sie war dauerhaft leer,
+  waehrend die gesetzlichen Fristen liefen, und der Aufrufer faengt: es sah aus,
+  als gaebe es nichts zu tun.
+- **`assignment_staffing_invites.created_at`** (richtig: `sent_at`) — ein
+  Arbeiter hat seine Einsatz-Einladungen **gar nicht** gesehen.
+- **`assignments.title`** (Hausmuster: `worker_description`) — die
+  Bestaetigungsliste des Arbeiters blieb leer.
+- **`organizations.email`** (richtig: `billing_email`) — die Detailansicht des
+  Staff-Posteingangs fiel aus: die Liste lud, das Oeffnen eines Vorgangs nicht.
+- **`users.plan`** (2x; der Tarif haengt seit der Org-Umstellung an
+  `organizations`) und **`requests.location_city`** (dort: `location_text`).
+
+**Eine Stelle wurde absichtlich NICHT angefasst, und sie ist die Lehre:** in
+`assignmentStaffingService` steht `r.location_city` fuenfmal. **Viermal ist `r` =
+`requisitions`, und die hat die Spalte** — nur an der fuenften ist `r` =
+`requests`. Der Waechter hat genau die fuenfte gemeldet und die vier anderen
+nicht. Wer nach Spaltennamen sucht statt nach aufgeloesten Aliassen, haette hier
+vier richtige Abfragen gebrochen. Eine Rueckmutation sichert das ab.
+
+Rueckmutationen Z18: **10 von 10 gefangen.**
 
 #### Verifikation
 

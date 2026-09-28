@@ -169,7 +169,12 @@ export function createApprovalsRouter(deps) {
         const { rows: walRows } = await pool.query(
           `SELECT wal.id, wal.worker_confirmation_status, wal.start_date, wal.end_date,
                   wal.client_name, wal.contact_name, wal.created_at,
-                  a.title AS assignment_title
+                  -- Z18 (2026-09-28): hier stand a.title. Die Spalte gibt es in
+                  -- assignments nicht (gemessen). Das Hausmuster fuer den Namen eines
+                  -- Einsatzes ist worker_description - so macht es auch
+                  -- assignmentStaffingService in seinem request_title. Vorher warf die
+                  -- Abfrage, und die Bestaetigungsliste des Arbeiters blieb leer.
+                  a.worker_description AS assignment_title
            FROM worker_assignment_links wal
            LEFT JOIN assignments a ON a.id = wal.assignment_id
            WHERE wal.worker_user_id = $1

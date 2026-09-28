@@ -327,7 +327,10 @@ export async function buildAnalyticsContextFromRequest(pool, req) {
     };
   }
   const { rows } = await pool.query(
-    `SELECT u.id, u.role, u.is_demo, u.plan, u.customer_stage AS user_stage,
+    /* Z18: u.plan gibt es nicht - der Tarif haengt an der Organisation (dieselbe
+       Stelle wie in routes/analytics.js). Der Rueckfall dieser Funktion setzt
+       user_plan auf null; dass er gebraucht wurde, lag an dieser Spalte. */
+    `SELECT u.id, u.role, u.is_demo, o.plan, u.customer_stage AS user_stage,
             COALESCE(om.org_id, u.org_id) AS org_id,
             om.role_key AS org_role,
             o.name AS org_name, o.customer_stage AS org_stage

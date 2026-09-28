@@ -1737,7 +1737,7 @@ export function createStaffControlCenterRouter(deps) {
                sc.sla_resolved_at, sc.sla_first_responded_at,
                sc.created_at, sc.updated_at, sc.closed_at,
                o.name AS org_name,
-               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS reporter_name,
+               NULLIF(TRIM(COALESCE(u.contact_person,'')), '')  -- Z18: users hat weder first_name noch last_name (gemessen); der Mensch steht als contact_person. Die vier Abfragen warfen - die Listen des Staff Control Center blieben leer. AS reporter_name,
                sq.name AS queue_name
         FROM   support_cases sc
         LEFT JOIN organizations  o  ON o.id  = sc.reporter_org_id
@@ -1777,7 +1777,7 @@ export function createStaffControlCenterRouter(deps) {
       const { rows } = await pool.query(`
         SELECT sc.*,
                o.name AS org_name,
-               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS reporter_name,
+               NULLIF(TRIM(COALESCE(u.contact_person,'')), '')  -- Z18: users hat weder first_name noch last_name (gemessen); der Mensch steht als contact_person. Die vier Abfragen warfen - die Listen des Staff Control Center blieben leer. AS reporter_name,
                sq.name AS queue_name
         FROM   support_cases sc
         LEFT JOIN organizations  o  ON o.id  = sc.reporter_org_id
@@ -1792,7 +1792,7 @@ export function createStaffControlCenterRouter(deps) {
 
       const { rows: notes } = await pool.query(`
         SELECT scn.id, scn.note_type, scn.body, scn.created_at,
-               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS author_name,
+               NULLIF(TRIM(COALESCE(u.contact_person,'')), '')  -- Z18: users hat weder first_name noch last_name (gemessen); der Mensch steht als contact_person. Die vier Abfragen warfen - die Listen des Staff Control Center blieben leer. AS author_name,
                u.email AS author_email
         FROM   support_case_notes scn
         LEFT JOIN support_agents sa ON sa.id  = scn.author_agent_id
@@ -1839,7 +1839,7 @@ export function createStaffControlCenterRouter(deps) {
         SELECT dgr.id, dgr.request_type, dgr.subject_type, dgr.status,
                dgr.notes, dgr.created_at, dgr.completed_at,
                o.name AS org_name,
-               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS requested_by_name,
+               NULLIF(TRIM(COALESCE(u.contact_person,'')), '')  -- Z18: users hat weder first_name noch last_name (gemessen); der Mensch steht als contact_person. Die vier Abfragen warfen - die Listen des Staff Control Center blieben leer. AS requested_by_name,
                u.email AS requested_by_email
         FROM   data_governance_requests dgr
         LEFT JOIN organizations o ON o.id = dgr.org_id

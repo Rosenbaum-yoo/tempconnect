@@ -55,24 +55,40 @@ import {
  * Ticket nicht rot wird, wenn jemand einen weiteren dazulegt.
  * ═══════════════════════════════════════════════════════════════════════════ */
 const BESTAND = new Set([
-  /* users hat weder `plan` noch `first_name`/`last_name` — Altbestand aus der
-     Zeit vor der Org-Umstellung. Der Plan liegt an der Organisation, der Name
-     an `company_name` bzw. `contact_person`. Diese vier Stellen gehoeren
-     zusammen umgestellt, nicht einzeln: wer nur `plan` korrigiert, muss wissen,
-     WELCHE Organisation gemeint ist, und das ist an jeder der Stellen eine
-     eigene Frage. */
-  "routes/analytics.js::users.plan",
-  "services/productAnalyticsService.js::users.plan",
-  "routes/staffControlCenter.js::users.first_name",
-  "routes/staffControlCenter.js::users.last_name",
-  "services/staffControlService.js::users.first_name",
-  "services/staffControlService.js::users.last_name",
-
-  /* Einzelbefunde, jeder mit eigener Vorgeschichte — nicht sammelbehebbar. */
-  "routes/approvals.js::assignments.title",
-  "services/assignmentStaffingService.js::assignment_staffing_invites.created_at",
-  "services/assignmentStaffingService.js::requests.location_city",
-  "services/staffCombinedInboxService.js::organizations.email"
+  /* LEER seit dem 2026-09-28 (Welle Z18) - alle dreizehn Funde sind behoben, am
+   * selben Tag, an dem dieser Waechter sie zum ersten Mal sichtbar gemacht hat.
+   *
+   * Was sie gekostet haben, jeder Fall an der laufenden Datenbank geprueft:
+   *
+   *   org_memberships.role (3x, sie heisst role_key)
+   *       das OEFFENTLICHE Firmenprofil hat nie geladen; die
+   *       Abo-Benachrichtigung erreichte den Eigentuemer nie, sobald keine
+   *       contact_email hinterlegt war; die ab PRO verkaufte Rangliste warf.
+   *   capacity_posts.workers_count (sie heisst headcount)
+   *       GET /preferred-vendors/capacity antwortete IMMER mit 500.
+   *   users.first_name / users.last_name (4x in staffControlCenter, 1x in
+   *   staffControlService; users kennt den Menschen als contact_person)
+   *       die Fall-Listen des Staff Control Center blieben leer - darunter die
+   *       Liste der DSGVO-ANFRAGEN, sortiert nach Frist. Sie war dauerhaft leer,
+   *       waehrend die gesetzlichen Fristen liefen, und der Aufrufer faengt: es
+   *       sah aus, als gaebe es nichts zu tun.
+   *   users.plan (2x; der Tarif haengt seit der Org-Umstellung an organizations)
+   *   assignments.title (das Hausmuster ist worker_description)
+   *       die Bestaetigungsliste des Arbeiters blieb leer.
+   *   assignment_staffing_invites.created_at (richtig: sent_at)
+   *       ein Arbeiter hat seine Einsatz-Einladungen GAR NICHT gesehen.
+   *   requests.location_city (dort heisst es location_text)
+   *   organizations.email (richtig: billing_email)
+   *       die Detailansicht des Staff-Posteingangs fiel aus: die Liste lud, das
+   *       Oeffnen eines Vorgangs nicht.
+   *
+   * EINE STELLE WURDE ABSICHTLICH NICHT ANGEFASST, und sie ist die Lehre: in
+   * `assignmentStaffingService` steht `r.location_city` fuenfmal. Viermal ist
+   * `r` = `requisitions`, und DIE hat die Spalte - nur an der fuenften ist
+   * `r` = `requests`. Dieser Waechter hat genau die fuenfte gemeldet und die
+   * vier anderen nicht. Wer nach Spaltennamen sucht statt nach aufgeloesten
+   * Aliassen, haette hier vier richtige Abfragen gebrochen.
+   */
 ]);
 
 /* Aliasse, deren Tabelle der Aufloeser zwar findet, die aber etwas anderes

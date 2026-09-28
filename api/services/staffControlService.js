@@ -215,7 +215,12 @@ export async function loadRiskSnapshot(pool) {
       SELECT dgr.id, dgr.request_type, dgr.subject_type, dgr.status,
              dgr.notes, dgr.created_at,
              o.name AS org_name,
-             NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS requested_by_name,
+             -- Z18 (2026-09-28): dieselben zwei nicht existierenden Spalten wie im Staff
+             -- Control Center, und hier wiegt es schwerer: das ist die Liste der
+             -- DSGVO-Anfragen, sortiert nach Frist. Die Abfrage warf, der Aufrufer
+             -- faengt - die Liste war dauerhaft LEER, waehrend die gesetzlichen
+             -- Fristen liefen. Niemand konnte sehen, dass etwas offen ist.
+             NULLIF(TRIM(COALESCE(u.contact_person,'')), '') AS requested_by_name,
              u.email AS requested_by_email
       FROM   data_governance_requests dgr
       LEFT JOIN organizations o ON o.id = dgr.org_id
