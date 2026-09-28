@@ -220,7 +220,24 @@ Diese Leiche gehört mit weg.
 - **Die Frage an den Owner ist damit auf eine reduziert:** täglicher Takt vor der Rangliste
   (wie `deal_reliability`, also z. B. 02:45) **oder** ereignisgesteuert nach Bewertung und
   Deal-Abschluss? Der Takt ist billiger und vorhersehbar; ereignisgesteuert ist aktueller,
-  kostet aber je Bewertung eine Neuberechnung. Beides ist gebaut — es fehlt nur der Aufruf.
+  kostet aber je Bewertung eine Neuberechnung.
+- **Präzisierung 2026-09-28, sie macht die Entscheidung konkret:** „es fehlt nur der Aufruf"
+  war zu weich formuliert. Gemessen fehlt der **Griff**: `api/routes/internal.js` nennt
+  `reputation` an keiner Stelle (0 Treffer), und `docs/SCHEDULER.md` führt keinen Eintrag
+  dafür. Die Rechnung ist gebaut (`recomputeReputation`, `batchRecompute`), aber es gibt
+  keinen Weg, sie von außen anzustoßen — selbst eine Crontab-Zeile hätte nichts, worauf sie
+  zeigen könnte. Der Weg des Projekts für solche Läufe ist gemessen dreiteilig: ein
+  `POST /internal/…`-Endpunkt mit `checkCronAuth`, eine Zeile in `docs/SCHEDULER.md`
+  (dort steht die echte Crontab, z. B. `0 4 * * *` für
+  `recompute-supplier-metrics`) und — nur wenn der Lauf laufen MUSS — ein Eintrag in
+  `TAKTE`, damit sein Schweigen auffällt. Umsetzung ist klein; die Entscheidung, ob eine ab
+  PRO verkaufte Rangliste ab sofort Plätze vergibt, bleibt die des Owners.
+- **Zur Einordnung, damit die Nachbarzahlen nicht als Befund gelesen werden:**
+  `supplier_metrics` ist in der Entwicklungsdatenbank leer, aber **nicht** unversorgt —
+  `docs/SCHEDULER.md` führt `recompute-supplier-metrics` täglich um 04:00. Und dass 22 der
+  29 internen Endpunkte nicht in `TAKTE` stehen, ist ausdrücklich Absicht
+  (`betriebsTaktService`: „Eine Aufgabe OHNE Eintrag ist kein Fehler … Überwacht wird nur,
+  was laufen MUSS"). Beides gemessen am 2026-09-28.
 
 **P0-14 ✅ Referral-Gutschrift konnte sich vervielfachen** *(am 2026-08-08 geschlossen)*.
 `qualifyReferralReward` buchte die Gutschrift und setzte **danach** `reward_applied = TRUE` —
