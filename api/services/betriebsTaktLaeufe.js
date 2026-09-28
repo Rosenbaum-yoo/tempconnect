@@ -224,9 +224,30 @@ export async function einladungErinnerung(pool, { config, logger, sendMail } = {
  * Stand von gestern.
  *
  * 02:50 ist bewusst gewaehlt: nach der Nachtwirtschaft (02:10/02:20/02:40),
- * vor den Kapazitaets-Sweeps (03:00). Die Rangzahl speist sich aus
- * `supplier_reputation`, und die wird von `recompute-supplier-metrics`
- * fortgeschrieben — eine Rangliste vor der Kennzahl waere einen Tag alt.
+ * vor den Kapazitaets-Sweeps (03:00).
+ *
+ * ACHTUNG, HIER STAND ETWAS FALSCHES (berichtigt am 2026-09-28, Welle Z):
+ * "Die Rangzahl speist sich aus `supplier_reputation`, und die wird von
+ * `recompute-supplier-metrics` fortgeschrieben." Der erste Teil stimmt, der
+ * zweite nicht. Gemessen: `POST /internal/recompute-supplier-metrics` ruft
+ * `supplierMetricsService.recomputeForWindow(30)` und `(90)` — und die
+ * schreiben `supplier_metrics` (Schluessel `agency_id`), NICHT
+ * `supplier_reputation` (Schluessel `supplier_id`).
+ *
+ * `supplier_reputation` schreibt ausschliesslich
+ * `reputationService.recomputeReputation`, gerufen nur von `batchRecompute` —
+ * und das hat ausserhalb der Tests KEINEN Aufrufer (bekannter offener Punkt
+ * P1-14 in docs/releases/OPEN_BLOCKERS.md; ebenso vermerkt in Migration 166 und
+ * P9_BOUNTY_MERKLISTE_ENTITLEMENTS.md). Gemessen am 2026-09-27: neun Zeilen in
+ * `supplier_reputation`, davon NULL mit `reputation_score`, alle mit
+ * `grade='UNRATED'`.
+ *
+ * Fuer diesen Lauf heisst das: die Reihenfolge unten ist richtig, aber die
+ * Quelle, aus der er seine Zahl zieht, wird von keinem Takt fortgeschrieben.
+ * Die Rangliste rechnet auf leeren Werten. Ob `batchRecompute` hier als
+ * eigener Takt davor gehoert (taeglich, wie `deal_reliability`) oder
+ * ereignisgesteuert nach Bewertung und Deal-Abschluss laufen soll, ist die
+ * offene Frage aus P1-14 — sie gehoert dem Owner, nicht diesem Kommentar.
  */
 export async function profilRangliste(pool) {
   const { processed, errors } = await profileRankingService.runDailySnapshotBatch(pool);

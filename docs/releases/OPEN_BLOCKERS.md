@@ -143,6 +143,33 @@ Zusatz: `assignmentService.js:277` schreibt in `supplier_reputation` in Spalten,
 nicht gibt (`supplier_org_id`/`score`) — im stummen `try/catch`, also seit jeher wirkungslos.
 Diese Leiche gehört mit weg.
 
+**Stand 2026-09-28 (Welle Z):**
+- ✅ **Die Leiche ist weg** (Z5, `db2fbe3`). `assignmentService.updateSupplierReputation` ist
+  entfernt, samt dem Rückfall in `capacityExchangeService`, der denselben nicht existierenden
+  Spalten nachlas, und samt einer Probe, die den unmöglichen Pfad mit `{ score: 55 }`
+  beglaubigt hatte. Offen hingeschrieben ist dort auch der Preis: der kanonische Schreiber
+  rechnet Abschlüsse aus `requests`, ein assignment-basiertes Signal ist damit **nicht** im
+  Score — das ist eine Owner-Entscheidung, weil es Rangplätze verschiebt.
+- ✅ Ebenfalls behoben (Z5): `instantMatchService` las `org_id`/`overall_score` (beides
+  existiert nicht) und ankerte die Smart-Rank-Abfrage an `organizations`, bekam aber
+  Nutzer-Kennungen → null Zeilen, ohne Fehler. Und `profileRankingService` fragte
+  `om.role` statt `om.role_key` ab: die Abfrage warf jedes Mal, das catch machte daraus
+  `null`, also **nie eine Rangposition** — die zweite Ursache für die dauerhaft leere Zeile
+  „Ihre Position: #N".
+- 🟠 **Der Kern von P1-14 bleibt offen, und er ist nachgemessen:** neun Zeilen in
+  `supplier_reputation`, davon **null** mit `reputation_score`, alle mit `grade='UNRATED'`,
+  nur `avg_stars` gesetzt. `batchRecompute` hat außerhalb der Tests weiterhin keinen
+  Aufrufer.
+- ℹ️ Berichtigt: der Kommentar in `api/services/betriebsTaktLaeufe.js` behauptete,
+  `supplier_reputation` werde von `recompute-supplier-metrics` fortgeschrieben. Gemessen
+  falsch — dieser Cron schreibt `supplier_metrics` (`agency_id`). Die Rangliste um 02:50
+  rechnet also auf leeren Werten, und ihre Reihenfolge im Takt ist richtig, nur ihre Quelle
+  leer.
+- **Die Frage an den Owner ist damit auf eine reduziert:** täglicher Takt vor der Rangliste
+  (wie `deal_reliability`, also z. B. 02:45) **oder** ereignisgesteuert nach Bewertung und
+  Deal-Abschluss? Der Takt ist billiger und vorhersehbar; ereignisgesteuert ist aktueller,
+  kostet aber je Bewertung eine Neuberechnung. Beides ist gebaut — es fehlt nur der Aufruf.
+
 **P0-14 ✅ Referral-Gutschrift konnte sich vervielfachen** *(am 2026-08-08 geschlossen)*.
 `qualifyReferralReward` buchte die Gutschrift und setzte **danach** `reward_applied = TRUE` —
 ohne Transaktion und mit einem Status (`'qualified'`), den `referrals_status_check` verbietet.
