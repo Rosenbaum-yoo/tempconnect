@@ -164,7 +164,13 @@ export function createProfileVisibilityRouter(deps) {
         `SELECT cp.*, o.name AS org_name, o.plan AS org_plan,
                 sr.grade, sr.reputation_score, sr.avg_stars, sr.total_ratings
          FROM company_profiles cp
-         JOIN org_memberships om ON om.user_id = cp.user_id AND om.role = 'owner'
+         /* Z17 (2026-09-28): hier stand om.role. Die Spalte heisst role_key -
+            org_memberships.role gibt es nicht (gemessen). Die Abfrage warf also,
+            und das OEFFENTLICHE Firmenprofil hat nie geladen: die Sichtbarkeit
+            wird eine Zeile darueber korrekt geprueft, und danach faellt der
+            Abruf um. Ein Profil, das ein Kunde freigeschaltet hat und das
+            niemand sehen konnte. */
+         JOIN org_memberships om ON om.user_id = cp.user_id AND om.role_key = 'owner'
          JOIN organizations o ON o.id = om.org_id
          LEFT JOIN supplier_reputation sr ON sr.supplier_id = cp.user_id
          WHERE om.org_id = $1

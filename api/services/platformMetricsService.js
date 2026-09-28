@@ -84,7 +84,12 @@ async function subscriptionMetrics(pool) {
 async function ratingMetrics(pool) {
   try {
     const { rows } = await pool.query(`
-      SELECT COUNT(*) AS total, ROUND(AVG(overall_score)::numeric, 2) AS avg_score
+      -- Z16 (2026-09-28): hier stand AVG(overall_score) - eine Spalte, die es in
+      -- ratings nicht gibt. Real sind stars (1-5) sowie die drei Teilnoten
+      -- reliability/communication/quality. Die Abfrage warf, das catch gab
+      -- { total: 0, avg_score: 0 } zurueck: die Plattform-Kennzahl meldete also
+      -- dauerhaft "keine Bewertungen", auch wenn welche da waren.
+      SELECT COUNT(*) AS total, ROUND(AVG(stars)::numeric, 2) AS avg_score
       FROM ratings
     `);
     return { total: Number(rows[0].total), avg_score: Number(rows[0].avg_score ?? 0) };

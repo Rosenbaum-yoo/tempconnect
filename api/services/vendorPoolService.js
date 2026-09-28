@@ -6,7 +6,7 @@
  */
 
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
-import { reputationJoinSql } from "./reputationSql.js";
+import { reputationJoinSql, eigentuemerJoinSql } from "./reputationSql.js";
 import { swallow } from "../utils/logger.js";
 
 export const VALID_TIERS = ['PREFERRED', 'SECONDARY', 'TRIAL', 'RESTRICTED', 'BLOCKED'];
@@ -363,8 +363,7 @@ export async function listForClientEnriched(pool, clientOrgId, filters = {}) {
          LEFT JOIN users u ON u.id = vp.assigned_by
          LEFT JOIN org_locations ol ON ol.id = vp.location_id
          LEFT JOIN org_departments od ON od.id = vp.department_id
-         ${reputationJoinSql('vp.supplier_org_id')}
-         LEFT JOIN supplier_metrics sm ON sm.agency_id = vp.supplier_org_id AND sm.window_days = 30
+         ${reputationJoinSql('vp.supplier_org_id', { kennzahlen: { alias: 'sm', fensterTage: 30 } })}
          ${activityJoin}
          WHERE ${where.join(' AND ')}
          ORDER BY vp.supplier_org_id,
@@ -394,8 +393,7 @@ export async function listForClientEnriched(pool, clientOrgId, filters = {}) {
      LEFT JOIN users u ON u.id = vp.assigned_by
      LEFT JOIN org_locations ol ON ol.id = vp.location_id
      LEFT JOIN org_departments od ON od.id = vp.department_id
-     ${reputationJoinSql('vp.supplier_org_id')}
-     LEFT JOIN supplier_metrics sm ON sm.agency_id = vp.supplier_org_id AND sm.window_days = 30
+     ${reputationJoinSql('vp.supplier_org_id', { kennzahlen: { alias: 'sm', fensterTage: 30 } })}
      WHERE ${where.join(' AND ')}
      ORDER BY CASE vp.tier
        WHEN 'PREFERRED' THEN 1 WHEN 'SECONDARY' THEN 2
@@ -433,15 +431,19 @@ export async function getPreferredVendors(pool, clientOrgId, filters = {}) {
             CASE WHEN sm.requests_received > 0
               THEN ROUND((sm.requests_accepted::numeric / sm.requests_received) * 100, 1)
               ELSE NULL END AS fill_rate_pct,
+            /* Z17: hier stand cp.supplier_company_id = vp.supplier_org_id —
+               Nutzer gegen Organisation, also dauerhaft 0. "Aktive Angebote" war
+               in der Liste der Vorzugslieferanten immer null. Die Bruecke steht
+               in derselben Abfrage schon bereit (srom.user_id), es braucht keine
+               zweite. */
             (SELECT COUNT(*)::int FROM capacity_posts cp
-             WHERE cp.supplier_company_id = vp.supplier_org_id AND cp.is_active = TRUE
+             WHERE cp.supplier_company_id = srom.user_id AND cp.is_active = TRUE
             ) AS active_capacity_count
      FROM vendor_pool vp
      LEFT JOIN organizations so ON so.id = vp.supplier_org_id
      LEFT JOIN org_locations ol ON ol.id = vp.location_id
      LEFT JOIN org_departments od ON od.id = vp.department_id
-     ${reputationJoinSql('vp.supplier_org_id')}
-     LEFT JOIN supplier_metrics sm ON sm.agency_id = vp.supplier_org_id AND sm.window_days = 30
+     ${reputationJoinSql('vp.supplier_org_id', { kennzahlen: { alias: 'sm', fensterTage: 30 } })}
      WHERE ${where.join(' AND ')}
      ORDER BY sr.reputation_score DESC NULLS LAST, vp.updated_at DESC
      LIMIT $${idx}`,
@@ -582,8 +584,7 @@ export async function suggestForPreferred(pool, clientOrgId, limit = 10) {
               ELSE NULL END AS fill_rate_pct
      FROM vendor_pool vp
      JOIN organizations so ON so.id = vp.supplier_org_id
-     ${reputationJoinSql('vp.supplier_org_id')}
-     LEFT JOIN supplier_metrics sm ON sm.agency_id = vp.supplier_org_id AND sm.window_days = 30
+     ${reputationJoinSql('vp.supplier_org_id', { kennzahlen: { alias: 'sm', fensterTage: 30 } })}
      WHERE vp.client_org_id = $1 AND vp.tier IN ('SECONDARY','TRIAL') AND vp.status = 'active'
        AND sr.reputation_score IS NOT NULL AND sr.reputation_score >= 50
      ORDER BY sr.reputation_score DESC, sr.avg_stars DESC NULLS LAST
@@ -601,11 +602,31 @@ export async function getWorkforceCapacity(pool, clientOrgId) {
   const { rows } = await pool.query(
     `SELECT vp.supplier_org_id, so.name AS supplier_name,
             COUNT(cp.id)::int AS capacity_posts,
-            COALESCE(SUM(cp.workers_count), 0)::int AS total_workers,
+            COALESCE(SUM(cp.headcount), 0)::int AS total_workers,
             ARRAY_AGG(DISTINCT cp.role) FILTER (WHERE cp.role IS NOT NULL) AS roles
      FROM vendor_pool vp
      JOIN organizations so ON so.id = vp.supplier_org_id
-     LEFT JOIN capacity_posts cp ON cp.supplier_company_id = vp.supplier_org_id AND cp.is_active = TRUE
+     /*
+      * Z17 (2026-09-28): ZWEI FEHLER, und der erste hat den zweiten VERSTECKT.
+      *
+      * (1) Die Spalte: oben stand SUM(cp.workers_count). Die gibt es in
+      *     capacity_posts nicht (gemessen) - sie heisst headcount, so wie im
+      *     ganzen uebrigen Bestand. Die Abfrage warf also IMMER, und
+      *     GET /preferred-vendors/capacity hat mit 500 geantwortet. Kein stummer
+      *     Fehler, sondern eine Route, die nie funktioniert hat.
+      * (2) Der Schluessel: darunter stand cp.supplier_company_id =
+      *     vp.supplier_org_id - ein Nutzer gegen eine Organisation. Dieser Join
+      *     trifft nie, und weil er links ist, ohne Fehler.
+      *
+      * Dass (1) warf, war der einzige Grund, warum (2) nie auffiel. Und die
+      * Reihenfolge ist die Lehre, dieselbe wie bei P1-15 im Suchindex: haette
+      * jemand NUR die Spalte richtiggestellt, waere aus einem ehrlichen 500er
+      * eine 200 mit lauter Nullen geworden - "dieser Lieferant hat keine
+      * Kapazitaet" statt "hier ist etwas kaputt". Das waere die schlechtere
+      * Auskunft gewesen. Deshalb beides zusammen.
+      */
+     ${eigentuemerJoinSql("vp.supplier_org_id", { alias: "vpe" })}
+     LEFT JOIN capacity_posts cp ON cp.supplier_company_id = vpe.user_id AND cp.is_active = TRUE
      WHERE vp.client_org_id = $1 AND vp.tier = 'PREFERRED' AND vp.status = 'active'
      GROUP BY vp.supplier_org_id, so.name
      ORDER BY total_workers DESC, capacity_posts DESC`,

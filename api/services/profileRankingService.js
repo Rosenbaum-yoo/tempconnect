@@ -280,9 +280,15 @@ export async function getPublicRanking(pool, { limit = 100, segment = null, snap
          SELECT cp2.user_id, cp2.logo_url, cp2.industry_focus,
                 cp2.headquarters_city, cp2.company_size
          FROM company_profiles cp2
-         JOIN org_memberships om2 ON om2.user_id = cp2.user_id AND om2.role = 'owner'
+         /* Z17 (2026-09-28): hier stand zweimal role = 'owner'. Die Spalte
+            heisst role_key — org_memberships.role gibt es nicht (gemessen).
+            Beide Abfragen warfen also, und diese Rangliste wird ab PRO verkauft.
+            Sichtbar war es nicht, weil profile_ranking_snapshots leer ist: der
+            Erzeuger hat ausserhalb der Tests keinen Aufrufer (offener Punkt P1-14).
+            Ein zweiter Fehler hinter einem ersten. */
+         JOIN org_memberships om2 ON om2.user_id = cp2.user_id AND om2.role_key = 'owner'
        ) cp ON cp.user_id IN (
-         SELECT user_id FROM org_memberships WHERE org_id = prs.org_id AND role = 'owner'
+         SELECT user_id FROM org_memberships WHERE org_id = prs.org_id AND role_key = 'owner'
        )
        WHERE prs.snapshot_date = $1
          ${segmentClause}

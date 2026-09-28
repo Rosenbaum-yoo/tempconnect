@@ -152,6 +152,17 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { migrationsFingerabdruck } from "../scripts/schema-snapshot.js";
 
+/* Der SQL-Scanner steht seit Z17 (2026-09-28) in test/lib/sqlScanner.mjs, weil
+   `test/identitaetenNichtVermischen.test.js` genau denselben braucht. Woertlich
+   verschoben, nicht umgeschrieben — die Selbstprobe unten belegt es. */
+import {
+  KORPUS, API_DIR, SCHEMA_DATEI, M_I, M_S,
+  jsLiterale, normalisiere, quellDateien
+} from "./lib/sqlScanner.mjs";
+
+export { jsLiterale, normalisiere };
+
+
 /*
  * hasDb steht hier woertlich statt als Import aus test/integration/helpers.js —
  * gemessen, nicht vermutet: dieser Import kostet 8,9 Sekunden, weil helpers.js
@@ -182,17 +193,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * ein Verzeichnis, in dem wirklich JavaScript mit SQL liegt.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-const KORPUS = ["services", "routes", "routes/occ", "middleware", "jobs", "db", "config", "utils"];
 
-function hatQuellen(apiDir) {
-  try {
-    return fs.readdirSync(path.join(apiDir, "services")).filter((f) => f.endsWith(".js")).length >= 20;
-  } catch { return false; }
-}
-
-const API_KANDIDATEN = [path.resolve(__dirname, ".."), process.cwd()];
-const API_DIR = API_KANDIDATEN.find(hatQuellen) || API_KANDIDATEN[0];
-const SCHEMA_DATEI = path.join(API_DIR, "test", "fixtures", "schema.json");
 
 /*
  * sql/ liegt NICHT immer eine Ebene ueber api/. Lokal ist es die Repo-Wurzel,
@@ -254,97 +255,6 @@ const RELATIONEN = new Set([...TAB_NAMEN, ...SICHTEN]);
  * nicht aus dem Tritt bringt.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-const M_I = "\u0001";   // maskierte Interpolation ${...}
-const M_S = "\u0002";   // maskiertes SQL-String-Literal
-
-function entschaerfe(s) {
-  return s.replace(/\\n/g, "\n").replace(/\\t/g, " ").replace(/\\r/g, " ").replace(/\\(.)/g, "$1");
-}
-
-export function jsLiterale(src) {
-  const out = [];
-  let i = 0, zeile = 1, vorher = "start";
-  const n = src.length;
-  while (i < n) {
-    const c = src[i];
-    if (c === "\n") { zeile++; i++; continue; }
-    if (c === " " || c === "\t" || c === "\r") { i++; continue; }
-    if (c === "/" && src[i + 1] === "/") { while (i < n && src[i] !== "\n") i++; continue; }
-    if (c === "/" && src[i + 1] === "*") {
-      i += 2;
-      while (i < n && !(src[i] === "*" && src[i + 1] === "/")) { if (src[i] === "\n") zeile++; i++; }
-      i += 2; continue;
-    }
-    if (c === "/" && (vorher === "op" || vorher === "start")) {
-      const start = i; i++;
-      let inClass = false, ok = false;
-      while (i < n) {
-        const d = src[i];
-        if (d === "\\") { i += 2; continue; }
-        if (d === "\n") break;
-        if (d === "[") inClass = true;
-        else if (d === "]") inClass = false;
-        else if (d === "/" && !inClass) { ok = true; i++; break; }
-        i++;
-      }
-      if (!ok) i = start + 1;
-      vorher = "wert"; continue;
-    }
-    if (c === "'" || c === '"') {
-      const q = c, startZ = zeile; let buf = ""; i++;
-      while (i < n && src[i] !== q) {
-        if (src[i] === "\\") { buf += src[i] + (src[i + 1] || ""); i += 2; continue; }
-        if (src[i] === "\n") zeile++;
-        buf += src[i]; i++;
-      }
-      i++;
-      out.push({ text: entschaerfe(buf), zeile: startZ });
-      vorher = "wert"; continue;
-    }
-    if (c === "`") {
-      const startZ = zeile; let buf = ""; i++;
-      while (i < n) {
-        const d = src[i];
-        if (d === "\\") { buf += d + (src[i + 1] || ""); i += 2; continue; }
-        if (d === "`") { i++; break; }
-        if (d === "$" && src[i + 1] === "{") {
-          // ${...} mit eigener Klammer-, String- und Template-Tiefe ueberspringen
-          let tiefe = 1; i += 2;
-          while (i < n && tiefe > 0) {
-            const e = src[i];
-            if (e === "\n") zeile++;
-            if (e === "{") tiefe++;
-            else if (e === "}") tiefe--;
-            else if (e === "`" || e === "'" || e === '"') {
-              const q2 = e; i++;
-              while (i < n && src[i] !== q2) {
-                if (src[i] === "\\") { i += 2; continue; }
-                if (src[i] === "\n") zeile++;
-                i++;
-              }
-            }
-            i++;
-          }
-          buf += M_I; continue;
-        }
-        if (d === "\n") zeile++;
-        buf += d; i++;
-      }
-      out.push({ text: entschaerfe(buf), zeile: startZ });
-      vorher = "wert"; continue;
-    }
-    if (/[A-Za-z_$]/.test(c)) {
-      let j = i; while (j < n && /[A-Za-z0-9_$]/.test(src[j])) j++;
-      const w = src.slice(i, j);
-      vorher = /^(return|typeof|instanceof|in|of|new|delete|void|case|do|else|yield|await)$/.test(w) ? "op" : "wert";
-      i = j; continue;
-    }
-    if (/[0-9]/.test(c)) { let j = i; while (j < n && /[0-9.eExXa-fA-F_]/.test(src[j])) j++; i = j; vorher = "wert"; continue; }
-    vorher = (c === ")" || c === "]" || c === "}") ? "wert" : "op";
-    i++;
-  }
-  return out;
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * 3. SQL NORMALISIEREN
@@ -359,33 +269,6 @@ export function jsLiterale(src) {
  * Pruefer 234 nicht existierende Tabellen.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-export function normalisiere(sql) {
-  let out = "", i = 0;
-  const n = sql.length;
-  while (i < n) {
-    const c = sql[i];
-    if (c === "-" && sql[i + 1] === "-") { while (i < n && sql[i] !== "\n") i++; out += " "; continue; }
-    if (c === "/" && sql[i + 1] === "*") {
-      i += 2; while (i < n && !(sql[i] === "*" && sql[i + 1] === "/")) i++; i += 2; out += " "; continue;
-    }
-    if (c === "'") {
-      i++;
-      while (i < n) {
-        if (sql[i] === "'" && sql[i + 1] === "'") { i += 2; continue; }
-        if (sql[i] === "'") { i++; break; }
-        i++;
-      }
-      out += `'${M_S}'`; continue;
-    }
-    if (c === "$" && sql[i + 1] === "$") {
-      i += 2; while (i < n && !(sql[i] === "$" && sql[i + 1] === "$")) i++; i += 2; out += `'${M_S}'`; continue;
-    }
-    if (c === '"') { i++; let b = ""; while (i < n && sql[i] !== '"') { b += sql[i]; i++; } i++; out += b; continue; }
-    if (c === "\n" || c === "\t" || c === "\r") { out += " "; i++; continue; }
-    out += c; i++;
-  }
-  return out;
-}
 
 /* EXTRACT(EPOCH FROM x) und SUBSTRING(x FROM y FOR z) benutzen FROM als
  * FUNKTIONS-Syntax, nicht als Klausel. Ohne diese Maskierung erfindet die
@@ -784,7 +667,6 @@ const BESTAND = new Set([
    * kennt weder is_visible noch created_at. ───────────────────────────────── */
 
   /* ── Einzelbefunde ──────────────────────────────────────────────────────── */
-  "services/staffControlService.js::audit_log.user_id",        // richtig: actor_id — identisch zu Fund 2
   /* timesheets.worker_signed_at/_ip: am 2026-09-27 BEHOBEN (Welle Z, Z2) — der
    * WEG ist entfallen, die Spalten wurden NICHT nachgezogen. Drei Messungen
    * tragen das: (1) `worker_time_submissions` fuehrt den Vorgang der Kraft
@@ -806,11 +688,57 @@ const BESTAND = new Set([
    * sie; das Antwortfenster haengt allein an `urgency` und steht in
    * URGENCY_CONFIG. Gespeichert waere es eine zweite Wahrheit, die bei jeder
    * Aenderung der Konfiguration von ihr abweicht. Eintrag gestrichen. */
-  "services/instantMatchService.js::compliance_documents.supplier_org_id", // richtig: org_id
-  "services/instantMatchService.js::organizations.is_verified",
-  "services/platformMetricsService.js::ratings.overall_score",
-  "services/onboardingService.js::capacity_posts.user_id",     // richtig: created_by / supplier_company_id
-  "routes/matching.js::capacity_posts.supplier_id",            // richtig: supplier_company_id
+  /* Die letzten fuenf: am 2026-09-28 BEHOBEN (Welle Z, Z16). Alle fuenf waren
+   * falsche Spaltennamen, alle fuenf liefen in ein catch - also stumm, und jeder
+   * hat etwas Sichtbares gekostet:
+   *
+   *   audit_log.user_id -> actor_id: der Staff sah einen LEEREN Verlauf statt
+   *     eines Fehlers.
+   *   compliance_documents.supplier_org_id -> org_id: die Nachweise flossen nie
+   *     in den Sofort-Abgleich ein. Und der Schluessel war ZUSAETZLICH falsch -
+   *     siehe unten.
+   *   organizations.is_verified: die Spalte gibt es dort gar nicht (0 Treffer auf
+   *     verif/trust/approved); `users` hat sie. Kein Anbieter galt je als
+   *     verifiziert.
+   *   ratings.overall_score -> stars: die Plattform-Kennzahl meldete dauerhaft
+   *     "keine Bewertungen", auch wenn welche da waren.
+   *   capacity_posts.user_id -> supplier_company_id/created_by: der
+   *     Einstiegsschritt "erstes Angebot" konnte sich nie abhaken.
+   *
+   * MIT BEHOBEN, weil beim Messen derselbe Fehler dahinter lag: in
+   * `instantMatchService` verbanden ZWEI weitere Karten org-geschluesselte
+   * Tabellen (`compliance_documents.org_id`, `vendor_pool.supplier_org_id`, beide
+   * per Fremdschluessel auf `organizations`) mit Nutzer-Kennungen aus
+   * `capacity_posts.supplier_company_id`. Gemessen an echten Daten: direkt 0
+   * Treffer, ueber den Eigentuemer (org_memberships, role_key=owner) 18. Die
+   * Vorzugsstufe eines Lieferanten ist also in keinen Sofort-Abgleich
+   * eingeflossen. Diese zwei standen in KEINER Bestandsliste, weil die Spalten
+   * existieren - falsch war der Schluessel. Ein Schema-Waechter sieht das nicht.
+   * Eintraege gestrichen. */
+  /* DER LETZTE EINTRAG: am 2026-09-28 BEHOBEN (Welle Z, Z17). Damit ist diese
+   * Liste LEER - zum ersten Mal seit sie existiert.
+   *
+   * `capacity_posts.supplier_id` gibt es nicht; der Anbieter steht als
+   * `supplier_company_id`. Aber die fehlende Spalte war der KLEINERE Teil des
+   * Befunds, und das ist die eigentliche Lehre dieser Welle: die Route
+   * `/matching/smart-explain/:supplierId` nimmt eine ORGANISATION und hat ihre
+   * VIER Datenquellen alle an `o.id` gehaengt - `supplier_reputation.supplier_id`,
+   * `supplier_metrics.agency_id`, `requests.receiver_id` und eben
+   * `capacity_posts.supplier_company_id`. Alle vier zeigen per Fremdschluessel auf
+   * `users`. Gegenprobe an echten Daten: direkt 0 Treffer, ueber den Eigentuemer
+   * 9. Die Route hat also NIE ein Signal gefunden und trotzdem mit 200 und einem
+   * Smart-Rank-Score geantwortet, der ausschliesslich auf Nullen beruhte - eine
+   * erklaerbare Bewertung, die nichts erklaert, gelistet in der oeffentlichen
+   * API-Doku.
+   *
+   * DIESER WAECHTER KONNTE DAVON GENAU EINEN VON VIER SEHEN. Die anderen drei
+   * Spalten existieren ja - falsch war der Schluessel, und einen Schluessel sieht
+   * eine Spaltenliste nicht. Dieselbe Blindstelle hat in Z16 zwei Funde verdeckt
+   * und in Z6 elf. Deshalb gibt es seit Z17 eine zweite Wache mit einer anderen
+   * Frage: `test/identitaetenNichtVermischen.test.js` liest die Fremdschluessel
+   * aus derselben Momentaufnahme (neu: Abschnitt `fremdschluessel`) und macht rot,
+   * wenn eine nutzer-geschluesselte Spalte mit einer Org-Kennung verglichen wird.
+   * Eintrag gestrichen. */
   /* searchService: Altbestand aus der Zeit vor der Org-Umstellung — users hat
    * weder type noch legal_name noch plan_id, capacity_posts weder description
    * noch hourly_rate. */
@@ -854,16 +782,6 @@ const LAUFZEIT_ADAPTIV = new Set([
  * 7. LAUF ÜBER DEN BESTAND
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-function quellDateien() {
-  const out = [];
-  for (const d of KORPUS) {
-    const p = path.join(API_DIR, d);
-    let eintraege;
-    try { eintraege = fs.readdirSync(p); } catch { continue; }
-    for (const f of eintraege) if (f.endsWith(".js")) out.push(path.join(p, f));
-  }
-  return out;
-}
 
 const zaehler = { dateien: 0, sqlLiterale: 0, tabellenRefs: 0, spaltenPruefungen: 0, uebersprungen: 0 };
 const alleBefunde = [];

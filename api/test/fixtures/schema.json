@@ -1,6 +1,6 @@
 {
   "_hinweis": "GENERIERT — nicht von Hand bearbeiten. Neu erzeugen mit: npm run schema:snapshot (liest die laufende Datenbank im Container tempconnect_db).",
-  "erzeugt_am": "2026-09-27T21:34:16.170Z",
+  "erzeugt_am": "2026-09-28T10:04:44.479Z",
   "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
   "migrations_fingerabdruck": {
     "init": "49a1c9ef343102f593f1267155c30cea987684bf1a93826cf237e61101238c7e",
@@ -1994,6 +1994,841 @@
         "lieferant_nachgetragen",
         "link_geschlossen"
       ]
+    }
+  },
+  "fremdschluessel": {
+    "agency_api_keys": {
+      "agency_id": "users"
+    },
+    "ai_match_rankings": {
+      "org_id": "organizations"
+    },
+    "approval_requests": {
+      "approved_by": "users",
+      "org_id": "organizations",
+      "requested_by": "users"
+    },
+    "assignment_staffing_campaigns": {
+      "assignment_id": "assignments",
+      "created_by": "users",
+      "org_id": "organizations",
+      "source_campaign_id": "assignment_staffing_campaigns",
+      "supplier_org_id": "organizations"
+    },
+    "assignment_staffing_choice_options": {
+      "assignment_id": "assignments",
+      "campaign_id": "assignment_staffing_campaigns",
+      "choice_set_id": "assignment_staffing_choice_sets",
+      "invite_id": "assignment_staffing_invites",
+      "supplier_org_id": "organizations",
+      "worker_user_id": "users"
+    },
+    "assignment_staffing_choice_sets": {
+      "created_by": "users",
+      "final_assignment_id": "assignments",
+      "final_choice_option_id": "assignment_staffing_choice_options",
+      "final_link_id": "worker_assignment_links",
+      "supplier_org_id": "organizations",
+      "worker_user_id": "users"
+    },
+    "assignment_staffing_events": {
+      "actor_id": "users",
+      "assignment_id": "assignments",
+      "campaign_id": "assignment_staffing_campaigns",
+      "choice_option_id": "assignment_staffing_choice_options",
+      "choice_set_id": "assignment_staffing_choice_sets",
+      "invite_id": "assignment_staffing_invites",
+      "reservation_id": "assignment_staffing_reservations"
+    },
+    "assignment_staffing_invites": {
+      "assignment_id": "assignments",
+      "campaign_id": "assignment_staffing_campaigns",
+      "created_by": "users",
+      "org_id": "organizations",
+      "supplier_org_id": "organizations",
+      "worker_user_id": "users"
+    },
+    "assignment_staffing_messages": {
+      "actor_id": "users",
+      "assignment_id": "assignments",
+      "campaign_id": "assignment_staffing_campaigns",
+      "invite_id": "assignment_staffing_invites",
+      "worker_user_id": "users"
+    },
+    "assignment_staffing_reservations": {
+      "assignment_id": "assignments",
+      "campaign_id": "assignment_staffing_campaigns",
+      "created_by": "users",
+      "invite_id": "assignment_staffing_invites",
+      "org_id": "organizations",
+      "promoted_link_id": "worker_assignment_links",
+      "supplier_org_id": "organizations",
+      "worker_user_id": "users"
+    },
+    "assignment_staffing_waitlist": {
+      "assignment_id": "assignments",
+      "created_by": "users",
+      "current_campaign_id": "assignment_staffing_campaigns",
+      "current_invite_id": "assignment_staffing_invites",
+      "current_reservation_id": "assignment_staffing_reservations",
+      "org_id": "organizations",
+      "promoted_link_id": "worker_assignment_links",
+      "root_campaign_id": "assignment_staffing_campaigns",
+      "source_campaign_id": "assignment_staffing_campaigns",
+      "supplier_org_id": "organizations",
+      "worker_user_id": "users"
+    },
+    "assignments": {
+      "completed_by": "users",
+      "contract_id": "contracts",
+      "created_by": "users",
+      "deal_request_id": "requests",
+      "demand_request_id": "demand_requests",
+      "department_id": "org_departments",
+      "location_id": "org_locations",
+      "offer_id": "offers",
+      "org_id": "organizations",
+      "requisition_id": "requisitions",
+      "supplier_org_id": "organizations"
+    },
+    "audit_log": {
+      "actor_id": "users",
+      "org_id": "organizations"
+    },
+    "aueg_konfiguration": {
+      "hinterlegt_von": "users",
+      "org_id": "organizations"
+    },
+    "automation_jobs": {
+      "runbook_id": "warp_runbooks"
+    },
+    "billing_usage_metrics": {
+      "org_id": "organizations"
+    },
+    "bounty_nudges": {
+      "user_id": "users"
+    },
+    "capacities": {
+      "agency_id": "users"
+    },
+    "capacity_interactions": {
+      "capacity_post_id": "capacity_posts",
+      "company_user_id": "users",
+      "demand_request_id": "demand_requests",
+      "requisition_id": "requisitions"
+    },
+    "capacity_post_pool_members": {
+      "capacity_post_id": "capacity_posts",
+      "worker_profile_id": "worker_profiles"
+    },
+    "capacity_posts": {
+      "created_by": "users",
+      "department_id": "org_departments",
+      "location_id": "org_locations",
+      "org_id": "organizations",
+      "primary_skill_id": "platform_skills",
+      "supplier_company_id": "users",
+      "worker_profile_id": "worker_profiles"
+    },
+    "capacity_reservations": {
+      "capacity_id": "capacities",
+      "request_id": "requests"
+    },
+    "catalog_versions": {
+      "created_by": "users"
+    },
+    "commercial_offers": {
+      "approved_by": "users",
+      "occ_decision_id": "occ_decisions",
+      "org_id": "organizations"
+    },
+    "company_capabilities": {
+      "user_id": "users"
+    },
+    "company_certifications": {
+      "user_id": "users"
+    },
+    "company_contacts": {
+      "user_id": "users"
+    },
+    "company_locations": {
+      "user_id": "users"
+    },
+    "company_profiles": {
+      "user_id": "users"
+    },
+    "company_worker_blocklist": {
+      "company_org_id": "organizations",
+      "created_by": "users",
+      "supplier_org_id": "organizations",
+      "worker_user_id": "users"
+    },
+    "compliance_documents": {
+      "org_id": "organizations",
+      "uploaded_by": "users",
+      "verified_by": "users"
+    },
+    "compliance_policies": {
+      "company_id": "users"
+    },
+    "contracts": {
+      "buyer_org_id": "organizations",
+      "created_by": "users",
+      "supplier_org_id": "organizations",
+      "terminated_by": "users"
+    },
+    "credit_accounts": {
+      "user_id": "users"
+    },
+    "credit_transactions": {
+      "user_id": "users"
+    },
+    "csv_import_field_aliases": {
+      "created_by": "users",
+      "field_key": "csv_import_fields",
+      "org_id": "organizations"
+    },
+    "data_governance_requests": {
+      "completed_by": "users",
+      "org_id": "organizations",
+      "requested_by": "users"
+    },
+    "deal_documents": {
+      "asset_id": "offer_assets",
+      "generated_by": "users",
+      "offer_id": "offers"
+    },
+    "deal_feedback": {
+      "actor_user_id": "users",
+      "assignment_id": "assignments",
+      "rated_org_id": "organizations",
+      "rater_org_id": "organizations"
+    },
+    "deal_reliability": {
+      "party_user_id": "users"
+    },
+    "demand_requests": {
+      "requester_company_id": "users",
+      "requester_org_id": "organizations"
+    },
+    "demand_sla_events": {
+      "demand_request_id": "demand_requests"
+    },
+    "document_center": {
+      "org_id": "organizations",
+      "uploaded_by": "users"
+    },
+    "email_verification_tokens": {
+      "user_id": "users"
+    },
+    "emergency_provider_commitment_events": {
+      "actor_user_id": "users",
+      "commitment_id": "emergency_provider_commitments",
+      "demand_request_id": "demand_requests"
+    },
+    "emergency_provider_commitments": {
+      "agreement_offer_id": "offers",
+      "demand_request_id": "demand_requests",
+      "supplier_company_id": "users"
+    },
+    "feature_overrides": {
+      "created_by": "users",
+      "org_id": "organizations"
+    },
+    "flagged_search_queries": {
+      "org_id": "organizations",
+      "user_id": "users"
+    },
+    "idempotency_keys": {
+      "user_id": "users"
+    },
+    "internal_user_roles": {
+      "assigned_by": "users",
+      "user_id": "users"
+    },
+    "invoice_items": {
+      "assignment_id": "assignments",
+      "invoice_id": "invoices",
+      "timesheet_id": "timesheets"
+    },
+    "invoice_number_sequences": {
+      "supplier_org_id": "organizations"
+    },
+    "invoices": {
+      "assignment_id": "assignments",
+      "org_id": "organizations",
+      "supplier_org_id": "organizations",
+      "user_id": "users"
+    },
+    "listing_analytics": {
+      "capacity_post_id": "capacity_posts"
+    },
+    "listings": {
+      "org_id": "organizations",
+      "owner_id": "users"
+    },
+    "match_alerts": {
+      "job_id": "sla_search_jobs",
+      "user_id": "users"
+    },
+    "match_logs": {
+      "org_id": "organizations"
+    },
+    "matches": {
+      "capacity_post_id": "capacity_posts",
+      "demand_request_id": "demand_requests"
+    },
+    "mentoring_sessions": {
+      "mentee_id": "users",
+      "mentor_id": "users"
+    },
+    "notification_preferences": {
+      "user_id": "users"
+    },
+    "notifications": {
+      "org_id": "organizations",
+      "user_id": "users"
+    },
+    "occ_decisions": {
+      "assigned_to": "users",
+      "decided_by": "users",
+      "org_id": "organizations",
+      "requestor_id": "users",
+      "user_id": "users"
+    },
+    "occ_owner_access": {
+      "granted_by": "users",
+      "user_id": "users"
+    },
+    "offer_assets": {
+      "deal_document_id": "deal_documents",
+      "demand_request_id": "demand_requests",
+      "marketplace_offer_id": "offers",
+      "offer_id": "capacity_posts"
+    },
+    "offer_cancellations": {
+      "cancelled_by_user_id": "users",
+      "offer_id": "offers"
+    },
+    "offers": {
+      "activated_by": "users",
+      "capacity_post_id": "capacity_posts",
+      "confirmed_by": "users",
+      "demand_request_id": "demand_requests",
+      "signed_by_party_a": "users",
+      "signed_by_party_b": "users",
+      "supplier_company_id": "users"
+    },
+    "ops_incidents": {
+      "acknowledged_by": "users",
+      "opened_by": "users",
+      "resolved_by": "users"
+    },
+    "org_active_addons": {
+      "activated_by": "users",
+      "deactivated_by": "users",
+      "org_id": "organizations",
+      "source_request_id": "subscription_requests"
+    },
+    "org_api_keys": {
+      "created_by": "users",
+      "org_id": "organizations"
+    },
+    "org_departments": {
+      "location_id": "org_locations",
+      "org_id": "organizations"
+    },
+    "org_erp_mappings": {
+      "created_by": "users",
+      "org_id": "organizations"
+    },
+    "org_integrations": {
+      "created_by": "users",
+      "org_id": "organizations"
+    },
+    "org_invitations": {
+      "accepted_by": "users",
+      "invited_by": "users",
+      "org_id": "organizations"
+    },
+    "org_locations": {
+      "org_id": "organizations"
+    },
+    "org_memberships": {
+      "department_id": "org_departments",
+      "location_id": "org_locations",
+      "org_id": "organizations",
+      "user_id": "users"
+    },
+    "org_settings": {
+      "org_id": "organizations"
+    },
+    "org_sso_config": {
+      "org_id": "organizations"
+    },
+    "organizations": {
+      "parent_org_id": "organizations",
+      "pilot_exception_granted_by": "users"
+    },
+    "owner_control_access_audit": {
+      "performed_by": "users",
+      "user_id": "users"
+    },
+    "payment_sessions": {
+      "org_id": "organizations",
+      "user_id": "users"
+    },
+    "plan_grenze_je_orgtyp": {
+      "gesetzt_von": "users"
+    },
+    "platform_events": {
+      "actor_id": "users",
+      "org_id": "organizations",
+      "target_org_id": "organizations"
+    },
+    "platform_skills": {
+      "merged_into_skill_id": "platform_skills",
+      "proposed_by_org_id": "organizations",
+      "proposed_by_user_id": "users"
+    },
+    "premium_listing_charges": {
+      "invoice_id": "invoices",
+      "org_id": "organizations",
+      "user_id": "users"
+    },
+    "product_analytics_events": {
+      "journey_id": "product_analytics_journeys",
+      "org_id": "organizations",
+      "user_id": "users"
+    },
+    "product_analytics_funnel_steps": {
+      "funnel_id": "product_analytics_funnel_definitions"
+    },
+    "product_analytics_journeys": {
+      "session_id": "product_analytics_sessions"
+    },
+    "product_analytics_sessions": {
+      "membership_id": "org_memberships",
+      "org_id": "organizations",
+      "user_id": "users"
+    },
+    "product_release_entries": {
+      "created_by": "users"
+    },
+    "profile_abuse_reports": {
+      "reported_org_id": "organizations",
+      "reporter_org_id": "organizations",
+      "reporter_user_id": "users",
+      "reviewed_by": "users"
+    },
+    "profile_bounties": {
+      "approved_by": "users",
+      "org_id": "organizations",
+      "rejected_by": "users",
+      "requested_by": "users"
+    },
+    "profile_favorites": {
+      "favorited_org_id": "organizations",
+      "owner_user_id": "users"
+    },
+    "profile_likes": {
+      "liked_org_id": "organizations",
+      "liker_org_id": "organizations",
+      "liker_user_id": "users"
+    },
+    "profile_ranking_snapshots": {
+      "org_id": "organizations"
+    },
+    "profile_review_moderation": {
+      "moderated_by": "users",
+      "rating_id": "ratings"
+    },
+    "profile_view_events": {
+      "viewed_org_id": "organizations",
+      "viewer_org_id": "organizations",
+      "viewer_user_id": "users"
+    },
+    "profile_visibility_settings": {
+      "org_id": "organizations",
+      "reviewed_by": "users"
+    },
+    "proofs": {
+      "company_id": "users"
+    },
+    "rabatt_ausfaelle": {
+      "org_id": "organizations",
+      "rechnung_id": "invoices",
+      "user_id": "users"
+    },
+    "rabatt_eingriffe": {
+      "angelegt_von": "users",
+      "org_id": "organizations",
+      "rechnung_id": "invoices",
+      "user_id": "users"
+    },
+    "rate_card_checks": {
+      "checked_by": "users",
+      "org_id": "organizations",
+      "rate_card_id": "rate_cards",
+      "supplier_org_id": "organizations"
+    },
+    "rate_cards": {
+      "contract_id": "contracts",
+      "created_by": "users",
+      "department_id": "org_departments",
+      "location_id": "org_locations",
+      "org_id": "organizations",
+      "supplier_org_id": "organizations",
+      "updated_by": "users"
+    },
+    "ratings": {
+      "org_id": "organizations",
+      "rated_id": "users",
+      "rater_id": "users",
+      "request_id": "requests"
+    },
+    "referral_codes": {
+      "user_id": "users"
+    },
+    "referral_rewards": {
+      "rechnung_id": "invoices",
+      "referral_id": "referrals",
+      "user_id": "users"
+    },
+    "referral_surveys": {
+      "referral_id": "referrals",
+      "user_id": "users"
+    },
+    "referrals": {
+      "referred_user_id": "users",
+      "referrer_id": "users"
+    },
+    "request_compliance": {
+      "request_id": "requests"
+    },
+    "requests": {
+      "capacity_id": "capacities",
+      "listing_id": "listings",
+      "org_id": "organizations",
+      "receiver_id": "users",
+      "requester_id": "users"
+    },
+    "requisition_candidates": {
+      "capacity_post_id": "capacity_posts",
+      "offer_id": "offers",
+      "requisition_id": "requisitions",
+      "reviewed_by": "users",
+      "supplier_org_id": "organizations"
+    },
+    "requisition_distribution_stages": {
+      "requisition_id": "requisitions"
+    },
+    "requisition_events": {
+      "actor_id": "users",
+      "requisition_id": "requisitions"
+    },
+    "requisitions": {
+      "approved_by": "users",
+      "assigned_to": "users",
+      "created_by": "users",
+      "demand_request_id": "demand_requests",
+      "department_id": "org_departments",
+      "location_id": "org_locations",
+      "org_id": "organizations",
+      "search_job_id": "sla_search_jobs"
+    },
+    "reviews": {
+      "request_id": "requests",
+      "reviewee_id": "users",
+      "reviewer_id": "users"
+    },
+    "risk_signals": {
+      "audit_id": "audit_log",
+      "decision_id": "occ_decisions"
+    },
+    "search_history": {
+      "org_id": "organizations",
+      "user_id": "users"
+    },
+    "sla_events": {
+      "request_id": "requests"
+    },
+    "sla_search_events": {
+      "search_job_id": "sla_search_jobs"
+    },
+    "sla_search_jobs": {
+      "owner_company_id": "users"
+    },
+    "sla_search_matches": {
+      "capacity_post_id": "capacity_posts",
+      "demand_request_id": "demand_requests",
+      "search_job_id": "sla_search_jobs"
+    },
+    "sso_sessions": {
+      "org_id": "organizations",
+      "user_id": "users"
+    },
+    "staff_control_audit_log": {
+      "actor_id": "users"
+    },
+    "staff_control_decisions": {
+      "confirmed_by": "users",
+      "reverted_by": "users"
+    },
+    "staff_control_feature_flags": {
+      "updated_by": "users"
+    },
+    "staff_control_runbook_runs": {
+      "actor_id": "users",
+      "runbook_id": "staff_control_runbooks"
+    },
+    "staff_control_runbooks": {
+      "created_by": "users"
+    },
+    "staff_customer_request_assignments": {
+      "assigned_by": "users",
+      "request_id": "strategic_collaboration_requests",
+      "staff_id": "users"
+    },
+    "staff_customer_request_messages": {
+      "author_staff_id": "users",
+      "request_id": "strategic_collaboration_requests"
+    },
+    "strategic_collaboration_requests": {
+      "assigned_by": "users",
+      "assigned_to_user_id": "users",
+      "requester_org_id": "organizations",
+      "requester_user_id": "users",
+      "status_updated_by": "users",
+      "target_org_id": "organizations",
+      "target_user_id": "users"
+    },
+    "submissions": {
+      "requisition_id": "requisitions",
+      "reviewed_by": "users",
+      "submitted_by": "users",
+      "supplier_org_id": "organizations"
+    },
+    "subscription_documents": {
+      "issued_by": "users",
+      "last_downloaded_by": "users",
+      "org_id": "organizations",
+      "subscription_request_id": "subscription_requests",
+      "superseded_by": "subscription_documents"
+    },
+    "subscription_notification_log": {
+      "notification_id": "notifications",
+      "recipient_user_id": "users"
+    },
+    "subscription_request_status_history": {
+      "changed_by": "users",
+      "request_id": "subscription_requests"
+    },
+    "subscription_requests": {
+      "approved_by": "users",
+      "assigned_staff_id": "users",
+      "org_id": "organizations",
+      "rejected_by": "users",
+      "source_strategic_request_id": "strategic_collaboration_requests",
+      "status_updated_by": "users",
+      "user_id": "users"
+    },
+    "subscriptions": {
+      "user_id": "users"
+    },
+    "supplier_metrics": {
+      "agency_id": "users"
+    },
+    "supplier_reputation": {
+      "supplier_id": "users"
+    },
+    "support_agents": {
+      "user_id": "users",
+      "vendor_id": "support_vendors"
+    },
+    "support_audit_log": {
+      "agent_id": "support_agents",
+      "case_id": "support_cases"
+    },
+    "support_case_events": {
+      "actor_agent_id": "support_agents",
+      "case_id": "support_cases"
+    },
+    "support_case_notes": {
+      "author_agent_id": "support_agents",
+      "case_id": "support_cases"
+    },
+    "support_cases": {
+      "assigned_to_agent_id": "support_agents",
+      "escalation_case_id": "support_cases",
+      "queue_id": "support_queues",
+      "related_occ_request_id": "occ_decisions",
+      "reporter_org_id": "organizations",
+      "reporter_user_id": "users"
+    },
+    "support_escalations": {
+      "case_id": "support_cases",
+      "created_by_agent_id": "support_agents",
+      "related_occ_request_id": "occ_decisions",
+      "resolved_by_agent_id": "support_agents"
+    },
+    "support_tickets": {
+      "assigned_to": "users",
+      "org_id": "organizations"
+    },
+    "tempconnect_staff": {
+      "created_by": "users",
+      "reviewed_by": "users",
+      "revoked_by": "users",
+      "user_id": "users"
+    },
+    "timesheet_entries": {
+      "timesheet_id": "timesheets"
+    },
+    "timesheet_template_assignments": {
+      "assignment_id": "assignments",
+      "created_by": "users",
+      "org_id": "organizations",
+      "supplier_org_id": "organizations",
+      "template_id": "timesheet_templates"
+    },
+    "timesheet_template_fields": {
+      "template_id": "timesheet_templates"
+    },
+    "timesheet_templates": {
+      "created_by": "users",
+      "supplier_org_id": "organizations"
+    },
+    "timesheets": {
+      "approved_by": "users",
+      "assignment_id": "assignments",
+      "cancelled_by": "users",
+      "created_by": "users",
+      "invoice_id": "invoices",
+      "org_id": "organizations",
+      "rejected_by": "users",
+      "submitted_by": "users",
+      "supplier_org_id": "organizations"
+    },
+    "usage_counters": {
+      "user_id": "users"
+    },
+    "user_bounties": {
+      "bounty_id": "bounties",
+      "user_id": "users"
+    },
+    "user_bounty_tiers": {
+      "tier_key": "bounty_tiers",
+      "user_id": "users"
+    },
+    "user_milestones": {
+      "user_id": "users"
+    },
+    "user_onboarding_progress": {
+      "org_id": "organizations",
+      "user_id": "users"
+    },
+    "user_product_release_ack": {
+      "release_id": "product_release_entries",
+      "user_id": "users"
+    },
+    "users": {
+      "org_id": "organizations"
+    },
+    "vendor_pool": {
+      "assigned_by": "users",
+      "client_org_id": "organizations",
+      "department_id": "org_departments",
+      "location_id": "org_locations",
+      "supplier_org_id": "organizations"
+    },
+    "vendor_pool_notes": {
+      "author_id": "users",
+      "vendor_pool_id": "vendor_pool"
+    },
+    "warp_executions": {
+      "actor_id": "users",
+      "audit_id": "audit_log",
+      "deployment_id": "deployments",
+      "runbook_id": "warp_runbooks"
+    },
+    "webhook_deliveries": {
+      "integration_id": "org_integrations"
+    },
+    "worker_absences": {
+      "aufgehoben_von": "users",
+      "entschieden_von": "users",
+      "erfasst_von": "users"
+    },
+    "worker_assignment_links": {
+      "assignment_id": "assignments",
+      "capacity_post_id": "capacity_posts",
+      "created_by": "users",
+      "deal_request_id": "requests",
+      "ersetzt_link_id": "worker_assignment_links",
+      "org_id": "organizations",
+      "supplier_org_id": "organizations",
+      "worker_user_id": "users"
+    },
+    "worker_billing_snapshots": {
+      "org_id": "organizations"
+    },
+    "worker_complaints": {
+      "assignment_link_id": "worker_assignment_links",
+      "company_org_id": "organizations",
+      "created_by": "users",
+      "supplier_org_id": "organizations",
+      "worker_user_id": "users"
+    },
+    "worker_delays": {
+      "gemeldet_von": "users",
+      "supplier_org_id": "organizations",
+      "worker_profile_id": "worker_profiles"
+    },
+    "worker_invites": {
+      "invited_by": "users",
+      "supplier_org_id": "organizations",
+      "worker_profile_id": "worker_profiles",
+      "worker_user_id": "users"
+    },
+    "worker_profile_documents": {
+      "supplier_org_id": "organizations",
+      "uploaded_by": "users",
+      "verified_by": "users",
+      "worker_user_id": "users"
+    },
+    "worker_profile_skills": {
+      "skill_id": "platform_skills",
+      "worker_profile_id": "worker_profiles"
+    },
+    "worker_profiles": {
+      "created_by": "users",
+      "supplier_org_id": "organizations",
+      "user_id": "users"
+    },
+    "worker_submission_events": {
+      "actor_id": "users",
+      "submission_id": "worker_time_submissions"
+    },
+    "worker_time_submission_entries": {
+      "submission_id": "worker_time_submissions"
+    },
+    "worker_time_submissions": {
+      "accepted_by": "users",
+      "approved_internal_by": "users",
+      "assignment_id": "assignments",
+      "customer_bundle_sent_by": "users",
+      "org_id": "organizations",
+      "posted_to_timesheet_by": "users",
+      "rejected_by": "users",
+      "reviewed_by": "users",
+      "sent_to_customer_by": "users",
+      "submitted_by": "users",
+      "supplier_org_id": "organizations",
+      "template_id": "timesheet_templates",
+      "timesheet_id": "timesheets",
+      "worker_assignment_link_id": "worker_assignment_links",
+      "worker_user_id": "users"
     }
   },
   "sichten": [

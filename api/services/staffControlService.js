@@ -384,7 +384,10 @@ const DATA_EXPLORER_VIEWS = {
   },
   "failed_audit_actions_24h": {
     description: "Fehlgeschlagene Audit-Aktionen (Plattform) der letzten 24 h",
-    sql: `SELECT created_at, action, entity_type, entity_id, user_id
+    /* Z16 (2026-09-28): hier stand `user_id`. Die Spalte heisst `actor_id`
+       (gemessen: audit_log hat KEIN user_id). Die Abfrage warf, der Aufrufer
+       faengt - der Staff sah also einen leeren Verlauf statt eines Fehlers. */
+    sql: `SELECT created_at, action, entity_type, entity_id, actor_id AS user_id
           FROM audit_log
           WHERE created_at > NOW() - INTERVAL '24 hours'
             AND (action LIKE '%.error%' OR details->>'success' = 'false')

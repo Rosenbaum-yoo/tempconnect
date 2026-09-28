@@ -131,6 +131,54 @@ SELECT json_build_object(
       GROUP BY tab
     ) p
   ), '{}'::json),
+  /*
+   * FREMDSCHLUESSEL — WORAUF EINE SPALTE ZEIGT.
+   *
+   * WARUM DAS DAZUKAM (2026-09-28, Welle Z, Z17): Der Abzug wusste, WELCHE
+   * Spalten es gibt und welche WERTE sie annehmen duerfen — aber nicht, WORAUF
+   * sie zeigen. In dieser Luecke lebte die teuerste Fehlerklasse dieses Projekts:
+   * eine Spalte, die per Fremdschluessel auf users zeigt, wird mit einer
+   * Kennung aus organizations verglichen. Der Join trifft dann NIE — und weil
+   * es LEFT JOINs sind, gibt es keinen Fehler, nur lauter NULL.
+   *
+   * Gemessen in einer einzigen Welle gefunden: elf Stellen in
+   * vendorPoolService, drei in instantMatchService, vier in
+   * routes/matching.js, zwei in der Nachweis- und Vorzugsstufen-Karte. Ganze
+   * verkaufte Faehigkeiten waren dauerhaft leer — Reputation in der
+   * Lieferantenverwaltung, Smart Rank, Nachweise im Sofort-Abgleich.
+   *
+   * Eine Spaltenliste kann das nie bemerken: die Spalten sind ja alle da. Ein
+   * Schema-Waechter, der nur Namen kennt, meldet gruen. Ab jetzt traegt der Abzug
+   * die Zielrelation jeder einspaltigen Fremdschluessel-Beziehung, sodass
+   * test/identitaetenNichtVermischen.test.js einen solchen Vergleich rot machen
+   * kann, OHNE eine Datenbank zu brauchen.
+   *
+   * Nur EINSPALTIGE Beziehungen: zusammengesetzte Schluessel beantworten die
+   * Frage "ist das eine Nutzer- oder eine Org-Kennung" nicht, und dieselbe
+   * Hausregel wie bei pruefwerte gilt — lieber eine Teilmenge, die STIMMT, als
+   * eine vollstaendige, die raet.
+   */
+  'fremdschluessel', COALESCE((
+    SELECT json_object_agg(f.tab, f.spalten)
+    FROM (
+      SELECT quelle AS tab, json_object_agg(spalte, ziel ORDER BY spalte) AS spalten
+      FROM (
+        SELECT DISTINCT
+               tq.relname AS quelle,
+               aq.attname AS spalte,
+               tz.relname AS ziel
+        FROM pg_constraint c
+        JOIN pg_class tq ON tq.oid = c.conrelid
+        JOIN pg_class tz ON tz.oid = c.confrelid
+        JOIN pg_namespace n ON n.oid = tq.relnamespace
+        JOIN pg_attribute aq ON aq.attrelid = c.conrelid AND aq.attnum = c.conkey[1]
+        WHERE c.contype = 'f'
+          AND n.nspname = 'public'
+          AND array_length(c.conkey, 1) = 1
+      ) roh
+      GROUP BY quelle
+    ) f
+  ), '{}'::json),
   'sichten', COALESCE((
     SELECT json_agg(table_name ORDER BY table_name)
     FROM information_schema.tables
@@ -239,6 +287,9 @@ const ausgabe = {
   migrations_fingerabdruck: migrationsFingerabdruck(REPO_ROOT),
   pruefwerte: Object.fromEntries(
     Object.entries(daten.pruefwerte || {}).sort(([a], [b]) => a.localeCompare(b))
+  ),
+  fremdschluessel: Object.fromEntries(
+    Object.entries(daten.fremdschluessel || {}).sort(([a], [b]) => a.localeCompare(b))
   ),
   sichten: (daten.sichten || []).sort(),
   funktionen: (daten.funktionen || []).sort(),

@@ -83,7 +83,7 @@ bauende Sitzung geht von oben nach unten; wer etwas vorzieht, schreibt den Grund
 | # | Was | Warum hier |
 |---|---|---|
 | 1 | **U0.2 + U2.4** — Standortgrenze messen und entdeckend absichern | Möglicher **Sicherheitsbefund**: `assertLocationBelongsToOrg` steht in nur 4 Routendateien. Sicherheit geht vor Funktion, immer |
-| 1b | **Z — die Schema-Schulden** (`Z_SCHEMA_SCHULDEN.md`), Z3–Z10 | **In Arbeit.** Z1 und Z2 sind gebaut — *wer sein Passwort vergaß, kam nicht zurück*, und *die Unterschrift am Stundenzettel gab es nie*. Offen: drei stumme Ausfälle (Z3–Z6), eine Zeile, die es nicht geben dürfte (Z9), und **Z10 — die Token im Klartext**, ein Sicherheitsposten, der **vor** dem Livegang stehen muss |
+| 1b | **Z — die Schema-Schulden** (`Z_SCHEMA_SCHULDEN.md`) | **Fast fertig.** Z1–Z9 und Z16–Z17 sind gebaut; die Bestandsliste in `sqlSchemaWaechter.test.js` ist **leer**, zum ersten Mal. Offen bleibt allein **Z10 — die Token im Klartext**, ein Sicherheitsposten, der **vor** dem Livegang steht und dem Owner gehört, sowie Z11 (vier verwaiste Tabellen, ebenfalls owner-gebunden). **Neu daneben:** zehn Spaltenfehler, die erst der Verbund-Wächter sichtbar gemacht hat (Abschnitt unten) |
 | 2 | **W5 + W4.2** — Office-Dateien und Schlüsselmuster als Wächter | Zwei kleine Proben gegen einen großen Schaden: das Repo ist öffentlich, die Owner-Unterlagen liegen darin |
 | 3 | **S1 + S4** — `npm install` läuft glatt, Hauptbaum-Ablauf nach dem Merge | Jeder Merge und jedes neue Paket steht sonst wieder vor einem Container, der nicht startet |
 | 4 | **N8.1** — Katalog statt Freitext in „Personal finden" | Solange eine Marktseite Freitext nimmt, **kann** das Matching dort nicht treffen. Alles darüber baut darauf auf |
@@ -3551,3 +3551,129 @@ Endzustand schreibt, und verlangt das Deaktivieren in derselben Anweisung).
 **Merksatz:** *Eine Probe, die prüft, ob etwas existiert, ist keine Probe darauf,
 dass es benutzt wird.* Und: **jede neue Verdrahtung bekommt eine Probe, die den
 echten Handler durchläuft** — nicht nur den Dienst darunter.
+
+
+### Z16 und Z17 sind gebaut *(2026-09-28)* — eine falsche Zeile in einem Kommentar hat sechs Fehler geschuetzt
+
+**Die Bestandsliste der Schema-Schulden ist leer.** Z16 hat die letzten fuenf
+Spaltenfehler behoben, Z17 den allerletzten. Das ist die kleinere Haelfte der
+Nachricht.
+
+**Die groessere:** Beim Beheben des letzten Eintrags
+(`capacity_posts.supplier_id` in `routes/matching.js`) stellte sich heraus, dass
+die fehlende Spalte der kleinste von vier Fehlern in derselben Route war.
+`/matching/smart-explain/:supplierId` nimmt eine **Organisation** — so steht es in
+der API-Doku und in der Ausnahmebegruendung in `orgGrenzen.json`. Alle vier
+Datenquellen der Route sind aber **nutzer**-geschluesselt, jede per
+Fremdschluessel belegt:
+
+| Spalte | zeigt auf |
+|---|---|
+| `supplier_reputation.supplier_id` | `users` |
+| `supplier_metrics.agency_id` | `users` |
+| `requests.receiver_id` | `users` |
+| `capacity_posts.supplier_company_id` | `users` |
+
+Alle vier wurden mit `o.id` verglichen. Gegenprobe an den echten Daten: **direkt 0
+Treffer, ueber den Eigentuemer 9.** Drei der vier Wege sind LEFT JOIN oder `catch`
+— die Route hat also nie ein Signal gefunden und trotzdem mit **200 und einem
+Smart-Rank-Score** geantwortet, der ausschliesslich auf Nullen und einem
+Rueckfallwert beruhte. Eine erklaerbare KI-Bewertung, die nichts erklaert,
+gelistet in der oeffentlichen API-Doku.
+
+#### Zwei Fehler in der eigenen Arbeit, gefunden beim Nachmessen
+
+Das ist der Teil, der festgehalten gehoert, weil er sich wiederholen kann:
+
+**1. Ein Kommentar, der nie gemessen wurde, hat sechs falsche Leser geschuetzt.**
+In `services/reputationSql.js` stand seit Z6 (2026-09-27) der Satz:
+
+> *NICHT FUER supplier_metrics: `supplier_metrics.agency_id` zeigt selbst auf
+> `organizations` und wird direkt an der Org verbunden. Diese Joins waren richtig
+> und bleiben unangetastet — wer sie „mitkorrigiert", bricht sie.*
+
+Gemessen zeigt `agency_id` auf `users(id)`, und der Schreiber bestaetigt es:
+`supplierMetricsService.recomputeForWindow` holt seine Schluessel aus
+`SELECT DISTINCT receiver_id FROM requests`. Die Warnung war also ein **Riegel vor
+der richtigen Behebung** — vier Stellen in `vendorPoolService` (die Zeile direkt
+unter der Bruecke, die Z6 eingezogen hatte), eine in `routes/matching.js`, und der
+Z5-Fix in `instantMatchService` selbst, der auf dieses Wort hin geschrieben wurde.
+
+**Merksatz:** *Ein falscher Riegel haelt laenger als falscher Code, weil ihn
+niemand ausfuehrt und deshalb niemand widerlegt.* Eine Behauptung ueber das
+Schema gehoert gemessen — gerade dann, wenn sie andere vom Anfassen abhalten soll.
+
+**2. Die Bruecke selbst vervielfachte Zeilen.** `reputationJoinSql` erzeugte einen
+gewoehnlichen `LEFT JOIN org_memberships`. `org_memberships` kann mehrere
+Eigentuemer je Organisation fuehren — gemessen: 200 Organisationen mit
+Eigentuemer, **eine davon mit zwei**; ueber alle Organisationen 2859 Zeilen statt
+2858. In `getVendorPool` verdeckte ein `DISTINCT ON` das; an drei anderen Stellen
+gibt es keins. Dass `vendor_pool` heute leer ist, war der einzige Grund, warum es
+nicht schon sichtbar war. Jetzt: `LEFT JOIN LATERAL` mit `LIMIT 1`, fester
+`ORDER BY` (ohne ihn waehlt die Datenbank frei, und dieselbe Abfrage zeigt morgen
+eine andere Reputation) und `is_active` (ein ausgeschiedener Eigentuemer trug
+bisher weiter die Reputation seiner ehemaligen Firma). Der Index dafuer war schon
+da: `om_org_role_idx (org_id, role_key, is_active)`.
+
+#### Zwei neue Waechter, weil der alte diese Klasse nicht sehen kann
+
+`sqlSchemaWaechter` fragt, ob eine Spalte **existiert**. Bei dieser Fehlerklasse
+existieren alle Spalten — falsch ist, **worauf sie zeigen**. Deshalb traegt die
+Schema-Momentaufnahme seit jetzt einen Abschnitt `fremdschluessel`
+(`npm run schema:snapshot` erweitert), und daraus speisen sich zwei Wachen:
+
+- **`test/identitaetenNichtVermischen.test.js`** — macht rot, wenn eine
+  nutzer-geschluesselte Spalte mit einer Org-Kennung verglichen wird. Gemessen
+  zeigen **86 Spaltennamen auf `users`, 18 auf `organizations`, und kein Name auf
+  beides** — der Name bestimmt die Identitaetswelt projektweit eindeutig. Die
+  Falle, die diese ganze Welle erklaert: **Namen mit „company" darin zeigen auf
+  NUTZER** (`supplier_company_id`, `owner_company_id`, `requester_company_id`,
+  `company_id`).
+- **`test/spaltenImVerbund.test.js`** — schliesst die Luecke, die
+  `sqlSchemaWaechter` bewusst offen laesst: Spaltennamen in Abfragen **mit** Join.
+  Die Rueckmutationen hatten sie gemessen: von achtzehn zurueckgedrehten Fehlern
+  blieben genau zwei ungefangen, beide in dieser Luecke. Ein Nachlauf fand
+  **dreizehn echte Fehler**, jeder gegen die Datenbank bestaetigt.
+
+Der SQL-Scanner ist dafuer aus `sqlSchemaWaechter.test.js` nach
+**`test/lib/sqlScanner.mjs`** verschoben — woertlich, nicht umgeschrieben; die
+Selbstprobe des urspruenglichen Waechters belegt es. Aus einer Testdatei zu
+importieren waere die Alternative und ist keine: bei `node --test` liefen deren
+Pruefungen dann doppelt.
+
+#### Was die dreizehn gekostet haben
+
+Vier sind sofort behoben, weil sie Kunden trafen:
+
+- **`org_memberships.role` an drei Stellen** (die Spalte heisst `role_key`): das
+  **oeffentliche Firmenprofil** hat nie geladen (die Sichtbarkeit wird eine Zeile
+  darueber korrekt geprueft, danach faellt der Abruf um), die
+  **Abo-Benachrichtigung** erreichte den Eigentuemer nie, sobald keine
+  `contact_email` hinterlegt war, und die ab PRO verkaufte Rangliste warf.
+- **`capacity_posts.workers_count`** (sie heisst `headcount`):
+  `GET /preferred-vendors/capacity` antwortete **immer** mit 500.
+
+Der letzte Fall ist zugleich die Lehre, und es ist dieselbe wie bei P1-15 im
+Suchindex: in `getWorkforceCapacity` standen **zwei** Fehler, und der erste hat
+den zweiten versteckt. Haette jemand nur die Spalte richtiggestellt, waere aus
+einem ehrlichen 500er eine **200 mit lauter Nullen** geworden — „dieser Lieferant
+hat keine Kapazitaet" statt „hier ist etwas kaputt". Das waere die schlechtere
+Auskunft gewesen.
+
+**Die uebrigen zehn stehen als begruendeter BESTAND** in
+`test/spaltenImVerbund.test.js` — `users.plan` (2x), `users.first_name`/
+`last_name` (4x), `assignments.title`, `organizations.email`,
+`requests.location_city`, `assignment_staffing_invites.created_at`. Sie stehen
+dort und nicht in einem Ticket, weil ein Ticket nicht rot wird, wenn jemand einen
+elften dazulegt. Wer eine davon anfasst, streicht den Eintrag.
+
+#### Verifikation
+
+**Rueckmutationen: 22 von 22 gefangen, keine Luecke.** Die eine, die zuerst
+ueberlebte, ist selbst lehrreich: `role_key = '${EIGENTUEMER_ROLLE}'` gegen ein
+fest eingetragenes `role_key = 'owner'` ergibt **buchstaeblich dasselbe SQL**,
+solange die Konstante „owner" heisst. Eine Zusicherung ueber das Ergebnis ist dort
+tautologisch — der Gegenstand ist der Quelltext, und die Probe gehoert dorthin.
+Sie sieht dabei nur in die **Literale** der Datei, nicht in den rohen Text: eine
+erste Fassung wurde prompt rot wegen zweier Kommentare, die genau diesen Fehler
+beschreiben. Dieselbe Falle ist in Welle Z jetzt dreimal zugeschnappt.
