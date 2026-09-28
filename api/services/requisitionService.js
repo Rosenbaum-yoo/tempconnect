@@ -199,6 +199,24 @@ export async function listRequisitions(pool, filters = {}) {
  */
 export async function updateRequisition(pool, id, userId, data, orgId = null) {
   if (!orgId) return null;
+  /*
+   * U0.2b (2026-09-28): DIESELBE GRENZE BEIM AENDERN WIE BEIM ANLEGEN.
+   *
+   * createRequisition (Zeile ~73) prueft den Standort seit jeher; hier fehlte
+   * die Pruefung, obwohl die allowed-Liste unten location_id UND
+   * department_id fuehrt. Die Route davor prueft nur, dass die ANFORDERUNG der
+   * eigenen Organisation gehoert (assertOrgOwnership) - ueber den Standort, den
+   * sie danach bekommt, sagt das nichts. Der Fremdschluessel faengt es nicht: er
+   * zeigt auf org_locations(id), nicht auf (id, org_id).
+   *
+   * Wortgleich zu dem, was am 2026-09-20 in organizationService.updateDepartment
+   * stand - und dort steht der Satz, der auch hier gilt: eine Grenze, die beim
+   * Anlegen gilt und beim Aendern nicht, ist keine. Dass diese Stelle damals
+   * durchrutschte, lag an der Schreibweg-Liste der Probe: sie fuehrte
+   * createRequisition und nicht updateRequisition.
+   */
+  await assertLocationBelongsToOrg(pool, data.location_id, orgId);
+  await assertDepartmentBelongsToOrg(pool, data.department_id, orgId);
   const allowed = [
     'title', 'description', 'role', 'skill_tags', 'headcount',
     'start_date', 'end_date', 'location_city', 'location_postal',

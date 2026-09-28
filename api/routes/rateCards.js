@@ -204,7 +204,10 @@ export function createRateCardsRouter(deps) {
         return res.status(400).json({ error: "IMMUTABLE", message: "Abgelaufene/archivierte Rate Cards können nicht bearbeitet werden." });
       }
 
-      const card = await rateCardService.updateRateCard(pool, req.params.id, req.body, req.session.userId);
+      /* U0.2b: die Org muss mit - der Dienst prueft damit den Standort, den der
+         Rumpf setzen will. Sie steht hier fest (existing.org_id === req.orgId
+         ist drei Zeilen darueber erzwungen). */
+      const card = await rateCardService.updateRateCard(pool, req.params.id, req.body, req.session.userId, req.orgId);
       res.locals.audit = {
         action: "rate_card.update",
         entity_type: "rate_card",

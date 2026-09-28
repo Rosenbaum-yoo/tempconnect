@@ -57,6 +57,7 @@ import { OrgBoundaryError } from "../utils/orgBoundary.js";
 import * as rbacService from "../services/rbacService.js";
 import * as organizationService from "../services/organizationService.js";
 import * as requisitionService from "../services/requisitionService.js";
+import * as rateCardService from "../services/rateCardService.js";
 import * as vendorPoolService from "../services/vendorPoolService.js";
 import { orgContextMiddleware } from "../middleware/orgContext.js";
 
@@ -286,6 +287,48 @@ const SCHREIBWEGE = [
       { org_id: ORG_A, location_id: FREMD_LOC, department_id: null, title: "Probe", headcount: 1 })
   },
   {
+    /* U0.2b (2026-09-28, auf Bitte der gegenpruefenden Sitzung nachgemessen):
+       `createRequisition` stand in dieser Liste, `updateRequisition` nicht - und
+       die `allowed`-Liste des Dienstes enthaelt `location_id` und
+       `department_id`. Genau das Paar, dessen Lehre im Nachbarcode steht:
+       "Eine Grenze, die beim Anlegen gilt und beim Aendern nicht, ist keine." */
+    name: "requisitionService.updateRequisition",
+    lauf: (pool) => requisitionService.updateRequisition(pool,
+      "66666666-6666-4666-a666-666666666666", USER_A,
+      { location_id: FREMD_LOC }, ORG_A)
+  },
+  {
+    /* U0.2b: dieselbe Klasse in `rateCardService`. Die Route prueft, dass die
+       KARTE der Org gehoert; der Dienst schreibt danach `location_id` und
+       `department_id` aus dem Rumpf, ohne sie zu pruefen. */
+    name: "rateCardService.updateRateCard",
+    lauf: (pool) => rateCardService.updateRateCard(pool,
+      "77777777-7777-4777-a777-777777777777",
+      { location_id: FREMD_LOC }, USER_A, ORG_A)
+  },
+  {
+    /* U0.2b: DIE ABTEILUNG WAR NIE ABGESICHERT. Alle Wege oben setzen
+       `location_id`; eine Rueckmutation, die nur
+       `assertDepartmentBelongsToOrg` entfernte, blieb deshalb gruen. Der
+       Riegel stand da und niemand hat ihn je ausgeloest - eine Zusicherung,
+       die ihren Gegenstand nicht herstellt, ist keine. */
+    name: "requisitionService.updateRequisition (Abteilung)",
+    lauf: (pool) => requisitionService.updateRequisition(pool,
+      "66666666-6666-4666-a666-666666666666", USER_A,
+      { department_id: FREMD_LOC }, ORG_A)
+  },
+  {
+    name: "rateCardService.updateRateCard (Abteilung)",
+    lauf: (pool) => rateCardService.updateRateCard(pool,
+      "77777777-7777-4777-a777-777777777777",
+      { department_id: FREMD_LOC }, USER_A, ORG_A)
+  },
+  {
+    name: "organizationService.createDepartment (Standort der Abteilung)",
+    lauf: (pool) => organizationService.createDepartment(pool, ORG_A,
+      { name: "Lager", location_id: FREMD_LOC })
+  },
+  {
     name: "vendorPoolService.addToPool",
     lauf: (pool) => vendorPoolService.addToPool(pool, {
       client_org_id: ORG_A, supplier_org_id: "33333333-3333-4333-a333-333333333333",
@@ -311,6 +354,36 @@ describe("U0.2 · jeder Schreibweg weist einen fremden Standort ab", () => {
     });
   }
 
+  it("updateRateCard ohne Organisation weist ab, statt die Pruefung zu ueberspringen", async () => {
+    /*
+     * U0.2b: `orgId` ist bei `updateRateCard` ein NACHTRAEGLICHER Parameter, und
+     * genau das ist die Gefahr - ein Aufrufer, der ihn weglaesst, kaeme sonst
+     * lautlos an der Pruefung vorbei. Deshalb wirft die Funktion, sobald
+     * wirklich ein Standort oder eine Abteilung gesetzt wird und die Org fehlt.
+     *
+     * Die Gegenprobe steht gleich daneben: wer nur Preise aendert, braucht keine
+     * Org und darf nicht behindert werden. Ein fail-closed, das auch dort
+     * zuschlaegt, wo nichts zu schuetzen ist, wird wieder ausgebaut.
+     */
+    await assert.rejects(
+      () => rateCardService.updateRateCard(poolMitStandort(),
+        "77777777-7777-4777-a777-777777777777", { location_id: FREMD_LOC }, USER_A),
+      (err) => err instanceof OrgBoundaryError,
+      "ohne orgId wird die Standortpruefung stillschweigend uebersprungen");
+
+    await assert.rejects(
+      () => rateCardService.updateRateCard(poolMitStandort(),
+        "77777777-7777-4777-a777-777777777777", { department_id: FREMD_LOC }, USER_A),
+      (err) => err instanceof OrgBoundaryError,
+      "ohne orgId wird die Abteilungspruefung stillschweigend uebersprungen");
+
+    /* Ohne Standort und ohne Abteilung: kein Grund zu werfen. */
+    const pool = poolMitStandort();
+    await rateCardService.updateRateCard(pool,
+      "77777777-7777-4777-a777-777777777777", { notes: "nur ein Hinweis" }, USER_A);
+    assert.ok(pool.calls.length > 0, "der reine Preis-Weg wurde blockiert");
+  });
+
   it("GEGENPROBE: mit einem EIGENEN Standort wirft keiner der Wege", async () => {
     /* Ohne sie bestuende die Reihe oben auch dann, wenn ein Dienst
        grundsaetzlich wirft — und ein Dienst, der immer wirft, ist kaputt,
@@ -326,6 +399,36 @@ describe("U0.2 · jeder Schreibweg weist einen fremden Standort ab", () => {
 /* ═══════════════════════════════════════════════════════════════════════════
    C) WARUM ES ZAEHLT — gebunden wird still org-weit
    ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("U0.2b · die Route reicht die Organisation auch wirklich durch", () => {
+  /*
+   * WARUM DAS EINE EIGENE PROBE BRAUCHT: Teil B prueft die DIENSTE, und das ist
+   * richtig - die Grenze gehoert dorthin. Aber ein Dienst, dem niemand die
+   * Organisation gibt, ist so sicher wie keiner. Genau das hat der
+   * Rueckmutationslauf am 2026-09-28 gezeigt: die Mutation "Route reicht die Org
+   * nicht mehr durch" blieb GRUEN, obwohl sie den Riegel vollstaendig
+   * ausgehebelt haette (ohne orgId wirft der Dienst zwar - aber dann ist der
+   * Weg kaputt statt sicher, und das faellt erst im Betrieb auf).
+   *
+   * `updateRateCard` hat `orgId` als NACHTRAEGLICHEN Parameter am Ende. Solche
+   * Parameter verschwinden beim naechsten Umbau am leisesten.
+   */
+  const ROUTE = path.resolve(HIER, "..", "routes", "rateCards.js");
+
+  it("die Datei ist da und wird gelesen", () => {
+    assert.ok(fs.existsSync(ROUTE), `routes/rateCards.js fehlt: ${ROUTE}`);
+  });
+
+  it("PATCH /rate-cards/:id uebergibt req.orgId an updateRateCard", () => {
+    const quelle = fs.readFileSync(ROUTE, "utf8");
+    const aufruf = /rateCardService\.updateRateCard\(([^;]*?)\);/s.exec(quelle);
+    assert.ok(aufruf, "der Aufruf von updateRateCard wurde nicht gefunden — ist er umgezogen?");
+    assert.match(aufruf[1], /req\.orgId/,
+      "die Route ruft updateRateCard OHNE req.orgId auf — der Dienst kann den "
+      + "Standort dann nicht pruefen und wirft stattdessen. Der Weg ist damit "
+      + "kaputt, nicht sicher.");
+  });
+});
 
 describe("U0.2 · eine Bindung, die sich nicht aufloesen laesst, wirkt org-weit", () => {
   it("Mitgliedschaft mit fremdem Standort -> kein locationId, Sichtbereich 'org'", async () => {

@@ -2,6 +2,70 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-28 — Die Grenze galt beim Anlegen und beim Ändern nicht, an zwei weiteren Stellen (U0.2b)
+
+**Status:** erledigt · **Kategorie:** Rollen-/Sichtbarkeitslogik mit Sicherheitswirkung ·
+**Quelle:** Nachmessung auf Bitte der gegenprüfenden Sitzung, 2026-09-28 — Anschluss an U0.2
+
+**Der Anlass war eine ungenaue Zahl, und zwar meine.** Ich hatte notiert: *„sieben Routen mit
+`location_id` haben keinen direkten Riegel"*. Das ist genau derselbe Fehler wie die alte
+Notiz, die U0.2 ausgelöst hatte (*„steht in nur 4 Routendateien"*): **eine Zahl, die die
+falsche Schicht zählt.** Die gegenprüfende Sitzung hat darauf bestanden, sie aufzulösen. Zu
+Recht — beim Auflösen fielen zwei echte Lücken heraus.
+
+**Die Auflösung der sieben:**
+
+| Route | Weg | Riegel |
+|---|---|---|
+| `me.js` | prüft **inline**, beide Pfade (`WHERE id = $1 AND org_id = $2 AND is_active`) | vorhanden |
+| `organizations.js` | → `rbacService.addMember` | vorhanden, in U0.2 belegt |
+| `preferredVendors.js` | → `vendorPoolService.addToPool` | vorhanden, in U0.2 belegt |
+| `suppliers.js` | → `inviteSupplier` → `addToPool` | vorhanden, in U0.2 belegt |
+| `vendorPool.js` | → `addToPool` | vorhanden, in U0.2 belegt |
+| `rateCards.js` | → `createRateCard` **/ `updateRateCard`** | **fehlte im Ändern-Pfad** |
+| `requisitions.js` | → `createRequisition` **/ `updateRequisition`** | **fehlte im Ändern-Pfad** |
+
+**Beide Lücken sind dasselbe Paar-Muster**, das U0.2 bei `createDepartment`/`updateDepartment`
+schon gefunden hatte — und dort steht der Satz, der auch hier gilt: *eine Grenze, die beim
+Anlegen gilt und beim Ändern nicht, ist keine.* Die `allowed`-Listen beider Ändern-Funktionen
+führen `location_id` und `department_id`; die Routen davor prüfen nur, dass die **Anforderung**
+bzw. die **Karte** der eigenen Organisation gehört — über den Standort, den sie danach
+bekommen, sagt das nichts.
+
+**Warum U0.2 sie nicht fand:** die Schreibweg-Liste der Probe führte `createRequisition` und
+nicht `updateRequisition`, und `rateCardService` gar nicht. Der entdeckende Durchlauf (Teil A)
+erreicht diese Wege nicht — was er nicht erreicht, benennt er, und genau dort lagen sie.
+
+**Geschlossen** in beiden Diensten. Bei `updateRateCard` kam `orgId` als Parameter dazu,
+**absichtlich ohne stille Vorgabe**: ein Aufrufer, der ihn weglässt, kommt nicht an der Prüfung
+vorbei, sondern bekommt einen `OrgBoundaryError` — aber nur, wenn wirklich ein Standort oder
+eine Abteilung gesetzt wird. Wer Preise ändert, merkt nichts davon.
+
+**Drei Lücken zeigte erst der Rückmutationslauf**, und alle drei sind eigene Klassen:
+
+1. **Die Abteilung war nie abgesichert.** Alle Schreibwege der Probe setzten `location_id`;
+   eine Mutation, die nur `assertDepartmentBelongsToOrg` entfernte, blieb grün. Der Riegel
+   stand da, und niemand hat ihn je ausgelöst.
+2. **Die Verdrahtung war ungeprüft.** Die Mutation *„die Route reicht `req.orgId` nicht mehr
+   durch"* blieb grün — Teil B prüft Dienste, und ein Dienst, dem niemand die Organisation
+   gibt, ist so sicher wie keiner. Ein nachträglicher Parameter am Ende einer Signatur
+   verschwindet beim nächsten Umbau am leisesten.
+3. **Zwei Anker trafen nicht**, weil `rateCardService.js` CRLF hat und der Anker `\n` suchte.
+   Kein Befund, aber eine stille Art, einen Mutanten als „überlebt" zu melden, der nie gesetzt
+   wurde.
+
+**Nachweis:** `api/test/standortGrenze.test.js` — von 11 auf **19 Proben** gewachsen, darunter
+die Abteilungs-Schreibwege, die `fail-closed`-Zusage und die Verdrahtungs-Probe.
+**7 Rückmutationen, alle rot.**
+
+**Offen und dem Owner vorgelegt — hier absichtlich NICHT mitgeschlossen:** dieselbe
+`allowed`-Liste in `updateRateCard` enthält **`supplier_org_id`**. Ein Ändern davon setzt eine
+Konditionskarte auf eine andere Organisation. Das ist fachlich etwas anderes als ein Standort,
+und es gibt dafür kein etabliertes Muster in `orgBoundary.js` — ob ein Lieferant, mit dem keine
+Beziehung besteht, dort stehen darf, ist eine Produktfrage. **Die Daten können sie heute nicht
+beantworten:** 4 Konditionskarten, davon 1 mit Lieferant, und `vendor_pool` hat **0 Zeilen** —
+„ohne Beziehung" ist damit trivial wahr und beweist nichts.
+
 ### 2026-09-28 — Die Schema-Schulden sind bezahlt, und drei Wachen kamen dazu (Z16–Z20)
 
 **Status:** erledigt · **Kategorie:** Bug-Pattern mit Kundenwirkung + Test/Wächter ·
