@@ -130,6 +130,58 @@ unverändert; sie prüfen die Rechenregel, nicht die Schreibbarkeit.
 Nicht in P9/A3 behoben: A3 macht Bounty-Beschreibungen ehrlich, es repariert nicht
 den Notdienst-Fluss. Der Fund stammt aus derselben Prüfung.
 
+### Nachtrag 2026-09-28 — der Suchindex kennt keine Sichtbarkeitsregel (Welle Z, nicht gepatcht)
+
+**P1-15 🔴 `searchService.reindexAll` ignoriert JEDE Sichtbarkeitsregel, die der
+DB-Rückfall durchsetzt.** Gefunden beim Abarbeiten der letzten Schema-Schulden,
+**bewusst nicht behoben**: nach Stop-Regel 7 der CLAUDE.md („Ein
+Public-Profile-Flow ohne Einwilligung existiert") und weil Org-Boundary der erste
+der sieben Produktionspfeiler ist, wird hier ein minimaler sicherer Fix
+vorgeschlagen und auf Bestätigung gewartet.
+
+Der Dienst schreibt seine Regeln selbst auf (Zeile ~385 ff.) und der DB-Rückfall
+hält sie. Die `reindexQuery` je Index hält **keine einzige**:
+
+| Index | Regel laut Code und Rückfall | reindexQuery tatsächlich |
+|---|---|---|
+| `companies` | nur Orgs mit Opt-in (`profile_visibility_settings.is_public` **und** `status='approved'`) | **alle** Firmen, kein Opt-in-Filter |
+| `suppliers` | dieselbe Verzeichnis-Regel | **alle** mit `type='agency'`, kein Filter |
+| `capacity_posts` | nur `status='active'`, nicht `visibility_status='private'`, nicht abgelaufen, Sperrliste beachtet | **alle** Anzeigen, ohne jede Bedingung |
+| `requisitions` | **ORG-PRIVAT** — nur die eigene Org, ohne Org-Kontext gar keine Treffer | `FROM requisitions r ORDER BY r.id` — **jede Anforderung jeder Organisation** |
+
+Die letzte Zeile ist die schwerste: ein gemeinsamer Suchindex, der die
+Anforderungen **aller** Mandanten enthält. Dass `org_id` als filterbares Attribut
+geführt wird, schützt nicht — die Daten liegen dann im Index, und eine Abfrage
+ohne Filter liefert sie.
+
+**Warum heute trotzdem nichts nach außen gelangt, und warum das kein Trost ist:**
+die Reindex-Abfragen benutzen fünf Spalten, die es nicht gibt
+(`users.type`, `users.legal_name`, `users.plan_id`, `capacity_posts.description`,
+`capacity_posts.hourly_rate` — geführt in der Bestandsliste von
+`api/test/sqlSchemaWaechter.test.js`). Der Reindex **wirft**, also ist der Index
+leer, und die Suche fällt auf den korrekt gefilterten DB-Weg zurück. Ausgerechnet
+ein Fehler hält den Schaden auf. Wer die Spalten „nur mal schnell" richtigstellt,
+ohne die Filter mitzubringen, schaltet die Veröffentlichung scharf.
+
+**Der minimale sichere Fix, gemessen und fertig — aber nicht angewandt:**
+1. Jede `reindexQuery` bekommt denselben Filter wie ihr Gegenstück im Rückfall
+   (Opt-in für `companies`/`suppliers`; aktiv/nicht-privat/nicht-abgelaufen für
+   `capacity_posts`).
+2. Die Spalten richtigstellen, und zwar an der gemessenen Wahrheit: die
+   Firmendaten liegen auf `organizations` (`name`, `legal_name`, `type`, `plan`,
+   `billing_city`, `billing_postal_code`), nicht auf `users`; `capacity_posts`
+   hat `notes` statt `description` und `price_type`/`price_min`/`price_max`
+   statt `hourly_rate`. `organizations.type` ist per CHECK auf
+   `company`/`agency` begrenzt, der Lieferanten-Index kann darauf filtern.
+3. **Owner-Entscheidung, weil es die Architektur berührt:** ob `requisitions`
+   überhaupt in einen gemeinsamen Index gehören. Sauber wären ein Index je
+   Organisation oder gar kein Index für org-private Daten. Ein Filterattribut
+   ist keine Mandantengrenze.
+
+Solange (3) offen ist, bleibt der Reindex besser kaputt als halb reparariert.
+Der Schema-Wächter führt die fünf Spalten weiter, damit der Befund nicht aus dem
+Blick fällt.
+
 ### Nachtrag 2026-08-08 — zwei neue Punkte aus P9/A1
 
 **P1-14 🟠 `reputationService` hat keinen Aufrufer.** `recomputeReputation` wird nur von
