@@ -121,6 +121,7 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 | [features/P12_MUTATION_AUFRAEUMEN.md](features/P12_MUTATION_AUFRAEUMEN.md) | Aufräum-Wellen M0–M6 für die 112 überlebenden Mutanten. **Vollständig abgeschlossen** (2026-08-15): 39/39 A-Fälle geschlossen, Aggregat 94,43 %. |
 | [qualitaet/mutation/2026-08-15-rbac-nach-wellen/](qualitaet/mutation/2026-08-15-rbac-nach-wellen/README.md) | Der Lauf NACH den Wellen: 94,43 %, 72 Überlebende, null A-Fälle. Der Gegenbeleg zum 14.08. |
 | [qualitaet/mutation/2026-08-14-rbac/TRIAGE.md](qualitaet/mutation/2026-08-14-rbac/TRIAGE.md) | Das Ergebnis von M0: alle 112 Fälle einzeln eingestuft und gegengelesen (39 A · 32 B · 41 C), die Wellenreihenfolge und acht Befunde — darunter, dass der nächtliche Mutations-Job nie gelaufen ist. |
+| [features/SCHWACHSTELLEN_ZU_STAERKEN.md](features/SCHWACHSTELLEN_ZU_STAERKEN.md) | **Schwachstellen zu Staerken**, Wellen 1-8: jede gemessene Schwaeche mit Beleg, Abnahmekriterium und Welle. Register mit 30 Punkten. Entstanden aus der ersten Verifikation auf einer fremden Maschine (2026-09-29). **Welle 1 zuerst** - jede Aussage der anderen Wellen haengt an ihr. |
 
 ---
 
@@ -1127,6 +1128,49 @@ Doku-Waechter P2-W1).
 
   *Aufwand:* Entscheidung 15 Minuten, Umsetzung 2 Stunden (Matrix-Eintrag,
   Karte, Registereintrag, Wächterlauf). *Owner.*
+
+- **W-E1 (neu, 2026-09-29)** — **Die zwei Doku-Tests in der CI.**
+  `docsConsistency.test.js` und `dokuWaechter.test.js` pruefen gegen Pfade, die
+  in einem frischen Baum nicht existieren (`.agents/`, `frontend/support-ops/`,
+  ungetracktes `docs/launch/`). Die in dieser Uebergabe genannte Abhilfe —
+  Pfade aus dem Hauptbaum verknuepfen — gibt es in einer CI nicht: **eine CI ist
+  immer ein frischer Baum.** Damit ist die Suite dort strukturell rot,
+  unabhaengig vom Code. Wege: (a) die Tests erkennen einen Baum ohne diese
+  Pfade und pruefen dann nur, was pruefbar ist (kein stiller Skip — die
+  Erkennung selbst wird zugesichert, **empfohlen**), (b) die Pfade werden
+  getrackt (aendert, was im Release-Artefakt landet — `.claude/` gehoert laut
+  eigener Regel *nie* hinein), (c) die CI laesst die zwei Dateien bewusst aus
+  und das wird dokumentiert. *Aufwand 1-2 h nach Entscheidung. Plan:
+  features/SCHWACHSTELLEN_ZU_STAERKEN.md, Welle 1.*
+- **W-E2 (neu, 2026-09-29)** — **`--test-force-exit` im zentralen Testaufruf.**
+  Gemessen: drei Laeufe auf identischem Baum meldeten 9054 / 9183 / 9190 Tests,
+  Exit-Code jeweils gleich; an einer einzelnen Datei mit dem Flag 76/30/76/45,
+  ohne das Flag dreimal stabil 76. Es ist **nicht** der Pipe-Effekt — die
+  Umleitung in eine Datei schwankt genauso. Nach dem Schliessen der offenen
+  Handles: Flag entfernen (**empfohlen** — ein Lauf, der haengt, ist ehrlicher
+  als einer, der kuerzt) oder als Netz behalten (dann kann die Kuerzung
+  jederzeit zurueckkommen, ohne aufzufallen)? Beruehrt
+  `api/scripts/run-tests.js`, also jeden Lauf des Projekts. *Erster Schritt
+  gehoert dem Owner und kostet zwei Minuten: die Suite auf dem Arbeitsstand
+  zweimal laufen lassen und die Zahl vergleichen.*
+- **W-E3 (neu, 2026-09-29)** — **Testlaeufer fuer die drei React-Konsolen.**
+  Gemessen: 17.986 Zeilen TypeScript/React, **0 Unit-Tests**, kein vitest/jest.
+  `vitest` (nah an Vite, das hier ohnehin baut, **empfohlen**) oder `node:test`
+  mit jsdom (keine neue Abhaengigkeit, mehr Eigenbau)? Gegenargument, das der
+  Owner kennen soll: es wird die erste Test-Werkzeugkette neben `node:test` —
+  eine zweite Wahrheit ueber "gruen".
+- **W-E4 (neu, 2026-09-29)** — **Umfang der Design-System-Bereinigung.**
+  Gemessen in `frontend/public`: 2.015 Inline-`style="`, 1.113 Hex-Werte, gegen
+  eine Regel, die zweimal in `CLAUDE.md` steht. Alles auf einmal, oder nur die
+  Kundenflaeche? *Empfehlung: nur die Kundenflaeche, und Inline-JS zuerst* — der
+  Gewinn ist **Pruefbarkeit** (ESLint deckt nur `public/js/**` ab, 53,9 % des
+  HTML ist Inline-JS), nicht Aesthetik; die Farbwerte fallen dabei mit.
+- **W-E5 (neu, 2026-09-29)** — **`requireOrgContext` als Middleware**
+  (Vereinheitlichung der Null-Politik, Fortsetzung von D-M2). Die 42
+  fail-open-Stellen auf einmal hinter eine Middleware ziehen, oder Datei fuer
+  Datei mit dem Waechter im Ruecken? *Empfehlung: Middleware, aber erst nach
+  Welle 1 und 2* — der Umbau beruehrt 80 Vergleiche in 18 Route-Dateien, und
+  ohne stabile Testzahl ist nicht belegbar, dass dabei nichts verloren ging.
 
 ## Offene Befunde ohne Ticket
 
