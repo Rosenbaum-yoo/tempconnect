@@ -49,7 +49,8 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./api
-        run: npm ci
+        # --legacy-peer-deps: bullmq fuehrt redis als optionalen Peer >=5, das Projekt haelt 4.x — ohne das Flag bricht npm ci mit ERESOLVE ab (wie in api/Dockerfile)
+        run: npm ci --legacy-peer-deps
 
       - name: ESLint (zero warnings)
         working-directory: ./api
@@ -192,7 +193,8 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./api
-        run: npm ci
+        # --legacy-peer-deps: bullmq fuehrt redis als optionalen Peer >=5, das Projekt haelt 4.x — ohne das Flag bricht npm ci mit ERESOLVE ab (wie in api/Dockerfile)
+        run: npm ci --legacy-peer-deps
 
       - name: Audit coverage check
         working-directory: ./api
@@ -250,7 +252,8 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./api
-        run: npm ci
+        # --legacy-peer-deps: bullmq fuehrt redis als optionalen Peer >=5, das Projekt haelt 4.x — ohne das Flag bricht npm ci mit ERESOLVE ab (wie in api/Dockerfile)
+        run: npm ci --legacy-peer-deps
 
       - name: Initialize database schema
         run: |
@@ -526,7 +529,8 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./api
-        run: npm ci
+        # --legacy-peer-deps: bullmq fuehrt redis als optionalen Peer >=5, das Projekt haelt 4.x — ohne das Flag bricht npm ci mit ERESOLVE ab (wie in api/Dockerfile)
+        run: npm ci --legacy-peer-deps
 
       - name: Run scoped subscription mutation baseline
         working-directory: ./api
@@ -569,7 +573,8 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./api
-        run: npm ci
+        # --legacy-peer-deps: bullmq fuehrt redis als optionalen Peer >=5, das Projekt haelt 4.x — ohne das Flag bricht npm ci mit ERESOLVE ab (wie in api/Dockerfile)
+        run: npm ci --legacy-peer-deps
 
       - name: Create .env file
         run: |

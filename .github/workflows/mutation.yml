@@ -84,7 +84,8 @@ jobs:
 
       - name: Abhängigkeiten
         working-directory: ./api
-        run: npm ci
+        # --legacy-peer-deps: bullmq fuehrt redis als optionalen Peer >=5, das Projekt haelt 4.x — ohne das Flag bricht npm ci mit ERESOLVE ab (wie in api/Dockerfile)
+        run: npm ci --legacy-peer-deps
 
       # Vorbedingung: auf einer roten oder flakigen Suite ist jeder
       # Mutation-Score wertlos. Deshalb erst die normale Suite, und nur wenn sie
