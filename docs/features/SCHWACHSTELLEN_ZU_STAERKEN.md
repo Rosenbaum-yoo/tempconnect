@@ -473,6 +473,102 @@ die Liste, die abgearbeitet wird** — nichts steht hier ohne Quelle.
 
 ---
 
+## Abgleich mit den Owner-Abschnitten 1–26
+
+*Ergänzt am 2026-09-29, nachdem `fix_neu … vorherige Wellen.docx` verfügbar war
+(363 Absätze, 6231 Wörter). Der Status jeder Zeile ist **gegen den Code
+gemessen**, nicht aus dem Dokument übernommen — dort steht der Stand vom
+19.06./17.07./23.07./06.08.2026.*
+
+Die Abschnitte des Owners sind die **Produktachse**. Die Wellen 1–8 dieses
+Plans sind die **Tragfähigkeitsachse**. Sie sind nicht dasselbe und ersetzen
+sich nicht: ein Abschnitt kann fertig gebaut und trotzdem unbelegt sein.
+
+| Abschnitt | Thema | Gemessener Stand | Achse |
+|---|---|---|---|
+| 1 | Deals zurücknehmen, Strafen, 3-Schritt-Abschluss | gebaut (P8 Deal-Verbindlichkeit, Mig 164/165) | — |
+| 2 | Bounty-Struktur | gebaut, 48 Code-Dateien (P9) | — |
+| 3 | Merkliste | gebaut, 7 Code-Dateien (P9) | — |
+| 4 | Abo-Feature-Aktivierung / Preisrahmen | gebaut, Entitlement-Kette steht | Welle 7 |
+| 5 | CSV-Import | **fertig** (Spur D1–D6) | — |
+| 6 | Live-Belegschaft | **fertig** (Spur E1–E5, Mig 177–179) | — |
+| 7 | Systemzeit | **fertig** (Spur F1–F3, Wächter Grundlinie 39) | — |
+| **8.1.1** | **Audit-Log hart trennen** | **offen — aktiver Sicherheitsbefund**: 135 Zeilen mit fremder `org_id` | **Welle 3** |
+| 8.1.2 | Aktive Sitzungen im Audit | offen | Welle 3 |
+| 8.2 | Ersatz-Zuweisung vereinfachen | offen | — |
+| ~~9~~ | KI-Suchleiste | **bewusst ausgelassen** — bleibt ausgelassen | — |
+| 10 | Support-Weg Kunde → TempConnect | offen | — |
+| ~~10b~~ | Support Kunde ↔ Kunde | **verworfen** — bleibt verworfen | — |
+| 11 | Multi-Tenancy, RBAC, Standorte | Anwendungsebene stark (H2), **DB-Ebene fehlt** | **Welle 3** |
+| 12 | Bounty-Verwaltung ins Staff CC | offen | — |
+| 13 | Monatsplanung für Mitarbeiter | **0 Code-Dateien** — nicht gebaut; enthält einen offenen Bug („Fehler beim Laden des Personals") | — |
+| 14 | Live-Belegschaft ausbauen | ausgeführt → prüfen | — |
+| 15 | Sperrliste | gebaut (6 Dateien); Staff-CC-Verwaltung offen | — |
+| 16 | Integrationen zu Bestandssystemen | **zvoove 4 Dateien, SAP Fieldglass 0** | — |
+| **17** | **Owner Control Center: ausbauen oder verwerfen** | **Frage nie beantwortet — 7.902 Zeilen gebaut** | **W-E6** |
+| 18 | Support Center ausbauen | offen | — |
+| 19 | Repo-Hygiene, Legacy, `.env` rotieren | offen | Welle 1 + 8 |
+| 20 | Angebote im Marktplatz ausbauen | in Arbeit | — |
+| **21** | **LIVE: Notar, Gewerbe, Konto, Stripe, Domain, Hetzner, TLS, Mail, Marketing** | **offen — reine Owner-Arbeit** | **Welle 4 + Punkt 30** |
+| 22 | Gesamt-Flow der Angebote | in Arbeit; Arbeitszeugnis-PDF **0 Dateien** | — |
+| 23 | Tarifwahl im Registrationsmodal, Firmenverifikation | offen | — |
+| 24 | Profil-Einsicht beidseitig | offen | — |
+| **25** | **Demo-Screen bei leerer Live-Belegschaft und bei 500/401** | offen — **widerspricht einer eigenen Regel** | **W-E7** |
+| 26 | Umkreisverfügbarkeit (8 Dateien), Lohnvorschau (**0**), Freitext→Checkboxen | teilweise | — |
+
+### Drei Funde aus diesem Abgleich
+
+**(1) Abschnitt 17 ist die teuerste unbeantwortete Frage des Projekts.** Der
+Owner fragt: „Owner Control Center ausbauen oder verwerfen … wenn Admin auch im
+Enterprise-Hub arbeiten kann, soll das OCC weg oder stillgelegt werden."
+Gemessen liegen dort heute **7.902 Zeilen** (14 Router mit 3.200 Zeilen,
+21 Frontend-Dateien mit 4.702 Zeilen), `CLAUDE.md` führt es mit „11/11 Module
+real implementiert, 90 %", und H2 hat für das OCC eine **eigene Wächterschicht
+(B3)** gebaut, weil die Fläche keine Platzhalter-Route hat. Dazu zwei offene
+Blocker (OCC-Logout, `MFA_ENFORCE`).
+
+> **Die Frage wurde gestellt und nie beantwortet — und in der Zwischenzeit
+> wurde weitergebaut.** Das ist kein Fehler im Code. Es ist der Beweis, dass
+> eine unbeantwortete Owner-Frage teurer ist als eine falsch beantwortete: eine
+> falsche Antwort kostet einen Revert, eine fehlende kostet unbegrenzt weiter.
+> Deshalb steht diese Entscheidung als **W-E6** und gehört vor jede weitere
+> OCC-Zeile.
+
+**(2) Abschnitt 25 widerspricht einer nicht verhandelbaren Regel.** Gewünscht
+ist ein Demo-Screen, der bei leerer Live-Belegschaft **und bei 500/401** ein
+Vorschaubild mit Demo-Daten zeigt. `CLAUDE.md` Zeile 255 verbietet das
+ausdrücklich: „Kein Fake-Data / Mock-KPIs in Produktions-UI (auch nicht als
+Platzhalter)." Beides ist begründet — der Wunsch will einen leeren Bildschirm
+vermeiden, die Regel will verhindern, dass ein Kunde erfundene Zahlen für echte
+hält. Auflösbar, aber nicht nebenbei: siehe **W-E7**.
+
+**(3) Zwei Abschnitte sind ausgeschlossen und müssen es bleiben.** Abschnitt 9
+(KI-Suchleiste) ist „bewusst ausgelassen", Abschnitt 10b (Support Kunde ↔ Kunde)
+verworfen. Beide sind in `docs/FLAECHEN.md` und den Flächen-Tests relevant —
+wer sie später doch baut, muss die Entscheidung ausdrücklich umdrehen, nicht
+vergessen.
+
+### Was der Abgleich für die Reihenfolge bedeutet
+
+**Achtzehn Abschnitte sind offen.** Dazu acht Wellen. Das ist mehr, als vor dem
+ersten Kunden gehen kann — und die Auswahl ist deshalb der eigentliche Wert
+dieses Plans:
+
+| Rang | Was | Warum genau das |
+|---|---|---|
+| 1 | **Welle 1** (CI grün) | 1 Tag Arbeit plus die Kontosperre. Danach ist jede weitere Aussage belegt statt wahrscheinlich. |
+| 2 | **Abschnitt 8.1.1** | der einzige Punkt mit einem laufenden Datenabfluss. Vor jedem Kunden. |
+| 3 | **Abschnitt 21** *(parallel, Owner)* | Notar, Gewerbe, Konto, Stripe, Domain. Ohne das kann die Plattform kein Geld annehmen — es ist der kritische Pfad, und er läuft unabhängig vom Code. |
+| 4 | **W-E6** (Abschnitt 17) | 15 Minuten Entscheidung, die eine 7.902-Zeilen-Fläche entweder rechtfertigt oder stilllegt. |
+| 5 | **Welle 2 + 3** | stabile Testzahl, dann der DB-Backstop (Mig 117) — zusammen mit Abschnitt 11. |
+| 6 | **Abschnitt 16** | zvoove und SAP Fieldglass sind der stärkste Verkaufshebel der Liste: „niemand muss umbauen". SAP Fieldglass hat heute **null** Code-Dateien. |
+| 7 | alles Übrige | nach Verkaufswirkung, nicht nach Reihenfolge im Dokument. |
+
+**Was dieser Rang bewusst nicht enthält:** die Abschnitte 13, 22 (Arbeitszeugnis),
+26 (Lohnvorschau) — alle drei mit null Code-Dateien, alle drei echte
+Produktlücken, keine davon ein Hindernis für den ersten Vertrag. Sie sind
+Ausbau, nicht Blocker, und stehen deshalb hinter Rang 6.
+
 ## Was dieser Plan nicht leistet
 
 **Er ersetzt nicht das Register.** `docs/PILOT_GO_LIVE_TODOS.md` bleibt die

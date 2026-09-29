@@ -1171,6 +1171,33 @@ Doku-Waechter P2-W1).
   Datei mit dem Waechter im Ruecken? *Empfehlung: Middleware, aber erst nach
   Welle 1 und 2* — der Umbau beruehrt 80 Vergleiche in 18 Route-Dateien, und
   ohne stabile Testzahl ist nicht belegbar, dass dabei nichts verloren ging.
+- **W-E6 (neu, 2026-09-29)** — **Owner Control Center: ausbauen oder
+  verwerfen?** Die Frage steht als **Abschnitt 17** im Owner-Dokument
+  (`fix_neu … vorherige Wellen.docx`): „ausbauen oder verwerfen … wenn Admin
+  auch im Enterprise-Hub arbeiten kann, soll das OCC weg oder stillgelegt
+  werden bis es einen Nutzen dazu gibt." **Sie wurde nie beantwortet, und in
+  der Zwischenzeit wurde weitergebaut.** Gemessen am 2026-09-29: **7.902
+  Zeilen** (14 Router / 3.200 Zeilen, 21 Frontend-Dateien / 4.702 Zeilen);
+  `CLAUDE.md` fuehrt die Flaeche mit „11/11 Module real implementiert, 90 %";
+  H2 hat fuer sie eine eigene Waechterschicht (B3) gebaut, weil sie keine
+  Platzhalter-Route hat; dazu zwei offene Blocker (OCC-Logout meldet niemanden
+  ab, `MFA_ENFORCE=true` sperrt den Eigentuemer aus). *Eine unbeantwortete
+  Frage ist hier teurer als eine falsch beantwortete: die falsche kostet einen
+  Revert, die fehlende kostet unbegrenzt weiter.* Entscheidung gehoert vor jede
+  weitere OCC-Zeile. Aufwand der Entscheidung: 15 Minuten.
+- **W-E7 (neu, 2026-09-29)** — **Demo-Screen bei leerer Live-Belegschaft und
+  bei 500/401 (Abschnitt 25).** Gewuenscht ist ein Vorschaubild mit Demo-Daten,
+  das auch bei Serverfehlern einspringt. `CLAUDE.md` Zeile 255 verbietet das
+  ausdruecklich: „Kein Fake-Data / Mock-KPIs in Produktions-UI (auch nicht als
+  Platzhalter)". Beide Seiten haben recht — der Wunsch will keinen leeren
+  Bildschirm, die Regel will verhindern, dass ein Kunde erfundene Zahlen fuer
+  echte haelt. Wege: (a) ein Zero-State, der **als Beispiel gekennzeichnet**
+  ist und bei 500/401 den Fehler **benennt** statt ihn zu verdecken
+  (**empfohlen** — erfuellt den Wunsch, ohne die Regel zu brechen),
+  (b) Demo-Daten wie gewuenscht und die Regel fuer diese Flaeche ausdruecklich
+  aufweichen, (c) nur bei leerer Liste, nie bei Fehlern. *Ein Fehler, den eine
+  huebsche Vorschau verdeckt, wird nicht gemeldet — das ist die eigentliche
+  Gefahr bei (b).*
 
 ## Offene Befunde ohne Ticket
 
