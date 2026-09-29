@@ -31,6 +31,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -308,7 +309,6 @@ describe("Secret-Scan — die ausgelieferten Dateien sind sauber", () => {
     "scripts/release-verify.sh",
     "scripts/scheduler-smoke.sh",
     "sql/migrate.sh",
-    "deploy/.env",
   ];
 
   for (const rel of GEMELDETE) {
@@ -323,6 +323,32 @@ describe("Secret-Scan — die ausgelieferten Dateien sind sauber", () => {
         funde.map((f) => `Z${f.zeile} "${f.wert}" (${f.grund})`).join(", "));
     });
   }
+
+  /* `deploy/.env` stand bis zum 2026-09-29 in der Liste oben — und hat den Test
+   * auf JEDER fremden Maschine rot gemacht. Die Datei ist per `.gitignore`
+   * (`*.env`) dauerhaft ungetrackt: sie liegt auf dem Deploy-Host und in keinem
+   * Checkout. Die Bedingung "fehlt → Liste ist veraltet" ist fuer sie also
+   * genau verkehrt herum; sie MUSS fehlen. Gefunden beim ersten Lauf auf einer
+   * sauberen Maschine (Cloud-Container), wo 18 von 19 Faellen gruen waren.
+   *
+   * Kein stiller Skip: die erste Zusicherung laeuft immer und ist schaerfer als
+   * die alte — sie faengt zusaetzlich den Fall ab, dass die Datei mit echten
+   * Zugangsdaten versehentlich eingecheckt wird. Liegt sie lokal, wird sie
+   * zusaetzlich wie bisher gescannt. */
+  it("deploy/.env wird nicht ausgeliefert — und ist sauber, falls sie lokal liegt", () => {
+    const getrackt = execFileSync("git", ["ls-files", "--", "deploy/.env"],
+      { cwd: REPO, encoding: "utf8" }).trim();
+    assert.equal(getrackt, "",
+      "deploy/.env ist im Git-Baum gelandet — diese Datei traegt echte Zugangsdaten");
+
+    const abs = path.join(REPO, "deploy", ".env");
+    if (fs.existsSync(abs)) {
+      const funde = pruefeDatei(fs.readFileSync(abs, "utf8"));
+      assert.deepEqual(funde, [],
+        "deploy/.env meldet wieder: " +
+        funde.map((f) => `Z${f.zeile} "${f.wert}" (${f.grund})`).join(", "));
+    }
+  });
 
   it("diese Testdatei meldet sich nicht selbst", () => {
     /* Der peinlichste Befund des ersten Laufs: Die gepflanzten Werte dieser
