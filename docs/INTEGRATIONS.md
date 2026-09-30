@@ -278,7 +278,7 @@ irreführend ist. Es sind **zwei Richtungen mit unterschiedlichem Datenmodell**:
 |---|---|---|
 | Wessen System | das der **Zeitarbeitsfirma** — ihr ERP, ihre Lohnabrechnung | das des **Unternehmens** — dort läuft sein Fremdpersonal-Einkauf |
 | Richtung | TempConnect **schreibt hinaus**: Stammdaten, Stundenzettel, Rechnungsdaten | das VMS **schreibt herein**: Bedarfe, Konditionen, Freigaben — TempConnect antwortet mit Kandidaten, Besetzungen, Stunden |
-| Wer ist Kunde | die Zeitarbeitsfirma spart Doppelerfassung | das Unternehmen muss **nichts umbauen** — TempConnect erscheint als Lieferant in seinem gewohnten Werkzeug |
+| Wer ist Kunde | die Zeitarbeitsfirma spart Doppelerfassung | das Unternehmen muss **nichts umbauen** — die Zeitarbeitsfirma bedient es aus TempConnect heraus, in seinem gewohnten Werkzeug (Lieferant bleibt die Zeitarbeitsfirma, siehe „Wer ist der Lieferant“) |
 | Was fehlt | die Konnektoren (Registry ist da) | **alles** — es gibt keinen eingehenden Bedarfs-Eingang |
 | Fundament im Bestand | `org_erp_mappings`, CSV-Exporte | die **API-Schlüssel-Scopes** `write:requisitions` / `write:timesheets` — vorhanden, aber für diesen Zweck nie verdrahtet |
 
@@ -301,40 +301,88 @@ Das ist dieselbe Bauart, die die Registry für die Lieferantenseite schon vorsie
 (`system_type` + `sync_config`), nur für die Gegenrichtung. **Zwei Registries
 desselben Musters, nicht zwei Architekturen.**
 
-### Was zuerst geklärt werden muss — und nicht von Claude
+### Zugang je Anbieter — recherchiert am 2026-09-30
 
-Die konkrete Schnittstelle eines VMS ist **nicht öffentlich frei
-implementierbar**. Fieldglass und Beeline führen Lieferanten-Anbindungen über
-ihre eigenen Partner-/Lieferantenprogramme: Zugang zur Spezifikation, Testmandant
-und Abnahme setzen eine Vereinbarung und in der Regel einen bestehenden
-gemeinsamen Kunden voraus. **Ohne diesen Zugang ist jede Feldzuordnung geraten**
-— und eine geratene Zuordnung ist in dieser Codebasis ausdrücklich verboten
-(keine spekulativen Features, jede Schema-Aussage gegen die Quelle prüfen).
+> **Korrektur der ersten Fassung dieses Abschnitts (ebenfalls 2026-09-30).**
+> Dort stand, die Schnittstellen von Fieldglass und Beeline seien „nicht
+> öffentlich frei implementierbar“ und jede Feldzuordnung ohne Partnerzugang
+> geraten. **Das war falsch.** Beide veröffentlichen ihre Dokumentation. Hinter
+> einer Vereinbarung liegt nicht die *Spezifikation*, sondern der *Zugang zu
+> einer laufenden Instanz* — ein anderer und kleinerer Engpass. Ebenfalls
+> korrigiert: TempConnect erscheint im VMS **nicht** selbst als Lieferant.
+> Die Aussage beruhte auf Allgemeinwissen statt auf den Quellen; die Tabelle
+> unten ist gegen die Herstellerseiten geprüft.
 
-Deshalb ist der erste Schritt dieser Spur **kein Code**:
+**Kurzfassung:** ein Partnerprogramm ist bei **keinem** der Anbieter technische
+Voraussetzung für die Anbindung *eines* Kunden. Aber „einfach so“ geht bei
+keinem: jeder Zugang läuft über **Zugangsdaten, die jemand anderes ausstellt** —
+und wer das ist und was es kostet, unterscheidet sich stark.
 
-1. **Zugang beschaffen** (Owner): Lieferanten-/Partnerprogramm bei Fieldglass und
-   Beeline anfragen. Das dauert Wochen, nicht Tage, und läuft parallel zu allem
-   anderen. Häufig genügt ein Unternehmen, das beides nutzt und die Anbindung
-   will — der Kunde öffnet die Tür schneller als eine Anfrage ohne Anlass.
-2. **Den Eingang anbieterneutral bauen** (Claude, ohne Zugang möglich): der
-   normalisierte Bedarfs-Eingang, die Abbildungstabelle, die Rückrichtung für
-   Besetzung und Stunden — alles gegen das **eigene** Datenmodell, mit einem
-   `generic`-Anbieter, der per CSV oder JSON gefüttert wird. Das ist sofort
-   nützlich (jedes Unternehmen ohne VMS kann es benutzen) und wird später nur
-   noch konfiguriert.
-3. **Je VMS die Abbildung nachziehen**, sobald die Spezifikation vorliegt.
+| System | Wer stellt den Zugang aus | Partnerprogramm nötig? | Kosten | Doku öffentlich? |
+|---|---|---|---|---|
+| **Personio** | **der Kunde selbst**: Einstellungen → Integrationen → API-Zugangsdaten → „Eigene Integration erstellen“, Rechte wählen, Client-ID + Secret weitergeben | **nein** — das Partnerprogramm dient dem Eintrag im Personio-Marktplatz, nicht dem Zugang | beim Kunden: ein Tarif mit API-Zugang für eigene Integrationen (laut Personio-Hilfe derzeit „Core Pro“) | ja |
+| **zvoove Recruit** | **der Kunde**: Bediener-API-Key in den Einstellungen | nein | beim Kunden | ja, nach Anmeldung in der Kundeninstanz unter `/swagger` |
+| **zvoove PDL** *(das eigentliche Zeitarbeits-ERP)* | über zvoove bzw. dessen **Schnittstellenpartner** | **vermutlich ja** — die öffentlich dokumentierten Anbindungen (talent360 über PD Connect, Blink) laufen alle über zvooves Partnernetz; eine frei zugängliche PDL-API wurde **nicht** gefunden | **unklar — bei zvoove erfragen** | nicht gefunden |
+| **SAP Fieldglass** | der Besitzer der Instanz (Käufer- **oder** Lieferanteninstanz) mit Benutzer, Passwort und API-Key — **und der SAP-Fieldglass-Support muss die APIs freischalten**, sie sind standardmäßig aus | **nein** für eine Anbindung; SAP PartnerEdge nur für zertifizierte bzw. im SAP-Store gelistete Integrationen | beim Instanzbesitzer | **ja** — Connector Library auf help.sap.com |
+| **Beeline** | das **Beeline Supplier Network (BSN)**: ein Abo *des Lieferanten*, danach je Beeline-Kunde eine Verbindung, die ein Lieferanten-Admin anlegt; die API ist für alle verbundenen Kunden freigeschaltet (Regel seit 05.03.2025) | **kein** Partnerprogramm — aber ein **kostenpflichtiges Abo**; das Partner-Ökosystem (Systemintegratoren, MSPs) ist etwas anderes | laut BSN-Preisseite: **Standard 2.500 $/Jahr** (1 Kundenverbindung), **Pro 15.000 $** (10), **Max 30.000 $** (unbegrenzt); zusätzliche Verbindung 1.200 $/Jahr | ja — Lieferantendoku öffentlich |
 
-Schritt 2 ist damit der einzige, der ohne Wartezeit anfangen kann — und er ist
-der, der auch dann Wert hat, wenn Schritt 1 nie kommt.
+### Wer ist der Lieferant — die Frage hinter der Frage
+
+In Fieldglass und Beeline ist der **Lieferant ein Personaldienstleister** — also
+die Zeitarbeitsfirma, nicht TempConnect. TempConnect ist eine Plattform und nach
+allem, was im Repo steht, **kein Verleiher mit AÜG-Erlaubnis**. Daraus folgt die
+Bauart:
+
+- **TempConnect verbindet sich als Software der Zeitarbeitsfirma**, mit deren
+  Zugangsdaten. Beeline sieht genau diese Rolle ausdrücklich vor (das BSN nennt
+  sie „ATS-Integration“): der Lieferant hat das Abo, sein Werkzeug spricht die
+  API.
+- Das Abo zahlt damit **die Zeitarbeitsfirma**, und es lohnt sich für sie nur,
+  wenn sie tatsächlich einen Beeline-Kunden bedient.
+
+**Ob TempConnect selbst als Lieferant auftreten könnte** — etwa mit *einem*
+BSN-Max-Konto für alle angeschlossenen Zeitarbeitsfirmen — ist **keine
+technische, sondern eine Rechtsfrage** (Arbeitnehmerüberlassung). Es ist
+dieselbe Frage wie in Owner-Abschnitt 22: *„30 Mitarbeiter direkt buchen, ohne
+mit 10 Firmen Verträge abschließen zu müssen … kann das von TempConnect
+übernommen werden oder ist das rechtlich heikel?“* Sie gehört vor einen Anwalt,
+nicht in den Code.
+
+### Was das für die Reihenfolge heißt
+
+Die Recherche verschiebt die Gewichte deutlich:
+
+1. **zvoove ist der einzige Fall, in dem sich ein Partnerprogramm wirklich
+   lohnt** — und zwar genau deshalb, weil es dort vermutlich *nötig* ist (PDL)
+   und weil dort die eigenen Kunden sitzen: zvoove ist im DACH-Zeitarbeitsmarkt
+   verbreitet und steht schon in der Registry. **Bei zvoove anfragen**, welche
+   Anbindungswege es für PDL gibt und zu welchen Bedingungen.
+2. **Personio braucht nichts** außer einem Kunden, der Personio nutzt und einen
+   Tarif mit API-Zugang hat. Keine Anfrage, keine Vorleistung.
+3. **Fieldglass und Beeline sind Großkunden-Werkzeuge.** Das eigene Audit dieses
+   Projekts sagt es bereits: *„Enterprise-VMS (SAP Fieldglass, Beeline):
+   Governance ja, Echtzeit nein, ungeeignet <1000 MA, schwere Implementierung“*
+   (`docs/finalization/PLATFORM_AUDIT_INTUITIVENESS_2026.md:23`). Die Abbildung
+   lässt sich **jetzt** gegen die öffentliche Doku entwerfen; freigeschaltet wird
+   sie erst, wenn ein konkreter Großkunde sie mitbringt — und dann über dessen
+   Zeitarbeitsfirmen und deren Zugang.
+4. **Der anbieterneutrale Bedarfs-Eingang bleibt richtig.** Er trägt alle vier,
+   ist für Kunden ohne jedes Fremdsystem sofort nutzbar und hängt an keinem
+   Vertrag. Er braucht Schema — deshalb erst, wenn die Migrationsnummern der
+   K1-Linie bekannt sind.
 
 ### Offene Entscheidung
 
-**W-E8** — **Welche Richtung zuerst?** Lieferantenseite (die Registry steht, die
-Zeitarbeitsfirma spart Doppelerfassung, Wirkung bei jedem einzelnen Kunden) oder
-Einkaufsseite (nichts steht, aber sie beantwortet den härtesten
-Verkaufseinwand)? *Empfehlung: Schritt 2 der Einkaufsseite* — der
-anbieterneutrale Eingang, weil er ohne Fremdzugang baubar ist, beide VMS trägt
-und für Kunden ohne VMS sofort nützlich ist. Die Lieferantenkonnektoren danach,
-und dann zvoove zuerst: es ist im DACH-Zeitarbeitsmarkt das verbreitetste
-System und steht schon in der Registry.
+**W-E8** — **Welche Richtung zuerst?** *Empfehlung, nach der Recherche
+angepasst:* **zvoove-Anfrage sofort** (Owner, kostet nichts außer einer Mail,
+dauert am längsten), **der anbieterneutrale Eingang als erster Code** (nach K1),
+**Personio bei Bedarf** (kein Vorlauf nötig), **Fieldglass/Beeline erst mit einem
+Großkunden** — und vorher die Rechtsfrage, wer im VMS der Lieferant ist.
+
+### Quellen (abgerufen 2026-09-30)
+
+- Personio: [API-Zugangsdaten erzeugen und verwalten](https://support.personio.de/hc/en-us/articles/4404623630993-How-to-Generate-and-Manage-API-Credentials-for-Personnel-Data)
+- zvoove Recruit: [Gibt es eine Schnittstellendokumentation?](https://go.zvoove.com/knowledge/gibt-es-eine-schnittstellendokumentation-fuer-zvoove-recruit) · [Bediener-API-Key](https://go.zvoove.com/knowledge/wie-hinterlege-ich-den-bediener-api-key-aus-zvoove-recruit-in-zvoove-pdl)
+- zvoove PDL, Partneranbindungen: [talent360 über PD Connect](https://help.talent360.io/de/articles/8975778-schnittstelle-zu-zvoove-l1-via-pd-connect) · [Blink](https://www.blink.de/schnittstellen/schnittstelle-zvoove/) · [zvoove Partner](https://zvoove.de/partner)
+- SAP Fieldglass: [Connector Library (PDF)](https://help.sap.com/doc/e7d299ced5014db7bf04be1237c8efdc/cloud/en-US/SAPFieldglassConnectorLibrary.pdf) · [Einrichtung inkl. API-Freischaltung durch den Support (ServiceNow-Doku)](https://www.servicenow.com/docs/r/integrate-applications/integration-hub/sap-fieldglass.html)
+- Beeline: [Beeline Supplier Network](https://www.beeline.com/beeline-supplier-network) · [Verbindung zu Kunden](https://gwgdocs.bpe.beeline.com/supplier/policies-and-definitions/client-connections.html) · [BSN-Preise](https://bsn.beeline.com/pricing)

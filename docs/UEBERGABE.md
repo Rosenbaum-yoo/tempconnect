@@ -1198,28 +1198,30 @@ Doku-Waechter P2-W1).
   aufweichen, (c) nur bei leerer Liste, nie bei Fehlern. *Ein Fehler, den eine
   huebsche Vorschau verdeckt, wird nicht gemeldet — das ist die eigentliche
   Gefahr bei (b).*
-- **W-E8 (neu, 2026-09-30)** — **VMS-/ERP-Anbindung: welche Richtung zuerst?**
-  (Owner-Abschnitt 16.) Gemessen: die Konnektor-**Registry** steht
-  (`org_erp_mappings`, Mig 130, sechs Systemtypen inkl. `zvoove`), die
-  **Konnektoren** stehen nicht — `erpMappingService.js:4` sagt das ausdruecklich
-  („keine externe IO hier"). Provider-Adapter gibt es nur fuer **Slack und
-  Teams**. **SAP Fieldglass und Beeline: null Code-Dateien** — sie kommen im
-  Repo nur in `AGENTS.md` als Qualitaetsmassstab vor.
-  Es sind zwei Richtungen mit unterschiedlichem Datenmodell:
-  **Lieferantenseite** (zvoove/DATEV/Personio — TempConnect schreibt hinaus, die
-  Zeitarbeitsfirma spart Doppelerfassung) und **Einkaufsseite**
-  (Fieldglass/Beeline — das VMS des Unternehmens schreibt herein, TempConnect
-  erscheint dort als Lieferant). *Empfehlung: die Einkaufsseite, aber nur ihr
-  anbieterneutraler Teil* — ein eingehender Bedarfs-Eingang hinter den
-  bestehenden API-Schluessel-Scopes (`write:requisitions`/`write:timesheets`,
-  vorhanden, nie fuer diesen Zweck verdrahtet). Er traegt beide VMS, ist fuer
-  Kunden ohne VMS sofort nuetzlich und behaelt seinen Wert, wenn der
-  Partnerzugang nie kommt. **Was nur der Owner kann:** den Zugang zur
-  Spezifikation beschaffen — Fieldglass und Beeline fuehren
-  Lieferanten-Anbindungen ueber ihre Partnerprogramme, das setzt eine
-  Vereinbarung und meist einen gemeinsamen Kunden voraus. Ohne diesen Zugang
-  waere jede Feldzuordnung geraten. Vollstaendige Analyse:
-  `docs/INTEGRATIONS.md`, Abschnitt „VMS- und ERP-Anbindung".
+- **W-E8 (neu 2026-09-30, nach Recherche korrigiert)** — **VMS-/ERP-Anbindung:
+  welche Richtung zuerst?** (Owner-Abschnitt 16.) Gemessen: die
+  Konnektor-**Registry** steht (`org_erp_mappings`, Mig 130, sechs Systemtypen
+  inkl. `zvoove`), die **Konnektoren** stehen nicht — `erpMappingService.js:4`
+  sagt das ausdruecklich („keine externe IO hier“). Provider-Adapter gibt es nur
+  fuer **Slack und Teams**. **SAP Fieldglass und Beeline: null Code-Dateien.**
+  **Recherchiert gegen die Herstellerseiten: ein Partnerprogramm ist bei keinem
+  der vier technische Voraussetzung** — aber jeder Zugang laeuft ueber
+  Zugangsdaten, die jemand anderes ausstellt. Personio: der Kunde selbst
+  (Tarif mit API-Zugang). zvoove Recruit: der Kunde (API-Key). **zvoove PDL:
+  vermutlich nur ueber zvooves Schnittstellenpartner** — die einzige Stelle, an
+  der sich eine Partnerschaft wirklich lohnt, weil dort die eigenen Kunden
+  sitzen. SAP Fieldglass: Instanzbesitzer plus Freischaltung durch den
+  SAP-Support. Beeline: das **Beeline Supplier Network**, ein Abo *des
+  Lieferanten* (2.500–30.000 $/Jahr). **Korrektur:** eine fruehere Fassung
+  dieses Eintrags behauptete, die Spezifikationen laegen hinter
+  Partnerprogrammen und jede Feldzuordnung waere ohne sie geraten — **falsch**,
+  beide VMS dokumentieren oeffentlich. Ebenfalls korrigiert: im VMS ist die
+  **Zeitarbeitsfirma** der Lieferant, TempConnect ihre Software. Ob TempConnect
+  selbst Lieferant sein koennte, ist eine **AUeG-Rechtsfrage** (dieselbe wie in
+  Owner-Abschnitt 22). *Empfehlung:* zvoove-Anfrage sofort (Owner),
+  anbieterneutraler Bedarfs-Eingang als erster Code (nach K1), Personio bei
+  Bedarf, Fieldglass/Beeline erst mit einem Grosskunden. Vollstaendig mit
+  Quellen: `docs/INTEGRATIONS.md`, „Zugang je Anbieter“.
 
 ## Offene Befunde ohne Ticket
 

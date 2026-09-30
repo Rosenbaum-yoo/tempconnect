@@ -424,14 +424,19 @@ billig und unspektakulär:
   Farbwerte fallen dabei mit. Vollständigkeit hier wäre teuer und ohne
   messbaren Nutzen.
 
-- **W-E8** — **VMS-/ERP-Anbindung: welche Richtung zuerst?** Lieferantenseite
-  (zvoove/DATEV — Registry steht, Wirkung bei jedem einzelnen Kunden) oder
-  Einkaufsseite (Fieldglass/Beeline — nichts steht, beantwortet aber den
-  haertesten Verkaufseinwand)? *Empfehlung: der anbieterneutrale Teil der
-  Einkaufsseite* — er ist ohne Fremdzugang baubar, traegt beide VMS und ist
-  fuer Kunden ohne VMS sofort nuetzlich. Die Spezifikation der beiden VMS liegt
-  hinter ihren Partnerprogrammen und ist Owner-Arbeit, keine Codearbeit.
-  Gemessene Analyse: `docs/INTEGRATIONS.md`, Abschnitt „VMS- und ERP-Anbindung".
+- **W-E8** — **VMS-/ERP-Anbindung: welche Richtung zuerst?** *Nach Recherche
+  am 2026-09-30 korrigiert:* ein Partnerprogramm ist bei **keinem** der vier
+  Anbieter technische Voraussetzung. Personio und zvoove Recruit gibt der Kunde
+  selbst frei; SAP Fieldglass der Instanzbesitzer plus Freischaltung durch den
+  SAP-Support; Beeline über ein kostenpflichtiges Lieferanten-Abo (Beeline
+  Supplier Network, 2.500–30.000 $/Jahr) **der Zeitarbeitsfirma**. **Die eine
+  Ausnahme ist zvoove PDL**: die dokumentierten Anbindungen laufen alle über
+  zvooves Schnittstellenpartner — dort lohnt die Partnerschaft, weil dort die
+  eigenen Kunden sitzen. *Empfehlung:* zvoove-Anfrage sofort (Owner),
+  anbieterneutraler Bedarfs-Eingang als erster Code (nach K1), Personio bei
+  Bedarf, Fieldglass/Beeline erst mit einem Großkunden — und vorher die
+  AÜG-Frage, wer im VMS der Lieferant ist. Mit Quellen:
+  `docs/INTEGRATIONS.md`, „Zugang je Anbieter“.
 
 - **W-E5** — **`requireOrgContext` als Middleware (Vereinheitlichung der
   Null-Politik, Fortsetzung von D-M2).** Die 42 fail-open-Stellen auf einmal
