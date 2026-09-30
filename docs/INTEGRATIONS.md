@@ -378,6 +378,17 @@ irreführend ist. Es sind **zwei Richtungen mit unterschiedlichem Datenmodell**:
 | Was fehlt | die Konnektoren (Registry ist da) | **alles** — es gibt keinen eingehenden Bedarfs-Eingang |
 | Fundament im Bestand | `org_erp_mappings`, CSV-Exporte | die **API-Schlüssel-Scopes** `write:requisitions` / `write:timesheets` — vorhanden, aber für diesen Zweck nie verdrahtet |
 
+**Lücke der Lieferantenseite, geprüft 2026-09-30: die Integrationsseite sieht nur das
+Unternehmen.** `integrations.html` ist in `api/config/visibilityMatrix.js` allein für
+`company` freigegeben — die Zeitarbeitsfirma (`agency`), deren System zvoove oder Personio
+ist, sieht sie nicht. Die API darunter ist **nicht** so eng: `/org/erp-mappings` verlangt
+nur das Recht `org.settings` (`api/routes/integrations.js`), und die DATEV-Exporte laufen
+über eigene Routen an Stundenzetteln und Rechnungen. Heute fällt das deshalb nicht auf.
+Vor dem ersten zvoove- oder Personio-Anschluss muss die Seite aber auch für `agency`
+aufgehen, sonst hat genau die Firma, deren System angebunden wird, keinen Ort, die
+Anbindung einzurichten. Das gehört in das Anschluss-Ticket (Rollen-/Sichtbarkeitslogik,
+mit Boundary-Test), nicht in einen Vorab-Patch.
+
 **Die Einkaufsseite ist der stärkere Verkaufshebel.** Sie beantwortet den
 häufigsten Einkauf-Einwand — *„wir haben schon ein System"* — mit *„dann bleiben
 Sie darin"*. Genau das steht als Ziel in Abschnitt 16: „Keine Zeitarbeitsfirma
