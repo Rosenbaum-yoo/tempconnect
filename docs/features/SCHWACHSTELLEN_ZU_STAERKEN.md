@@ -470,6 +470,20 @@ billig und unspektakulär:
   als Beispiel gekennzeichneter Zero-State, der bei 500/401 den Fehler **benennt** statt
   ihn zu verdecken. Herleitung unten.
 
+- **W-E9 (neu, 2026-09-30)** — **Admin Panel für Kunden: abschaffen und auf die Verwaltung
+  umleiten, statt es zu reparieren?** Auf beiden Seiten am laufenden System geprüft (frische
+  Datenbank, alle Migrationen, Browser): Unternehmen und Zeitarbeitsfirma sehen dieselbe
+  Plattform-Hülle — „Deaktivieren" endet immer in HTTP 500, zwei Bedienelemente sind tot,
+  9 von 9 Kennzahlen zeigen 0, und alles, was ein Kunde dort tun kann, hat das Organization
+  Control Center schon besser. *Empfehlung: ja* — mitzunehmen ist nur der CSV-Export des
+  Protokolls; dazu deutsche Rollennamen je Seite (die Namen bestätigt der Owner). Befund:
+  `docs/ADMIN_CONTROL_CENTER.md`, Vorschau: `docs/design/vorschau-verwaltung-kunden.html`.
+- **W-E10 (neu, 2026-09-30)** — **Plattform-Teil des Admin Panels: Feature-Flags und
+  Produkt-Updates ins Staff Control Center, danach `admin_panel.html` stilllegen?** Die fünf
+  Plattform-Reiter verlangen `platform_admin`, und diese Rolle vergibt heute kein Skript und
+  keine Oberfläche — erreichbar sind sie für niemanden. *Empfehlung: ja, zusammen mit der
+  OCC-Überführung (W-E6).*
+
 ---
 
 ## Das Register der Schwachstellen
@@ -509,6 +523,11 @@ die Liste, die abgearbeitet wird** — nichts steht hier ohne Quelle.
 | 28 | Bus-Faktor 1 · 253 Commits lagen auf einer Platte — **am 30.09. gepusht** | `git` | 8 |
 | 29 | Zwei von vier Pflicht-Lesedateien fehlen im Klon | `CLAUDE.md` vs. frischer Klon | 8 |
 | 30 | Marktgang bei 0 % — kein zahlender Kunde | — | *kein Code* |
+| 31 | Admin Panel für Kunden: „Deaktivieren" endet immer in HTTP 500 (`users_role_check` kennt kein `inactive`) | echte DB + API, 2026-09-30 | 6 *(W-E9)* |
+| 32 | Admin Panel für Kunden: zwei tote Bedienelemente („Metriken öffnen", „Speichern" bei Requests), fünf Links in Sackgassen (System Health, Executive Dashboard für Zeitarbeitsfirmen, drei Revenue-/Funnel-Drilldowns) | Klick im Browser, beide Seiten | 6 *(W-E9)* |
+| 33 | Admin Panel für Kunden: 9 von 9 Kennzahlen zeigen 0, Plattform- und Entwicklersprache, acht Emojis, am Handy 823 px breit | Browser, beide Seiten | 6 *(W-E9)* |
+| 34 | Zeitarbeitsfirmen haben keinen Menüpunkt zur Verwaltung („Steuerung" hängt am Executive Dashboard) | `hubVisibility.js:117` | 6 *(W-E9)* |
+| 35 | Plattform-Reiter des Admin Panels erreicht niemand; Feature-Flags und Produkt-Updates gibt es nur dort | Code + Demo-DB | *(W-E10, mit W-E6)* |
 
 ---
 

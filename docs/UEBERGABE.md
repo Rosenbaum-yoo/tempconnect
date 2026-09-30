@@ -2148,7 +2148,7 @@ zurückziehen müssen.**
 | [features/P12_MUTATION_AUFRAEUMEN.md](features/P12_MUTATION_AUFRAEUMEN.md) | Aufräum-Wellen M0–M6 für die 112 überlebenden Mutanten. **Vollständig abgeschlossen** (2026-08-15): 39/39 A-Fälle geschlossen, Aggregat 94,43 %. |
 | [qualitaet/mutation/2026-08-15-rbac-nach-wellen/](qualitaet/mutation/2026-08-15-rbac-nach-wellen/README.md) | Der Lauf NACH den Wellen: 94,43 %, 72 Überlebende, null A-Fälle. Der Gegenbeleg zum 14.08. |
 | [qualitaet/mutation/2026-08-14-rbac/TRIAGE.md](qualitaet/mutation/2026-08-14-rbac/TRIAGE.md) | Das Ergebnis von M0: alle 112 Fälle einzeln eingestuft und gegengelesen (39 A · 32 B · 41 C), die Wellenreihenfolge und acht Befunde — darunter, dass der nächtliche Mutations-Job nie gelaufen ist. |
-| [features/SCHWACHSTELLEN_ZU_STAERKEN.md](features/SCHWACHSTELLEN_ZU_STAERKEN.md) | **Schwachstellen zu Staerken**, Wellen 1-8: jede gemessene Schwaeche mit Beleg, Abnahmekriterium und Welle. Register mit 30 Punkten. Entstanden aus der ersten Verifikation auf einer fremden Maschine (2026-09-29). **Welle 1 zuerst** - jede Aussage der anderen Wellen haengt an ihr. |
+| [features/SCHWACHSTELLEN_ZU_STAERKEN.md](features/SCHWACHSTELLEN_ZU_STAERKEN.md) | **Schwachstellen zu Staerken**, Wellen 1-8: jede gemessene Schwaeche mit Beleg, Abnahmekriterium und Welle. Register mit 35 Punkten. Entstanden aus der ersten Verifikation auf einer fremden Maschine (2026-09-29). **Welle 1 zuerst** - jede Aussage der anderen Wellen haengt an ihr. |
 
 ---
 
@@ -3466,7 +3466,8 @@ laufen, trägt der Schalter.
   Karte, Registereintrag, Wächterlauf). *Owner.*
 
 > **W-E1 bis W-E8** stammen aus der ersten Prüfung auf einer fremden Maschine
-> (2026-09-29 auf `main`, 2026-09-30 gegen die K1-Linie `94117a7` nachgemessen). Plan mit
+> (2026-09-29 auf `main`, 2026-09-30 gegen die K1-Linie `94117a7` nachgemessen), **W-E9 und
+> W-E10** aus der Prüfung des Admin Panels auf beiden Seiten (2026-09-30). Plan mit
 > Register und Wellen: [features/SCHWACHSTELLEN_ZU_STAERKEN.md](features/SCHWACHSTELLEN_ZU_STAERKEN.md).
 
 - ~~**W-E1**~~ ✅ **auf K1 erledigt** (`47a2e08`): die Doku-Wächter lesen den Git-Index statt
@@ -3541,6 +3542,27 @@ laufen, trägt der Schalter.
   Reihenfolge:* zvoove-Anfrage sofort (Owner), anbieterneutraler Bedarfs-Eingang als erster
   Code, Personio bei Bedarf, Fieldglass/Beeline erst mit einem Großkunden. Mit Quellen:
   `docs/INTEGRATIONS.md`, „Zugang je Anbieter".
+- **W-E9 (neu, 2026-09-30)** — **Admin Panel für Kunden abschaffen und auf die Verwaltung
+  (`organization.html`) umleiten, statt es zu reparieren?** Geprüft am laufenden System
+  (frische Datenbank mit allen 229 Migrationen und der Demo-Welt, Browser, angemeldet als
+  Owner eines Unternehmens und einer Zeitarbeitsfirma): beide Seiten sehen dieselbe
+  Plattform-Hülle. **„Deaktivieren" endet immer in HTTP 500** — die Route setzt
+  `users.role = 'inactive'`, `users_role_check` erlaubt seit Migration 029 nur
+  company/agency/worker; „Metriken öffnen" und „Speichern" bei Requests sind tot; 9 von 9
+  Kennzahlen zeigen 0; am Handy 823 Pixel breit, die Mitgliederliste erst nach 5,9
+  Bildschirmhöhen. Alles, was ein Kunde dort tun kann, gibt es im Organization Control
+  Center schon — bis auf den CSV-Export des Protokolls. *Empfehlung: ja*, dazu deutsche
+  Rollennamen je Seite (Owner bestätigt die Namen). **Bis zur Entscheidung nichts an der
+  Seite reparieren**; heißt die Antwort „nein", ist der Fix für „Deaktivieren" das Beenden
+  der Mitgliedschaft, **nicht** das Erlauben von `inactive` (sonst sperrt ein früherer
+  Arbeitgeber ein fremdes Konto). Befund mit Belegen: `docs/ADMIN_CONTROL_CENTER.md`,
+  Vorschau: `docs/design/vorschau-verwaltung-kunden.html`.
+- **W-E10 (neu, 2026-09-30)** — **Plattform-Teil des Admin Panels ins Staff Control Center,
+  danach `admin_panel.html` stilllegen?** Die fünf Plattform-Reiter verlangen
+  `platform_admin`; kein Skript, keine Einladung und kein Rollenwechsel vergibt diese Rolle
+  — erreichbar sind sie für niemanden. Nur hier gibt es **Feature-Flags** (Freischaltung für
+  einen Kunden, nach `FLAECHEN.md` Owner-Ebene) und **Produkt-Updates**. *Empfehlung: ja,
+  zusammen mit der OCC-Überführung (W-E6).*
 
 ## Offene Befunde ohne Ticket
 

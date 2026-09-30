@@ -2,6 +2,28 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-09-30 — Admin Panel beidseitig geprüft: für Kunden eine zweite Verwaltung, ein Knopf kaputt, zwei tot
+
+**Status:** offen, wartet auf Owner-Entscheidung **W-E9** (Kunden) und **W-E10** (Plattform)
+· **Kategorie:** echter Fehler + UX + Parallelstruktur · **Quelle:** Prüfung am laufenden
+System — frische Datenbank mit allen 229 Migrationen und der Demo-Welt, Browser, angemeldet
+als Owner eines Unternehmens und als Owner einer Zeitarbeitsfirma
+
+| Befund | Beleg |
+|---|---|
+| **„Deaktivieren" endet immer in HTTP 500** — `users_role_check` kennt kein `inactive` | API-Aufruf + Server-Log + dasselbe `UPDATE` direkt in der Datenbank |
+| „Metriken öffnen" und „Speichern" bei Requests sind tot | Klick im Browser (Reiter bleibt stehen) · `PATCH /admin/requests/:id/status` → 403 |
+| 9 von 9 Kennzahlen zeigen 0, Plattformsprache, acht Emojis | Seitentext, beide Seiten identisch |
+| Am Handy 823 Pixel breit, Mitgliederliste erst bei 4.942 Pixeln | gemessen |
+| Zeitarbeitsfirmen haben keinen Menüpunkt zur Verwaltung | `hubVisibility.js:117` |
+| Die fünf Plattform-Reiter erreicht niemand (`platform_admin` wird nirgends vergeben) | Code + Demo-Datenbank |
+
+**Empfehlung:** für Kunden abschaffen und auf die Verwaltung (`organization.html`) umleiten
+statt einzeln reparieren — nur der CSV-Export des Protokolls zieht mit um. **Bis zur
+Entscheidung nichts an der Seite reparieren**; der 500er richtet keinen Schaden an. Befund,
+Vorschlag, Tests und Rückweg: `docs/ADMIN_CONTROL_CENTER.md` (Abschnitt „Prüfung
+beidseitig"); Vorschau: `docs/design/vorschau-verwaltung-kunden.html`.
+
 ### 2026-09-30 — Die K1-Linie auf einer fremden Maschine: null Fehler, aber keine feste Testzahl
 
 **Status:** vier Befunde vom 29.09. auf K1 bereits an der Wurzel gelöst, zwei offen (P0.11,

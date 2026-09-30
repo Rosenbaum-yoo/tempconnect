@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <!--
+    VORSCHAU — kein Produktionscode. Owner-Entscheidung W-E9
+    (docs/features/SCHWACHSTELLEN_ZU_STAERKEN.md, Befund in docs/ADMIN_CONTROL_CENTER.md).
+
+    Zeigt, wie die Verwaltung fuer Kunden (Unternehmen UND Zeitarbeitsfirma)
+    aussieht, wenn das Admin Panel fuer Kunden entfaellt und das Organization
+    Control Center die eine Verwaltungsseite wird.
+
+    Bauregeln, an die sich diese Vorschau haelt und die ein Umbau erben muss:
+      - nur Bausteine und Token aus design-system.css, kein Hex-Wert, keine Emojis
+      - nur Daten und Aktionen, fuer die es heute einen Endpunkt gibt
+        (/org/overview, /org/members, /org/invitations, /org/audit-log,
+         /admin/audit-log/export/csv) — Ausnahme, ausdruecklich markiert:
+        das Pflichtfeld "Grund" beim Entfernen (DELETE /org/members/:userId
+        nimmt heute keinen Grund an)
+      - Beispieldaten aus der Demo-Welt (Migration 052), nichts davon ist echt
+
+    Ansehen: nur ueber die laufende App (braucht /public/css und /public/js).
+      ?seite=unternehmen|zeitarbeit   ?reiter=team|protokoll   ?dialog=entfernen
+  -->
+  <title>Vorschau: Verwaltung für Kunden</title>
+  <script src="/public/js/theme.js"></script>
+  <script src="/public/js/i18n.js"></script>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .vs-ribbon {
+      position: sticky; top: 0; z-index: var(--ds-z-sticky);
+      padding: var(--ds-space-2) var(--ds-space-4);
+      background: var(--ds-warning-muted); color: var(--ds-text);
+      border-bottom: 1px solid var(--ds-border);
+      font-size: 12px; font-weight: 600; text-align: center;
+    }
+    .vs-crumb { font-size: 13px; color: var(--ds-text-secondary); margin: var(--ds-space-4) 0 var(--ds-space-2); }
+    .vs-crumb b { color: var(--ds-text); }
+    .vs-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--ds-space-4); }
+    .vs-head__badges { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
+    .vs-scope { display: flex; align-items: center; gap: var(--ds-space-2); margin-top: var(--ds-space-2); font-size: 13px; color: var(--ds-text-secondary); }
+    .vs-scope::before { content: ""; width: 8px; height: 8px; border-radius: var(--ds-radius-full); background: var(--ds-success); }
+    .vs-kpis { margin: var(--ds-space-6) 0 var(--ds-space-5); grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .vs-kpis .ds-kpi { text-align: left; }
+    .vs-kpi__sub { display: block; margin-top: var(--ds-space-1); font-size: 12px; color: var(--ds-text-tertiary); }
+    .vs-tabs {
+      display: flex; gap: var(--ds-space-1); overflow-x: auto; scrollbar-width: thin;
+      border-bottom: 1px solid var(--ds-border); margin-bottom: var(--ds-space-5);
+    }
+    .vs-tab {
+      flex: 0 0 auto; display: inline-flex; align-items: center; gap: var(--ds-space-2);
+      padding: var(--ds-space-3) var(--ds-space-4); border: 0; background: none; cursor: pointer;
+      font: inherit; font-size: 14px; font-weight: 600; color: var(--ds-text-secondary);
+      border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
+    }
+    .vs-tab[aria-selected="true"] { color: var(--ds-text); border-bottom-color: var(--ds-brand); }
+    .vs-tab__n {
+      min-width: 20px; padding: 0 var(--ds-space-2); border-radius: var(--ds-radius-full);
+      background: var(--ds-bg-surface); border: 1px solid var(--ds-border); font-size: 12px; text-align: center;
+    }
+        .vs-section-title { display: flex; align-items: baseline; justify-content: space-between; gap: var(--ds-space-3); margin: 0 0 var(--ds-space-3); }
+    .vs-section-title h2 { margin: 0; font-size: 16px; }
+    .vs-person { display: flex; align-items: center; gap: var(--ds-space-3); }
+    .vs-avatar {
+      flex: 0 0 auto; width: 36px; height: 36px; border-radius: var(--ds-radius-full);
+      display: grid; place-items: center; font-size: 13px; font-weight: 700;
+      background: var(--ds-brand-muted); color: var(--ds-brand);
+    }
+    .vs-person__name { font-weight: 700; }
+    .vs-person__mail { font-size: 12px; color: var(--ds-text-secondary); }
+    .vs-avatar--invite { background: var(--ds-bg-surface); color: var(--ds-text-tertiary); border: 1px dashed var(--ds-border); }
+    .vs-row--invite .vs-person__name { font-weight: 600; color: var(--ds-text-secondary); }
+    .vs-table .ds-select { min-width: 160px; }
+    .vs-table { margin-top: var(--ds-space-4); }
+    .vs-table { width: 100%; }
+    .vs-you { font-size: 12px; color: var(--ds-text-tertiary); font-weight: 600; }
+    .vs-invitebar { display: grid; grid-template-columns: minmax(0, 1fr) 220px auto; gap: var(--ds-space-2); margin-top: var(--ds-space-2); }
+    .vs-muted { color: var(--ds-text-secondary); font-size: 12px; }
+    .vs-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); margin-bottom: var(--ds-space-4); }
+    .vs-toolbar .ds-select { width: auto; min-width: 180px; }
+    .vs-toolbar .vs-grow { flex: 1 1 200px; width: auto; }
+    .vs-note { margin-top: var(--ds-space-3); font-size: 12px; color: var(--ds-text-tertiary); }
+    .vs-effect { margin: 0 0 var(--ds-space-4); padding-left: var(--ds-space-5); display: grid; gap: var(--ds-space-2); font-size: 14px; }
+    .vs-new { display: inline-block; margin-left: var(--ds-space-2); font-size: 11px; font-weight: 700; color: var(--ds-warning); }
+    .vs-hidden { display: none; }
+
+    @media (max-width: 760px) {
+      .vs-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .vs-invitebar { grid-template-columns: minmax(0, 1fr); }
+      .vs-person__mail { white-space: normal; overflow-wrap: anywhere; }
+      .vs-table thead { display: none; }
+      .vs-table, .vs-table tbody, .vs-table tr, .vs-table td { display: block; width: 100%; }
+      .vs-table tr { padding: var(--ds-space-3) 0; border-bottom: 1px solid var(--ds-border); }
+      .vs-table td { border: 0; padding: var(--ds-space-1) 0; }
+      .vs-table td[data-label]::before {
+        content: attr(data-label); display: block; font-size: 11px; font-weight: 700;
+        letter-spacing: .04em; text-transform: uppercase; color: var(--ds-text-tertiary);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="vs-ribbon">Vorschau · Entwurf zur Owner-Entscheidung W-E9 · Beispieldaten aus der Demo-Welt, nichts davon ist echt</div>
+  <div class="wrap">
+    <div id="tc-shell"></div>
+    <script src="/public/js/pageShell.js"></script>
+    <script>TC.shell.init({});</script>
+
+    <div class="vs-crumb">Übersicht › <b>Verwaltung</b></div>
+    <div class="vs-head">
+      <div>
+        <h1 class="ds-page-title" id="vsTitle">Verwaltung</h1>
+        <p class="ds-page-subtitle ds-mb-0" id="vsSubtitle"></p>
+        <div class="vs-scope" id="vsScope"></div>
+      </div>
+      <div class="vs-head__badges" id="vsBadges"></div>
+    </div>
+
+    <div class="ds-kpi-grid vs-kpis" id="vsKpis"></div>
+
+    <div class="vs-tabs" role="tablist" id="vsTabs"></div>
+
+    <!-- Reiter: Team — Mitglieder und offene Einladungen in EINER Liste -->
+    <section id="panel-team">
+      <div class="ds-card">
+        <div class="vs-section-title">
+          <h2>Mitglieder</h2>
+          <span class="vs-muted" id="vsMemberCount"></span>
+        </div>
+        <form class="vs-invitebar" onsubmit="return false" aria-label="Mitglied einladen">
+          <input id="vsMail" class="ds-input" type="email" placeholder="E-Mail der Person, die Sie einladen möchten" aria-label="E-Mail"/>
+          <select id="vsRole" class="ds-select" aria-label="Rolle"></select>
+          <button class="ds-btn ds-btn--primary" type="submit">Einladen</button>
+        </form>
+        <p class="vs-muted ds-mt-2">Die Owner-Rolle wird nie per Einladung vergeben.</p>
+        <table class="ds-table vs-table">
+          <thead><tr><th>Person</th><th>Rolle</th><th>Standorte</th><th>Status</th><th></th></tr></thead>
+          <tbody id="vsMembers"></tbody>
+        </table>
+        <p class="vs-note">Ein entferntes Mitglied verliert nur den Zugang zu dieser Firma. Sein Konto bleibt bestehen, und Sie können es jederzeit wieder einladen.</p>
+      </div>
+    </section>
+
+    <!-- Reiter: Protokoll -->
+    <section id="panel-protokoll" class="vs-hidden">
+      <div class="ds-card">
+        <div class="vs-toolbar">
+          <select class="ds-select" aria-label="Zeitraum"><option>Letzte 30 Tage</option><option>Letzte 7 Tage</option><option>Heute</option></select>
+          <select class="ds-select" aria-label="Art"><option>Alle Vorgänge</option><option>Anmeldungen</option><option>Team und Rollen</option><option>Einsätze</option></select>
+          <input class="ds-input vs-grow" type="search" placeholder="Person oder Vorgang suchen"/>
+          <button class="ds-btn ds-btn--ghost" type="button">Als CSV exportieren</button>
+        </div>
+        <table class="ds-table vs-table">
+          <thead><tr><th>Zeitpunkt</th><th>Wer</th><th>Was</th><th>Ergebnis</th></tr></thead>
+          <tbody id="vsLog"></tbody>
+        </table>
+        <p class="vs-note">Das Protokoll wird automatisch geschrieben und lässt sich nicht abschalten. Sie sehen nur Vorgänge Ihrer eigenen Firma.</p>
+      </div>
+    </section>
+
+    <!-- Wirkungsvorschau vor dem Entfernen -->
+    <div class="ds-modal" id="vsDialog" role="dialog" aria-modal="true" aria-labelledby="vsDialogTitle">
+      <div class="ds-modal__panel">
+        <div class="ds-modal__header"><h2 class="ds-modal__title" id="vsDialogTitle"></h2></div>
+        <p class="ds-mt-0">Was passiert:</p>
+        <ol class="vs-effect" id="vsEffect"></ol>
+        <label class="ds-label" for="vsReason">Grund <span class="vs-new">neu</span></label>
+        <input id="vsReason" class="ds-input ds-w-full" type="text" placeholder="z. B. hat das Unternehmen verlassen"/>
+        <div class="ds-modal__footer">
+          <button class="ds-btn ds-btn--ghost" type="button">Abbrechen</button>
+          <button class="ds-btn ds-btn--danger" type="button">Zugang entfernen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+    function esc(v) {
+      return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+    function initials(name) {
+      return String(name || '?').split(/\s+/).map(function (p) { return p.charAt(0); }).join('').slice(0, 2).toUpperCase();
+    }
+
+    /* Rollen je Seite — Vorschlag: heute bietet die Einladung jeder Seite alle
+       zehn Rollen an (organization.html:118). */
+    var ROLLEN = {
+      unternehmen: ['Admin', 'Programm-Manager', 'Hiring-Manager', 'Supplier-Manager', 'Finanzen', 'Mitglied', 'Betrachter'],
+      zeitarbeit: ['Admin', 'Disponent/in', 'Recruiter/in', 'Finanzen', 'Mitglied', 'Betrachter']
+    };
+
+    /* Beispieldaten aus der Demo-Welt (Migration 052). */
+    var SEITEN = {
+      unternehmen: {
+        org: 'Nordbau Industrie GmbH', seite: 'Unternehmen', badge: 'ds-badge--brand', tarif: 'Individuell',
+        ich: 'Thomas Brinkmann',
+        mitglieder: [
+          { name: 'Thomas Brinkmann', mail: 'demo-buyer@tempconnect.de', rolle: 'Owner', ich: true },
+          { name: 'Julia Hartmann', mail: 'demo-admin@tempconnect.de', rolle: 'Admin' }
+        ],
+        einladungen: [{ mail: 'einkauf@nordbau-industrie.de', rolle: 'Finanzen', seit: 'seit 2 Tagen' }],
+        kpis: [['2', 'Mitglieder', 'beide aktiv'], ['1', 'Offene Einladung', 'Finanzen'], ['0', 'Standorte', 'noch keiner angelegt'], ['0', 'Schnittstellen', 'API-Schlüssel und Webhooks']],
+        log: []
+      },
+      zeitarbeit: {
+        org: 'ElektroStaff GmbH', seite: 'Zeitarbeitsfirma', badge: 'ds-badge--accent', tarif: 'Individuell',
+        ich: 'Sandra Köhler',
+        mitglieder: [{ name: 'Sandra Köhler', mail: 'demo-agency@tempconnect.de', rolle: 'Owner', ich: true }],
+        einladungen: [{ mail: 'dispo@elektrostaff.de', rolle: 'Disponent/in', seit: 'seit 1 Tag' }],
+        kpis: [['1', 'Mitglied', 'aktiv'], ['1', 'Offene Einladung', 'Disponent/in'], ['0', 'Standorte', 'noch keiner angelegt'], ['0', 'Schnittstellen', 'API-Schlüssel und Webhooks']],
+        log: [
+          ['Heute, 18:08', 'Sandra Köhler', 'Anmeldung', 'erfolgreich'],
+          ['29.09., 14:12', 'Sandra Köhler', 'Mitglied eingeladen: dispo@elektrostaff.de als Disponent/in', 'erfolgreich'],
+          ['27.09., 09:40', 'Sandra Köhler', 'Anfrage von Nordbau Industrie GmbH angenommen', 'erfolgreich']
+        ]
+      }
+    };
+
+    var q = new URLSearchParams(location.search);
+    var key = q.get('seite') === 'zeitarbeit' ? 'zeitarbeit' : 'unternehmen';
+    var reiter = q.get('reiter') === 'protokoll' ? 'protokoll' : 'team';
+    var d = SEITEN[key];
+
+    document.getElementById('vsTitle').textContent = 'Verwaltung';
+    document.getElementById('vsSubtitle').textContent = 'Team, Rechte, Sicherheit und Protokoll von ' + d.org + '.';
+    document.getElementById('vsScope').textContent = 'Sie sehen nur Ihre eigene Firma. Plattformweite Einstellungen verwaltet TempConnect.';
+    document.getElementById('vsBadges').innerHTML =
+      '<span class="ds-badge ' + d.badge + '">' + esc(d.seite) + '</span>' +
+      '<span class="ds-badge ds-badge--plan">Tarif: ' + esc(d.tarif) + '</span>';
+
+    document.getElementById('vsKpis').innerHTML = d.kpis.map(function (k) {
+      return '<div class="ds-kpi"><span class="ds-kpi__value">' + esc(k[0]) + '</span>' +
+        '<span class="ds-kpi__label">' + esc(k[1]) + '</span><span class="vs-kpi__sub">' + esc(k[2]) + '</span></div>';
+    }).join('');
+
+    var tabs = [
+      ['team', 'Team', d.mitglieder.length], ['orte', 'Standorte'], ['rollen', 'Rollen'],
+      ['sicherheit', 'Sicherheit'], ['protokoll', 'Protokoll'], ['schnittstellen', 'Schnittstellen'], ['tarif', 'Tarif']
+    ];
+    document.getElementById('vsTabs').innerHTML = tabs.map(function (t) {
+      return '<button class="vs-tab" role="tab" aria-selected="' + (t[0] === reiter) + '">' + esc(t[1]) +
+        (t[2] != null ? '<span class="vs-tab__n">' + esc(t[2]) + '</span>' : '') + '</button>';
+    }).join('');
+    document.getElementById('panel-team').classList.toggle('vs-hidden', reiter !== 'team');
+    document.getElementById('panel-protokoll').classList.toggle('vs-hidden', reiter !== 'protokoll');
+
+    var offen = d.einladungen.length;
+    document.getElementById('vsMemberCount').textContent = d.mitglieder.length + (d.mitglieder.length === 1 ? ' Person' : ' Personen') +
+      (offen ? ' · ' + offen + (offen === 1 ? ' Einladung offen' : ' Einladungen offen') : '');
+    var rollenOptionen = ROLLEN[key];
+    var zeilen = d.mitglieder.map(function (m) {
+      var rolle = m.ich
+        ? esc(m.rolle) + ' <span class="vs-you">(Sie)</span>'
+        : '<select class="ds-select" aria-label="Rolle von ' + esc(m.name) + '">' + rollenOptionen.map(function (r) {
+            return '<option' + (r === m.rolle ? ' selected' : '') + '>' + esc(r) + '</option>';
+          }).join('') + '</select>';
+      var aktion = m.ich ? '' : '<button class="ds-btn ds-btn--ghost ds-btn--sm" type="button">Entfernen</button>';
+      return '<tr>' +
+        '<td data-label="Person"><div class="vs-person"><span class="vs-avatar">' + esc(initials(m.name)) + '</span>' +
+          '<div><div class="vs-person__name">' + esc(m.name) + '</div><div class="vs-person__mail">' + esc(m.mail) + '</div></div></div></td>' +
+        '<td data-label="Rolle">' + rolle + '</td>' +
+        '<td data-label="Standorte">Alle Standorte</td>' +
+        '<td data-label="Status"><span class="ds-badge ds-badge--success">Aktiv</span></td>' +
+        '<td class="ds-text-right">' + aktion + '</td>' +
+      '</tr>';
+    });
+    d.einladungen.forEach(function (e) {
+      zeilen.push('<tr class="vs-row--invite">' +
+        '<td data-label="Person"><div class="vs-person"><span class="vs-avatar vs-avatar--invite">' + esc(e.mail.charAt(0).toUpperCase()) + '</span>' +
+          '<div><div class="vs-person__name">' + esc(e.mail) + '</div><div class="vs-person__mail">noch nicht angenommen</div></div></div></td>' +
+        '<td data-label="Rolle">' + esc(e.rolle) + '</td>' +
+        '<td data-label="Standorte">Alle Standorte</td>' +
+        '<td data-label="Status"><span class="ds-badge ds-badge--warning">Eingeladen ' + esc(e.seit) + '</span></td>' +
+        '<td class="ds-text-right"><button class="ds-btn ds-btn--ghost ds-btn--sm" type="button">Zurückziehen</button></td>' +
+      '</tr>');
+    });
+    document.getElementById('vsMembers').innerHTML = zeilen.join('');
+    document.getElementById('vsRole').innerHTML = rollenOptionen.map(function (r) {
+      return '<option' + (r === 'Mitglied' ? ' selected' : '') + '>' + esc(r) + '</option>';
+    }).join('');
+
+    document.getElementById('vsLog').innerHTML = d.log.map(function (l) {
+      var ok = l[3] === 'erfolgreich';
+      return '<tr><td data-label="Zeitpunkt">' + esc(l[0]) + '</td><td data-label="Wer">' + esc(l[1]) + '</td>' +
+        '<td data-label="Was">' + esc(l[2]) + '</td>' +
+        '<td data-label="Ergebnis"><span class="ds-badge ' + (ok ? 'ds-badge--success' : 'ds-badge--danger') + '">' + esc(l[3]) + '</span></td></tr>';
+    }).join('');
+
+    if (q.get('dialog') === 'entfernen') {
+      var ziel = d.mitglieder.filter(function (m) { return !m.ich; })[0];
+      if (ziel) {
+        var vorname = ziel.name.split(' ')[0];
+        document.getElementById('vsDialogTitle').textContent = ziel.name + ' aus ' + d.org + ' entfernen?';
+        document.getElementById('vsEffect').innerHTML = [
+          vorname + ' verliert sofort den Zugang zu ' + d.org + '.',
+          'Das TempConnect-Konto bleibt bestehen. Arbeitet ' + vorname + ' auch für eine andere Firma, ändert sich dort nichts.',
+          'Der Vorgang steht im Protokoll, mit Ihrem Namen und dem Grund.',
+          'Rückgängig machen: ' + vorname + ' einfach wieder einladen.'
+        ].map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('');
+        document.getElementById('vsDialog').classList.add('show');
+      }
+    }
+  })();
+  </script>
+</body>
+</html>
