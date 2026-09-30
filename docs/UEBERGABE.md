@@ -3499,13 +3499,18 @@ laufen, trägt der Schalter.
   sondern „verdrahten": die 42 fail-open-Stellen auf einmal dahinter ziehen oder Datei für
   Datei mit dem Wächter im Rücken? *Empfehlung: erst nach W-E2* — ohne stabile Testzahl ist
   nicht belegbar, dass beim Umbau von 80 Vergleichen nichts verloren ging.
-- **W-E6 (neu, 2026-09-29)** — **Owner Control Center: ausbauen oder verwerfen?**
-  Owner-Abschnitt 17 fragt genau das — die Frage wurde **nie beantwortet**, und die Fläche
-  wächst weiter: auf K1 **8.215 Zeilen** (Frontend 4.858, Backend 3.357), am Vortag auf `main`
-  noch 7.902. Dazu eine eigene Wächterschicht (B3) und zwei offene Blocker (OCC-Logout,
-  `MFA_ENFORCE`). *Eine unbeantwortete Frage ist teurer als eine falsch beantwortete: die
-  falsche kostet einen Revert, die fehlende kostet unbegrenzt weiter.* Aufwand der
-  Entscheidung: 15 Minuten. Gehört vor jede weitere OCC-Zeile.
+- ~~**W-E6**~~ ✅ **entschieden am 2026-08-27** (Owner, Wortlaut in `docs/FLAECHEN.md`,
+  Abschnitt „Owner-Entscheid 2026-08-27"): *„owner control center mit ins staff center
+  integrieren oder überführen … Eigentlich wollte ich das Owner Center abschalten, aber wenn
+  dort wichtige Prozesse laufen, integrieren wir diese ins Staff Control Center."* Offen ist
+  nicht **ob**, sondern **wie** — vier Teilfragen stehen in `FLAECHEN.md` (Zugangsstufe,
+  Audit-Namensraum, sieben kollidierende Modulnamen, React- gegen Staff-Bauart); der
+  angekündigte Owner-Abschnitt dazu steht aus. **Korrektur:** die Fassung vom 29./30.09.
+  nannte die Frage „nie beantwortet" — falsch; die Entscheidung stand in `CLAUDE.md` und
+  `FLAECHEN.md` der K1-Linie und wurde beim Abgleich übersehen. **Zugang zum OCC** (auch
+  nur zum Sichten, welche Prozesse dort „wichtig" sind): Plattform-Anmeldung **plus**
+  Eintrag in `occ_owner_access` — `node scripts/owner-access-cli.js grant --email … --occ-role
+  owner`. Die Staff-Anmeldung zählt dort nicht (eigene Sitzung, eigenes Cookie `tc.staff.sid`).
 - **W-E7 (neu, 2026-09-29)** — **Demo-Screen bei leerer Live-Belegschaft und bei 500/401
   (Owner-Abschnitt 25).** Widerspricht `CLAUDE.md` („Kein Fake-Data / Mock-KPIs in
   Produktions-UI, auch nicht als Platzhalter"). Wege: (a) ein als Beispiel gekennzeichneter

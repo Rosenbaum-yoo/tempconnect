@@ -460,11 +460,10 @@ billig und unspektakulär:
   berührt 80 Vergleiche in 18 Route-Dateien, und ohne stabile Testzahl ist
   nicht belegbar, dass dabei nichts verloren ging.
 
-- **W-E6** — **Owner Control Center: ausbauen oder verwerfen?** (Owner-Abschnitt 17.)
-  Die Frage wurde nie beantwortet, und die Fläche wächst weiter: auf K1 **8.215 Zeilen**,
-  am Vortag auf `main` 7.902. *Eine unbeantwortete Frage ist teurer als eine falsch
-  beantwortete.* Aufwand der Entscheidung: 15 Minuten. Herleitung unten im Abgleich mit
-  den Owner-Abschnitten.
+- ~~**W-E6**~~ ✅ **entschieden am 2026-08-27** — das Owner Control Center wird ins Staff
+  Control Center überführt (Wortlaut in `docs/FLAECHEN.md`). Offen ist nur das **Wie**: vier
+  Teilfragen in `FLAECHEN.md`, der Owner-Abschnitt dazu steht aus. *Korrektur: am
+  29./30.09. stand hier „nie beantwortet" — die Entscheidung wurde beim Abgleich übersehen.*
 
 - **W-E7** — **Demo-Screen bei leerer Live-Belegschaft und bei 500/401** (Owner-Abschnitt
   25) gegen die Regel „Kein Fake-Data / Mock-KPIs in Produktions-UI". *Empfehlung:* ein
@@ -545,7 +544,7 @@ sich nicht: ein Abschnitt kann fertig gebaut und trotzdem unbelegt sein.
 | 14 | Live-Belegschaft ausbauen | ausgeführt → prüfen | — |
 | 15 | Sperrliste | gebaut (6 Dateien); Staff-CC-Verwaltung offen | — |
 | 16 | Integrationen zu Bestandssystemen | auf K1: **DATEV gebaut**, E-Rechnung gebaut; zvoove/Personio/SAP: Leitung fehlt; **Fieldglass und Beeline 0** | **W-E8** |
-| **17** | **Owner Control Center: ausbauen oder verwerfen** | **Frage nie beantwortet — 8.215 Zeilen auf K1** (am Vortag auf `main` 7.902) | **W-E6** |
+| **17** | **Owner Control Center: ausbauen oder verwerfen** | ✅ **entschieden 2026-08-27: wird ins Staff CC überführt**; das Wie steht aus (`FLAECHEN.md`) · 8.215 Zeilen auf K1 | W-E6 ✅ |
 | 18 | Support Center ausbauen | offen | — |
 | 19 | Repo-Hygiene, Legacy, `.env` rotieren | offen | Welle 1 + 8 |
 | 20 | Angebote im Marktplatz ausbauen | in Arbeit | — |
@@ -558,20 +557,22 @@ sich nicht: ein Abschnitt kann fertig gebaut und trotzdem unbelegt sein.
 
 ### Drei Funde aus diesem Abgleich
 
-**(1) Abschnitt 17 ist die teuerste unbeantwortete Frage des Projekts.** Der
-Owner fragt: „Owner Control Center ausbauen oder verwerfen … wenn Admin auch im
-Enterprise-Hub arbeiten kann, soll das OCC weg oder stillgelegt werden."
-Gemessen lagen dort am 2026-09-29 auf `main` **7.902 Zeilen**; auf K1 sind es **8.215** (Router 3.357, Frontend 4.858) — die Fläche wächst weiter, während die Frage offen ist; `CLAUDE.md` führt es mit „11/11 Module
-real implementiert, 90 %", und H2 hat für das OCC eine **eigene Wächterschicht
-(B3)** gebaut, weil die Fläche keine Platzhalter-Route hat. Dazu zwei offene
-Blocker (OCC-Logout, `MFA_ENFORCE`).
+**(1) Abschnitt 17 ist entschieden — die erste Fassung hatte es übersehen.** Der Owner
+fragt dort „Owner Control Center ausbauen oder verwerfen". Die Antwort steht seit dem
+2026-08-27 in `docs/FLAECHEN.md` und `CLAUDE.md`: **das OCC wird ins Staff Control Center
+überführt.** Die Fassung vom 29./30.09. nannte die Frage „nie beantwortet" und leitete
+daraus eine Lehre über unbeantwortete Fragen ab — beides falsch, weil nur gegen das
+Owner-Dokument und nicht gegen die Entscheidungsorte der K1-Linie geprüft.
 
-> **Die Frage wurde gestellt und nie beantwortet — und in der Zwischenzeit
-> wurde weitergebaut.** Das ist kein Fehler im Code. Es ist der Beweis, dass
-> eine unbeantwortete Owner-Frage teurer ist als eine falsch beantwortete: eine
-> falsche Antwort kostet einen Revert, eine fehlende kostet unbegrenzt weiter.
-> Deshalb steht diese Entscheidung als **W-E6** und gehört vor jede weitere
-> OCC-Zeile.
+Offen ist das **Wie**: vier Teilfragen in `FLAECHEN.md` — bleibt der OCC-Zugang eine
+eigene Stufe über der Staff-Rolle; was wird aus dem Audit-Namensraum `owner_control.*`;
+sieben der elf Modulnamen kollidieren mit dem Staff CC; React-Fläche gegen Staff-Bauart.
+Umfang heute: **8.215 Zeilen** auf K1 (am 29.09. auf `main` 7.902). Bis zum
+Owner-Abschnitt gilt: keine neuen OCC-Module, keine entfernen, umzugsfähig arbeiten.
+
+> **Die Lehre, die tatsächlich übrig bleibt:** eine Owner-Entscheidung kann an drei
+> Orten stehen — im Owner-Dokument, in `CLAUDE.md` und in `docs/FLAECHEN.md`. Wer nur
+> einen davon abgleicht, erklärt entschiedene Fragen für offen.
 
 **(2) Abschnitt 25 widerspricht einer nicht verhandelbaren Regel.** Gewünscht
 ist ein Demo-Screen, der bei leerer Live-Belegschaft **und bei 500/401** ein
@@ -598,7 +599,7 @@ dieses Plans:
 | 1 | **Welle 1** (CI grün) | 1 Tag Arbeit plus die Kontosperre. Danach ist jede weitere Aussage belegt statt wahrscheinlich. |
 | 2 | **Abschnitt 8.1.1** | der einzige Punkt mit einem laufenden Datenabfluss. Vor jedem Kunden. |
 | 3 | **Abschnitt 21** *(parallel, Owner)* | Notar, Gewerbe, Konto, Stripe, Domain. Ohne das kann die Plattform kein Geld annehmen — es ist der kritische Pfad, und er läuft unabhängig vom Code. |
-| 4 | **W-E6** (Abschnitt 17) | 15 Minuten Entscheidung, die eine 8.215-Zeilen-Fläche entweder rechtfertigt oder stilllegt. |
+| 4 | **OCC-Überführung** (Abschnitt 17) | die Richtung ist entschieden (27.08.), das Wie nicht: vier Teilfragen in `FLAECHEN.md`. Vorher OCC-Zugang freischalten und sichten, welche der elf Module wirklich gebraucht werden. |
 | 5 | **Welle 2 + 3** | stabile Testzahl, dann der DB-Backstop (Mig 117) — zusammen mit Abschnitt 11. |
 | 6 | **Abschnitt 16** | zvoove-Anfrage (Owner) und der anbieterneutrale Bedarfs-Eingang. DATEV und E-Rechnung stehen auf K1 schon; SAP Fieldglass und Beeline haben **null** Code-Dateien und kommen laut Owner-Entscheidung nur mit einem Großkunden — TempConnect bleibt reine Vermittlungsplattform (W-E8). |
 | 7 | alles Übrige | nach Verkaufswirkung, nicht nach Reihenfolge im Dokument. |
