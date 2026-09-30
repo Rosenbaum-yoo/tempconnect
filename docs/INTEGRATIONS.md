@@ -244,3 +244,97 @@ Keine Schema-Änderung nötig — `provider` ist ein TEXT-Feld.
 - `docs/API_DOCUMENTATION.md` — Vollständige API-Referenz
 - `docs/ACTIVITY_FEED.md` — Audit-basierter Activity Feed
 - `docs/audit-trail.md` — Audit Trail System
+
+---
+
+## VMS- und ERP-Anbindung: die Richtung entscheidet *(Stand 2026-09-30)*
+
+> Ergänzt nach dem Abgleich mit Owner-Abschnitt 16 („Integrations zu bestehenden
+> Systemen … zvoove, SAP Fieldglass, usw."). **Alle Angaben gegen den Code
+> gemessen**, nicht aus einem Plan übernommen. Gemessen auf `main`/`75016b6`.
+
+### Was heute wirklich steht
+
+| Baustein | Stand | Beleg |
+|---|---|---|
+| Ausgehende Ereignis-Webhooks | **gebaut**, 24 Ereignisarten, HMAC-SHA256, Wiederholung + Zustellprotokoll | `integrationService.js`, Mig 047/155 |
+| Provider-Adapter | **Slack und Teams** — sonst keiner | `integrationAdapters.js:1-5` |
+| ERP/HR-Konnektor-**Registry** | **gebaut**: `sap_successfactors`, `sap_hcm`, `datev`, `zvoove`, `personio`, `generic` | `erpMappingService.js:8-15`, Mig 130 |
+| ERP/HR-Konnektoren selbst | **nicht gebaut** | `erpMappingService.js:4` sagt es selbst: *„Spätere Konnektoren (Welle C: DATEV/SAP/zvoove) lesen hier, WOHIN + in WELCHEM Format Daten gehen. Reiner Datenzugriff — keine externe IO hier."* |
+| API-Schlüssel mit Scopes | **gebaut**, 13 Scopes (`read:`/`write:` × requisitions, capacity, workers, timesheets, assignments, invoices, audit) | `apiKeyService.js`, Mig 049 |
+| SCIM + SSO | **gebaut** | `scimService.js`, `ssoService.js`, Mig 055 |
+| CSV-Exporte | **gebaut** (Stundenzettel, Deals, Audit) | Abschnitt „CSV Data Exports" oben |
+| **SAP Fieldglass / Beeline** | **null Code-Dateien** | `grep -ri "fieldglass\|beeline"` trifft nur `AGENTS.md` (als Qualitätsmaßstab) und zwei Bewertungsdokumente |
+
+**Der Kern in einem Satz:** die *Registry* für Konnektoren steht, die *Konnektoren*
+stehen nicht — und für die beiden namentlich genannten VMS gibt es keine Zeile.
+
+### Warum zvoove und Beeline nicht dieselbe Aufgabe sind
+
+Das ist der Grund, warum „Integration zu Bestandssystemen" als ein Abschnitt
+irreführend ist. Es sind **zwei Richtungen mit unterschiedlichem Datenmodell**:
+
+| | **Lieferantenseite** (zvoove, DATEV, Personio, SAP HCM) | **Einkaufsseite** (SAP Fieldglass, Beeline) |
+|---|---|---|
+| Wessen System | das der **Zeitarbeitsfirma** — ihr ERP, ihre Lohnabrechnung | das des **Unternehmens** — dort läuft sein Fremdpersonal-Einkauf |
+| Richtung | TempConnect **schreibt hinaus**: Stammdaten, Stundenzettel, Rechnungsdaten | das VMS **schreibt herein**: Bedarfe, Konditionen, Freigaben — TempConnect antwortet mit Kandidaten, Besetzungen, Stunden |
+| Wer ist Kunde | die Zeitarbeitsfirma spart Doppelerfassung | das Unternehmen muss **nichts umbauen** — TempConnect erscheint als Lieferant in seinem gewohnten Werkzeug |
+| Was fehlt | die Konnektoren (Registry ist da) | **alles** — es gibt keinen eingehenden Bedarfs-Eingang |
+| Fundament im Bestand | `org_erp_mappings`, CSV-Exporte | die **API-Schlüssel-Scopes** `write:requisitions` / `write:timesheets` — vorhanden, aber für diesen Zweck nie verdrahtet |
+
+**Die Einkaufsseite ist der stärkere Verkaufshebel.** Sie beantwortet den
+häufigsten Einkauf-Einwand — *„wir haben schon ein System"* — mit *„dann bleiben
+Sie darin"*. Genau das steht als Ziel in Abschnitt 16: „Keine Zeitarbeitsfirma
+oder Einsatzunternehmen soll es nötig haben, komplett umbauen zu müssen."
+
+### Was das für die Reihenfolge heißt
+
+**Ein eingehender Bedarfs-Eingang trägt beide VMS.** Fieldglass und Beeline
+unterscheiden sich im Format, nicht im Ablauf: ein Bedarf kommt herein, wird auf
+eine Requisition abgebildet, Besetzungen und Stunden gehen zurück, jeder Schritt
+trägt die fremde Vorgangs-Kennung. Wer diesen Eingang **einmal** baut — als
+normalisierten Eingang hinter den bestehenden API-Schlüssel-Scopes, mit einer
+Abbildungstabelle je Anbieter — hat danach pro weiterem VMS eine Abbildung zu
+schreiben, kein neues System.
+
+Das ist dieselbe Bauart, die die Registry für die Lieferantenseite schon vorsieht
+(`system_type` + `sync_config`), nur für die Gegenrichtung. **Zwei Registries
+desselben Musters, nicht zwei Architekturen.**
+
+### Was zuerst geklärt werden muss — und nicht von Claude
+
+Die konkrete Schnittstelle eines VMS ist **nicht öffentlich frei
+implementierbar**. Fieldglass und Beeline führen Lieferanten-Anbindungen über
+ihre eigenen Partner-/Lieferantenprogramme: Zugang zur Spezifikation, Testmandant
+und Abnahme setzen eine Vereinbarung und in der Regel einen bestehenden
+gemeinsamen Kunden voraus. **Ohne diesen Zugang ist jede Feldzuordnung geraten**
+— und eine geratene Zuordnung ist in dieser Codebasis ausdrücklich verboten
+(keine spekulativen Features, jede Schema-Aussage gegen die Quelle prüfen).
+
+Deshalb ist der erste Schritt dieser Spur **kein Code**:
+
+1. **Zugang beschaffen** (Owner): Lieferanten-/Partnerprogramm bei Fieldglass und
+   Beeline anfragen. Das dauert Wochen, nicht Tage, und läuft parallel zu allem
+   anderen. Häufig genügt ein Unternehmen, das beides nutzt und die Anbindung
+   will — der Kunde öffnet die Tür schneller als eine Anfrage ohne Anlass.
+2. **Den Eingang anbieterneutral bauen** (Claude, ohne Zugang möglich): der
+   normalisierte Bedarfs-Eingang, die Abbildungstabelle, die Rückrichtung für
+   Besetzung und Stunden — alles gegen das **eigene** Datenmodell, mit einem
+   `generic`-Anbieter, der per CSV oder JSON gefüttert wird. Das ist sofort
+   nützlich (jedes Unternehmen ohne VMS kann es benutzen) und wird später nur
+   noch konfiguriert.
+3. **Je VMS die Abbildung nachziehen**, sobald die Spezifikation vorliegt.
+
+Schritt 2 ist damit der einzige, der ohne Wartezeit anfangen kann — und er ist
+der, der auch dann Wert hat, wenn Schritt 1 nie kommt.
+
+### Offene Entscheidung
+
+**W-E8** — **Welche Richtung zuerst?** Lieferantenseite (die Registry steht, die
+Zeitarbeitsfirma spart Doppelerfassung, Wirkung bei jedem einzelnen Kunden) oder
+Einkaufsseite (nichts steht, aber sie beantwortet den härtesten
+Verkaufseinwand)? *Empfehlung: Schritt 2 der Einkaufsseite* — der
+anbieterneutrale Eingang, weil er ohne Fremdzugang baubar ist, beide VMS trägt
+und für Kunden ohne VMS sofort nützlich ist. Die Lieferantenkonnektoren danach,
+und dann zvoove zuerst: es ist im DACH-Zeitarbeitsmarkt das verbreitetste
+System und steht schon in der Registry.

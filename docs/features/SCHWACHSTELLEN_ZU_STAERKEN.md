@@ -424,6 +424,15 @@ billig und unspektakulär:
   Farbwerte fallen dabei mit. Vollständigkeit hier wäre teuer und ohne
   messbaren Nutzen.
 
+- **W-E8** — **VMS-/ERP-Anbindung: welche Richtung zuerst?** Lieferantenseite
+  (zvoove/DATEV — Registry steht, Wirkung bei jedem einzelnen Kunden) oder
+  Einkaufsseite (Fieldglass/Beeline — nichts steht, beantwortet aber den
+  haertesten Verkaufseinwand)? *Empfehlung: der anbieterneutrale Teil der
+  Einkaufsseite* — er ist ohne Fremdzugang baubar, traegt beide VMS und ist
+  fuer Kunden ohne VMS sofort nuetzlich. Die Spezifikation der beiden VMS liegt
+  hinter ihren Partnerprogrammen und ist Owner-Arbeit, keine Codearbeit.
+  Gemessene Analyse: `docs/INTEGRATIONS.md`, Abschnitt „VMS- und ERP-Anbindung".
+
 - **W-E5** — **`requireOrgContext` als Middleware (Vereinheitlichung der
   Null-Politik, Fortsetzung von D-M2).** Die 42 fail-open-Stellen auf einmal
   hinter eine Middleware ziehen, oder Datei für Datei mit dem Wächter im
@@ -504,7 +513,7 @@ sich nicht: ein Abschnitt kann fertig gebaut und trotzdem unbelegt sein.
 | 13 | Monatsplanung für Mitarbeiter | **0 Code-Dateien** — nicht gebaut; enthält einen offenen Bug („Fehler beim Laden des Personals") | — |
 | 14 | Live-Belegschaft ausbauen | ausgeführt → prüfen | — |
 | 15 | Sperrliste | gebaut (6 Dateien); Staff-CC-Verwaltung offen | — |
-| 16 | Integrationen zu Bestandssystemen | **zvoove 4 Dateien, SAP Fieldglass 0** | — |
+| 16 | Integrationen zu Bestandssystemen | Registry steht, **Konnektoren nicht**; Adapter nur Slack/Teams; **Fieldglass und Beeline 0** | **W-E8** |
 | **17** | **Owner Control Center: ausbauen oder verwerfen** | **Frage nie beantwortet — 7.902 Zeilen gebaut** | **W-E6** |
 | 18 | Support Center ausbauen | offen | — |
 | 19 | Repo-Hygiene, Legacy, `.env` rotieren | offen | Welle 1 + 8 |
@@ -568,6 +577,14 @@ dieses Plans:
 26 (Lohnvorschau) — alle drei mit null Code-Dateien, alle drei echte
 Produktlücken, keine davon ein Hindernis für den ersten Vertrag. Sie sind
 Ausbau, nicht Blocker, und stehen deshalb hinter Rang 6.
+
+*Eingetragen am 2026-09-30, damit sie nicht in diesem Plan versanden:*
+Monatsplanung als **A.4**, Arbeitszeugnis-PDF als **B.4**, Lohnvorschau als
+**B.5**, die beiden Integrationsrichtungen als **C.5** und **C.6** in
+`docs/PILOT_GO_LIVE_TODOS.md` (Abschnitt Verbesserungsvorschläge). Der vom
+Owner gemeldete Ladefehler aus Abschnitt 13 steht dort als **P1-23** —
+ausdrücklich als *gemeldet, nicht reproduziert*, weil eine Meldung ohne
+Reproduktion schwächer ist als eine mit, aber besser als keine.
 
 ## Was dieser Plan nicht leistet
 
