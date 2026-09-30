@@ -153,7 +153,11 @@ function entitlementUsageResponses({
     { rows: [{ cnt: listings }] },             // countListings
     { rows: [{ cnt: suppliers }] },            // countSuppliers
     { rows: [{ cnt: multiOrgSlots }] },        // countMultiOrgSlots
-    { rows: [] }                               // loadOwnerUser -> keine Request-Usage-Queries
+    { rows: [] },                              // loadOwnerUser -> keine Request-Usage-Queries
+    // M1.8: die Abweichungen je Org-Typ (plan_grenze_je_orgtyp) — zuletzt
+    // geholt und leer, also gelten die Code-Werte. Reine Fixture-Pflege:
+    // keine Zusicherung der Tests darunter aendert sich.
+    { rows: [] }
   ];
 }
 

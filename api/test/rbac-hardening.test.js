@@ -18,6 +18,14 @@ import assert from "node:assert/strict";
 import { requireOrgContext } from "../middleware/rbac.js";
 
 // Route factories
+/*
+ * `findChainFrom` statt eines eigenen Ketten-Laeufers: der Helfer existiert
+ * seit Welle H2 in `test/helpers/security-mocks.js` und wird vom
+ * Org-Grenzen-Waechter benutzt. Sein Kommentar nennt `sameOrgParam`
+ * namentlich als den Fall, fuer den er gebaut wurde. Erst suchen, dann
+ * erweitern (AGENTS.md) — ich hatte hier zuerst eine zweite Fassung gebaut.
+ */
+import { findChainFrom } from "./helpers/security-mocks.js";
 import { createOrganizationsRouter } from "../routes/organizations.js";
 import { createComplianceDocsRouter } from "../routes/complianceDocs.js";
 import { createInvoicesRouter } from "../routes/invoices.js";
@@ -228,45 +236,73 @@ describe("F-001: Organizations — org-boundary enforcement", () => {
   });
 
   it("GET /organizations/:id — blocks when params.id !== orgId", async () => {
-    const handler = findHandler(router, "get", "/organizations/:id");
     const req = mockReq({ params: { id: OTHER_ORG_ID } });
     const res = mockRes();
-    await handler(req, res);
+    await findChainFrom(router, "get", "/organizations/:id", "sameOrgParam")(req, res, () => {});
     assert.strictEqual(res._status, 403);
     assert.strictEqual(res._json.error, "ORG_BOUNDARY_VIOLATION");
   });
 
   it("GET /organizations/:id/locations — blocks cross-org access", async () => {
-    const handler = findHandlerExact(router, "get", "/organizations/:id/locations");
     const req = mockReq({ params: { id: OTHER_ORG_ID } });
     const res = mockRes();
-    await handler(req, res);
+    await findChainFrom(router, "get", "/organizations/:id/locations", "sameOrgParam")(req, res, () => {});
     assert.strictEqual(res._status, 403);
     assert.strictEqual(res._json.error, "ORG_BOUNDARY_VIOLATION");
   });
 
   it("GET /organizations/:id/departments — blocks cross-org access", async () => {
-    const handler = findHandlerExact(router, "get", "/organizations/:id/departments");
     const req = mockReq({ params: { id: OTHER_ORG_ID } });
     const res = mockRes();
-    await handler(req, res);
+    await findChainFrom(router, "get", "/organizations/:id/departments", "sameOrgParam")(req, res, () => {});
     assert.strictEqual(res._status, 403);
   });
 
   it("GET /organizations/:id/members — blocks cross-org access", async () => {
-    const handler = findHandlerExact(router, "get", "/organizations/:id/members");
     const req = mockReq({ params: { id: OTHER_ORG_ID } });
     const res = mockRes();
-    await handler(req, res);
+    await findChainFrom(router, "get", "/organizations/:id/members", "sameOrgParam")(req, res, () => {});
     assert.strictEqual(res._status, 403);
   });
 
   it("GET /organizations/:id/locations — allows same-org access", async () => {
-    const handler = findHandlerExact(router, "get", "/organizations/:id/locations");
+    /* Auch die Positiv-Probe laeuft ueber die ganze Kette. Ueber den letzten
+     * Handler allein waere sie leer: sie wuerde selbst dann bestehen, wenn der
+     * Waechter davor jede Anfrage abweist. */
     const req = mockReq({ params: { id: ORG_ID } });
     const res = mockRes();
-    await handler(req, res);
+    await findChainFrom(router, "get", "/organizations/:id/locations", "sameOrgParam")(req, res, () => {});
     assert.notStrictEqual(res._status, 403);
+  });
+
+  it("ohne Org-Kontext gibt es keinen freien Pfad — fail-closed", async () => {
+    /*
+     * DER EIGENTLICHE BEFUND (2026-08-21). `sameOrgParam` stand als
+     *     if (req.orgId && req.params.id !== req.orgId)
+     * und schaltete sich bei `req.orgId === null` selbst ab. `null` heisst dann:
+     * der Pfad-Parameter waehlt die Organisation frei. Die vier Lese-Routen
+     * trugen dieselbe Form als KOPIE und hatten ausser `requireAuth` keinen
+     * weiteren Guard davor.
+     *
+     * Ohne diese Probe waere die Haertung nicht festgehalten: die vier Proben
+     * darueber setzen alle einen Org-Kontext und liefen auch mit der alten Form
+     * gruen.
+     */
+    for (const pfad of [
+      "/organizations/:id",
+      "/organizations/:id/locations",
+      "/organizations/:id/departments",
+      "/organizations/:id/members",
+    ]) {
+      const req = mockReq({ params: { id: OTHER_ORG_ID } });
+      req.orgId = null;
+      req.orgMembership = null;
+      const res = mockRes();
+      await findChainFrom(router, "get", pfad, "sameOrgParam")(req, res, () => {});
+      assert.strictEqual(res._status, 403,
+        `${pfad} laesst ohne Org-Kontext den Pfad-Parameter die Organisation waehlen`);
+      assert.strictEqual(res._json.error, "ORG_BOUNDARY_VIOLATION");
+    }
   });
 });
 

@@ -440,7 +440,7 @@
         window.TC.entitlements.applyDomLocks(root || document).catch(function() {});
       }
     }
-    function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
     function eurFmt(cents) { return (cents / 100).toLocaleString(fmtLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
     function eurFull(cents) { return (cents / 100).toLocaleString(fmtLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     function fmtDate(iso) {

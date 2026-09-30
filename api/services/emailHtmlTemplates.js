@@ -16,6 +16,34 @@
 // Firmenname aus zentraler Config (Single Source of Truth, G.4) — PLATZHALTER bis UG-Gründung.
 import { COMPANY } from "../config/company.js";
 
+/**
+ * Haengt einer HANDGEBAUTEN Mail denselben Rahmen an, den die Vorlagen haben.
+ *
+ * BEFUND (2026-08-24, gemessen): 40 Stellen rufen `sendMail`, aber nur 16 gehen
+ * durch eine Vorlage aus dieser Datei. Die anderen 24 bauen ihr HTML am
+ * Aufrufort zusammen — und tragen damit KEINEN Absender: keine Firmierung,
+ * keinen Kontakt, nichts. Fuer Geschaeftsbriefe sind das Pflichtangaben, und
+ * E-Mail zaehlt dazu (§ 37a HGB; fuer die geplante UG § 35a GmbHG).
+ *
+ * Zweite Folge, die erst bei der Gruendung sichtbar wuerde: `COMPANY.name` ist
+ * ausdruecklich ein PLATZHALTER bis zur UG-Gruendung (config/company.js). Wer
+ * durch den Rahmen geht, bekommt die neue Firmierung automatisch. Die 24
+ * anderen haetten sie nie bekommen — und niemand haette es gemerkt, weil eine
+ * Mail ohne Absender nicht auffaellt, sie sieht nur unfertig aus.
+ *
+ * WARUM HIER UND NICHT AN DEN 24 STELLEN: eine Aenderung an 24 Aufrufern
+ * schuetzt nicht vor dem 25. Der Rahmen gehoert an die eine Stelle, durch die
+ * jede Mail geht — dasselbe Prinzip wie beim Live-Push in `notifyWorker`.
+ *
+ * IDEMPOTENT: Wer bereits ein vollstaendiges Dokument liefert (die Vorlagen tun
+ * das, erkennbar am DOCTYPE), wird NICHT ein zweites Mal eingepackt.
+ */
+export function mitRahmen(html, titel = "TempConnect") {
+  const inhalt = String(html || "");
+  if (/<!DOCTYPE/i.test(inhalt) || /<html[\s>]/i.test(inhalt)) return inhalt;
+  return baseLayout(titel, inhalt);
+}
+
 // ─── Base layout wrapper ───────────────────────────────────────────────────────
 function baseLayout(title, bodyContent) {
   return `<!DOCTYPE html>
@@ -54,7 +82,7 @@ function baseLayout(title, bodyContent) {
             <td style="background:#f8fafc;padding:24px 40px;border-top:1px solid #e2e8f0;">
               <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.6;">
                 ${COMPANY.name} &bull; Automatisch generierte E-Mail &bull; Bitte nicht antworten.<br>
-                Bei Fragen wenden Sie sich an <a href="mailto:support@tempconnect.de" style="color:#1a56db;text-decoration:none;">support@tempconnect.de</a>
+                Bei Fragen wenden Sie sich an <a href="mailto:${COMPANY.supportEmail}" style="color:#1a56db;text-decoration:none;">${COMPANY.supportEmail}</a>
               </p>
             </td>
           </tr>

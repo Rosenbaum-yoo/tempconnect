@@ -91,7 +91,6 @@
 | GET/PATCH | `/api/timesheets/:id` | Timesheet Detail | PLUS+ |
 | POST | `/api/timesheets/:id/submit` | Einreichen | PLUS+ |
 | POST | `/api/timesheets/:id/approve` | Genehmigen | PLUS+ |
-| GET | `/api/timesheet-templates` | Vorlagen | PLUS+ |
 
 ### Vendor Pool & Suppliers
 | Methode | Pfad | Beschreibung | Plan |
@@ -135,7 +134,6 @@
 | Methode | Pfad | Beschreibung | Plan |
 |---|---|---|---|
 | GET | `/api/reporting/executive` | Executive Dashboard | PRO+ |
-| GET | `/api/reports/executive` | Executive Report | PRO+ |
 | GET | `/api/analytics` | Analytics | PLUS+ |
 
 ### Notifications & Activity

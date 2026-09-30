@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { AppShell } from "@occ/components/shell/AppShell";
 import { occApi } from "@occ/api/client";
-import type { OccAuditFeed, OccAuditItem } from "@occ/types";
+import type { OccAuditFeed, OccAuditItem, OccAccessAudit } from "@occ/types";
 
 // ── Formatierung ───────────────────────────────────────────────────────────────
 
@@ -215,6 +215,127 @@ function FilterBar({ filters, onChange, onSearch }: FilterBarProps) {
 
 // ── Haupt-Modul ────────────────────────────────────────────────────────────────
 
+// ── Zugangs-Nachweis ───────────────────────────────────────────────────────────
+//
+// BEFUND 2026-08-26: `owner_control_access_audit` wurde beschrieben und von
+// nirgends gelesen. In der laufenden Datenbank standen 25 Zeilen, darunter
+// 23 abgewiesene Zugriffsversuche zwischen dem 20.05. und dem 21.07. — und
+// niemand konnte sie sehen.
+//
+// Getrennt vom Feed daneben, weil beide verschiedene Fragen beantworten: der
+// Feed sagt, WAS die Eigentuemer getan haben; diese Liste sagt, WER hereinkam
+// oder abgewiesen wurde. Die Abweisungen stehen nur hier — dabei entsteht ja
+// keine Sitzung, die etwas tun koennte.
+
+const AKTION_TEXT: Record<string, string> = {
+  access_denied: "abgewiesen",
+  grant: "Zugang erteilt",
+  revoke: "Zugang entzogen",
+  list: "Liste eingesehen",
+};
+
+function ZugangsProtokoll() {
+  const [zustand, setZustand] = useState<
+    | { status: "loading" }
+    | { status: "error"; message: string }
+    | { status: "ready"; daten: OccAccessAudit }
+  >({ status: "loading" });
+  const [nurAbweisungen, setNurAbweisungen] = useState(false);
+
+  const laden = useCallback((nurAbw: boolean) => {
+    setZustand({ status: "loading" });
+    const qs = nurAbw ? "?action=access_denied" : "";
+    occApi.get<OccAccessAudit>(`/audit/access${qs}`).then((res) => {
+      if (res.success) setZustand({ status: "ready", daten: res.data });
+      else setZustand({ status: "error", message: res.error.message ?? `Fehler: ${res.error.code}` });
+    }).catch(() => {
+      setZustand({ status: "error", message: "Netzwerkfehler beim Laden des Zugangs-Nachweises." });
+    });
+  }, []);
+
+  useEffect(() => { laden(nurAbweisungen); }, [nurAbweisungen, laden]);
+
+  return (
+    <div style={{ marginTop: "32px" }}>
+      <p className="occ-section-title" style={{ marginBottom: "4px" }}>Zugang zum Owner Control Center</p>
+      <p style={{ margin: "0 0 12px", fontSize: "13px", color: "var(--ds-text-muted, #6b7280)" }}>
+        Wer hereinkam — und wer abgewiesen wurde. Abweisungen erzeugen keine Sitzung
+        und tauchen deshalb im Audit-Feed darueber nicht auf.
+      </p>
+
+      {zustand.status === "loading" && <p style={{ fontSize: "13px" }}>Wird geladen …</p>}
+
+      {zustand.status === "error" && (
+        <p style={{ fontSize: "13px", color: "var(--ds-danger, #b91c1c)" }}>{zustand.message}</p>
+      )}
+
+      {zustand.status === "ready" && (
+        <>
+          <div style={{ display: "flex", gap: "16px", alignItems: "center", marginBottom: "12px", flexWrap: "wrap" }}>
+            <span
+              style={{
+                fontSize: "13px",
+                padding: "4px 10px",
+                borderRadius: "999px",
+                background: zustand.daten.abgewiesen > 0 ? "rgba(185,28,28,.08)" : "rgba(107,114,128,.08)",
+                color: zustand.daten.abgewiesen > 0 ? "var(--ds-danger, #b91c1c)" : "inherit",
+              }}
+            >
+              {zustand.daten.abgewiesen} Abweisung{zustand.daten.abgewiesen === 1 ? "" : "en"}
+            </span>
+            <span style={{ fontSize: "13px", color: "var(--ds-text-muted, #6b7280)" }}>
+              {zustand.daten.total} Eintr{zustand.daten.total === 1 ? "ag" : "aege"} insgesamt
+            </span>
+            <label style={{ fontSize: "13px", display: "flex", gap: "6px", alignItems: "center" }}>
+              <input
+                type="checkbox"
+                checked={nurAbweisungen}
+                onChange={(e) => setNurAbweisungen(e.target.checked)}
+              />
+              nur Abweisungen
+            </label>
+          </div>
+
+          {zustand.daten.items.length === 0 ? (
+            <p style={{ fontSize: "13px", color: "var(--ds-text-muted, #6b7280)" }}>
+              {nurAbweisungen
+                ? "Keine abgewiesenen Zugriffsversuche."
+                : "Noch keine Zugangs-Ereignisse aufgezeichnet."}
+            </p>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+              <thead>
+                <tr style={{ textAlign: "left", borderBottom: "1px solid var(--ds-border, #e5e7eb)" }}>
+                  <th style={{ padding: "6px 8px" }}>Zeitpunkt</th>
+                  <th style={{ padding: "6px 8px" }}>Vorgang</th>
+                  <th style={{ padding: "6px 8px" }}>Betroffen</th>
+                  <th style={{ padding: "6px 8px" }}>Ausgeloest von</th>
+                  <th style={{ padding: "6px 8px" }}>Notiz</th>
+                </tr>
+              </thead>
+              <tbody>
+                {zustand.daten.items.map((e) => (
+                  <tr key={e.id} style={{ borderBottom: "1px solid var(--ds-border, #f3f4f6)" }}>
+                    <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>{fmtDate(e.created_at)}</td>
+                    <td style={{ padding: "6px 8px" }}>
+                      <span style={{ color: e.action === "access_denied" ? "var(--ds-danger, #b91c1c)" : "inherit" }}>
+                        {AKTION_TEXT[e.action] ?? e.action}
+                      </span>
+                    </td>
+                    <td style={{ padding: "6px 8px" }}>{e.user_email ?? e.user_id ?? "–"}</td>
+                    <td style={{ padding: "6px 8px" }}>{e.performed_by_email ?? e.performed_by ?? "–"}</td>
+                    <td style={{ padding: "6px 8px" }}>{e.note ?? "–"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function AuditModule() {
   const [filters, setFilters] = useState<Filters>({
     area: "",
@@ -352,6 +473,11 @@ export function AuditModule() {
             </div>
           </>
         )}
+
+        {/* Der Zugangs-Nachweis. Unter dem Feed, weil er die seltenere Frage
+            beantwortet — aber in derselben Flaeche, weil "wer war drin" und
+            "was wurde getan" zusammen gelesen werden. */}
+        <ZugangsProtokoll />
       </div>
     </AppShell>
   );

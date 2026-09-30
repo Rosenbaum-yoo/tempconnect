@@ -6,6 +6,8 @@
  * capacityService.haversineKm.
  */
 import { normalizeTags, loadSkillIndex } from "./skillNormalizationService.js";
+import * as companyBlocklistService from "./companyBlocklistService.js";
+import { cpSpaltenSql } from "./capacityPostOeffentlicheSpalten.js";
 
 /** Haversine-Distanz in km */
 export function haversineKm(lat1, lng1, lat2, lng2) {
@@ -216,8 +218,24 @@ export async function matchRequisition(pool, demand, opts = {}) {
   const topN = opts.topN || 25;
   const minScore = opts.minScore || 1;
 
+  /* N4.5 — die Vorschlaege in der Bedarfsansicht (`suggested_matches`) nannten
+     dem sperrenden Unternehmen das Angebot der gesperrten Kraft mit Titel, Ort
+     und Anbieter. `kundeOrgId` ist die Org des BEDARFSTELLERS, nicht die des
+     Betrachters — sonst griffe die Sperre nicht, wenn jemand anderes hinsieht. */
+  const kundeOrgId = opts.kundeOrgId || null;
+  /* Ohne Kunden-Org bleibt die Abfrage WORTGLEICH mit der bisherigen — die
+     Bedingung wird nur angehaengt, wenn es jemanden gibt, der gesperrt haben
+     kann. Der Tabellenname dient der Bedingung als Alias. */
+  /* N2.11: die OEFFENTLICHE Projektion statt `SELECT *`. Die Treffer gehen als
+     `capacity_post` an Bedarfsteller (Bedarfsansicht, GET /matching/demand/:id)
+     — mit `*` stand darin `worker_profile_id`, die Kennung des Menschen hinter
+     einem anonymen Angebot, die N4 absichtlich nicht herausgibt. Die Bewertung
+     braucht nur oeffentliche Spalten; die Sperrbedingung darf die interne
+     Spalte in WHERE weiter lesen. (Befund der Pruefung vom 2026-09-15.) */
   const { rows: caps } = await pool.query(
-    `SELECT * FROM capacity_posts WHERE is_active = TRUE`
+    `SELECT ${cpSpaltenSql("capacity_posts")} FROM capacity_posts WHERE is_active = TRUE${kundeOrgId
+      ? ` AND ${companyBlocklistService.nichtGesperrtSql("capacity_posts", 1)}` : ""}`,
+    kundeOrgId ? [kundeOrgId] : []
   );
 
   // Einmal je Lauf, nicht je Kandidat (Welle 11).
@@ -286,6 +304,32 @@ export async function matchCapacityToRequisitions(pool, capacityPostId, opts = {
   const { rows: demands } = await pool.query(
     `SELECT * FROM demand_requests WHERE status = 'open'`
   );
+
+  /*
+   * N4.5 — DIE GEGENRICHTUNG. Ein neues Angebot wird gegen offene Auftraege
+   * gerechnet, und der Match-Trigger schreibt beide Seiten an. Ohne diesen
+   * Schritt bekaeme genau das Unternehmen, das die Kraft gesperrt hat, ihr
+   * Angebot zugeschickt. Eine Abfrage je Lauf, nicht je Kandidat.
+   */
+  const sperrende = cap.worker_profile_id
+    ? await companyBlocklistService.sperrendeKundenFuerProfil(pool, cap.worker_profile_id)
+    : new Set();
+  if (sperrende.size) {
+    for (let i = reqs.length - 1; i >= 0; i--) {
+      if (sperrende.has(String(reqs[i].org_id))) reqs.splice(i, 1);
+    }
+    /* Die Firma eines Marktplatz-Bedarfs steht seit Migration 218 (N2.11) am
+       Bedarf; bis dahin wurde sie ueber die Start-Firma des Anlegers geraten,
+       fuer Teammitglieder falsch. Nachgeladen wird nur fuer Bedarfe OHNE Firma,
+       und nur, wenn die Kraft ueberhaupt irgendwo gesperrt ist — der Normalfall
+       bezahlt keine zusaetzliche Abfrage. Eine Abfrage fuer alle, nicht je Bedarf. */
+    if (demands.length) {
+      const firmaJeBedarf = await companyBlocklistService.kundenOrgsDerBedarfe(pool, demands);
+      for (let i = demands.length - 1; i >= 0; i--) {
+        if (sperrende.has(firmaJeBedarf.get(String(demands[i].id)))) demands.splice(i, 1);
+      }
+    }
+  }
 
   const scored = [];
 
@@ -368,7 +412,12 @@ export async function findMatches(pool, requestId, opts = {}) {
     end_date: dr.end_date
   };
 
-  return matchRequisition(pool, demand, opts);
+  /* N2.11 — die Sperre an der WURZEL. Die Bedarfsansicht reichte die Firma des
+     Bedarfstellers durch, GET /api/matching/demand/:id nicht: dieselbe Frage,
+     zwei Antworten, und das sperrende Unternehmen sah die gesperrte Kraft. Der
+     Bedarf kennt seine Firma selbst — kein Aufrufer muss mehr daran denken. */
+  const kundeOrgId = opts.kundeOrgId || await companyBlocklistService.kundenOrgEinesBedarfs(pool, dr);
+  return matchRequisition(pool, demand, { ...opts, kundeOrgId });
 }
 
 /* ═══════════════════════════════════════════════════════════════

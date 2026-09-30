@@ -20,7 +20,7 @@
   ];
   var state = { requestId: null, partnerId: null, onDone: null, axes: { stars: 0, reliability: 0, communication: 0, quality: 0 } };
 
-  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
   function toast(kind, title, msg) {
     if (global.TC && global.TC.toast && global.TC.toast[kind]) global.TC.toast[kind](title, msg);
   }

@@ -1,15 +1,47 @@
 /**
  * Referral-Programm Service
  *
- * Pilotkunden:  bis zu 6 Gratismonate (1 pro qualifiziertem Neukunden-Abo). Max 6 Rewards gesamt, max 1 pro Monat.
- * Zahlende:     Monatsgutschrift (1 pro qualifiziertem Neukunden-Abo). Max 6 Rewards gesamt, max 1 pro Monat.
+ * Werbepraemie: die naechste Monatsrechnung ist frei (100 %), je geworbenem
+ * Kunden einmal, hoechstens DREI insgesamt, und erst nach 30 Tagen Bestand des
+ * Geworbenen. Max 1 Buchung pro Kalendermonat.
  * Qualification: geworbener Kunde muss ein bezahltes Abo abgeschlossen haben (BASIS+).
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WELLE K2 — WAS SICH HIER GEAENDERT HAT UND WARUM
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Dieser Dienst BUCHTE seit jeher eine Praemie und niemand hat sie je ANGEWANDT:
+ * gemessen am 2026-08-30 erwaehnte keine einzige Datei des Geldpfads
+ * (invoiceService, recurringBillingService, paymentService, planCatalog) das
+ * Wort `referral`. Der Kunde sah eine Gutschrift und zahlte den vollen Preis —
+ * dieselbe Fehlerklasse wie der Treue-Rabatt vor Migration 170.
+ *
+ * Angewandt wird sie jetzt in `werbepraemieService.js`, gelesen vom
+ * Abrechnungslauf. Hier bleibt, was hierher gehoert: das BUCHEN.
+ *
+ * Zwei Zahlen widersprachen dabei dem Owner-Entscheid vom 2026-08-27 und sind
+ * korrigiert, nicht neu verhandelt:
+ *
+ *   MAX_REFERRAL_REWARDS  6 → 3   "hoechstens 3 Monate insgesamt"
+ *   Karenz                keine → 30 Tage   "der Geworbene muss 30 Tage Bestand haben"
+ *
+ * Die Karenz steht als `faellig_ab` in der gebuchten Zeile. Ob der Geworbene
+ * die 30 Tage WIRKLICH ueberstanden hat, wird nicht hier entschieden, sondern
+ * beim Verbrauchen — siehe die Begruendung in `werbepraemieService.js`: eine
+ * Bedingung, die im Moment der Anwendung geprueft wird, braucht keinen
+ * Widerrufs-Job, der irgendwann nicht mehr laeuft.
  */
 
 import crypto from "crypto";
 import { withTransaction } from "../utils/transaction.js";
+import { todayDE } from "../utils/dateDE.js";
+import { KARENZ_TAGE, MAX_PRAEMIEN, faelligAb } from "./werbepraemieService.js";
 
-const MAX_REFERRAL_REWARDS = 6;
+/* Owner-Entscheid 2026-08-27: hoechstens 3 Monate insgesamt (vorher 6).
+ * Die Zahl steht in `werbepraemieService`, weil der Abrechnungslauf denselben
+ * Deckel beim Anwenden prueft — zwei Zahlen fuer dieselbe Regel waeren
+ * frueher oder spaeter zwei verschiedene. */
+const MAX_REFERRAL_REWARDS = MAX_PRAEMIEN;
 const MAX_REWARDS_PER_MONTH = 1;
 const QUALIFYING_PLANS = ["BASIS", "PLUS", "PRO", "INDIVIDUELL", "INDIVIDUAL", "ENTERPRISE"];
 
@@ -255,10 +287,13 @@ export async function qualifyReferralReward(pool, referredUserId) {
   // Wert, den `getActiveReferralCount` zaehlt. Damit zaehlt ein erfolgreich
   // geworbenes Unternehmen endlich fuer das Netzwerk-Builder-Bounty.
   await withTransaction(pool, async (client) => {
+    /* K2.4 — die Karenz wird MITGEBUCHT. Der Owner-Entscheid lautet "30 Tage
+     * Bestand"; ohne `faellig_ab` waere die Praemie sofort einloesbar, und der
+     * Abrechnungslauf haette nichts, woran er die Frist erkennen koennte. */
     await client.query(
-      `INSERT INTO referral_rewards (user_id, referral_id, reward_type, description, month_label)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [referral.referrer_id, referral.id, rewardType, description, monthLabel]
+      `INSERT INTO referral_rewards (user_id, referral_id, reward_type, description, month_label, faellig_ab)
+       VALUES ($1, $2, $3, $4, $5, $6::date)`,
+      [referral.referrer_id, referral.id, rewardType, description, monthLabel, faelligAb()]
     );
 
     await client.query(
@@ -267,7 +302,11 @@ export async function qualifyReferralReward(pool, referredUserId) {
     );
   });
 
-  return { ok: true, referral_id: referral.id, reward_type: rewardType, month: monthLabel };
+  return {
+    ok: true, referral_id: referral.id, reward_type: rewardType, month: monthLabel,
+    // Damit der Aufrufer (und die Probe) sieht, ab wann die Praemie zaehlt.
+    faellig_ab: faelligAb(), karenz_tage: KARENZ_TAGE
+  };
 }
 
 /* ── Referral-Status fuer einen User ────────────────────────── */
@@ -359,8 +398,11 @@ export async function getActiveReferralCount(pool, userId) {
 /* ── Helpers ────────────────────────────────────────────────── */
 
 function currentMonthLabel() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  /* Europe/Berlin, nicht die Zeitzone des Servers. `new Date().getMonth()` ist
+   * auf einem UTC-Container am Monatsersten um 00:30 noch der Vormonat — das
+   * Monatslimit haette dann im falschen Monat gegriffen. Dieselbe DACH-first-
+   * Regel wie ueberall sonst im Projekt. */
+  return todayDE().slice(0, 7);
 }
 
 function usedMonthsSincePilot(codeRow) {

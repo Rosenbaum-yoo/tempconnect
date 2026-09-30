@@ -279,6 +279,10 @@ describe("getUsageAgainstLimits", () => {
       { rows: [{ cnt: 3 }] },
       { rows: [{ cnt: 5 }] },
       { rows: [{ id: "owner-1" }] },
+      // M1.8: die Abweichungen je Org-Typ (plan_grenze_je_orgtyp) — leer,
+      // also gelten die Code-Werte. Reine Fixture-Pflege: keine der
+      // Zusicherungen darunter aendert sich.
+      { rows: [] },
       { rows: [{ cnt: 4 }] },
       { rows: [{ cnt: 5 }] }
     );
@@ -391,11 +395,16 @@ describe("requireOrgFeature middleware", () => {
       employee_count_approx: null, billing_mode: null, customer_stage: "regular",
       pilot_started_at: null, pilot_ended_at: null, converted_at: null };
     const sub = { status: "active" };
+    // M1.8: je Lauf kommt EINE Abfrage dazu — die Abweichungen je Org-Typ
+    // (plan_grenze_je_orgtyp), zuletzt geholt. Leer, also gelten die
+    // Code-Werte; reine Fixture-Pflege, keine Zusicherung aendert sich.
     const pool = sequencePool(
       // Erste Run fuer requireOrgFeature -> getOrganizationEntitlements
       { rows: [baseRow] }, { rows: [] }, { rows: [] }, { rows: [{ id: "owner" }] }, { rows: [sub] },
+      { rows: [] },
       // Zweiter Run fuer canUseFeature -> getOrganizationEntitlements
-      { rows: [baseRow] }, { rows: [] }, { rows: [] }, { rows: [{ id: "owner" }] }, { rows: [sub] }
+      { rows: [baseRow] }, { rows: [] }, { rows: [] }, { rows: [{ id: "owner" }] }, { rows: [sub] },
+      { rows: [] }
     );
     const guard = requireOrgFeature("advanced_matching", { pool });
     const req = mockReq();

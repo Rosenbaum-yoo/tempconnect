@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <script src="/public/js/i18n.js"></script>
+  <title data-i18n="mp.docTitle">Monatsplanung – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .mp-wrap { max-width:1280px; margin:0 auto; padding:20px; }
+
+    .mp-kopf { display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap; margin-bottom:6px; }
+    .mp-kopf h1 { margin:0; font-size:1.5rem; }
+    .mp-spur { font-size:.74rem; text-transform:uppercase; letter-spacing:.06em; padding:3px 10px; border-radius:999px; font-weight:600; }
+    .mp-spur--kunde   { background:var(--ds-accent-muted); color:var(--ds-accent); }
+    .mp-spur--agentur { background:var(--ds-success-muted); color:var(--ds-success); }
+
+    .mp-leitsatz { font-size:.85rem; color:var(--ds-text-secondary,#64748b); margin:0 0 18px; max-width:70ch; line-height:1.55; }
+
+    .mp-navi { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+    .mp-monat { font-size:1.05rem; font-weight:700; min-width:11ch; text-align:center; }
+    .mp-btn { border:1px solid var(--ds-border,#e2e8f0); background:var(--ds-surface,#fff); color:inherit;
+              border-radius:8px; padding:6px 12px; font-size:.82rem; cursor:pointer; }
+    .mp-btn:hover { border-color:var(--ds-brand,#4a9eff); }
+    .mp-btn:focus-visible { outline:2px solid var(--ds-brand,#4a9eff); outline-offset:2px; }
+
+    .mp-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:18px; }
+    .mp-kpi { background:var(--ds-surface,#fff); border:1px solid var(--ds-border,#e2e8f0); border-radius:12px; padding:13px 15px; }
+    .mp-kpi__val { font-size:1.4rem; font-weight:700; font-variant-numeric:tabular-nums; }
+    .mp-kpi__label { font-size:.72rem; color:var(--ds-text-secondary,#64748b); text-transform:uppercase; letter-spacing:.04em; margin-top:2px; }
+    .mp-kpi--hart .mp-kpi__val { color:var(--ds-danger); }
+    .mp-kpi--weich .mp-kpi__val { color:var(--ds-warning); }
+
+    /* ── Das Raster ─────────────────────────────────────────────────────
+       Der Monat ist die ANSICHT, der Einsatz die SACHE: Balken, die vor dem
+       Monat begannen, werden am linken Rand ANGESCHNITTEN dargestellt statt
+       auf den Ersten gesetzt. 91 % der Einsaetze ueberschreiten eine
+       Monatsgrenze — ein Raster als Kasten waere fuer neun von zehn Zeilen
+       falsch. */
+    .mp-raster { background:var(--ds-surface,#fff); border:1px solid var(--ds-border,#e2e8f0);
+                 border-radius:12px; overflow-x:auto; }
+    .mp-gitter { min-width:760px; }
+    .mp-tage { display:grid; border-bottom:1px solid var(--ds-border,#e2e8f0); }
+    .mp-tag { font-size:.62rem; text-align:center; padding:6px 0; color:var(--ds-text-secondary,#64748b);
+              font-variant-numeric:tabular-nums; border-left:1px solid var(--ds-border-subtle,#f1f5f9); }
+    .mp-tag--we { background:var(--ds-bg-subtle,#f8fafc); }
+
+    .mp-zeile { display:grid; align-items:center; border-bottom:1px solid var(--ds-border-subtle,#f1f5f9); }
+    .mp-zeile:last-child { border-bottom:none; }
+    .mp-zeile__kopf { padding:9px 12px; font-size:.82rem; border-right:1px solid var(--ds-border,#e2e8f0); }
+    .mp-zeile__kopf b { display:block; font-weight:600; }
+    .mp-zeile__kopf span { font-size:.72rem; color:var(--ds-text-secondary,#64748b); }
+    .mp-spurbahn { position:relative; height:38px; }
+
+    .mp-balken { position:absolute; top:9px; height:20px; border-radius:5px; display:flex; align-items:center;
+                 padding:0 8px; font-size:.7rem; font-weight:600; color:var(--ds-bg,#fff);
+                 white-space:nowrap; overflow:hidden; }
+    .mp-balken--besetzung { background:var(--ds-success); }
+    .mp-balken--bedarf { background:transparent; border:1px dashed var(--ds-accent); color:var(--ds-accent); }
+    /* Angeschnitten: der Balken laeuft ueber den Rand hinaus. */
+    .mp-balken--vorher  { border-top-left-radius:0; border-bottom-left-radius:0; }
+    .mp-balken--spaeter { border-top-right-radius:0; border-bottom-right-radius:0; }
+
+    .mp-rand { font-size:.66rem; font-weight:600; padding:0 5px; opacity:.9; }
+
+    .mp-konflikte { margin-top:20px; }
+    .mp-konflikt { background:var(--ds-surface,#fff); border:1px solid var(--ds-border,#e2e8f0);
+                   border-left:3px solid var(--ds-border,#e2e8f0); border-radius:10px;
+                   padding:12px 15px; margin-bottom:10px; font-size:.85rem; line-height:1.5; }
+    .mp-konflikt--hart  { border-left-color:var(--ds-danger); }
+    .mp-konflikt--weich { border-left-color:var(--ds-warning); }
+    .mp-konflikt__art { font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
+    .mp-konflikt--hart .mp-konflikt__art  { color:var(--ds-danger); }
+    .mp-konflikt--weich .mp-konflikt__art { color:var(--ds-warning); }
+    .mp-konflikt__hebel { font-size:.78rem; color:var(--ds-text-secondary,#64748b); margin-top:5px; }
+
+    .mp-hinweis { background:var(--ds-surface,#fff); border:1px solid var(--ds-border,#e2e8f0);
+                  border-left:3px solid var(--ds-brand,#4a9eff); border-radius:10px;
+                  padding:11px 15px; margin-top:16px; font-size:.8rem; line-height:1.55;
+                  color:var(--ds-text-secondary,#64748b); }
+
+    .mp-leer { text-align:center; padding:44px 20px; color:var(--ds-text-secondary,#64748b); }
+    .mp-fehler { background:var(--ds-danger-muted); color:var(--ds-danger); border-radius:10px;
+                 padding:13px 16px; margin-bottom:16px; font-size:.86rem; }
+
+    /* ── Ansichtsumschalter ─────────────────────────────────────────────
+       Zwei Achsen auf dieselbe Wahrheit: der Monat nach EINSAETZEN und der
+       Monat nach MENSCHEN. Die zweite ist keine Zugabe — im Einsatz-Raster
+       fehlen alle, die gerade nichts haben, und das sind die verplanbaren. */
+    .mp-achsen { display:inline-flex; border:1px solid var(--ds-border,#e2e8f0);
+                 border-radius:9px; overflow:hidden; margin-right:6px; }
+    .mp-achse { border:0; background:var(--ds-surface,#fff); color:inherit;
+                padding:6px 14px; font-size:.82rem; cursor:pointer; }
+    .mp-achse + .mp-achse { border-left:1px solid var(--ds-border,#e2e8f0); }
+    .mp-achse[aria-pressed="true"] { background:var(--ds-brand,#4a9eff); color:var(--ds-bg,#fff); font-weight:600; }
+    .mp-achse:focus-visible { outline:2px solid var(--ds-brand,#4a9eff); outline-offset:-2px; }
+
+    /* ── Mitarbeiter-Raster ─────────────────────────────────────────────
+       Der Balken zeigt, was belegt ist; die FREIE Spanne ist der Inhalt. */
+    .mp-kopf-name { display:flex; align-items:baseline; gap:7px; }
+    .mp-nokonto { font-size:.62rem; text-transform:uppercase; letter-spacing:.05em;
+                  padding:1px 6px; border-radius:999px;
+                  background:var(--ds-warning-muted); color:var(--ds-warning); }
+    .mp-frei { position:absolute; top:9px; height:20px; border-radius:5px;
+               border:1px dashed var(--ds-success); background:var(--ds-success-muted);
+               color:var(--ds-success); font-size:.66rem; font-weight:600;
+               display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    .mp-balken--abwesend { background:var(--ds-warning); }
+    .mp-last { font-size:.72rem; color:var(--ds-text-secondary,#64748b);
+               font-variant-numeric:tabular-nums; }
+
+    /* ── Besetzung prüfen ───────────────────────────────────────────────
+       Die Antwort VORHER: was bricht, wenn diese Person auf diesen Einsatz
+       kommt. Geschrieben wird hier nichts. */
+    .mp-pruef { border:1px solid var(--ds-border,#e2e8f0); background:var(--ds-surface,#fff);
+                color:inherit; border-radius:7px; padding:3px 9px; font-size:.72rem;
+                cursor:pointer; white-space:nowrap; }
+    .mp-pruef:hover { border-color:var(--ds-brand,#4a9eff); }
+    .mp-pruef:focus-visible { outline:2px solid var(--ds-brand,#4a9eff); outline-offset:2px; }
+
+    .mp-panel { background:var(--ds-surface,#fff); border:1px solid var(--ds-border,#e2e8f0);
+                border-radius:12px; padding:16px 18px; margin-top:18px; }
+    .mp-panel__kopf { display:flex; justify-content:space-between; align-items:flex-start;
+                      gap:12px; margin-bottom:12px; }
+    .mp-panel h2 { margin:0; font-size:1rem; }
+    .mp-panel__sub { font-size:.78rem; color:var(--ds-text-secondary,#64748b); margin-top:3px; }
+    .mp-kandidaten { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:9px; }
+    .mp-kandidat { display:flex; justify-content:space-between; align-items:center; gap:10px;
+                   width:100%; text-align:left; border:1px solid var(--ds-border,#e2e8f0);
+                   background:var(--ds-surface,#fff); color:inherit; border-radius:9px;
+                   padding:9px 12px; font-size:.82rem; cursor:pointer; }
+    .mp-kandidat:hover { border-color:var(--ds-brand,#4a9eff); }
+    .mp-kandidat:focus-visible { outline:2px solid var(--ds-brand,#4a9eff); outline-offset:2px; }
+    .mp-kandidat[aria-pressed="true"] { border-color:var(--ds-brand,#4a9eff);
+                                        background:var(--ds-accent-muted); }
+    .mp-kandidat__frei { font-size:.72rem; color:var(--ds-success); font-weight:600;
+                         font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .mp-kandidat__frei--keine { color:var(--ds-text-secondary,#64748b); }
+    .mp-ergebnis { margin-top:14px; }
+    .mp-sauber { border-left:3px solid var(--ds-success); background:var(--ds-success-muted);
+                 border-radius:8px; padding:11px 14px; font-size:.85rem; color:var(--ds-success); }
+
+    .mp-tot { display:none; }
+  </style>
+</head>
+<body>
+  <div id="pageShell"></div>
+
+  <main class="mp-wrap">
+    <div class="mp-kopf">
+      <h1 data-i18n="mp.titel">Monatsplanung</h1>
+      <span id="mpSpur" class="mp-spur mp-tot"></span>
+    </div>
+    <p class="mp-leitsatz" data-i18n="mp.leitsatz">
+      Der Monat ist die Ansicht, der Einsatz ist die Sache. Was vorher begann, wird
+      am Rand angeschnitten; was kein Ende hat, läuft weiter.
+    </p>
+
+    <div id="mpFehler" class="mp-fehler mp-tot" role="alert"></div>
+
+    <nav class="mp-navi">
+      <span class="mp-achsen" role="group" aria-label="Ansicht">
+        <button id="mpAchseEinsaetze" class="mp-achse" type="button" aria-pressed="true"
+                data-i18n="mp.achse.einsaetze">Einsätze</button>
+        <button id="mpAchseMitarbeiter" class="mp-achse" type="button" aria-pressed="false"
+                data-i18n="mp.achse.mitarbeiter">Mitarbeiter</button>
+      </span>
+      <button id="mpZurueck" class="mp-btn" type="button" data-i18n="mp.zurueck">← Vormonat</button>
+      <span id="mpMonat" class="mp-monat">…</span>
+      <button id="mpVor" class="mp-btn" type="button" data-i18n="mp.vor">Folgemonat →</button>
+      <button id="mpHeute" class="mp-btn" type="button" data-i18n="mp.heute">Heute</button>
+    </nav>
+
+    <div id="mpKpis" class="mp-kpis mp-tot"></div>
+
+    <div id="mpLaedt" class="mp-leer" data-i18n="mp.laedt">Lade den Monat …</div>
+    <div id="mpLeer" class="mp-leer mp-tot" data-i18n="mp.leer">In diesem Monat ist nichts geplant.</div>
+
+    <div id="mpRaster" class="mp-raster mp-tot">
+      <div id="mpGitter" class="mp-gitter"></div>
+    </div>
+
+    <section id="mpKonflikte" class="mp-konflikte mp-tot" aria-live="polite"></section>
+
+    <p id="mpGrenze" class="mp-hinweis mp-tot"></p>
+
+    <!-- Die Antwort VORHER: wer kann auf diesen Einsatz, und was bricht dabei?
+         Liest nur — geschrieben wird über den bestehenden Besetzungsweg. -->
+    <section id="mpPruefung" class="mp-panel mp-tot" aria-live="polite">
+      <div class="mp-panel__kopf">
+        <div>
+          <h2 id="mpPruefTitel"></h2>
+          <div id="mpPruefSub" class="mp-panel__sub"></div>
+        </div>
+        <button id="mpPruefZu" class="mp-btn" type="button" data-i18n="mp.pruef.schliessen">Schließen</button>
+      </div>
+      <div id="mpKandidaten" class="mp-kandidaten"></div>
+      <div id="mpPruefErgebnis" class="mp-ergebnis"></div>
+    </section>
+  </main>
+
+  <script src="/public/js/pageShell.js"></script>
+  <script src="/public/js/pages/monatsplan.js"></script>
+</body>
+</html>

@@ -10,6 +10,7 @@ import { requirePermission } from "../middleware/rbac.js";
 import { attachExplanations } from "../services/matchExplanationService.js";
 import { rankMatches } from "../services/aiMatchRankingService.js";
 import { swallow } from "../utils/logger.js";
+import { reputationJoinSql } from "../services/reputationSql.js";
 
 /**
  * @param {{ pool, requireAuth, logger }} deps
@@ -189,6 +190,33 @@ export function createMatchingRouter(deps) {
       const { supplierId } = req.params;
       const role = req.query.role || null;
 
+      /*
+       * Z17 (2026-09-28): DIESE ROUTE HAT NIE EIN EINZIGES SIGNAL GEFUNDEN.
+       *
+       * `:supplierId` ist eine ORGANISATION — so steht es in der Doku, so fuehrt
+       * es die Ausnahmebegruendung in `test/fixtures/orgGrenzen.json`, und der
+       * 404-Riegel unten prueft genau das. Alle VIER Datenquellen der Route sind
+       * dagegen nutzer-geschluesselt, gemessen am Fremdschluessel:
+       *
+       *   supplier_reputation.supplier_id     -> users(id)
+       *   supplier_metrics.agency_id          -> users(id)
+       *   requests.receiver_id                -> users(id)
+       *   capacity_posts.supplier_company_id  -> users(id)
+       *
+       * Alle vier wurden mit `o.id` verglichen. Gegenprobe an den echten Daten:
+       * direkt 0 Treffer, ueber den Eigentuemer 9. Und weil drei der vier Wege
+       * LEFT JOIN oder catch sind, gab es keinen Fehler — die Route antwortete
+       * mit 200 und einem Smart-Rank-Score, der ausschliesslich auf Nullen und
+       * dem Rueckfallwert 30 Tage beruhte. Ein Ausfall mit Fehlermeldung waere
+       * die bessere Auskunft gewesen: dies hier ist eine erklaerbare Bewertung,
+       * die nichts erklaert, und sie steht in der oeffentlichen API-Doku.
+       *
+       * Der VERTRAG bleibt unberuehrt: Eingabe ist weiterhin eine Organisation,
+       * der 404-Riegel bleibt an `organizations` (sonst koennte jede beliebige
+       * Nutzerkennung ein "Lieferantenprofil" erzeugen). Nur der Weg von der
+       * Organisation zu ihren Zahlen geht jetzt ueber den Eigentuemer — dieselbe
+       * eine Bruecke wie in `vendorPoolService` und `profileRankingService`.
+       */
       // 1) Metrics + Reputation
       const { rows } = await pool.query(
         `SELECT
@@ -196,42 +224,54 @@ export function createMatchingRouter(deps) {
            COALESCE(sm.requests_accepted, 0)::int AS requests_accepted,
            COALESCE(sm.sla_breaches, 0)::int       AS sla_breaches,
            sr.timesheet_reliability_score,
-           sr.activity_score
+           sr.activity_score,
+           srom.user_id AS owner_user_id
          FROM organizations o
-         LEFT JOIN supplier_metrics sm ON sm.agency_id = o.id AND sm.window_days = 30
-         LEFT JOIN supplier_reputation sr ON sr.supplier_id = o.id
+         ${reputationJoinSql("o.id", { kennzahlen: { alias: "sm", fensterTage: 30 } })}
          WHERE o.id = $1`,
         [supplierId]
       );
       if (!rows.length) return res.status(404).json({ error: "SUPPLIER_NOT_FOUND" });
       const d = rows[0];
+      /* Ohne Eigentuemer gibt es keinen Weg zu den nutzer-geschluesselten Zahlen.
+         Das ist kein Fehler (eine Organisation darf ohne Eigentuemer bestehen),
+         aber es ist auch keine Bewertung — und es stumm als lauter Nullen
+         auszugeben war genau der Fehler, den diese Welle behebt. */
+      const ownerUserId = d.owner_user_id || null;
 
-      // 2) Role expertise (optional)
+      // 2) Role expertise (optional) — `requests.receiver_id` ist ein NUTZER
       let roleDealCount = 0, totalDealCount = 0;
-      if (role) {
+      if (role && ownerUserId) {
         try {
           const { rows: rr } = await pool.query(
             `SELECT
                COUNT(*) FILTER (WHERE LOWER(TRIM(role)) = $2 AND status IN ('FINALIZED','COMPLETED'))::int AS role_deals,
                COUNT(*) FILTER (WHERE status IN ('FINALIZED','COMPLETED'))::int AS total_deals
              FROM requests WHERE receiver_id = $1`,
-            [supplierId, role.toLowerCase().trim()]
+            [ownerUserId, role.toLowerCase().trim()]
           );
           if (rr.length) { roleDealCount = rr[0].role_deals; totalDealCount = rr[0].total_deals; }
-        } catch { /* column may not exist */ }
+        } catch (err) { swallow(err, logger, "smart-explain: Rollen-Erfahrung"); }
       }
 
-      // 3) Recency: latest capacity_post updated_at
+      /* 3) Aktualitaet: `capacity_posts` hat kein `supplier_id` (gemessen) —
+            der Anbieter steht als `supplier_company_id`, Fremdschluessel auf
+            `users`. Der Rueckfallwert 30 Tage ist bewusst DERSELBE wie der
+            Anfangswert: wer nie etwas eingestellt hat und wer nicht gefunden
+            wurde, sollen hier nicht verschieden aussehen — der Unterschied
+            gehoert in `signals_available`, nicht in eine erfundene Zahl. */
       let daysSinceUpdate = 30;
-      try {
-        const { rows: cp } = await pool.query(
-          `SELECT MAX(updated_at) AS latest FROM capacity_posts WHERE supplier_id = $1`,
-          [supplierId]
-        );
-        if (cp.length && cp[0].latest) {
-          daysSinceUpdate = Math.max(0, (Date.now() - new Date(cp[0].latest).getTime()) / (1000 * 60 * 60 * 24));
-        }
-      } catch { /* table may not exist */ }
+      if (ownerUserId) {
+        try {
+          const { rows: cp } = await pool.query(
+            `SELECT MAX(updated_at) AS latest FROM capacity_posts WHERE supplier_company_id = $1`,
+            [ownerUserId]
+          );
+          if (cp.length && cp[0].latest) {
+            daysSinceUpdate = Math.max(0, (Date.now() - new Date(cp[0].latest).getTime()) / (1000 * 60 * 60 * 24));
+          }
+        } catch (err) { swallow(err, logger, "smart-explain: Aktualitaet"); }
+      }
 
       // 4) Compute signals
       const signals = {
@@ -255,6 +295,12 @@ export function createMatchingRouter(deps) {
         classification_label: SMART_RANK_LABELS[classification] || classification,
         weights: SMART_RANK_WEIGHTS,
         signals,
+        /* Z17: ohne diesen Zusatz ist die Auskunft nicht nachvollziehbar, und
+           "nachvollziehbar" ist der ganze Zweck dieser Route. `signals_resolved`
+           sagt, wie viele der sechs Signale ueberhaupt auf Daten beruhen; ein
+           Score aus lauter Nullen sieht sonst genauso aus wie ein schlechter. */
+        signals_resolved: Object.values(signals).filter((v) => v != null).length,
+        owner_resolved: Boolean(ownerUserId),
         breakdown: result.breakdown
       });
     } catch (err) {

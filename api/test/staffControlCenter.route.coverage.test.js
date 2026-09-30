@@ -153,6 +153,77 @@ function router(pool, overrides) {
 
 /* ── Router shape ──────────────────────────────────────────────────────── */
 
+describe("SCC — die Plattformsicht auf das Audit (8.1.1 e)", () => {
+  /*
+   * Owner-Vorgabe: drei Sichten, hart getrennt.
+   *   Audit Zeitarbeitsfirma  — deren owner/admin, ausschliesslich die eigene Org
+   *   Audit Unternehmen       — dito; DIESELBE Route, der Unterschied ist der
+   *                             Mandant, nicht die Rolle
+   *   Audit Plattform         — Staff Control Center, alle Organisationen
+   *
+   * Die dritte gab es bis 2026-08-21 nur in `routes/admin.js` — auf einer
+   * Flaeche, die laut `hubVisibility.js` bewusst fuer company UND agency
+   * sichtbar ist. Sie stand damit auf der falschen Seite der Trennung
+   * (`docs/FLAECHEN.md`). Hier ist ihr richtiger Ort.
+   *
+   * Nicht zu verwechseln mit `/audit` daneben: das liest
+   * `staff_control_audit_log` — was das TEAM getan hat, nicht was auf der
+   * PLATTFORM geschehen ist.
+   */
+
+  function auditPool() {
+    return trackingPool([
+      { match: (t) => t.includes("COUNT(") && t.toLowerCase().includes("audit"),
+        respond: { rows: [{ total: 7 }] } },
+      { match: (t) => t.toLowerCase().includes("audit_log"),
+        respond: { rows: [{ id: "A1", action: "auth.login", org_id: "org-A" }] } },
+    ]);
+  }
+
+  it("die Route ist registriert und liegt hinter dem Flaechen-Tor", () => {
+    const r = router(trackingPool());
+    const layer = r.stack.find((l) => l.route && l.route.path === "/platform-audit");
+    assert.ok(layer, "GET /platform-audit fehlt");
+    assert.ok(layer.route.methods.get, "muss ein GET sein");
+    assert.ok(layer.route.stack.length >= 2,
+      "vor dem Handler muss requireStaff stehen — ohne Tor waere es eine offene Plattformsicht");
+  });
+
+  it("ohne org_id liefert sie die Plattformsicht — kein Mandantenfilter", async () => {
+    const pool = auditPool();
+    const { res } = await invoke(router(pool), "get", "/platform-audit", mockReq({ query: {} }));
+
+    assert.strictEqual(res._status, 200);
+    assert.strictEqual(res._json.data.scope.plattformweit, true);
+    assert.strictEqual(res._json.data.scope.org_id, null);
+    assert.strictEqual(res._json.data.total, 7);
+  });
+
+  it("mit org_id verengt sie auf einen Mandanten — und sagt das auch", async () => {
+    const pool = auditPool();
+    const { res } = await invoke(router(pool), "get", "/platform-audit",
+      mockReq({ query: { org_id: "org-A" } }));
+
+    assert.strictEqual(res._status, 200);
+    assert.strictEqual(res._json.data.scope.plattformweit, false);
+    assert.strictEqual(res._json.data.scope.org_id, "org-A");
+    assert.ok(pool.calls.flatMap((c) => c.params).includes("org-A"),
+      "die Verengung muss in der Abfrage ankommen, nicht nur in der Antwort");
+  });
+
+  it("sie liest audit_log, nicht das Staff-eigene Protokoll", async () => {
+    /* Die beiden Tabellen zu verwechseln waere die naheliegendste Art, diese
+     * Sicht falsch zu bauen — `/audit` daneben liest `staff_control_audit_log`. */
+    const pool = auditPool();
+    await invoke(router(pool), "get", "/platform-audit", mockReq({ query: {} }));
+
+    const sql = pool.calls.map((c) => c.sql).join(" ");
+    assert.ok(sql.toLowerCase().includes("audit_log"), "audit_log muss gelesen werden");
+    assert.ok(!sql.includes("staff_control_audit_log"),
+      "das Staff-eigene Protokoll gehoert nicht in die Plattformsicht");
+  });
+});
+
 describe("SCC router — registration", () => {
   it("registers a representative set of routes", () => {
     const r = router(trackingPool());

@@ -66,9 +66,9 @@ describe("searchService — getAvailableIndexes", () => {
 describe("searchService — search (DB fallback, type=all)", () => {
   it("queries requisitions+capacity_posts+companies when viewerOrgId set", async () => {
     const pool = trackingPool((sql) => {
-      if (/FROM requisitions/.test(sql) && /SELECT id/.test(sql)) return { rows: [{ id: "r1", _index: "requisitions" }] };
+      if (/FROM requisitions/.test(sql) && /SELECT (?:cp.)?id/.test(sql)) return { rows: [{ id: "r1", _index: "requisitions" }] };
       if (/FROM requisitions/.test(sql) && /COUNT/.test(sql)) return { rows: [{ c: 1 }] };
-      if (/FROM capacity_posts/.test(sql) && /SELECT id/.test(sql)) return { rows: [{ id: "c1", _index: "capacity_posts" }] };
+      if (/FROM capacity_posts/.test(sql) && /SELECT (?:cp.)?id/.test(sql)) return { rows: [{ id: "c1", _index: "capacity_posts" }] };
       if (/FROM capacity_posts/.test(sql) && /COUNT/.test(sql)) return { rows: [{ c: 2 }] };
       if (/FROM organizations/.test(sql) && /COUNT/.test(sql)) return { rows: [{ c: 3 }] };
       if (/FROM organizations/.test(sql)) return { rows: [{ id: "o1", _index: "companies" }] };
@@ -104,7 +104,7 @@ describe("searchService — search (DB fallback, type=all)", () => {
       /FROM requisitions/.test(sql) && /COUNT/.test(sql) ? { rows: [{ c: 0 }] } : { rows: [] });
     await svc.search(pool, "abc", { type: "all", viewerOrgId: "ORG-XYZ" });
 
-    const reqSelect = pool.calls.find(c => /FROM requisitions/.test(c.sql) && /SELECT id/.test(c.sql));
+    const reqSelect = pool.calls.find(c => /FROM requisitions/.test(c.sql) && /SELECT (?:cp.)?id/.test(c.sql));
     assert.ok(reqSelect, "requisitions SELECT issued");
     // params: [like, query, limit, offset, viewerOrgId]
     assert.equal(reqSelect.params[4], "ORG-XYZ");
@@ -158,7 +158,7 @@ describe("searchService — search options & escaping", () => {
   it("clamps limit to a maximum of 100", async () => {
     const pool = trackingPool(() => ({ rows: [] }));
     await svc.search(pool, "q", { type: "capacity_posts", limit: 9999 });
-    const sel = pool.calls.find(c => /SELECT id/.test(c.sql));
+    const sel = pool.calls.find(c => /SELECT (?:cp.)?id/.test(c.sql));
     // params: [like, query, limit, offset]
     assert.equal(sel.params[2], 100);
   });
@@ -166,7 +166,7 @@ describe("searchService — search options & escaping", () => {
   it("defaults limit=20 and offset=0", async () => {
     const pool = trackingPool(() => ({ rows: [] }));
     await svc.search(pool, "q", { type: "capacity_posts" });
-    const sel = pool.calls.find(c => /SELECT id/.test(c.sql));
+    const sel = pool.calls.find(c => /SELECT (?:cp.)?id/.test(c.sql));
     assert.equal(sel.params[2], 20);
     assert.equal(sel.params[3], 0);
   });
@@ -174,14 +174,14 @@ describe("searchService — search options & escaping", () => {
   it("honours explicit offset", async () => {
     const pool = trackingPool(() => ({ rows: [] }));
     await svc.search(pool, "q", { type: "capacity_posts", offset: 40 });
-    const sel = pool.calls.find(c => /SELECT id/.test(c.sql));
+    const sel = pool.calls.find(c => /SELECT (?:cp.)?id/.test(c.sql));
     assert.equal(sel.params[3], 40);
   });
 
   it("escapes %, _ and backslash in the ILIKE term", async () => {
     const pool = trackingPool(() => ({ rows: [] }));
     await svc.search(pool, "50%_a\\b", { type: "capacity_posts" });
-    const sel = pool.calls.find(c => /SELECT id/.test(c.sql));
+    const sel = pool.calls.find(c => /SELECT (?:cp.)?id/.test(c.sql));
     // each special char gets a backslash prefix, wrapped in %...%
     assert.equal(sel.params[0], "%50\\%\\_a\\\\b%");
     // raw query (param index 1) is untouched for trigram operator
@@ -191,7 +191,7 @@ describe("searchService — search options & escaping", () => {
   it("coerces a non-string query safely (number)", async () => {
     const pool = trackingPool(() => ({ rows: [] }));
     await svc.search(pool, 12345, { type: "capacity_posts" });
-    const sel = pool.calls.find(c => /SELECT id/.test(c.sql));
+    const sel = pool.calls.find(c => /SELECT (?:cp.)?id/.test(c.sql));
     assert.equal(sel.params[0], "%12345%");
   });
 });
@@ -259,13 +259,23 @@ describe("searchService — client-null branches (no MEILISEARCH_URL)", () => {
     assert.equal(out.error, "Not available");
   });
 
-  it("reindexAllIndexes skips skills and returns empty/not-available map", async () => {
+  it("reindexAllIndexes ueberspringt skills UND requisitions", async () => {
+    /*
+     * P1-15 (2026-09-28): `requisitions` steht jetzt ebenfalls auf
+     * `reindexQuery: null` und wird damit uebersprungen. Das ist kein
+     * Nebeneffekt, sondern der Zweck: org-private Anforderungen gehoeren nicht
+     * in einen gemeinsamen Index, und `org_id` als filterbares Attribut ist
+     * keine Mandantengrenze. Die Zusicherung unten ist deshalb strenger als
+     * vorher - sie haelt fest, dass der Index NICHT gefuellt wird.
+     */
     const pool = trackingPool(() => ({ rows: [] }));
     const out = await svc.reindexAllIndexes(pool);
-    // skills has reindexQuery=null -> excluded from the result map
+    // reindexQuery=null -> aus der Ergebniskarte ausgeschlossen
     assert.ok(!("skills" in out));
-    // the four reindexable indexes are present, each Not-available (no client)
-    for (const name of ["companies", "suppliers", "capacity_posts", "requisitions"]) {
+    assert.ok(!("requisitions" in out),
+      "requisitions wird wieder indiziert - das legt die Anforderungen aller Mandanten in EINEN Index");
+    // die drei indizierbaren sind da, jeder Not-available (kein Client)
+    for (const name of ["companies", "suppliers", "capacity_posts"]) {
       assert.ok(name in out, `${name} present`);
       assert.equal(out[name].error, "Not available");
     }

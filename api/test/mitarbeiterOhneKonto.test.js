@@ -32,6 +32,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import * as svc from "../services/workerService.js";
+import { pruefeZeilen } from "../routes/workers.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -267,7 +268,7 @@ describe("P10/D5 · Kontolose Mitarbeiter verschwinden nicht", () => {
  * acceptInvite arbeitet auf einem Client aus dem Pool. Der Mock protokolliert
  * jede Anweisung, damit sich pruefen laesst, WELCHER Weg gegangen wurde.
  */
-function einladungsPool({ invite, antworten }) {
+function einladungsPool({ invite, antworten, bestand = null }) {
   const abfragen = [];
   const client = {
     query: async (text, params) => {
@@ -280,8 +281,18 @@ function einladungsPool({ invite, antworten }) {
   };
   return {
     abfragen,
-    // getInviteByToken laeuft ueber den Pool, nicht ueber den Client.
-    query: async () => ({ rows: [invite] }),
+    /*
+     * Ueber den POOL laufen zwei Abfragen, nicht mehr eine: getInviteByToken
+     * und — seit M2.1 — der Riegel, der nachsieht, ob die Adresse schon einem
+     * Konto gehoert. Der Mock muss sie unterscheiden; gab er auf JEDE
+     * Pool-Abfrage die Einladung zurueck, las der Riegel deren `role`
+     * (undefined) als "fremde Rolle" und lehnte ab. Reine Fixture-Pflege.
+     */
+    query: async (text) => {
+      const q = String(text || "");
+      if (q.includes("FROM users WHERE LOWER(email)")) return { rows: bestand ? [bestand] : [] };
+      return { rows: [invite] };
+    },
     connect: async () => client
   };
 }
@@ -464,5 +475,87 @@ describe("P10/D5 · Der Import kennt beide Wege", () => {
     assert.equal(res.errors[0].error, "MISSING_IDENTITY");
     assert.match(res.errors[0].message, /Personalnummer/,
       "der Nutzer muss erfahren, was er tun kann — nicht nur, dass etwas fehlt");
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   M0/F7 · Der Eingang war zu, obwohl alles dahinter offen war
+   ══════════════════════════════════════════════════════════════════════════ */
+
+describe("M0/F7 · das Import-Schema laesst die Zeile ohne E-Mail durch", () => {
+  /*
+   * DER BEFUND, gefunden beim Abgleich der M0-Frage F7 (2026-09-03).
+   *
+   * D-E1 war entschieden, Migration 175 hatte `worker_profiles.user_id`
+   * freigegeben, und `bulkImportWorkers` setzte die Regel bereits um
+   * ("P10/D5 — kein E-Mail-Zwang mehr"). Nur `importItemSchema` verlangte
+   * weiterhin `z.string().email()` — mit einer Begruendung, die in ALLEN DREI
+   * Punkten abgelaufen war: sie berief sich auf ein NOT NULL, das die Migration
+   * aufgehoben hatte, und auf eine Ablehnung im Dienst, die es nicht mehr gab.
+   *
+   * Ein Schema, dessen Begruendung abgelaufen ist, sieht aus wie eine Regel und
+   * ist ein Ueberbleibsel. Gemessen: null von 33 Profilen ohne Konto — die
+   * Funktion war vollstaendig gebaut und hatte nie einen Aufrufer.
+   *
+   * DIE PFLICHT VERSCHWINDET NICHT, SIE WANDERT.
+   * `email` ODER `personnel_number` — erzwungen im Dienst, je Zeile, mit einem
+   * Bericht statt eines Abbruchs (P10/D1). Ein Zod-Schema kann "eines von
+   * beiden" nicht ausdruecken, ohne die zweite Regel zu verdoppeln; zwei
+   * Wahrheiten ueber dieselbe Frage sind der Fehler, nicht ihre Formulierung.
+   */
+
+  it("eine Zeile mit Personalnummer und ohne E-Mail wird angenommen", () => {
+    const { gueltig, fehler } = pruefeZeilen([
+      { first_name: "Anna", last_name: "Berg", personnel_number: "P-7" }
+    ]);
+    assert.equal(gueltig.length, 1,
+      `die Zeile wird abgewiesen: ${JSON.stringify(fehler)}`);
+    assert.equal(fehler.length, 0);
+  });
+
+  it("auch mit ausdruecklich leerer E-Mail (CSV liefert oft null)", () => {
+    const { gueltig } = pruefeZeilen([
+      { email: null, first_name: "Anna", last_name: "Berg", personnel_number: "P-8" }
+    ]);
+    assert.equal(gueltig.length, 1, "eine leere Spalte ist kein Fehler");
+  });
+
+  it("eine KAPUTTE E-Mail bleibt ein Fehler — das Tor ist offen, nicht weg", () => {
+    const { gueltig, fehler } = pruefeZeilen([
+      { email: "keine-adresse", first_name: "Anna", last_name: "Berg", personnel_number: "P-9" }
+    ]);
+    assert.equal(gueltig.length, 0, "eine unbrauchbare Adresse wird durchgewunken");
+    assert.equal(fehler[0]?.error, "VALIDATION");
+  });
+
+  it("die Zeile OHNE jede Identitaet faellt weiterhin — aber im Dienst, nicht im Schema", async () => {
+    /*
+     * Die wichtigste Probe dieses Abschnitts: das geoeffnete Schema darf kein
+     * Loch sein. Das Schema laesst die Zeile durch (es sieht `personnel_number`
+     * und `email` nicht zusammen), und der Dienst weist sie ab — OHNE eine
+     * einzige Schreibabfrage.
+     */
+    const { gueltig } = pruefeZeilen([{ first_name: "Anna", last_name: "Berg" }]);
+    assert.equal(gueltig.length, 1, "das Schema soll hier NICHT entscheiden");
+
+    const abfragen = [];
+    const antwort = (sql) => {
+      abfragen.push(String(sql));
+      return { rows: [], rowCount: 0 };
+    };
+    const pool = {
+      query: async (sql) => antwort(sql),
+      connect: async () => ({ query: async (sql) => antwort(sql), release() {} })
+    };
+    const res = await svc.bulkImportWorkers(pool, {
+      supplierOrgId: "22222222-2222-2222-2222-222222222222",
+      workers: gueltig,
+      createdBy: "11111111-1111-1111-1111-111111111111"
+    });
+    assert.equal(res.created.length, 0);
+    assert.equal(res.errors[0]?.error, "MISSING_IDENTITY");
+    assert.equal(abfragen.filter((s) => /INSERT|UPDATE/i.test(s)).length, 0,
+      "es wurde geschrieben, obwohl die Zeile abgelehnt wird — eine Ablehnung "
+      + "nach dem Schreiben ist keine");
   });
 });

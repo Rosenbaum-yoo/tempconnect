@@ -17,6 +17,13 @@ const createSchema = z.object({
   demand_request_id: z.string().uuid().optional().nullable(),
   offer_id: z.string().uuid().optional().nullable(),
   contract_id: z.string().uuid().optional().nullable(),
+  /* N2.12 — Befund der Nachpruefung vom 2026-09-16: beide Felder fehlten im
+     Schema. Zod verwirft unbekannte Schluessel, also kamen Standort und
+     Abteilung weder bei der Anlage noch beim PATCH je an — und die beiden
+     Org-Pruefungen dafuer (Route und Dienst) liefen immer mit `undefined`,
+     waren also tot. docs/API.md versprach sie als aenderbar. */
+  location_id: z.string().uuid().optional().nullable(),
+  department_id: z.string().uuid().optional().nullable(),
   worker_description: z.string().max(2000).optional().nullable(),
   worker_count: z.number().int().min(1).max(999).optional(),
   requested_quantity: z.number().int().min(1).max(999).optional(),
@@ -83,10 +90,20 @@ export function createAssignmentsRouter(deps) {
       if (req.orgId && data.org_id && data.org_id !== req.orgId) {
         return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
       }
+      // Welle N2.9: jeder Fremdschluessel gegen die anlegende Org; Angebot und
+      // Deal nur ueber den Abschluss (assignmentService.pruefeAnlageVerweise).
+      const verweis = await assignmentService.pruefeAnlageVerweise(pool, data.org_id, data);
+      if (verweis) return res.status(verweis.status).json({ error: verweis.error, field: verweis.field });
       const assignment = await assignmentService.createAssignment(pool, data);
       res.locals.audit = { action: "assignment.create", entity_type: "assignment", entity_id: assignment.id, details: { org_id: data.org_id, supplier_org_id: data.supplier_org_id } };
       res.status(201).json(assignment);
     } catch (err) {
+      /* N2.12: seit Standort und Abteilung ankommen, prueft `createAssignment`
+         sie wirklich — ein fremder Standort ist eine Grenzverletzung (403),
+         kein Serverfehler. Dieselbe Antwort wie beim PATCH. */
+      if (err instanceof OrgBoundaryError) {
+        return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION", message: err.message });
+      }
       logger.error({ err: err.message }, "Assignment create failed");
       res.status(500).json({ error: "SERVER_ERROR" });
     }
@@ -120,6 +137,8 @@ export function createAssignmentsRouter(deps) {
       }
       throw boundaryErr;
     }
+    const vertrag = await assignmentService.pruefeVertragsVerweis(pool, existing, partial.data.contract_id);
+    if (vertrag) return res.status(vertrag.status).json({ error: vertrag.error, field: vertrag.field });
     const updated = await assignmentService.updateAssignment(pool, req.params.id, partial.data, req.session.userId);
     if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
     res.locals.audit = { action: "assignment.update", entity_type: "assignment", entity_id: req.params.id, details: { changed_fields: Object.keys(partial.data) } };

@@ -21,6 +21,7 @@ import { queryOrgAuditLog } from "../services/auditLog.js";
 import { PERMISSIONS, ROLE_HIERARCHY } from "../services/rbacService.js";
 import * as orgInviteService from "../services/orgInviteService.js";
 import { sendMail } from "../services/emailService.js";
+import { verweigereArbeiter } from "../middleware/orgAccess.js";
 
 /* ── Zod Schemas ───────────────────────────────────────── */
 
@@ -545,7 +546,19 @@ export function createOrgControlCenterRouter(deps) {
    *  LOCATIONS — Standortverwaltung
    * ═══════════════════════════════════════════════════════ */
 
-  router.get("/org/locations", requireAuth, ensureOrg,
+  /*
+   * M2.5/M2.7 — gemessen am 2026-09-03: diese Route reicht einer ARBEITERSITZUNG
+   * org-geschluesselte Daten ihrer Zeitarbeitsfirma durch. Ein Arbeiter ist
+   * regulaer Mitglied in der Org seines Arbeitgebers (workerService.acceptInvite,
+   * role_key='worker'), seine Sitzung traegt also deren Kennung.
+   *
+   * Bewusst `verweigereArbeiter` und nicht `requirePermission(...)`: welche Rollen
+   * diese Daten lesen duerfen, ist eine Produktfrage und gehoert dem Owner (M2.6).
+   * Dieser Riegel schliesst genau das Gemessene und nimmt sonst niemandem etwas.
+   */
+  const keinArbeiter = verweigereArbeiter({ logger });
+
+  router.get("/org/locations", requireAuth, ensureOrg, keinArbeiter,
     async (req, res) => {
       try {
         const locations = await orgService.listLocations(pool, req.orgId);
@@ -619,7 +632,7 @@ export function createOrgControlCenterRouter(deps) {
    *  DEPARTMENTS — Abteilungsverwaltung
    * ═══════════════════════════════════════════════════════ */
 
-  router.get("/org/departments", requireAuth, ensureOrg,
+  router.get("/org/departments", requireAuth, ensureOrg, keinArbeiter,
     async (req, res) => {
       try {
         const depts = await orgService.listDepartments(pool, req.orgId);

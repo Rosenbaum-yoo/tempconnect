@@ -58,7 +58,16 @@ describe("recurringBillingService — generateRecurringInvoices", () => {
     assert.match(sel, /current_period_end <= \$1/);
     assert.equal(pool.calls[0].params[0], "2026-02-01T00:00:00.000Z");
     assert.equal(pool.calls[0].params[1], MAX_BATCH_SIZE); // default batch
-    assert.deepEqual(result, { processed: 0, invoiced: 0, skipped: 0, failed: [], batch_size: MAX_BATCH_SIZE });
+    // `eingriffe_angewandt` kam mit Welle K1.4 dazu, `ohne_forderung` mit dem
+    // Gate K2.2: ein Lauf, der Eingriffe anwendet oder Freimonate ausgibt, ohne
+    // das zu berichten, waere wieder still. Die Pruefung bleibt streng
+    // (vollstaendige Form), sie kennt nur drei Felder mehr — `werbepraemien` kam
+    // mit K2.4 dazu.
+    assert.deepEqual(result, {
+      processed: 0, invoiced: 0, skipped: 0, failed: [],
+      batch_size: MAX_BATCH_SIZE, eingriffe_angewandt: 0, ohne_forderung: 0,
+      werbepraemien: 0
+    });
   });
 
   it("erzeugt eine Folgerechnung für BASIS + flippt auf past_due (Katalogpreis)", async () => {

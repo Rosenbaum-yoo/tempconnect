@@ -326,3 +326,84 @@ describe("revenueMetricsService — legacy fallback behavior", () => {
     assert.ok(metrics.retention_truth);
   });
 });
+
+/* ═══════════════════════════════════════════════════════════
+   "Umsatz" ist nur Geld, das an TempConnect geht
+   (Owner-Entscheid 2026-09-03)
+   ═══════════════════════════════════════════════════════════ */
+
+describe("revenueMetricsService — Umsatz trennt Kundengeld ab", () => {
+  /*
+   * Operative Rechnungen (zwischen ZWEI KUNDEN, Agentur -> Unternehmen) und
+   * Abo-Rechnungen (an TempConnect) liegen in DERSELBEN Tabelle, unterschieden
+   * allein durch invoice_type. Die ZAEHLUNGEN trennten sauber, die vier
+   * GELDSUMMEN nicht — die Trennung war also bekannt und wurde auf die Zaehlung
+   * angewendet, auf die Betraege nicht.
+   *
+   * Geprueft wird die FORM der Abfrage, nicht ihr Ergebnis: der Muster-Pool
+   * fuehrt kein SQL aus, er antwortet. Eine Probe auf die ZAHL wuerde also nur
+   * den Mock pruefen und nichts ueber die Trennung sagen. Die Form dagegen ist
+   * der Vertrag: steht der Typfilter an allen vier Summen, kann fremdes Geld
+   * nicht mehr hineinlaufen.
+   */
+  function fangeInvoiceSql() {
+    const gefangen = { sql: null };
+    const pool = mockPool((sql, params) => {
+      if (sql.includes("FROM information_schema.columns")) {
+        const table = params[0];
+        if (table === "invoices") {
+          return tableColumnsRows(["status", "total_cents", "issued_at", "org_id", "invoice_type"]);
+        }
+        return tableColumnsRows([]);
+      }
+      if (sql.includes("invoiced_revenue_cents")) {
+        gefangen.sql = sql;
+        return { rows: [{}] };
+      }
+      return { rows: [] };
+    });
+    return { pool, gefangen };
+  }
+
+  function zeileMit(sql, feld) {
+    return String(sql).split("\n").find((z) => z.includes("AS " + feld));
+  }
+
+  it("alle vier Geldsummen tragen den Typfilter", async () => {
+    const { pool, gefangen } = fangeInvoiceSql();
+    await getRevenueMetrics(pool);
+    assert.ok(gefangen.sql, "die Rechnungs-Abfrage wurde gar nicht gestellt");
+
+    for (const feld of ["invoiced_revenue_cents", "paid_revenue_cents",
+      "open_receivables_cents", "overdue_receivables_cents"]) {
+      const zeile = zeileMit(gefangen.sql, feld);
+      assert.ok(zeile, `${feld} kommt in der Abfrage nicht vor`);
+      assert.ok(/=\s*'subscription'/.test(zeile),
+        `${feld} traegt keinen Typfilter — fremdes Geld laeuft in die eigenen `
+        + `Buecher:\n  ${zeile.trim()}`);
+    }
+  });
+
+  it("das Kundengeld verschwindet nicht, es steht getrennt", async () => {
+    const { pool, gefangen } = fangeInvoiceSql();
+    await getRevenueMetrics(pool);
+    const zeile = zeileMit(gefangen.sql, "vermitteltes_volumen_cents");
+    assert.ok(zeile,
+      "das vermittelte Volumen fehlt — die Trennung haette die Zahl geloescht statt "
+      + "sie auszuweisen, und die Groesse des Marktplatzes waere nirgends mehr ablesbar");
+    assert.ok(/=\s*'operational'/.test(zeile),
+      "das vermittelte Volumen zaehlt nicht die operativen Rechnungen:\n  " + zeile.trim());
+  });
+
+  it("die Zaehlungen bleiben getrennt, wie sie es waren", async () => {
+    /* Gegenprobe: die Reparatur der Summen darf die vorher schon korrekte
+       Trennung der Zaehlungen nicht mit umbauen. */
+    const { pool, gefangen } = fangeInvoiceSql();
+    await getRevenueMetrics(pool);
+    for (const feld of ["operational_count", "subscription_count"]) {
+      const zeile = zeileMit(gefangen.sql, feld);
+      assert.ok(zeile && /COUNT\(\*\) FILTER/.test(zeile),
+        `${feld} ist keine gefilterte Zaehlung mehr`);
+    }
+  });
+});

@@ -39,8 +39,15 @@ export async function listOverrides(pool, { orgId, limit = 100, offset = 0 } = {
      LIMIT $1 OFFSET $2`,
     params
   );
+  /*
+   * Z4 (2026-09-27): hier stand `${where}` — derselbe Text wie oben, also
+   * `WHERE fo.org_id = $3`. Diese Abfrage bekommt aber nur EINEN Parameter:
+   * jeder Aufruf mit Org-Filter warf `there is no parameter $3`. Das war ein
+   * zweiter, unabhaengiger Fehler auf demselben Weg — die fehlende Tabelle hat
+   * ihn nur verdeckt, weil die Abfrage darueber schon warf.
+   */
   const { rows: countRows } = await pool.query(
-    `SELECT COUNT(*)::int AS total FROM feature_overrides fo ${where}`,
+    `SELECT COUNT(*)::int AS total FROM feature_overrides fo${orgId ? " WHERE fo.org_id = $1" : ""}`,
     orgId ? [orgId] : []
   );
   return { items: rows, total: countRows[0]?.total || 0 };

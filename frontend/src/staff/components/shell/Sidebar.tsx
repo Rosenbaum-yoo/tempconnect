@@ -25,8 +25,10 @@ export type AreaKey =
   | "staff-access"
   | "support-vendors"
   | "bounty-catalog"
+  | "rabatt-faelle"
   | "marketplace-visibility"
   | "search-moderation"
+  | "markt-sichtbarkeit"
   | "data-governance"
   | "document-vault";
 
@@ -52,6 +54,10 @@ export const AREAS: NavItem[] = [
   // Preishebel. Der Name grenzt ihn zugleich von "Marketplace Visibility →
   // Bounties" ab, wo es um bezahlte Sichtbarkeit je Kunde geht.
   { key: "bounty-catalog",        label: "Rabatt-Katalog",       group: "Strategie" },
+  // Der Einzelfall neben der Regel: was bekommt EIN Kunde, warum, und wo ist
+  // die Ermittlung ausgefallen. Steht direkt beim Katalog, weil man von der
+  // Regel fast immer zum Fall will.
+  { key: "rabatt-faelle",         label: "Rabatt-Faelle",        group: "Strategie" },
   { key: "support",               label: "Support",              group: "Operations" },
   { key: "mail",                  label: "Mail & Notifications", group: "Operations" },
   { key: "operations",            label: "Operations",           group: "Operations" },
@@ -65,6 +71,11 @@ export const AREAS: NavItem[] = [
   { key: "support-vendors",       label: "Support Vendors",      group: "Administration" },
   { key: "marketplace-visibility", label: "Marketplace Visibility", group: "Marketplace" },
   { key: "search-moderation",     label: "Suchmeldungen",          group: "Marketplace" },
+  // Kein Moderationsmodul, sondern die erste Marktzahl im Staff CC: wessen
+  // Kraefte am Markt unauffindbar sind. Steht bei "Marketplace", weil es den
+  // Marktplatz-Bestand betrifft — nicht bei Operations, wo es um den Betrieb
+  // der Plattform geht.
+  { key: "markt-sichtbarkeit",    label: "Markt-Sichtbarkeit",     group: "Marketplace" },
   { key: "data-governance",       label: "DSGVO / Datenschutz",    group: "Governance" },
   { key: "document-vault",        label: "Dokumenten-Tresor",      group: "Governance" },
 ];

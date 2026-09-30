@@ -5,47 +5,155 @@
  * auto-expiry, interactions, supplier dashboard stats.
  */
 
+import { logger } from "../config/index.js";
 import * as capacityWorkflow from "./capacityWorkflow.js";
-import { haversineKm, scoreMatch } from "./matchingEngine.js";
+import { scoreMatch } from "./matchingEngine.js";
+import { zugesagtJeAngebotSql } from "./zusageFormel.js";
+/* M4c.3b — die EINE Antwort auf "ist dieser Mensch gebunden?" (siehe POOL_FREI_JOIN). */
+import { gebundenSql } from "./bindungSql.js";
 import { loadSkillIndex, expandTags } from "./skillNormalizationService.js";
 import * as auditLog from "./auditLog.js";
 import { computePremiumBoost } from "./reputationService.js";
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
+import { cpSpaltenSql } from "./capacityPostOeffentlicheSpalten.js";
+/* M1.7 — die EINE Tabelle, die entscheidet, wie viele Anzeigen ein Plan
+ * tragen darf. Siehe die Begruendung am Block darunter. */
+import { PLAN_LIMITS } from "./userService.js";
+import * as companyBlocklistService from "./companyBlocklistService.js";
 
-/* ── Plan-based limits ────────────────────────────── */
+/* ── Plan-based limits ──────────────────────────────
+ *
+ * M1.7 — HIER STAND EINE ZWEITE TABELLE, UND SIE GEWANN.
+ *
+ * Sie fuehrte `PRO: 50` und `INDIVIDUELL: 999`, waehrend
+ * `userService.PLAN_LIMITS` fuer beide `listings: -1` sagt — unbegrenzt, so
+ * ist es verkauft. Weil diese hier im SCHREIBPFAD stand, entschied sie: eine
+ * PRO-Agentur bekam bei der 51. Anzeige `PLAN_LIMIT`, fuer eine Leistung, fuer
+ * die sie 799 EUR im Monat zahlt.
+ *
+ * Owner-Entscheid M-E3: unbegrenzt, und der abweichende Wert wird GELOESCHT,
+ * nicht angeglichen. Zwei Tabellen fuer dieselbe Grenze sind der Fehler, nicht
+ * ihr Inhalt — angeglichen waeren sie beim naechsten Preisumbau wieder
+ * auseinander.
+ *
+ * DIE FALLE BEIM LOESCHEN: die verbleibende Tabelle schreibt "unbegrenzt" als
+ * `-1`. Ein blosses Ersetzen haette `cnt >= limit` zu `cnt >= -1` gemacht —
+ * immer wahr. Aus "unbegrenzt" waere "gar nichts" geworden, ausgerechnet fuer
+ * die zwei teuersten Plaene. Deshalb `unbegrenzt()` an JEDER Vergleichsstelle.
+ *
+ * Kein Ringschluss: `userService.js` importiert diese Datei nicht.
+ */
 
-const PLAN_LIMITS = {
-  DEMO: 0,
-  FREE: 0,
-  BASIS: 5,
-  PLUS: 20,
-  PRO: 50,
-  INDIVIDUELL: 999
-};
-PLAN_LIMITS.ENTERPRISE = PLAN_LIMITS.INDIVIDUELL;
-PLAN_LIMITS.INDIVIDUAL = PLAN_LIMITS.INDIVIDUELL;
+/** Die eine Schreibweise fuer "ohne Grenze". */
+const UNBEGRENZT = -1;
 
+/** Wie viele AKTIVE Anzeigen dieser Plan tragen darf. Unbekannt = keine. */
 function getActiveLimit(plan) {
-  return PLAN_LIMITS[plan] ?? 0;
+  const roh = Number(PLAN_LIMITS[plan]?.listings);
+  return Number.isFinite(roh) ? roh : 0;
+}
+
+/** Trennt "unbegrenzt" von "null erlaubt" — beides sind Zahlen <= 0. */
+function unbegrenzt(limit) {
+  return limit === UNBEGRENZT;
 }
 
 /* ── Helpers ──────────────────────────────────────── */
 
+/* Explizite Spaltenliste statt Alias-Stern (Welle J2, Befund 2.2e): was hier
+ * nicht steht, erreicht keinen Betrachter. Die Anbieter-E-Mail ist bewusst
+ * weg — kein Frontend hat sie je gelesen, und eine Kontaktadresse vor dem
+ * Deal unterlaeuft die Anonymitaet (P8 §3.5). */
 const ENTRY_SELECT = `
-  cp.*,
+  ${cpSpaltenSql("cp")},
   u.company_name AS supplier_company_name,
   u.role AS supplier_role,
-  u.email AS supplier_email,
   o.name AS org_name,
-  COALESCE(o.logo_url, cfp.logo_url) AS supplier_logo_url
+  COALESCE(o.logo_url, cfp.logo_url) AS supplier_logo_url,
+  wpm.markt_merkmale
 `;
 
+/* Der wpm-Join (Welle J9) holt vom Arbeiterprofil AUSSCHLIESSLICH die
+ * markt_merkmale — den festen Katalog positiver Merkmale (Mig 201), zur
+ * Lesezeit, damit eine Aenderung sofort in allen Angeboten wirkt. KEINE
+ * weitere Profilspalte darf hier je dazukommen (kein Name, keine interne
+ * Notiz): der Marktplatz-Feld-Waechter schneidet den Quelltext genau darauf
+ * — auch dieser Kommentar darf ihr Spaltenwort deshalb nicht ausschreiben. */
 const ENTRY_JOINS = `
   FROM capacity_posts cp
   JOIN users u ON u.id = cp.supplier_company_id
   LEFT JOIN organizations o ON o.id = cp.org_id
   LEFT JOIN company_profiles cfp ON cfp.user_id = cp.supplier_company_id
+  LEFT JOIN worker_profiles wpm ON wpm.id = cp.worker_profile_id
 `;
+
+/* Die zugesagte Kopfzahl je Angebot kommt aus `zusageFormel.js` — der EINEN
+   Quelle fuer Handelsstand, Feed, Marktplatz-Treffer und Discovery (N2.8). */
+
+/**
+ * Die freie Kopfzahl eines Kapazitaetsangebots als SQL — fuer Filter, die VOR
+ * dem `LIMIT` greifen muessen.
+ *
+ * Eigene Aliase (`o_zu`, `d_zu`): `ENTRY_JOINS` belegt `o` bereits mit
+ * `organizations`. Innerhalb des Lateral-Blocks waere das zwar gueltig, aber
+ * genau die Sorte Doppelbelegung, ueber die spaeter jemand stolpert.
+ */
+const FREIE_KOPFZAHL_JOIN = `
+  LEFT JOIN LATERAL (
+    SELECT COALESCE(SUM(${zugesagtJeAngebotSql("o_zu", "d_zu")}), 0)::int AS zugesagt
+      FROM offers o_zu
+      LEFT JOIN demand_requests d_zu ON d_zu.id = o_zu.demand_request_id
+     WHERE o_zu.capacity_post_id = cp.id
+  ) zusage ON TRUE
+`;
+/*
+ * M4c.3 — EIN SAMMELANGEBOT KANN NIE MEHR MENSCHEN LIEFERN, ALS FREI SIND.
+ *
+ * Die Zusage-Rechnung oben zieht ab, was auf DIESEM Angebot zugesagt wurde. Was sie
+ * nicht sieht: ein Mitglied des Sammelangebots kann ANDERSWO gebunden sein — über
+ * sein eigenes Einzelangebot, über ein zweites Sammelangebot, über eine Zuweisung
+ * ausserhalb des Marktplatzes. Gemessen am 2026-09-24: derselbe Mensch stand
+ * gleichzeitig in einem aktiven Sammelangebot und in einem aktiven Einzelangebot.
+ * Ohne diese Deckelung wirbt ein Sammelangebot mit 30 Kraeften weiter, waehrend 29
+ * davon bereits arbeiten — und der Owner nennt genau das Betrug.
+ *
+ * Der Sweep (workerOfferReservationService) pausiert erst, wenn KEIN Mitglied mehr
+ * frei ist. Die Teilbelegung dazwischen faengt nur diese Zahl.
+ *
+ * `SUM` statt `COUNT` ist hier der Unterschied zwischen "alle gebunden" und "gar keine
+ * Mitglieder" — und keine Geschmacksfrage. Ein Sammelangebot ohne Mitglieder ist der
+ * von Migration 146 erlaubte Fall "pauschal N Helfer ohne konkrete Personen". Ueber
+ * null Zeilen liefert SUM in Postgres NULL, COUNT dagegen 0. Mit COUNT waere jedes
+ * pauschale Sammelangebot der Plattform auf null freie Plaetze gedeckelt und aus dem
+ * Feed verschwunden — ein stiller Totalausfall. Mit SUM ist `pool_frei.frei` dort NULL,
+ * und LEAST laesst NULL in Postgres fallen, statt selbst NULL zu werden. Die Deckelung
+ * greift also genau dort, wo es Menschen zu zaehlen gibt.
+ *
+ * M4c.3b — WAS "FREI" HEISST, STEHT NICHT MEHR HIER. Diese Stelle trug eine eigene
+ * Fassung der Bindungs-Regel (aktive `worker_assignment_links`-Zeile), und die kannte
+ * die BUCHUNG nicht: ein Mitglied, das ein Unternehmen gerade gebucht hatte, zaehlte
+ * weiter als freier Kopf. Gemessen am 2026-09-24 stand genau so ein Mensch in einem
+ * aktiven Sammelangebot UND in einem aktiven Einzelangebot. Die Regel kommt jetzt aus
+ * `bindungSql.js` — dieselbe, die auch die Reservierung benutzt. Eine zweite Fassung
+ * hier waere derselbe Mensch mit zwei Wahrheiten.
+ *
+ * Nebenwirkung des Umbaus, und eine gute: der Verbund auf `worker_profiles` entfaellt.
+ * Er hiess `poolwp` und NICHT `wpm`, weil `wpm` oben schon der Arbeiterprofil-Join des
+ * personengebundenen Angebots ist (Welle J9) — innerhalb des Lateral-Blocks waere die
+ * Doppelbelegung gueltig gewesen, aber genau die Sorte Kollision, ueber die spaeter
+ * jemand stolpert. Jetzt gibt es sie gar nicht mehr.
+ */
+const POOL_FREI_JOIN = `
+  LEFT JOIN LATERAL (
+    SELECT SUM(CASE WHEN NOT ${gebundenSql("m.worker_profile_id")} THEN 1 ELSE 0 END)::int AS frei
+      FROM capacity_post_pool_members m
+     WHERE m.capacity_post_id = cp.id
+  ) pool_frei ON TRUE
+`;
+const FREIE_KOPFZAHL_SQL =
+  "LEAST(GREATEST(cp.headcount - COALESCE(zusage.zugesagt, 0), 0), pool_frei.frei)";
+
+export const _FUER_PROBEN = Object.freeze({ zugesagtJeAngebotSql, FREIE_KOPFZAHL_JOIN, POOL_FREI_JOIN, FREIE_KOPFZAHL_SQL });
 
 const EMPTY_CAPACITY_COMMERCIAL_STATE = Object.freeze({
   committed_headcount: 0,
@@ -139,16 +247,31 @@ export async function getCapacityCommercialStates(pool, capacityPostIds = []) {
     return new Map();
   }
 
+  /*
+   * N2.8 — ZUWEISUNGEN WERDEN JE ANGEBOT VORAB SUMMIERT, nicht dazugejoint.
+   *
+   * Hier stand `LEFT JOIN assignments a ON a.offer_id = o.id` direkt im Verbund.
+   * `assignments.offer_id` ist NICHT eindeutig (kein UNIQUE-Index, gemessen
+   * 2026-09-13). Traegt ein Angebot zwei Zuweisungen, erscheint es zweimal im
+   * Verbund — und die SUMME der zugesagten Kopfzahl zaehlt es doppelt. Gegen
+   * die Datenbank gemessen: 19 zugesagt wurden zu 38. Die freie Kopfzahl faellt
+   * auf null, und `syncCapacityCommercialState` stellt das Angebot auf
+   * `reserved`: es verschwindet aus dem Markt, obwohl noch Plaetze frei sind.
+   *
+   * Heute hat kein Angebot zwei Zuweisungen. Das Schema verhindert es aber
+   * nicht, und die Feed-Filter aus N2.8 rechnen ohne diesen Verbund — beide
+   * Rechnungen liefen genau in diesem Fall auseinander. Der Lateral-Block
+   * liefert je Angebot HOECHSTENS EINE Zeile.
+   *
+   * Die Erklaerung steht hier und NICHT im SQL-Text: der geht bei jeder Abfrage
+   * an Postgres und landet in dessen Statistiken — und eine Probe, die den
+   * SQL-Text liest, hielt den Satz "hier stand ..." fuer den Verbund selbst.
+   */
   const { rows } = await pool.query(
     `SELECT
        cp.id AS capacity_post_id,
        COALESCE(SUM(
-         CASE
-           WHEN o.status = 'accepted'
-             AND COALESCE(o.agreement_status, 'none') NOT IN ('cancelled', 'expired')
-           THEN GREATEST(COALESCE(o.offered_quantity, d.headcount, 0), 0)
-           ELSE 0
-         END
+         ${zugesagtJeAngebotSql("o", "d")}
        ), 0)::int AS committed_headcount,
        COUNT(DISTINCT o.id) FILTER (
          WHERE o.status = 'accepted'
@@ -179,7 +302,12 @@ export async function getCapacityCommercialStates(pool, capacityPostIds = []) {
      FROM capacity_posts cp
      LEFT JOIN offers o ON o.capacity_post_id = cp.id
      LEFT JOIN demand_requests d ON d.id = o.demand_request_id
-     LEFT JOIN assignments a ON a.offer_id = o.id
+     LEFT JOIN LATERAL (
+       SELECT COALESCE(SUM(a1.filled_quantity), 0) AS filled_quantity,
+              COALESCE(SUM(a1.reserved_quantity), 0) AS reserved_quantity
+         FROM assignments a1
+        WHERE a1.offer_id = o.id
+     ) a ON TRUE
      WHERE cp.id = ANY($1)
      GROUP BY cp.id`,
     [uniqueIds]
@@ -285,10 +413,10 @@ export async function syncCapacityCommercialStateForOffer(pool, offerId) {
 export async function createCapacityEntry(pool, supplierId, plan, data) {
   // Check plan limit
   const limit = getActiveLimit(plan);
-  if (limit <= 0 && data.status !== 'draft') {
+  if (!unbegrenzt(limit) && limit <= 0 && data.status !== 'draft') {
     throw Object.assign(new Error('Plan does not allow capacity entries'), { code: 'PLAN_LIMIT' });
   }
-  if (data.status === 'active' || !data.status) {
+  if (!unbegrenzt(limit) && (data.status === 'active' || !data.status)) {
     const { rows: countRows } = await pool.query(
       `SELECT COUNT(*)::int AS cnt FROM capacity_posts WHERE supplier_company_id = $1 AND status = 'active'`,
       [supplierId]
@@ -425,13 +553,15 @@ export async function transitionStatus(pool, entryId, supplierId, newStatus, pla
       return { error: 'VALIDATION', details: validation.errors };
     }
     const limit = getActiveLimit(plan);
-    const { rows: countRows } = await pool.query(
-      `SELECT COUNT(*)::int AS cnt FROM capacity_posts
+    if (!unbegrenzt(limit)) {
+      const { rows: countRows } = await pool.query(
+        `SELECT COUNT(*)::int AS cnt FROM capacity_posts
        WHERE supplier_company_id = $1 AND status = 'active' AND id != $2`,
-      [supplierId, entryId]
-    );
-    if (countRows[0].cnt >= limit) {
-      return { error: 'PLAN_LIMIT', limit };
+        [supplierId, entryId]
+      );
+      if (countRows[0].cnt >= limit) {
+        return { error: 'PLAN_LIMIT', limit };
+      }
     }
   }
 
@@ -517,6 +647,69 @@ export async function listOwnEntries(pool, supplierId, opts = {}) {
 
 /* ── READ: Public feed (company side) ────────────── */
 
+/**
+ * Der Umkreis als SQL — Entfernung und Bedingung fuer eine Marktseite.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WARUM DAS IN SQL GEHOERT UND NICHT DANACH
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Bis zum 2026-09-07 wurde der Umkreis NACH der Abfrage in JavaScript
+ * angewandt — und zwar nach dem `LIMIT`. Drei Folgen, alle gemessen:
+ *
+ *   1. `total` kannte den Umkreis nicht. Wer 25 km suchte, las eine Zahl, die
+ *      die ganze Republik zaehlte.
+ *   2. Eine Seite lieferte WENIGER Eintraege als angefordert: erst wurden 25
+ *      Zeilen geschnitten, dann davon die Haelfte weggefiltert.
+ *   3. Die Blaetterung zeigte Seiten, die es nicht gab — und "nichts gefunden"
+ *      auf Seite 2, obwohl Seite 3 wieder Treffer hatte.
+ *
+ * ZAHLEN STATT PLATZHALTER, und das ist Absicht: die drei Werte kommen als
+ * Zahlen herein und werden hier auf `Number.isFinite` geprueft. Die beiden
+ * Marktseiten haben verschiedene Parameter-Regime (die Angebotsabfrage zaehlt
+ * `idx` hoch, die Bedarfsabfrage bindet gar nichts) — sie zusammenzufuehren
+ * waere ein groesserer Eingriff als der, um den es hier geht. Eine geprueft
+ * endliche Zahl kann nichts einschleusen; ein Text koennte es, und deshalb
+ * kommt hier auch keiner an.
+ *
+ * Die Formel ist dieselbe wie in `haversineKm` (Erdradius 6371 km) — die
+ * Auswahl darf nicht anders rechnen als die Anzeige.
+ */
+function umkreisSql(breite, laenge, radiusKm) {
+  /*
+   * `null` und `""` ZUERST abweisen — und zwar ausdruecklich, weil `Number(null)`
+   * gleich 0 ist und `Number.isFinite(0)` wahr. Ein fehlender Laengengrad haette
+   * sonst stillschweigend Greenwich bedeutet, ein fehlender Breitengrad den
+   * Aequator: die Suche haette gefiltert, ohne dass jemand einen Punkt genannt
+   * hat. Der alte JavaScript-Filter prueft genau das (`!= null`) — beim Umzug
+   * ins SQL ging es zuerst verloren, eine Probe hat es zurueckgeholt.
+   */
+  for (const wert of [breite, laenge, radiusKm]) {
+    if (wert === null || wert === undefined || wert === "") return null;
+  }
+  const b = Number(breite);
+  const l = Number(laenge);
+  const r = Number(radiusKm);
+  if (!Number.isFinite(b) || !Number.isFinite(l) || !Number.isFinite(r)) return null;
+  if (b < -90 || b > 90 || l < -180 || l > 180 || r <= 0) return null;
+
+  const entfernung = (alias) => `(6371 * 2 * asin(sqrt(
+        power(sin(radians(${alias}.location_lat - (${b})) / 2), 2)
+        + cos(radians(${b})) * cos(radians(${alias}.location_lat))
+        * power(sin(radians(${alias}.location_lng - (${l})) / 2), 2))))`;
+
+  return {
+    entfernung,
+    /* Ohne Koordinaten faellt die Zeile heraus — genau wie vorher im
+       JavaScript. Und der eigene Radius eines Eintrags zaehlt mit: wer
+       schreibt "ich fahre bis 80 km", bleibt drin, auch wenn der Suchende
+       nur 25 km eingestellt hat. */
+    bedingung: (alias) => `${alias}.location_lat IS NOT NULL
+      AND ${alias}.location_lng IS NOT NULL
+      AND ${entfernung(alias)} <= GREATEST(${r}, COALESCE(${alias}.radius_km, 25))`
+  };
+}
+
 export async function browseFeed(pool, opts = {}) {
   const viewerRole = opts.viewer_role || null;
   const viewerUserId = opts.viewer_user_id || null;
@@ -535,6 +728,10 @@ export async function browseFeed(pool, opts = {}) {
   const demandAvailabilityClause = (isImmediateWindow && immediateStart && immediateEnd)
     ? ` AND dr.start_date <= '${immediateEnd}' AND (dr.end_date IS NULL OR dr.end_date >= '${immediateStart}')`
     : '';
+  /* N2.4b — der Umkreis wird jetzt mitgefiltert statt nachtraeglich. `null`
+     heisst: keine Umkreissuche, dann bleibt alles wie zuvor. */
+  const umkreis = umkreisSql(opts.latitude, opts.longitude, opts.radius_km);
+
   const demandVisibilityWhere = `${demandRemainingOpenSql} > 0
       AND dr.status IN ('open', 'partially_covered')
       AND NOT EXISTS (
@@ -578,10 +775,34 @@ export async function browseFeed(pool, opts = {}) {
     where.push("cp.status = 'active'");
   }
 
+  /* N2.8 — ein AKTIVES Angebot ohne freien Platz steht nicht im Markt. Diese
+     Regel lief bisher erst nach dem `LIMIT` in JavaScript. Selten, weil der
+     Status beim Abschluss auf `reserved` springt (`syncCapacityCommercialState`)
+     — aber jeder Weg, der zusagt, ohne zu synchronisieren, kuerzte sonst die
+     Seite und blaehte die Zahl. */
+  where.push(`(cp.status <> 'active' OR ${FREIE_KOPFZAHL_SQL} > 0)`);
+
   // Marktplatz zeigt nur AKTUELLE Angebote: abgelaufene (Einsatz-Enddatum vorbei) ausblenden.
   // availability_to IS NULL = offenes Ende -> bleibt sichtbar. Reiner Query-Zeit-Filter:
   // kein Loeschen, reversibel; Angebote "laufen ab", sobald ihr Enddatum < heute ist.
   where.push("(cp.availability_to IS NULL OR cp.availability_to >= CURRENT_DATE)");
+
+  /* Sperrliste (Welle J2c, Befund 2.2c): eine Kraft, die DIESES Unternehmen
+   * gesperrt hat, erscheint fuer genau dieses Unternehmen nicht im Feed —
+   * ein Angebot, das man nicht buchen darf, ist keine Auskunft, sondern eine
+   * Falle. Greift nur bei worker-gebundenen Angeboten (single_skill/bundle);
+   * Sammelangebote (pool_*) haben kein cp.worker_profile_id — dort reduziert
+   * ein gesperrtes Mitglied die Auswahl erst bei der Besetzung (J5). Andere
+   * Unternehmen sehen die Kraft weiterhin: die Sperre ist eine Beziehung
+   * zwischen ZWEI Parteien, kein Plattform-Urteil. */
+  if (opts.viewer_company_org_id) {
+    /* N4: derselbe Baustein wie in Suche und Detailansicht. Hier stand eine
+       eigene Kopie - solange sie die einzige war, fiel nicht auf, dass die
+       anderen beiden Flaechen gar keine hatten. */
+    params.push(opts.viewer_company_org_id);
+    where.push(companyBlocklistService.nichtGesperrtSql("cp", idx));
+    idx++;
+  }
 
   if (opts.worker_category) {
     params.push(opts.worker_category);
@@ -611,8 +832,13 @@ export async function browseFeed(pool, opts = {}) {
     idx++;
   }
   if (opts.min_headcount) {
+    /* N2.8 — die FREIE Kopfzahl, nicht die gesamte. Hier stand
+       `cp.headcount >= N`, und NACH dem `LIMIT` filterte JavaScript auf die
+       freie. Ein Angebot "5 gesamt, 3 zugesagt" kam bei "mindestens 4" durch
+       SQL, wurde mitgezaehlt — und fiel dann aus der Seite. Kurze Seite UND
+       falsche Trefferzahl, sobald jemand nach Mindestanzahl filtert. */
     params.push(opts.min_headcount);
-    where.push(`cp.headcount >= $${idx}`);
+    where.push(`${FREIE_KOPFZAHL_SQL} >= $${idx}`);
     idx++;
   }
   if (opts.shift_model) {
@@ -634,6 +860,17 @@ export async function browseFeed(pool, opts = {}) {
   // FILTER gebraucht wird, nicht erst fuers Bewerten.
   const skillIndex = await loadSkillIndex(pool);
 
+  /* Merkmal-Filter (Welle J9): das Unternehmen filtert nach den positiven
+   * Katalog-Merkmalen der Kraft (@> = "traegt ALLE genannten"). Der LEFT JOIN
+   * macht Angebote ohne Profil dabei ehrlich unsichtbar: wer nach
+   * "zuverlaessig" filtert, will keine Angebote sehen, ueber deren Kraft der
+   * Chef nichts gesagt hat. */
+  if (Array.isArray(opts.merkmale) && opts.merkmale.length > 0) {
+    params.push(opts.merkmale);
+    where.push(`wpm.markt_merkmale @> $${idx}::text[]`);
+    idx++;
+  }
+
   if (Array.isArray(opts.skill_tags) && opts.skill_tags.length > 0) {
     // Um die Synonyme erweitern, BEVOR gefiltert wird: `&&` vergleicht exakte
     // Zeichenketten, ein "Seniorenpflege"-Suchender bekaeme die "Altenpflege"-Angebote
@@ -646,6 +883,50 @@ export async function browseFeed(pool, opts = {}) {
   const page = Math.max(1, opts.page || 1);
   const limit = Math.min(100, opts.limit || 25);
   const offset = (page - 1) * limit;
+
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * N3.4 — ERST DAS FENSTER, DANN DER RANG, DANN DIE SEITE
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Der Rang wurde bisher NACH dem LIMIT gerechnet — also nur ueber die 25
+   * Zeilen, die die Datums-Sortierung zufaellig auf diese Seite gelegt hatte.
+   * Das ist keine Rangliste, das ist eine Umsortierung innerhalb einer
+   * Zufallsauswahl: der beste Treffer des Marktes steht auf Seite 3 und kommt
+   * dort auch nicht weg, weil er auf Seite 3 nur gegen die anderen 24 Zeilen
+   * von Seite 3 antritt. "Beste Passung oben" war damit unwahr, und zwar
+   * unabhaengig davon, wie gut die Rangformel darunter ist.
+   *
+   * Jetzt: ein KANDIDATENFENSTER von 500 Eintraegen wird geholt (die
+   * aktuellsten, in der totalen Ordnung aus N2.11), vollstaendig rangiert, und
+   * ERST DANN wird die Seite herausgeschnitten.
+   *
+   * Warum 500 und nicht "alle": der Rang braucht Reputation, Tarif und
+   * Passung — drei Nachladeabfragen und eine Bewertung je Eintrag. Ueber
+   * einem unbegrenzten Markt waechst das mit dem Bestand (§0.3, 10 -> 300
+   * Kunden). 500 deckt bei 25 pro Seite die ersten 20 Seiten ab; gemessen am
+   * 2026-09-19 hat der gesamte Markt 40 Bedarfe und 6 Angebote.
+   *
+   * Was JENSEITS des Fensters liegt, bleibt nach Aktualitaet sortiert — und
+   * das ist exakt, sich nicht ueberschneidend: das Fenster IST die erste
+   * Datums-Seite bis 500, also liefert ein Versatz >= 500 genau die
+   * Eintraege, die NICHT im Fenster stehen. Keine Dublette, keine Luecke.
+   * Gesagt wird es trotzdem: `feed_context.rang_fenster` nennt Groesse,
+   * Kandidatenzahl und ob der Rang fuer diese Seite ueberhaupt gilt. Eine
+   * stille Kuerzung liest sich wie Vollstaendigkeit.
+   */
+  const RANG_FENSTER = 500;
+  const rangFensterAktiv = !umkreis && !opts.sort && (offset + limit) <= RANG_FENSTER;
+
+  /* Die Zaehl-Parameter werden VOR dem Merk-Push eingefroren: die Zaehl-Query
+   * referenziert nur die WHERE-Parameter. Ein ueberzaehliger Parameter ist
+   * fuer Postgres ein Protokollfehler (08P01 "bind message supplies N") —
+   * seit P9/B1 (2026-08-10) brach daran der GESAMTE Feed fuer jeden
+   * angemeldeten Betrachter. Kein Mock-Test konnte es sehen: Mock-Pools
+   * ignorieren ueberzaehlige Parameter, Postgres nicht. Gefunden von
+   * marktplatzBuchung.test.js Teil C (Welle J2c) beim ersten Lauf der vollen
+   * Query gegen die echte Datenbank. */
+  const countParams = params.slice();
 
   // P9/B1: Der Merk-Zustand faehrt in DERSELBEN Abfrage mit — kein Rundlauf je
   // Karte und auch keine zusaetzliche Sammelabfrage. Ohne angemeldeten Betrachter
@@ -664,17 +945,26 @@ export async function browseFeed(pool, opts = {}) {
     : "FALSE";
 
   // Build supply query with current filters
+  if (umkreis) where.push(umkreis.bedingung("cp"));
+
   const supplyCte = `
     SELECT ${ENTRY_SELECT},
-           COALESCE(cp.updated_at, cp.created_at) AS sort_date,
+           date_trunc('milliseconds', COALESCE(cp.updated_at, cp.created_at)) AS sort_date,
+           ${umkreis ? `${umkreis.entfernung("cp")}` : "NULL::double precision"} AS _distance_km,
            ${supplyGemerkt} AS gemerkt
     ${ENTRY_JOINS}
+    ${FREIE_KOPFZAHL_JOIN}
+    ${POOL_FREI_JOIN}
     WHERE ${where.join(' AND ')}`;
 
   // Demand CTE (commercially open, no user filters applied)
   const demandRoleWhere = (viewerRole === "agency" && !interAgencyEnabled)
     ? "AND u.role = 'company'"
     : "";
+  const demandWhereMitUmkreis = umkreis
+    ? `${demandVisibilityWhere} AND ${umkreis.bedingung("dr")}`
+    : demandVisibilityWhere;
+
   const demandCte = `
     SELECT
       dr.id, dr.title, dr.role, dr.skill_tags, dr.headcount,
@@ -685,6 +975,7 @@ export async function browseFeed(pool, opts = {}) {
       dr.start_date AS availability_from, dr.end_date AS availability_to,
       dr.location_city, dr.location_postal,
       dr.location_lat, dr.location_lng, dr.radius_km,
+      ${umkreis ? `${umkreis.entfernung("dr")}` : "NULL::double precision"} AS _distance_km,
       dr.urgency AS priority_level,
       dr.featured_until,
       dr.budget_min AS price_min, dr.budget_max AS price_max,
@@ -696,10 +987,9 @@ export async function browseFeed(pool, opts = {}) {
       dr.requester_company_id AS supplier_company_id,
       u.company_name AS supplier_company_name,
       u.role AS supplier_role,
-      u.email AS supplier_email,
       NULL::text AS org_name,
       'demand'::text AS feed_type,
-      COALESCE(dr.updated_at, dr.created_at) AS sort_date,
+      date_trunc('milliseconds', COALESCE(dr.updated_at, dr.created_at)) AS sort_date,
       -- P9/B1: gemerkte Bedarfe, aus derselben Abfrage. $2 ist der Betrachter;
       -- ohne angemeldeten Nutzer bleibt es FALSE.
       EXISTS (SELECT 1 FROM capacity_interactions ci_merk
@@ -708,59 +998,165 @@ export async function browseFeed(pool, opts = {}) {
                  AND ci_merk.interaction_type = 'save') AS gemerkt
     FROM demand_requests dr
     JOIN users u ON u.id = dr.requester_company_id
-    WHERE ${demandVisibilityWhere}
+    WHERE ${demandWhereMitUmkreis}
       ${demandRoleWhere}`;
 
   // Count: supply + demand separately (avoids UNION column mismatch)
   const { rows: supplyCount } = await pool.query(
-    `SELECT COUNT(*)::int AS cnt ${ENTRY_JOINS} WHERE ${where.join(' AND ')}`, params);
+    `SELECT COUNT(*)::int AS cnt ${ENTRY_JOINS} ${FREIE_KOPFZAHL_JOIN} ${POOL_FREI_JOIN} WHERE ${where.join(' AND ')}`, countParams);
   const demandCountSql = (viewerRole === "agency" && !interAgencyEnabled)
     ? `SELECT COUNT(*)::int AS cnt
          FROM demand_requests dr
          JOIN users u ON u.id = dr.requester_company_id
-        WHERE ${demandVisibilityWhere} AND u.role = 'company'`
+        WHERE ${demandWhereMitUmkreis} AND u.role = 'company'`
     : `SELECT COUNT(*)::int AS cnt
          FROM demand_requests dr
-        WHERE ${demandVisibilityWhere}`;
+        WHERE ${demandWhereMitUmkreis}`;
   const { rows: demandCount } = await pool.query(demandCountSql);
-  const total = (supplyCount[0]?.cnt ?? 0) + (demandCount[0]?.cnt ?? 0);
+
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * N2.4 — DIE ZAHL ZAEHLT NUR, WAS DER BETRACHTER AUCH SIEHT
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Hier stand `supply + demand`, also die Summe BEIDER Marktseiten. Weiter
+   * unten wird `items` dann nach `viewerRole` gefiltert (GEGENSEITENLOGIK):
+   * ein Unternehmen sieht ausschliesslich `supply`, eine Zeitarbeitsfirma
+   * ausschliesslich `demand`.
+   *
+   * Gemessen am 2026-09-06 mit 6 Angeboten und 17 fremden Bedarfen: ein
+   * Unternehmen bekam `total: 23` und sah 6. Die 17 waren die Einkaufslisten
+   * anderer Unternehmen — Zeilen, die in seiner Liste nie erscheinen.
+   *
+   * Das ist nicht nur eine schiefe Anzeige: `total` speist die BLAETTERUNG.
+   * Ueber einer Liste mit sechs Eintraegen standen 23 Treffer, also mehrere
+   * Seiten, die es nicht gibt.
+   *
+   * Die Auswahl hier ist Zeichen fuer Zeichen dieselbe wie die von `items`
+   * weiter unten — eine zweite Meinung darueber, was zur eigenen Marktseite
+   * gehoert, waere genau der Fehler, der hier gerade behoben wird.
+   */
+  const supplyGesehen = viewerRole !== "agency" || interAgencySupplyVisible;
+  const demandGesehen = viewerRole !== "company";
+  const total = (supplyGesehen ? (supplyCount[0]?.cnt ?? 0) : 0)
+              + (demandGesehen ? (demandCount[0]?.cnt ?? 0) : 0);
+
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * N2.7 — JEDE MARKTSEITE BLAETTERT RICHTIG (Pruefung vom 12.09.)
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Hier holte der Feed ZUERST Angebote (mit OFFSET) und DANACH Bedarfe — aber
+   * nur "den Rest der Seite" und OHNE OFFSET. Drei Folgen, alle bestaetigt:
+   *
+   *   1. Eine Zeitarbeitsfirma sieht keine Angebote — die wurden trotzdem
+   *      geholt, verbrauchten die Seite und flogen weiter unten wieder raus.
+   *      Mit 13 Angeboten und 17 Bedarfen blieben 12 Bedarfe; 5 waren nie
+   *      erreichbar.
+   *   2. Seite 2 lieferte DIESELBEN Bedarfe wie Seite 1: ohne OFFSET beginnt
+   *      die Bedarfsabfrage auf jeder Seite von vorn. Seit N2.4 zaehlt `total`
+   *      ehrlich — die Blaetterung versprach damit Seiten, die sich wiederholen.
+   *   3. Bei Umkreissuche standen Angebote in 100 km VOR einem Bedarf in 200 m:
+   *      jede Seite war fuer sich nach Naehe sortiert, die Zusammenfuehrung
+   *      nicht. Die gemeinsame Sortierung stand bis N2.4b im JavaScript-Filter
+   *      und ist mit ihm verschwunden.
+   *
+   * Jetzt: geholt wird nur, was der Betrachter sieht — dieselbe Auswahl wie
+   * bei `total`. Eine Seite allein blaettert direkt in SQL. Sieht jemand BEIDE
+   * Seiten, holt jede `offset + limit` Zeilen, beide werden gemeinsam sortiert
+   * und dann geschnitten. Das kostet mit der Seitentiefe mehr, betrifft aber nur
+   * die seltenen Betrachter beider Seiten; Unternehmen und Zeitarbeitsfirmen
+   * blaettern einseitig und bezahlen nichts zusaetzlich.
+   *
+   * NACH DEM LIMIT laeuft seit N2.8 nur noch `visible_to_viewer` — und der
+   * grenzt enger ein als das SQL hoechstens in einem Randfall (siehe dort).
+   * Die beiden Kopfzahl-Filter, die hier bis N2.7 genannt waren, stehen jetzt
+   * in Zaehlung und Abfrage.
+   */
+  const beideSeiten = supplyGesehen && demandGesehen;
+  /* N3.4: gilt der Rang fuer diese Seite, wird das FENSTER geholt (von vorn) —
+     sonst bleibt es bei der Seitenlogik aus N2.7. */
+  const fenster = rangFensterAktiv ? RANG_FENSTER : (beideSeiten ? offset + limit : limit);
+  const versatz = rangFensterAktiv ? 0 : (beideSeiten ? 0 : offset);
+
+  /*
+   * N2.11 — EINE TOTALE ORDNUNG. Bis hier sortierten beide Seiten nur nach
+   * Entfernung und Zeitstempel. Bei Gleichstand ist die Reihenfolge fuer
+   * Postgres unbestimmt und haengt vom LIMIT ab (Top-N-Heapsort): Seite 1 und
+   * Seite 2 konnten dieselbe Zeile zeigen und eine andere auf keiner Seite —
+   * obwohl `total` sie zaehlte. Gleichstaende sind kein Randfall: die
+   * Marktpraesenz legt Angebote in EINEM INSERT…SELECT an (identischer
+   * Zeitstempel); gemessen am 2026-09-15 teilten sich 3 von 6 aktiven Angeboten
+   * denselben. Nachgestellt: drei Seiten zu je 25 lieferten 73 verschiedene
+   * Zeilen, zwei Angebote fehlten.
+   *
+   * Deshalb die Kennung als letzter Schluessel — in SQL UND in der
+   * JS-Zusammenfuehrung darunter, mit DERSELBEN Ordnung: `sort_date` ist auf
+   * Millisekunden gekuerzt (der pg-Treiber liefert Zeitstempel nur so genau an
+   * JavaScript; eine Mikrosekunde Unterschied haette SQL anders sortieren lassen
+   * als die Zusammenfuehrung), und UUIDs vergleicht Postgres byteweise — das ist
+   * die Reihenfolge ihrer kleingeschriebenen Hex-Darstellung.
+   */
+  const kennungAbsteigend = (a, b) => (String(a.id) < String(b.id) ? 1 : String(a.id) > String(b.id) ? -1 : 0);
 
   // Fetch supply entries
-  const supplyParams = [...params, limit, offset];
-  const { rows: rawSupplyRows } = await pool.query(
-    `${supplyCte} ORDER BY sort_date DESC LIMIT $${idx} OFFSET $${idx + 1}`, supplyParams);
-  let supplyRows = await enrichCapacityEntries(pool, rawSupplyRows, { viewerUserId });
-  supplyRows = supplyRows.filter((row) => row.visible_to_viewer);
-  if (opts.min_headcount) {
-    supplyRows = supplyRows.filter((row) => row.remaining_headcount >= Number(opts.min_headcount));
+  let supplyRows = [];
+  if (supplyGesehen) {
+    const supplyParams = [...params, fenster, versatz];
+    const { rows: rawSupplyRows } = await pool.query(
+      `${supplyCte} ORDER BY ${umkreis ? "_distance_km ASC, " : ""}sort_date DESC, cp.id DESC`
+      + ` LIMIT $${idx} OFFSET $${idx + 1}`, supplyParams);
+    supplyRows = await enrichCapacityEntries(pool, rawSupplyRows, { viewerUserId });
+    /* `visible_to_viewer` bleibt: SQL grenzt schon strenger ein (Status,
+       Privatheit, Vertragspartner bei `reserved`). Der Filter kann hoechstens
+       einen Randfall entfernen — ein `reserved`-Angebot, bei dem der Betrachter
+       Anbieter eines Angebots ist, aber nicht des Kapazitaetsangebots.
+       Die beiden Kopfzahl-Filter standen hier ebenfalls — N2.8 hat sie in SQL
+       verlegt. Eine JS-Kopie hinter dem `LIMIT` wuerde bei der kleinsten
+       Abweichung wieder genau das tun, was behoben ist: Seiten kuerzen. */
+    supplyRows = supplyRows.filter((row) => row.visible_to_viewer);
+    supplyRows.forEach(r => { r.feed_type = 'supply'; });
   }
-  supplyRows = supplyRows.filter((row) => row.status !== 'active' || row.remaining_headcount > 0);
-  supplyRows.forEach(r => { r.feed_type = 'supply'; });
 
-  // Fetch demand entries (only if supply didn't fill the page)
+  // Fetch demand entries — mit eigenem OFFSET ($3); $2 bleibt der Betrachter
   let demandRows = [];
-  if (supplyRows.length < limit) {
-    const demandLimit = limit - supplyRows.length;
+  if (demandGesehen) {
     const { rows: dr } = await pool.query(
-      `${demandCte} ORDER BY COALESCE(dr.updated_at, dr.created_at) DESC LIMIT $1`,
-      [demandLimit, viewerUserId]);
+      `${demandCte} ORDER BY ${umkreis ? "_distance_km ASC, " : ""}sort_date DESC, dr.id DESC LIMIT $1 OFFSET $3`,
+      [fenster, viewerUserId, versatz]);
     demandRows = dr;
   }
 
   let items = [...supplyRows, ...demandRows];
+  if (beideSeiten || rangFensterAktiv) {
+    /* Gemeinsam sortieren, DANN schneiden. Bei Umkreissuche entscheidet die
+       Naehe ueber beide Seiten; sonst die Aktualitaet — dieselben Schluessel,
+       nach denen jede Seite in SQL sortiert wurde. */
+    const zeit = (r) => new Date(r.sort_date || r.updated_at || r.created_at || 0).getTime();
+    const naehe = (r) => (r._distance_km == null ? Infinity : Number(r._distance_km));
+    items.sort(umkreis
+      ? (a, b) => (naehe(a) - naehe(b)) || (zeit(b) - zeit(a)) || kennungAbsteigend(a, b)
+      : (a, b) => (zeit(b) - zeit(a)) || kennungAbsteigend(a, b));
+    /* N3.4: mit Fenster wird hier NICHT die Seite geschnitten, sondern das
+       Fenster begrenzt — geschnitten wird nach dem Rang. Holen beide Seiten je
+       500, sind es zusammen bis zu 1000; die ersten 500 in der Datums-Ordnung
+       sind das Fenster. */
+    items = rangFensterAktiv
+      ? items.slice(0, RANG_FENSTER)
+      : items.slice(offset, offset + limit);
+  }
 
-  // Post-query geo filter
-  if (opts.latitude != null && opts.longitude != null && opts.radius_km != null) {
-    const sLat = Number(opts.latitude);
-    const sLng = Number(opts.longitude);
-    const sR = Number(opts.radius_km);
-    items = items.filter(r => {
-      if (r.location_lat == null || r.location_lng == null) return false;
-      const dist = haversineKm(sLat, sLng, r.location_lat, r.location_lng);
-      r._distance_km = Math.round(dist * 10) / 10;
-      return dist <= Math.max(sR, r.radius_km || 25);
+  /*
+   * N2.4b — hier stand der Umkreisfilter. Er ist in die Abfrage gewandert
+   * (`umkreisSql`), weil er nach dem `LIMIT` lief: die Trefferzahl kannte den
+   * Umkreis nicht, und eine Seite konnte weniger Eintraege liefern als
+   * angefordert. Geblieben ist das RUNDEN der Entfernung fuer die Anzeige —
+   * die Zahl kommt jetzt aus SQL und traegt dort volle Genauigkeit.
+   */
+  if (umkreis) {
+    items.forEach((r) => {
+      if (r._distance_km != null) r._distance_km = Math.round(Number(r._distance_km) * 10) / 10;
     });
-    items.sort((a, b) => (a._distance_km || 0) - (b._distance_km || 0));
   }
 
   // ── R2-1: Activity Badges ──
@@ -953,17 +1349,56 @@ export async function browseFeed(pool, opts = {}) {
     const featuredActive = !!(item.featured_until && new Date(item.featured_until).getTime() > now);
     const featuredBoost = featuredActive ? 15 : 0;
 
-    // Gesamtscore: hierarchisch aufgebaut
+    /*
+     * ═════════════════════════════════════════════════════════════════════════
+     * N3.5 / O-L1 — BEZAHLTE HEBUNG BRICHT NUR GLEICHSTAND
+     * ═════════════════════════════════════════════════════════════════════════
+     *
+     * Hier stand EINE Summe: Passung, Reputation und Aktualitaet wurden mit
+     * Tarif (12), Platzierung (8) und Premium-Anzeige (15) zusammengezaehlt.
+     * Bis zu 35 Punkte waren also kaufbar — genug, um eine deutlich bessere
+     * Passung zu ueberholen. Damit war "die beste Trefferquote steht oben"
+     * unwahr, und das Unternehmen konnte nicht unterscheiden, ob der erste
+     * Treffer am besten passt oder am meisten gezahlt hat
+     * (docs/features/O_RAHMENBEDINGUNGEN.md, Regel O-L1).
+     *
+     * Jetzt zwei Zahlen statt einer:
+     *   rank_score       — VERDIENT: Gegenseite, Reputation, Passung,
+     *                      Dringlichkeit, Aktualitaet. Danach wird sortiert.
+     *   rank_boost_paid  — BEZAHLT: Tarif, Platzierung, Hervorhebung. Sie
+     *                      entscheidet erst, wenn die verdiente Zahl gleich
+     *                      ist — und sie ist gekennzeichnet.
+     *
+     * Reputation bleibt bewusst verdient: sie entsteht aus abgeschlossenen
+     * Geschaeften und Antwortzeiten, nicht aus einer Rechnung.
+     *
+     * `rank_score_total` bleibt als ANZEIGE-Wert erhalten (die alte Summe),
+     * damit niemand die bezahlte Hebung fuer verschwunden haelt. Sortiert wird
+     * damit nicht.
+     */
+    const bezahlteHebung = planPoints + placementBoost + featuredBoost;
     item.rank_score = Math.max(0, Math.round(
       counterpartyScore +    // Stufe 1: max 45
       reputationPoints +     // Stufe 2: max 25
       matchScore +           // Passung: variabel
       urgencyBoost +         // Dringlichkeit: max 12
-      planPoints +           // Stufe 3: max 12
-      placementBoost +       // Stufe 4: max 8 (gedeckelt!)
-      featuredBoost +        // Premium-Anzeige: 15
       recencyBoost           // Aktualitaet: max 10
     ));
+    item.rank_boost_paid = Math.max(0, Math.round(bezahlteHebung));
+    item.rank_score_total = item.rank_score + item.rank_boost_paid;
+
+    /* N3.5 "erklaerbar": jede Position nennt ihren Grund. Nur Bestandteile mit
+       Wirkung, absteigend — eine Liste mit lauter Nullen erklaert nichts. */
+    item.rank_erklaerung = [
+      { grund: "Passung", punkte: Math.round(matchScore), art: "verdient" },
+      { grund: "Marktseite", punkte: counterpartyScore, art: "verdient" },
+      { grund: "Reputation", punkte: reputationPoints, art: "verdient" },
+      { grund: "Dringlichkeit", punkte: urgencyBoost, art: "verdient" },
+      { grund: "Aktualitaet", punkte: recencyBoost, art: "verdient" },
+      { grund: "Tarif", punkte: planPoints, art: "bezahlt" },
+      { grund: "Platzierung", punkte: placementBoost, art: "bezahlt" },
+      { grund: "Hervorhebung", punkte: featuredBoost, art: "bezahlt" }
+    ].filter((teil) => teil.punkte > 0).sort((a, b) => b.punkte - a.punkte);
     item.subscription_plan = plan;
     item.reputation_grade = rep?.grade || null;
     item.reputation_score = repScore;
@@ -989,16 +1424,34 @@ export async function browseFeed(pool, opts = {}) {
     else if (itemRole === "company") rankLabels.push("Von Unternehmen");
     if (plan === "INDIVIDUELL" || plan === "ENTERPRISE") rankLabels.push("Individueller Tarif");
     else if (plan === "PRO" || plan === "PLUS") rankLabels.push("Premium");
+    /* O-L1, Punkt 3: was gehoben ist, ist als solches gekennzeichnet — sichtbar,
+       nicht im Kleingedruckten. "Premium-Anzeige" nannte bisher nur die
+       auffaelligste der drei bezahlten Hebungen; Tarif und Platzierung wirkten
+       ungenannt. */
+    if (item.rank_boost_paid > 0) rankLabels.push("Bezahlt hervorgehoben");
     item.rank_labels = rankLabels;
   }
 
   // Sort by rank_score (unless geo-sorted)
-  if (!(opts.latitude != null && opts.longitude != null && opts.radius_km != null)) {
+  /* N2.7 — EINE Definition von "Umkreissuche". Hier stand eine eigene Pruefung
+     auf `!= null`; `umkreisSql` prueft auf endliche Zahlen. `latitude=abc`
+     ergab NaN, war damit "nicht null" — die Rangsortierung fiel still aus,
+     obwohl gar nicht nach Umkreis gefiltert wurde. Premium-Hervorhebungen
+     standen dann irgendwo. Jetzt entscheidet, ob wirklich gefiltert wird. */
+  if (!umkreis) {
     items.sort((a, b) => {
       const aPreferred = a.counterparty_priority === "preferred" ? 1 : 0;
       const bPreferred = b.counterparty_priority === "preferred" ? 1 : 0;
       if (bPreferred !== aPreferred) return bPreferred - aPreferred;
-      return (b.rank_score || 0) - (a.rank_score || 0);
+      /* O-L1: zuerst die VERDIENTE Zahl. Erst bei Gleichstand entscheidet die
+         bezahlte Hebung — nie darueber hinweg. Und am Ende die Kennung, damit
+         die Reihenfolge stabil ist (N3.5: gleiche Eingaben, gleicher Rang);
+         ohne sie haengt sie bei Gleichstand an der Einlesereihenfolge. */
+      const verdient = (b.rank_score || 0) - (a.rank_score || 0);
+      if (verdient !== 0) return verdient;
+      const bezahlt = (b.rank_boost_paid || 0) - (a.rank_boost_paid || 0);
+      if (bezahlt !== 0) return bezahlt;
+      return kennungAbsteigend(a, b);
     });
   }
 
@@ -1010,6 +1463,10 @@ export async function browseFeed(pool, opts = {}) {
     items.sort((a, b) => (b.headcount || 0) - (a.headcount || 0));
   }
 
+  /* N3.4: JETZT die Seite — nach dem Rang, nicht davor. */
+  const kandidaten = items.length;
+  if (rangFensterAktiv) items = items.slice(offset, offset + limit);
+
   return {
     items,
     total,
@@ -1018,7 +1475,15 @@ export async function browseFeed(pool, opts = {}) {
     feed_context: {
       viewer_role: viewerRole || null,
       inter_agency_enabled: interAgencyEnabled,
-      inter_agency_supply_visible: interAgencySupplyVisible
+      inter_agency_supply_visible: interAgencySupplyVisible,
+      /* Keine stille Kuerzung (§0.12): die Seite sagt, ob der Rang fuer sie
+         gilt und ueber wie viele Kandidaten er gerechnet wurde. */
+      rang_fenster: {
+        aktiv: rangFensterAktiv,
+        groesse: RANG_FENSTER,
+        kandidaten,
+        vollstaendig: rangFensterAktiv && total <= kandidaten
+      }
     }
   };
 }
@@ -1380,17 +1845,31 @@ export async function computeTrustSignals(pool, supplierId) {
       // Pre-aggregated ranking score
       signals.ranking_score = rep.ranking_score != null ? Number(rep.ranking_score) : null;
     }
-    // Fallback: assignment-based reputation (supplier_org_id via user's org)
-    if (signals.reputation_score == null && user?.org_id) {
-      const { rows: orgRep } = await pool.query(
-        `SELECT score FROM supplier_reputation WHERE supplier_org_id = $1`,
-        [user.org_id]
-      );
-      if (orgRep.length > 0 && orgRep[0].score != null) {
-        signals.reputation_score = Number(orgRep[0].score);
-      }
-    }
-  } catch (_) { /* table may not exist yet */ }
+    /*
+     * Z5 (2026-09-27): HIER STAND EIN RUECKFALL, DEN NIEMAND BEFUELLEN KONNTE.
+     *
+     *     SELECT score FROM supplier_reputation WHERE supplier_org_id = $1
+     *
+     * Weder `score` noch `supplier_org_id` existieren. Die Tabelle ist auf
+     * `supplier_id` geschluesselt (NOT NULL, Fremdschluessel auf `users`) — eine
+     * org-geschluesselte Zeile ist strukturell unmoeglich. Geschrieben haette sie
+     * nur `assignmentService.updateSupplierReputation`, und der Weg war aus
+     * demselben Grund tot; er ist in Z5 entfernt worden.
+     *
+     * Der Rueckfall war ausserdem ein MASSSTABSFEHLER: `score` war 1–5
+     * (Sterne-artig), `signals.reputation_score` ist 0–100. Haette er je
+     * gegriffen, waere aus einer guten Agentur eine mit 4 von 100 geworden.
+     * Dieselbe Verwechslung steckt noch in der Zeile darueber, die `avg_stars`
+     * (1–5) als Rueckfall fuer `reputation_score` (0–100) nimmt — das ist ein
+     * eigener Befund und wird NICHT nebenbei geaendert, weil es Rangplaetze
+     * verschiebt.
+     */
+  } catch (e) {
+    /* Z5: nicht mehr stumm. Die Tabelle existiert; ein Wurf heisst jetzt, dass
+       wirklich etwas kaputt ist, und darf nicht wie "keine Reputation"
+       aussehen. */
+    logger.warn({ err: e?.message, supplier_id: supplierId }, "Reputationssignale nicht lesbar");
+  }
 
   return signals;
 }

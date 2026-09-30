@@ -190,7 +190,7 @@ export async function pruefeGrenze(opts) {
        `leereAntwortFuer` nennt die Tabellen, die leer antworten sollen. */
     const pool = spionPool({
       zeile: datenZeile,
-      // Absichtlich Teilstring statt regulaerem Ausdruck: '' in einem
+      // Absichtlich Teilstring statt regulaerem Ausdruck: '\b' in einem
       // Template-Literal ist das Backspace-Zeichen, keine Wortgrenze — die
       // erste Fassung dieser Zeile hat deshalb nie getroffen und die Probe
       // still entwertet.

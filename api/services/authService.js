@@ -7,7 +7,13 @@ import { swallow } from "../utils/logger.js";
 
 /** Prueft ob E-Mail bereits existiert. */
 export async function emailExists(pool, email) {
-  const r = await pool.query("SELECT 1 FROM users WHERE email=$1", [email]);
+  /* M2.2: beidseitig kleingeschrieben. Vorher exakt — und weil der
+   Unique-Index ebenfalls exakt war, entstand bei anderer Schreibweise
+   ein ZWEITES Konto statt einer Ablehnung. Migration 215 macht das
+   jetzt strukturell unmoeglich; diese Zeile sorgt dafuer, dass der
+   Nutzer eine saubere 409 sieht statt eines Index-Fehlers. */
+  const r = await pool.query(
+    "SELECT 1 FROM users WHERE LOWER(email) = LOWER($1)", [email]);
   return r.rowCount > 0;
 }
 
@@ -69,13 +75,26 @@ export async function setVerificationToken(pool, userId, token) {
 
 /** Login-Daten laden (id, role + password_hash). */
 export async function getUserCredentials(pool, email) {
-  const r = await pool.query("SELECT id, role, password_hash FROM users WHERE email=$1", [email]);
+  /* M2.2: wer die Schreibweise seines eigenen Kontos nicht traf, bekam
+   "Zugangsdaten falsch", obwohl das Konto existiert. Gemessen: zehn
+   Adressen im Bestand tragen Grossbuchstaben. */
+  const r = await pool.query(
+    "SELECT id, role, password_hash FROM users WHERE LOWER(email) = LOWER($1)", [email]);
   return r.rows[0] || null;
 }
 
 /** User-ID und E-Mail fuer Passwort-Reset laden. */
 export async function getUserByEmail(pool, email) {
-  const r = await pool.query("SELECT id, email FROM users WHERE email=$1", [email]);
+  /* M2.2: dasselbe beim Zuruecksetzen — der Fehlschlag war dort still,
+   weil die Antwort aus Datenschutzgruenden ohnehin nichts verraet. */
+  /*
+   * M3.4: `role` kommt mit, weil das Zuruecksetzen rollenabhaengig zurueckfuehren
+   * muss. Ein Arbeiter, der sein Passwort neu setzt, gehoert ins Einsatzportal —
+   * nicht auf die Unternehmens-Landeseite, auf der er seit F12 nichts mehr sieht.
+   * Die Spalte verlaesst den Dienst nicht weiter als bis zur Wahl der Adresse.
+   */
+  const r = await pool.query(
+    "SELECT id, email, role FROM users WHERE LOWER(email) = LOWER($1)", [email]);
   return r.rows[0] || null;
 }
 

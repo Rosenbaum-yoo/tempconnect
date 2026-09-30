@@ -929,9 +929,22 @@ Response `200`: `{ items: [...] }`
 
 ### POST /assignments
 
-**Auth required. Permission: `assignment.create`**
+**Auth required. Permission: `assignment.create`. API-Key-Scope: `write:assignments`**
 
-Link a deal/requisition to a worker.
+Legt einen Einsatz manuell an. **Angebot und Deal lassen sich hier nicht verknüpfen** — das
+geschieht ausschließlich über den Deal-Abschluss (`POST /marketplace/offers/:id/activate`), wo beide
+Seiten und die Vereinbarung geprüft sind (Welle N2.9). Jeder übrige Fremdschlüssel wird gegen die
+Org der Sitzung geprüft; fremd und nicht vorhanden sind dieselbe Antwort.
+
+| Feld | Regel | Fehler |
+|---|---|---|
+| `offer_id`, `deal_request_id` | nicht erlaubt | `400 LINK_VIA_DEAL_ONLY` (`field`) |
+| `requisition_id` | muss der Org gehören | `403 ORG_BOUNDARY_VIOLATION` (`field`) |
+| `demand_request_id` | Anleger gehört der Org (`users.org_id` oder aktive Mitgliedschaft) | `403 ORG_BOUNDARY_VIOLATION` (`field`) |
+| `contract_id` | Käufer = Org; nennt der Rumpf eine andere Zeitarbeitsfirma als der Vertrag | `403 ORG_BOUNDARY_VIOLATION` / `400 SUPPLIER_CONTRACT_MISMATCH` |
+| `supplier_org_id` | eigene Org, oder erklärter Partner: Vendor-Pool aktiv/nicht gesperrt/nicht abgelaufen, aktiver Rahmenvertrag, oder ein Einsatz aus einem Deal | `403 SUPPLIER_NOT_PARTNER` |
+| `org_id` im Rumpf | darf nicht von der Org der Sitzung abweichen | `403 ORG_BOUNDARY_VIOLATION` |
+| ohne Org-Kontext | Verweise werden abgelehnt | `400 ORG_CONTEXT_REQUIRED` |
 
 Response `201`: Assignment
 
@@ -947,7 +960,13 @@ Response `200`: Assignment with worker and deal details
 
 ### PATCH /assignments/:id
 
-**Auth required. Permission: `assignment.edit`**
+**Auth required. Permission: `assignment.edit`. API-Key-Scope: `write:assignments`**
+
+Änderbar: Beschreibung, Zeitraum, Stundensatz, Notizen, Standort, Abteilung, Kopfzahl und
+`contract_id`. Ein neuer `contract_id` muss der Org des Einsatzes gehören (`403
+ORG_BOUNDARY_VIOLATION`) und — wenn der Einsatz schon eine Zeitarbeitsfirma hat — mit genau dieser
+geschlossen sein (`400 SUPPLIER_CONTRACT_MISMATCH`). Angebot, Deal und Zeitarbeitsfirma werden hier
+nicht geändert.
 
 Response `200`: Updated assignment
 

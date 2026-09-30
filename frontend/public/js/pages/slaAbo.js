@@ -534,7 +534,7 @@ TCi18n.register('en', {
 
 /* ── Referral-Banner Widget ────────────────────────── */
     (function(){
-      function esc(s) { return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+      function esc(s) { return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
       var refData = null;
       function render(d){
         document.getElementById('slaRefBanner').style.display='block';
@@ -676,7 +676,7 @@ TCi18n.register('en', {
       return billingMode !== "pilot_contract";
     }
 
-    function esc(s) { return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+    function esc(s) { return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
     function idempotencyKey() {
       try { return (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "x-" + Math.random().toString(36).slice(2) + "-" + Date.now(); }
       catch(e) { return "x-" + Math.random().toString(36).slice(2) + "-" + Date.now(); }

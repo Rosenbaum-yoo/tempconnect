@@ -9,8 +9,15 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
 
 # Dependencies deterministisch installieren (package-lock.json)
+#
+# S3, 2026-09-21: hier stand `--legacy-peer-deps`. Der Schalter loest
+# Abhaengigkeiten ausdruecklich "potenziell kaputt" auf und verschluckt dabei
+# JEDE kuenftige echte Warnung — er war noetig, weil die Wurzel `redis@^4`
+# pinnte, waehrend `bullmq@5` `peerOptional redis@">=5.0.0"` fuehrt. Seit der
+# Ratenbegrenzer denselben Klienten wie die Warteschlangen benutzt (ioredis),
+# gibt es den Konflikt nicht mehr, und `npm ci` laeuft ohne Ausnahme.
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --legacy-peer-deps
+RUN npm ci --omit=dev
 
 # App-Code
 COPY . .
@@ -19,6 +26,14 @@ COPY . .
 RUN mkdir -p /app/uploads && chown -R appuser:appgroup /app
 
 ENV NODE_ENV=production
+
+# S4.3 — DER CONTAINER SAGT SELBST, AUF WELCHEM STAND ER LAEUFT.
+# Ohne das blieb nur `ps -o etime` und ein Dateivergleich, um herauszufinden, ob
+# ein laufender Container den letzten Merge ueberhaupt kennt. Gesetzt wird der
+# Wert beim Bauen (`docker compose build --build-arg APP_COMMIT=$(git rev-parse --short HEAD)`);
+# fehlt er, steht "unbekannt" im Startprotokoll — auch das ist eine Aussage.
+ARG APP_COMMIT=unbekannt
+ENV APP_COMMIT=$APP_COMMIT
 
 USER appuser
 

@@ -13,6 +13,25 @@ const ADMIN_TAB_ORDER = [
   "releases"
 ];
 
+/**
+ * Reiter, hinter denen ausschliesslich Plattformdaten liegen.
+ *
+ * Die zugehoerigen Routen sind seit 8.1.1 (d) der Plattformverwaltung
+ * vorbehalten (`routes/admin.js`, `nurPlattform`). Ohne diese Liste blieben die
+ * Reiter fuer Kunden-Admins stehen und lieferten nur noch 403 — tote Knoepfe,
+ * die CLAUDE.md ausdruecklich verbietet.
+ *
+ *   metrics   zaehlt ueber alle Nutzer und Organisationen
+ *   revenue   Plattformumsatz ueber alle Kunden
+ *   features  Freischalt-Hebel fuer beliebige Organisationen
+ *   strategic Bearbeitungs-Workflow zwischen zwei Kunden
+ *   releases  Produktfreigaben der Plattform
+ *
+ * `users`, `orgs`, `audit`, `activity` und `requests` bleiben — sie sind
+ * org-begrenzt und zeigen dem Kunden seine eigenen Daten.
+ */
+const NUR_PLATTFORM_REITER = ["metrics", "revenue", "features", "strategic", "releases"];
+
 const SSO_ALLOWED_PLANS = new Set(["PRO", "INDIVIDUELL"]);
 
 function normalizePlan(plan) {
@@ -207,7 +226,20 @@ async function queryAdminSummary(pool) {
 export async function buildAdminControlCenter(pool, viewer, requestContext = {}) {
   const access = resolveAdminAccess(viewer, requestContext);
   const plan = normalizePlan(viewer.plan);
-  const summary = await queryAdminSummary(pool).catch(function () {
+
+  /*
+   * `queryAdminSummary` zaehlt PLATTFORMWEIT: alle Nutzer, alle Organisationen,
+   * alle Angebote, alle Audit-Ereignisse. Diese Zahlen wurden bis 2026-08-21
+   * jedem Aufrufer dieser Karte geliefert — also auch jedem Kunden-Admin
+   * (Befund 8.1.1 d: 201 von 395 Konten passieren `requireAdmin`).
+   *
+   * Der Aufrufer sagt jetzt, ob er die Plattformsicht haben darf. Wer sie nicht
+   * hat, bekommt die Nullwerte, die es als Fehlerfall ohnehin schon gab — die
+   * Karten bleiben also bestehen, sie tragen nur keine fremden Zahlen mehr.
+   */
+  const plattformweit = requestContext.plattformweit === true;
+  const summary = plattformweit
+    ? await queryAdminSummary(pool).catch(function () {
     return {
       total_users: 0,
       new_users_30d: 0,
@@ -219,7 +251,18 @@ export async function buildAdminControlCenter(pool, viewer, requestContext = {})
       audit_actors_30d: 0,
       configured_sso_orgs: 0
     };
-  });
+  })
+    : {
+        total_users: 0,
+        new_users_30d: 0,
+        total_orgs: 0,
+        active_capacity_posts: 0,
+        requisition_backlog: 0,
+        active_offers: 0,
+        audit_events_30d: 0,
+        audit_actors_30d: 0,
+        configured_sso_orgs: 0
+      };
 
   let ssoConfigured = false;
   if (access.org_id) {
@@ -376,7 +419,11 @@ export async function buildAdminControlCenter(pool, viewer, requestContext = {})
       },
       access: {
         ...access,
-        allowed_tabs: access.can_view_workspace ? ADMIN_TAB_ORDER : []
+        allowed_tabs: access.can_view_workspace
+          ? (plattformweit
+              ? ADMIN_TAB_ORDER
+              : ADMIN_TAB_ORDER.filter((reiter) => !NUR_PLATTFORM_REITER.includes(reiter)))
+          : []
       },
       roadmap: [
         "Benutzer & Organisationen",

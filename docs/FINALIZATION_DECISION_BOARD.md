@@ -242,7 +242,7 @@
 | OE-02 | ~~`meine(agb).html` umbenennen?~~ **Entschieden 2026-05-27:** Umbenennen zu `meine-agb.html` (kebab-case, URL-safe). | WAVE_01 |
 | OE-03 | SSO: Okta-Dev oder Azure AD als Testlauf? | WAVE_06 |
 | OE-04 | OCC: React-Build in CI integrieren oder erst nach Phase 3? | WAVE_07 |
-| OE-05 | Migration 111: Bewusst übersprungen oder Fehler? | WAVE_11 |
+| OE-05 | Migration 111: ✅ **Beantwortet 2026-09-27** — uebersprungen, nichts verloren: `_migrations` fuehrt keinen Eintrag 111, und sieben Nummern sind doppelt belegt (064/070/074/075/086/130/140). Einzelheiten: `sql/migrations/NUMBERING.md`, Abschnitt „Die Luecken 111 und 117“. | WAVE_11 |
 | OE-05b | Migration 117: Lücke 116→118 — **Entschieden 2026-05-27:** Belassen, als Known Gap dokumentieren. | WAVE_11 |
 | OE-06 | ~~`app_notdienst.html` — aktiv oder Coming Soon?~~ **Entschieden 2026-05-27:** Tombstone-Redirect auf `/` — Feature ist in den Marktplatz integriert. Plan-Gate läuft über `emergency_staffing` im Marktplatz (OE-08 ✅). Kein Handlungsbedarf. | WAVE_04 ✅ |
 | OE-07 | ~~SCC WAVEs 07–13: Reihenfolge?~~ **Entschieden 2026-05-27:** SCC 07–10 parallel zu Platform-WAVEs. SCC 11–13 erst nach WAVE_03 (RBAC-Overlap). | WAVE_07 |

@@ -243,6 +243,17 @@
     'demd.commit.supplierFallback': 'Anbieter',
     'demd.commit.quantity': 'Menge:',
     'demd.commit.status': 'Status:',
+    'demd.commit.withdraw': 'Zusage zurueckziehen',
+    'demd.commit.reject': 'Zusage ablehnen',
+    'demd.commit.toAgreement': 'Verbindlich machen',
+    'demd.commit.whyWithdraw': 'Warum ziehen Sie die Zusage zurueck? Die Gegenseite liest genau diesen Satz.',
+    'demd.commit.whyReject': 'Warum lehnen Sie die Zusage ab? Der Anbieter liest genau diesen Satz.',
+    'demd.commit.confirm': 'Bestaetigen',
+    'demd.commit.cancel': 'Abbrechen',
+    'demd.commit.needReason': 'Bitte mindestens einen vollstaendigen Satz.',
+    'demd.commit.sending': 'Wird uebermittelt...',
+    'demd.commit.alreadyClosed': 'Diese Zusage ist bereits beendet - bitte die Seite neu laden.',
+    'demd.commit.notYours': 'Diese Zusage gehoert einer anderen Partei.',
     'demd.cov.total': 'Stellen gesamt',
     'demd.cov.committed': 'Zugesagt',
     'demd.cov.open': 'Noch offen',
@@ -343,6 +354,17 @@
     'demd.commit.supplierFallback': 'Supplier',
     'demd.commit.quantity': 'Quantity:',
     'demd.commit.status': 'Status:',
+    'demd.commit.withdraw': 'Withdraw commitment',
+    'demd.commit.reject': 'Reject commitment',
+    'demd.commit.toAgreement': 'Make it binding',
+    'demd.commit.whyWithdraw': 'Why are you withdrawing? The other side reads exactly this sentence.',
+    'demd.commit.whyReject': 'Why are you rejecting it? The supplier reads exactly this sentence.',
+    'demd.commit.confirm': 'Confirm',
+    'demd.commit.cancel': 'Cancel',
+    'demd.commit.needReason': 'Please write at least one full sentence.',
+    'demd.commit.sending': 'Sending...',
+    'demd.commit.alreadyClosed': 'This commitment has already been closed - please reload the page.',
+    'demd.commit.notYours': 'This commitment belongs to another party.',
     'demd.cov.total': 'Positions in total',
     'demd.cov.committed': 'Committed',
     'demd.cov.open': 'Still open',
@@ -459,7 +481,7 @@
       if (o.price_type) price += " (" + o.price_type + ")";
 
       var html = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px"><div>';
-      html += '<b>' + (o.supplier_company_name || TCi18n.t('demd.offers.supplierFallback')) + '</b>';
+      html += '<b>' + esc(o.supplier_company_name || TCi18n.t('demd.offers.supplierFallback')) + '</b>';
       html += '</div><div style="display:flex;gap:6px;flex-wrap:wrap">';
       // Status-Rohwerte bleiben Server-Enums; nur der sichtbare Text kommt aus dem
       // Woerterbuch. Unbekannter Rohwert -> t() liefert '' -> Rohwert bleibt sichtbar.
@@ -473,12 +495,12 @@
       html += '</div></div>';
       // Konditionen-Zusammenfassung
       html += '<div class="meta" style="margin-top:8px;display:flex;gap:16px;flex-wrap:wrap">';
-      if (price) html += '<span>' + TCi18n.t('demd.offer.price') + ' <b>' + price + '</b></span>';
+      if (price) html += '<span>' + TCi18n.t('demd.offer.price') + ' <b>' + esc(price) + '</b></span>';
       if (o.offered_quantity) html += '<span>' + TCi18n.t('demd.offer.quantity') + ' <b>' + o.offered_quantity + '</b></span>';
       if (o.start_confirmed) html += '<span>' + TCi18n.t('demd.offer.start') + ' <b>' + o.start_confirmed.substring(0,10) + '</b></span>';
       html += '<span>' + TCi18n.t('demd.offer.received') + ' ' + fmtDate(o.created_at) + '</span>';
       html += '</div>';
-      if (o.notes) html += '<div style="margin-top:6px;font-size:13px;color:var(--muted);padding:8px 12px;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:6px">' + o.notes + '</div>';
+      if (o.notes) html += '<div style="margin-top:6px;font-size:13px;color:var(--muted);padding:8px 12px;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:6px">' + esc(o.notes) + '</div>';
 
       // Aktions-Buttons: gegenseitenorientiert
       var acts = (o.next_action && Array.isArray(o.next_action.actions)) ? o.next_action.actions : [];
@@ -487,7 +509,7 @@
         html += '<div class="offer-actions" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">';
         html += '<a href="/public/offer_detail.html?id=' + o.id + '" class="btn primary" style="text-decoration:none">' + TCi18n.t('demd.offer.toDeal') + '</a>';
         html += '<a href="/public/deal_management.html" class="btn" style="text-decoration:none">' + TCi18n.t('demd.offer.myDeals') + '</a>';
-        if (o.agreement_ref) html += '<span style="font-size:12px;color:var(--muted);align-self:center">' + o.agreement_ref + '</span>';
+        if (o.agreement_ref) html += '<span style="font-size:12px;color:var(--muted);align-self:center">' + esc(o.agreement_ref) + '</span>';
         html += '</div>';
       } else if (acts.length) {
         var btns = [];
@@ -501,6 +523,22 @@
       div.innerHTML = html;
       el.appendChild(div);
     });
+  }
+
+  /*
+   * N7.4 - diese Seite hatte KEIN esc(). Fast alles laeuft ueber
+   * `textContent` und war damit sicher; genau zwei Zeichenfunktionen bauen
+   * Markup per Verkettung (`renderOffers`, `renderCommitments`), und beide
+   * setzten Anbieternamen und Freitext-Notizen ungeprueft ein. Die Notiz
+   * stammt aus dem Formular der Gegenseite (bis zu 1000 Zeichen).
+   *
+   * Escaped werden auch " und ' - sonst bricht ein Wert aus einem Attribut
+   * aus, ohne dass je ein spitzes Zeichen noetig waere.
+   */
+  function esc(v) {
+    return String(v == null ? "" : v)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
   function renderCommitments(data) {
@@ -520,11 +558,203 @@
     commitments.forEach(function(c) {
       var div = document.createElement("div");
       div.className = "offer-card";
-      var html = '<div><b>' + (c.supplier_company_name || TCi18n.t('demd.commit.supplierFallback')) + "</b></div>";
-      html += '<div class="meta" style="margin-top:4px">' + TCi18n.t('demd.commit.quantity') + ' <b>' + c.committed_quantity + '</b> – ' + TCi18n.t('demd.commit.status') + ' <span class="status ' + c.status + '">' + String(c.status || "").toUpperCase() + '</span> – ' + fmtDate(c.committed_at) + "</div>";
-      if (c.note) html += '<div style="margin-top:4px;font-size:13px;color:var(--muted)">' + c.note + "</div>";
+      var html = '<div><b>' + esc(c.supplier_company_name || TCi18n.t('demd.commit.supplierFallback')) + "</b></div>";
+      html += '<div class="meta" style="margin-top:4px">' + TCi18n.t('demd.commit.quantity') + ' <b>' + esc(c.committed_quantity) + '</b> \u2013 ' + TCi18n.t('demd.commit.status') + ' <span class="status ' + esc(c.status) + '">' + esc(String(c.status || "").toUpperCase()) + '</span> \u2013 ' + esc(fmtDate(c.committed_at)) + "</div>";
+      if (c.note) html += '<div style="margin-top:4px;font-size:13px;color:var(--muted)">' + esc(c.note) + "</div>";
+
+      /*
+       * N7.4 - BIS HEUTE ENDETE DIE KARTE HIER.
+       *
+       * Eine Agentur konnte zusagen und die Zusage danach nie wieder
+       * anfassen. Wer drei Leute zugesagt und sie verloren hatte, konnte das
+       * nirgends sagen - das Unternehmen rechnete weiter mit dreien und
+       * merkte es am Einsatztag. `PATCH /api/emergency/commitments/:id` war
+       * seit Migration 070 fertig, geprueft und ohne einen einzigen Aufrufer.
+       *
+       * Welche Knoepfe erscheinen, entscheidet NICHT diese Seite, sondern
+       * `c.darf` aus der Antwort. Ein Vergleich der eigenen Kennung im
+       * Browser waere eine zweite Wahrheit neben der des Servers.
+       */
+      var darf = c.darf || {};
+      var knoepfe = [];
+      if (darf.zuruecknehmen) {
+        knoepfe.push('<button class="btn" data-zusage-form="withdrawn" data-cid="' + esc(c.id) + '">' + TCi18n.t('demd.commit.withdraw') + '</button>');
+      }
+      if (darf.ablehnen) {
+        knoepfe.push('<button class="btn" data-zusage-form="rejected" data-cid="' + esc(c.id) + '">' + TCi18n.t('demd.commit.reject') + '</button>');
+      }
+      if (darf.vereinbarung) {
+        knoepfe.push('<button class="btn primary" data-zusage-agr="' + esc(c.id) + '" data-menge="' + esc(c.committed_quantity) + '">' + TCi18n.t('demd.commit.toAgreement') + '</button>');
+      }
+      if (knoepfe.length) {
+        html += '<div class="offer-actions" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">' + knoepfe.join(" ") + '</div>';
+        /* Der Begruendungsblock liegt fertig in der Karte und ist nur
+           verborgen: so kostet das Aufklappen keinen zweiten Zeichenlauf und
+           der eingetippte Text ueberlebt einen Fehlversuch. */
+        html += '<div class="zusage-grund" data-grund-fuer="' + esc(c.id) + '" hidden style="margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:6px">'
+             +   '<label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px" data-grund-label></label>'
+             +   '<textarea rows="2" data-grund-text style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit;font:inherit"></textarea>'
+             +   '<div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">'
+             +     '<button class="btn primary" data-grund-ab>' + TCi18n.t('demd.commit.confirm') + '</button>'
+             +     '<button class="btn" data-grund-weg>' + TCi18n.t('demd.commit.cancel') + '</button>'
+             +     '<span class="meta" data-grund-hinweis style="font-size:12px"></span>'
+             +   '</div>'
+             + '</div>';
+      }
       div.innerHTML = html;
       el.appendChild(div);
+    });
+  }
+
+  /* ── N7.4 · Zusage zuruecknehmen, ablehnen, verbindlich machen ──────── */
+
+  /**
+   * Ein Klick auf der Zusagen-Liste. Delegiert statt pro Karte gebunden:
+   * die Liste wird nach jeder Aenderung neu gezeichnet, und einzeln
+   * gebundene Handler waeren danach weg - genau die Sorte Knopf, der beim
+   * zweiten Mal nichts mehr tut.
+   */
+  document.addEventListener("click", function(ev) {
+    var liste = document.getElementById("commitments-list");
+    if (!liste || !liste.contains(ev.target)) return;
+
+    var oeffnen = ev.target.closest("[data-zusage-form]");
+    if (oeffnen) {
+      var status = oeffnen.getAttribute("data-zusage-form");
+      var cid = oeffnen.getAttribute("data-cid");
+      /* Gleiche Schreibweise wie im Leitstand: ueber `window`, mit Rueckfall.
+         Die Kennung ist eine UUID und braucht die Maskierung nicht wirklich -
+         aber ein Selektor, der bei der ersten ungewoehnlichen Kennung wirft,
+         ist genau die Sorte Knopf, der einmal im Jahr nichts tut. */
+      var block = liste.querySelector('[data-grund-fuer="'
+        + (window.CSS && window.CSS.escape ? window.CSS.escape(cid) : cid) + '"]');
+      if (!block) return;
+      block.hidden = false;
+      block.setAttribute("data-status", status);
+      block.querySelector("[data-grund-label]").textContent = status === "withdrawn"
+        ? TCi18n.t('demd.commit.whyWithdraw') : TCi18n.t('demd.commit.whyReject');
+      block.querySelector("[data-grund-hinweis]").textContent = "";
+      block.querySelector("[data-grund-text]").focus();
+      return;
+    }
+
+    var weg = ev.target.closest("[data-grund-weg]");
+    if (weg) { weg.closest("[data-grund-fuer]").hidden = true; return; }
+
+    var ab = ev.target.closest("[data-grund-ab]");
+    if (ab) {
+      var b = ab.closest("[data-grund-fuer]");
+      zusageAendern(b, b.getAttribute("data-grund-fuer"), b.getAttribute("data-status"));
+      return;
+    }
+
+    var agr = ev.target.closest("[data-zusage-agr]");
+    if (agr) { zusageVereinbarung(agr.getAttribute("data-zusage-agr"), agr.getAttribute("data-menge")); }
+  });
+
+  /**
+   * Nimmt eine Zusage zurueck (Agentur) oder weist sie zurueck (Unternehmen).
+   *
+   * Die Begruendung ist PFLICHT. Der Endpunkt nimmt sie als `note` optional
+   * entgegen - die Pflicht steht hier, weil die Gegenseite genau diesen Satz
+   * liest, um zu entscheiden, was sie als naechstes tut. "Zusage
+   * zurueckgenommen" ohne Grund ist eine Nachricht, die niemandem hilft.
+   */
+  function zusageAendern(block, commitmentId, status) {
+    var feld = block.querySelector("[data-grund-text]");
+    var hinweis = block.querySelector("[data-grund-hinweis]");
+    var grund = String(feld.value || "").trim();
+    if (grund.length < 10) {
+      hinweis.textContent = TCi18n.t('demd.commit.needReason');
+      hinweis.style.color = "var(--ds-danger, #f87171)";
+      feld.focus();
+      return;
+    }
+    var knopf = block.querySelector("[data-grund-ab]");
+    knopf.disabled = true;
+    hinweis.style.color = "";
+    hinweis.textContent = TCi18n.t('demd.commit.sending');
+
+    var nutzlast = { status: status, note: grund };
+    var useTc = window.TC && TC.api && typeof TC.api.patch === "function";
+    var p = useTc
+      ? TC.api.patch("/emergency/commitments/" + commitmentId, nutzlast)
+      : fetch("/api/emergency/commitments/" + commitmentId, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(nutzlast)
+        }).then(function(r) {
+          return r.json().then(function(d) {
+            if (!r.ok) { var e = new Error((d && (d.message || d.error)) || "API_ERROR"); e.code = d && d.error; throw e; }
+            return d;
+          });
+        });
+
+    p.then(function() { loadDetail(); }).catch(function(e) {
+      knopf.disabled = false;
+      var code = e && (e.code || e.error);
+      hinweis.style.color = "var(--ds-danger, #f87171)";
+      hinweis.textContent = code === "CSRF_INVALID" ? TCi18n.t('demd.err.session')
+        : code === "INVALID_TRANSITION" ? TCi18n.t('demd.commit.alreadyClosed')
+        : code === "FORBIDDEN" ? TCi18n.t('demd.commit.notYours')
+        : (e && e.message) ? e.message : TCi18n.t('demd.err.network');
+    });
+  }
+
+  /**
+   * Macht aus einer Teilzusage eine bindende Sofortvereinbarung.
+   * Die Menge kommt aus der Zusage - der Endpunkt laesst eine abweichende zu,
+   * aber eine Vereinbarung ueber mehr, als zugesagt wurde, waere hier ein
+   * Tippfehler mit Vertragswirkung.
+   */
+  function zusageVereinbarung(commitmentId, menge) {
+    if (!demandId) return;
+    var nutzlast = {};
+    var m = parseInt(menge, 10);
+    if (Number.isFinite(m) && m > 0) nutzlast.quantity = m;
+
+    var pfad = "/emergency/" + demandId + "/commitments/" + commitmentId + "/create-agreement";
+    var useTc = window.TC && TC.api && typeof TC.api.post === "function";
+    var p = useTc
+      ? TC.api.post(pfad, nutzlast)
+      : fetch("/api" + pfad, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(nutzlast)
+        }).then(function(r) {
+          return r.json().then(function(d) {
+            if (!r.ok) { var e = new Error((d && (d.message || d.error)) || "API_ERROR"); e.code = d && d.error; throw e; }
+            return d;
+          });
+        });
+
+    p.then(function(result) {
+      /*
+       * DIE BEIDEN WEGE LIEFERN NICHT DIESELBE FORM. `showAgrModal` stammt vom
+       * Angebots-Annehmen und liest `result.agreement_ref` an der Wurzel.
+       * `createEmergencyAgreement` legt das Kennzeichen aber INS Angebot
+       * (`result.offer.agreement_ref`, dealAgreementService.js). Ohne diese
+       * Umsetzung haette das Modal geoeffnet und die Vereinbarung nicht benannt
+       * - ein Knopf, der etwas Richtiges tut und es nicht zeigt.
+       *
+       * `document_url` und `conditions_url` gibt es auf diesem Weg wirklich
+       * nicht; das Modal blendet beide ohnehin nur bei Vorhandensein ein.
+       */
+      showAgrModal({
+        agreement_ref: result && result.offer ? result.offer.agreement_ref : null,
+        offer: result ? result.offer : null
+      });
+      loadDetail();
+    }).catch(function(e) {
+      var code = e && (e.code || e.error);
+      alert(TCi18n.t('demd.err.prefix') + (
+        code === "CSRF_INVALID" ? TCi18n.t('demd.err.session')
+        : code === "COMMITMENT_NOT_ACTIVE" ? TCi18n.t('demd.commit.alreadyClosed')
+        : code === "FORBIDDEN" ? TCi18n.t('demd.commit.notYours')
+        : (e && e.message) ? e.message : TCi18n.t('demd.err.network')
+      ));
     });
   }
 

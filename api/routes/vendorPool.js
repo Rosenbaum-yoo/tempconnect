@@ -79,7 +79,13 @@ export function createVendorPoolRouter(deps) {
     if (q.length < 2) return res.json({ items: [] });
     try {
       const { rows } = await pool.query(
-        `SELECT o.id, o.name, o.org_type,
+        /* Z19: hier stand o.org_type. Die Spalte heisst type (gemessen);
+           org_type ist der Name, unter dem sie ANDERSWO ausgegeben wird
+           (o.type AS org_type). Die Abfrage warf - die Lieferantensuche lieferte
+           also nichts, und ohne Suche laesst sich kein Vorzugslieferant
+           hinzufuegen. Der Ausgabename bleibt org_type, damit der Aufrufer
+           unveraendert bleibt. */
+        `SELECT o.id, o.name, o.type AS org_type,
                 (SELECT COUNT(*)::int FROM org_memberships om WHERE om.org_id = o.id AND om.is_active = TRUE) AS member_count
          FROM organizations o
          WHERE o.is_active = TRUE
@@ -184,7 +190,18 @@ export function createVendorPoolRouter(deps) {
     }
     const updated = await vendorPoolService.changeTier(pool, req.params.id, parsed.data.tier, req.session.userId, parsed.data.reason);
     if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
-    res.locals.audit = { action: "vendor_pool.tier_change", entity_type: "vendor_pool", entity_id: req.params.id, new_values: { tier: parsed.data.tier } };
+    /* Z6 (2026-09-27): der Eintrag traegt jetzt den ALTEN Wert und den GRUND.
+       Vorher stand hier nur der neue Wert — und seit der Verlauf aus dem
+       Audit-Log gelesen wird (die Tabelle `vendor_pool_history` gab es nie),
+       waere "von was auf was, und warum" sonst verloren. Der Grund wird an der
+       Eingangsgrenze ohnehin erhoben; ihn nicht mitzuschreiben hiesse, die
+       eigene Regel zu brechen: kein "wurde geaendert" ohne Wer, Was und Warum. */
+    res.locals.audit = {
+      action: "vendor_pool.tier_change", entity_type: "vendor_pool", entity_id: req.params.id,
+      old_values: { tier: existing.tier ?? null },
+      new_values: { tier: parsed.data.tier },
+      details: { reason: parsed.data.reason ?? null }
+    };
     res.json(updated);
   });
 
@@ -199,7 +216,18 @@ export function createVendorPoolRouter(deps) {
     }
     const updated = await vendorPoolService.changeStatus(pool, req.params.id, parsed.data.status, req.session.userId, parsed.data.reason);
     if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
-    res.locals.audit = { action: "vendor_pool.status_change", entity_type: "vendor_pool", entity_id: req.params.id, new_values: { status: parsed.data.status } };
+    /* Z6 (2026-09-27): der Eintrag traegt jetzt den ALTEN Wert und den GRUND.
+       Vorher stand hier nur der neue Wert — und seit der Verlauf aus dem
+       Audit-Log gelesen wird (die Tabelle `vendor_pool_history` gab es nie),
+       waere "von was auf was, und warum" sonst verloren. Der Grund wird an der
+       Eingangsgrenze ohnehin erhoben; ihn nicht mitzuschreiben hiesse, die
+       eigene Regel zu brechen: kein "wurde geaendert" ohne Wer, Was und Warum. */
+    res.locals.audit = {
+      action: "vendor_pool.status_change", entity_type: "vendor_pool", entity_id: req.params.id,
+      old_values: { status: existing.status ?? null },
+      new_values: { status: parsed.data.status },
+      details: { reason: parsed.data.reason ?? null }
+    };
     res.json(updated);
   });
 

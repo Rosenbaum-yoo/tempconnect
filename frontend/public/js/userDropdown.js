@@ -22,7 +22,7 @@
     ENTERPRISE: "#f43f5e"
   };
 
-  function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+  function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
 
   function init() {
     var wrap    = document.getElementById("tc-user-profile");

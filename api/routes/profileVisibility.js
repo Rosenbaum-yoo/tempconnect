@@ -22,8 +22,14 @@ import { z } from "zod";
 import { Router } from "express";
 import * as visSvc from "../services/profileVisibilityService.js";
 import * as analyticsSvc from "../services/profileAnalyticsService.js";
-import { writeAudit } from "../services/auditLog.js";
+import { writeAuditEnhanced } from "../services/auditLog.js";
 import { swallow } from "../utils/logger.js";
+/* Melden darf nur, wer sehen darf — und "sehen" heisst bei einem `offer`
+ * dasselbe wie in `marketplace.js:1414`. Dieselbe Bedingung, dieselbe Funktion:
+ * zwei Kopien einer Sichtbarkeitsregel driften, und die Kopie in der
+ * Meldefunktion wuerde als letzte auffallen. */
+import { canAccessAsOwner } from "../utils/ownerCheck.js";
+import { verweigereArbeiter } from "../middleware/orgAccess.js";
 
 export function createProfileVisibilityRouter(deps) {
   const { pool, requireAuth, requireFeature, logger } = deps;
@@ -34,8 +40,27 @@ export function createProfileVisibilityRouter(deps) {
   const fail = (res, status, code, msg) =>
     res.status(status).json({ success: false, error: { code, message: msg } });
 
+  /*
+   * `writeAuditEnhanced` statt `writeAudit` — an ALLEN fuenf Stellen dieses
+   * Routers (gemessen 2026-08-24).
+   *
+   * Die req-lose Zwei-Argument-Form kennt `req` nicht, fragt damit nie
+   * `bestimmeAuditOrg()`, und da hier auch kein `org_id` uebergeben wurde,
+   * blieb es NULL. Sechs Meldungen vom 22.–24.08. liegen deshalb in KEINEM
+   * Org-Audit — auch nicht bei dem Admin, der sie braucht. Alle sechs Melder
+   * gehoeren genau EINER Organisation an, die Org war also die ganze Zeit
+   * verfuegbar: `orgContextMiddleware` laeuft global (app.js) vor der Route,
+   * die Meldewege sind `requireAuth`. Nachgewiesen von
+   * `api/test/auditMandantenGrenze.test.js`.
+   *
+   * WICHTIG — die naheliegende Abkuerzung waere falsch: `reportedOrgId` bzw.
+   * `anbieter_org_id` stehen in den Handlern bereit, gehoeren hier aber NICHT
+   * hin. Damit landete die Zeile im Audit der GEMELDETEN Partei, die dort
+   * ablesen koennte, dass und von wem sie gemeldet wurde. Richtig ist die Org
+   * des Melders — genau die, die `bestimmeAuditOrg` ohnehin liefert.
+   */
   const audit = (req, action, entityType, entityId, details) =>
-    writeAudit(pool, { action, entity_type: entityType, entity_id: entityId,
+    writeAuditEnhanced(pool, req, { action, entity_type: entityType, entity_id: entityId,
       actor_id: uid(req), details }).catch(swallow("profileVisibility"));
 
   const basic  = requireFeature("public_profile_basic");
@@ -43,7 +68,29 @@ export function createProfileVisibilityRouter(deps) {
 
   /* ── Eigene Einstellungen lesen ────────────────────────── */
 
-  router.get("/profile-visibility/settings", requireAuth, basic, async (req, res) => {
+  /*
+   * M2.5 — diese vier Wege verwalten die OEFFENTLICHE DARSTELLUNG DER FIRMA.
+   *
+   * Gemessen am 2026-09-02: `profile_visibility_settings` hat keine einzige
+   * Nutzerspalte, nur `org_id UNIQUE` (an der laufenden Datenbank nachgesehen).
+   * `SELECT * … WHERE org_id = $1` gab einer Arbeitersitzung damit den
+   * MODERATIONSDATENSATZ SEINES ARBEITGEBERS: `status`, `rejection_reason`,
+   * `suspended_reason` — und mit `reviewed_by` die Kennung des TempConnect-
+   * Mitarbeiters, der ueber die Firma geurteilt hat.
+   *
+   * Der Lesepfad SCHREIBT ausserdem: `initVisibilitySettings` setzt ein
+   * `INSERT … ON CONFLICT (org_id) DO UPDATE` ab.
+   *
+   * Die drei Schreibwege daneben trugen dieselbe Kette. `/settings/pause` haette
+   * einem Arbeiter erlaubt, das oeffentliche Profil seiner Firma abzuschalten.
+   *
+   * `basic`/`visible` sahen aus wie Wachen und waren keine: sie pruefen den PLAN,
+   * und den holen sie aus der FIRMA (featureGate.js reicht `req.orgId` weiter).
+   * Je besser der Tarif des Arbeitgebers, desto weiter kam der Arbeiter.
+   */
+  const keinArbeiter = verweigereArbeiter({ logger });
+
+  router.get("/profile-visibility/settings", requireAuth, basic, keinArbeiter, async (req, res) => {
     try {
       if (!req.orgId) return fail(res, 403, "NO_ORG", "Keine aktive Organisation.");
       await visSvc.initVisibilitySettings(pool, req.orgId);
@@ -59,7 +106,7 @@ export function createProfileVisibilityRouter(deps) {
 
   const optInSchema = z.object({ is_public: z.boolean() });
 
-  router.post("/profile-visibility/settings/opt-in", requireAuth, basic, async (req, res) => {
+  router.post("/profile-visibility/settings/opt-in", requireAuth, basic, keinArbeiter, async (req, res) => {
     const parsed = optInSchema.safeParse(req.body);
     if (!parsed.success) return fail(res, 400, "VALIDATION", "is_public (boolean) erforderlich.");
     try {
@@ -77,7 +124,7 @@ export function createProfileVisibilityRouter(deps) {
 
   /* ── Zur Staff-Prüfung einreichen (PRO+) ──────────────── */
 
-  router.post("/profile-visibility/settings/submit", requireAuth, visible, async (req, res) => {
+  router.post("/profile-visibility/settings/submit", requireAuth, visible, keinArbeiter, async (req, res) => {
     try {
       if (!req.orgId) return fail(res, 403, "NO_ORG", "Keine aktive Organisation.");
       const result = await visSvc.submitForReview(pool, req.orgId);
@@ -92,7 +139,7 @@ export function createProfileVisibilityRouter(deps) {
 
   /* ── Profil pausieren (Org-initiiert) ─────────────────── */
 
-  router.post("/profile-visibility/settings/pause", requireAuth, visible, async (req, res) => {
+  router.post("/profile-visibility/settings/pause", requireAuth, visible, keinArbeiter, async (req, res) => {
     try {
       if (!req.orgId) return fail(res, 403, "NO_ORG", "Keine aktive Organisation.");
       const result = await visSvc.pauseVisibility(pool, req.orgId);
@@ -117,7 +164,13 @@ export function createProfileVisibilityRouter(deps) {
         `SELECT cp.*, o.name AS org_name, o.plan AS org_plan,
                 sr.grade, sr.reputation_score, sr.avg_stars, sr.total_ratings
          FROM company_profiles cp
-         JOIN org_memberships om ON om.user_id = cp.user_id AND om.role = 'owner'
+         /* Z17 (2026-09-28): hier stand om.role. Die Spalte heisst role_key -
+            org_memberships.role gibt es nicht (gemessen). Die Abfrage warf also,
+            und das OEFFENTLICHE Firmenprofil hat nie geladen: die Sichtbarkeit
+            wird eine Zeile darueber korrekt geprueft, und danach faellt der
+            Abruf um. Ein Profil, das ein Kunde freigeschaltet hat und das
+            niemand sehen konnte. */
+         JOIN org_memberships om ON om.user_id = cp.user_id AND om.role_key = 'owner'
          JOIN organizations o ON o.id = om.org_id
          LEFT JOIN supplier_reputation sr ON sr.supplier_id = cp.user_id
          WHERE om.org_id = $1
@@ -134,7 +187,20 @@ export function createProfileVisibilityRouter(deps) {
 
   /* ── Like / Unlike ─────────────────────────────────────── */
 
-  router.post("/profile-visibility/:orgId/like", requireAuth, basic, async (req, res) => {
+  /*
+   * Owner-Entscheid 2026-09-03: der Arbeiter tritt NICHT im Namen seiner Firma auf.
+   *
+   * Diese vier Wege schreiben `likerOrgId: req.orgId` bzw. binden die Merkung an die
+   * Org. Ein Arbeiter, der ein fremdes Firmenprofil befuerwortet oder merkt, tat das
+   * damit als SEINE ZEITARBEITSFIRMA — und fuer eine Agentur ist eine oeffentliche
+   * Befuerwortung eines Marktteilnehmers kommerziell nicht bedeutungslos. Sie haette
+   * nie davon erfahren.
+   *
+   * Kein Datenabfluss, deshalb hat die Messung aus M2.5 (GET-only, Rumpf-basiert) sie
+   * nicht gefunden. Sie stand als benannte Owner-Frage in der Uebergabe und ist
+   * entschieden worden.
+   */
+  router.post("/profile-visibility/:orgId/like", requireAuth, basic, keinArbeiter, async (req, res) => {
     try {
       const likedOrgId = String(req.params.orgId);
       if (!req.orgId) return fail(res, 403, "NO_ORG", "Keine aktive Organisation.");
@@ -154,7 +220,7 @@ export function createProfileVisibilityRouter(deps) {
     }
   });
 
-  router.delete("/profile-visibility/:orgId/like", requireAuth, basic, async (req, res) => {
+  router.delete("/profile-visibility/:orgId/like", requireAuth, basic, keinArbeiter, async (req, res) => {
     try {
       const likedOrgId = String(req.params.orgId);
       if (!req.orgId) return fail(res, 403, "NO_ORG", "Keine aktive Organisation.");
@@ -173,7 +239,7 @@ export function createProfileVisibilityRouter(deps) {
     note: z.string().max(200).optional().nullable()
   });
 
-  router.post("/profile-visibility/:orgId/favorite", requireAuth, basic, async (req, res) => {
+  router.post("/profile-visibility/:orgId/favorite", requireAuth, basic, keinArbeiter, async (req, res) => {
     const parsed = favoriteSchema.safeParse(req.body);
     const note = parsed.success ? (parsed.data.note || null) : null;
     try {
@@ -192,7 +258,7 @@ export function createProfileVisibilityRouter(deps) {
     }
   });
 
-  router.delete("/profile-visibility/:orgId/favorite", requireAuth, basic, async (req, res) => {
+  router.delete("/profile-visibility/:orgId/favorite", requireAuth, basic, keinArbeiter, async (req, res) => {
     try {
       const favOrgId = String(req.params.orgId);
       await analyticsSvc.removeFavorite(pool, uid(req), favOrgId);
@@ -246,10 +312,20 @@ export function createProfileVisibilityRouter(deps) {
         details: parsed.data.details || null
       });
 
-      if (!result.ok) return fail(res, 400, result.reason, "Meldung konnte nicht gespeichert werden.");
+      if (!result.ok) {
+        /* Bis 2026-08-22 endete hier JEDE Meldung — und niemand erfuhr es.
+         * Der Dienst gab nur "DB_ERROR" zurueck, die Route protokollierte
+         * nichts, und die leere Tabelle sah aus wie "es meldet halt niemand".
+         * Ein Fehlerpfad, den niemand sieht, ist kein Fehlerpfad, sondern eine
+         * Luecke, die sich als Ruhe tarnt. */
+        if (result.fehler) {
+          logger.error({ err: result.fehler, orgId: reportedOrgId }, "profile abuse report konnte nicht gespeichert werden");
+        }
+        return fail(res, 400, result.reason, "Meldung konnte nicht gespeichert werden.");
+      }
 
       // Audit — keine sensiblen Details loggen
-      writeAudit(pool, {
+      writeAuditEnhanced(pool, req, {
         action:       "profile.abuse_reported",
         entity_type:  "profile_abuse_report",
         entity_id:    result.id || reportedOrgId,
@@ -260,6 +336,319 @@ export function createProfileVisibilityRouter(deps) {
       ok(res, { reported: true });
     } catch (e) {
       logger.error({ err: e }, "POST /profile-visibility/:orgId/report");
+      fail(res, 500, "SERVER_ERROR", "Meldung fehlgeschlagen.");
+    }
+  });
+
+  /*
+   * ANGEBOT MELDEN (Plan I, Abschnitt 10: "Bei Angeboten muss man freche oder
+   * betruegerische Inhalte ins Staff Control Center melden koennen").
+   *
+   * WARUM IN DIESER DATEI, obwohl sie "profileVisibility" heisst: die Meldung
+   * ist EIN Vorgang mit EINEM Dienst, EINER Tabelle und EINEM Posteingang im
+   * Staff Control Center. Sie auf zwei Dateien zu verteilen hiesse, die zweite
+   * Haelfte beim naechsten Mal zu vergessen — so sind die drei angefangenen
+   * Meldewege dieses Repos ueberhaupt erst entstanden. Der Dateiname ist der
+   * schlechtere Kompromiss als ein vierter halber Weg.
+   */
+  const angebotMeldenSchema = z.object({
+    reason:  z.enum(["spam", "fake_profile", "misleading_info", "inappropriate_content", "other"]),
+    details: z.string().max(500).optional().nullable()
+  });
+
+  router.post("/offers/:id/report", requireAuth, async (req, res) => {
+    const parsed = angebotMeldenSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return fail(res, 400, "VALIDATION", "reason erforderlich (spam | fake_profile | misleading_info | inappropriate_content | other).");
+    }
+    try {
+      /*
+       * `offers.supplier_company_id` zeigt auf `users`, nicht auf
+       * `organizations` (Migration 014). Die Organisation kommt deshalb ueber
+       * die Mitgliedschaft. Gemessen am 2026-08-22: alle 38 Angebote haben
+       * genau EINEN Anbieter mit genau EINER aktiven Organisation — trotzdem
+       * werden beide Randfaelle unten ausdruecklich behandelt, weil "heute
+       * eindeutig" keine Zusicherung ist.
+       *
+       * `ORDER BY m.created_at ASC LIMIT 1` macht die Wahl bei mehreren
+       * Mitgliedschaften wenigstens BESTIMMT statt zufaellig; die genaue
+       * Anbieterkennung wandert zusaetzlich ins Protokoll, damit Staff den
+       * Ursprung auch dann exakt zurueckverfolgen kann.
+       */
+      const { rows } = await pool.query(
+        `SELECT o.id,
+                o.supplier_company_id,
+                dr.requester_company_id,
+                (SELECT m.org_id
+                   FROM org_memberships m
+                  WHERE m.user_id = o.supplier_company_id AND m.is_active = TRUE
+                  ORDER BY m.created_at ASC
+                  LIMIT 1) AS anbieter_org_id
+           FROM offers o
+           LEFT JOIN demand_requests dr ON dr.id = o.demand_request_id
+          WHERE o.id = $1`,
+        [req.params.id]
+      );
+      const angebot = rows[0];
+      if (!angebot) return fail(res, 404, "OFFER_NOT_FOUND", "Angebot nicht gefunden.");
+
+      /*
+       * MELDEN DARF NUR, WER SEHEN DARF.
+       *
+       * Die erste Fassung dieser Route hat das nicht geprueft — im Browser
+       * gefunden, nicht im Quelltext: dieselbe Sitzung bekam bei
+       * `/marketplace/offers/:id/detail` ein 403 und konnte das Angebot
+       * trotzdem melden. Zwei Folgen, beide unnoetig:
+       *
+       *   1. Ein ORAKEL fuer Angebotskennungen: 404 gegen 200 haette verraten,
+       *      welche Kennung existiert. Deshalb bekommt "gibt es nicht" und
+       *      "gehoert nicht zu dir" ab jetzt DIESELBE Antwort.
+       *   2. Ein Weg, wahllos Meldungen gegen Angebote abzusetzen, die man nie
+       *      gesehen hat — jede davon kostet das Team dieselbe Bearbeitung.
+       *
+       * Ein `offer` sehen ohnehin nur die zwei Parteien (marketplace.js:1414
+       * benutzt genau diese Bedingung). Wer eine dritte Meinung zu einem
+       * Angebot hat, hat es nicht gesehen.
+       */
+      const istPartei =
+        await canAccessAsOwner(pool, angebot.requester_company_id, req.session.userId)
+        || await canAccessAsOwner(pool, angebot.supplier_company_id, req.session.userId);
+      if (!istPartei) return fail(res, 404, "OFFER_NOT_FOUND", "Angebot nicht gefunden.");
+
+      if (await canAccessAsOwner(pool, angebot.supplier_company_id, req.session.userId)) {
+        return fail(res, 400, "SELF_REPORT_NOT_ALLOWED", "Eigenes Angebot kann nicht gemeldet werden.");
+      }
+      if (!angebot.anbieter_org_id) {
+        /* Fail-closed statt Notnagel: ohne Organisation koennte der Posteingang
+         * die Meldung nicht anzeigen (er verbindet ueber `reported_org_id`).
+         * Eine Meldung, die niemand sieht, ist schlimmer als eine abgelehnte —
+         * dieselbe Regel wie beim Support-Eingang. */
+        logger.error({ offerId: angebot.id }, "Angebot ohne Anbieter-Organisation — Meldung nicht zustellbar");
+        return fail(res, 409, "OFFER_WITHOUT_ORG", "Dieses Angebot laesst sich derzeit nicht melden. Bitte wenden Sie sich an den Support.");
+      }
+
+      const result = await visSvc.reportProfileAbuse(pool, {
+        reportedOrgId:  angebot.anbieter_org_id,
+        reporterUserId: req.session.userId,
+        reason:         parsed.data.reason,
+        details:        parsed.data.details || null,
+        zielArt:        "angebot",
+        zielId:         angebot.id
+      });
+
+      if (!result.ok) {
+        if (result.fehler) {
+          logger.error({ err: result.fehler, offerId: angebot.id }, "Angebots-Meldung konnte nicht gespeichert werden");
+        }
+        return fail(res, 400, result.reason, "Meldung konnte nicht gespeichert werden.");
+      }
+
+      writeAuditEnhanced(pool, req, {
+        action:      "offer.abuse_reported",
+        entity_type: "profile_abuse_report",
+        entity_id:   result.id || angebot.id,
+        actor_id:    req.session.userId,
+        details:     { reason: parsed.data.reason, offer_id: angebot.id, supplier_user_id: angebot.supplier_company_id }
+      }).catch(swallow("profileVisibility"));
+
+      ok(res, { reported: true });
+    } catch (e) {
+      logger.error({ err: e }, "POST /offers/:id/report");
+      fail(res, 500, "SERVER_ERROR", "Meldung fehlgeschlagen.");
+    }
+  });
+
+  /*
+   * KAPAZITAET MELDEN — die Flaeche, auf der Fremde die Inhalte von Fremden sehen.
+   *
+   * "Angebot" meint im Produkt ZWEI Dinge, und die wichtigere Haelfte fehlte
+   * zuerst:
+   *   `offers`         Gebot auf einen konkreten Bedarf. Sehen nur die ZWEI
+   *                    Parteien (marketplace.js:1414 antwortet allen anderen 403).
+   *   `capacity_posts` Personalangebote im Vermittlungs-Feed. `GET
+   *                    /marketplace/capacity-posts` steht hinter `requireAuth` +
+   *                    `slaAccess` und filtert NICHT nach Anbieter
+   *                    (marketplace.js:296-302) — jeder angemeldete Nutzer mit
+   *                    SLA-Zugang sieht sie alle.
+   *
+   * "Freche oder betruegerische Inhalte" (Owner-Vorgabe) trifft vor allem die
+   * zweite. Statt zu raten, welche gemeint war, tragen beide.
+   */
+  /*
+   * EINE PERSON MELDEN (Plan I, 10 — Owner-Entscheid 2026-08-24).
+   *
+   * VORGESCHICHTE: Am 2026-08-23 fiel die Entscheidung anders; Migration 191
+   * hat die alte Tabelle `reports` samt Route entfernt. Der Owner hat sie am
+   * 2026-08-24 revidiert: Personen-Meldungen gehoeren ins Produkt. Der Weg ist
+   * jetzt sauberer als er damals gewesen waere — kein Datenumzug, kein
+   * Verschmelzen zweier fast disjunkter Grund-Vokabulare, sondern die vierte
+   * Zielart derselben Tabelle (Migration 194).
+   *
+   * WARUM DIE DEALAKTE DIE HEIMAT IST: `offers.supplier_company_id` und
+   * `demand_requests.requester_company_id` SIND Nutzerkennungen — im Deal steht
+   * sich Person gegen Person gegenueber. Das ist die einzige Flaeche des
+   * Produkts, auf der ein Nutzer einem anderen NUTZER begegnet (ueberall sonst
+   * sieht man Organisationen, Angebote oder blosse Namensfelder). Genau dort
+   * entsteht auch das Verhalten, das die neuen Gruende `fraud` und
+   * `harassment` benennen: Betrug ist kein Inhalt, Belaestigung auch nicht.
+   *
+   * MELDEN DARF NUR, WER MIT DER PERSON ZU TUN HATTE. Ohne diese Bedingung
+   * waere die Route zweierlei auf einmal: ein Orakel fuer Nutzerkennungen und
+   * ein Weg, wahllos Meldungen gegen Fremde abzusetzen — jede kostet das Team
+   * dieselbe Bearbeitung wie eine echte. "Zu tun gehabt" heisst hier: in
+   * mindestens einem Deal auf der jeweils anderen Seite gestanden.
+   */
+  const personMeldenSchema = z.object({
+    /* Zwei Gruende mehr als bei Inhalts-Meldungen. Sie NICHT in `other` zu
+     * schmelzen ist der ganze Punkt: `other` ist der Eimer, den ein Bearbeiter
+     * zuletzt oeffnet. */
+    reason:  z.enum(["spam", "fraud", "harassment", "misleading_info", "inappropriate_content", "other"]),
+    details: z.string().max(500).optional().nullable()
+  });
+
+  router.post("/users/:id/report", requireAuth, async (req, res) => {
+    const parsed = personMeldenSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return fail(res, 400, "VALIDATION", "reason erforderlich (spam | fraud | harassment | misleading_info | inappropriate_content | other).");
+    }
+    const zielId = String(req.params.id || "");
+    if (zielId === req.session.userId) {
+      return fail(res, 400, "SELF_REPORT_NOT_ALLOWED", "Sich selbst kann man nicht melden.");
+    }
+    try {
+      const { rows } = await pool.query(
+        `SELECT u.id,
+                /* Gemeinsamer Deal in BEIDE Richtungen: der Melder kann der
+                 * Besteller sein und die Zielperson der Anbieter — oder
+                 * umgekehrt. */
+                EXISTS (
+                  SELECT 1
+                    FROM offers o
+                    JOIN demand_requests dr ON dr.id = o.demand_request_id
+                   WHERE (o.supplier_company_id = u.id AND dr.requester_company_id = $2)
+                      OR (o.supplier_company_id = $2 AND dr.requester_company_id = u.id)
+                ) AS gemeinsamer_deal,
+                /* Die Organisation ist ab Migration 194 optionaler KONTEXT,
+                 * nicht Traeger: gemessen haben 144 von 395 Nutzern keine
+                 * aktive Mitgliedschaft. Fehlt sie, entsteht die Meldung
+                 * trotzdem — der Posteingang verbindet per LEFT JOIN. */
+                (SELECT m.org_id
+                   FROM org_memberships m
+                  WHERE m.user_id = u.id AND m.is_active = TRUE
+                  ORDER BY m.created_at ASC
+                  LIMIT 1) AS kontext_org_id
+           FROM users u
+          WHERE u.id = $1`,
+        [zielId, req.session.userId]
+      );
+      const person = rows[0];
+
+      /* "Gibt es nicht" und "hattet ihr nie miteinander zu tun" bekommen
+       * DIESELBE Antwort. Unterschiedliche waeren ein Orakel: wer Kennungen
+       * durchprobiert, koennte daran ablesen, welche existieren. */
+      if (!person || !person.gemeinsamer_deal) {
+        logger.warn({ reporterId: req.session.userId, grund: person ? "kein_gemeinsamer_deal" : "unbekannt" },
+          "POST /users/:id/report abgewiesen");
+        return fail(res, 404, "USER_NOT_FOUND", "Person nicht gefunden.");
+      }
+
+      const result = await visSvc.reportProfileAbuse(pool, {
+        reportedOrgId:  person.kontext_org_id || null,
+        reporterUserId: req.session.userId,
+        reason:         parsed.data.reason,
+        details:        parsed.data.details || null,
+        zielArt:        "nutzer",
+        zielId:         person.id
+      });
+
+      if (!result.ok) {
+        if (result.fehler) {
+          logger.error({ err: result.fehler, zielId }, "Personen-Meldung konnte nicht gespeichert werden");
+        }
+        return fail(res, 400, result.reason, "Meldung konnte nicht gespeichert werden.");
+      }
+
+      writeAuditEnhanced(pool, req, {
+        action:      "user.abuse_reported",
+        entity_type: "profile_abuse_report",
+        entity_id:   result.id || person.id,
+        actor_id:    req.session.userId,
+        details:     { reason: parsed.data.reason, reported_user_id: person.id, kontext_org_id: person.kontext_org_id || null }
+      }).catch(swallow("profileVisibility"));
+
+      ok(res, { reported: true });
+    } catch (e) {
+      logger.error({ err: e }, "POST /users/:id/report");
+      fail(res, 500, "SERVER_ERROR", "Meldung fehlgeschlagen.");
+    }
+  });
+
+  router.post("/capacity-posts/:id/report", requireAuth, async (req, res) => {
+    const parsed = angebotMeldenSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return fail(res, 400, "VALIDATION", "reason erforderlich (spam | fake_profile | misleading_info | inappropriate_content | other).");
+    }
+    try {
+      /* `capacity_posts` traegt `org_id` DIREKT (gemessen: 30 von 33 gefuellt).
+       * Die drei ohne kommen ueber die Mitgliedschaft des Anbieters; Anbieter
+       * ohne aktive Organisation gibt es keine (gemessen: 0 von 33). Der
+       * COALESCE haelt beide Faelle, ohne dass ein Aufrufer davon wissen muss. */
+      const { rows } = await pool.query(
+        `SELECT cp.id,
+                cp.supplier_company_id,
+                cp.is_active,
+                COALESCE(cp.org_id,
+                  (SELECT m.org_id
+                     FROM org_memberships m
+                    WHERE m.user_id = cp.supplier_company_id AND m.is_active = TRUE
+                    ORDER BY m.created_at ASC
+                    LIMIT 1)) AS anbieter_org_id
+           FROM capacity_posts cp
+          WHERE cp.id = $1`,
+        [req.params.id]
+      );
+      const eintrag = rows[0];
+      if (!eintrag) return fail(res, 404, "CAPACITY_POST_NOT_FOUND", "Eintrag nicht gefunden.");
+
+      /* Anders als bei `offers` gibt es hier KEINE Sichtbarkeitspruefung — und
+       * das ist Absicht, nicht Nachlaessigkeit: der Feed zeigt jedem
+       * angemeldeten Nutzer jeden Eintrag. Wer ihn melden will, hat ihn auch
+       * gesehen. Eine Pruefung waere hier eine Attrappe. */
+      if (await canAccessAsOwner(pool, eintrag.supplier_company_id, req.session.userId)) {
+        return fail(res, 400, "SELF_REPORT_NOT_ALLOWED", "Eigener Eintrag kann nicht gemeldet werden.");
+      }
+      if (!eintrag.anbieter_org_id) {
+        logger.error({ capacityPostId: eintrag.id }, "Kapazitaet ohne Anbieter-Organisation — Meldung nicht zustellbar");
+        return fail(res, 409, "CAPACITY_POST_WITHOUT_ORG", "Dieser Eintrag laesst sich derzeit nicht melden. Bitte wenden Sie sich an den Support.");
+      }
+
+      const result = await visSvc.reportProfileAbuse(pool, {
+        reportedOrgId:  eintrag.anbieter_org_id,
+        reporterUserId: req.session.userId,
+        reason:         parsed.data.reason,
+        details:        parsed.data.details || null,
+        zielArt:        "kapazitaet",
+        zielId:         eintrag.id
+      });
+
+      if (!result.ok) {
+        if (result.fehler) {
+          logger.error({ err: result.fehler, capacityPostId: eintrag.id }, "Kapazitaets-Meldung konnte nicht gespeichert werden");
+        }
+        return fail(res, 400, result.reason, "Meldung konnte nicht gespeichert werden.");
+      }
+
+      writeAuditEnhanced(pool, req, {
+        action:      "capacity_post.abuse_reported",
+        entity_type: "profile_abuse_report",
+        entity_id:   result.id || eintrag.id,
+        actor_id:    req.session.userId,
+        details:     { reason: parsed.data.reason, capacity_post_id: eintrag.id, supplier_user_id: eintrag.supplier_company_id }
+      }).catch(swallow("profileVisibility"));
+
+      ok(res, { reported: true });
+    } catch (e) {
+      logger.error({ err: e }, "POST /capacity-posts/:id/report");
       fail(res, 500, "SERVER_ERROR", "Meldung fehlgeschlagen.");
     }
   });

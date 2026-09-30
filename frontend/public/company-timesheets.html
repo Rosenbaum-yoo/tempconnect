@@ -82,11 +82,18 @@
       <strong data-i18n="cts.banner.reason">Begründung</strong> <span data-i18n="cts.banner.3">zurück – transparent und nachvollziehbar, direkt in der Plattform.</span>
     </div>
 
+    <!-- Live-Belegschaft, Meldungen und Sperrliste sind in Welle J1 auf ihre
+         eigene Flaeche umgezogen (company-live-workforce.html) - die Reiter
+         bleiben als Wegweiser stehen, damit niemand sie hier sucht. -->
     <div class="ct-tabs">
       <button class="ct-tab ct-tab--active" id="tabTimesheets" onclick="ctView('timesheets')" data-i18n="cts.tab.timesheets">Stundenzettel-Eingang</button>
-      <button class="ct-tab" id="tabLive" onclick="ctView('live')"><span class="ct-live-dot"></span><span data-i18n="cts.tab.live">Live-Belegschaft</span></button>
-      <button class="ct-tab" id="tabComplaints" onclick="ctView('complaints')" data-i18n="cts.tab.complaints">Meine Meldungen</button>
-      <button class="ct-tab" id="tabBlocklist" onclick="ctView('blocklist')" data-i18n="cts.tab.blocklist">Sperrliste</button>
+      <!-- Rechnungs-Eingang (Welle J7): dieselbe Kette, ein Schritt weiter —
+           aus den Zeiten, die hier freigegeben werden, entsteht die Rechnung.
+           Deshalb steht sie daneben und nicht auf einer eigenen Flaeche. -->
+      <button class="ct-tab" id="tabInvoices" onclick="ctView('invoices')" data-i18n="cts.tab.invoices">Rechnungs-Eingang</button>
+      <a class="ct-tab" style="text-decoration:none" href="/public/company-live-workforce.html"><span class="ct-live-dot"></span><span data-i18n="cts.tab.live">Live-Belegschaft</span></a>
+      <a class="ct-tab" style="text-decoration:none" href="/public/company-live-workforce.html#meldungen" data-i18n="cts.tab.complaints">Meine Meldungen</a>
+      <a class="ct-tab" style="text-decoration:none" href="/public/company-live-workforce.html#sperrliste" data-i18n="cts.tab.blocklist">Sperrliste</a>
     </div>
 
     <div id="viewTimesheets">
@@ -117,70 +124,41 @@
     </table>
     </div><!-- /viewTimesheets -->
 
-    <div id="viewLive" style="display:none">
+    <!-- ===== RECHNUNGS-EINGANG (Welle J7) =====
+         Bewusst eine LESENDE Flaeche: Stellen, Stornieren und "bezahlt"
+         gehoeren dem Rechnungssteller. Der Empfaenger braucht den Beleg fuer
+         seine Buchhaltung — deshalb Ansicht, CSV und E-Rechnung, aber keine
+         Knoepfe, die den fremden Beleg veraendern. -->
+    <div id="viewInvoices" style="display:none">
       <div class="ct-banner">
-        <span data-i18n="cts.live.banner.1">Echtzeit-Überblick: Diese Kräfte Ihrer Zeitarbeitsfirmen sind</span>
-        <strong data-i18n="cts.live.banner.strong">aktuell bei Ihnen im Einsatz</strong>
-        <span data-i18n="cts.live.banner.2">– automatisch aus den laufenden Einsätzen Ihrer Organisation.</span>
+        <span data-i18n="cts.inv.banner.1">Rechnungen Ihrer Zeitarbeitsfirmen zu den bei Ihnen geleisteten und</span>
+        <strong data-i18n="cts.inv.banner.strong">von Ihnen freigegebenen Stunden</strong>
+        <span data-i18n="cts.inv.banner.2">– mit allen Positionen zum Nachvollziehen, als CSV und als E-Rechnung für Ihre Buchhaltung.</span>
       </div>
       <div class="ct-kpis">
-        <div class="ct-kpi"><div class="ct-kpi__val" id="lwTotal" style="color:var(--ds-success)">–</div><div class="ct-kpi__label" data-i18n="cts.live.kpi.active">Aktuell im Einsatz</div></div>
-        <div class="ct-kpi"><div class="ct-kpi__val" id="lwEnds" style="color:var(--ds-warning)">–</div><div class="ct-kpi__label" data-i18n="cts.live.kpi.ending">Endet in Kürze</div></div>
-        <div class="ct-kpi"><div class="ct-kpi__val" id="lwOut">–</div><div class="ct-kpi__label" data-i18n="cts.live.kpi.out">Fällt aus</div></div>
-        <div class="ct-kpi"><div class="ct-kpi__val" id="lwAgencies">–</div><div class="ct-kpi__label" data-i18n="cts.live.kpi.agencies">Zeitarbeitsfirmen</div></div>
+        <div class="ct-kpi" data-i18n-title="cts.inv.kpi.openHelp" title="Rechnungen, die gestellt und noch nicht als bezahlt vermerkt sind."><div class="ct-kpi__val" id="ciOpen" style="color:var(--ds-warning)">–</div><div class="ct-kpi__label" data-i18n="cts.inv.kpi.open">Offen</div></div>
+        <div class="ct-kpi" data-i18n-title="cts.inv.kpi.overdueHelp" title="Das Zahlungsziel ist überschritten."><div class="ct-kpi__val" id="ciOverdue" style="color:var(--ds-danger)">–</div><div class="ct-kpi__label" data-i18n="cts.inv.kpi.overdue">Überfällig</div></div>
+        <div class="ct-kpi" data-i18n-title="cts.inv.kpi.sumHelp" title="Summe aller offenen und überfälligen Rechnungen."><div class="ct-kpi__val" id="ciSum">–</div><div class="ct-kpi__label" data-i18n="cts.inv.kpi.sum">Offener Betrag</div></div>
+        <div class="ct-kpi" data-i18n-title="cts.inv.kpi.paidHelp" title="In diesem Monat als bezahlt vermerkt."><div class="ct-kpi__val" id="ciPaid" style="color:var(--ds-success)">–</div><div class="ct-kpi__label" data-i18n="cts.inv.kpi.paid">Diesen Monat bezahlt</div></div>
       </div>
       <div class="ct-toolbar">
-        <input id="lwSearch" class="ct-btn" placeholder="Mitarbeiter oder Firma…" data-i18n-ph="cts.live.searchPh" oninput="ctLiveDebounce()" style="min-width:220px"/>
-        <button class="ct-btn" onclick="ctLoadLive()" data-i18n="cts.action.refresh">Aktualisieren</button>
-        <span id="lwCount" class="ct-sub"></span>
-      </div>
-      <table class="ct-table">
-        <thead><tr>
-          <th data-i18n="cts.th.worker">Mitarbeiter</th><th data-i18n="cts.th.agency">Zeitarbeitsfirma</th><th data-i18n="cts.th.role">Rolle</th><th data-i18n="cts.th.shift">Schicht</th><th data-i18n="cts.th.since">Seit</th><th data-i18n="cts.th.until">Bis</th><th data-i18n="cts.th.status">Status</th><th></th>
-        </tr></thead>
-        <tbody id="lwBody"><tr><td colspan="8" class="ct-empty">–</td></tr></tbody>
-      </table>
-    </div><!-- /viewLive -->
-
-    <div id="viewComplaints" style="display:none">
-      <div class="ct-banner" data-i18n="cts.cmp.banner">
-        Ihre Meldungen an die Zeitarbeitsfirmen — mit aktuellem Bearbeitungsstand.
-        Der zuständige Disponent wird bei jeder Meldung sofort benachrichtigt und kann Ersatz stellen.
-      </div>
-      <div class="ct-toolbar">
-        <select id="cmpFilterStatus" class="ct-btn" onchange="ctLoadComplaints()">
-          <option value="" data-i18n="cts.cmp.filter.all">Alle Meldungen</option>
-          <option value="open" data-i18n="cts.cmp.status.open">Offen</option>
-          <option value="acknowledged" data-i18n="cts.cmp.status.acknowledged">Angenommen</option>
-          <option value="resolved" data-i18n="cts.cmp.status.resolved">Erledigt</option>
+        <select id="ciFilterStatus" class="ct-btn" onchange="ctLoadInvoices()">
+          <option value="" data-i18n="cts.inv.filter.all">Alle</option>
+          <option value="issued" data-i18n="cts.inv.status.issued">Offen</option>
+          <option value="overdue" data-i18n="cts.inv.status.overdue">Überfällig</option>
+          <option value="paid" data-i18n="cts.inv.status.paid">Bezahlt</option>
         </select>
-        <button class="ct-btn" onclick="ctLoadComplaints()" data-i18n="cts.action.refresh">Aktualisieren</button>
-        <span id="cmpCount" class="ct-sub"></span>
+        <button class="ct-btn" onclick="ctLoadInvoices()" data-i18n="cts.action.refresh">Aktualisieren</button>
+        <span id="ciCount" class="ct-sub"></span>
       </div>
       <table class="ct-table">
         <thead><tr>
-          <th data-i18n="cts.th.worker">Mitarbeiter</th><th data-i18n="cts.th.agency">Zeitarbeitsfirma</th><th data-i18n="cts.th.severity">Dringlichkeit</th><th data-i18n="cts.th.reason">Grund</th><th data-i18n="cts.th.status">Status</th><th data-i18n="cts.th.reported">Gemeldet</th>
+          <th data-i18n="cts.inv.th.number">Nummer</th><th data-i18n="cts.th.agency">Zeitarbeitsfirma</th><th data-i18n="cts.inv.th.period">Zeitraum</th><th data-i18n="cts.inv.th.due">Fällig</th><th data-i18n="cts.inv.th.total">Gesamt</th><th data-i18n="cts.th.status">Status</th><th></th>
         </tr></thead>
-        <tbody id="cmpBody"><tr><td colspan="6" class="ct-empty">–</td></tr></tbody>
+        <tbody id="ciBody"><tr><td colspan="7" class="ct-empty">–</td></tr></tbody>
       </table>
-    </div><!-- /viewComplaints -->
+    </div><!-- /viewInvoices -->
 
-    <div id="viewBlocklist" style="display:none">
-      <div class="ct-banner">
-        <span data-i18n="cts.bl.banner.1">Gesperrte Kräfte werden diesem Unternehmen von den Zeitarbeitsfirmen</span>
-        <strong data-i18n="cts.bl.banner.strong">nicht mehr zugewiesen</strong><span data-i18n="cts.bl.banner.2">. Sie entscheiden: dauerhaft, befristet (z. B. 3 Monate) oder wieder freigeben.</span>
-      </div>
-      <div class="ct-toolbar">
-        <button class="ct-btn" onclick="ctLoadBlocklist()" data-i18n="cts.action.refresh">Aktualisieren</button>
-        <span id="blCount" class="ct-sub"></span>
-      </div>
-      <table class="ct-table">
-        <thead><tr>
-          <th data-i18n="cts.th.worker">Mitarbeiter</th><th data-i18n="cts.th.agency">Zeitarbeitsfirma</th><th data-i18n="cts.th.reason">Grund</th><th data-i18n="cts.th.blockedUntil">Gesperrt bis</th><th></th>
-        </tr></thead>
-        <tbody id="blBody"><tr><td colspan="5" class="ct-empty">–</td></tr></tbody>
-      </table>
-    </div><!-- /viewBlocklist -->
   </div>
 
   <!-- Detail-Modal -->
@@ -194,61 +172,30 @@
     </div>
   </div>
 
-  <!-- Sperren-Modal -->
-  <div id="ctBlockModal" class="ct-modal">
-    <div class="ct-modal__box" style="max-width:460px">
-      <div style="padding:20px 22px 0"><div style="font-size:1.1rem;font-weight:700" data-i18n="cts.blk.title">Kraft sperren</div>
-        <div id="blkWorkerName" class="ct-sub" style="margin-top:3px"></div></div>
-      <div style="padding:16px 22px">
-        <label class="ct-sub" style="display:block;margin-bottom:4px" data-i18n="cts.blk.duration">Dauer</label>
-        <select id="blkDuration" class="ct-btn" style="width:100%;margin-bottom:12px" onchange="ctBlkDurChange()">
-          <option value="permanent" data-i18n="cts.blk.dur.permanent">Dauerhaft (nie wieder)</option>
-          <option value="3m" data-i18n="cts.blk.dur.3m">Befristet: 3 Monate</option>
-          <option value="custom" data-i18n="cts.blk.dur.custom">Befristet: bis Datum…</option>
-        </select>
-        <input type="date" id="blkUntil" class="ct-btn" style="width:100%;margin-bottom:12px;display:none"/>
-        <label class="ct-sub" style="display:block;margin-bottom:4px" data-i18n="cts.blk.reasonLabel">Grund (wird der Zeitarbeitsfirma angezeigt)</label>
-        <textarea id="blkReason" class="ct-btn" style="width:100%;min-height:64px;resize:vertical" placeholder="z. B. wiederholt unentschuldigt gefehlt" data-i18n-ph="cts.blk.reasonPh"></textarea>
-        <div id="blkErr" style="display:none;margin-top:8px;padding:8px 10px;background:#fee2e2;color:#991b1b;border-radius:8px;font-size:.83rem"></div>
+  <!-- Rechnungsdetail (Welle J7): die Positionen sind der Grund, warum eine
+       Rechnung nachvollziehbar ist — Kraft, Woche, Stunden, Satz. Ohne sie
+       bliebe nur eine Endsumme, die niemand prüfen kann. -->
+  <div id="ciModal" class="ct-modal">
+    <div class="ct-modal__box">
+      <div style="padding:20px 22px 0">
+        <div id="ciDetailTitle" style="font-size:1.1rem;font-weight:700"></div>
+        <div id="ciDetailMeta" class="ct-sub" style="margin-top:3px"></div>
       </div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;padding:0 22px 20px">
-        <button class="ct-btn" onclick="ctBlkClose()" data-i18n="cts.action.cancel">Abbrechen</button>
-        <button class="ct-btn ct-btn--rej" id="blkSubmit" onclick="ctBlkSubmit()" data-i18n="cts.blk.submit">Sperren</button>
-      </div>
+      <div style="padding:16px 22px" id="ciDetailBody"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;padding:16px 22px 20px" id="ciDetailActions"></div>
     </div>
   </div>
 
-  <!-- Beschwerde-Modal -->
-  <div id="ctComplaintModal" class="ct-modal">
-    <div class="ct-modal__box" style="max-width:460px">
-      <div style="padding:20px 22px 0"><div style="font-size:1.1rem;font-weight:700" data-i18n="cts.cmp.title">Problem melden</div>
-        <div id="cmpWorkerName" class="ct-sub" style="margin-top:3px"></div></div>
-      <div style="padding:16px 22px">
-        <div class="ct-banner" style="margin:0 0 12px" data-i18n="cts.cmp.modalBanner">
-          Ihre Meldung geht an die zuständige Zeitarbeitsfirma. Diese kann reagieren – z. B. einen Ersatz stellen.
-        </div>
-        <label class="ct-sub" style="display:block;margin-bottom:4px" data-i18n="cts.cmp.severityLabel">Dringlichkeit</label>
-        <select id="cmpSeverity" class="ct-btn" style="width:100%;margin-bottom:12px">
-          <option value="low" data-i18n="cts.cmp.sevOpt.low">Niedrig – Hinweis</option>
-          <option value="medium" selected data-i18n="cts.cmp.sevOpt.medium">Mittel – bitte prüfen</option>
-          <option value="high" data-i18n="cts.cmp.sevOpt.high">Hoch – dringend / Ersatz nötig</option>
-        </select>
-        <label class="ct-sub" style="display:block;margin-bottom:4px" data-i18n="cts.cmp.reasonLabel">Was ist das Problem?</label>
-        <textarea id="cmpReason" class="ct-btn" style="width:100%;min-height:72px;resize:vertical" placeholder="z. B. wiederholt zu spät, Qualität unzureichend, Verhalten vor Ort" data-i18n-ph="cts.cmp.reasonPh"></textarea>
-        <div id="cmpErr" style="display:none;margin-top:8px;padding:8px 10px;background:#fee2e2;color:#991b1b;border-radius:8px;font-size:.83rem"></div>
-      </div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;padding:0 22px 20px">
-        <button class="ct-btn" onclick="ctCompClose()" data-i18n="cts.action.cancel">Abbrechen</button>
-        <button class="ct-btn ct-btn--rej" id="cmpSubmit" onclick="ctCompSubmit()" data-i18n="cts.cmp.submit">Melden</button>
-      </div>
-    </div>
-  </div>
-
+  <!-- dateDE.js liefert TCDate.todayDE(). Ein roher UTC-Schnitt auf dem
+       Kalendertag waere in Europe/Berlin abends der Vortag (Befundklasse F1). -->
+  <script src="/public/js/dateDE.js"></script>
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/pageShell.js"></script>
   <script>
     if (document.getElementById('tc-shell-nc') && window.TC && TC.shell) { try { TC.shell.init({ target: '#tc-shell-nc' }); } catch(e){} }
   </script>
+  <!-- TC.api — muss vor dem Seitenskript stehen (Waechter: apiClientGeladen.test.js) -->
+  <script src="/public/js/api.js"></script>
   <script src="/public/js/pages/companyTimesheets.js"></script>
   <script src="/public/js/notifications.js"></script>
 </body>

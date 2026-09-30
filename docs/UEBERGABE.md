@@ -4,7 +4,9 @@
 > sobald in einem Arbeitsplan eine offene Owner-Entscheidung auftaucht, die hier fehlt.
 > Eine Übergabe, die man vergessen kann, ist keine.
 
-**Stand: 2026-08-19** · Branch `release/enterprise-premium-market-ready`
+**Stand: 2026-08-29** · Arbeitslinie `claude/brave-sanderson-9e9148`
+(die Release-Linie `release/enterprise-premium-market-ready` ist am 2026-08-27
+hierher zusammengeführt — `297554c`, 13 Commits, sechs Konflikte).
 
 ---
 
@@ -18,6 +20,1894 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 **Arbeitsrhythmus:** Owner sagt „weiter mit X" → ich liefere eine Welle → Output-Block
 → Owner sagt „ja committen und weiter". **Commit sofort nach grüner Suite, ohne Nachfrage** (Owner 2026-08-13). Nur der **Push** wartet auf eine ausdrückliche Zusage.
 
+> **Das Team ist eine Person.** Es gibt keine zweite Staff-Rolle — der Owner *ist*
+> das Staff, und dieser Agent faktisch auch. Das ist keine Randnotiz, sondern eine
+> **Bauvorgabe**: kein Vier-Augen-Prinzip, keine Freigabe durch eine zweite Person,
+> kein „an Kollegen zuweisen" — solche Wege wären dauerhaft blockiert.
+> Missbrauchsschutz entsteht durch **Struktur**, nicht durch Kontrolle, und das
+> eigentliche Risiko ist das **Versehen**, nicht der Vorsatz.
+> Vollständig in [`CLAUDE.md`](../CLAUDE.md), Abschnitt *„Das Team ist eine Person"*.
+
+---
+
+## Wo wir gerade stehen *(2026-09-08)*
+
+| Spur | Gegenstand | Stand |
+|---|---|---|
+| **I** | Audit-Trennung, Fristen, Support-Weg | gebaut; **I3 Stufe 1** (E-Mail im Arbeiter-Weg) gebaut, Stufen 2–4 offen |
+| **J** | Live-Belegschaft ↔ Marktplatz, E-Rechnung | gebaut und zusammengeführt (J1–J10, ZUGFeRD/PDF-A-3u, Schematron-Gate) |
+| **K0** | Vorlauf: Merge, Gegenprüfung, Feed-Fehler | ✅ durch — Gate grün, Feed-Fehler (`e845c2d`) bestätigt behoben |
+| **K4** | Der Feed fällt nie auf leer zurück | ✅ **gebaut** `eb46707` (Mig 204, `feedKopieService`, 18 Proben, 4 Rückmutationen) |
+| **K1** | Rabatt sichtbar + Eingriffspunkt | ✅ **gebaut** — Mig 206, drei Dienste, Staff-CC-Modul `rabatt-faelle`, 75 Proben, **14 Rückmutationen** |
+| **K2** | Werbe-Cashback (100 %, nächste Rechnung frei) | ✅ **vollständig gebaut** — Mig 208 + 209, `werbepraemieService`, 26 Proben, **16 Rückmutationen** |
+| **K3** | Monatsplanung | **✅ ABGESCHLOSSEN** — zwei Achsen (Einsätze / Mitarbeiter), Konfliktvorschau vor dem Schreiben, in der Navigation, gehärtet (Indizes, Zeitzone, Mutation Testing) |
+| **L** | Tragfähigkeit / Hochverfügbarkeit | dokumentiert, **nicht gebaut** (eigener Abschnitt, Owner-Vorgabe) |
+| **M** | Marktplatz-Flow Ende zu Ende (19 Schritte) | **M0–M3 gebaut** (2026-09-02–6), M4.8 + M4b.1 angefangen. **M1.1 Takt-Herzschlag steht** — Mig 212, `betriebsTaktService.js`, Staff-CC-Kachel. M4–M11 offen |
+| **N** | Personalsuche: die Unternehmenssicht | **im Bau** — N1/N1b (Katalog auf beiden Marktseiten), N2.0–N2.4 (Ort als Frage 0, Notdienst abgeleitet, Treffer-Vorschau), N4/N4.4, N7.1–7.5 gebaut. **N3, N5, N6 offen** |
+| **O** | Rahmenbedingungen und Passung | geplant, nicht gebaut. **Befund:** `contracts`/`framework` ist modelliert, der Buchungsweg liest ihn **null mal** |
+| **P** | Altlasten-Register (A entfernen / B anschließen / C behalten / D messen) | Register steht, **nicht abgearbeitet**. Klasse B hat sieben Posten — wer dort aufräumt, löscht geplante Fähigkeiten |
+| **Q** | Zuverlässigkeit, Zeugnis, Abwesenheit | geplant, nicht gebaut. Skala **ohne Gesundheitsdaten** und **nicht heimlich**; Zeugnis nur als Entwurf |
+| **R** | Die Sicht der Zeitarbeitsfirma | geplant, nicht gebaut. **Befund:** 17 Flächen, **4 in der Navigation** — die tägliche Stundenzettel-Prüfung (10 Endpunkte) in keiner |
+| **S** | Abhängigkeiten laufen wieder glatt | geplant. **Übergangslösung aktiv:** `@pdf-lib/fontkit` mit `--no-save --legacy-peer-deps` nachinstalliert, steht **nicht** im `package-lock.json`. Der Peer-Konflikt ist umgangen, nicht gelöst |
+| **T** | Das monatliche Marktaudit + Wertermittlung | geplant. Antwortet **in Fähigkeiten statt Zahlen**, führt die **Schulden daneben**, beziffert **Wiederherstellungsaufwand** statt Plattformwert |
+| **N8** | Nachtrag aus dem Owner-Dokument (2026-09-14) | geplant. Katalog statt Freitext auch in „Personal finden" und `capacity_search.html`; Stundenzettel nutzt die bekannte `buyer_org_id`; Fehler „Aktueller Plan: ?" (widerspricht M-E2); **Umkreis bundesweit für alle** (erweitert M-E4) |
+| **E7** | Beispielansicht im Leerzustand der Live-Belegschaft | geplant. **Nur** bei 200 ohne Einträge, gekennzeichnet; bei 500/401 nie |
+| **U** | Standorte, Rollen, Profilsichtbarkeit (Owner-Abschnitte 11, 24) | geplant. **U0.2/U2.4 ist ERLEDIGT** (2026-09-20, `docs/PILOT_GO_LIVE_TODOS.md`): 967 Wege entdeckend geprüft, drei Lecks geschlossen, `api/test/standortGrenze.test.js` hält sie. Offen bleibt daraus nur der zusammengesetzte Fremdschlüssel `(id, org_id)` |
+| **V** | **Komplettsystem oder angedockt** (zvoove, SAP Fieldglass), Schnittstellen, **Kreislaufkarte K-1…K-7**, Verdrahtungskette für alle neuen Wellen | geplant. Kern: „führendes System je Objekt" (V6) **vor** jedem Adapter. Adapter warten auf Anbieter-Zugang. **Preis entschieden (V6.5):** zvoove ab PRO für 249 €/Monat + 490 € Einrichtung, Fieldglass nur INDIVIDUELL |
+| **W** | Support Center für Mengen, Repo-Hygiene (Owner-Abschnitte 18, 19) | geplant. **W5 zuerst:** das Owner-Dokument liegt ungetrackt im öffentlichen Repo. Externer Support erst nach Standardvertragsklauseln (Indien ohne Angemessenheitsbeschluss) |
+| **X** | Lohnvorschau im Einsatzportal | geplant. Brutto genau, netto als Spanne, **keine** Steuerdaten; **nie** aus dem Verrechnungssatz |
+
+## Der Zeitplan *(Owner 2026-09-20)*
+
+| Wann | Was |
+|---|---|
+| **Dezember 2026** | **Livegang** auf Hetzner und Cloudflare, danach **Pilotkunden sammeln** |
+| **01.03. oder 01.04.2027** | **Marktstart** |
+
+**Was das für die Reihenfolge bedeutet:** bis Dezember zählt, was ein echter Kunde anfasst und
+was ihn schützt — Mandanten- und Standortgrenzen, Geheimnisse, ein Marktplatz mit Inhalt, der
+Weg bis zum Abschluss, Stundenzettel und Rechnung. Alles, was erst bei vielen Kunden oder
+vielen Anfragen zählt (Support-Mengen, externe Support-Kräfte, Adapter zu Fremdsystemen,
+Tragfähigkeit), gehört **nach** den Livegang — es kostet jetzt Zeit, die der Pilot braucht.
+
+> **Die Posten 1 bis 11 der Rangfolge unten sind die Dezember-Liste.** Ab Posten 12 ist es
+> Ausbau: wichtig, aber nicht zwischen heute und dem ersten zahlenden Kunden.
+
+---
+
+## Die Reihenfolge der offenen Arbeit *(Owner-Auftrag 2026-09-20: K1 arbeitet alles ab)*
+
+**Gewichtet nach Schaden, wenn es fehlt** — nicht danach, was zuletzt besprochen wurde. Die
+bauende Sitzung geht von oben nach unten; wer etwas vorzieht, schreibt den Grund dazu.
+
+> **Durchgestrichene Posten sind erledigt** und bleiben stehen, damit die Nummern der
+> Owner-Reihenfolge vom 2026-09-20 lesbar bleiben — die Einträge in
+> `docs/PILOT_GO_LIVE_TODOS.md` nennen sie wörtlich als Quelle.
+>
+> Am **2026-09-28** standen die Posten **1 bis 4 alle vier** noch als offen, obwohl sie
+> zwischen dem 20. und 22. September abgearbeitet worden waren. Eine Sitzung, die wie
+> vorgeschrieben von oben nach unten geht, greift dann vier erledigte Posten nacheinander
+> auf — einer davon hat genau das gekostet, bevor es auffiel. **Eine Arbeitsanweisung, die
+> auf Erledigtes zeigt, sieht aus wie Arbeit und nicht wie ein Fehler.** Erzwungen wird die
+> Übereinstimmung jetzt von `api/test/reihenfolgeIstAktuell.test.js`.
+
+| # | Was | Warum hier |
+|---|---|---|
+| ~~1~~ | ~~**U0.2 + U2.4** — Standortgrenze messen und entdeckend absichern~~ **ERLEDIGT am 2026-09-20** | Die Vermutung war **in der Zahl falsch, in der Sache richtig**: die Prüfung liegt eine Schicht tiefer (sechs Dienste, nicht vier Routen) — wer in `routes/` zählt, zählt die falsche Schicht. Gemessen am Verhalten über **967 Wege** erreichte ein fremder Standort von **drei** aus die Datenbank; alle drei sind geschlossen, `api/test/standortGrenze.test.js` (11 Proben, 8 rote Rückmutationen) hält sie. **Diese Zeile stand bis zum 2026-09-28 unverändert hier und hat eine Sitzung den vollen Umweg gekostet** — eine Arbeitsanweisung, die auf Erledigtes zeigt, sieht aus wie Arbeit, nicht wie ein Fehler. **Offen daraus:** Posten 1c und 1d. **Nachtrag 2026-09-28 (U0.2b):** beim Auflösen einer ungenauen Zahl — *„sieben Routen ohne direkten Riegel“*, derselbe Schichtfehler wie die ursprüngliche Notiz — fielen **zwei weitere Lücken** heraus: `updateRequisition` und `updateRateCard` trugen den Riegel nur im Anlege-Pfad. Beide geschlossen, `standortGrenze.test.js` von 11 auf 19 Proben, 7 Rückmutationen rot |
+| 1b | **Z — die Schema-Schulden** (`Z_SCHEMA_SCHULDEN.md`) | **Bis auf die Owner-Punkte fertig.** Z1–Z9 und **Z16–Z20** sind gebaut; **beide** Bestandslisten sind **leer** — die in `sqlSchemaWaechter.test.js` zum ersten Mal überhaupt, die in `spaltenImVerbund.test.js` einen Tag nach ihrer Entstehung. 36 Rückmutationen, alle gefangen. Offen bleibt allein **Z10 — die Token im Klartext**, ein Sicherheitsposten, der **vor** dem Livegang steht und dem Owner gehört, sowie Z11 (vier verwaiste Tabellen, ebenfalls owner-gebunden). **Z18–Z20 gleich mit erledigt:** fünfzehn Spaltenfehler, die erst der Verbund-Wächter sichtbar gemacht hat — darunter die stumme DSGVO-Liste, die unsichtbaren Einsatz-Einladungen und eine Lieferantensuche, die nichts fand — sowie drei Wächter-Lücken im gemeinsamen Korpus (Abschnitt unten) |
+| 1c | **Zusammengesetzter Fremdschlüssel `(id, org_id)`** auf `org_locations` / `org_departments` — **gemessen 2026-09-28, wartet auf Owner** | Der benannte Rest aus U0.2. Heute zeigt der Schlüssel nur auf `org_locations(id)` und prüft damit bloß, dass die Zeile *irgendwo* existiert — die Grenze hängt allein am Dienst. **Umfang: 13 Fremdschlüssel in 7 Tabellen** (`assignments`, `capacity_posts`, `org_departments`, `org_memberships`, `rate_cards`, `requisitions`, `vendor_pool`), dazu zwei fehlende `UNIQUE (id, org_id)` als Voraussetzung. **Risiko heute: null** — alle dreizehn Beziehungen auf verletzende Zeilen geprüft, überall 0; nur eine ist überhaupt belegt (`org_departments.location_id`, 3 Zeilen). Es gibt also nichts zu bereinigen. **Warum trotzdem Owner:** große DB-Änderung mit Sicherheitswirkung (CLAUDE.md), und später ist sie teurer als heute |
+| 1d | **Darf eine Konditionskarte auf einen Lieferanten zeigen, mit dem keine Beziehung besteht?** — **gemessen 2026-09-28, wartet auf Owner** | Die `allowed`-Liste von `updateRateCard` enthält `supplier_org_id`; ein Ändern setzt die Karte auf eine andere Organisation. Fachlich etwas anderes als ein Standort, und es gibt kein Muster dafür in `orgBoundary.js` — deshalb bei U0.2b **absichtlich nicht mitgeschlossen**. **Die Daten können es heute nicht entscheiden:** 4 Konditionskarten, davon 1 mit Lieferant, und `vendor_pool` hat **0 Zeilen** — „ohne Beziehung“ ist damit trivial wahr und beweist nichts |
+| ~~2~~ | ~~**W5 + W4.2** — Office-Dateien und Schlüsselmuster als Wächter~~ **ERLEDIGT am 2026-09-21** | „Zwei Wächter gegen einen großen Schaden“ (W5.1 / W5.2 / W4.2), `docs/PILOT_GO_LIVE_TODOS.md`. Der Eintrag nennt als Quelle ausdrücklich „Owner-Reihenfolge 2026-09-20, Posten 2“ |
+| ~~3~~ | ~~**S1 + S4** — `npm install` läuft glatt, Hauptbaum-Ablauf nach dem Merge~~ **ERLEDIGT am 2026-09-21** | „Ein Klient statt zwei, und der Stand ist ablesbar“ (S1 / S2 / S3 / S4). Quelle im Eintrag: „Owner-Reihenfolge 2026-09-20, Posten 3“ |
+| ~~4~~ | ~~**N8.1** — Katalog statt Freitext in „Personal finden"~~ **ERLEDIGT am 2026-09-22** | „Katalog statt Freitext, auf beiden Marktseiten“ (N8.1). Quelle im Eintrag: „Owner-Reihenfolge 2026-09-20, Posten 4“ |
+| 5 | **M4b + M4.8/M4.9** — der Marktplatz füllt sich selbst | Die Owner-Vorgabe „voluminös" entscheidet, ob eine Vorführung überhaupt etwas zeigt |
+| 5b | **Y — Die Probebühne** (`Y_PROBEBUEHNE.md`) | Vor dem Livegang die einzige Art, die Zusagen zu prüfen, die kein Test abdeckt. **Gemessen: 1 von 2566 Organisationen hat mehr als einen Standort, 3 von 33 Kräften haben Fähigkeiten** — Welle U und ein voller Marktplatz sind heute gar nicht durchspielbar. Direkt nach M4c, weil die Bühne den gefüllten Markt braucht |
+| 6 | **N3, N5, N6** — Rangfolge, Korb, Abschluss | Vervollständigt den Weg, den N2 begonnen hat |
+| 7 | **N8.2** — der Stundenzettel kennt seinen Kunden | Schließt K-2 zwischen Zeitarbeitsfirma und Kunde; `buyer_org_id` liegt bereits vor |
+| 8 | **N8.7** — „Anmeldung erforderlich" nur bei echter 401 | Kein Ausfall, aber ein **Diagnoseschaden**: falsche Meldungen verstecken die nächste Ursache |
+| 9 | **E7** — Beispielansicht im Leerzustand | Der erste Eindruck einer leeren Live-Belegschaft, klein und sichtbar |
+| 10 | **O** — harte Bedingungen (Verleiherlaubnis, Haftpflicht, AV-Vertrag) | Muss stehen, **bevor** echte Buchungen laufen |
+| 11 | **N8.3** — „Aktueller Plan: ?" nach dem Schnellstart | Widerspricht M-E2; ein Interessent sieht eine Sperre statt des Markts |
+| 12 | **Q** — Zuverlässigkeit, Zeugnis, Abwesenheit | Rechtlich heikel, deshalb sorgfältig statt schnell |
+| 13 | **R** — die Sicht der Zeitarbeitsfirma: ein Ort, ein Tag | 17 Flächen, 4 in der Navigation — tägliche Arbeit, kein Ausfall |
+| 14 | **N8.4** — Umkreis bundesweit (Owner-Entscheid) | Erweiterung, kein Defekt |
+| 15 | **N8.6** — Wächter für Kachel und Zahl | Verhalten steht bereits (`5aa7c0b`), nur der Wächter fehlt |
+| 16 | **V6 + V7** — Betriebsarten: Komplettsystem oder angedockt | Groß und strategisch; **vor** jedem Adapter, aber nach dem Kern |
+| 17 | **T** — das monatliche Audit | Misst, was die Schritte davor geschaffen haben; vorher misst es wenig. **Enthält seit 2026-09-27 den Posten T6** — die Owner-Frage nach Vollständigkeit, Schwachstellen, Marktführerschaft und „ein ganzes System **und** andockbar". Sie wartet auf **messbaren** Auslöser (Welle Z fertig, Dezember-Liste abgearbeitet, voller Prüflauf grün), nicht auf Zuruf |
+| 18 | **U1–U5** — Rollen, Standorte, Profilsichtbarkeit | Wird gebraucht, sobald Kunden mehrere Menschen und Standorte haben |
+| 19 | **X** — Lohnvorschau | Angenehm für den Arbeiter, nichts hängt davon ab |
+| 20 | **P Klasse A**, **W1/W2**, **V2–V4**, **M5–M11** | Aufräumen, Support-Mengen, Adapter (warten auf Anbieter-Zugang), Ausbau |
+
+> **Nicht in dieser Liste, weil es dem Owner gehört:** Abschnitt 21 (Go-Live), die Überführung
+> des OCC ins Staff CC und die Freigabe externer Support-Kräfte.
+
+---
+
+> **Überholt seit 2026-09-22 — und der Irrtum stand hier länger, als er wahr war.**
+> Gemessen: `workers/staffingWorker.js:46` ruft `sweepMarktpraesenz` im Auftrag
+> `staffing-maintenance` auf, der Takt läuft alle 15 Minuten (`TAKTE`, M1.9); die Handkurbel
+> in `routes/internal.js` gibt es zusätzlich. **Die Marktplatz-Automatik läuft also.** Der
+> Befund unten beschreibt den Stand vom 2026-09-01 und wurde mit M1 behoben.
+> Derselbe überholte Satz steht noch im Kopf von `betriebsTaktService.js`.
+> **Warum das hier stehen bleibt statt gelöscht zu werden:** wer die Stelle später liest, soll
+> sehen, dass eine Messung ein Haltbarkeitsdatum hat. Gefunden hat es die bauende Sitzung beim
+> Vorbereiten von Posten 5 — eine Doku-Lücke kostet den Nächsten eine Stunde, bevor er merkt,
+> dass er einem alten Satz glaubt.
+> **Der wichtigste Befund der M-Messung, weil er alles andere betrifft:**
+> **Die Marktplatz-Automatik läuft nicht.** Der Mechanismus ist vollständig gebaut
+> (Mig 200/201, „Verfügbarkeit ist das Angebot"), aber `sweepMarktpraesenz` hat genau
+> einen Aufrufer — `POST /internal/staffing-maintenance` —, und **den ruft nichts**: kein
+> Crontab im Repo, kein Scheduler-Container, kein BullMQ-Takt. An derselben nie
+> eingerichteten Zeile hängen außerdem der Hard-Lock bei Zahlungsausfall, das automatische
+> Nachrücken und der Verfall von Einladungen. Die eigene Betriebsakte hält es seit dem
+> 2026-08-24 fest: *„der Weg ist jetzt offen, aber es ruft ihn noch niemand."*
+> **Deshalb ist M1.1 ein Takt-Herzschlag** — eine Tabelle, die sagt, wann jede Aufgabe
+> zuletzt lief, plus ein Wächter, der bei Schweigen rot wird. Blueprint-fähig.
+
+**Der nächste Griff: die Antwort des Owners auf E-K3-1 bis E-K3-3.** Der Entwurf
+der Monatsplanung liegt vor (K3.1) und die Datenlage ist gemessen (K3.2), beides
+in [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md).
+**Gebaut wird erst nach der Freigabe** — anders als bei K1 und K2 ist das kein
+Gate, das man messen kann, sondern eine Produktentscheidung. Reihenfolge laut
+Plan: **K0 → K4 → K1 → K2 → K3** — die ersten vier sind durch.
+
+### Die vier Owner-Entscheidungen sind beantwortet *(2026-08-31)*
+
+| | Frage | Entscheid | Stand |
+|---|---|---|---|
+| **E-K3-1** | AÜG-Höchstdauer prüfen? | **ja — prüfen und darstellen** | ✅ Mig 211, `auegService` |
+| **E-K3-2** | in vergangene Monate planen? | **ja**, *„alleine wegen fehlenden Stundenzetteln"* | ⏭ gilt für K3.5 |
+| **E-K3-3** | offene Einsätze am Rand? | **bis Monatsrand, Vermerk „läuft noch"** | ✅ `randvermerk` |
+| **E-K3-4** | Zuordnungen aufräumen? | **ja, mehrfach prüfen** | ✅ Mig 210, acht Wege |
+
+**Der nächste Griff: `K3.5`** — beide Spuren schreibend. E-K3-2 ist beantwortet,
+also darf in einen vergangenen Monat geplant werden. **Die lesende Fläche steht**
+(`monatsplan.html`, `GET /workforce/monatsplan`) und ist im Browser belegt —
+Raster, Leerzustand, Fehlerzustand, Konsole sauber.
+
+**Die Vorarbeit für K3.5 ist erledigt, die Schreibwege selbst stehen aus.** Beim
+Nachsehen, wie sie an die bestehende Domäne andocken, sind drei Befunde
+herausgefallen (vollständig im Arbeitsplan, Abschnitt „K3.5 — die Vorarbeit"):
+
+1. **Echter Ausfall:** die Bedarfsliste der Kundenspur filterte mit der
+   Org-Kennung gegen `demand_requests.requester_company_id`, die eine
+   **Nutzer**kennung trägt. Gemessen: **0 Treffer im gesamten Bestand**. Damit
+   konnte auch die fünfte Konfliktart (unbesetzter Bedarf) nie feuern. Behoben.
+2. **Latent:** die vier Abfragen über Zuordnungen prüften deren Zustand nicht —
+   9 von 24 sind archiviert. Wirkung heute null, mit K3.5 scharf. Behoben.
+3. **Fehlalarm aus dem eigenen Prüfstand:** ein Messskript ohne
+   `db/typeParsers.js` ließ Datumswerte wie Zeitstempel aussehen. Kein
+   Produktfehler — der echte Pool lädt den Parser. Der voreilig eingebaute
+   `TO_CHAR`-Riegel wurde wieder entfernt.
+
+> **Was daraus dauerhaft bleibt:** jeder Kalendertag der Plattform hängt an der
+> einen Zeile `import "./typeParsers.js";` in `api/db/pool.js`. Sie sieht aus wie
+> ein unbenutzter Import; wer sie entfernt, dreht jedes Datum auf den Vortag.
+> **Nichts hielt sie fest** — jetzt tut es `api/test/kalendertagDE.test.js`.
+
+**K3.5 ist im Backend fertig — und war kleiner als gedacht, weil beide
+Schreibwege längst existierten:**
+
+| Spur | Weg |
+|---|---|
+| Kunde · Bedarf | `POST /marketplace/demand-requests` (`requesterId` ist eine **Nutzer**kennung, nicht die Org) |
+| Agentur · Besetzung | `POST /workers/staffing-assignments/:id/quick-assign` |
+
+**Nicht** direkt in `worker_assignment_links` schreiben: dort hängt die ganze
+Besetzungsmaschinerie (Einladung, Zusage, Reservierung, `recalcAssignmentStaffing`).
+Ein zweiter Schreibweg daneben wäre eine Schattenwahrheit.
+
+**Neu gebaut ist das eine Stück, das fehlte:** `GET /workforce/monatsplan/vorschau`
+— was bricht, **wenn** ich diese Kraft auf diesen Einsatz setze. Beide Endpunkte
+oben antworten erst *nach* dem Schreiben; 3b verspricht das Gegenteil. Die
+Vorschau **schreibt nichts** (per Test belegt), gilt **nur für die Agenturspur**,
+und hat zwei Riegel: der Einsatz muss der Firma gehören **und die Kraft auch** —
+sonst wäre sie ein Auskunftsdienst über fremde Einsatzpläne. Beide antworten 403
+ohne Zusatzangabe.
+
+**E-K3-2 brauchte keine Änderung:** gemessen kennt keines der beiden Schemata eine
+Vergangenheitssperre. Es wurde auch keine eingebaut, um sie danach zu entfernen.
+
+**K3.7 kam dazu, weil das Raster die Minderheit zeigte.** Gemessen: von 31
+Mitarbeitern der Zeitarbeitsfirmen erschienen im April-Raster **vier** — Zeilen
+waren Einsätze, und wer gerade keinen hat, kam nicht vor. Das sind genau die
+verplanbaren. `GET /workforce/monatsplan/mitarbeiter` dreht die Achse: Zeilen
+sind Menschen, die **freie Spanne** ist der Inhalt, und wer kein Konto hat
+(Migration 175) steht trotzdem da.
+
+**Die Fläche ist jetzt vollständig verdrahtet:** Umschalter Einsätze/Mitarbeiter,
+*Besetzung prüfen* je Einsatz mit nach freien Tagen sortierten Kandidaten, und der
+Befund mit Hebel. Im Browser gegen echte Datenbank-Antworten belegt, inklusive
+Leer- und Fehlerzustand.
+
+> **Und sie ist auffindbar.** `monatsplan.html` war vorher über KEINE Navigation
+> erreichbar — die einzige lebende Seite von 80, auf die das zutraf. Sie steht
+> jetzt unter *Deals & Einsätze*, und `api/test/erreichbarkeit.test.js` erzwingt
+> es dauerhaft: was das Register `aktiv` nennt, muss erreichbar sein. Ausnahmen
+> gehören ins Register, nicht in eine Testdatei.
+
+**K3.6 (Härtung) ist abgeschlossen** — und hat drei Dinge ergeben:
+
+* **Skalierung:** Indizes für alle sieben neuen Abfragen vorhanden, auch für den
+  kritischen Weg `users(org_id)` (die Tabelle wächst mit *allen* Plattformnutzern).
+  `EXPLAIN` bestätigt den Indexzugriff. **Keine Migration nötig.**
+* **Europe/Berlin:** `TZ` ist im Container gesetzt, aber `date` meldet UTC — dem
+  Abbild fehlt die tzdata. Node rechnet über ICU (77.1) trotzdem richtig. **Nichts
+  hielt das fest**; jetzt tut es `kalendertagDE.test.js`, mit einem Kindprozess
+  unter `TZ=UTC`, weil sich „ausdrücklich Berlin" von „zufällig Berlin" sonst
+  nicht unterscheiden lässt.
+* **Mutation Testing:** 957 Mutanten, `npm run test:mutation:monatsplan`. Gesamt
+  65,83 → **70,44 %**, der AÜG-Kern 78,04 → **80,95 %**. Die Schwelle steht als
+  Ratsche auf dem gemessenen Stand. Geschlossen wurden die drei Klassen, die
+  wirklich zählen: welche Spalte die Mandantengrenze zieht, was die Kundenspur
+  nicht erfahren darf, und die Grenzen der AÜG-Kettenbildung.
+
+> **Zwei Lehren daraus, die über dieses Projekt hinausgehen.** Erstens: der
+> Stryker-Bericht ist ein Hinweis, kein Urteil — von sechs „überlebten"
+> Entscheidungspunkten waren nach Prüfung von Hand fünf längst gefangen.
+> Zweitens: eine DB-freie Suite kann Mutanten in SQL-Text nicht töten. Die
+> Punktzahl einer Datei, die zur Hälfte aus SQL besteht, ist dadurch gedeckelt —
+> und das ist kein Testmangel, sondern die Bauart der Schicht.
+
+**Mutation Testing: alle drei Bereiche halten die Latte** (Owner-Vorgabe
+2026-09-01, 90 % je Bereich, fest vorgeschrieben auch für künftige):
+
+| Bereich | vorher | nachher |
+|---|---:|---:|
+| `monatsplan` | 65,83 % | **90,57 %** |
+| `rbac` | 95,94 % gemittelt, zwei Dateien darunter | **97,47 %**, jede Datei ≥ 91,5 % |
+| `subscription` | 41,03 % | **94,85 %** |
+
+> **Zwei Dinge, die man wissen muss, bevor man wieder misst.**
+>
+> 1. **Nie inkrementell.** Der Zwischenspeicher ist auf Änderungen am *Quelltext*
+>    geschlüsselt, nicht auf die der *Tests*. Wer Proben ergänzt und danach misst,
+>    bekommt sonst die alte Zahl — das hat hier eine Stunde gekostet. Steht jetzt
+>    in der Konfiguration (`incremental: false`) und wird von
+>    `api/test/mutationsSchwelle.test.js` erzwungen, lokal wie im
+>    projektübergreifenden Playbook.
+> 2. **„Je Bereich" heißt je Datei.** `rbac` hielt im Mittel 95,94 %, während zwei
+>    Middleware-Dateien bei 88,5 und 89,8 % lagen. Ein Mittelwert versteckt jede
+>    Lücke.
+
+## Welle M — M0 ist gemessen, der Rest wartet auf Entscheidungen
+
+**[`M0_BESTANDSPRUEFUNG.md`](features/M0_BESTANDSPRUEFUNG.md)** — der Ist-Stand des
+Marktplatz-Flows, selbst nachgemessen gegen den Vorbefund in
+[`M_MARKTPLATZ_FLOW.md`](features/M_MARKTPLATZ_FLOW.md).
+
+Sieben Prüfer, sieben Skeptiker, **48 Urteile mit Beleg**. Ergebnis in einem Satz:
+**der Vorbefund hält im Kern** — kein Urteil geht von `fehlt` auf `fertig`, ein
+Doppelbau droht aus dieser Messung also nicht. Drei Urteile gehen aber von `fehlt`
+auf `unerreichbar`, und das ist die teuerste Verwechslung des Plans: wer `fehlt`
+liest, baut einen Vorgang; wer `unerreichbar` liest, hängt einen Knopf an einen
+fertigen.
+
+**Drei Befunde habe ich zusätzlich selbst nachgemessen**, weil M1 und M2 auf ihnen
+aufsetzen:
+
+* `acceptInvite` überschreibt per `ON CONFLICT (email)` das Passwort eines
+  bestehenden Plattform-Kontos (`workerService.js:941`) — und hängt es der
+  einladenden Firma als Mitglied an, wobei eine höhere Rolle still auf `worker`
+  **herabgestuft** wird (`:949`). Der Riegel `EMAIL_EXISTS_OTHER_ROLE` existiert
+  im Import-Weg und fehlt hier ersatzlos.
+* Die Marktplatz-Automatik hat **einen** Aufrufer (`internal.js:559`), der ist ein
+  HTTP-Endpunkt, und **kein Dienst im Stack ruft ihn**: `docker-compose.yml` führt
+  db, mailpit, redis, migrate, api, frontend — keinen Takt.
+* Ein Einsatz kann über das Produkt **nie** abgeschlossen werden: die Route
+  `POST /assignments/:id/complete` existiert, der einzige `/complete`-Aufruf im
+  Frontend gilt Datenschutz-Anfragen. Damit ist die Bewertung strukturell tot.
+
+**M0 endete mit einem Bericht, nicht mit einem Bauauftrag.** Der Plan sagt: *fehlt
+etwas wirklich, wird gefragt, nicht erfunden.* Es wurden **33 Fragen** gestellt; die
+vier blockierenden hat der Owner am 2026-09-01 beantwortet:
+
+| | Frage | Entscheid |
+|---|---|---|
+| **M-E7** ✅ entschieden | Wer schließt einen Einsatz ab? | **Beide Seiten**, beidseitig und gegenseitenorientiert |
+| **M-E8** ✅ entschieden | Takt einrichten? | **Ja** |
+| **M-E9** ✅ entschieden | Eigene Sitzungswelt fürs Portal? | **Ja**, nach dem `/staff`-Muster |
+| **M-E3** ✅ entschieden (bestätigt) | PRO-Angebotslimit? | **Unbegrenzt** — war bereits entschieden; offen ist nur, dass der CODE noch 50 sagt |
+
+Ausführlich mit den Folgen: `M_MARKTPLATZ_FLOW.md`, Abschnitte 8.4 und 8.5.
+
+**Die übrigen 29 Fragen** stehen in Abschnitt 5 des M0-Berichts. Sie blockieren M1
+und M2 nicht.
+
+### M1.1 und M1.2 sind gebaut *(2026-09-02)*
+
+**Der Betriebstakt** — Migration `212_betriebs_takt.sql`, eine Zeile **je Aufgabe**
+(`aufgabe TEXT PRIMARY KEY`), kein Laufprotokoll. Ein Protokoll wächst unbegrenzt und
+beantwortet die eigentliche Frage schlechter.
+
+Drei Entscheidungen daran sind wichtiger als der Code:
+
+* **Der Herzschlag hängt VOR den Routen, nicht in ihnen.** Ein `router.use` vor allen
+  28 `/internal/*`-Endpunkten statt 28 einzelner Einbauten — der 29. Endpunkt trägt ihn
+  dann automatisch. Dasselbe bei BullMQ: alle vier Arbeiter gehen durch dieselbe Naht
+  (`instrumentWorker`), also genügte dort ein Griff.
+* **Der Stand geht von der ERWARTUNG aus, nicht von der Tabelle.** `TAKTE` ist eine
+  eingefrorene Registratur von zehn Aufgaben. Eine Aufgabe, die nie lief, hat keine
+  Zeile — wer Zeilen zählt, zählt sie nicht. Genau so ist die Marktplatz-Automatik ein
+  Jahr lang durchgerutscht. `still` ist deshalb der Zustand mit dem lautesten Ton, und
+  `taktStand` iteriert die Registratur, nicht die Tabelle.
+* **Der Takt ruft die Dienste direkt** (`staffingWorker.js`), nicht den eigenen
+  HTTP-Endpunkt. Ein Dienst, der sich selbst über das Netz aufruft, braucht ein
+  Geheimnis, eine erreichbare Adresse und einen zweiten Fehlerpfad.
+
+**Die Kachel steht im Staff CC unter Operations** — dort und nicht in einem eigenen
+Modul, weil „läuft das noch?" genau die Frage ist, wegen der jemand Operations
+aufschlägt. Abgefragt wird der Takt **zuletzt** in `loadOperationsSnapshot`: eine neue
+Abfrage vorne verschiebt jede bestehende Muster-Pool-Sequenz um eins. Beim ersten
+Anlauf stand sie oben — der Fehler, vor dem die Bemerkung über `service_health` seit
+Monaten warnt.
+
+**Ein neuer Wächter kam dabei heraus, und er hat sofort etwas gefunden.** Die Kachel
+benutzte sieben CSS-Klassen (`scc-kpi-grid`, `scc-card__title`, `scc-badge--danger` …),
+die in **keiner** Datei des Staff CC stehen. `tsc --noEmit` war grün und musste es
+sein: `className` ist ein freier String. Die Kachel wäre als unformatierter Textblock
+erschienen — kein Fehler, keine Meldung, nur falsch.
+[`sccKlassen.test.js`](../api/test/sccKlassen.test.js) schließt die Lücke: jede feste
+Klasse braucht eine Regel, jede zusammengesetzte (`scc-status--${ton}`) ihre Familie.
+Er liest eng — nur `className`, nicht `id`, nicht `var(--scc-danger)` —, weil ein
+Wächter mit Fehlalarmen abgeschaltet wird. Ein erster, gröberer Anlauf meldete 25
+Verletzungen, von denen 25 keine waren.
+
+> **Blueprint-fähig:** Herzschlag und Klassen-Wächter gehören unverändert in jedes
+> Folgeprojekt. Beide kosten nichts, brauchen keine Datenbank und fangen eine
+> Fehlerklasse, die kein Übersetzer sehen kann.
+
+Belegt durch `betriebsTakt.test.js` (32), `betriebsTaktKachel.test.js` (6) und
+`sccKlassen.test.js` (7) — jeweils mit Rückmutation: die Aufgabe aussetzen, die Kachel
+in den Kopfbereich zurückschieben, die tote Klasse wieder einsetzen. Alle drei werden
+rot.
+
+### M1.3 ist gebaut *(2026-09-02)* — drei ineinandergreifende stille Ausfälle
+
+Gemessen, nicht vermutet:
+
+1. `app.js`s `sendMail` endete ohne Transport mit `return true`.
+2. `emailService.sendMail` gab `{ accepted: [to], rejected: [] }` zurück — von einem
+   echten Versand nicht zu unterscheiden.
+3. **Der schlimmste:** die Masseneinladung umschloss den Versand mit `try/catch` und
+   führte eine Liste `failed`. Nur **wirft `sendMail` nie** — es fängt selbst und gibt
+   `false` zurück. Der `catch` war toter Code, `failed` blieb **immer leer**, und der
+   Disponent las „alle eingeladen", auch wenn keine einzige Mail hinausging.
+
+Von 42 Aufrufern prüfen 6 die Rückgabe. Der schlimmste Fall war damit nicht „eine Mail
+geht verloren", sondern „hundert Einladungen melden Zustellung, und niemand erfährt es".
+
+**Die Antwort hat zwei Hälften, und sie greifen ineinander:**
+
+* **Der Riegel** (`versandwegPflicht` in `emailProviderService.js`): in Produktion ohne
+  Versandweg wird hart abgelehnt (503, `MAIL_NO_TRANSPORT`) statt still Erfolg zu
+  melden. In Entwicklung bleibt es beim Loggen — Mailpit ist dort der Normalzustand.
+  Dazu die Startprüfung: **`runProductionValidation` beendet den Prozess**, wie bei
+  jeder anderen Pflichtangabe. Vorher stand dort eine Warnung, und die war folgenlos.
+  Wer bewusst ohne Mail betreiben will, setzt `EMAIL_PROVIDER=disabled` — eine
+  Entscheidung, kein Versehen.
+* **Die Sicht** (`mail_versand`, Migration 213): jeder Versuch zählt je Zweck und
+  Kalendertag. Damit bleibt auch der Fehlschlag sichtbar, den einer der 36 ungeprüften
+  Aufrufer ignoriert.
+
+Drei Entscheidungen daran, die beim Nachbauen zählen:
+
+* **Aggregiert, nicht eine Zeile je Mail.** Eine Zeile je Mail wächst unbegrenzt **und**
+  trägt die Empfängeradresse — also eine Löschpflicht. Die Tabelle trägt weder Adresse
+  noch Betreff. Gefragt wird ohnehin nicht „ging Mail 4711 raus?", sondern „kommen
+  Einladungen überhaupt an?".
+* **`ohne_versandweg` zählt getrennt von `fehlgeschlagen`.** Das erste ist ein
+  Konfigurationsfehler, das zweite ein Betriebsvorfall. Sie brauchen verschiedene
+  Antworten, also stehen sie in verschiedenen Spalten.
+* **Der Stand geht von der ERWARTUNG aus**, wie beim Betriebstakt: ein Zweck ohne jede
+  Zeile erscheint trotzdem und fällt auf. Wer Zeilen zählt, zählt ihn nicht.
+
+**Die Masseneinladung** reicht den Versand jetzt in **einem** `addBulk` an die vorhandene
+`email`-Queue — 200 Einladungen waren vorher 200 SMTP-Gespräche in der Anfrage. Fällt
+Redis aus, wird direkt gesendet statt still nichts zu tun. Die Antwort trennt
+`queued_count` von `invited_count`: über die Warteschlange ist die Mail **eingereiht**,
+nicht zugestellt, und das steht auch so in der Meldung an den Disponenten.
+
+**Die Kachel** steht neben dem Betriebstakt unter Operations. Beide beantworten dieselbe
+Sorge, und zwei Anlaufstellen dafür wären eine zu viel.
+
+Belegt durch `mailEhrlich.test.js` (37) und `operationsKacheln.test.js` (11, aus
+`betriebsTaktKachel.test.js` hervorgegangen). **Rückmutation für fünf Struktur-Proben** —
+Riegel ausbauen, Rückgabeprüfung entfernen, Fehlerstart zur Warnung machen, den Stand
+aus der Tabelle statt der Erwartung bilden, den Zweck nicht durchreichen: alle fünf
+werden rot.
+
+> **Zwei Fallen, beide schon einmal teuer gewesen und hier wieder aufgetreten:**
+> die Migrations-Probe schlug erst an der eigenen `--`-Begründung an, dann am Wort
+> „Empfängeradresse" in einem `COMMENT ON`-Text — also in echtem SQL, das kein
+> Kommentar-Strippen entfernt. Wer die Datei liest, prüft Prosa. Jetzt wird die
+> **Spaltenliste** gelesen. Und der Betriebstakt landete zuerst ganz oben in
+> `loadOperationsSnapshot`, wo er jede bestehende Muster-Pool-Sequenz um eins verschoben
+> hätte — genau davor warnt die Bemerkung über `service_health` seit Monaten.
+
+### M1.4 ist gebaut *(2026-09-02)* — HTTP 200 ist die schlimmere Sackgasse
+
+`worker-login.html` ist die Seite, auf der ein eingeladener Mitarbeiter landet. Sie liegt
+unter `frontend/public/`, wird aber über einen nginx-Alias an der **Wurzel** ausgeliefert,
+damit der Link in der Einladungsmail hübsch ist. Ihre Verweise waren relativ — und an der
+Wurzel lösen die nicht nach `/public/…` auf, sondern nach `/…`, wo der Catch-all greift.
+
+Am laufenden Stapel gemessen, nicht vermutet:
+
+```
+GET /worker-login.html             200  text/html  22034 B   richtig
+GET /worker.css                    200  text/html  71681 B   Landeseite
+GET /einsatzportal-dashboard.html  200  text/html  71681 B   Landeseite
+```
+
+Beide liefern `<title>TempConnect – Personal in Stunden…</title>`. **Kein 404.** Ein 404
+wäre sichtbar; ein 200 mit der falschen Seite ist es nicht. Folge: das Stylesheet wird als
+MIME-Fehler verworfen — die Seite erschien ungestaltet —, und wer sein Passwort gesetzt
+hatte, landete auf der **Verkaufsseite** statt im Portal.
+
+Der Rest der Anwendung macht es an vier Stellen richtig (`pageShell.js`,
+`worker-portal.html` verweisen absolut auf `/public/einsatzportal-dashboard.html`). Genau
+diese eine Seite fiel heraus, **weil sie als einzige nicht unter `/public/` ausgeliefert
+wird** — die Ausnahme, die den Alias nötig macht, ist dieselbe, die den Fehler erzeugt.
+
+Nach der Umstellung auf absolute Pfade, gegen denselben Stapel gemessen:
+
+```
+GET /public/worker.css                   200  text/css   15325 B
+GET /public/einsatzportal-dashboard.html 200  text/html  41869 B
+GET /public/einsatzportal-profil.html    200  text/html  94636 B
+```
+
+> **Hinweis für die nächste Sitzung:** der Container bedient das **Haupt-Repo**
+> (`docker inspect tempconnect_frontend`: `…\frontend -> /usr/share/nginx/html`), nicht den
+> Worktree. Ein `curl` beweist hier also die Zieladressen, nicht die geänderte Datei. Die
+> Datei selbst ist per Wächter und Rückmutation belegt.
+
+**Der Wächter liest die nginx-Konfiguration, nicht eine Liste.**
+[`wurzelSeiten.test.js`](../api/test/wurzelSeiten.test.js) findet jede Seite, die an der
+Wurzel aus `/public/` bedient wird, und verlangt von ihr absolute Verweise — `href`, `src`
+**und** `location.href/replace/assign`. Kommt morgen ein zweiter Alias dazu, ist die neue
+Seite sofort bewacht. Eine Namensliste wäre in vier Wochen falsch und brächte denselben
+Fehler zurück. Rückmutation für beide Sorten (Stylesheet und Sprungziel): beide werden rot.
+
+### M1.5 ist gebaut *(2026-09-02)* — die Paywall kann zum ersten Mal erscheinen
+
+20 von 23 bewachten Seiten trugen `data-sla-guard="sla_access"`, und dieser Schlüssel ist
+für **jeden** Plan wahr. `slaGuard.js` fragt `hasFeature(plan, feature)` — die Antwort war
+also immer ja, und der fertige Paywall-Block konnte nie wegen des Plans erscheinen, nur im
+Störfall (dem `.catch`-Zweig).
+
+**Zur Einordnung, damit das nicht überspitzt gelesen wird: kein Sicherheitsloch.** Beide
+Erstellen-Wege halten. Ein DEMO-Konto füllte aber das ganze Formular aus und bekam beim
+Absenden:
+
+| Fläche | Antwort für DEMO | warum |
+|---|---|---|
+| Kapazitätsbörse | `429 PLAN_LIMIT_REACHED` | `listings`-Limit ist 0 |
+| Marktplatz-Bedarf | `403 WORKER_LIMIT_EXCEEDED` | `max_workers_per_request` ist 0 |
+
+Falsch war der **Zeitpunkt** (nach der Arbeit statt davor) und die **Botschaft** (eine
+Quoten- bzw. Kopfzahl-Meldung, wo eine Planaussage gehört).
+
+**Die Planlisten sind abgeleitet, nicht erfunden.** Die beiden neuen Schlüssel
+(`capacity_exchange_create`, `marketplace_demand_create`) enthalten genau die Pläne, deren
+zugehöriges Limit in `PLAN_LIMITS` nicht null ist — also die, die es ohnehin schon dürfen.
+**M1.5 trifft damit keine neue Preisentscheidung**; der Schlüssel sagt nur vorher, was das
+Backend hinterher ohnehin entscheidet. `paywallSchluessel.test.js` rechnet beide
+Ableitungen nach und wird rot, sobald ein Limit sich ändert und die Liste nicht.
+
+> **Eine Abkürzung, die teuer gewesen wäre:** „Erstellen ist PLUS und aufwärts" liegt nahe
+> — `sla_offers_create` ist so definiert. Sie hätte einen zahlenden **BASIS**-Kunden
+> ausgesperrt, dem `PLAN_LIMITS.BASIS.listings = 5` seit jeher fünf Anzeigen zusagt. Zwei
+> Wahrheiten über dieselbe Frage; die Ableitung löst das an der Wurzel.
+
+Der Schlüssel hängt an **Seite und Route** — und in der Route **vor** dem Mengen-Limit,
+sonst käme weiterhin die Quotenmeldung. Dazu je ein Eintrag im Plan-Katalog, sonst sähe der
+Kunde eine Paywall für etwas, das die Abo-Übersicht gar nicht nennt. Rückmutation für alle
+vier Zusagen (Schlüssel wieder plan-blind, Seite zurück auf `sla_access`, Route ohne
+Schlüssel, Limit vor Schlüssel): alle vier werden rot.
+
+**Zwei Befunde, bewusst NICHT mitgebaut** — sie brauchen eine Owner-Entscheidung:
+
+* **`POST /capacities` hat null Frontend-Aufrufer.** Die Route ist mit
+  `sla_offers_create` (PLUS+) bewacht, aber niemand ruft sie; die Kapazitätsbörse schreibt
+  über `POST /capacity-exchange/entries`. Entfernen oder verdrahten? Ein bewachter Weg, den
+  niemand geht, ist dieselbe Karteileiche wie ein toter Knopf.
+* **Sechs Seiten tragen einen plan-blinden Schlüssel und haben ein Formular mit POST**
+  (`capacity_search`, `deal_management`, `sla_search_job_detail`, `supplier_scorecard`,
+  plus die zwei jetzt behobenen). Bei den vier verbliebenen ist der POST eine **Suche oder
+  Aktion**, keine Erstellung — deshalb wurde hier nichts geändert. Eine generische Regel
+  „Formular + POST ⇒ eigener Schlüssel" wäre zu laut gewesen; sie hätte vier Fehlalarme
+  erzeugt. Ob eine dieser vier Aktionen planpflichtig sein soll, ist eine Produktfrage.
+
+### M1.6 ist gebaut *(2026-09-02)* — aggregieren allein ist noch keine Anonymität
+
+Die drei Endpunkte unter `/marketplace/public/*` tragen **alle** `requireAuth`.
+„Öffentlich" heißt dort „jeder **angemeldete** Nutzer". Eine Suchmaschine hat kein Konto,
+und ein Interessent, der wissen will, ob sich die Anmeldung lohnt, auch nicht. Solange die
+Zahlen hinter dem Login liegen, kann der Marktplatz nicht für sich werben.
+
+**Der Plan sagt „aggregieren statt auflisten". Das genügt nicht.** Gegen die laufende
+Datenbank gemessen, gruppiert nach Rolle und Ort:
+
+```
+Altenpflege|Hamburg|2     Software|Hamburg|1        Elektriker|Köln|1
+IT-Administrator|Köln|1   Demenzbetreuung|Hamburg|1  … (12 Gruppen)
+```
+
+**Jede** Rollengruppe hat ein oder zwei Anzeigen. Ein „Aggregat" der Größe eins ist kein
+Aggregat, sondern der Datensatz mit anderer Beschriftung: *„1 Software-Kraft in Hamburg,
+20 Köpfe"* ist genau eine Anzeige genau einer Firma. Ohne Mindestgruppengröße wäre das
+Schaufenster eine Personensuche mit Zwischenschritt.
+
+Deshalb hat der Dienst eine **Mindestgruppe von drei** — bei zwei genügt ein Mitwisser, um
+auf den anderen zu schließen. Was darunter liegt, wandert nach „Sonstige"; die Gesamtzahl
+bleibt richtig, nur die Zuordnung verschwindet. Gegen die echten Daten liefert das:
+
+```
+Kapazität  13 Anzeigen, 44 Köpfe   nach Rolle: nur „Sonstige" (13)
+                                    nach Ort:   Hamburg 9 · Sonstige 4
+Bedarf     11 Anfragen, 19 Köpfe    nach Rolle: Lagerhelfer 6 · Sonstige 5
+```
+
+Zwei weitere Entscheidungen: die Feldliste ist eine **Erlaubnisliste** (ein neues Feld ist
+per Vorgabe nicht öffentlich, bis jemand es einträgt und dabei nachdenkt), und die Abfrage
+**holt gar nicht erst**, was nicht heraus darf — kein `id`, kein `company_name`, kein
+Titel, keine Preisspanne. Was nie gelesen wird, kann kein späterer Umbau durchreichen.
+
+Die Seite [`schaufenster.html`](../frontend/public/schaufenster.html) ist indexierbar
+(`robots: index`, canonical, Beschreibung) und aus dem **gemeinsamen Seitenfuß** verlinkt —
+damit von jeder Seite erreichbar, ohne die Landeseite anzufassen (sichtbare
+Landing-Änderungen brauchen laut CLAUDE.md eine Vorschau). Fünf Rückmutationen belegt:
+Schwelle abschalten, Firmenname in die Gruppe, Anmeldezwang auf die Route, Router nicht
+einhängen, auch Erfülltes mitzählen — alle fünf werden rot.
+
+> **Im Browser gegen echte Daten geprüft**, über einen kurzlebigen Vorschau-Server aus
+> dieser Arbeitskopie (der Container bedient das Haupt-Repo). Inhalt vollständig, keine
+> Konsolenfehler, Dokumenthöhe 1001 px bei 720 px Fenster — der Fußnoten-Hinweis liegt bei
+> 592 px, also im Sichtbereich. Der Server ist gelöscht, nicht committet.
+
+### Ein Prüffehler, der eine Welle auf rotem Tor durchgehen ließ
+
+**M1.5 wurde committet, obwohl der Lauf `ℹ fail 1` meldete.** Ursache war nicht der Lauf,
+sondern wie ich ihn gelesen habe: ich suchte im Protokoll nach dem Abbruch-Block
+(*„ACHTUNG — diese Dateien sind unabhängig vom Abbruch rot"*) und nach Zeilen der Form
+`✖ test\datei.js`. Beide erscheinen **nur bei einem abgestürzten Testprozess**. Eine
+gewöhnlich fehlgeschlagene Zusicherung steht woanders — unter `✖ failing tests:` — und
+taucht in keinem der beiden Muster auf.
+
+Rot war `entitlementRouteGates.test.js`: es pinnt die Middleware-Kette der
+Kapazitäts-Routen als wörtliche Zeichenkette, und M1.5 hatte `ceCreate` eingefügt.
+Aufgefallen ist es erst eine Welle später, weil derselbe Test wieder rot war.
+
+**Regel ab sofort:** das Ergebnis eines Laufs wird an genau einer Zeile abgelesen —
+
+```bash
+grep -E "^ℹ (pass|fail)" <protokoll>
+```
+
+Erst bei `ℹ fail 0` ist der Lauf grün. Der Abbruch-Block ist eine *zusätzliche* Auskunft
+(Prozess gestorben, Klärungslauf nötig), kein Ersatz.
+
+> **Der Wächter hat dabei etwas gefunden, das ich übersehen hatte:** die Kette wird für
+> **drei** Routen gepinnt — `entries`, `activate` **und `reactivate`**. Reaktivieren stellt
+> ebenfalls eine Anzeige aktiv, hatte den Erstellen-Schlüssel aber nicht. Jetzt schon. Ein
+> spröder Test, der eine echte Lücke aufdeckt, ist kein spröder Test.
+
+### Eine Falle, die in dieser Sitzung VIERMAL zugeschlagen hat
+
+Eine Probe, die im Quelltext nach einer Zeichenkette sucht, findet sie auch **in der
+eigenen Begründung**. Getroffen hat es: den Herzschlag (`res.on("finish")` im Kommentar),
+den Import-Wächter, die Migrations-Probe (`„Empfängeradresse"` — erst im `--`-Kommentar,
+dann in einem `COMMENT ON`-Text, den kein Kommentar-Strippen entfernt) und zuletzt
+`innerHTML` in der Erklärung „nie mit innerHTML".
+
+**Regel:** vor jedem `includes`/`match` auf Quelltext die Kommentare entfernen — und bei
+SQL zusätzlich daran denken, dass `COMMENT ON` echter Code ist. Wo es geht, nicht die
+Datei lesen, sondern die Struktur (die Spaltenliste, den Block, die Zeile).
+
+### M1.7 ist gebaut *(2026-09-02)* — die zweite Wahrheit gewann, weil sie im Schreibpfad stand
+
+`capacityExchangeService.js` führte **neben** `userService.PLAN_LIMITS` eine eigene
+Tabelle:
+
+```
+eigene Tabelle:   DEMO 0 · BASIS 5 · PLUS 20 · PRO  50 · INDIVIDUELL 999
+PLAN_LIMITS:      DEMO 0 · BASIS 5 · PLUS 20 · PRO  -1 · INDIVIDUELL  -1
+```
+
+Und die eigene entschied, weil `getActiveLimit` im Schreibpfad saß. Eine PRO-Agentur bekam
+bei der **51. Anzeige** `PLAN_LIMIT` — für eine Leistung, für die sie 799 €/Monat zahlt;
+INDIVIDUELL war bei 999 gedeckelt statt unbegrenzt. Owner-Entscheid M-E3: der abweichende
+Wert wird **gelöscht**, nicht angeglichen — angeglichen wären sie beim nächsten Preisumbau
+wieder auseinander.
+
+> **Die Falle beim Löschen:** die verbleibende Tabelle schreibt „unbegrenzt" als `-1`. Ein
+> bloßes Ersetzen hätte `cnt >= limit` zu `cnt >= -1` gemacht — **immer wahr**. Aus
+> „unbegrenzt" wäre „gar nichts" geworden, ausgerechnet für die zwei teuersten Pläne.
+> Deshalb `unbegrenzt()` an **jeder** Vergleichsstelle, auch im Aktivierungsweg.
+
+Die Proben prüfen deshalb **Verhalten, nicht Zahlen**: PRO mit 500 aktiven Anzeigen darf
+die 501. anlegen und einen Entwurf aktivieren; BASIS wird bei fünf weiterhin gebremst; ein
+unbekannter Plan bekommt nichts statt alles. Vier Rückmutationen, alle rot.
+
+> **Eine Probe hat dabei zunächst versagt, und das ist lehrreich.** Die erste Fassung
+> zählte Vorkommen von `unbegrenzt(limit)` im Quelltext und verlangte drei. Sie fing das
+> Entfernen einer Prüfstelle **nicht** — das Muster trifft auch die Funktions*definition*
+> mit, also blieben immer noch drei übrig. Eine Zählprobe zählt, was sie zählt, nicht was
+> sie meint. Ersetzt durch zwei Verhaltensproben.
+
+### M1.8 ist gebaut *(2026-09-02)* — ein Halbsatz entscheidet die Bauart
+
+Owner-Entscheid M-E5: Struktur jetzt, Werte später — und **„ein geänderter Wert wirkt ohne
+Neubau"**. Genau dieser Halbsatz schließt eine Konstante im Quelltext aus: die verlangt ein
+neues Abbild. Nach der Config-Taxonomie ist eine Grenze je Plan ohnehin **Tier 3
+(Entitlement)** und gehört in die Datenbank.
+
+Die Schichtung, von der zwei Ebenen schon existierten:
+
+```
+Code-Vorgabe (userService.PLAN_LIMITS)
+  → NEU: je Org-Typ (plan_grenze_je_orgtyp, Migration 214)
+    → je Org (organizations.custom_limit_*)
+```
+
+`orgRow` trug `type` bereits — die neue Schicht kostet keine zusätzliche Abfrage auf die
+Organisation.
+
+**Die Tabelle hält nur Abweichungen, nicht die vollen Werte.** Das ist die wichtigste
+Entscheidung, und sie kommt aus dem Fehler von M1.7 desselben Tages: dort stand eine zweite
+Tabelle mit denselben Grenzen, sie gewann, und eine PRO-Agentur wurde bei der 51. Anzeige
+gesperrt. Wäre die neue Tabelle mit den heutigen Werten befüllt worden, wäre dieselbe
+Doppelung sofort zurück. **Leer heißt: beide Seiten teilen den Code-Wert** — und das *ist*
+die sinnvolle Vorgabe. Ausgeliefert wird ohne eine einzige Zeile.
+
+Ein `grund` ist Pflicht (mindestens 10 Zeichen): eine Abweichung ohne Begründung ist in
+einem halben Jahr eine Zahl, die niemand mehr erklären kann — und die deshalb niemand
+zurückzunehmen wagt.
+
+> **Zwei Selbstkorrekturen unterwegs, beide lehrreich.**
+>
+> **Der Zwischenspeicher ist wieder rausgeflogen.** Er sollte die Abfrage sparen (60 s
+> Haltezeit), machte aber die *Abfragezahl* uneinheitlich: derselbe Aufruf stellte mal eine
+> Abfrage und mal keine, je nachdem was vorher lief. `entitlementService.test.js` wurde
+> dadurch von der Reihenfolge **seiner eigenen Tests** abhängig. Ohne Speicher stimmt
+> „ohne Neubau" außerdem ohne Sternchen — sofort statt „innerhalb einer Minute".
+>
+> **Und ich habe die Abfrage erneut in die Mitte gesetzt** — eine Welle nach derselben
+> Warnung. `Unexpected query #6`. Sie steht jetzt am Ende beider Funktionen; **fünf**
+> Muster-Sequenzen sind als reine **Fixture-Pflege** um je eine leere Antwort ergänzt
+> (`entitlementService` ×2, `qaHardening`, `subscriptionRequests` — dort an *einer*
+> gemeinsamen Bauer-Funktion für alle ihre Tests —, `subscriptionSecurity`). Keine
+> einzige Zusicherung wurde angefasst.
+
+**Eine sechste Stelle war anders und wurde deshalb umgebaut.**
+`subscriptionSecurity.test.js` griff die Einfüge-Abfrage über `pool.calls[9]` — einen
+**Index in der Aufrufliste**. Der bricht bei jeder neuen Abfrage weiter oben; das ist ein
+Implementierungsdetail, kein Verhalten. Die Zusicherung darunter ist dagegen echt und
+wichtig: *der Kunde kann keinen Preis setzen* (`params[24] === null`). Sie bleibt Wort für
+Wort stehen; gesucht wird die Abfrage jetzt über ihren **Inhalt**
+(`INSERT INTO subscription_requests`). Gegengeprüft: dreht man die Erwartung auf `1`, wird
+die Probe rot — sie greift also nicht ins Leere.
+
+Fünf Rückmutationen, alle rot: Schicht überspringen, Reihenfolge vertauschen (Typ sticht
+Org), Zwischenspeicher wieder einbauen, unbekannter Typ liefert eine Grenze, `-1`
+verwerfen.
+
+> **Ein struktureller Befund am Rand, nicht umgebaut:** die Suite enthält **655**
+> Zugriffe der Form `pool.calls[N]`. Jeder davon hängt an einer Position statt an einem
+> Inhalt und bricht, sobald irgendwo davor eine Abfrage dazukommt — ohne dass sich am
+> geprüften Verhalten etwas geändert hätte. Von den Dateien, die das mit dem
+> Entitlement-Pfad verbinden, gibt es genau drei (`qaHardening`,
+> `subscriptionMutanten.rest`, `subscriptionSecurity`); die eine betroffene wurde auf
+> Inhalts-Suche umgestellt. Die übrigen 654 Stellen ungefragt umzubauen wäre ein großer
+> Eingriff in fremde Tests — der Befund gehört aber notiert, weil er bei jeder künftigen
+> Abfrage erneut zuschlägt.
+
+### M2.1 ist gebaut *(2026-09-02)* — der Riegel hat zwei Hälften
+
+`acceptInvite` legte den Nutzer mit `ON CONFLICT (email) DO UPDATE SET password_hash` an
+und die Mitgliedschaft mit `ON CONFLICT … DO UPDATE SET role_key = 'worker'`. Auf ein
+**bestehendes** Konto wirkte das dreifach: Passwort ersetzt, Mitgliedschaft auf `worker`
+**herabgestuft**, `users.role` unangetastet.
+
+**Der Schaden ist „beidseitig tot", nicht „Passwort weg".** `rbacService` fragt `role_key`
+— jetzt `worker`, also keine Berechtigung mehr über die Org. `requireWorkerRole`
+([`workerPortal.js:217`](../api/routes/workerPortal.js)) fragt `session.userRole`, und das
+kommt aus `users.role` — noch `company`, also auch kein Zugang zum Arbeiter-Portal. Die
+Probe prüft deshalb den **Zustand**, nicht das Passwort.
+
+**Kein Angriffsweg**, das bleibt richtig: der Token verlässt den Server nur ins Postfach
+des Eingeladenen. Es braucht den echten Adressinhaber, der annimmt — und genau der verliert
+dabei sein Konto.
+
+**Hälfte 1 — fremde Rolle ablehnen, an BEIDEN Stellen.** Der Plan nennt
+`createWorkerInvite` **und** `acceptInvite`, und beide haben ihn jetzt. Der Riegel beim
+Annehmen allein genügt nicht: ohne den beim Anlegen entstünde trotzdem eine Einladung, die
+Mail ginge hinaus, und der Empfänger erführe erst **nach** dem Setzen eines Passworts, dass
+es nicht geht. Eine Einladung, die niemand annehmen kann, soll gar nicht erst entstehen —
+und der Disponent erfährt den Grund dort, wo er noch etwas daran ändern kann.
+
+Beide benutzen dasselbe Fehlerwort wie der Import-Weg (`EMAIL_EXISTS_OTHER_ROLE`); zwei
+Namen für dieselbe Ablehnung wären der Anfang der nächsten Doppelung. Die Route antwortet
+**409**, nicht 400 — ein erneuter Versuch hilft hier nie. Die fremde Rolle wird **nicht**
+nach außen gegeben: sie verriete einem Unbefugten, dass es zu dieser Adresse ein
+Firmenkonto gibt. Und der Riegel prüft `role <> 'worker'` — ein Arbeiter mit Konto bei
+Agentur A darf von B eingeladen werden; er gilt fremden **Rollen**, nicht fremden Agenturen.
+
+**Hälfte 2 — der bestehende Arbeiter behält sein Passwort.** Die subtilere. Wer bei Agentur
+A ein Konto hat und von B eingeladen wird, hat `role === 'worker'` — Hälfte 1 greift bei ihm
+**nicht**, und trotzdem wurde ihm das Passwort überschrieben. Eine Einladung ist eine
+Einladung, kein Zurücksetzen.
+
+> **Die Probe fand eine zweite Fundstelle, die nicht im Plan stand.** Dieselbe Herabstufung
+> stand wortgleich in `createWorkerWithAccount` (`workerService.js:679`). Sie ist heute
+> **unerreichbar** — der `INSERT` darüber trägt kein `ON CONFLICT`, die Kennung ist immer
+> frisch. Genau deshalb war sie eine Falle für später: ein `ON CONFLICT (email)` eine Zeile
+> höher, und die Herabstufung wäre über Nacht wieder lebendig. Jetzt gilt einheitlich:
+> **kein Pfad stuft eine bestehende Mitgliedschaft herab.**
+
+Fünf Rückmutationen, alle rot: Riegel entfernen, Passwort-Überschreibung wieder einsetzen,
+Herabstufung wieder einsetzen, Riegel erst *nach* dem `BEGIN` (ein Riegel, der zurückrollt,
+hat die Zeilen schon angefasst), 409 wieder zu 400. Dazu eine Fixture-Pflege in
+`mitarbeiterOhneKonto.test.js`: dessen Mock beantwortete **jede** Pool-Abfrage mit der
+Einladung, also auch den neuen Nachschlag — er unterscheidet sie jetzt.
+
+### M2.4 ist gebaut *(2026-09-02)* — der Torwächter sah die halbe Fläche
+
+Die Torwächter-Prüfung (Schicht B2) stellt die richtige Frage: *gibt es auf dieser Fläche
+eine Route, die das Tor nicht trägt?* Nur übersprang ihre Schleife jede Route **ohne
+Platzhalter**:
+
+```js
+if (!layer.route || !layer.route.path.includes(":")) continue;
+```
+
+Auf einer Fläche, deren **einzige** Eintrittsbedingung genau dieses Tor ist, hat der
+Wächter damit einen Teil geprüft und die Fläche als ganz geprüft gemeldet.
+
+**Beim Entfernen fällt genau eine Route auf** — und sie ist keine Lücke:
+`GET /scim/v2/ServiceProviderConfig`. RFC 7644 §3.2 stellt den SCIM-Entdeckungsendpunkt
+ausdrücklich frei: ein Client liest Fähigkeiten und Authentifizierungsverfahren, **bevor**
+er ein Token hat — mit Tor wäre die Reihenfolge unmöglich. Er liefert nur statische Angaben
+und respektiert `SCIM_ENABLED` mit 404.
+
+> **Der Filter hat also nichts geschützt, nur verdeckt.** Genau deshalb ist er weg, statt
+> dass die eine Route ein Tor bekommt, das die Norm verbietet.
+
+**Die Ausnahme wird nachgeprüft, nicht geglaubt.** Sie steht im Register mit Grund
+(mindestens 40 Zeichen), und der Wächter liest den **Quelltext des Handlers**: fasst er
+`req.orgId`, `req.session`, `req.user` oder `pool.query` an, wird er rot. Eine Ausnahme,
+die man nur behauptet, ist ein Loch mit Begründung.
+
+Vier Rückmutationen, alle rot — darunter die entscheidende: **eine neue torlose Route ohne
+Platzhalter wird jetzt gefunden.** Und die Selbstprobe des Wächters wurde mit umgestellt:
+ihr eigenes Beispiel kannte nur Platzhalter, sie hätte die Reparatur also gar nicht bemerkt.
+
+> **Abgegrenzt, damit es niemand verwechselt:** dieselbe Zeile steht auch in der
+> *Register*-Prüfung (Schicht A, Zeile 182). Dort ist sie etwas anderes — sie entscheidet,
+> welche Routen ein Org-Grenzen-**Urteil** brauchen. Sie zu entfernen verlangt Urteile für
+> **569** Routen; das ist M2.3 und eine eigene Welle, keine Nebenwirkung dieser hier.
+
+### M2.5 ist gebaut *(2026-09-03)* — die Sitzung ist gefahren, und sie kam weit
+
+M2.5 verlangte, was es nicht gab: **eine echte Arbeitersitzung gegen echte Routen.** Es
+gab Einheitstests für einzelne Guards und einen Wächter, der Middleware-Namen liest —
+aber nichts, was eine Sitzung mit der Rolle `worker` durch die Router schickt und nachsieht,
+was zurückkommt.
+
+**Wer da anfragt — und warum die erste Annahme falsch war.** Ich bin zuerst von einer
+eigenen Arbeiter-Org ausgegangen. Falsch: `acceptInvite` macht den Menschen zum Mitglied
+in der Org **seiner Zeitarbeitsfirma** (`role_key='worker'` auf die `supplier_org_id`).
+Den Org-Typ `worker` gibt es gar nicht — die Datenbank kennt nur `company` (1872) und
+`agency` (694). Gemessen: **31** Arbeiter sitzen in einer Agentur-Org, **3** in einer
+Unternehmens-Org. Seine Sitzung trägt also `req.orgId` = die Kennung seines Arbeitgebers.
+
+**Der Statuscode taugt nicht als Urteil.** Ein 200 kann eine leere Liste sein. Deshalb
+entscheidet der **Antwortrumpf**: der Muster-Pool beantwortet jede Abfrage mit einer Zeile,
+deren Textspalten ein Erkennungswort tragen. Steht das Wort in der Antwort, hat der Handler
+Mandantendaten durchgereicht. Das Verfahren kann **unter-, aber nie über**berichten — ein
+Handler ohne Mandantendaten kann das Wort nicht erfinden. Jeder Befund ist damit echt.
+
+> Der erste Anlauf urteilte am Quelltext („fasst der Handler `req.orgId` an?“) und lag bei
+> zwei von vier Verdächtigen **falsch**: `/org/api-keys/scopes` und `/org/roles-permissions`
+> liefern statische Konstanten — mein Muster hatte die Middleware-Kette getroffen, nicht
+> den Handler. Deshalb der Wechsel auf den Rumpf.
+
+**Das Ergebnis dieser ersten Fassung: von 300 aufrufbaren GET-Routen reichen 82 einer
+Arbeitersitzung eine Datenbankzeile durch**, davon 45 als Befund eingestuft.
+
+> ⚠ **Diese Zahlen waren falsch und sind korrigiert** — siehe den Nachtrag unten
+> („Die 45 Befunde waren größtenteils Phantome"). Es sind **elf** Routen, die
+> org-geschlüsselte Daten herausgeben, und sie sind inzwischen alle geschlossen. Der
+> Fehler lag nicht in der Messung, sondern in der Einstufung *danach*.
+
+**Was in dieser Welle geschlossen wurde — und warum genau das.**
+
+*Rechnungen.* `GET /invoices` gab dem Arbeiter die Rechnung der Firma mit 200: Nummer,
+14.999,00 €, Kundenname. `GET /invoices/export`, **eine Zeile darunter**, verweigerte
+dieselben Zeilen mit 403. Elf Nachbarrouten derselben Datei tragen `rperm("org.billing")` —
+jeder Schreibweg, jeder Export. Der Guard stand längst fest; er fehlte nur dort, wo die
+Daten am billigsten herauskommen. `requireScope("read:invoices")` sah aus wie eine Wache und
+war keine: es kehrt bei Sitzungs-Auth sofort zurück und verweist auf RBAC — das an diesen
+Routen nicht stand.
+
+> **Nicht einfach `rperm` davor.** Es gibt Rechnungen **ohne** Org: zwei Aufrufer legen sie
+> so an (`orgId: … || null`), und der Handler bedient diesen Menschen eigens.
+> `requirePermission` hätte ihn mit `NO_ORG_MEMBERSHIP` abgewiesen — seine **eigene**
+> Rechnung. Der Riegel gilt deshalb dem **Org-Kontext**, nicht dem Lesen. Ausweichen bringt
+> nichts: ohne Org-Kontext liefert der Handler nur die Rechnungen des Anfragenden selbst.
+> Bei `GET /invoices/:id` steht die Prüfung aus demselben Grund **im Handler**, nicht davor.
+
+Vier Richtungen belegt: Arbeiter 403 auf allen sechs Wegen, `finance` 200, `owner` 200,
+Solo-Käufer ohne Org sieht weiterhin seine eigene Rechnung.
+
+*Die öffentliche Darstellung der Firma.* Diesen Befund hat nicht die Messung geliefert,
+sondern ein **Gegenpruef-Panel, das meine eigene Einstufung widerlegen sollte** — und es
+hat sie widerlegt. Ich hatte `GET /profile-visibility/settings` als „eigene Daten“ geführt.
+An der laufenden Datenbank nachgesehen: die Tabelle hat **keine einzige Nutzerspalte**, nur
+`org_id UNIQUE`. `SELECT *` gab dem Arbeiter den **Moderationsdatensatz seines Arbeitgebers**:
+`status`, `rejection_reason`, `suspended_reason` — und mit `reviewed_by` die Kennung des
+TempConnect-Mitarbeiters, der über die Firma geurteilt hat. Der Lesepfad **schreibt**
+außerdem (`INSERT … ON CONFLICT DO UPDATE`). Und die drei Schreibwege daneben trugen
+dieselbe Kette: **`/settings/pause` hätte einem Arbeiter erlaubt, das öffentliche Profil
+seiner Firma abzuschalten.** `basic`/`visible` sahen aus wie Wachen und prüfen den **Plan** —
+den sie aus der **Firma** holen. Je besser der Tarif des Arbeitgebers, desto weiter kam er.
+
+Riegel: `verweigereArbeiter` in `middleware/orgAccess.js`, bewusst **nicht**
+`requirePermission` — das verlangte owner/admin und nähme den Zugang auch
+`program_manager`, `recruiter` und `dispatcher` weg. Welche Rollen die öffentliche
+Darstellung führen dürfen, ist eine Produktfrage und gehört dem Owner.
+
+**Ein Nebenbefund, der schwerer wiegt als er klingt: drei Routen lagen im Schatten.**
+Express nimmt die erste passende Schicht. Stand `/x/:id` vor `/x/liste`, ist die Liste
+**unerreichbar**:
+
+| verdeckt | durch |
+|---|---|
+| `GET /invoices/operational` | `/invoices/:id` |
+| `GET /timesheets/status-meta` | `/timesheets/:id` |
+| `GET /timesheets/worker-summary` | `/timesheets/:id` |
+
+`/invoices/operational` wird von **zwei Seiten** aufgerufen (`companyTimesheets.js`,
+`workerSubmissionsReview.js`) und antwortete jedes Mal mit **500**: der Handler von
+`/invoices/:id` reichte den Text `"operational"` als Kennung an Postgres, und
+`WHERE i.id = 'operational'` wirft — gegen die echte Datenbank nachgestellt. Die beiden
+Stundenzettel-Routen hatten sogar **Tests**, grün, weil `timesheets.scope.test.js` den
+Handler direkt am Pfad greift, statt eine Anfrage leiten zu lassen.
+
+> Und die Regel stand bereits **als Kommentar im Quelltext** (`invoices.js`: „Bewusst VOR
+> `/invoices/:id` registriert“). Sie war bekannt und wurde dreimal übersehen. Genau deshalb
+> ist daraus jetzt ein Wächter geworden (`test/routenSchatten.test.js`) und keine Konvention.
+
+**Eine Formatbedingung am Platzhalter (`:id([0-9a-fA-F-]{36})`) würde das an der Wurzel
+lösen** — in Express 4 geprüft, sie funktioniert und macht aus dem 500 ein 404. Sie
+benennt aber den registrierten Pfad um, und darauf keyen die Wächter-Register: **97**
+Stellen würden churnen (69 im Code, 28 in Registern). Deshalb umgeordnet statt umbenannt —
+die Wiederkehr verhindert der Wächter, nicht die Schreibweise.
+
+**Der eigene Fehler war der lehrreichste.** Der erste Riegel schnitt den **API-Schlüssel**
+ab: `requirePermission` verlangt eine Sitzung, ein Schlüssel hat keine — also `401` statt
+Zugriff. Aufgefallen ist das nur, weil die *Nachbar*probe in `apiKeyScopes.test.js` rot
+wurde. **Die Probe für den Schlüssel selbst blieb grün**, denn sie fragt
+`notEqual(res._status, 403)` — und 401 ist nun einmal nicht 403. Ein Stellvertreter, der
+genau den Rückschritt durchlässt, den er verhindern soll.
+
+Beide Proben sind jetzt genau: der Schlüssel muss **200** bekommen, nicht bloß „nicht
+403“; und die Sitzungs-Probe fragt den **Grund** (`SCOPE_INSUFFICIENT`) statt der Zahl —
+seit dieser Welle gibt es zwei Gründe für ein 403, und die Zahl konnte sie nicht
+auseinanderhalten. Der Gegenstand beider Proben ist unverändert. Fachlich bleibt der
+Schlüssel an beiden Stellen außen vor: für ihn gilt der Scope, das ist der dafür gebaute
+Weg.
+
+**Und eine Lücke in der eigenen Arbeit, nachgeholt:** die Messung war GET-only, drei der
+vier verriegelten Wege sind **Schreib**wege. `/settings/pause` wäre also verriegelt
+gewesen, ohne dass irgendetwas es bezeugt. `test/verweigereArbeiter.test.js` schließt das:
+alle vier Wege, beide Richtungen, und die Probe prüft nicht nur den Statuscode, sondern
+dass `reviewed_by` und `rejection_reason` **nicht im Rumpf stehen**. Dazu die Gegenprobe,
+dass `dispatcher`, `recruiter`, `program_manager` und `owner` weiterarbeiten — der Riegel
+gilt der Rolle `worker`, nicht „allen außer owner/admin“.
+
+**Dreizehn Rückmutationen, alle rot.** Kern (6): Geld-Riegel weg, Arbeiter-Riegel weg, neue
+undichte Route ohne Registereintrag, Muster-Pool ohne Zeilen (die Leerlauf-Probe muss
+anschlagen — sonst sähe *nichts gefunden* aus wie *nichts zu finden*), Befund ohne
+Beschreibung, verdeckte Route wiederhergestellt. Schlüssel/Scope (2): `requireScope` blockt
+Sitzungen, Riegel schneidet den Schlüssel ab. Arbeiter-Riegel (5): `pause` ohne Riegel,
+`settings` ohne Riegel, Mitgliedschaft nicht mehr erkannt, Sitzung nicht mehr erkannt,
+Riegel greift zu weit.
+
+> **Ehrlich zum Prüfstand:** das Gegenpruef-Panel brach am Nutzungslimit ab — von 64
+> Prüfern kamen 14 durch. Der eine gehaltene Widerspruch ist von Hand nachgeprüft. Die
+> **übrigen 33 Einstufungen als „eigenes“/„öffentlich“ sind damit nicht unabhängig
+> gegengeprüft.** Der Hinweis steht auch im Register selbst; wer hier weiterarbeitet,
+> fängt am besten dort an.
+
+**Was offen bleibt — und warum es nicht in diese Welle gehört.** Die 45 Befunde einzeln zu
+verriegeln hieße 45 Urteile darüber, was ein Arbeiter braucht (`/support-requests`
+womöglich schon). Die strukturelle Antwort — **ein** Riegel auf `/api/v1` mit einer
+benannten Ausnahmeliste, fail-closed für jede künftige Route — ist genau M2.6 und eine
+Owner-Entscheidung. Das Register ist die Vorarbeit dazu: es ist die Ausnahmeliste, nur
+noch nicht scharf geschaltet.
+
+### Zwei Entscheidungen sofort gebaut *(2026-09-03)*
+
+Von den vier Entscheidungen des Tages waren zwei eine Zeile groß. Die habe ich nicht
+liegen lassen — eine entschiedene Ein-Zeilen-Änderung, die auf die nächste Welle wartet,
+ist eine Entscheidung, die niemand mehr findet.
+
+**Der Arbeiter tritt nicht im Namen seiner Firma auf.** `POST`/`DELETE` auf
+`/profile-visibility/:orgId/like` und `…/favorite` schrieben `likerOrgId: req.orgId`: ein
+Arbeiter, der ein fremdes Firmenprofil befürwortet oder merkt, tat das als **seine
+Zeitarbeitsfirma** — und die hätte nie davon erfahren. Kein Datenabfluss, deshalb hat die
+Messung aus M2.5 (GET-only, rumpfbasiert) diese vier Wege nicht gesehen; sie stand als
+benannte Owner-Frage in der Übergabe. Vier Wege tragen jetzt `verweigereArbeiter`, mit
+Gegenprobe für `dispatcher` und `owner`.
+
+**„Umsatz" ist nur Geld, das an TempConnect geht.** In `queryInvoiceTruth` trugen die
+beiden **Zählungen** den Typfilter, die vier **Geldsummen** nicht — die Trennung war also
+bekannt und wurde auf die Zählung angewendet, auf die Beträge nicht. Alle vier tragen ihn
+jetzt, und das Kundengeld verschwindet nicht: es steht als **`vermitteltes_volumen_cents`**
+daneben, eine Zahl, die die Größe des Marktplatzes zeigt und deshalb für sich steht.
+
+> **Folgenlos war der Befund nur, solange der Takt still steht.**
+> `POST /internal/invoice-overdue-scan` ist in der Registratur *Aufgabe 2, Zustand still*,
+> mit `intervall_min: 1440`. Sobald er läuft, wären fremde Rückstände als eigener Umsatz
+> und eigene Forderung erschienen.
+
+**Geprüft wird die FORM der Abfrage, nicht ihr Ergebnis.** Der Muster-Pool führt kein SQL
+aus, er antwortet — eine Probe auf die *Zahl* hätte nur den Mock geprüft und nichts über
+die Trennung gesagt. Die Form ist der Vertrag. Fünf Rückmutationen, alle rot: Typfilter
+weg an einer Summe, vermitteltes Volumen gelöscht, vermitteltes Volumen zählt den falschen
+Typ, Befürworten ohne Riegel, Merkung-Entfernen ohne Riegel (die letzte eigens, damit die
+Probe nicht nur den ersten der vier Wege sieht).
+
+> **Beim Schreiben in eine Falle getreten und wieder heraus:** der erklärende Kommentar
+> stand *innerhalb* eines Template-Literals und enthielt Backticks um `invoice_type` — das
+> beendet die Zeichenkette. `node --check` hat es gefangen; ohne den Syntax-Check wäre eine
+> kaputte Abfrage in den Lauf gegangen.
+
+**Noch offen aus derselben Fundstelle:** die zwei Stellen in `staffBillingOverviewService.js`
+(`loadAttention`, `loadInvoiceTotals`) tragen weiterhin keinen Typfilter. Sie hängen an der
+**zweiten** Hälfte der F30-Frage — *soll das Team fremde Rückstände überhaupt sehen?* —,
+und die ist nicht entschieden. Als Abwanderungssignal wäre es nützlich, aber dann in einer
+**eigenen** Sicht, nicht in der Mahnliste, aus der heraus gemahnt wird.
+
+### M2.7 ist gebaut *(2026-09-03)* — Mutationsprüfung auf der Trennwand
+
+Vierter Mutations-Bereich neben `subscription`, `rbac` und `monatsplan`:
+**`trennwand`** — `middleware/orgAccess.js` und `middleware/apiKeyAuth.js`. Das sind die
+Wachen, die entscheiden, **wer hereinkommt**: der Unternehmens-Filter, der Notschalter des
+Betreibers, der neue Arbeiter-Riegel und die Schlüssel-Authentifizierung.
+
+Konfiguration: `api/stryker.trennwand.conf.json`, Schwelle **90** wie vorgeschrieben,
+`incremental: false`, aufrufbar über `npm run test:mutation:trennwand`. Der
+Schwellen-Wächter (`mutationsSchwelle.test.js`) nimmt sie ohne Ausnahme an.
+
+**Die Erstmessung war ernüchternd: 61,74 %** — `orgAccess.js` **50,00 %**,
+`apiKeyAuth.js` 75,00 %, **101 überlebende Mutanten**. Sie lagen in vier Nestern:
+
+| Nest | Warum |
+|---|---|
+| `requireOrgNotSuspended` (Z. 54–75) | **kein einziger Test.** Der Notschalter des Betreibers war eine Behauptung |
+| M2M/JWT-Pfad in `apiKeyAuth.js` | der Weg, auf dem eine fremde **Maschine** hereinkommt — fast blind |
+| Protokoll-Nutzlasten | `{orgId, userId, orgType}` — kein Format, sondern der Auditvertrag |
+| Fehlerschlüssel und -texte | `SERVER_ERROR`, `ACCESS_SUSPENDED` |
+
+Zwei neue Probendateien mit zusammen 43 Proben schließen das: `orgAccessMutanten.test.js`
+und `apiKeyAuthMutanten.test.js`. **Der Weg zur Latte: 61,74 % → 87,88 % → 90,84 % → 92,37 %.** `orgAccess.js` steht bei **95,65 %**, `apiKeyAuth.js` bei **88,71 %**, 20 Überlebende von 262 Mutanten. Die vorgeschriebene Schwelle von 90 % gilt je Bereich — der Bereich `trennwand` erfüllt sie.
+
+**Was die Messung gefunden hat, nicht nur gezählt.** Drei Befunde, die ohne sie nicht
+aufgefallen wären:
+
+1. **`requireOrgNotSuspended` hatte null Tests.** Der Kill-Switch, mit dem der Betreiber
+   den Zugang einer Organisation sperrt, war nirgends geprüft — weder das Sperren noch
+   das Durchlassen noch der Fehlerfall. Jetzt sieben Proben, darunter: ein **Lesefehler
+   blockiert** (fail-closed), und die Abfrage geht gegen **die Org der Anfrage**, nicht
+   gegen irgendeine.
+
+2. **Ein echter Fail-open in `requireCompanyOrg`.** Dort stand
+   `if (orgType && orgType !== "company")` — eine Mitgliedschaft **ohne** Org-Typ kam
+   durch. Heute unerreichbar (`organizations.type` ist `NOT NULL`, null leere Werte, und
+   jede Stelle, die `req.orgMembership` setzt, holt die Zeile ueber `getMembership`/`getPrimaryOrg`, und beide lesen `o.type AS org_type` mit; der Zwischenspeicher-Pfad in `orgContext` setzt das Feld ausdruecklich NICHT, dort schlaegt die Wache selbst nach) — aber der
+   Zweig hing damit an einer *Datenbankbedingung* und an *drei gleichlautenden
+   SELECT-Listen*, nicht an dieser Wache. Fällt eine davon, geht die Tür auf, ohne dass
+   jemand hier etwas ändert. Jetzt fail-closed, mit Probe.
+
+3. **Beide Wachen waren anonym.** `middleware/rbac.js` trägt die Lehre seit einem
+   früheren Befund im Kommentar: eine anonyme Middleware ist in Stapelspuren unsichtbar,
+   und **kein Wächter kann fragen „trägt DIESE Route eine Prüfung?“** — er kann nur
+   zählen, und dabei sieht eine Route ohne Prüfung aus wie eine mit. `requireCompanyOrg`
+   und `requireOrgNotSuspended` hatten diesen Namen nie. Jetzt heißen sie
+   `requireCompanyOrgMiddleware` und `requireOrgNotSuspendedMiddleware`, und eine Probe
+   hält das fest.
+
+> **Zum Protokoll als Zusicherung, weil es wie Übergriff aussieht:** die Direktive sagt
+> „reines Logging nicht mutieren“. Hier ist es kein Logging im Sinne von Formatierung,
+> sondern der **Auditvertrag**: wer eine Sperre untersucht, braucht *welche Org*,
+> *welcher Mensch*, *warum*. Fehlt ein Feld, beginnt die Suche bei null — und das fällt
+> erst im Ernstfall auf. Geprüft wird die **Nutzlast**, nicht die Formulierung; von den
+> Meldetexten nur, dass sie den Vorgang überhaupt benennen.
+
+> **Und was NICHT geprüft wird, ist ebenfalls eine Entscheidung.** Ein Teil der
+> verbliebenen Überlebenden ist **gleichwertig**, nicht ungeprüft: in `extractBearerJwt`
+> führen mehrere Mutationen zu genau demselben Ergebnis, weil der Fallback sie
+> verschluckt — wird ein Nicht-Token fälschlich als Token behandelt, scheitert es eine
+> Zeile später an der Signatur, und der Kontext bleibt so leer wie vorher. Solche
+> Mutanten lassen sich nur durch eine Probe töten, die etwas Unwahres behauptet. Sie
+> bleiben stehen und sind hier benannt — das ist der Unterschied zwischen einer Lücke
+> und einer bekannten Grenze.
+
+> **Eine offene Frage, die diese Welle bewusst NICHT entschieden hat.** Vier Schreibwege
+> lassen einen Arbeiter **im Namen seiner Firma handeln**, ohne dass Daten abfließen:
+> `POST`/`DELETE /profile-visibility/:orgId/like` und `…/favorite` schreiben
+> `likerOrgId: req.orgId`. Ein Arbeiter, der ein fremdes Firmenprofil befürwortet oder
+> merkt, tut das damit als **seine Zeitarbeitsfirma** — und für eine Agentur ist eine
+> öffentliche Befürwortung eines Marktteilnehmers kommerziell nicht bedeutungslos.
+>
+> Das ist kein Leck, sondern eine **Produktfrage**: darf ein Arbeiter im Namen seines
+> Arbeitgebers auftreten? Sie gehört zu M2.6 und nicht in eine Welle, die Datenabflüsse
+> schließt. Der Riegel dafuer liegt bereit (`verweigereArbeiter`, eine Zeile je Route);
+> was fehlt, ist die Entscheidung.
+
+### M2.3 ist gebaut *(2026-09-05)* — die lesende Seite ist bewacht
+
+`wachen.json` führte 468 **schreibende** Wege mit je einem Urteil. Die lesenden standen
+nirgends: jede GET-Route, die `req.orgId` oder die Nutzerkennung in eine Abfrage gibt, war
+ungeprüft.
+
+> **Der Fund kam vor dem Bauen: `requireScope` war namenlos.** 61 lesende Wege tragen sie —
+> in der *montierten* Kette hießen alle „(anonym)". Jede Ableitung hätte sie als „gar keine
+> Wache" eingestuft und **61 Falschmeldungen** erzeugt; ein Wächter, der so oft falsch warnt,
+> wird abgeschaltet und nimmt die echten Befunde mit. Wörtlich die Lehre aus Befund P1-20
+> und M2.7, zum **dritten** Mal: ein Wächter kann namenlose Middleware nur *zählen*, und
+> dabei sieht eine Route ohne Prüfung aus wie eine mit.
+
+**Die Bauart (Owner-Entscheid):** Ableitung aus der montierten Kette, plus Ausnahmeliste.
+
+| | Wege |
+|---|---|
+| lesende Wege gesamt | 471 |
+| aus der Kette **ableitbar** | 457 |
+| **Urteil nötig** | **14** |
+
+Ein Register, das 457 Zeilen abschreibt, wiederholt nur, was ohnehin im Code steht — und die
+14 echten Urteile gehen darin unter. **Fail-closed:** eine neue GET-Route ohne erkennbare
+Wache färbt rot, bis jemand sie einträgt.
+
+**Die vierzehn Urteile — an der WHERE-Klausel, nicht am Pfadnamen** (die Falle, die in M2.5
+sechsmal in dieselbe Richtung täuschte):
+
+| Wachart | Wege | Bindung |
+|---|---|---|
+| `besitz` | 8 | `row.org_id !== req.orgId` → 403 `FORBIDDEN_CROSS_ORG`; `JOIN … AND r.org_id = $2`; bei `/search` der org-private Teil, der **ohne** Org ganz übersprungen wird |
+| `inline-rolle` | 3 | Rechte-/Rollenprüfung im Handler, mit Rückfall auf die eigenen Daten |
+| `eigene-daten` | 3 | Schlüssel ist der Mensch, die Org ist Kontext |
+
+**Kein Eintrag ist ein BEFUND geworden** — jeder der vierzehn trägt eine Bindung, die auch
+bei *fehlender* Org sperrt statt durchzulassen.
+
+**Die Gegenrichtung ist mitgeprüft.** Eine Ausnahme, die stehen bleibt, nachdem der Weg eine
+erkennbare Wache bekommen hat, färbt ebenfalls rot — sie behauptete sonst dauerhaft ein
+Urteil, das niemand mehr fällen muss. Dasselbe Muster wie `ohne_einplanung` bei den Takten
+(M1.9). Ebenso rot: ein Wach-Name in der Ableitung, den keine Kette mehr trägt.
+
+*Verifikation: 6 Proben in `api/test/wachenWaechter.test.js` (Abschnitt A2), darunter eine
+Selbstprobe, dass die Ableitung eine Wache **erkennt** und keine **erfindet**; acht
+Rückmutationen, jede gefangen.*
+
+### M3.1 ist gebaut *(2026-09-04)* — der Knopf versprach zehn und lud sieben ein
+
+M3.1 sah erledigt aus: Vorschau da, Ein-Klick-Knopf da, und M3.2 hatte den Versand bereits
+auf den Stapel begrenzt. Die geforderte Abnahme lautet aber *„Zahl stimmt"* — und die stimmte
+nicht.
+
+**Ein ohne E-Mail importierter Mensch bekommt kein Nutzerkonto** (`created[].user_id: null`).
+`listInvitableWorkers` verbindet über `JOIN users u ON u.id = wp.user_id` — er fällt also
+**zwangsläufig** heraus und kann nie eingeladen werden. Gezählt wurde er trotzdem: der Knopf
+versprach „alle 10 einladen" und lud sieben ein. Seit M3.3 sagt die Meldung danach immerhin
+ehrlich *„7 eingeladen"* — aber niemand erklärte die Differenz.
+
+Die Zahl steht jetzt auf dem, was wirklich geht, und die Lücke wird **benannt**:
+*„3 ohne E-Mail-Adresse — für sie ist noch keine Einladung möglich."* Das greift der
+Owner-Entscheidung zu **M3.6** (ob solche Zeilen überhaupt einladbar werden sollen) nicht vor;
+es hört nur auf, Unmögliches zu versprechen.
+
+> **Eine Rückmutation hat überlebt, und sie zeigte auf die eigentliche Zusicherung.**
+> Meine Proben sicherten zu, dass die einladbare Menge *gebildet* wird und dass der Knopf
+> *seine* Zahl nennt. Beides blieb wahr, als ich versuchsweise wieder die volle Liste
+> verschickte — genannte Zahl und gesendete Kennungen wären dann erneut zwei verschiedene
+> Mengen gewesen, also der Fehler aus M3.2 in klein. Der Kern von M3.1 ist die **Gleichheit**
+> der beiden: was der Knopf nennt, muss er auch schicken. Die wird jetzt direkt geprüft,
+> nicht ihre Bestandteile.
+
+*Nachgezogen: eine M3.2-Probe nagelte den wörtlichen Ausdruck `(res.created || []).map(…)`
+fest statt der Aussage. Die Zusicherung ist unverändert erhalten und um die Auswahl
+erweitert — strenger, nicht schwächer.*
+
+*Verifikation: 2 Proben in `api/test/stapelEinladung.test.js`, sechs Rückmutationen, jede
+gefangen. Zwei Wortmarken in beiden Sprachen.*
+
+### M3.5 ist gebaut *(2026-09-04)* — an die Frist gebunden, nicht ans Alter
+
+Eine Einladung, die niemand annimmt, verfiel nach sieben Tagen — **still**. Der Mensch hat
+die Mail vielleicht übersehen, die Zeitarbeitsfirma erfährt es nicht, und der Einsatz
+beginnt ohne Portalkonto.
+
+**Die Entscheidung, die diesen Lauf ungefährlich macht:** erinnert wird, was in den nächsten
+**48 Stunden abläuft** — nicht, was alt ist. Der naheliegende Bau („erinnere alles älter als
+N Tage") hat zwei Fehler:
+
+1. Er nennt dem Menschen keinen Grund, *jetzt* zu handeln.
+2. Beim ersten Lauf in einer bestehenden Installation erzeugt er einen **Schwall** — jede
+   vergessene Einladung der letzten Monate auf einmal. Genau der Nachlauf, der bei M1.9 beim
+   Mahnlauf zur Owner-Frage wurde.
+
+An die Frist gebunden begrenzt er sich von selbst: ältere Einladungen sind bereits abgelaufen
+und fallen aus der Menge. Dazu **genau einmal** je Einladung (`resend_count = 0`) — und wer
+schon von Hand erinnert hat, unterbricht die Automatik, weil ein Mensch den Fall bereits
+angefasst hat.
+
+| Entscheidung | warum |
+|---|---|
+| markiert wird **erst nach** dem Versand | sonst gilt eine gescheiterte Mail als erinnert — und weil `resend_count` zugleich die Einmal-Sperre ist, bekäme der Mensch **nie wieder** eine |
+| **keine** Fristverlängerung, **kein** neuer Token | `resendInvite` erneuert beides, weil dort ein Mensch entscheidet. Eine Automatik, die Fristen verlängert, schafft die Frist ab |
+| ohne Versandweg **wirft** der Takt | derselbe stille Ausfall wie beim Mahnlauf: `NO_MAILER` wäre für den Takt ein gelungener Lauf — Herzschlag grün, Kachel „läuft", keine Erinnerung unterwegs |
+| täglich **09:00**, nicht nachts | der Lauf hat genau **einen** Versuch je Einladung; eine Erinnerung um 02:40 geht zwischen der Nachtpost unter |
+
+**Keine Migration nötig** — `resend_count` und `last_sent_at` gab es seit Migration 029. Und
+das Ablaufdatum kommt aus `fristLabelDE` statt aus `toLocaleDateString`: sonst nennt jeder
+Container je nach Zeitzone ein anderes Datum.
+
+Der Lauf hängt in der Maschinerie aus M1.9 — Registratur, Auslösung und Verarbeitung. Das
+Dreieck-Wächter hat die Ergänzung selbst eingefordert, und die eingefrorene Laufliste ist
+dabei von fünf auf sechs gewachsen: *dass sie rot wurde, ist ihre Aufgabe*.
+
+*Verifikation: 13 Proben in `api/test/einladungWiedervorlage.test.js`, **dreizehn
+Rückmutationen** — darunter der Wegfall der Frist-Bedingung („alles Offene auf einmal"), das
+Markieren vor dem Versand, die Fristverlängerung durch die Markierung, der unbegrenzte
+Deckel und der geschluckte fehlende Versandweg — jede gefangen.*
+
+### M3.4 ist gebaut *(2026-09-04)* — zwei Hälften desselben Weges endeten im Nichts
+
+**Der abgelaufene Einladungslink.** `worker-login.html` zeigte einen roten Kasten und sonst
+nichts. Dabei *hat* der Mensch ein Konto — `acceptInvite` hat es angelegt, sonst hätte er
+die Mail nie bekommen. Der Weg nach vorn stand zwei Abschnitte tiefer auf derselben Seite
+(„Passwort vergessen") und war nur nicht verlinkt.
+
+Er erscheint jetzt bei **abgelaufen** und **widerrufen** — bewusst *nicht* bei „nicht
+gefunden": dort ist unklar, ob es das Konto gibt, und „Ihr Konto besteht bereits" wäre eine
+Auskunft über ein fremdes Konto. Bei „schon benutzt" führt der Weg weiter zum Login: wer
+die Einladung angenommen hat, **kennt** sein Passwort.
+
+**Die Reset-Mail führte Arbeiter ins Leere.** `resetUrl` war `${BASE_URL}?reset=…` für
+jeden. Das Zurücksetzen selbst lebt in `js/pages/landing.js` — der Unternehmens-Landeseite.
+Ein Arbeiter kam nach dem Neusetzen genau dort an, und seit F12 sieht er dort nichts mehr.
+**Der Weg funktionierte und endete im Leeren** — die unangenehmste Sorte Fehler, weil
+nichts kaputt aussieht. Dieselbe Klasse wie der Knopf aus M3.2, der mehr tat als er sagte.
+
+Das Portal hat jetzt einen eigenen Zurücksetzen-Bereich: dieselbe Route, dieselbe Frist,
+dieselbe Mindestlänge — andere Tür. Und er endet **im Portal**, nicht in einer
+Erfolgsmeldung; ein gelungenes Zurücksetzen, das den Menschen stehen lässt, wäre derselbe
+Fehler eine Seite später.
+
+> **Was beim Schreiben der Probe passierte, und warum es jetzt im Test steht.**
+> `await handler(...)` kehrte **sofort** zurück: `catchAsync` gibt das Versprechen des
+> Handlers nicht weiter, es hängt nur ein `.catch(next)` daran. Die erste Abfrage war
+> abgesetzt, die zweite noch nicht, und `res` war leer — der Test meldete „Cannot read
+> properties of null" und zeigte dabei auf eine Zeile, die nichts damit zu tun hatte. Die
+> Nachbardatei `auth.route.coverage.test.js` hat dafür längst einen Warte-Helfer; diese
+> jetzt auch, mit der Begründung im Kommentar statt im Gedächtnis.
+
+*Verifikation: 14 Proben in `api/test/passwortWegRaus.test.js`, **dreizehn Rückmutationen**
+— darunter beide Richtungen der Rollenweiche (alle auf die Landeseite / alle ins Portal),
+die Schreibweise der Rolle, das fehlende `return` bei „schon benutzt", das Durchreichen von
+„nicht gefunden" in den Ausweg, das fehlende CSRF-Merkmal und der fehlende Weg ins Portal
+— jede gefangen. Vorrichtungspflege in `auth.route.coverage.test.js` (die Abfrage trägt
+jetzt `role`); keine Zusicherung angefasst.*
+
+### M3.3 ist gebaut *(2026-09-04)* — ein Deckel, den niemand sieht, sieht aus wie Vollständigkeit
+
+Die Sammel-Einladung liefert seit jeher drei Felder, die die Oberfläche nie zeigte:
+
+| Feld | was es sagt |
+|---|---|
+| `truncated` | wie viele der Lauf gar nicht angefasst hat (Obergrenze 200 je Lauf) |
+| `skipped_pending` | wie viele schon eine offene Einladung hatten |
+| `skipped_accepted` | wie viele sich schon registriert haben |
+
+Die Meldung nannte nur `invited_count` — und die Zahl stimmte sogar. Sie sagte nur nicht,
+dass bei 500 Kandidaten **300 Menschen übrig blieben**. Der Disponent klickt einmal, liest
+„200 eingeladen" und hält die Liste für abgearbeitet. `truncated` trägt deshalb
+ausdrücklich die Aufforderung, erneut zu klicken; der Lauf ist wiederholbar und überspringt
+beim zweiten Mal die schon Eingeladenen von selbst.
+
+Die beiden `skipped_*` sind keine Fehler und werden auch nicht so gefärbt — sie erklären
+die Lücke zwischen „so viele wollte ich einladen" und „so viele gingen raus". Ohne sie
+sieht ein erfolgreicher Lauf nach einem halben aus.
+
+**Eine Meldung statt zweier, und sie waren schon auseinander.** Die Zusammensetzung stand
+an beiden Knöpfen getrennt da — dieselbe Zahl `failed_count` hieß an der einen Stelle
+„Mail-Fehler" und an der anderen „übersprungen". Jetzt eine Funktion, und eine Probe hält
+fest, dass beide Knöpfe sie benutzen.
+
+**Der gespiegelte Deckel wird erzwungen.** Die Meldung nennt die Obergrenze im Klartext,
+also steht die Zahl auch im Browser — eine zweite Wahrheit, und zwei davon sind an diesem
+Tag bereits abgedriftet (die Onboarding-Rückfallebene, die Frontend-Linkkarte). Eine Probe
+hält `var BULK_INVITE_MAX` gegen `workerService.BULK_INVITE_MAX`.
+
+> **Eine Rückmutation hat überlebt, und sie war dieselbe Falle wie am Morgen.**
+> `truncated` aus der *Antwort* zu entfernen färbte nichts rot: die Probe suchte
+> `truncated: bulk.truncated` **irgendwo** in der Route — und fand es weiter im
+> Audit-Eintrag, wo es ein zweites Mal steht. Ein Audit-Eintrag hilft der Oberfläche nicht;
+> er liegt in der Datenbank. Exakt der Fehler des Vorlagen-Wächters
+> (`"DATABASE_URL".includes("BASE_URL")`): eine Zeichenkette irgendwo im Text ist kein
+> Beleg dafür, dass sie an der richtigen Stelle steht. Die Probe liest jetzt den
+> `res.status(201).json`-Block selbst — gesucht über seinen **Anfang**, nicht über ein
+> nicht-gieriges Muster, das sonst den 400er- oder 402er-Block erwischt.
+
+*Verifikation: 5 Proben in `api/test/stapelEinladung.test.js`, sieben Rückmutationen, jede
+gefangen. Sechs neue Wortmarken in beiden Sprachen; der i18n-Wächter ist grün.*
+
+### Nachtrag zu M3.7 *(2026-09-04)* — die Mutationsprüfung fiel unter die Schwelle
+
+**M3.7 war verhaltensgeprüft und trotzdem nicht dicht.** Der Lauf nach dem Bau:
+
+| | gesamt | `orgAccess.js` | Überlebende dort |
+|---|---|---|---|
+| vor M3.7 | 91,45 % | 93,79 % | 9 |
+| nach M3.7, ungeprüft | **87,96 %** ✗ | 87,50 % | 25 |
+| nach 11 Proben | 93,52 % | 96,50 % | 7 |
+| nach 5 weiteren | **94,75 %** ✓ | **98,50 %** | **3** |
+
+Die Schwelle ist 90 je Bereich. Wichtiger als die Zahl: **null Überlebende im
+Entscheidungs-Branch** — die drei verbliebenen sind ausschließlich `|| ""`-Rückfälle, bei
+denen jeder Ersatzwert dasselbe Verhalten erzeugt (er ist so wenig `"agency"` wie die leere
+Zeichenkette). Sie stehen hier benannt, statt mit einer Probe erschlagen zu werden, die
+etwas Unwahres behauptet.
+
+**Was die 16 neuen Überlebenden gezeigt haben — vier davon waren echte Verträge:**
+
+1. **Der Abfragetext stand nirgends fest.** Der Muster-Pool antwortet auf jede Abfrage
+   gleich; man hätte `organizations` durch `users` ersetzen können und alles wäre grün
+   geblieben. Eine DB-freie Suite kann so einen Mutanten nicht töten — sie führt die
+   Abfrage nie aus. Die Antwort darauf ist die **Form-Probe**: Tabelle, Spalte und
+   `WHERE id = $1` einzeln festgenagelt, plus die **Bindungs-Probe** über `params`.
+2. **`.trim()` auf dem Abkürzungspfad** war entfernbar — dieselbe Lücke wie in
+   `arbeiterSitzung`, nur an der anderen Stelle. Ein `" Agency "` aus einer Migration hätte
+   eine Agentur **ausgesperrt**, und der Fehler hätte wie eine Rechtefrage ausgesehen.
+3. **Der Protokolleintrag war ungeprüft.** Das ist kein Formatierungs-Logging, sondern der
+   Auditvertrag: welche Org, welche Art, welcher Mensch. Fehlt eins, beginnt die Suche im
+   Ernstfall bei null. Dazu: ohne Sitzung muss `null` dastehen, nicht `undefined` — sonst
+   sieht der Eintrag aus, als hätte jemand das Feld vergessen.
+4. **`logger?.warn?.`** ließ sich zu `logger.warn(` machen. Wird `verweigereArbeiter` je
+   ohne Protokoll-Objekt gebaut, wäre aus einer Sperre ein 500 geworden. Ein Riegel, der am
+   Beobachter scheitert, ist keiner: die Sperre ist die Aufgabe, das Protokoll die
+   Begleitung.
+
+**Und einer, der für seine eigene Wache folgenlos ist und für die nächste nicht.**
+`if (membership) req.orgMembership = membership;` ließ sich zu `if (true)` machen — für
+`requireCompanyOrg` gleichgültig, weil die nächste Zeile ohnehin mit 403 antwortet. Aber
+`req.orgMembership` ist ein **gemeinsames** Feld: `arbeiterSitzung` liest es,
+`requireAgencyOrg` nimmt es als Abkürzung. Eine Wache, die es im Ablehnungsfall auf `null`
+setzt, fügt der Anfrage etwas hinzu, das vorher nicht dastand — und die nächste Schicht
+kann „geladen und leer" nicht von „gar nicht geladen" unterscheiden.
+
+> **Die Lehre, und sie wiederholt sich in dieser Spur:** eine Wache zu prüfen ist nicht
+> dasselbe wie zu prüfen, dass sie steht (M3.7), und *Verhalten* zu prüfen ist nicht
+> dasselbe wie den *Vertrag* zu prüfen, den sie nach außen und nach innen hält.
+
+### M3.2 ist gebaut *(2026-09-04)* — der Knopf tat mehr, als er sagte
+
+Nach einem CSV-Import bietet die Oberfläche an, die frisch importierten Kräfte
+einzuladen. Der Dialog nennt eine **Zahl**: „die 3 gerade importierten einladen?".
+Gerufen wurde dafür `POST /worker-invites/bulk` mit **leerem Rumpf** — und dieser Weg lädt
+jede noch nicht bestätigte Kraft der **ganzen Organisation** ein. Bei 200 unbestätigten
+gingen 200 Mails hinaus, während der Dialog von 3 sprach.
+
+**Der Kommentar an der Aufrufstelle begründete es sogar:** *„Ruft die Bulk-Route direkt:
+die lokale `_workers`-Liste ist nach dem Import noch stale — der Server kennt die frischen
+Kandidaten und dedupliziert ohnehin serverseitig."* Beides stimmte. Beides beantwortete die
+falsche Frage: der Server kannte **alle** Kandidaten, nicht die des Stapels.
+
+Der Import-Bericht trägt die Kennungen längst mit (`created[].profile_id`) — sie wurden nur
+weggeworfen. Jetzt gehen sie mit, und `listInvitableWorkers` nimmt sie als **zusätzliche**
+Bedingung neben `supplier_org_id`, nie als Ersatz: eine fremde Kennung fällt damit heraus,
+statt zu wirken.
+
+**Drei Entscheidungen, die den Unterschied machen:**
+
+- **Eine leere Liste heißt „keine", nicht „alle".** Der Fall, in dem ein Versehen am
+  teuersten wäre: ein Import, aus dem nichts Einladbares hervorging. Würde `[]` wie „kein
+  Filter" behandelt, ginge genau dann eine Sammel-Mail an die ganze Belegschaft — ausgelöst
+  von einem Klick, der nichts einladen sollte. Im Code steht deshalb `?? null` und nicht
+  `|| null`.
+- **Ohne Feld bleibt es org-weit.** Der Knopf „alle noch nicht Registrierten einladen" soll
+  die ganze Organisation treffen, und sein Dialog sagt das auch. Eine Probe hält fest, dass
+  er *keine* Kennungen mitschickt — wer hier versehentlich begrenzt, nimmt eine gewollte
+  Funktion weg.
+- **Begrenzt wird über Profil-Kennungen, nicht über E-Mail-Adressen.** Eine Adresse kann
+  sich zwischen Import und Klick geändert haben, eine Kennung nicht.
+
+*Verifikation: 11 Proben in `api/test/stapelEinladung.test.js` (Form **und** Bindung der
+Abfrage, die Org-Bedingung als äußere Klammer, die leere Liste, die Plan-Abnahme „10
+importiert → höchstens 10", plus die Verdrahtung von Route und Oberfläche), **sechs
+Rückmutationen** — leere Liste als Nicht-Filter, Begrenzung aus der Abfrage, Kennung statt
+Org, Route reicht nicht durch, `??` zu `||`, Oberfläche wirft die Kennungen weg — jede
+gefangen.*
+
+### M3.7 ist gebaut *(2026-09-04)* — das Tor prüfte den Tarif und nicht die Seite
+
+Das Arbeitskräfte-Modul (`api/routes/workers.js`) hing an `requireWorkerFeature` — einem
+**Plan**-Tor. `worker_module` tragen PLUS, PRO, INDIVIDUELL und ENTERPRISE, gleich ob
+Zeitarbeitsfirma oder Unternehmen. Ein Unternehmen auf PRO konnte damit Arbeitskräfte
+importieren, einladen und verwalten.
+
+**Die Messung entscheidet den Umfang, nicht das Gefühl.** Von 65 Wegen mit diesem
+Wachstapel sind **36 belegbar agenturseitig** (`supplierOrgId` im Rumpf) und **null**
+kundenseitig; `workerService` schreibt 87-mal `supplier_org_id` und einmal
+`client_org_id`. Ein Unternehmen, das hier importiert, erzeugt also Arbeitskräfte, deren
+**Lieferant ein Unternehmen** ist — ein Widerspruch im Datenmodell, nicht bloß eine
+Rechtefrage. Der Riegel nimmt keine gültige Nutzung weg; er beendet eine ungültige.
+
+Er steht deshalb im **gemeinsamen** Stapel und nicht nur vor dem Import, wie der Plan es
+wörtlich vorsah: eine halb geschlossene Tür sieht aus wie eine geschlossene. Das
+Einsatzportal liegt in `routes/workerPortal.js` mit eigenem Stapel und ist nicht betroffen.
+
+> **Betriebliche Folge:** ein **Unternehmens**-Konto auf PLUS/PRO/INDIVIDUELL, das diese
+> Wege heute benutzt, bekommt ab jetzt 403 (`AGENCY_ORG_REQUIRED`).
+
+**Der Fehler, den die erste Fassung hatte.** Sie holte die Org-Art über
+`getMembership(pool, req.session.userId, …)`. `middleware/apiKeyAuth.js` setzt aber **nur**
+`req.orgId` und nie `req.orgMembership` — hinter einem Schlüssel steht kein Mensch, also
+gibt es keine Mitgliedschaft. **Jeder Maschinenschlüssel** hätte ab dem Deploy 403
+bekommen. Gefunden hat es nicht die neue Probe, sondern `workers.scope.test.js`: dort bekam
+eine *Nachbar*zusicherung plötzlich einen anderen Fehlercode. Die Art einer Organisation
+hängt an der **Organisation** — jetzt wird sie dort erfragt.
+
+**Eine Rückmutation hat anfangs überlebt, und sie war die lehrreichste.** Den Riegel aus
+dem gemeinsamen Stapel zu entfernen färbte **keine** Probe rot. Er war vollständig geprüft
+— was er tut, wen er sperrt, wie er bei Fehlern fällt — und trotzdem hätte ihn niemand
+vermisst, wäre er nicht montiert gewesen. Dieselbe Lücke wie bei der Position des
+Arbeiterriegels in M2.6: *eine Wache zu prüfen ist nicht dasselbe wie zu prüfen, dass sie
+steht.* Geschlossen mit einer Probe über den **echten** Stapel jedes Weges: 66 tragen
+`requireAgencyOrgMiddleware`, genau einer nicht — `GET /public/worker-profiles/:slug`, das
+öffentliche Profil über einen geteilten Link, dessen Aufrufer weder Konto noch Org hat.
+
+**Zwei Folgefunde:**
+
+1. **`arbeiterSitzung` (M2.6) hing an der Schreibweise.** Die Mutationsprüfung der
+   Trennwand zeigte, dass sich `.trim()` und `.toLowerCase()` entfernen lassen, ohne dass
+   eine Probe rot wird — alle Vorrichtungen schrieben `"worker"` klein und ohne
+   Leerzeichen. Ein `role_key` `"Worker"` aus einem Import oder einer Migration wäre damit
+   **kein** Arbeiter mehr, und der Riegel öffnete sich für genau die Sitzung, die er
+   schließen soll.
+
+2. **Die Rückfallebene der Einstiegs-Checkliste widersprach dem Server-Katalog** an zwei
+   von acht Stellen. Die gefährlichere: `team_invited` zeigte im Browser auf die
+   Arbeitskräfte-Seite, im Katalog auf das Org-Profil. Der Schritt heißt „Teammitglied
+   einladen" und zählt `org_memberships` — gemeint ist ein **Kollege**, keine Arbeitskraft.
+   Seit M3.7 gehört jene Seite der Zeitarbeitsfirma; ein Unternehmen wäre dort auf 403
+   gelandet. Angeglichen und in beide Richtungen per Probe erzwungen.
+
+*Verifikation: 14 neue Proben (8 Abnahme + Maschinenschlüssel + fail-closed + Schreibweise
++ Lesefehler + Benennung, 2 Montage, 1 Schreibweise im Arbeiterriegel, 3
+Katalog-Abgleich), vier Rückmutationen — die vierte überlebte zunächst und ist der Grund
+für die Montage-Probe. Vorrichtungspflege in `workers.scope.test.js` und
+`security/rateLimitCoverage.test.js`: der Muster-Pool lässt die Org existieren. Keine
+einzige Zusicherung angefasst.*
+
+**Mutationsprüfung Trennwand** (Stand vor dieser Welle): 91,45 % gesamt, `orgAccess.js`
+93,79 %, `apiKeyAuth.js` 88,71 % — Schwelle 90 gehalten. Der neue `requireAgencyOrg` ist
+darin **noch nicht** enthalten; der nächste Lauf deckt ihn ab.
+
+### M2.6 ist gebaut *(2026-09-04)* — der Fehlerfall ist jetzt umgekehrt
+
+Owner-Entscheid vom 2026-09-03: **ein Riegel auf dem v1-Router, fail-closed.** Eine
+Arbeitersitzung erreicht nur noch, was in `api/config/arbeiterRiegel.js` steht.
+
+**Was sich dadurch ändert, ist nicht der Umfang, sondern die Richtung des Vergessens.**
+Bisher war eine neue Route für Arbeiter **offen**, bis jemand sie schloss — und Vergessen
+hieß: Firmendaten an einen Menschen, der sie nicht sehen sollte, **still**, denn über zu
+viele Daten beschwert sich niemand. Ab jetzt heißt Vergessen: eine Portalfunktion
+antwortet 403. Das fällt beim ersten Klick auf.
+
+**Drei Funde beim Bauen, und der erste ändert die Bauart.**
+
+1. **Das M2.5-Register kann die Ausnahmeliste nicht allein sein.** Der Entscheid sagt
+   „das Register ist diese Liste". Sein eigener Kopf sagt aber, dass **nur Routen
+   gemessen wurden, die Mandantendaten zurückgaben** — alles ohne Mandantenbezug fehlt
+   darin: `GET /csrf`, `GET /skills/catalog`, `GET /auth/sessions`,
+   `GET /notifications/stream`. Genau die ruft das Einsatzportal. Wäre das Register
+   allein die Liste gewesen, hätte der Riegel am ersten Tag das Portal ausgesperrt.
+   Deshalb jetzt **zwei Verzeichnisse, die einander prüfen**: die Messung
+   (`arbeiterSitzung.json`, Tatsache) und die Erlaubnis (`config/arbeiterRiegel.js`,
+   Entscheidung). Jeder `erlaubt`-Eintrag der Messung muss durchkommen, jeder
+   `geschlossen`-Eintrag muss scheitern — beides als Probe.
+
+2. **Der v1-Router hängt an ZWEI Adressen.** `app.use("/api/v1", v1)` **und**
+   `app.use("/api", v1)`; die bestehende Oberfläche benutzt die kurze. Ein Riegel am
+   Mount `/api/v1` wäre vollständig zu umgehen gewesen, indem man `/v1` weglässt — und
+   zwar unauffällig, denn beide Wege hätten funktioniert. Er hängt deshalb am **Router**,
+   als dessen erste Schicht. Ein echter Express-Server in der Probe fährt beide Adressen
+   und belegt es, statt es aus dem Quelltext zu schließen.
+
+3. **`me` im Pfad heißt wieder nicht „mir".** `POST /me/plan` kauft der **Organisation**
+   einen Tarif, `POST /me/active-org` wechselt den Mandanten, `/me/active-location` ist
+   ein Org-Begriff. Alle drei stehen in `GESPERRT_MIT_ABSICHT` — dokumentarisch, denn
+   fail-closed sperrt sie ohnehin; eine Probe hält fest, dass sie nie auf die Liste
+   rutschen. Dieselbe Falle wie die sechs aus M2.5, und genau der Grund für den Entscheid.
+
+**Was der Riegel bewusst NICHT tut:** enger ziehen als der Entscheid. 41 der 49
+gemessenen Wege liegen außerhalb des Portal-Namensraums (`/marketplace/my-offers`,
+`/credits/balance`, `/company-profile` …) und werden vom Portal gar nicht gerufen — enger
+wäre möglich. Sie stehen trotzdem drauf: sie wegzunehmen wäre eine Verhaltensänderung an
+etwas, das heute nachweislich funktioniert, und damit eine eigene Entscheidung. Wer
+später enger ziehen will, streicht sie und sieht sofort im Test, was das kostet.
+
+*Verifikation: 23 Proben in `arbeiterRiegel.test.js` (davon 3 durch echtes Express über
+beide Adressen), **neun Rückmutationen** — Präfix `/worker/`→`/worker`, Abfrageteil,
+Schlussschrägstrich, Methodenprüfung, Parameterbreite, `||`→`&&`, Riegel öffnen, Riegel
+auf Nicht-Arbeiter ausweiten, Riegel unter den ersten Router schieben — jede gefangen.*
+
+### M1.9 ist gebaut *(2026-09-04)* — fünf Automatismen hatten keinen Auslöser
+
+Der Owner-Entscheid: **alle fünf verbliebenen Takte werden eingeplant.** Gemessen am
+2026-09-03 waren von zehn Aufgaben in der Registratur fünf eingeplant; die anderen fünf
+waren Geld und Lebenszyklus, hatten einen internen HTTP-Endpunkt — und niemand rief ihn.
+
+**Nicht fünf Zeilen, sondern ein Umbau.** Jeder der fünf Endpunkte macht mehr als einen
+Dienstaufruf: Dienst rufen, bei Wirkung Audit schreiben, und zwei prüfen vorher einen
+Kill-Switch. Hätte der Takt das nachgebaut, stünden zwei Fassungen desselben Ablaufs
+nebeneinander — und die zweite wäre genau dort abgewichen, wo es teuer wird. Deshalb
+steht der Ablauf jetzt **einmal** in `api/services/betriebsTaktLaeufe.js`; der Endpunkt
+ist die Handkurbel, der Takt der Motor, beide drehen dieselbe Welle. Eigene
+Warteschlange `betrieb` mit eigenem Arbeiter — nicht in `staffing` mitlaufend, sonst
+hieße der Herzschlag der Mahnstrecke `staffing:dunning-sweep`.
+
+| Takt | wann | wirkt sofort? |
+|---|---|---|
+| `recurring-billing` | täglich 02:10 | nein — `RECURRING_BILLING_ENABLED` (Vorgabe AUS) |
+| `invoice-overdue-scan` | täglich 02:20 | **ja** |
+| `dunning-sweep` | täglich 02:40 | nein — `DUNNING_ENABLED` (Vorgabe AUS) |
+| `subscription-lifecycle-tick` | stündlich :05 | **ja** |
+| `expire-reservations` | stündlich :35 | **ja** |
+
+Die Nachtreihenfolge ist kein Zufall: erzeugen → fällig setzen → mahnen. Umgekehrt
+gereiht bräuchte jede Stufe einen Tag Vorlauf.
+
+**Die notierte Betriebsfolge war zu pessimistisch — korrigiert.** Notiert stand *„ab dem
+ersten Lauf entstehen echte Rechnungen und gehen echte Mahnungen"*. Das gilt für **drei**
+der fünf. Die beiden folgenreichsten bleiben durch ihre Schalter gehalten, und weil der
+Schalter jetzt im gemeinsamen Ablauf sitzt statt am Endpunkt, kann der Takt ihn nicht
+umgehen. Eine Probe fährt beide Läufe mit einem Datenbankzugang, der bei **jeder**
+Benutzung wirft: ein `disabled`, das trotzdem eine Abfrage abgesetzt hat, wäre keine
+Sperre, sondern eine Beschriftung.
+
+**Der Fund, der schwerer wog als die Entscheidung.** `staffing-maintenance` läuft seit
+M1.2 — und die Überwachung meldete unverändert *„Diese Aufgabe ist noch nie gelaufen."*
+Die beiden Auslöser schreiben ihren Herzschlag unter **verschiedenen Namen**:
+
+```
+Handlauf (interner Endpunkt)  ->  "staffing-maintenance"            (req.path)
+Einplanung (BullMQ)           ->  "staffing:staffing-maintenance"   (queue:job)
+```
+
+Die Registratur kennt nur den kurzen. Der lange stand daneben unter *„läuft, aber
+unbeobachtet"* — zwei Zeilen über dieselbe Aufgabe, die einander widersprachen. Eine
+Phase, die gegen **stille** Automatismen gebaut wurde, hatte gerade **Lärm über einen
+erzeugt, der läuft**; und ein Wächter, der falsch warnt, wird abgeschaltet und nimmt die
+echten Befunde mit. Aufgelöst auf der Leseseite (`zuTaktSchluessel`): beide Schreibweisen
+zählen auf dieselbe Aufgabe, der jüngere Lauf entscheidet den Zustand, die Laufzahlen
+werden addiert.
+
+**Ein stiller Ausfall wurde zusätzlich laut gemacht.** `runDunningSweep` gibt ohne Mailer
+`{ note: "NO_MAILER" }` zurück und markiert bewusst nichts — richtig, damit keine
+Erinnerung als verschickt gilt, die es nicht ist. Für den *Takt* wäre das aber ein
+**gelungener** Lauf: Job `completed`, Herzschlag grün, Kachel „läuft". Die Mahnstrecke
+wäre eingeschaltet und stumm. Ist der Schalter an und kein Versandweg gereicht, wirft der
+Lauf jetzt.
+
+**Drei Verzeichnisse hängen ab jetzt aneinander** — Soll (`TAKTE`), Auslösung
+(`upsertJobScheduler`) und Verarbeitung (`LAEUFE`). `takteEingeplant.test.js` prüft alle
+drei Kanten in beide Richtungen: ein eingeplanter Auftrag ohne Lauf färbt rot (er würfe
+sonst jede Nacht), ein Lauf ohne Einplanung ebenfalls (er wäre gebaut und stumm), und
+ein Lauf ohne Soll auch (sein Schweigen löste keinen Alarm aus).
+
+*Verifikation: 9 neue Proben in `betriebsTaktLaeufe.test.js`, 3 in `betriebsTakt.test.js`,
+3 in `takteEingeplant.test.js`; sechs Rückmutationen — Kill-Switch, Audit-Bedingung,
+Präfix-Auflösung, Versandweg-Prüfung, `LAEUFE`-Eintrag, Einplanung — jede gefangen.*
+
+### M2.5, Nachtrag *(2026-09-03)* — die 45 Befunde waren größtenteils Phantome
+
+Der eigene Fehler, gefunden beim Weiterarbeiten und derselbe wie beim API-Schlüssel: eine
+Messung belegte das eine, und ich behauptete daraus das andere.
+
+**Was die Messung konnte, und was nicht.** Der Muster-Pool antwortete auf *jede* Abfrage
+mit derselben markierten Zeile. Das beweist sauber, **dass** eine Route eine Datenbankzeile
+durchreicht. **Wem** die Zeile gehört, hat es nie entschieden — das habe ich danach von
+Hand eingestuft, nach Pfadnamen und Gefühl. Bei mindestens vier Routen lag ich daneben:
+
+| Route | Register sagte | tatsächlich |
+|---|---|---|
+| `/credits/balance` | Befund | `credit_accounts WHERE user_id = $1` |
+| `/credits/transactions` | Befund | ebenso |
+| `/payment/history` | Befund | `payment_sessions WHERE user_id = $1` |
+| `/support-requests` | Befund | `WHERE sc.reporter_user_id = $1` |
+
+Ein Register, das falschen Alarm schlägt, verliert seinen Wert genauso wie eines, das
+schweigt — und es hätte die Owner-Entscheidung M2.6 in die falsche Richtung gefärbt
+(„45 Lecks" liest sich anders als „elf").
+
+**Die Reparatur ersetzt das Urteil durch eine Messung.** Der Pool trägt jetzt **zwei**
+Erkennungswörter und entscheidet an den **Parametern** der Abfrage: Org-Kennung →
+Firmenzeile, nur Nutzer-Kennung → eigene Zeile, keine von beiden → kein Mandantenbezug.
+
+**Zwei Ebenen, dauerhaft getrennt.** `gemessen` ist eine **Tatsache** — dagegen ist kein
+Einspruch möglich. `art` ist ein **Urteil** und darf ihr widersprechen, aber nur mit
+geschriebener Begründung (mindestens 60 Zeichen, vom Wächter erzwungen). Fünf Routen nutzten
+das zunächst — und **vier davon hielten der Nachprüfung nicht stand**. Geblieben ist
+`/me/entitlements`, ein bewusster Grenzfall: der Rumpf nennt Tarif, Zusatzpakete und
+Standortzahl der Trägerorg, und das Arbeiter-Portal braucht es, um zu entscheiden, welche
+Funktionen es überhaupt anbietet. Ein Portal, das den Tarif nicht kennt, zeigt tote
+Schaltflächen. Wird die Trennwand aus M2.6 strukturell gezogen, gehört diese Route auf
+eine verkleinerte Antwort — nicht auf 403.
+
+> **Die Begründungspflicht hat sofort einen echten Befund gefangen — meinen eigenen.**
+> `/profile-bounties/me` stand als „eigene Daten" im Register, mit dem Halbsatz „seine
+> eigenen Prämien". Beim Aufschreiben einer *tragfähigen* Begründung fiel auf, dass es
+> keine gibt: `getOrgBountyHistory(pool, req.orgId)` liefert die Prämienhistorie der
+> **Org**. Dieselbe Namensfalle wie bei `/subscription-requests/mine`. Und die drei
+> Schreibwege daneben wiegen schwerer als der Leseweg: `POST /profile-bounties/me` legt
+> einen Antrag `{ orgId: req.orgId }` an — ein Arbeiter hätte **im Namen seines
+> Arbeitgebers eine Prämie beantragen** können, `DELETE` eine bestehende stornieren.
+
+**Das korrigierte Bild:**
+
+| | vorher (Handeinstufung) | jetzt (gemessen) |
+|---|---|---|
+| Routen mit Mandantenbezug | 82 | 64 |
+| davon **eigene Daten** | 25 | 48 |
+| davon **org-geschlüsselt** | — | 16 |
+| **offene Befunde** | 45 | **0** |
+| geschlossen | 5 | **15** (plus 6 Schreibwege) |
+
+Von fünf Einträgen, die der Messung mit Begründung widersprachen, hat **einer** die
+Nachprüfung überlebt (`/me/entitlements`). Drei stellten sich als dieselbe Namensfalle
+heraus und sind geschlossen; einer (`GET /me`) gibt nach der Reparatur an
+`getAllowedLocationsForMembership` gar nichts Mandantengebundenes mehr heraus und steht
+deshalb nicht mehr im Register.
+
+**Die übrig gebliebenen Befunde waren alle dieselbe Falle.** `/org/departments`,
+`/org/locations`, `/subscription-requests/`**`mine`**, `/subscription-documents/`**`mine`**,
+`/deal-feedback/pending` und `/profile-bounties/`**`me`** — Pfade, bei denen „mine"/„me"
+die **Org** meint, nicht den Menschen. Alle geschlossen mit `verweigereArbeiter`, bewusst
+nicht mit `rperm`: welche Rollen das lesen dürfen, bleibt die Owner-Frage M2.6; einem
+Disponenten wollte diese Welle nichts nehmen.
+
+> **Noch ein Fund, den `node --check` nicht sieht:** `subscriptionDocuments.js` benennt
+> `logger` beim Auspacken zu `_logger` um. `verweigereArbeiter({ logger })` wäre dort beim
+> **Bauen des Routers** abgestürzt — syntaktisch einwandfrei, zur Laufzeit tot.
+
+Acht Rückmutationen, alle rot: drei geschlossene Lesewege wieder auf, der Prämienantrag
+und die Stornierung wieder auf (beides **Schreib**wege, die die GET-Messung gar nicht
+sieht — deshalb hat `verweigereArbeiter.test.js` sie eigens), das Register behauptet
+„org" statt „eigen", ein Widerspruch ohne tragfähige Begründung, und der Muster-Pool
+unterscheidet nicht mehr nach Parametern.
+
+### M2.2 ist gebaut *(2026-09-02)* — drei Konventionen, drei Symptome
+
+`users_email_key` ist ein gewöhnlicher `UNIQUE`-Index auf `email`, also
+**groß-/kleinschreibungsempfindlich**. Daneben standen **drei** Konventionen in fünf
+Dateien:
+
+| Stelle | Fassung | |
+|---|---|---|
+| `scimService.js:118` | `LOWER(email) = $1` | richtig |
+| `ssoService.js:178` | `email = $1`, Wert kleingeschrieben | **halb** — nur der Wert, nicht die Spalte |
+| `authService.js:10/72/78` | `email = $1` | gar nicht |
+| `routes/demo.js:48` | `email = $1` | gar nicht |
+
+Daraus folgten **drei** Symptome, nicht eines:
+
+1. **Registrierung** mit anderer Schreibweise → **zweites Konto** (`emailExists` fand
+   nichts, der Index ließ es durch).
+2. **Anmeldung** mit anderer Schreibweise → „Zugangsdaten falsch", obwohl das Konto
+   existiert.
+3. **Passwort zurücksetzen** → derselbe Fehlschlag, und dort still, weil die Antwort aus
+   Datenschutzgründen ohnehin nichts verrät.
+
+Gemessen: **404 Konten, 404 verschiedene Adressen nach Kleinschreibung** — heute also kein
+Doppel. Aber **zehn Adressen tragen Großbuchstaben**; das Risiko war scharf.
+
+**Die Datenbank garantiert es jetzt, nicht der Code.** Migration 215 legt einen
+`UNIQUE INDEX ON users (LOWER(email))` an — das zweite Konto ist damit *strukturell*
+unmöglich, unabhängig davon, ob jemand den nächsten Einfügepfad vergisst. Derselbe Index
+bedient die neuen Abfragen; ohne ihn wäre `LOWER(email) = LOWER($1)` ein voller
+Tabellendurchlauf bei **jeder** Anmeldung.
+
+> Die Migration sagt **vorher**, welche Doppel im Weg stehen, statt mit einem nackten
+> „could not create unique index" zu scheitern. Ein Migrationsfehler, den niemand einordnen
+> kann, wird übersprungen; einer mit Namen wird behoben.
+
+Der alte Index bleibt: er ist strenger, nicht falsch. Und die **zehn** vorhandenen
+Großbuchstaben-Adressen werden bewusst **nicht** kleingeschrieben — sie sind eindeutig, und
+eine Datenänderung an Konten braucht einen anderen Anlass als eine Index-Migration. Sobald
+die Abfragen beidseitig kleinschreiben, kommen diese Nutzer mit jeder Schreibweise hinein.
+
+Der Wächter [`emailSchreibweise.test.js`](../api/test/emailSchreibweise.test.js) liest
+**jede** Produktionsdatei, nicht die drei bekannten Stellen: der Fehler war eine fehlende
+Konvention, und eine Probe, die nur das Bekannte prüft, lässt die vierte Fassung durch.
+Sechs Rückmutationen, alle rot.
+
+> **Die Probe hat beim Bauen zwei eigene Fehler gefangen.** Erst meldete sie
+> `UPDATE users SET email = $2` aus der Anonymisierung — eine **Zuweisung**, das Gegenteil
+> eines Vergleichs; jetzt prüft sie auf das vorangehende `WHERE`/`AND`/`OR`. Und dann stand
+> in ihrem Muster zum **dritten Mal in dieser Sitzung** ein echtes Rücktaste-Zeichen statt
+> `\b`. Deshalb steht die Wortgrenze dort heute als Zeichenklasse: *was man nicht schreiben
+> kann, ohne es zu zerbrechen, schreibt man anders.*
+
+### Markt-Sichtbarkeit: die wertvollste Zahl war schon da *(2026-09-02)*
+
+**Der Anlass war eine Owner-Frage** — ob sich aus den Marktzahlen ableiten lässt, wo gerade
+Nachfrage herrscht, um gezielt Marketing zu machen. Der Entwurf dazu wurde breit geprüft
+(elf Agenten, drei unabhängige Ansätze, jeder adversarisch gegengelesen). **Alle drei
+Ansätze wurden verworfen**, mit drei verschiedenen, jeweils belegten Einwänden — und die
+Widerlegung war wertvoller als jeder der Entwürfe.
+
+**Was dabei an eigenen Aussagen fiel:**
+
+1. **Angebot und Nachfrage sind nicht vergleichbar gezählt.** `marktpraesenzService`
+   materialisiert `capacity_posts` **je Fähigkeit** mit fest verdrahtetem `headcount = 1`
+   (`MATERIALISIEREN_SQL`, `JOIN worker_profile_skills`). In den echten Daten: **Person
+   `c89f4638` steht sechsmal** in den 13 aktiven Angeboten — Ambulante Pflege,
+   Demenzbetreuung, Grundpflege, Kinderbetreuung, Pflegeassistenz, Stationäre Pflege. *Eine*
+   Pflegekraft, sechs „Köpfe". Jede Differenz „Bedarf minus Angebot" vergleicht Personen mit
+   Fähigkeits-Zeilen.
+2. **„Die Lücke über die Zeit" trägt nicht.** `capacity_posts` und `demand_requests` sind
+   **Zustands**-Tabellen. Derselbe offene Datensatz an 21 Tagen abgezogen ist *eine*
+   Beobachtung, 21-mal gezählt. Und `end_date` ist nullable, während die einzige Stelle, die
+   auf `expired` setzt (`capacityExchangeService.js:1506`), `end_date IS NOT NULL` verlangt:
+   gemessen **4 von 13 offenen Anfragen sind nie automatisch schließbar, die älteste 169
+   Tage**. Eine Dauer-Aussage verkauft dann einen Bedarf, den es nicht mehr gibt.
+3. **„Kein Angebot" misst nicht den Markt, sondern unsere Stammdaten.** Gemessen: **33
+   aktive Kräfte, 30 ohne Katalog-Fähigkeit** — sie werden gar nicht erst materialisiert.
+
+**Und genau darin lag die Antwort.** Die wertvollste Liste **wurde bereits berechnet und
+weggeworfen**: `sweepMarktpraesenz` misst bei jedem Lauf `unsichtbar_ohne_skill` und
+`unsichtbar_ohne_ort` mit, gibt sie zurück — und der Aufrufer legt sie in den Antwortkörper
+eines internen Endpunkts und in eine Log-Zeile. Der M0-Bericht hat das als **Punkt 29**
+festgehalten. Das J-Wellen-Dokument behauptet, die Zahl speise „Aufsicht (J6) und
+Agentur-Hinweis (J2c)" — **beide Verbraucher gibt es nicht.**
+
+Jetzt gibt es einen: **Staff CC → Marketplace → Markt-Sichtbarkeit**, plattformweit und je
+Agentur, absteigend nach Betroffenen. Das *ist* die Anrufliste:
+
+```
+Demo Zeitarbeit GmbH   12 aktive   10 unsichtbar
+Zeitarbeit              7 aktive    6 unsichtbar
+ElektroStaff GmbH       3 aktive    3 unsichtbar
+```
+
+Drei Entscheidungen daran:
+
+* **Eine Wahrheit.** Sweep und Anzeige lesen denselben Bestand. Zwei Stellen, die
+  „unsichtbar" definieren, wären die Doppelung aus M1.7 — dort gewann die zweite Tabelle,
+  weil sie im Schreibpfad stand. Die Bedingungen stehen deshalb **einmal**
+  (`PRAESENT_SQL`, `OHNE_SKILL_SQL`, `OHNE_ORT_SQL`), und eine Probe zählt nach, dass keine
+  Abfrage ihre eigene Fassung mitbringt.
+* **Kein Feld `sichtbar`.** Die Versuchung, `aktive − unsichtbar` als „sichtbar" zu melden,
+  wäre eine Behauptung: die Materialisierung schließt zusätzlich Abwesende aus und verlangt
+  einen Agentur-Nutzer. Der Vorbehalt reist als Feld `hinweis` **mit der Antwort** und wird
+  in der Oberfläche gezeigt, nicht weggelassen.
+* **Staff CC, nicht OCC.** Die Liste betrifft den Marktplatz als Ganzes und die Arbeit des
+  Teams — Antwort 3 der Entscheidungsfrage. Der Einzelfall wäre eine OCC-Frage; neue
+  OCC-Module sind seit dem Owner-Entscheid vom 2026-08-27 gesperrt.
+
+Sechs Rückmutationen, alle rot. Eine davon überlebte zunächst: `aktive: 33` fest verdrahtet
+sah richtig aus, **weil der Prüfdatensatz zufällig auf 33 summiert**. Ergänzt um einen
+zweiten Datensatz mit anderen Zahlen — *eine Probe, deren Erwartung mit dem Fehler
+übereinstimmt, prüft nichts.*
+
+> **Was daraus für ein späteres Nachfrage-Dashboard folgt:** die Achsen tragen noch nicht.
+> 24 aktive Zeilen auf 16 verschiedene Rollen (Freitext, kein Katalog), dazu `hamburg` neben
+> `Hamburg`. Erst Rollen-Katalog und Umkreis statt Stadtname, dann die Differenz — sonst
+> zeigt das Dashboard überzeugend aussehende Zufälle. Und: die Mindestgruppe 3 aus dem
+> öffentlichen Schaufenster darf **intern nicht** gelten, sie faltet genau die kleinen,
+> ansprechbaren Fälle weg.
+
+### Offener Befund: `invoice_type` wird uneinheitlich gefiltert *(gemessen 2026-09-02)*
+
+Aus der Parallelsitzung gemeldet, von mir **selbst nachgemessen** — der Vorbefund derselben
+Sitzung war einmal falsch, deshalb steht hier nur, was ich gelesen habe.
+
+Operative Rechnungen (zwischen **zwei Kunden**) und Abo-Rechnungen (an **TempConnect**)
+liegen in **derselben** Tabelle `invoices`, unterschieden allein durch die Spalte
+`invoice_type`. Wer sie nicht filtert, mischt fremdes Geld in die eigenen Bücher.
+
+| Stelle | Filter? | Wirkung |
+|---|---|---|
+| `recurringBillingService.js:739` | **ja** (`= 'subscription'`) | die Mahnstrecke ist sauber |
+| `revenueMetricsService.js:520‑526` | **ja** (`= 'operational'`) | die Trennung ist im Haus bekannt |
+| `staffBillingOverviewService.js:78` `loadAttention` | **nein** | die **Mahn-Arbeitsliste des Operators** |
+| `staffBillingOverviewService.js:99` `loadInvoiceTotals` | **nein** | „plattformweite Rechnungs-Summen" |
+| `revenueMetricsService.js:354` `queryInvoiceTruth` | **halb** | die vier Geldsummen ungefiltert, die Zählungen korrekt getrennt |
+
+Die letzte Zeile ist die aufschlussreichste: `operational_count` und `subscription_count`
+sind sauber getrennt, aber `invoiced_revenue_cents`, `paid_revenue_cents`,
+`open_receivables_cents` und `overdue_receivables_cents` tragen **keinen** Typfilter. Die
+Trennung war also bekannt und wurde auf die Zählung angewendet, auf die Beträge nicht.
+
+**Heute folgenlos — und der nächste Takt stellt es scharf.** `markOverdueInvoices` hängt an
+`POST /internal/invoice-overdue-scan`, und das ist in meiner Registratur **Aufgabe 2, Zustand
+still**. Sie steht dort mit `intervall_min: 1440`, der Takt ist also vorgesehen. Sobald er
+läuft, füllt sich die Mahnliste des Staff CC mit Rückständen, die Kunden **einander**
+schulden.
+
+> **Owner-Frage (Anschluss an F30):** soll das Team fremde Rückstände überhaupt sehen? Als
+> Abwanderungssignal wäre das nützlich — aber dann in einer **eigenen** Sicht, nicht in der
+> Mahnliste, aus der heraus gemahnt wird. Und: soll eine als „Umsatz" beschriftete Summe
+> Geld enthalten, das zwischen zwei Kunden fließt? Der Fix ist je eine Zeile; **welche**
+> Zeile, ist eine Produktentscheidung — deshalb gemeldet statt geändert.
+
+**Als Nächstes:** die restlichen M2-Phasen. Die 29 offenen Fragen aus Abschnitt 5 des
+M0-Berichts blockieren sie nicht.
+
+**DER NÄCHSTE GRIFF:** M1 (die stillen Ausfälle) — alle Entscheidungen dafür
+liegen vor. Zuvor wird die Anweisung aus der Parallelsitzung abgewartet.
+Welle K ist durch (K0–K4).
+
+**Zwei Datenlücken, benannt statt geraten** (wie die 49 ankerlosen Einsätze aus
+E-K3-4): 15 von 40 Bedarfen gehören einem Besteller ohne Organisation; **6 von 24
+Zuordnungen** tragen die Zeitarbeitsfirma selbst als Entleiher, wodurch in der
+Vorschau die eigene Firma als Gegenseite erscheint. Der Konflikt stimmt trotzdem
+— nur das Etikett ist sinnlos, und welcher Entleiher gemeint war, steht nirgends.
+
+> **Für den Browser-Nachweis wichtig:** der API-Container läuft einen
+> Prozess-Schnappschuss und kennt neue Routen nicht. Die Fläche wurde deshalb
+> gegen eine **echte, aus der laufenden Datenbank gezogene** Dienst-Antwort
+> geprüft (`.claude/monatsplan-probe.json`, vom Worktree-Vorschauserver
+> ausgeliefert). Dass die Route selbst trägt, belegen die Proben am echten
+> Handler und die Container-Tests — nicht der Browser.
+
+> **Was beim Bauen der AÜG-Prüfung schiefging und gefangen wurde.** Zwei
+> Falschalarme: eine Kette, die 2026 endete, wurde für September 2027 gemeldet
+> (Rückfall auf „die letzte Kette"), und `ueberschritten` rechnete gegen heute,
+> während der Härtegrad gegen das Fenster rechnete — dieselbe Zeile sagte „hart"
+> und „nicht überschritten". Beim Rückmutieren kam ein dritter Fund dazu: die
+> beiden Riegel **deckten sich gegenseitig**, einzeln entfernt blieb die Suite
+> grün. Jeder hat jetzt einen eigenen, isolierten Testfall.
+
+> **Ein Befund, der offen bleibt: 49 der 68 Einsätze tragen keinen Lieferanten**
+> — und für sie gibt es keinerlei Anker (kein Angebot, kein Vertrag, keine
+> Ausschreibung, keine Zuordnung). Die Agentur-Spur der Monatsplanung sieht sie
+> deshalb nicht. Migration 210 hat nur die zwei rekonstruierbaren nachgetragen;
+> die übrigen zu raten wäre das Gegenteil von vorsichtig.
+
+---|---|---|
+| **E-K3-1** | **Soll die AÜG-Überlassungshöchstdauer geprüft werden?** | Sie hat **kein Feld im Schema**. Prüfbar wäre sie nur mit einem neuen Datum (Überlassungsbeginn je Kraft und Kunde) und einer Regel (18 Monate, mit tariflichen Abweichungen) — ein eigener Bau. Eine falsch gerechnete gesetzliche Frist ist schlimmer als keine. **Ohne diese Antwort kann K3.4 nicht vollständig gebaut werden.** |
+| **E-K3-2** | **Darf in einen vergangenen Monat geplant werden?** | 25 % der Einsätze werden rückwirkend angelegt (bis zu 426 Tage). Entweder die Fläche kann das auch — dann ist sie zugleich Nachtragewerkzeug — oder nicht. Beides ist vertretbar. |
+| **E-K3-3** | **Wie weit zeigt das Raster einen Einsatz ohne Enddatum?** | Offene Einsätze sind der Normalfall, nicht die Ausnahme. |
+| **E-K3-4** | **Sollen die drei nicht geschlossenen Zuordnungen aufgeräumt werden?** | Die Monatsplanung kommt ohne die Bereinigung aus — sie rechnet gegen die wirksame Spanne. Aber jede andere Auswertung, die nur den Link liest, zählt weiterhin falsch. Aufräumen heißt: Bestandsdaten anfassen. |
+
+> **Was die Messung ergeben hat und warum sie den Entwurf bestimmt** *(2026-08-31,
+> laufende Datenbank)*: **91 % der Einsätze überschreiten eine Monatsgrenze** (41
+> von 45 mit Enddatum), 34 spannen drei Monate, nur 5 bleiben in einem einzigen.
+> Ein Raster, das den Monat als abgeschlossene Einheit behandelt, wäre für neun
+> von zehn Zeilen falsch — deshalb: **der Monat ist die Ansicht, der Einsatz ist
+> die Sache.** Dazu: Ø 98 Tage Dauer, Ø 10 Tage Vorlauf, **25 % rückwirkend
+> angelegt**, 7 später geändert.
+>
+> **Korrigiert am 2026-08-31 beim Bauen von K3.4:** die zuerst gemeldete
+> „echte Doppelbelegung im Bestand" war **ein Phantom**. Bei **drei** Zuordnungen
+> steht `end_date IS NULL`, obwohl ihr Einsatz beendet ist — einer endete am
+> 31.03.2025. Gegen die **wirksame Zeitspanne** gerechnet (Link-Ende, begrenzt
+> vom Einsatzende) gibt es **null** Doppelbelegungen. Der Befund ist damit ein
+> anderer, aber kein kleinerer: **Zuordnungen werden beim Abschluss eines
+> Einsatzes nicht geschlossen**, und eine naive Prüfung hätte daraus einen
+> dauerhaften Fehlalarm gemacht. `worker_absences` und
+> `worker_profile_documents` existieren und sind leer — H2 und W2 sind gebaut
+> und berechenbar, aber heute ohne Daten.
+
+> **Was K2 gekostet hat und wofür.** Der Plan sah sieben Phasen vor; gebaut sind
+> sie alle, aber das **Gate K2.2 hat drei Blocker gefunden, die nicht im Plan
+> standen** — die Tier-Deckelung (vorhergesagt), die 20-%-Katalogregel und, am
+> schwersten, der Lebenszyklus: eine 0-€-Rechnung hätte das Abo auf `past_due`
+> gesetzt, niemand hätte sie bezahlt, und nach 14 Tagen wäre der Kunde, dem die
+> Rechnung geschenkt wurde, auf DEMO **ausgesperrt** worden. `applyRenewalPayment`
+> hat bis heute **keinen einzigen Aufrufer**. Das trifft nicht nur den Cashback,
+> sondern jede Rechnung, die auf null fällt — auch einen K1-Eingriff bei 100 %.
+
+> **Die zwei Widersprüche zum Owner-Entscheid sind korrigiert, nicht neu
+> verhandelt:** `MAX_REFERRAL_REWARDS` stand auf **6** statt 3, und die
+> Qualifikation feuerte **sofort** beim Zahlungseingang statt nach 30 Tagen.
+> Beides steht jetzt auf dem entschiedenen Wert. Und die Prämie, die seit jeher
+> **gebucht und nie angewandt** wurde, erreicht die Rechnung.
+
+> **Was das Gate ergeben hat, in einem Satz: die Rechenkette trug die 0 € auf
+> Anhieb, drei andere Schichten nicht.** Der schwerste Befund: der Lauf setzt das
+> Abo auf `past_due`, eine 0-€-Rechnung bezahlt niemand, `applyRenewalPayment`
+> hat **keinen einzigen Aufrufer** — nach 14 Tagen hätte `applyHardLocks` den
+> Kunden, dem die Rechnung geschenkt wurde, auf DEMO **ausgesperrt**. Dazu: die
+> Tier-Deckelung stutzte 100 % auf 25 %, der Katalog ließ überhaupt nur 20 % zu,
+> und der Mahnlauf hätte 0,00 € angemahnt. Alle vier behoben (Mig 208,
+> `nullEuroRechnung.test.js`, 9 Rückmutationen). **Der Owner-Entscheid bleibt
+> unverändert** — keine 99-%-Krücke, kein Gutschriftsweg nötig.
+
+> **Zwei Stellen, an denen der Bestandscode dem Owner-Entscheid widerspricht** —
+> in K2.4/K2.5 zu korrigieren, nicht neu zu verhandeln: `MAX_REFERRAL_REWARDS = 6`
+> (Owner: **höchstens 3**) und die Qualifikation feuert **sofort** beim
+> Zahlungseingang (Owner: **30 Tage Bestand**). Und: die Werbeprämie wird seit
+> jeher **gebucht und nie angewandt** — keine Datei des Geldpfads erwähnt
+> `referral` überhaupt.
+
+> **`K4-B1` gilt weiter, und K1 ist ihm genauso begegnet.** Es gibt **keinen Kanal,
+> der das Team erreicht**: `notificationMatrix.dispatch()` kennt nur org- und
+> vorgangsbezogene Empfänger und **überspringt unbekannte Ereignis-Schlüssel
+> wortlos** (`sent: 0`); `writeStaffAudit()` verlangt zwingend eine handelnde
+> Person und wirft ohne sie — ein Systemereignis hat keine. K4 hat **gezählt**,
+> K1 **hält fest**: der Ausfall wird zur Zeile in `rabatt_ausfaelle` (Kunde, Monat,
+> Grund, angesetzter Ersatzwert, Nettobetrag, die entstandene Rechnung) und ist in
+> der Staff-CC-Fläche `rabatt-faelle` sichtbar. **Kein erfundener Zustellweg** —
+> das wäre genau die stille Fehlerklasse, gegen die diese Spur antritt.
+
+> **Was K1 an der Erhebung gelernt hat und was das für K2 heißt.** Der Plan nannte
+> *einen* stillen Ausfallpfad; es sind **zwei**. Neben dem `catch` in
+> `recurringBillingService` (Summen-Abfrage wirft → Rechnung ohne Rabatt) fängt
+> **`getUserTier` seinen eigenen Datenbankfehler ab** und liefert `null` — der
+> Deckel fällt still auf 8 %, ununterscheidbar von „hat noch keine Stufe", ohne
+> Log. Weil `getUserTier` nie wirft, ist der Sicherheitsnetz-Wert
+> `FALLBACK_MAX_DISCOUNT_PCT = 25` in `bountyService` **unerreichbar**; ein
+> bestehender Test hält das seit jeher fest, ohne dass jemand die Folge gezogen
+> hätte. **Für K2 wichtig:** die Tier-Deckelung greift auf *jedem* Weg, auch auf
+> dem des Eingriffs — der 100-%-Cashback braucht die in 2.3 benannte Ausnahme
+> wirklich, sonst schrumpft er bei einem Bronze-Kunden auf 8 %.
+
+> **Gemessen für K1 (2026-08-29, laufende Datenbank).** 754 verdiente Bounties,
+> davon **57 aktiv** bei **55 Kunden — alle 55 mit aktivem Abo**. Ø 3,09 %,
+> höchstens 8 %, **niemand derzeit gedeckelt**; nur **7 von 55** haben überhaupt
+> eine materialisierte Stufe (die übrigen laufen auf der Voreinstellung 8 %).
+> **273 der 312 aktiven Abos sind bereits fällig**, Rechnungen gibt es bisher
+> **null**. Größenordnung des Rabatts, der an dieser Kette hängt: rund **670 €
+> je Monatslauf** (43 × PLUS à 499 €, 5 × BASIS à 150 €, 7 × INDIVIDUELL).
+
+---
+
+## Wer baut, wer prüft — die Arbeitsteilung *(Owner-Vorgabe 2026-09-05)*
+
+Es arbeiten **zwei Sitzungen auf derselben Linie**, mit getrennten Rollen:
+
+| Rolle | Aufgabe |
+|---|---|
+| **Die bauende Sitzung** | setzt die Wellen um, misst vorher selbst nach (M0-Muster), meldet, was den Plan widerlegt |
+| **Die planende und prüfende Sitzung** | arbeitet die Wellen aus, verriegelt Owner-Regeln als Wächter, und **prüft jede Lieferung gegen** |
+
+**Der Owner hat das ausdrücklich so bestellt:** *„schreibe alles so, dass Welle K1 es
+ausbaut und du wieder gegenprüfst."* („Welle K1“ ist der Name der bauenden Sitzung, nicht
+der Welle.)
+
+### Was daraus für jedes Wellen-Dokument folgt
+
+Ein Plan, der gebaut werden soll, ist **eine Bauanweisung, kein Aufsatz**. Er trägt deshalb
+immer dieselben fünf Dinge:
+
+1. **Die Owner-Vorgabe im Wortlaut** — damit niemand sie nacherzählt und dabei verändert.
+2. **Den gemessenen Ist-Stand mit Beleg** (`datei:zeile`) — und die ausdrückliche Warnung,
+   dass er ein **Vorbefund** ist: die bauende Sitzung misst selbst nach.
+3. **Phasen mit Nachweis**, und wo etwas geschützt wird, eine **Rückmutation** — die Regel
+   von Hand kaputtmachen und prüfen, dass die Suite dabei wirklich rot wird.
+4. **Einen Abschnitt „Woran gegengeprüft wird“** — *vor* dem Bau. Wer die Liste vorher
+   kennt, baut anders; das ist der Zweck.
+5. **Einen Abschnitt „Was diese Welle NICHT tut“** — mit den Bausteinen, die es schon gibt.
+   Wer eines davon neu baut, hat nicht gemessen.
+
+### Die zwei Regeln, die diese Teilung tragen
+
+- **Fehlt etwas wirklich, wird gefragt — nicht erfunden.** Eine Rückfrage kostet zehn
+  Minuten; ein Parallelbau kostet eine Woche und hinterlässt zwei Wahrheiten.
+- **Was den Plan widerlegt, gehört in den Bericht.** Das war bisher jedes Mal wertvoller als
+  ein Plan, der recht behält: in K4 war die geplante Meldung nicht baubar, in M0 gingen drei
+  Urteile von *fehlt* auf *unerreichbar* — und das ändert den Aufwand, nicht nur das Etikett.
+
 ---
 
 ## Eiserne Regeln (Verstoß = echter Schaden)
@@ -25,7 +1915,39 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 | Regel | Warum |
 |---|---|
 | **Nie `git add -A`** | Im Baum liegen ungetrackte Geschäftsunterlagen: `docs/launch/`, `docs/aktuellesitzung/`, die UG-Gründungs-PDF. Immer Pfade einzeln stagen. |
-| **Nur auf Zuruf committen** | Owner entscheidet, was fertig ist. Push wird getrennt angekündigt und nie ohne OK. |
+| **Immer `git commit --only <pfade>`** | **Zweimal passiert (2026-08-27/28):** eine zweite Sitzung arbeitet auf derselben Linie und committet, während meine Dateien im Index liegen — meine Arbeit landete unter *ihrer* Commit-Nachricht (`33374dd`, `e70dafc`). Inhaltlich unversehrt, die Historie erzählt es falsch. `--only` bindet den Commit an genau die genannten Pfade und ist immun dagegen. **Eine geteilte Linie wird nicht umgeschrieben** — der Fehler bleibt stehen und wird benannt. |
+| **Kein Weg von der Plattform ins Staff Control Center** | Owner-Vorgabe 2026-09-01, unverrückbar: keine Hub-Karte, kein Menüpunkt, kein Link, **auch kein toter.** Das Staff Center ist das Kontrollzentrum des Betreibers, kein Kundenzugang. Eine Kachel *innerhalb* des Staff Centers ist erlaubt; eine *auf der Plattform*, die dorthin führt, nie — diese beiden wurden einmal verwechselt. Erzwungen von `api/test/staffNieAusDerPlattform.test.js` (samt Gegenprobe, weil `/staff` Teilzeichenkette von `/staffing-*` ist). Vollständig in [FLAECHEN.md](FLAECHEN.md). |
+| **Kein Freitext, wo ein Katalog existiert** *(Owner-Entscheid 2026-09-22)* | *„keine Freitexte mehr, alles katalogbunden, um maximal integriert zu sein."* Betrifft **jedes** Feld, das eine Tätigkeit, Rolle, Fähigkeit, Qualifikation oder einen Nachweis benennt — auf **allen** Flächen, nicht nur im Marktplatz: Angebot, Bedarf, Suche, Konditionsrahmen, Einsatzportal, Import. **Der Grund ist nicht Bedienkomfort:** zwei Seiten, die dieselbe Sache verschieden schreiben, finden sich nie. Gemessen am 2026-09-21: von 44 Rollenbezeichnungen im Markt treffen **19** den Katalog nie — darunter „Bauhelfer" gegen „Bauhelfer:in", dazu „lager", „ljoj" und ein kaputt kodiertes „Schwei??er". **Ausnahme nur, wo es keinen Katalog geben kann** (Freitext-Notiz, Nachricht, Beschreibung) — und dann darf das Feld auch nicht so heißen, als benenne es eine Rolle. Erzwungen entdeckend, nicht je Seite aufgezählt. |
+| **Ein volles Tor über einen Baum, an dem zwei schreiben, beweist nichts** | **Passiert 2026-09-21:** mein Tor-Lauf lief, während die Parallelsitzung im selben Baum schrieb. Ihr eigener Lauf meldete daraufhin `arbeiterSitzung.test.js` rot — mit einer Begründung, die zu ihrer Arbeit gar nicht passte; in Isolation war die Probe grün. **Wer das volle Tor fährt, sagt es vorher an**, und der andere schreibt in dieser Zeit nur in den Kratzblock. Sonst misst man nicht den Stand, sondern den Zufall des Augenblicks. |
+| **ROT heißt `fail > 0` ODER `cancelled > 0` ODER Rückgabewert ≠ 0** | **Ergänzung zu „Tor-Ergebnis nur an `ℹ fail` ablesen" (2026-09-27, gefunden von der bauenden Sitzung).** Eine Rückmutation, die das **Laden** der Datei zerstört, meldet `tests 39 | pass 0 | fail 0 | cancelled 39`. Wer nur `fail` liest, sieht **null** und hält den Mutanten für überlebend — die Suche nach dem Loch, das es nicht gibt, kostete dort eine halbe Stunde. Dieselbe Falle wie die ursprüngliche Regel, nur in der Gegenrichtung: dort verdeckt ein Abbruch eine rote Zusicherung, hier einen toten Mutanten. **Beide Zahlen lesen, und den Rückgabewert dazu.** |
+| **Rückmutation nie an der ersten Fundstelle — der Kommentar steht oben** | **Mir selbst an einem Tag VIERMAL passiert (2026-09-25/26):** `replace(muster, neu, 1)` trifft die Erklärung über dem Code, nicht den Code. Jedes Mal sah es nach einem überlebenden Mutanten aus, jedes Mal war es meine eigene Zielverfehlung — bei `capacity_post_pool_members`, beim Alias-Schreibvorgang, bei `SUM(` und zuletzt bei `COUNT(DISTINCT`, wo Zeile 28 ein Kommentar und Zeile 74 das SQL war. **Ein Mutant, der überlebt, ist erst dann ein Befund, wenn die Stelle belegt ist** — Zeile zeigen, nicht Muster raten. In dieser Datei ausgerechnet erklärt der Kommentar dieselbe Sache, die der Code tut; genau deshalb steht das Muster zweimal drin. Zeilengenau mutieren, oder die Fundstellen vorher zählen und die richtige auswählen. |
+| **Ein zweiter Mechanismus kann den Mutanten heilen, bevor die Probe hinsieht** | **Gefunden 2026-09-26 (bauende Sitzung, M4c.1):** die Rückmutation an der Titel-Abschrift blieb grün — das Nachführen sah die Abweichung im selben Lauf und schrieb den richtigen Wert hinein. **Selbstheilung ist eine gute Eigenschaft und ein schlechter Zeuge.** Sie verdeckte, dass die Anlage etwas anderes schreibt, als das Nachführen erwartet. Das Gegenmittel ist eine Probe auf den **Zwischenzustand**: ein frisch angelegtes Bündel gibt dem Nachführen **nichts** zu tun. Eigene Klasse, verwandt mit „Probe prüft ihren Gegenstand", aber anders gelagert: dort fehlt der Gegenstand, hier wird er repariert, während man hinsieht. |
+| **Eine Zusicherung, die nur mit Datenbank läuft, ist im Tor keine** | **Gemessen 2026-09-26:** `gesamtangebotEntstehtMit.flow.test.js` — die neun Proben, die M4c.1 belegen — liefert auf dem Rechner ohne Datenbank `tests 0`. **Nicht „skipped", sondern gar nichts:** die Datei erscheint im Tor weder als Lücke noch als Zahl. Zwei meiner Rückmutationen überlebten allein deshalb. Wer eine Zusicherung nur datenbankgebunden ablegt, hat sie für den täglichen Lauf **nicht** abgelegt. **Regel: jede Kernzusage braucht einen Nachweis, der ohne Datenbank rot werden kann** (Form- und Bindungsprobe), zusätzlich zum Ablauf-Nachweis mit Datenbank. Und eine Probendatei, die `tests 0` liefert, ist ein stiller Ausfall — kein grünes Ergebnis. |
+| **Eine ungemessene Warnung im Code ist schlimmer als keine — sie schützt den Fehler, vor dem sie zu warnen scheint** | **Gemessen 2026-09-28.** In `services/reputationSql.js` stand die gut gemeinte Zeile *„`supplier_metrics.agency_id` zeigt selbst auf `organizations` … wer sie mitkorrigiert, bricht sie."* Nachgemessen am Fremdschlüssel: sie zeigt auf **`users`**. Diese **eine** ungemessene Zeile hat **sechs** falsche Leser vor der Entdeckung geschützt (4× `vendorPoolService`, 1× `routes/matching.js`, 1× der eigene Z5-Fix) — jeder, der hinsah, glaubte ihr und ging weiter. Eine Warnung ohne Messung ist keine Vorsicht, sondern eine Behauptung mit Autorität. **Entweder messen und die Zahl danebenschreiben, oder weglassen.** |
+| **Wer nur die Spalte repariert, macht aus einem ehrlichen 500er eine stille 200 mit Nullen** | **Gefunden 2026-09-28 (bauende Sitzung):** `GET /preferred-vendors/capacity` antwortete **immer** mit 500, weil die Abfrage `workers_count` las (die Spalte heißt `headcount`). Dahinter lag ein **toter Join** — wer nur den Spaltennamen richtiggestellt hätte, hätte aus dem lauten Fehler eine leise falsche Antwort gemacht: 200, lauter Nullen, niemand merkt es. **Ein Absturz ist eine Auskunft.** Vor jeder Symptom-Korrektur prüfen, was der Absturz gerade verdeckt — Schwester von „ein Fehler kann ein Schutz sein". |
+| **Ein Alias gilt nur innerhalb seiner Abfrage** | **Beinahe-Fehlalarm, 2026-09-28, beidseitig geprüft.** In `assignmentStaffingService.js` meint `r` in der einen Abfrage `requests` (kein `location_city`, richtig ist `location_text`) und in der anderen `requisitions` (das **hat** `location_city`). Ein Wächter, der Aliasse über die Datei hinweg auflöst, erzeugt an der einen Stelle einen Fehlalarm und übersieht an der anderen den echten Fehler — **und beide Male sieht das Ergebnis gleich plausibel aus**. Aliasse werden je SQL-Literal aufgelöst, nie global; und wer einen Alias-Befund behebt, prüft **zuerst**, welche Tabelle an dieser Stelle gemeint ist. |
+| **Ein `LEFT JOIN` auf eine „eigentlich eindeutige" Beziehung vervielfacht Zeilen, sobald sie es einmal nicht ist** | **Gemessen 2026-09-28:** die Brücke von der Organisation zu ihrem Eigentümer war ein gewöhnlicher `LEFT JOIN`. Von 200 Organisationen hat **eine** zwei Eigentümer — über alle Organisationen ergibt das **2859 statt 2858** Zeilen. Eine einzige Zeile zu viel, und in einer Summe über Geld oder einer Zählung fällt sie niemandem auf. „Es gibt immer nur einen" ist eine Annahme, keine Zusicherung: entweder ein eindeutiger Index erzwingt sie, oder die Abfrage nimmt `LATERAL … LIMIT 1` mit ausdrücklicher `ORDER BY`-Regel, welcher gewinnt. |
+| **Ein Fehler kann ein Schutz sein — dann ist seine Behebung ohne den fehlenden Riegel eine Verschlechterung** | **Gefunden 2026-09-28 (bauende Sitzung), P1-15.** Die Reindex-Abfragen des Suchdienstes tragen **keine** Sichtbarkeitsregel — `requisitions` wird als `FROM requisitions r ORDER BY r.id` eingelesen, also die Anforderungen **aller** Mandanten in einen gemeinsamen Index. Heute läuft nichts aus, weil die Abfragen fünf Spalten benutzen, die es nicht gibt: der Reindex **wirft**, der Index bleibt leer, die Suche fällt auf den korrekt gefilterten Datenbankweg zurück. **Wer die fünf Spalten „nur schnell" richtigstellt, schaltet die Veröffentlichung scharf.** Vor jeder Behebung deshalb die Frage: *hält dieser Fehler gerade etwas auf?* Wenn ja, kommt der Riegel **zuerst**. Und der Riegel ist eine **Kopplung**, keine Notiz: *sobald* die Spalten existieren, muss jede Abfrage den Filter ihres Gegenstücks tragen, sonst rot — in `searchService.js` stand der Warnkommentar „Vor Aktivierung von Meilisearch: pro-Index-Filter ergänzen" seit Langem und hat nichts verhindert. |
+| **Der Suchindex trägt Öffentliches, die Datenbank trägt Mandantengetrenntes** | **Entwurfsregel, aus P1-15 abgeleitet (2026-09-28).** Ein gemeinsamer Index ist eine **flache** Ablage: `org_id` als filterbares Attribut zu führen macht daraus keine Mandantengrenze, weil jeder Fehler in einem Filter sofort fremde Zeilen sichtbar macht — es gibt keine zweite Verteidigungslinie. Deshalb gehört in den Index nur, was **per Definition öffentlich** ist (freigegebene öffentliche Profile, aktive nicht-private Anzeigen), und mandantenprivate Gegenstände gar nicht. „Ein Index je Organisation" löst die Sicherheitsfrage, kauft sie aber mit Betriebskosten, die mit der Kundenzahl wachsen — bei 2566 Organisationen für den Nutzen „schnellere Suche in den eigenen Anforderungen", den der Datenbankweg schon korrekt liefert. **Gilt für jedes Folgeprojekt:** die Frage ist nicht „wie filtere ich den Index", sondern „gehört das überhaupt hinein". |
+| **Eine Sicherheitsentscheidung auf dem Anmeldeweg gehört dem Owner — und eine Nachbarsitzung kann sie nicht freigeben** | **Mein Regelbruch, 2026-09-27/28.** Ich hatte „Reset- und Verifikations-Token werden gehasht" als **entschieden** ins Wellen-Dokument geschrieben — mit drei guten Messungen als Begründung, aber ohne Freigabe. Die bauende Sitzung hat die Ausführung **verweigert** und lag damit richtig: Hashen eines Auth-Tokens, eine Verfallszeit auf `verification_token` und das Umstellen der Wiederversand-Wege sind Sicherheitsentscheidungen auf dem Anmeldeweg, und dort gilt *immer Owner, nie autonom*. **Eine sachlich überzeugende Begründung ist keine Freigabe**, und zwei Sitzungen, die sich gegenseitig überzeugen, umgehen gemeinsam genau die Schranke, die dafür da ist. Gilt auch umgekehrt: nicht umkehrbare Eingriffe (eine Tabelle auf einer laufenden Datenbank löschen, auch eine leere) bleiben owner-gebunden. |
+| **Die Dokumentation kann die Erkennung besiegen** | **Gefunden 2026-09-28 (bauende Sitzung), und es ist die unangenehmste Falle der Woche.** Der Schema-Wächter zog seinen Wortschatz aus dem ganzen Dateitext — also **auch aus Kommentaren**. Der Kopf der eigenen Migration nannte die geduldeten Spalten, und schon galten sie als deklariert: **jeder Befund ließe sich „beheben", indem man den Namen in einen Kommentar schreibt.** Nach der Korrektur auf *ausführbares* SQL kamen **sieben** echte Befunde zum Vorschein. Und selbst dann: `COMMENT ON COLUMN` **ist** ausführbar und **nennt** einen Namen, ohne ihn zu deklarieren — nach dieser zweiten Korrektur waren es **neun**. Die Folge in einem Satz: **4 → 7 → 9. Ein Wächter, der beim ersten Lauf grün ist, hat nicht bewiesen, dass nichts da ist — nur, dass er nichts sieht.** |
+| **Jede Sammlung braucht eine Gegenprobe mit einem bekannten Treffer** | **Gefunden 2026-09-28 (bauende Sitzung):** eine Messung „welche Endpunkte ruft niemand auf" sammelte **0** Dateien und meldete daraufhin folgerichtig **alle 29** internen Endpunkte als aufruferlos. Eine kaputte Sammlung sieht aus wie ein dramatischer Befund. Jede Messung, die über einer selbst gesammelten Dateimenge rechnet, prüft zuerst, dass sie **eine bekannte Nennung wirklich findet** — sonst misst sie ihre eigene Leere. Zwei Varianten desselben Fehlers gemessen: `frontend/src/owner-control/` ausschließen meldet die OCC-Fläche fälschlich als aufruferlos (130 statt 123), und die gebauten Staff-Bundles als „nur Build-Ausgabe" zu überspringen löscht die einzige Spur des Staff Control Centers. |
+| **Der Schnappschuss-Wächter kann nicht wissen, ob ein Objekt bei einem Lauf von null entsteht** | **Belegt 2026-09-28, als das Frisch-Installations-Gate zum ersten Mal grün wurde** (229 Migrationen auf leerer Datenbank, `=== PASS ===`). `migrationenGegenBestand` vergleicht die Migrationen gegen den Schnappschuss der **laufenden** Datenbank — ein Objekt, das dort steht und deklariert ist, ist für ihn in Ordnung. Ob der Installationsweg es **ab null** wirklich erzeugt, sieht nur ein echter Frisch-Lauf. **Beide gehören zusammen: der Wächter im Tor bei jedem Commit, der Frisch-Lauf vor jedem Release.** Warum das so lange offen war, ist die eigentliche Lehre — und es ist **dieselbe wie bei P1-C, zum zweiten Mal an einem anderen Gate:** das Gate war laut eigenem Kommentar „de facto nie grün", und darin steckten vier echte Werkzeugfehler (Git-Bash-Pfadumschreibung, CRLF im Container-Skript, fehlendes `init.sql`, ein Tabellenname, den es nie gab). **Ein dauerhaft rotes Gate wird übersprungen — und dann prüft niemand mehr, was es prüft. Es ist schlimmer als keins, weil es beruhigt.** |
+| **Wer eine Auswahl nachbildet, statt die echte zu übernehmen, misst ein anderes Projekt** | **2026-09-27, und es hätte einen Livegang-Alarm ausgelöst.** Um zu prüfen, welche Tabellen die Migrationen deklarieren, wurde das Dateimuster `^[0-9]{3}_` *erfunden*. `sql/migrate.sh` nimmt aber `ls /migrations/*.sql \| sort` — und es gibt `027b_timesheets.sql` und `045b_reputation_visibility.sql`. **`027b` legt `timesheets` und `timesheet_entries` an**, fiel durchs Muster, und das Ergebnis lautete: „der Kern der Stundenzettel ist undeklariert, eine frische Installation bricht." Wer eine Menge messen will, die ein Skript bestimmt, **übernimmt dessen Auswahl wörtlich** — nicht ihren vermuteten Sinn. |
+| **Zwei unabhängige Fehler in dieselbe Richtung sehen wie eine Bestätigung aus** | **Direkt daneben passiert:** die Nachprüfung des Befunds oben ergab dasselbe Ergebnis — weil sie den Dateimuster-Fehler noch enthielt und zusätzlich alle `CREATE` vor allen `DROP` verarbeitete, wodurch `DROP TABLE IF EXISTS x; CREATE TABLE x` als Entfernung galt. Eine zweite eigene Messung ist **keine** unabhängige Bestätigung. Aufgefallen ist es an einem Widerspruch zu einer **dritten Quelle**: `sql/test-fresh-install.sh` prüft `timesheets` ausdrücklich — eine Tabelle, die das Frisch-Installations-Gate prüft, kann nicht undeklariert sein. **Der Widerspruch ist der Hinweis, nicht die wiederholte eigene Rechnung.** |
+| **Eine Zählung nennt ihr Prädikat, oder sie zählt etwas anderes** | **Gemessen 2026-09-27:** „198 Tabellen in der laufenden Datenbank" sind **197 Tabellen und eine Sicht**. `activity_feed` ist `relkind='v'`, deklariert in `025_enterprise_foundation.sql:45` mit `CREATE OR REPLACE VIEW` — gegen eine `CREATE TABLE`-Suche erschien sie als **undeklarierte Waise** und wäre als dauerhafte Ausnahme in einen Wächter gewandert. Jede erzeugte Zahl im Register führt ihr `relkind` bzw. ihren Filter mit sich, sonst ist sie nachrechenbar **falsch** statt nachrechenbar richtig. |
+| **Eine Probe, deren Vorbedingung nie erfüllbar ist, überspringt sich selbst und ist leer grün** | **Gefunden 2026-09-27 (bauende Sitzung).** Die Z6-Probe verlangte `reputation_score IS NOT NULL` — gemessen ist dieser Wert in **allen neun** Zeilen null (`grade='UNRATED'`, nur `avg_stars` gesetzt). Die Probe lief also nie über echte Daten und war trotzdem grün. Die Abhilfe: an einer Spalte messen, die **NOT NULL** ist (hier `grade`), dann ist NULL dort ein eindeutiger Beweis. Schwester von „die Probe prüft zuerst ihren Gegenstand". |
+| **Wer den Abfragetext selbst ausführt, belegt die Form, nicht ihre Verwendung** | **Gefunden 2026-09-27 (bauende Sitzung, Z5):** die Rückmutation „Anker wieder auf `organizations`" **überlebte**, weil die Probe den korrigierten SQL-Text selbst ausführte. Belegt war damit nur, dass die richtige Form funktioniert — nicht, dass der Dienst sie stellt. Zu jeder Form-Probe gehört die Zusicherung, dass **der Aufrufer genau diese Form erzeugt**. Verwandt mit „Wächter an die Wirkung hängen". |
+| **Eine abgeschnittene Suche belegt Anwesenheit, nie Abwesenheit** | **Beinahe teuer, 2026-09-27 (planende Sitzung).** Ich prüfte mit `grep -rl … \| head -3`, ob eine Migration sechs Spalten von `supplier_reputation` deklariert — drei Treffer, keiner davon die richtige Datei, Schluss: *„sechs Spalten existieren nur in der laufenden Datenbank, das Schema ist von Hand gepatcht, eine frische Hetzner-Installation bricht."* Das wäre ein Alarm über die Produktionsdatenbank gewesen, kurz vor dem Livegang. Tatsächlich stehen sie in `044_reputation_ranking.sql` und `045b_reputation_visibility.sql` — `head -3` hatte die Liste abgeschnitten. **Jede Suche, aus deren Leere eine Aussage folgt, läuft ohne `head`, ohne `-m`, ohne `limit`.** Ein Treffer beweist Anwesenheit; nur eine *vollständige* Suche beweist Abwesenheit. |
+| **Eine Probe, die nur die Abweisung kennt, bleibt grün, wenn der gültige Weg zerstört wird** | **Gefunden 2026-09-27 (bauende Sitzung) in eigenen Rückmutationen: zwei von sieben überlebten.** Geprüft war nur, dass ein **ungültiger** Wert eine 400 bekommt — nicht, dass ein **gültiger** durchkommt. Mit `parseInt` auf einer Org-UUID wird aus der echten Kennung die Zahl `3`, die fällt durch dieselbe Schranke: **jeder echte Filter endete in einer 400, und die Probe merkte es nicht.** Zu jeder „wird abgewiesen"-Zusicherung gehört eine „kommt durch"-Zusicherung mit einem echten Wert. Zwillingsregel zu „die Probe prüft zuerst ihren Gegenstand". |
+| **Der naheliegende Vergleich kann genau invertiert sein — vergleiche das OBJEKT, nicht den Namen** | **Gemessen 2026-09-27 (Z4).** Die Frage war: „lügt das Migrationsverzeichnis?" Der billige Vergleich — Buchungen gegen Dateinamen — hätte **239 gegen 226** gemeldet und damit **13 harmlose Altnamen rot und den einen echten Schaden grün**: `059_feature_overrides.sql` ist verbucht, die Datei existiert, **die Tabelle nicht**. Vor jedem Wächter deshalb prüfen, ob das gemessene Merkmal überhaupt am Schaden hängt. Ein Name ist ein Etikett, die Wirkung ist das Objekt — verwandt mit „Pfadname `me`/`mine` lügt" und mit „Wächter an die Wirkung hängen". |
+| **Die Abnahme prüft den Begriff des Owners, nicht den der Umsetzung** | **Gefunden 2026-09-25:** die Zusage lautete „ein Mensch, fünfmal gebucht, wäre Betrug". Geprüft wurde, ob eine **Einsatz-Verknüpfung** die Angebote pausiert — nicht, ob eine **Buchung** es tut. Alle Proben grün, die Zusage nicht erfüllt: nach `accept-deal` blieb derselbe Mensch über jede andere Darstellung buchbar. **Wer eine Abnahme schreibt, übersetzt sie zuerst in den Begriff des Owners und prüft dann diesen.** „Gebunden" heißt gebucht ODER im Einsatz — nicht „hat eine Zeile in der Verknüpfungstabelle". Verwandt mit „die Probe prüft zuerst ihren Gegenstand", aber eine Ebene höher: dort fehlt der Gegenstand, hier ist er der falsche. |
+| **Schritte ohne Fehlerfall brauchen eine Probe an der WIRKUNG** | **Gefunden 2026-09-23 per Rückmutation:** der `SET aliases`-Schreibvorgang wurde unwirksam gemacht — **alle Proben blieben grün**. Es gibt eine Klasse von Schritten, deren Ausfall **nichts kaputtmacht, sondern nur die Wirkung aufhebt**: die Kuratierung lief weiter, sie lohnte sich nur nicht mehr (jede Schreibvariante käme wieder). Solche Schritte haben **keinen Fehlerfall, an dem man sie bemerkt** — kein 500er, keine leere Liste, kein Nutzer, der sich beschwert. Sie brauchen deshalb zwingend eine Probe an der Wirkung, nicht an der Anwesenheit: **Form-Probe je Bestandteil** der Abfrage **plus Bindungsprobe der Parameter** (`assert.deepEqual(params, [...])` — ohne sie überlebt eine Mutation, die zwei Parameter vertauscht: formal dieselbe Anweisung, inhaltlich das Gegenteil). Verwandt, aber nicht dasselbe wie „die Probe prüft zuerst ihren Gegenstand": dort ist die Probe leer, hier ist der Gegenstand wirkungslos. |
+| **Steuerzeichen entstehen beim Schreiben von Text, nicht beim Programmieren** | **Passiert 2026-09-21 dreimal an einem Tag (bauende Sitzung):** ein NUL in einer Probendatei (Git stufte sie als binär ein), ein NUL in einer Commit-Nachricht (Git verweigerte sie) und — das gefährlichste — ein **BACKSPACE in einer Regex**: die Probe war grün und verglich gegen ein Zeichen, das im Zieltext nie vorkommt. Sie hätte nie etwas gefangen. In keinem Editor sichtbar. Entsteht, wenn beim Schreiben aus der Escape-Sequenz das Zeichen wird. Auch zwei Planungsdokumente trugen es, ausgerechnet dort, wo sie die `\b`-Falle **beschreiben**. **Nach jedem Schreiben von Escape-Sequenzen einmal auf `Bin` im Diff achten** — das ist das Verräterzeichen. Erzwungen von `api/test/repoHygiene.test.js` über alle getrackten Textdateien. |
+| **`git commit --only <pfad>` schützt den PFAD, nicht deine Zeilen** | **Passiert 2026-09-20:** ich habe `docs/features/N_PERSONALSUCHE.md` mit `--only` committet — und dabei die noch unfertigen Statuszeilen der Parallelsitzung mitgenommen, die in derselben Datei lagen. `--only` begrenzt auf die genannten Pfade und nimmt von jedem den **ganzen Arbeitsstand**. Diesmal war es Text, beim nächsten Mal wäre es halbfertiger Code. **Auf einer geteilten Linie vor jedem Commit `git diff <pfad>` lesen** und nur das committen, was man selbst geschrieben hat. |
+| **Vor dem Anlegen einer Datei: `git log --oneline -- <pfad>`** | **Passiert 2026-09-06:** ich habe `docs/features/P_ALTLASTEN.md` geschrieben, ohne zu prüfen, ob es sie gibt — und dabei **139 Zeilen** der bereits committeten Fassung der Parallelsitzung überschrieben (`f3cbe1b`). Das Werkzeug hatte es gemeldet („updated" statt „created"); gelesen habe ich es erst danach. Wiederhergestellt, und das Fehlende **additiv** nachgetragen statt ersetzt. **Auf einer geteilten Linie ist eine neue Datei fast nie neu** — zwei Sitzungen, die denselben Auftrag hören, schreiben denselben Namen. |
+| **Nie `git checkout <branch> -- <datei>` zum Abgleich zwischen Sitzungen** | Das ist **kein** Abgleich, sondern ein **Rücksetzer**: es verwirft unversionierte Änderungen an genau diesen Dateien. Sitzen beide Sitzungen auf **derselben Linie** — was der Normalfall ist —, ist der Befehl sinnlos und gefährlich zugleich. **Passiert 2026-09-01:** ich habe einer Parallelsitzung genau das empfohlen, weil `list_sessions` mir einen anderen Branch gemeldet hatte und ich es nicht nachgeprüft habe. Sie hat sich zu Recht geweigert; ausgeführt hätte es ihre Arbeit an drei Owner-Entscheidungen vernichtet. **Vorher prüfen:** `git branch --show-current` auf beiden Seiten, `git merge-base --is-ancestor <commit> HEAD`, und `git log --oneline -- <datei>` sagt, ob es überhaupt etwas zu holen gibt. Auf einer geteilten Linie ist die richtige Antwort meist: **gar nichts tun, es liegt schon da.** |
+| **Push nur auf Zuruf** | Die **Commit**-Freigabe steht dauerhaft (Owner 2026-08-13): fertige Wellen werden nach grüner Suite ohne Nachfrage committet. Der **Push** braucht jedes Mal eine ausdrückliche Zusage — `origin` ist öffentlich. |
 | **`Co-Authored-By: Claude <noreply@anthropic.com>`** | An jeden Commit. |
 | **Tests sind die Spezifikation** | Ein roter Test wird **nie** durch Abschwächen grün gemacht. Ausnahme nur, wenn der Test nachweisbar einen Bug als Soll kodiert — mit Begründung im Commit. |
 | **Kein stiller Skip** | Ein Test, der unter `api/scripts/run-tests.js` nicht real läuft, zählt nicht als grün. Pfade immer über `import.meta.url` auflösen, nie nur über `process.cwd()`. |
@@ -39,28 +1961,53 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **9520 Tests** (2026-08-21, voller Lauf ohne Pipe nach dem
-vollstaendigen Zusammenfuehren von H1 und H2), davon 13 übersprungen — die DB-gebundenen, die
-nur im Container laufen.
+Stand: **10327 Tests, 10312 bestanden, Rückgabewert 0** (2026-08-29, nach K4).
+Zwischenstände zur Einordnung: 10197 nach dem Zusammenführen der Release-Linie
+(2026-08-27), davor 9524 auf der Arbeitslinie bzw. 9520 auf der Release-Linie;
+der Zuwachs ist die Summe beider Linien (u. a. E-Rechnung EN 16931, Wellen J1–J10).
+Im Container zusätzlich **369/369** DB-gestützte Tests.
 
-> **Falle beim Arbeiten in einem `git worktree`:** `.agents/`, `frontend/support-ops/`
-> und die ungetrackten Dateien unter `docs/launch/` sind gitignored und fehlen in
-> einem frischen Baum. `dokuWaechter.test.js` und `docsConsistency.test.js` werden
-> dadurch rot, **ohne dass am Code etwas falsch ist** — vier Dokumente wirken
-> verwaist, weil die Verweise aus `SKILL.md` fehlen. **Zwei Sitzungen sind
-> unabhängig voneinander darauf hereingefallen**, was die Falle gut belegt.
-> Abhilfe: die drei Pfade aus dem Hauptbaum verknüpfen (Junction/Symlink) — am
-> 2026-08-19 gemessen: im Hauptbaum grün, im Worktree rot, nach dem Verknüpfen
-> grün. Wer nicht verknüpft, prüft die beiden Dateien zusätzlich im Hauptbaum:
+> **Der Rückgabewert ist das Urteil, nicht die Fehlerzeile.** Auf Windows bricht
+> gelegentlich eine Testdatei mit einem **nativen libuv-Abbruch** ab
+> (`UV_HANDLE_CLOSING`) — das ist ein Abbruch der Laufzeit, kein roter Test.
+> Der Läufer erkennt das (`api/scripts/lib/nativerAbbruch.mjs`), fährt die
+> abgestürzte Datei **einzeln nach** und meldet nur dann grün, wenn *beides* gilt:
+> die Datei läuft allein vollständig grün **und** der Hauptlauf hatte sonst keine
+> rote Datei. Ein echter Fehlschlag daneben verhindert die Wiederholung
+> ausdrücklich. Der Lauf sagt außerdem selbst, was er **nicht** bewiesen hat
+> (`20fcf42`) — diese Zeilen sind zu lesen, nicht zu überblättern.
+
+> **Ein Worktree ist kein halbes Repo mehr (behoben 2026-08-21, P2-W1).**
+> `.agents/`, `frontend/support-ops/`, die ungetrackten Dateien unter
+> `docs/launch/` und `deploy/.env` sind gitignored und fehlen in jedem frischen
+> Baum. Drei Wächter leiteten daraus einen Befund ab und waren im Worktree
+> dauerhaft rot, **ohne dass am Code etwas falsch war** — zwei Sitzungen sind
+> unabhängig voneinander hineingelaufen. Sie prüfen jetzt den **git-Index**
+> statt des Dateibaums und melden Ignoriertes als *nicht geprüft* statt als
+> Fund (`api/test/helpers/repoBestand.js`). **Die Junction-Krücke von früher
+> ist damit überflüssig** — wer noch eine hat, kann sie entfernen
+> (nicht-rekursiv: `[System.IO.Directory]::Delete($pfad, $false)`; ein
+> `Remove-Item -Recurse` greift durch sie hindurch und räumt das Ziel im
+> Hauptbaum mit ab).
 >
-> ```bash
-> cd api && node --test --test-force-exit test/docsConsistency.test.js test/dokuWaechter.test.js
+> Nachgewiesen in drei Umgebungen mit identischem Urteil: Worktree, frischer
+> `git clone` (trägt gar keine ignorierten Dateien) und ein Baum, in dem sie
+> liegen. `api/test/repoBestand.test.js` nagelt die Regel fest — samt der
+> git-Falle, dass ein abschließender Schrägstrich (`docs/README.md/`) den
+> Index-Abgleich aushängt und **jeden** Pfad als ignoriert meldet.
+>
+> **Was ein Worktree wirklich braucht:** `api/node_modules`. Es ist gitignored,
+> also fehlt es — und ohne es bricht die halbe Suite mit `ERR_MODULE_NOT_FOUND`
+> ab (207 Fehler, die wie Testbrüche aussehen). Einmalig verknüpfen:
+>
+> ```powershell
+> # Pfade OHNE Backslash-Escapes zusammensetzen - genau hier ist die Doku
+> # schon einmal zerbrochen (aus api\node_modules wurde ein Klingelzeichen
+> # plus Zeilenumbruch, der Befehl war unlesbar).
+> $wt   = Join-Path $worktree  'api/node_modules'
+> $haus = Join-Path $hauptbaum 'api/node_modules'
+> New-Item -ItemType Junction -Path $wt -Target $haus
 > ```
->
-> **Wer eine Junction anlegt, entfernt sie vor dem Löschen des Worktrees wieder**
-> — nicht-rekursiv (`[System.IO.Directory]::Delete($pfad, $false)`). Ein
-> `Remove-Item -Recurse` greift sonst durch sie hindurch und räumt das Ziel im
-> Hauptbaum mit ab.
 
 Die DB-gestützten Tests laufen im Container, wo `DB_HOST` gesetzt ist — auf dem
 Host überspringen sie sich selbst. Was gegen das echte Schema geprüft sein muss
@@ -101,10 +2048,90 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 
 ---
 
+### Der Browser prüft nicht deinen Backend-Code (gefunden 2026-08-26)
+
+Der API-Container mountet das **Haupt-Repo** nach `/app`. Entscheidend ist aber
+etwas anderes: **Node lädt seine Module beim Prozessstart und liest sie nie neu.**
+Am 26.08. lief `node server.js` seit **2 Tagen 1 Stunde**. Was der Prozess
+bedient, ist ein Schnappschuss von dem, was beim Start in `/app` lag — nicht das,
+was heute dort liegt, und schon gar nicht dein Worktree.
+
+**Konkret schiefgegangen:** Ein Bedarf wurde im Browser angelegt, kam mit **201**
+zurück und trug eine Ansprechperson aus dem Profil. Das sah aus wie der Beleg
+dafür, dass eine Worktree-Änderung greift. Der Code auf der Platte kann diese
+Spalten aber gar nicht schreiben — sein `INSERT INTO demand_requests` kennt sie
+nicht, und ein Trigger existiert auch nicht. Es war ein fremder Schnappschuss.
+
+| Prüfweg | Was er wirklich prüft |
+|---|---|
+| Browser gegen `:8080` oder den Vorschau-Server `:4178` | den **Schnappschuss** im laufenden Prozess |
+| `docker exec … node scripts/run-tests.js` aus einer Kopie (`/tmp/wtN`) | **deinen** Code — frischer Prozess, frisch geladen |
+| Frontend über den Vorschau-Server | **dein** Frontend — der Server liefert den Worktree aus |
+
+Also: **Frontend-Änderungen sind im Browser echt prüfbar, Backend-Änderungen
+nicht.** Der Vorschau-Server leitet `/api` an denselben nginx weiter, der auch
+8080 bedient.
+
+**Bevor irgendwo „am laufenden System belegt" steht:**
+
+```bash
+docker exec tempconnect_api sh -c "ps -o etime,args | grep '[n]ode server.js'"
+```
+
+Ist die Laufzeit älter als die eigene Änderung, wird etwas anderes geprüft als
+gemeint. Ein Neustart hilft nur bedingt — er lädt den Stand des **Haupt-Repos**,
+nicht den des Worktrees.
+
+---
+
+### Drei Fallen der Werkzeugkette, jede teuer bezahlt
+
+Diese drei haben in einer einzigen Sitzung zusammen mehrere Stunden gekostet.
+Sie haben **nichts** mit dem Produkt zu tun und treffen trotzdem jeden.
+
+**1 · Escape-Zeichen kollabieren auf dem Weg durch die Werkzeuge.**
+Fünfmal passiert. `\n`, `\r`, Backslashes und Backticks werden je nach Weg
+(Bash, Heredoc, `python -c`, Schreib-Werkzeug) einmal zu viel interpretiert.
+Ein Reparaturskript hat dabei einen ganzen Testblock gelöscht; der Befehl in
+dieser Datei war unlesbar, weil aus `api\node_modules` ein Klingelzeichen plus
+Zeilenumbruch wurde (heute repariert).
+
+> **Regel:** Inhalte **ohne jedes Escape** erzeugen — `chr(10)`, `chr(96)`,
+> `String.fromCharCode(...)`. Skripte in eine **Datei** schreiben statt `-c`.
+> Und **immer das Ergebnis ansehen**, nie der Erfolgsmeldung des Skripts glauben.
+
+**2 · Eine Pipe verschluckt den Rückgabewert.**
+`node scripts/run-tests.js | grep … | head` liefert den Status von `head` — also
+**0**. Eine rote Suite sah grün aus. **Regel:** Läufe in eine Datei umleiten und
+die Datei lesen; niemals einen Testlauf durch eine Pipe beurteilen.
+
+**3 · Der Browser beweist nichts über das Backend.** Siehe den Abschnitt darüber.
+Ein 201 aus einem zwei Tage alten Prozess ist kein Beleg — er ist eine Falle, die
+wie ein Beleg aussieht. **Ich bin einmal hineingelaufen und habe die Behauptung
+zurückziehen müssen.**
+
 ## Wo die Arbeitspläne liegen
 
 | Plan | Inhalt |
 |---|---|
+| [features/T_MARKTAUDIT.md](features/T_MARKTAUDIT.md) | **Das monatliche Audit.** Nicht ein zweiter Messweg, sondern **das fehlende Gedaechtnis**: `doku-generieren.js` prueft die Zahl von heute, hebt sie aber nicht auf — deshalb laesst sich nicht sagen, was sich veraendert hat. Der Bericht antwortet **in Faehigkeiten statt in Zahlen** (je Satz drei Belege: Endpunkt · Aufrufer · Waechter; fehlt einer, gilt sie als *halb*) und fuehrt die **Schulden daneben** — ein Bericht, der nur waechst, ist Werbung. **Wertermittlung als Wiederherstellungsaufwand in Personenmonaten mit Spanne, nie ein Euro-Betrag als Wert der Plattform.** |
+| [features/S_ABHAENGIGKEITEN.md](features/S_ABHAENGIGKEITEN.md) | **Der Peer-Konflikt ist ein Symptom.** Nach dem Merge startete der Container 26-mal nicht (`@pdf-lib/fontkit` fehlte), und `npm install` scheiterte am `bullmq`/`redis`-Konflikt. **Gemessen:** `redis` steht in `package.json` und wird in **genau einer Datei** benutzt (`rateLimit.js:7`), waehrend `ioredis` **undeklariert** ueber `bullmq` mitkommt. Zwei Klienten fuer dieselbe Sache. Empfehlung **C: node-redis abloesen**. Dazu S4 — der Container bedient den **Hauptbaum**, nicht den Worktree. |
+| [features/Z_SCHEMA_SCHULDEN.md](features/Z_SCHEMA_SCHULDEN.md) | **Code, der gegen Spalten schreibt, die es nicht gibt.** 16 Befunde in 7 Gruppen, gemessen gegen die laufende Datenbank. **Der Wächter dafür existiert seit dem 2026-09-15** (`sqlSchemaWaechter.test.js`) — es fehlt nicht die Erkennung, sondern die Behebung. Vor dem Livegang zählen zwei: **der Passwort-Zurücksetzen-Weg wirft**, und **niemand kann einen Stundenzettel unterschreiben**. |
+| [features/Y_PROBEBUEHNE.md](features/Y_PROBEBUEHNE.md) | **Die Probebühne.** Benannte Konten für jede Rolle, jedes Abo, jeden Zustand — plus ein Regiebuch mit erwartetem Ergebnis je Weg. **Befund:** nicht die Daten fehlen (2566 Organisationen), sondern die Besetzung — **1 von 2566 hat mehr als einen Standort, 3 von 33 Kräften haben Fähigkeiten.** Ohne sie ist Welle U nicht durchspielbar und der Marktplatz kann nicht voll wirken. |
+| [features/V_SCHNITTSTELLEN.md](features/V_SCHNITTSTELLEN.md) | **Komplettsystem oder angedocktes Modul.** Je Organisation und Objekt genau ein führendes System; der Kern (Marktplatz, Matching, Deal, Live-Belegschaft, Einsatzportal) bleibt immer bei TempConnect. Enthält die **Kreislaufkarte K-1…K-7** und die **Verdrahtungskette**, an der jede Phase von N8, E7, U, W, X gemessen wird. |
+| [features/U_STANDORTE_ROLLEN_SICHTBARKEIT.md](features/U_STANDORTE_ROLLEN_SICHTBARKEIT.md) | **Standorte, Rollen, Profile.** Firmen-Admin verwaltet sein Team ohne Rechteausweitung; Worker-Profile pseudonym bis zum Abschluss, über Positivliste. |
+| [features/W_SUPPORT_REPOHYGIENE.md](features/W_SUPPORT_REPOHYGIENE.md) | **Support Center für Mengen, Repo ohne Fallen.** Rückweg „häufige Anfrage wird Hilfeartikel"; externe Rolle mit geringsten Rechten; Schlüsselmuster- und Office-Datei-Wächter. |
+| [features/X_LOHNVORSCHAU.md](features/X_LOHNVORSCHAU.md) | **Lohnvorschau.** Die Falle zuerst: die Plattform kennt den Kundenpreis, nicht den Lohn. |
+| [features/P_ALTLASTEN.md](features/P_ALTLASTEN.md) | **Das Altlasten-Register.** Vier Klassen: **A entfernen · B anschließen (sieht tot aus, ist geplant) · C behalten · D erst messen**. Die Unterscheidung A/B ist der Kern — tot und noch-nicht-angeschlossen sehen identisch aus und verlangen das Gegenteil. **Klasse B hat sieben Posten; wer dort aufräumt, löscht geplante Fähigkeiten.** |
+| [features/R_ZEITARBEITSFIRMA.md](features/R_ZEITARBEITSFIRMA.md) | **Die Sicht der Zeitarbeitsfirma.** **Befund:** sie hat keinen Ort, sie hat **17** — davon **4 in der Navigation**. Die tägliche Stundenzettel-Prüfung (10 Endpunkte) steht in keiner. Die Welle baut nicht mehr Funktionen, sondern **einen Ort und einen Tag**. Abgeleitet, weil die Flow-Vorgabe des Owners nie kam — Annahmen sind gekennzeichnet. |
+| [features/Q_ZUVERLAESSIGKEIT_ZEUGNIS.md](features/Q_ZUVERLAESSIGKEIT_ZEUGNIS.md) | **Zuverlässigkeit, Zeugnis, Abwesenheit.** Skala **ohne Krankmeldungen** und **nicht heimlich** (Art. 9 / Art. 15 / § 87 BetrVG); Zeugnis als **Entwurf**, nie automatisch ausgestellt; Verspätung und Krankmeldung **lösen sich ab statt sich zu sperren**. |
+| [features/O_RAHMENBEDINGUNGEN.md](features/O_RAHMENBEDINGUNGEN.md) | **Rahmenbedingungen und Passung.** Harte Bedingungen gatten (Verleiherlaubnis, Haftpflicht, Tarifbindung, AV-Vertrag), weiche **sortieren** — damit der Marktplatz voll bleibt. **Befund:** `contracts` mit Typ `framework` ist modelliert, aber der Buchungsweg liest ihn **null mal**; `preferredSuppliersOnly()` hat keinen Aufrufer. **O-L1:** bezahlte Hebung bricht nur Gleichstand und wird gekennzeichnet — sonst ist „beste Trefferquote oben“ unwahr. |
+| [features/N_PERSONALSUCHE.md](features/N_PERSONALSUCHE.md) | **Die Unternehmenssicht.** Vier Fragen, ein Bündel, eine Bestätigung, ein verbindlicher Abschluss — sieben Wellen N1–N7. **Der wichtigste Befund darin:** die Angebotsseite ist katalogfest, die Nachfrageseite ist Freitext; die beiden können sich strukturell nicht finden. Dazu **zwei fertige Motoren ohne Oberfläche** (`smartPricing`, `capacityDiscovery`, je null Frontend-Aufrufer). |
+| [features/M_MARKTPLATZ_FLOW.md](features/M_MARKTPLATZ_FLOW.md) | **Der große Plan.** Der vollständige Unternehmens-Marktplatz als Kette, 19 Schritte vom Abokauf bis zum Dokument im Einsatzportal. Ist-Stand **gemessen und gegengeprüft** (130 Urteile: 65 fertig, 33 teilweise, 24 fehlen, 7 unerreichbar), zwölf Wellen M0–M11, sechs offene Owner-Entscheidungen M-E1…M-E6. **Vor jedem Anfassen des Marktplatzes lesen.** |
+| [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md) | **Der aktive Plan.** Owner-Abschnitte 12 + 13: Bounty-Verwaltung ins Staff CC, Werbe-Cashback, Monatsplanung, Feed-Rückfall. Alle Owner-Entscheidungen getroffen (2026-08-27). **K0 + K4 + K1 + K2 gebaut, K3.1–K3.4 gebaut. K3.5 und die Oberfläche sind offen.** |
+| [features/L_TRAGFAEHIGKEIT.md](features/L_TRAGFAEHIGKEIT.md) | Hochverfügbarkeit und Skalierung („wie tragen wir 10 000 Kunden?"). **Eigenständiger Abschnitt, dokumentiert und ausdrücklich nicht gebaut** — Owner-Vorgabe 2026-08-27. |
+| [features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md](features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md) | Welle J: Live-Belegschaft ↔ Marktplatz, Rechnungsstammdaten, E-Rechnung (ZUGFeRD, PDF/A-3u, Schematron). Gebaut. |
+| [features/I_AUDIT_ZUWEISUNG_SUPPORT.md](features/I_AUDIT_ZUWEISUNG_SUPPORT.md) · [features/I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md](features/I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md) | Welle I: Audit-Trennung, Fristen, Support-Weg. **I3 Stufe 1 gebaut** (E-Mail im Arbeiter-Weg), Stufen 2–4 offen (Web Push statt SMS — billiger und die Einwilligung ist sauberer). |
 | [features/P10_IMPORT_LIVE_ZEIT.md](features/P10_IMPORT_LIVE_ZEIT.md) | Owner-Abschnitte 5–7: CSV-Import (Spur D), Live-Belegschaft (E), Systemzeit (F) |
 | `_TEMPCONNECT_MUTATION_RBAC_PLAN.md` *(gitignored!)* | Mutation-Testing, Wellen 0–4 + Roadmap für sieben weitere Bereiche |
 | [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) | Warum die Mandantengrenze 80-mal einzeln in den Routen steht — versionierte Fassung des wichtigsten Architekturbefunds. **Welle 3b ist abgeschlossen** (2026-08-19). |
@@ -1023,6 +3050,43 @@ Klartext.
 | **NOT_AUTH** (`61d2091`) | Nicht „alle Portalseiten", sondern **genau die G5-Seite**. Und kein Konsolen-Problem: Sie blieb für Abgemeldete **dauerhaft weiß**, ohne Weg zum Login — ausgerechnet der Notfallweg. Siebenmal kopiert, beim achten Mal vergessen. |
 | **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — **kein offener Punkt mehr** — P1-22 ist mit der Owner-Entscheidung Stripe umgesetzt, die Oberflaeche steht, und der beim Pruefen gefundene nginx-Befund N-1 ist geschlossen. Offen ist nur noch der Betrieb: die beiden Stripe-Schluessel setzen. Details unten. |
 
+## Was auf dem Owner liegt — der vollständige Stand *(2026-09-28)*
+
+Bisher standen owner-gebundene Punkte verstreut in den Wellen-Dokumenten. Hier stehen sie
+**alle**, mit Art, Empfehlung und Fundort. Die Liste ist der Ort, an dem der Owner sieht, was
+ohne ihn nicht weitergeht — und die bauende Sitzung sieht, was sie **nicht** anfassen darf.
+
+| # | Punkt | Art | Empfehlung der planenden Sitzung | Wo |
+|---|---|---|---|---|
+| 1 | **Reset- und Verifikations-Token gehasht speichern** — dazu eine Verfallszeit für `verification_token` und Erneuern statt Wiederverwenden in den zwei Wiederversand-Wegen | **Sicherheit, Anmeldeweg** | **Ja.** 256-Bit-Token, SHA-256 genügt; die Absicht steht schon im eigenen Schema (`email_verification_tokens.token_hash`, nie verdrahtet); im Klartext ist jede Datenbankkopie ein Hauptschlüssel für jedes Konto mit offenem Reset | [`features/Z_SCHEMA_SCHULDEN.md`](features/Z_SCHEMA_SCHULDEN.md), Z10 |
+| 2 | **Vier leere Waisen-Tabellen löschen** (`agency_api_keys`, `reviews`, `usage_counters`, `email_verification_tokens`) | **Nicht umkehrbar** | **Ja, als Migration mit Rücknahme** — nicht von Hand. Alle vier mit **0 Zeilen** gemessen. `email_verification_tokens` erst **nach** Punkt 1 | Z11 |
+| 3 | **Wann wird die Reputation neu berechnet?** Sie läuft im Takt an der richtigen Stelle und rechnet auf leeren Werten (9 Zeilen, **0** mit `reputation_score`) | **Produkt und Geld** (Rangliste ab PRO) | **Beides:** ereignisgesteuert nach Bewertung und Deal-Abschluss, plus täglicher Takt als Boden, damit ein verlorenes Ereignis keinen Rang einfriert. **Einschalten nach Y1**, damit die Verschiebung sichtbar wird, bevor ein Kunde sie sieht | Z12 |
+| 4 | **Assignment-basiertes Signal im Score** | Produkt und Geld | ✅ **Beantwortet 2026-09-27:** später — „erst wenn alle Grundlagen dazu stimmen" | Z12 |
+| 5 | **Gehören org-private `requisitions` in einen gemeinsamen Suchindex?** | **Sicherheit, Org-Grenze** | **Nein — ganz heraus.** Der Nutzen ist Suchgeschwindigkeit auf den *eigenen* Anforderungen, und die liefert der Datenbankweg heute korrekt (`WHERE org_id = $5`). Ein Index je Organisation kostet bei 2566 Organisationen Betrieb und Geld für denselben Nutzen. **Der Index trägt Öffentliches, die Datenbank trägt Mandantengetrenntes** | [`features/P_ALTLASTEN.md`](features/P_ALTLASTEN.md), P1-15 |
+| 6 | **`preferredVendors` — Partner-API oder Altlast?** Gemessen: **8** Endpunkte, eigene Feature-Doku, Eintrag als PRO+, **0** Aufrufe im Frontend; `vendorPool` hat **19** | API-Fläche | **Vor Dezember nicht anfassen.** Verschmelzen ändert die Fläche. Wenn es eine Partner-API sein *soll*, gehört das in die Doku statt in die Vermutung — dann ist „kein Frontend" korrekt und kein Befund | Audit |
+| 7 | **Die CI läuft seit 2026-06-24 nicht** — GitHub: *„account is locked due to a billing issue"* | **Infrastruktur, nur Owner** | **Dringend vor Dezember.** Ohne CI gibt es kein Tor außerhalb dieses Rechners — und der Frisch-Lauf, der heute zum ersten Mal grün wurde, hat genau dort seinen Platz | unten, „Zwei Blocker" |
+| 8 | **`mutation.yml` liegt nicht auf dem Default-Branch** — `schedule` feuert nur dort; `main` ist ~400 Commits zurück | Infrastruktur, nur Owner | Entweder `main` nachziehen oder den Default-Branch umstellen. Solange beides offen ist, läuft **keine** geplante Mutationsprüfung | unten, „Zwei Blocker" |
+
+> **Warum Punkt 5 heute nichts auslaufen lässt — und warum das kein Trost ist.**
+> Zwei unabhängige Gründe halten den Schaden auf: **Meilisearch ist nirgends angebunden**
+> (in `.env.example` und `.env.prod.example` auskommentiert, nicht in `.env`, **kein Dienst im
+> Compose-Verbund**), und die Reindex-Abfragen benutzen fünf Spalten, die es nicht gibt — der
+> Reindex **wirft**, der Index bleibt leer, die Suche fällt auf den korrekt gefilterten
+> Datenbankweg zurück.
+>
+> **Die Gefahr ist deshalb nicht der Fehler, sondern die Aktivierung** — und die sieht wie eine
+> Konfigurationsänderung aus, nicht wie ein Eingriff in Code: zwei Zeilen in
+> `.env.prod.example` entkommentieren, einen Dienst ergänzen. Wer danach die fünf Spalten „nur
+> schnell" richtigstellt, **schaltet die Veröffentlichung scharf** — mit einem gemeinsamen Index
+> über den Anforderungen **aller** Mandanten. Dass `org_id` als filterbares Attribut geführt
+> wird, schützt nicht: **ein Filterattribut ist keine Mandantengrenze.**
+>
+> **Der Riegel, der hier fehlt, ist eine Probe, keine Notiz.** In `searchService.js` steht seit
+> Langem der Kommentar *„Vor Aktivierung von Meilisearch: pro-Index-Filter ergänzen"* — das
+> Wissen war also da und hat nichts verhindert. Die tragfähige Form ist eine **Kopplung**:
+> *sobald* die fünf Spalten im Schema existieren, **muss** jede `reindexQuery` den Filter ihres
+> Datenbank-Gegenstücks enthalten, sonst rot. Damit ist der gefährliche Zustand nicht
+> dokumentiert, sondern **unmöglich**.
 ### Zwei Blocker, die nur der Owner lösen kann
 
 **Die gesamte CI läuft seit dem 2026-06-24 nicht.** Selbst über die GitHub-API
@@ -1039,6 +3103,29 @@ dagegen längst behoben — `timeout-minutes: 180`, sechs parallele Matrix-Jobs.
 
 ## Der Plan fuer die naechsten Sitzungen
 
+**Aktiv: [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md)**
+— Owner-Abschnitte 12 und 13, alle Entscheidungen getroffen. Reihenfolge
+**K0 → K4 → K1 → K2 → K3**; K0 und K4 sind durch, **K1 ist der nächste Griff**.
+
+Die tragenden Entscheidungen in Kurzform, damit niemand sie neu verhandelt:
+
+| Frage | Entscheid (2026-08-27) |
+|---|---|
+| Werbeprämie | **Kein** eigener „Pilot-Verlängerungs"-Mechanismus, sondern ein **100 %-Cashback-Bounty**: die **nächste Rechnung ist frei** (keine Rückerstattung) |
+| Bedingung | Der Geworbene muss **30 Tage** Bestand haben |
+| Deckel | höchstens **3 Monate** insgesamt |
+| Der Geworbene | bekommt **nichts extra** — nur die üblichen Bounties |
+| Bounty-Eingriff | nach oben erlaubt, aber **strukturell begrenzt** (Abschnitt 3a): kein freies Betragsfeld, sondern ein **Grund**, aus dem das System rechnet · Wirkungsvorschau in Euro **vor** der Handlung · **Verfall** nach einem Lauf statt Dauerzustand · nie in eigener Sache · Quelle steht auf der Rechnung |
+| Monatsplanung | **beide planen**, ohne Pflicht-Hin-und-Her; Konflikte werden **gezeigt**, nie zum Abstimmen gezwungen |
+| Feed | Kopie der letzten guten Liste, **in derselben Datenbank** — keine Mehr-Server-Hochverfügbarkeit (die ist Welle L) |
+
+> **K2.2 ist ein Gate, keine Phase.** *Verträgt der Abrechnungsweg eine 0-€-Rechnung?*
+> `berechneRabatt(netto, 100)` → netto 0, Steuer 0, gesamt 0 — durch `createInvoice`,
+> den Zahlungsweg und den PDF-Beleg. Das muss **vor** dem Bau feststehen: verträgt er
+> sie nicht, ändert das den ganzen Entwurf (99 % plus Restbetrag, oder ein
+> Gutschriftsweg).
+
+**Vorgänger, abgearbeitet:**
 `docs/features/I_AUDIT_ZUWEISUNG_SUPPORT.md` — Owner-Vorgabe vom 2026-08-21:
 Audit-Trennung (8.1.1), aktive Sitzungen (8.1.2), Ersatz-Zuweisung (8.2),
 Support-Weg Kunde → TempConnect (10) und die Entscheidung zu Kunde ↔ Kunde (10b).
@@ -1054,9 +3141,258 @@ Doku-Waechter P2-W1).
 > sind damit in *keinem* Org-Audit sichtbar. Details, Messung und Abnahmekriterium
 > im Plan.
 
+## Owner-Gedanke 2026-09-06: ein Marktplatz mit EINER Suchrichtung?
+
+> **Noch keine Entscheidung — eine Ueberlegung, auf ausdruecklichen Wunsch festgehalten.**
+> *„ich bin auch am ueberlegen, ob wir nicht lieber nur Unternehmen nach Mitarbeitern suchen
+> lassen statt auch Zeitarbeitsfirmen nach Arbeitsplatzangeboten. […] das macht dann aber
+> viel zu Legacy. […] vieles muss bald wieder raus, dazu sollten wir auch noch ein Doc
+> erstellen mit Wellen und Phasen — aber erst, wenn alle Abschnitte durch sind."*
+
+**Der Gedanke:** nur **eine** Suchrichtung. Das Unternehmen sucht Menschen. Die
+Zeitarbeitsfirma durchsucht **keine** Bedarfe mehr.
+
+**Ein Befund, der die Ueberlegung stuetzt** (gemessen 2026-09-01, Welle M0/M5): die Richtung
+„Firma stoebert in Bedarfen“ ist **heute schon kaputt**. Die einzige Seite mit freiem
+Mengenfeld (`sla_angebote.html`) speist ihre Bedarfsauswahl aus einem Endpunkt, der hart auf
+die **eigenen** Bedarfe scopet — fuer eine Agentur ist die Liste **immer leer**. Diese
+Richtung war also nie wirklich in Betrieb.
+
+**Die Bedingung, ohne die es bricht:** `demand_requests` darf **nicht** verschwinden. Der
+Bedarf traegt die Buendelung (M5), den Notdienst, die Restmengen-Buchfuehrung und die Kette
+zum Rahmenvertrag. Was entfaellt, ist die **Stoeber-Flaeche**, nicht das Objekt. Der Bedarf
+entsteht dann aus der **Suche**, nicht aus einem Aushang.
+
+**Was die Zeitarbeitsfirma stattdessen bekommt** — und das ist mehr, nicht weniger:
+das **Nachfragesignal** aus N7.1 („im Raum Muenster werden 34 gesucht, verfuegbar sind 6“)
+plus **gezielte Anfragen**, wenn sie passt. Ein Aushang sagt ihr, worauf sie bieten kann;
+das Signal sagt ihr, **wen sie einstellen soll**.
+
+**Die Folge, die einen Doppelbau verhindert:** Bei dieser Entscheidung wird **M5.4**
+(Anbieter-Modus der Bedarfsliste) **hinfaellig** — dort war vorgesehen, der Agentur fremde
+Bedarfe zu zeigen. **Diese Phase sollte nicht gebaut werden, bevor die Richtung entschieden
+ist.** Das Buendel entsteht dann nicht aus Geboten der Agenturen, sondern aus dem
+vorhandenen Angebot — was es unabhaengig davon macht, ob gerade eine Agentur online ist.
+
+**Zeitpunkt:** Das Aufraeum-Dokument mit Wellen und Phasen kommt **erst, wenn alle Abschnitte
+durch sind** (Owner-Vorgabe). Bis dahin bleibt dieser Eintrag der Merkzettel.
+
+---
+
 ## Offene Owner-Entscheidungen
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
+
+### Aus dem Owner-Dokument *(2026-09-14)*
+
+- ~~**V-E1**~~ ✅ entschieden 2026-09-15 — Andockung **getrennt nach Ziel** bepreist: zvoove als
+  Zusatzmodul ab PRO (249 €/Monat + 490 € Einrichtung), SAP Fieldglass nur INDIVIDUELL mit
+  Projektpauschale, offene API bleibt INDIVIDUELL. Begründung: Zeitarbeitsfirmen sind die
+  Angebotsseite — ein Verkaufsgespräch je Firma bremst genau das Volumen, das der Marktplatz braucht.
+
+#### Das Owner-Dokument ist die Abnahmeprobe
+
+Der Owner hat alle Abschnitte in **`fix neu hier sind auch die vorherigen wellen .docx`** in der
+Wurzel des Hauptordners gesammelt (26 Abschnitte, Fix-Listen ab Juni, 31 Screenshots). **Es bleibt
+dort, bis alles abgearbeitet ist, und dient dann als Probe:** jeder Punkt bekommt einen Stand mit
+Beleg (Datei:Zeile, Commit, Test) — nicht „laut Plan", sondern am Code gemessen.
+
+- **Nie versionieren.** Das Repository ist öffentlich; das Dokument enthält Geschäftsunterlagen und
+  Screenshots mit Konten. Seit 2026-09-15 in `.git/info/exclude` (`/*.docx`, `/~$*` — gilt für
+  alle Worktrees); die dauerhafte Regel ist W5.1.
+- **Lesen ohne pandoc** (auf diesem Rechner nicht installiert): die `.docx` ist ein ZIP;
+  `word/document.xml` mit Python `zipfile` + `ElementTree` auslesen, Bilder aus `word/media/`.
+- **Stand 2026-09-14:** alle Abschnitte gegen Pläne abgeglichen, 23–26 und Nachträge am Code
+  geprüft. **Nicht** einzeln geprüft: die älteren Punkte, die der Owner als erledigt markiert hat.
+- **Am Ende:** Ergebnis als Tabelle an den Owner; das Dokument **löscht der Owner selbst** oder es
+  wird aus dem Projektordner verschoben — Claude löscht keine Owner-Unterlagen.
+- Entschieden am selben Tag: **Umkreis bundesweit für alle** (erweitert M-E4, N8.4) ·
+  **Beispielansicht nur im Leerzustand, gekennzeichnet** (E7) · **Lohnvorschau brutto genau,
+  netto als Spanne, ohne Steuerdaten** (X).
+
+### Vier weitere Entscheidungen getroffen *(2026-09-04)*
+
+Alle vier stammen aus der M0-Nacharbeit — drei davon hat erst die Messung sichtbar
+gemacht.
+
+- **✅ ALLE FÜNF TAKTE werden eingeplant.** Nicht nur die zwei harmlosen:
+  `recurring-billing`, `dunning-sweep`, `invoice-overdue-scan`,
+  `subscription-lifecycle-tick` und `expire-reservations`.
+  **GEBAUT am 2026-09-04 (M1.9).**
+  > **Betriebliche Folge — beim Bauen KORRIGIERT, und die Korrektur entlastet.**
+  > Notiert war: *„ab dem ersten Lauf entstehen echte Rechnungen und gehen echte
+  > Mahnungen an echte Kunden."* Beim Bauen nachgemessen: das gilt für **drei** der
+  > fünf, nicht für fünf.
+  >
+  > | Takt | wirkt ab dem ersten Lauf | gehalten durch |
+  > |---|---|---|
+  > | `invoice-overdue-scan` | **ja** — setzt fällige Rechnungen auf `overdue` | — |
+  > | `subscription-lifecycle-tick` | **ja** — aktiviert/beendet Abos zum Stichtag | — |
+  > | `expire-reservations` | **ja** — gibt gebundene Kapazität frei | — |
+  > | `recurring-billing` | nein | `RECURRING_BILLING_ENABLED` (Vorgabe AUS) |
+  > | `dunning-sweep` | nein | `DUNNING_ENABLED` (Vorgabe AUS) |
+  >
+  > Die **beiden folgenreichsten** — Folgerechnungen und Mahnpost an zahlende Kunden —
+  > entstehen also nicht durch die Einplanung, sondern erst durch das bewusste Umlegen
+  > ihres Schalters. Damit das auch so bleibt, sitzt der Schalter jetzt im **gemeinsamen
+  > Ablauf** (`api/services/betriebsTaktLaeufe.js`), den Endpunkt und Takt teilen — nicht
+  > mehr am Endpunkt. Ein Takt kann ihn nicht umgehen; eine Probe fährt beide Läufe mit
+  > einem Datenbankzugang, der bei jeder Benutzung wirft.
+  >
+  > In der Entwicklungsumgebung passiert weiterhin nichts (kein Redis, `startWorkers`
+  > steigt vorher aus). Der erste Produktionslauf gehört trotzdem begleitet — für die
+  > drei, die sofort wirken.
+  >
+  > **Nachtreihenfolge, und sie ist kein Zufall:** 02:10 `recurring-billing` erzeugt →
+  > 02:20 `invoice-overdue-scan` setzt fällig → 02:40 `dunning-sweep` mahnt. Umgekehrt
+  > gereiht bräuchte jede Stufe einen Tag Vorlauf. `subscription-lifecycle-tick` (:05)
+  > und `expire-reservations` (:35) laufen stündlich — täglich wäre bei einer
+  > Stundenfrist eine Attrappe.
+  >
+  > **Nebenbefund beim Bauen, und er war schwerer als die Entscheidung selbst:** der
+  > Takt `staffing-maintenance` lief seit M1.2 — und die Überwachung meldete
+  > unverändert *„Diese Aufgabe ist noch nie gelaufen."* Die beiden Auslöser schreiben
+  > ihren Herzschlag unter verschiedenen Namen (`staffing-maintenance` vom Handlauf,
+  > `staffing:staffing-maintenance` vom Takt), und die Registratur kennt nur den kurzen.
+  > Der lange stand daneben unter *„läuft, aber unbeobachtet"*. Eine Phase, die gegen
+  > stille Automatismen gebaut wurde, hatte gerade Lärm über einen erzeugt, der läuft.
+  > Aufgelöst auf der Leseseite (`zuTaktSchluessel`), drei Proben, Rückmutation belegt.
+
+- **✅ `BASE_URL` wird in Produktion `fatal`** — wie `SESSION_SECRET`, `JWT_SECRET`,
+  `INTERNAL_CRON_SECRET`, `ADMIN_SECRET`, die Datenbank und der Mailweg. Fehlt sie oder
+  zeigt sie auf `localhost`, startet die Anwendung nicht. Ein Deployment ohne gesetzte
+  Variable schlägt damit **laut und sofort** fehl statt still beim ersten Kunden — 25
+  Stellen bauen daraus Adressen, darunter Passwort-Zurücksetzen und
+  Stripe-Rückkehradressen. **GEBAUT am 2026-09-04.**
+  > **Der Wächter, der das absichern sollte, konnte es nicht — zweimal.**
+  > `prodEnvTemplate.test.js` hält seit 2026-07-26 fest, dass jede in Produktion
+  > erzwungene Variable auch in `.env.prod.example` steht. Sonst setzt jemand die
+  > Produktion nach der Vorlage auf und bekommt eine API, die nicht startet.
+  >
+  > Nach dem Einbau war er grün. **Die Rückmutation zeigte, warum das nichts hieß:**
+  > `BASE_URL` aus der Vorlage gelöscht — weiter grün. Der Test suchte die Zeichenkette
+  > *irgendwo* in der Datei, und `"DATABASE_URL".includes("BASE_URL")` ist **wahr**.
+  > Dasselbe für `SESSION_SECRET` in `STAFF_SESSION_SECRET`: zwei der zwölf Variablen
+  > konnten strukturell nie als fehlend gemeldet werden.
+  >
+  > Zweiter blinder Fleck derselben Art: der Test las die Pflichtvariablen aus den
+  > `if (…) { fatal(`-Bedingungen. `INTERNAL_CRON_SECRET` wird vorher in eine lokale
+  > Variable gelesen — und war deshalb unsichtbar. In Produktion Pflicht, ohne dass die
+  > Vorlage sie hätte nennen müssen.
+  >
+  > Beides repariert: geprüft wird die **Zuweisungszeile**, und eine Ebene lokaler
+  > Umbenennung wird aufgelöst. Beide Rückmutationen färben jetzt rot. Der eigentliche
+  > Fund dieser Entscheidung ist nicht die Variable, sondern dass ein seit sechs Wochen
+  > grüner Wächter für zwei seiner zwölf Fälle blind war.
+
+- **✅ F27: die Materialisierung setzt `last_confirmed_at`.** Nicht ein Filter auf
+  `quelle`. Heilt die sechs bestehenden Zeilen sofort, wirkt für manuelle und
+  automatische Einträge gleichermaßen, und ein Auto-Angebot wird nach sieben Tagen
+  wieder bestätigungsbedürftig — was fachlich stimmt, weil die Automatik es ohnehin
+  alle 15 Minuten erneuert.
+
+- **✅ F12: der Guard fragt `me.org_role`, nicht `orgType`.** Eine Bedingung in
+  `hubVisibility.js`. Die *Wurzel* wird ausdrücklich **nicht** angefasst: `org_type =
+  'agency'` ist für einen Arbeiter richtig, er gehört zu dieser Org. Wirkung: sieben
+  Hub-Karten verschwinden aus seiner Ansicht, und der Zustand `hidden_worker` wird zum
+  ersten Mal lebendig.
+
+### Vier Entscheidungen getroffen *(2026-09-03)*
+
+- **M2.6 ✅ ENTSCHIEDEN: ein Riegel auf `/api/v1`, fail-closed.** Nicht Route für Route,
+  nicht eigenes Cookie. Eine neue Route ist für Arbeiter **zu, bis jemand sie einträgt**;
+  das Register aus M2.5 (`api/test/fixtures/arbeiterSitzung.json`, 49 Einträge) ist die
+  Ausnahmeliste, es muss nur scharf geschaltet werden.
+  *Begründung des Owners folgt der Messung: neun geschlossene Befunde trugen ALLE dieselbe
+  Namensfalle — `mine`/`me` im Pfad meinte die Org. Eine Konvention, die neunmal in
+  dieselbe Richtung täuscht, täuscht auch beim zehnten Mal.*
+  **✅ GEBAUT am 2026-09-04** — siehe Abschnitt „M2.6 ist gebaut". Der Fehlerfall ist
+  jetzt der umgekehrte von vorher: eine vergessene Route **blockiert** statt zu lecken.
+  Beim Bauen kam heraus, dass das M2.5-Register die Ausnahmeliste **nicht allein** sein
+  kann — es enthält nur Routen, die Mandantendaten zurückgaben, und das Portal ruft auch
+  mandantenfreie (`/csrf`, `/skills/catalog`). Jetzt zwei Verzeichnisse, die einander
+  prüfen.
+
+- **✅ ENTSCHIEDEN: der Arbeiter tritt NICHT im Namen seiner Firma auf.**
+  `POST`/`DELETE /profile-visibility/:orgId/like` und `…/favorite` schreiben
+  `likerOrgId: req.orgId` — eine öffentliche Befürwortung eines fremden Firmenprofils
+  erschien damit als die der Agentur, die davon nie erfährt. Vier Wege bekommen
+  `verweigereArbeiter`.
+
+- **✅ ENTSCHIEDEN: „Umsatz" ist nur Geld, das an TempConnect geht.** Die Summe filtert
+  auf den Abo-/Plattform-Rechnungstyp. Das Geld zwischen zwei Kunden (Einsatzrechnung
+  Agentur→Unternehmen) bleibt sichtbar, aber **getrennt** als *vermitteltes Volumen* —
+  eine Zahl, die die Marktplatz-Größe zeigt und deshalb für sich steht.
+  *Die zweite Hälfte der F30-Anschlussfrage — ob das Team fremde Rückstände sehen soll —
+  ist damit NICHT beantwortet und bleibt offen.*
+
+- **✅ ENTSCHIEDEN: nächste Welle sind die 29 offenen Fragen aus dem M0-Bericht.**
+  Nicht M2.3 (569 Routen-Urteile), nicht M3. Breite vor Tiefe: erst wissen, wo es überall
+  klemmt, dann bauen.
+
+
+### Welle M — Marktplatz-Flow: **alle sechs entschieden (2026-09-01)**
+
+Vollständig in [features/M_MARKTPLATZ_FLOW.md](features/M_MARKTPLATZ_FLOW.md), Abschnitt 8.
+
+- ~~**M-E1**~~ ✅ **Schaltbar bauen.** Formweg-Schalter (`textform` \| `schriftform`),
+  Vorgabe `textform`; bei `schriftform` wird der Sofort-Abschluss zur Anfrage mit
+  Signaturlauf auf Mig 084. **Siehe die Rest-Aufgabe unten** — die Rechtslage ist
+  ausdrücklich *nicht* bestätigt.
+- ~~**M-E2**~~ ✅ **Erst sehen, dann zahlen**, in drei Stufen: öffentlich nur Zahlen und
+  Kategorien **ohne Personen** (indexierbar, wirbt für sich selbst) · ab Konto der volle
+  Feed mit anonymen Profilen · ab Plan das Handeln (Bedarf anlegen, anbieten, buchen).
+  Je Seite ein eigener Erstellungs-Schlüssel.
+- ~~**M-E3**~~ ✅ **Unbegrenzt**, wie verkauft. Der widersprechende zweite Wert wird
+  **entfernt**, nicht angeglichen — zwei Tabellen für dieselbe Grenze sind der Fehler.
+- ~~**M-E4**~~ ✅ **Einsatzradius statt Wohnort**, wählbar 10 / 50 / 100 km, Vorgabe 50.
+  **Erweitert 2026-09-14 (Owner-Abschnitt 26): zusätzlich „bundesweit" für alle** — als
+  fehlender Umkreisfilter, nicht als Riesenradius; Nähe zählt im Ranking weiter. Siehe N8.4.
+  Ausgeliefert werden Radius plus grobe Raumangabe, **nie der Anker**; gesucht wird per
+  Abstandsrechnung serverseitig. Die Kraft erscheint dadurch in **jeder** Suche, deren
+  Einsatzort im Radius liegt — datensparsam **und** reichweitenstärker. Radius null ist
+  zugleich der Widerspruchshebel der Person.
+- ~~**M-E5**~~ ✅ **Struktur jetzt, Werte später.** Die `org_type`-Dimension wird im
+  Plankatalog angelegt, mit sinnvollen Vorgaben, die der Owner ohne Codeänderung anpasst.
+- ~~**M-E6**~~ ✅ **Automatisch, wenn eindeutig — sonst Aufgabe mit Frist.** Genau eine
+  passende freie Kraft → zugeordnet; mehrere → Aufgabe. Das System wählt nie willkürlich.
+
+- ~~**M-E10**~~ ✅ **entschieden 2026-09-05: Lesart (a)** — gemeint ist **von einer
+  Zeitarbeitsfirma eingetragen**, nicht „mit aktiver Marktpräsenz“. Die Portaltür hängt
+  damit an der Einladung, nicht an der Sichtbarkeit im Feed.
+
+  **Zusatz-Vorgabe desselben Entscheids:** Nach der Registrierung soll der Mensch mit seinen
+  Fähigkeiten **direkt** im Marktplatz erscheinen — **freigegeben durch einen OK-Klick der
+  Zeitarbeitsfirma**. Gemessen: der Sofort-Weg **existiert bereits**
+  (`POST /workers/:id/marktpraesenz` → `setzeMarktpraesenz` legt **synchron im Aufruf** je
+  Katalog-Fähigkeit einen anonymen Eintrag an, `quelle='live_belegschaft'`, `is_anonymous`).
+  Es fehlt **nur der Anstoß**: das Speichern der Fähigkeiten meldet der Firma heute nichts.
+  Aufgenommen als **M4.8**.
+
+  *Ursprüngliche Frage (zur Nachvollziehbarkeit):* — **Was heißt „im Marktplatz verzeichnet"?** Owner-Vorgabe
+  2026-09-01: *„das einsatzportal soll nur workern die im marktplatz verzeichnet sind
+  verfügbar sein."* Zwei Lesarten, und die Wahl hat Folgen:
+  - **(a) Von einer Zeitarbeitsfirma eingetragen** — das ist **heute schon so** und seit
+    2026-09-01 per Wächter festgenagelt: `POST /auth/register` lässt nur `company` und
+    `agency` zu, ein Arbeiterkonto entsteht ausschließlich durch Einladung.
+  - **(b) Mit aktiver Marktpräsenz** — also nur, wer gerade als Angebot im Marktplatz
+    steht. **Diese Lesart würde den eigenen Ablauf brechen:** ein frisch registrierter
+    Arbeiter hat *noch keine* Marktpräsenz, denn die entsteht erst aus seinen Fähigkeiten
+    (Welle M, Schritt 9→11) — und die trägt er **im Portal** ein. Er käme nie hinein.
+    Dieselbe Sperre träfe jeden, der seinen Einsatzradius auf null setzt — also genau den
+    Widerspruch, den **M-E4** ihm ausdrücklich zugesteht. Er verlöre damit den Zugang zu
+    seinen eigenen Einsätzen, Stundenzetteln, Abwesenheiten und Dokumenten.
+
+  *Empfehlung: (a) — sie ist gemeint, gebaut und erzwungen. Wenn zusätzlich gewünscht ist,
+  dass ein Arbeiter ohne Marktpräsenz nicht im Marktplatz auftaucht, ist das eine Regel für
+  den Feed, nicht für die Portaltür.*
+
+**Rest-Aufgabe mit Auslöser (nicht mit Datum):** Ob **Textform** für den
+Überlassungsvertrag genügt, ist **nicht anwaltlich bestätigt** — der Owner hat das benannt
+und die Lage angenommen. Der Schalter macht die Korrektur billig (eine Konfigurationszeile
+statt eines Umbaus), er macht die Frage nicht kleiner. **Vor dem ersten Abschluss zwischen
+zwei echten Kunden gehört die Auskunft eingeholt**; solange Pilotkunden und Vorführdaten
+laufen, trägt der Schalter.
 
 - ~~**D-E3**~~ ✅ entschieden 2026-08-13: **Weg (a)**. Ursprünglich: Weg für Welle D6 (DSGVO für Profile ohne Konto): zweiter Einstieg für
   Profil-IDs **(a, empfohlen)** oder Vereinheitlichung der bestehenden Löschpfade (b).
@@ -1129,104 +3465,92 @@ Doku-Waechter P2-W1).
   *Aufwand:* Entscheidung 15 Minuten, Umsetzung 2 Stunden (Matrix-Eintrag,
   Karte, Registereintrag, Wächterlauf). *Owner.*
 
-- **W-E1 (neu, 2026-09-29)** — **Die zwei Doku-Tests in der CI.**
-  `docsConsistency.test.js` und `dokuWaechter.test.js` pruefen gegen Pfade, die
-  in einem frischen Baum nicht existieren (`.agents/`, `frontend/support-ops/`,
-  ungetracktes `docs/launch/`). Die in dieser Uebergabe genannte Abhilfe —
-  Pfade aus dem Hauptbaum verknuepfen — gibt es in einer CI nicht: **eine CI ist
-  immer ein frischer Baum.** Damit ist die Suite dort strukturell rot,
-  unabhaengig vom Code. Wege: (a) die Tests erkennen einen Baum ohne diese
-  Pfade und pruefen dann nur, was pruefbar ist (kein stiller Skip — die
-  Erkennung selbst wird zugesichert, **empfohlen**), (b) die Pfade werden
-  getrackt (aendert, was im Release-Artefakt landet — `.claude/` gehoert laut
-  eigener Regel *nie* hinein), (c) die CI laesst die zwei Dateien bewusst aus
-  und das wird dokumentiert. *Aufwand 1-2 h nach Entscheidung. Plan:
-  features/SCHWACHSTELLEN_ZU_STAERKEN.md, Welle 1.*
-- **W-E2 (neu, 2026-09-29)** — **`--test-force-exit` im zentralen Testaufruf.**
-  Gemessen: drei Laeufe auf identischem Baum meldeten 9054 / 9183 / 9190 Tests,
-  Exit-Code jeweils gleich; an einer einzelnen Datei mit dem Flag 76/30/76/45,
-  ohne das Flag dreimal stabil 76. Es ist **nicht** der Pipe-Effekt — die
-  Umleitung in eine Datei schwankt genauso. Nach dem Schliessen der offenen
-  Handles: Flag entfernen (**empfohlen** — ein Lauf, der haengt, ist ehrlicher
-  als einer, der kuerzt) oder als Netz behalten (dann kann die Kuerzung
-  jederzeit zurueckkommen, ohne aufzufallen)? Beruehrt
-  `api/scripts/run-tests.js`, also jeden Lauf des Projekts. *Erster Schritt
-  gehoert dem Owner und kostet zwei Minuten: die Suite auf dem Arbeitsstand
-  zweimal laufen lassen und die Zahl vergleichen.*
-- **W-E3 (neu, 2026-09-29)** — **Testlaeufer fuer die drei React-Konsolen.**
-  Gemessen: 17.986 Zeilen TypeScript/React, **0 Unit-Tests**, kein vitest/jest.
-  `vitest` (nah an Vite, das hier ohnehin baut, **empfohlen**) oder `node:test`
-  mit jsdom (keine neue Abhaengigkeit, mehr Eigenbau)? Gegenargument, das der
-  Owner kennen soll: es wird die erste Test-Werkzeugkette neben `node:test` —
-  eine zweite Wahrheit ueber "gruen".
-- **W-E4 (neu, 2026-09-29)** — **Umfang der Design-System-Bereinigung.**
-  Gemessen in `frontend/public`: 2.015 Inline-`style="`, 1.113 Hex-Werte, gegen
-  eine Regel, die zweimal in `CLAUDE.md` steht. Alles auf einmal, oder nur die
-  Kundenflaeche? *Empfehlung: nur die Kundenflaeche, und Inline-JS zuerst* — der
-  Gewinn ist **Pruefbarkeit** (ESLint deckt nur `public/js/**` ab, 53,9 % des
-  HTML ist Inline-JS), nicht Aesthetik; die Farbwerte fallen dabei mit.
-- **W-E5 (neu, 2026-09-29)** — **`requireOrgContext` als Middleware**
-  (Vereinheitlichung der Null-Politik, Fortsetzung von D-M2). Die 42
-  fail-open-Stellen auf einmal hinter eine Middleware ziehen, oder Datei fuer
-  Datei mit dem Waechter im Ruecken? *Empfehlung: Middleware, aber erst nach
-  Welle 1 und 2* — der Umbau beruehrt 80 Vergleiche in 18 Route-Dateien, und
-  ohne stabile Testzahl ist nicht belegbar, dass dabei nichts verloren ging.
-- **W-E6 (neu, 2026-09-29)** — **Owner Control Center: ausbauen oder
-  verwerfen?** Die Frage steht als **Abschnitt 17** im Owner-Dokument
-  (`fix_neu … vorherige Wellen.docx`): „ausbauen oder verwerfen … wenn Admin
-  auch im Enterprise-Hub arbeiten kann, soll das OCC weg oder stillgelegt
-  werden bis es einen Nutzen dazu gibt." **Sie wurde nie beantwortet, und in
-  der Zwischenzeit wurde weitergebaut.** Gemessen am 2026-09-29: **7.902
-  Zeilen** (14 Router / 3.200 Zeilen, 21 Frontend-Dateien / 4.702 Zeilen);
-  `CLAUDE.md` fuehrt die Flaeche mit „11/11 Module real implementiert, 90 %";
-  H2 hat fuer sie eine eigene Waechterschicht (B3) gebaut, weil sie keine
-  Platzhalter-Route hat; dazu zwei offene Blocker (OCC-Logout meldet niemanden
-  ab, `MFA_ENFORCE=true` sperrt den Eigentuemer aus). *Eine unbeantwortete
-  Frage ist hier teurer als eine falsch beantwortete: die falsche kostet einen
-  Revert, die fehlende kostet unbegrenzt weiter.* Entscheidung gehoert vor jede
-  weitere OCC-Zeile. Aufwand der Entscheidung: 15 Minuten.
-- **W-E7 (neu, 2026-09-29)** — **Demo-Screen bei leerer Live-Belegschaft und
-  bei 500/401 (Abschnitt 25).** Gewuenscht ist ein Vorschaubild mit Demo-Daten,
-  das auch bei Serverfehlern einspringt. `CLAUDE.md` Zeile 255 verbietet das
-  ausdruecklich: „Kein Fake-Data / Mock-KPIs in Produktions-UI (auch nicht als
-  Platzhalter)". Beide Seiten haben recht — der Wunsch will keinen leeren
-  Bildschirm, die Regel will verhindern, dass ein Kunde erfundene Zahlen fuer
-  echte haelt. Wege: (a) ein Zero-State, der **als Beispiel gekennzeichnet**
-  ist und bei 500/401 den Fehler **benennt** statt ihn zu verdecken
-  (**empfohlen** — erfuellt den Wunsch, ohne die Regel zu brechen),
-  (b) Demo-Daten wie gewuenscht und die Regel fuer diese Flaeche ausdruecklich
-  aufweichen, (c) nur bei leerer Liste, nie bei Fehlern. *Ein Fehler, den eine
-  huebsche Vorschau verdeckt, wird nicht gemeldet — das ist die eigentliche
-  Gefahr bei (b).*
-- **W-E8 (neu 2026-09-30, nach Recherche korrigiert)** — **VMS-/ERP-Anbindung:
-  welche Richtung zuerst?** (Owner-Abschnitt 16.) Gemessen: die
-  Konnektor-**Registry** steht (`org_erp_mappings`, Mig 130, sechs Systemtypen
-  inkl. `zvoove`), die **Konnektoren** stehen nicht — `erpMappingService.js:4`
-  sagt das ausdruecklich („keine externe IO hier“). Provider-Adapter gibt es nur
-  fuer **Slack und Teams**. **SAP Fieldglass und Beeline: null Code-Dateien.**
-  **Recherchiert gegen die Herstellerseiten: ein Partnerprogramm ist bei keinem
-  der vier technische Voraussetzung** — aber jeder Zugang laeuft ueber
-  Zugangsdaten, die jemand anderes ausstellt. Personio: der Kunde selbst
-  (Tarif mit API-Zugang). zvoove Recruit: der Kunde (API-Key). **zvoove PDL:
-  vermutlich nur ueber zvooves Schnittstellenpartner** — die einzige Stelle, an
-  der sich eine Partnerschaft wirklich lohnt, weil dort die eigenen Kunden
-  sitzen. SAP Fieldglass: Instanzbesitzer plus Freischaltung durch den
-  SAP-Support. Beeline: das **Beeline Supplier Network**, ein Abo *des
-  Lieferanten* (2.500–30.000 $/Jahr). **Korrektur:** eine fruehere Fassung
-  dieses Eintrags behauptete, die Spezifikationen laegen hinter
-  Partnerprogrammen und jede Feldzuordnung waere ohne sie geraten — **falsch**,
-  beide VMS dokumentieren oeffentlich. Ebenfalls korrigiert: im VMS ist die
-  **Zeitarbeitsfirma** der Lieferant, TempConnect ihre Software. **Owner-
-  Entscheidung 2026-09-30:** TempConnect ist reine Vermittlungsplattform —
-  keine AUeG, keine Abos bei VMS-Anbietern, nie selbst Lieferant im VMS; die
-  Buchung vieler Mitarbeiter aus mehreren Firmen (Abschnitt 22) ist Marktplatz,
-  nicht Integration. *Empfehlung:* zvoove-Anfrage sofort (Owner),
-  anbieterneutraler Bedarfs-Eingang als erster Code (nach K1), Personio bei
-  Bedarf, Fieldglass/Beeline erst mit einem Grosskunden. Vollstaendig mit
-  Quellen: `docs/INTEGRATIONS.md`, „Zugang je Anbieter“.
+> **W-E1 bis W-E8** stammen aus der ersten Prüfung auf einer fremden Maschine
+> (2026-09-29 auf `main`, 2026-09-30 gegen die K1-Linie `94117a7` nachgemessen). Plan mit
+> Register und Wellen: [features/SCHWACHSTELLEN_ZU_STAERKEN.md](features/SCHWACHSTELLEN_ZU_STAERKEN.md).
+
+- ~~**W-E1**~~ ✅ **auf K1 erledigt** (`47a2e08`): die Doku-Wächter lesen den Git-Index statt
+  des Dateibaums; lokale, ungetrackte Dateien spielen keine Rolle mehr. Gemessen 2026-09-30
+  im frischen Klon: volle Suite 0 Fehler. Ursprünglich: zwei Doku-Tests waren in jeder CI
+  strukturell rot, weil eine CI immer ein frischer Baum ist.
+- **W-E2 (neu, 2026-09-29, auf K1 eingegrenzt)** — **`--test-force-exit` im zentralen
+  Testaufruf.** Zwei Läufe auf `94117a7` meldeten 12.019 und 12.003 Tests (beide 0 Fehler);
+  der Abgleich der Ergebniszeilen zeigt **238 nur in Lauf 1, 213 nur in Lauf 2** — jeder Lauf
+  verliert rund 200 Ergebnisse, jedes Mal andere. Ohne das Flag hängt die Suite, und zwar an
+  **genau einer Datei**: `test/rateLimit.mw.coverage.test.js` (isoliert reproduzierbar; am
+  Leben gehalten von **Timern** des Ratenbegrenzers, die nie freigegeben werden —
+  `middleware/rateLimit.js` bietet keinen Schließweg). Entscheidung: nach dem Freigeben der
+  Timer das Flag **entfernen** (*empfohlen* — ein Lauf, der hängt, ist ehrlicher als einer,
+  der kürzt) oder als Netz behalten. Berührt jeden Testlauf des Projekts. Details: P0.11.
+- **W-E3 (neu, 2026-09-29)** — **Testläufer für die drei React-Konsolen.** Auf K1: 19.621
+  Zeilen in `frontend/src`, **weiterhin 0 Unit-Tests**, kein vitest/jest. `vitest` (nah an
+  Vite, *empfohlen*) oder `node:test` mit jsdom (keine neue Abhängigkeit, mehr Eigenbau)?
+  Gegenargument: es wird die erste Test-Werkzeugkette neben `node:test` — eine zweite
+  Wahrheit über „grün".
+- **W-E4 (neu, 2026-09-29)** — **Umfang der Design-System-Bereinigung.** Auf K1 in
+  `frontend/public`: **2.181** Inline-`style="` und **1.208** Hex-Werte — beides seit
+  `main` gewachsen (2.015 / 1.113), gegen eine Regel, die zweimal in `CLAUDE.md` steht. Alles
+  auf einmal oder nur die Kundenfläche? *Empfehlung: nur die Kundenfläche, Inline-JS zuerst* —
+  der Gewinn ist Prüfbarkeit (ESLint deckt nur `public/js/**` ab), die Farbwerte fallen mit.
+- **W-E5 (neu, 2026-09-29, auf K1 korrigiert)** — **`requireOrgContext` verdrahten.**
+  Fortsetzung von **D-M2**. D-M2 beschreibt die Middleware als künftige Lösung — **sie
+  existiert aber schon**: `api/middleware/rbac.js:14`, seit `26fb98d`, mit **null Aufrufern**
+  (geprüft 2026-09-30, ganzes `api/` ohne Tests). Die Frage ist also nicht mehr „bauen",
+  sondern „verdrahten": die 42 fail-open-Stellen auf einmal dahinter ziehen oder Datei für
+  Datei mit dem Wächter im Rücken? *Empfehlung: erst nach W-E2* — ohne stabile Testzahl ist
+  nicht belegbar, dass beim Umbau von 80 Vergleichen nichts verloren ging.
+- **W-E6 (neu, 2026-09-29)** — **Owner Control Center: ausbauen oder verwerfen?**
+  Owner-Abschnitt 17 fragt genau das — die Frage wurde **nie beantwortet**, und die Fläche
+  wächst weiter: auf K1 **8.215 Zeilen** (Frontend 4.858, Backend 3.357), am Vortag auf `main`
+  noch 7.902. Dazu eine eigene Wächterschicht (B3) und zwei offene Blocker (OCC-Logout,
+  `MFA_ENFORCE`). *Eine unbeantwortete Frage ist teurer als eine falsch beantwortete: die
+  falsche kostet einen Revert, die fehlende kostet unbegrenzt weiter.* Aufwand der
+  Entscheidung: 15 Minuten. Gehört vor jede weitere OCC-Zeile.
+- **W-E7 (neu, 2026-09-29)** — **Demo-Screen bei leerer Live-Belegschaft und bei 500/401
+  (Owner-Abschnitt 25).** Widerspricht `CLAUDE.md` („Kein Fake-Data / Mock-KPIs in
+  Produktions-UI, auch nicht als Platzhalter"). Wege: (a) ein als Beispiel gekennzeichneter
+  Zero-State, der bei 500/401 den Fehler **benennt** statt ihn zu verdecken (*empfohlen*),
+  (b) Demo-Daten wie gewünscht und die Regel für diese Fläche aufweichen, (c) nur bei leerer
+  Liste, nie bei Fehlern. *Ein Fehler, den eine hübsche Vorschau verdeckt, wird nicht
+  gemeldet.*
+- **W-E8 (neu 2026-09-30, gegen Quellen und K1 geprüft)** — **VMS-/ERP-Anbindung: welche
+  Richtung zuerst?** (Owner-Abschnitt 16.) Auf K1 trägt die Registry `org_erp_mappings` für
+  **DATEV** echten Datenfluss (Lohn- und Buchhaltungs-Export), dazu die **E-Rechnung** nach
+  EN 16931; für `zvoove`, `personio`, `sap_*` fehlt *„die Leitung, nicht die
+  Registrierung"*. **SAP Fieldglass und Beeline: null Code-Dateien.** Recherchiert: ein
+  Partnerprogramm ist bei **keinem** Anbieter technische Voraussetzung, aber jeder Zugang
+  läuft über Zugangsdaten, die jemand anderes ausstellt — mit einer Ausnahme: **zvoove PDL**
+  hat keine öffentlich gefundene Selbstbedienungs-API, dort lohnt die Partnerschaft.
+  **Owner-Entscheidung 2026-09-30:** TempConnect ist reine Vermittlungsplattform — keine AÜG,
+  keine Abos bei VMS-Anbietern, nie selbst Lieferant im VMS; die Buchung vieler Mitarbeiter
+  aus mehreren Firmen (Abschnitt 22) ist Marktplatz, nicht Integration. *Empfehlung zur
+  Reihenfolge:* zvoove-Anfrage sofort (Owner), anbieterneutraler Bedarfs-Eingang als erster
+  Code, Personio bei Bedarf, Fieldglass/Beeline erst mit einem Großkunden. Mit Quellen:
+  `docs/INTEGRATIONS.md`, „Zugang je Anbieter".
 
 ## Offene Befunde ohne Ticket
 
+- **K4-B1 (neu, 2026-08-28)** — **Kein Kanal erreicht das Team.** Ein
+  Systemereignis, das *niemanden* betrifft außer dem Betreiber, hat heute keinen
+  Zustellweg: `notificationMatrix.dispatch()` kennt nur org- und vorgangsbezogene
+  Empfänger und überspringt einen unbekannten Ereignis-Schlüssel **wortlos**
+  (`sent: 0`, kein Fehler); `writeStaffAudit()` verlangt zwingend eine handelnde
+  Person und wirft ohne sie. In K4 wurde deshalb **gezählt** (`marktplatz_feed_kopie.rueckfaelle`,
+  `letzter_rueckfall`) und auf `error` protokolliert, statt einen Kanal zu erfinden.
+  **Jede Welle, deren Plan „Meldung an das Team" enthält, läuft hier hinein** —
+  K1.1 als Nächstes. Der saubere Ort wäre eine Betriebs-Fläche im Staff CC
+  (K1.2 legt sie an). *Owner-Entscheidung, sobald es mehr als zwei Fälle sind.*
+- **OCC → Staff CC (Owner-Entscheid 2026-08-27)** — das Owner Control Center wird
+  ins Staff Control Center überführt. **Bis der Owner den Abschnitt ausgearbeitet
+  hat: keine neuen OCC-Module anlegen und keine entfernen**, nur umzugsfähig
+  arbeiten. Offene Fragen (Zugangsstufe, Audit-Namensraum, sieben kollidierende
+  Modulnamen, React-Fläche vs. Staff-Bauart) in [FLAECHEN.md](FLAECHEN.md).
+- **Owner-gated, ruhend:** `SUPPORT_PHONE` (nicht gesetzt), I3 Stufen 2–4
+  (Web Push), `enforce_mfa`, `preferred_supplier_only`,
+  `partial_fulfillment_allowed`, ein **Demo-Zugang für die Arbeiter-Perspektive**
+  (das Einsatzportal hat heute keine Tür: die geseeten Demo-Arbeiter tragen
+  Attrappen-Hashes mit 51 statt 60 Zeichen, `bcrypt.compare` liefert für jede
+  Eingabe `false`).
 - **M0-B1 (neu, 2026-08-15)** — **Der nächtliche Mutations-Job ist nie gelaufen.**
   `.github/workflows/mutation.yml` entstand am 2026-08-12, `origin` steht auf dem
   Stand vom 2026-08-06 und ist **57 Commits zurück**. Die Übergabe hat ihn bis
@@ -1277,3 +3601,319 @@ Zweite Fassung derselben Lektion: **doppelte Logik braucht doppelte Tests.** Der
 Guard steht zweimal in `middleware/rbac.js`; die erste Runde deckte nur eine Kopie ab.
 Coverage kann das prinzipiell nicht sehen — beide Kopien werden ausgeführt, also gelten
 beide als abgedeckt.
+
+---
+
+## Die zweite Lektion: gebaut, montiert — und niemand benutzt es
+
+Die häufigste Fehlerklasse dieses Repos ist nicht der falsche Code. Es ist der
+**korrekte Code ohne Aufrufer**. Drei systematische Durchgänge in einer Sitzung:
+
+| Durchgang | Ergebnis |
+|---|---|
+| exportierte Funktionen ohne Aufrufer | mehrere; die meisten harmlos |
+| Regel-Spalten, die nie gelesen werden | mehrere; eine davon war eine tote Funktion (ersatzlos entfernt) |
+| Tabellen, in die geschrieben, aus denen nie gelesen wird | **9 von 186** — 8 nach Messung harmlos, **1 echt**: das OCC-Zugriffsprotokoll mit **23 abgewiesenen Zugriffsversuchen**, die niemand je hätte sehen können |
+
+Und derselbe Fehler traf **meine eigene Arbeit**: die Verdrahtungs-Probe zu K4 fand
+beim ersten Lauf einen `ReferenceError` — `opts` war mit `const` *innerhalb* des `try`
+deklariert und im `catch` nicht sichtbar. Der Rückfall hätte in der Praxis **nie
+gegriffen**, und alle acht Dienst-Proben wären trotzdem grün gewesen.
+
+**Das strukturelle Gegenmittel, dreimal angewandt:** einen Wächter, der eine
+**Liste abhakt**, in einen verwandeln, der **selbst sucht**. Ein aufzählender
+Wächter kennt nur, was jemand eingetragen hat; ein entdeckender findet die Stelle,
+die nächste Woche dazukommt. Beispiele im Baum:
+`api/test/jedeMailHatEinenAbsender.test.js` (findet **jeden** `sendMail`-Aufruf im
+Quelltext und verlangt den Absenderrahmen — §37a HGB) und
+`api/test/statuswertSpiegel.test.js` (findet **jedes** `UPDATE`, das einen
+Endzustand schreibt, und verlangt das Deaktivieren in derselben Anweisung).
+
+**Merksatz:** *Eine Probe, die prüft, ob etwas existiert, ist keine Probe darauf,
+dass es benutzt wird.* Und: **jede neue Verdrahtung bekommt eine Probe, die den
+echten Handler durchläuft** — nicht nur den Dienst darunter.
+
+
+### Z16 bis Z20 sind gebaut *(2026-09-28)* — eine falsche Zeile in einem Kommentar hat sechs Fehler geschuetzt
+
+**Die Bestandsliste der Schema-Schulden ist leer.** Z16 hat die letzten fuenf
+Spaltenfehler behoben, Z17 den allerletzten. Das ist die kleinere Haelfte der
+Nachricht.
+
+**Die groessere:** Beim Beheben des letzten Eintrags
+(`capacity_posts.supplier_id` in `routes/matching.js`) stellte sich heraus, dass
+die fehlende Spalte der kleinste von vier Fehlern in derselben Route war.
+`/matching/smart-explain/:supplierId` nimmt eine **Organisation** — so steht es in
+der API-Doku und in der Ausnahmebegruendung in `orgGrenzen.json`. Alle vier
+Datenquellen der Route sind aber **nutzer**-geschluesselt, jede per
+Fremdschluessel belegt:
+
+| Spalte | zeigt auf |
+|---|---|
+| `supplier_reputation.supplier_id` | `users` |
+| `supplier_metrics.agency_id` | `users` |
+| `requests.receiver_id` | `users` |
+| `capacity_posts.supplier_company_id` | `users` |
+
+Alle vier wurden mit `o.id` verglichen. Gegenprobe an den echten Daten: **direkt 0
+Treffer, ueber den Eigentuemer 9.** Drei der vier Wege sind LEFT JOIN oder `catch`
+— die Route hat also nie ein Signal gefunden und trotzdem mit **200 und einem
+Smart-Rank-Score** geantwortet, der ausschliesslich auf Nullen und einem
+Rueckfallwert beruhte. Eine erklaerbare KI-Bewertung, die nichts erklaert,
+gelistet in der oeffentlichen API-Doku.
+
+#### Zwei Fehler in der eigenen Arbeit, gefunden beim Nachmessen
+
+Das ist der Teil, der festgehalten gehoert, weil er sich wiederholen kann:
+
+**1. Ein Kommentar, der nie gemessen wurde, hat sechs falsche Leser geschuetzt.**
+In `services/reputationSql.js` stand seit Z6 (2026-09-27) der Satz:
+
+> *NICHT FUER supplier_metrics: `supplier_metrics.agency_id` zeigt selbst auf
+> `organizations` und wird direkt an der Org verbunden. Diese Joins waren richtig
+> und bleiben unangetastet — wer sie „mitkorrigiert", bricht sie.*
+
+Gemessen zeigt `agency_id` auf `users(id)`, und der Schreiber bestaetigt es:
+`supplierMetricsService.recomputeForWindow` holt seine Schluessel aus
+`SELECT DISTINCT receiver_id FROM requests`. Die Warnung war also ein **Riegel vor
+der richtigen Behebung** — vier Stellen in `vendorPoolService` (die Zeile direkt
+unter der Bruecke, die Z6 eingezogen hatte), eine in `routes/matching.js`, und der
+Z5-Fix in `instantMatchService` selbst, der auf dieses Wort hin geschrieben wurde.
+
+**Merksatz:** *Ein falscher Riegel haelt laenger als falscher Code, weil ihn
+niemand ausfuehrt und deshalb niemand widerlegt.* Eine Behauptung ueber das
+Schema gehoert gemessen — gerade dann, wenn sie andere vom Anfassen abhalten soll.
+
+**2. Die Bruecke selbst vervielfachte Zeilen.** `reputationJoinSql` erzeugte einen
+gewoehnlichen `LEFT JOIN org_memberships`. `org_memberships` kann mehrere
+Eigentuemer je Organisation fuehren — gemessen: 200 Organisationen mit
+Eigentuemer, **eine davon mit zwei**; ueber alle Organisationen 2859 Zeilen statt
+2858. In `getVendorPool` verdeckte ein `DISTINCT ON` das; an drei anderen Stellen
+gibt es keins. Dass `vendor_pool` heute leer ist, war der einzige Grund, warum es
+nicht schon sichtbar war. Jetzt: `LEFT JOIN LATERAL` mit `LIMIT 1`, fester
+`ORDER BY` (ohne ihn waehlt die Datenbank frei, und dieselbe Abfrage zeigt morgen
+eine andere Reputation) und `is_active` (ein ausgeschiedener Eigentuemer trug
+bisher weiter die Reputation seiner ehemaligen Firma). Der Index dafuer war schon
+da: `om_org_role_idx (org_id, role_key, is_active)`.
+
+#### Zwei neue Waechter, weil der alte diese Klasse nicht sehen kann
+
+`sqlSchemaWaechter` fragt, ob eine Spalte **existiert**. Bei dieser Fehlerklasse
+existieren alle Spalten — falsch ist, **worauf sie zeigen**. Deshalb traegt die
+Schema-Momentaufnahme seit jetzt einen Abschnitt `fremdschluessel`
+(`npm run schema:snapshot` erweitert), und daraus speisen sich zwei Wachen:
+
+- **`test/identitaetenNichtVermischen.test.js`** — macht rot, wenn eine
+  nutzer-geschluesselte Spalte mit einer Org-Kennung verglichen wird. Gemessen
+  zeigen **86 Spaltennamen auf `users`, 18 auf `organizations`, und kein Name auf
+  beides** — der Name bestimmt die Identitaetswelt projektweit eindeutig. Die
+  Falle, die diese ganze Welle erklaert: **Namen mit „company" darin zeigen auf
+  NUTZER** (`supplier_company_id`, `owner_company_id`, `requester_company_id`,
+  `company_id`).
+- **`test/spaltenImVerbund.test.js`** — schliesst die Luecke, die
+  `sqlSchemaWaechter` bewusst offen laesst: Spaltennamen in Abfragen **mit** Join.
+  Die Rueckmutationen hatten sie gemessen: von achtzehn zurueckgedrehten Fehlern
+  blieben genau zwei ungefangen, beide in dieser Luecke. Ein Nachlauf fand
+  **dreizehn echte Fehler**, jeder gegen die Datenbank bestaetigt.
+
+Der SQL-Scanner ist dafuer aus `sqlSchemaWaechter.test.js` nach
+**`test/lib/sqlScanner.mjs`** verschoben — woertlich, nicht umgeschrieben; die
+Selbstprobe des urspruenglichen Waechters belegt es. Aus einer Testdatei zu
+importieren waere die Alternative und ist keine: bei `node --test` liefen deren
+Pruefungen dann doppelt.
+
+#### Was die dreizehn gekostet haben
+
+Vier sind sofort behoben, weil sie Kunden trafen:
+
+- **`org_memberships.role` an drei Stellen** (die Spalte heisst `role_key`): das
+  **oeffentliche Firmenprofil** hat nie geladen (die Sichtbarkeit wird eine Zeile
+  darueber korrekt geprueft, danach faellt der Abruf um), die
+  **Abo-Benachrichtigung** erreichte den Eigentuemer nie, sobald keine
+  `contact_email` hinterlegt war, und die ab PRO verkaufte Rangliste warf.
+- **`capacity_posts.workers_count`** (sie heisst `headcount`):
+  `GET /preferred-vendors/capacity` antwortete **immer** mit 500.
+
+Der letzte Fall ist zugleich die Lehre, und es ist dieselbe wie bei P1-15 im
+Suchindex: in `getWorkforceCapacity` standen **zwei** Fehler, und der erste hat
+den zweiten versteckt. Haette jemand nur die Spalte richtiggestellt, waere aus
+einem ehrlichen 500er eine **200 mit lauter Nullen** geworden — „dieser Lieferant
+hat keine Kapazitaet" statt „hier ist etwas kaputt". Das waere die schlechtere
+Auskunft gewesen.
+
+**Die uebrigen zehn sind noch am selben Tag behoben** (Z18) — die Bestandsliste
+in `test/spaltenImVerbund.test.js` ist damit ebenfalls **leer**:
+
+- **`users.first_name`/`last_name`** (4x im Staff Control Center, 1x im
+  Staff-Dienst; `users` kennt den Menschen als `contact_person`) — darunter die
+  **Liste der DSGVO-Anfragen**, sortiert nach Frist. Sie war dauerhaft leer,
+  waehrend die gesetzlichen Fristen liefen, und der Aufrufer faengt: es sah aus,
+  als gaebe es nichts zu tun.
+- **`assignment_staffing_invites.created_at`** (richtig: `sent_at`) — ein
+  Arbeiter hat seine Einsatz-Einladungen **gar nicht** gesehen.
+- **`assignments.title`** (Hausmuster: `worker_description`) — die
+  Bestaetigungsliste des Arbeiters blieb leer.
+- **`organizations.email`** (richtig: `billing_email`) — die Detailansicht des
+  Staff-Posteingangs fiel aus: die Liste lud, das Oeffnen eines Vorgangs nicht.
+- **`users.plan`** (2x; der Tarif haengt seit der Org-Umstellung an
+  `organizations`) und **`requests.location_city`** (dort: `location_text`).
+
+**Eine Stelle wurde absichtlich NICHT angefasst, und sie ist die Lehre:** in
+`assignmentStaffingService` steht `r.location_city` fuenfmal. **Viermal ist `r` =
+`requisitions`, und die hat die Spalte** — nur an der fuenften ist `r` =
+`requests`. Der Waechter hat genau die fuenfte gemeldet und die vier anderen
+nicht. Wer nach Spaltennamen sucht statt nach aufgeloesten Aliassen, haette hier
+vier richtige Abfragen gebrochen. Eine Rueckmutation sichert das ab.
+
+Rueckmutationen Z18: **10 von 10 gefangen.**
+
+#### Z19 — die Luecke lag ZWISCHEN den beiden Wachen
+
+Der Verbund-Waechter prueft nach Z18 nicht mehr nur `SELECT` mit `JOIN`. Der
+Filter war zu eng, und zwar auf eine Art, die man leicht uebersieht: **eine
+Abfrage kann ohne Join mehrrelational sein** — durch eine Unterabfrage. Genau
+dort standen zwei weitere echte Fehler, die **beide** Wachen durchgelassen haben
+— der Schema-Waechter, weil die Unterabfrage die Abfrage mehrrelational macht,
+und der Verbund-Waechter, weil kein `JOIN` darin steht:
+
+- **`routes/companyTimesheets.js`** — `u.first_name || ' ' || u.last_name`. Die
+  Abfrage steht in einem `Promise.all`. Sie warf, also warf das `Promise.all`:
+  die **Benachrichtigung an die Zeitarbeitsfirma** ueber einen gesperrten
+  Stundenzettel ging **nie** raus. Kein Fehler war sichtbar, nur eine Nachricht,
+  die ausblieb.
+- **`routes/vendorPool.js`** — `o.org_type` (die Spalte heisst `type`; `org_type`
+  ist nur der Name, unter dem sie anderswo ausgegeben wird). Die
+  **Lieferantensuche** lieferte nichts — und ohne Suche laesst sich kein
+  Vorzugslieferant hinzufuegen.
+
+**Eine Luecke zwischen zwei Wachen ist teurer als eine offene**, weil beide gruen
+melden und das Fehlen dadurch wie Abdeckung aussieht. Der Waechter nimmt jetzt
+Doppelmeldungen mit dem Schema-Waechter ausdruecklich in Kauf: zwei Wachen, die
+dasselbe melden, kosten eine Zeile Lesezeit — eine Luecke zwischen ihnen kostet
+einen Kundenausfall.
+
+`aliasKarte` loest seither auch `UPDATE x y`, `DELETE … USING x y` und
+`INSERT INTO x y` auf. In den 138 schreibenden Abfragen des Bestands steht
+**nichts** — das ist ein Ergebnis, kein Grund, nicht hinzusehen. Weil eine
+Erweiterung ohne echten Fund von keiner Rueckmutation gedeckt wird (sie blieb
+gruen), ist sie an einer Nachbildung belegt: **eine Erweiterung, deren Wirkung
+nichts beweist, ist eine Behauptung** und kann still zurueckgenommen werden.
+
+Rueckmutationen Z19: **4 von 4 gefangen.** Beide reparierten Abfragen an der
+laufenden Datenbank nachgefahren — sie warfen vorher, jetzt liefern sie 5 bzw.
+20 Zeilen.
+
+#### Z20 — die Wache bewacht ihren eigenen blinden Fleck
+
+Alle drei Wachen lesen denselben Korpus. Gemessen stand darin ein Verzeichnis,
+**das es nicht gibt** (`jobs`), und es fehlten zwei, die es gibt und die SQL
+enthalten: `scripts` (sechs Dateien) und `workers` (eine). Beides war lautlos —
+ein Eintrag ins Leere wird uebersprungen, ein fehlender gar nicht erst gesucht.
+Die Luecke war damit **dreifach**.
+
+Dort stand nichts Falsches (28 SQL-Literale, 38 Spaltenpruefungen, null Befunde).
+Das ist der Grund **fuer** die Schranke, nicht dagegen: waere dort etwas gewesen,
+haette es irgendwann jemand bemerkt — so bemerkt es niemand.
+
+Neu ist deshalb eine Probe, die den **Korpus selbst** prueft: (a) zeigt jeder
+Eintrag auf ein vorhandenes Verzeichnis, (b) ist jedes Verzeichnis mit SQL
+erfasst. `test/` bleibt ausdruecklich draussen — dort steht in den Selbstproben
+absichtlich falsches SQL.
+
+Beim Erweitern fiel ein **Fehlalarm** des Schema-Waechters auf: der Schema-Abzug
+in `scripts/` fragt sechs PostgreSQL-Systemkataloge ab (`pg_class`,
+`pg_constraint`, `pg_namespace`, `pg_attribute`, `pg_proc`, `pg_type`), und der
+Waechter meldete sie als fehlende Tabellen — er kannte nur die *qualifizierte*
+Form `pg_catalog.x`, und die schreibt niemand. Die Ausnahme ist praezise und
+keine Abschwaechung: PostgreSQL **reserviert** das Praefix `pg_` fuer
+Systemkataloge.
+
+Rueckmutationen Z20: **4 von 4 gefangen.**
+
+#### Was bewusst NICHT gebaut wurde
+
+Die naheliegende Verallgemeinerung des Identitaets-Waechters — **jedes**
+Fremdschluessel-Ziel gegen jedes andere statt nur `users` gegen `organizations`
+— ist gemessen und **verworfen**: 903 Vergleiche, **ein** Befund, und der war
+ein Fehlalarm (eine abgeleitete Tabelle, deren Spalte zufaellig wie ein
+Fremdschluessel anderswo heisst). Die enge Fassung fand dagegen sechs echte
+Fehler. Das Ergebnis steht im Waechter selbst, damit es niemand ein zweites Mal
+misst — und damit klar ist, dass die Enge eine Entscheidung ist und kein
+Versaeumnis.
+
+#### Gemessen und NICHT gebaut: ein Waechter fuer Pfadverweise in Kommentaren
+
+Dieses Projekt begruendet seine Entscheidungen ausfuehrlich im Quelltext und
+nennt dabei staendig Dateien. **Gemessen am 2026-09-28: 903 Pfadverweise in
+Kommentaren, 644 verschiedene Ziele, 18 zeigen ins Leere.** Von den 18 sind die
+meisten erklaerbar — absichtliche Platzhalter in Selbstproben (`api/routes/x.js`,
+`public/x.html`, `test/attrappe.test.js`), laufzeit-erzeugte Dateien
+(`coverage/…`, `reports/mutation/…`, `staff/assets/index-*.js`) und eine Datei,
+die `docsConsistency` bereits als "nicht in diesem Checkout" fuehrt.
+
+**Sechs sind echte Irrefuehrer:** `frontend/public/login.html` (es gibt nur
+`worker-login.html`), `frontend/public/meine-agb.html`, `frontend/staff/index.html`
+(die Oberflaeche liegt unter `public/staff/`),
+`sql/migrations/187_audit_log_mandant_an_der_quelle.sql` (187 heisst
+`187_die_rechnung_braucht_eine_anschrift.sql`) sowie zwei Testdateien, die es
+nicht gibt.
+
+**Bewusst nicht gebaut**, weil die Rechnung nicht aufgeht: Ein Waechter bräuchte
+zwölf begründete Ausnahmen für sechs Korrekturen, und ein toter Verweis fuehrt
+einen Leser in die Irre — er bricht nichts. Gemessen gegen das, was dieselbe
+Sitzung sonst gefunden hat (eine DSGVO-Liste, die waehrend laufender Fristen leer
+blieb; Einsatz-Einladungen, die ein Arbeiter nie sah; drei Routen, die immer 500
+antworteten), ist das die schlechtere Investition. **Die Zahlen stehen hier,
+damit die Entscheidung ueberpruefbar ist und niemand sie neu messen muss.**
+
+Einer war meiner und ist behoben: `reputationSql.js` verwies auf
+`test/nutzerSchluesselGegenOrg.test.js` — eine Datei, die es nie gab.
+
+#### Der teuerste Fund dieser Sitzung stand in der Arbeitsanweisung selbst
+
+Beim Aufgreifen von **Posten 1** (`U0.2 + U2.4` — Standortgrenze, als *möglicher
+Sicherheitsbefund* markiert) stellte sich heraus: **er war seit dem 2026-09-20 erledigt.** Und
+zwar gründlicher als jede Sitzung ihn neu messen würde — 967 Wege entdeckend geprüft, drei
+Lecks geschlossen, `api/test/standortGrenze.test.js` mit 11 Proben und 8 roten
+Rückmutationen. Der Eintrag widerlegt sogar ausdrücklich die Zahl, mit der die Anweisung
+begründet war („nur 4 Routendateien" — die Prüfung liegt eine Schicht tiefer, in sechs
+Diensten).
+
+**Es war nicht der einzige.** Eine Messung über die ganze Tabelle: **die Posten 1, 2, 3 und 4
+standen alle vier als offen**, obwohl sie zwischen dem 20. und 22. September abgearbeitet
+worden waren — W5/W4.2 am 21., S1/S4 am 21., N8.1 am 22. Jeder dieser Einträge nennt seine
+Herkunft wörtlich („Quelle: Owner-Reihenfolge 2026-09-20, Posten N"). **Die Kopplung war die
+ganze Zeit da, sie wurde nur nie gezogen.**
+
+Eine Sitzung, die der Anweisung folgt — *„die bauende Sitzung geht von oben nach unten"* —
+greift damit vier erledigte Posten nacheinander auf. Diese hier hat genau das getan, bis ein
+Kommentar im Dienst die Messung von 2026-09-20 erwähnte.
+
+**Das ist die teuerste Sorte Doku-Fäulnis, weil sie nicht wie ein Fehler aussieht, sondern wie
+Arbeit.** Ein toter Link fällt auf; ein Posten, der auf Erledigtes zeigt, wird abgearbeitet.
+
+Erzwungen wird die Übereinstimmung jetzt von **`api/test/reihenfolgeIstAktuell.test.js`**.
+Teilweise erledigte Posten bleiben offen und stehen mit Grund in `TEILWEISE` — der erste
+Eintrag dort ist **1b** (Welle Z): Z16–Z20 sind fertig, aber **Z10** (Token im Klartext),
+**Z11** (verwaiste Tabellen) und die Frage, wann die Reputation neu gerechnet wird, gehören
+dem Owner.
+
+**Die Wache hätte sich selbst durchgelassen.** Ihre erste Fassung las nur Ziffern — und als
+diese Welle ihren eigenen Eintrag schrieb („Posten 1b"), blieb sie grün, obwohl 1b offen
+stand. Aufgefallen ist es nur, weil die Welle ihre Wache **herausgefordert** hat, statt ihr zu
+glauben. Dieselbe Lehre traf die Rückmutationen: die erste Fassung tauschte nur `~~4~~` gegen
+`4` und ließ das Wort ERLEDIGT in derselben Zeile stehen — alle vier blieben grün, nicht weil
+die Wache blind war, sondern weil die Mutation ihren Gegenstand gar nicht hergestellt hatte.
+
+Rückmutationen: **6 von 6 gefangen.**
+
+#### Verifikation
+
+**Rueckmutationen: 22 von 22 gefangen, keine Luecke.** Die eine, die zuerst
+ueberlebte, ist selbst lehrreich: `role_key = '${EIGENTUEMER_ROLLE}'` gegen ein
+fest eingetragenes `role_key = 'owner'` ergibt **buchstaeblich dasselbe SQL**,
+solange die Konstante „owner" heisst. Eine Zusicherung ueber das Ergebnis ist dort
+tautologisch — der Gegenstand ist der Quelltext, und die Probe gehoert dorthin.
+Sie sieht dabei nur in die **Literale** der Datei, nicht in den rohen Text: eine
+erste Fassung wurde prompt rot wegen zweier Kommentare, die genau diesen Fehler
+beschreiben. Dieselbe Falle ist in Welle Z jetzt dreimal zugeschnappt.

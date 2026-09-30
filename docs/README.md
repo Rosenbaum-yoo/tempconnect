@@ -56,6 +56,9 @@ Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeita
 | [HETZNER_HA_RUNBOOK.md](HETZNER_HA_RUNBOOK.md) | Hochverfügbarkeit auf Hetzner: Aufbau und Umschaltung. |
 | [BACKUP_DISASTER_RECOVERY.md](BACKUP_DISASTER_RECOVERY.md) | Sicherung und Wiederanlauf — inklusive Wiederherstellungsprobe. |
 | [SECURITY_INCIDENTS.md](SECURITY_INCIDENTS.md) | Vorgehen bei Sicherheitsvorfällen: melden, eindämmen, aufarbeiten. |
+| [DEPLOYMENT_HETZNER.md](DEPLOYMENT_HETZNER.md) | Deployment auf Hetzner Cloud von Grund auf: Server, DNS, Docker-Stack, SSL, erste Inbetriebnahme. |
+| [releases/RELEASE_PROCESS.md](releases/RELEASE_PROCESS.md) | SemVer und Changelog: wann MAJOR/MINOR/PATCH, welche Schritte ein Release durchläuft. |
+| [releases/WAVE16_BURNIN_RUNBOOK.md](releases/WAVE16_BURNIN_RUNBOOK.md) | Der ≥7-Tage-Burn-in vor dem Marktstart: Preprod-Aufbau, tägliche Prüfungen, Abbruchkriterien. |
 | [UEBERGABE.md](UEBERGABE.md) | **Zuerst lesen, wenn eine neue Sitzung beginnt:** Stand, eiserne Regeln, offene Owner-Entscheidungen. Wird per Test gegen die Arbeitspläne abgeglichen. |
 | [FRONTEND_REIFEGRAD_AUDIT.md](FRONTEND_REIFEGRAD_AUDIT.md) | 85 belegte Befunde: wo das Frontend hinter dem mutationsgeprueften Backend zurueckbleibt. Tote Knoepfe, verschluckte 403, rund 90 Endpunkte ohne Oberflaeche. |
 | [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) | Die Mandantengrenze steht 80-mal einzeln in den Routen statt einmal im Helfer. Befund, Folgen und der Plan für Welle 3b. |
@@ -66,10 +69,14 @@ Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeita
 |----------|--------|
 | [ARCHITEKTUR.md](ARCHITEKTUR.md) | Gesamtaufbau der Plattform auf Deutsch. |
 | [FLAECHEN.md](FLAECHEN.md) | **Vor jedem neuen Modul lesen:** was gehört ins Staff Control Center, was ins Owner Control Center, was ins Support Center. Wird per Test erzwungen. |
+| [security/TENANT_ISOLATION_MODEL.md](security/TENANT_ISOLATION_MODEL.md) | Jede Tabelle nach Isolationsstufe klassifiziert und welcher RLS-Mechanismus greift. **Achtung:** verweist für 28 Tabellen auf Migration 117, die es nicht gibt — offener Befund P1-16. |
 | [features/E_LIVE_BELEGSCHAFT.md](features/E_LIVE_BELEGSCHAFT.md) | Live-Belegschaft: gemessener Ist-Stand der Zustaende, die drei Owner-Entscheidungen und die Wellen E2-E5. |
 | [features/F1_SYSTEMZEIT_LANDKARTE.md](features/F1_SYSTEMZEIT_LANDKARTE.md) | 33 belegte Datumsfehler und ihre Ursache: pg liefert DATE als lokale Mitternacht, der UTC-Schnitt ergibt ganztaegig den Vortag. |
 | [features/P10_IMPORT_LIVE_ZEIT.md](features/P10_IMPORT_LIVE_ZEIT.md) | **Nächste Sitzung startet hier:** CSV-Import (Spur D), echte Live-Belegschaft (E), Systemzeit im Einsatzportal (F) — mit Wellen, Gates und Ist-Stand. |
 | [features/I_AUDIT_ZUWEISUNG_SUPPORT.md](features/I_AUDIT_ZUWEISUNG_SUPPORT.md) | **Nächste Sitzung startet hier:** Audit-Log hart trennen (8.1.1, aktiver Befund: 135 Zeilen in der falschen Organisation), aktive Sitzungen (8.1.2), Ersatz-Zuweisung aus der Live-Belegschaft (8.2), Support-Weg Kunde → TempConnect (10), Entscheidung zu Kunde ↔ Kunde (10b). |
+| [features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md](features/J_LIVE_BELEGSCHAFT_MARKTPLATZ.md) | **Plan, noch nicht gebaut:** Live-Belegschaft als eigene Fläche unter „Einsätze & Zeiten" und der Marktplatz aus Unternehmenssicht — freie Kräfte werden sichtbar, ohne dass eine Zeitarbeitsfirma ein Angebot pflegt. Gemessener Ist-Stand (24 freie Kräfte, 1 aktives Angebot), sechs Leitentscheidungen, Wellen J1–J6. |
+| [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md) | **Plan, noch nicht gebaut:** Owner-Abschnitte 12 und 13. Gemessen: die Bounty-Auszahlung laeuft bereits automatisch ueber die Folgerechnung (754 verdiente Bounties, Satz eingefroren) — was fehlt, ist der Eingriffspunkt; ein Ausfall der Rabattermittlung ist heute nur eine Log-Zeile. Dazu Monatsplanung fuer Mitarbeiter (setzt Welle J voraus) und die Pilot-Verlaengerung durch Empfehlung. Wellen K0–K3. |
+| [features/L_TRAGFAEHIGKEIT.md](features/L_TRAGFAEHIGKEIT.md) | **Plan, noch nicht gebaut:** Hochverfuegbarkeit und das Zielbild 10.000 Kunden — eigener Abschnitt, weil Tragfaehigkeit keine Funktion ist. Gemessen: die Sitzungen liegen bereits in Postgres, die API ist damit heute schon waagerecht skalierbar. Drei HA-Stufen nach Nutzen pro Euro, fuenf benannte Bruchstellen bei 10.000, und eine Skalierungs-Sonde, die sie misst statt sie zu vermuten. Wellen L1–L5. |
 | [ENTERPRISE_ARCHITECTURE.md](ENTERPRISE_ARCHITECTURE.md) | Enterprise-Schicht: Mandanten, Standorte, Freigaben. |
 | [PRODUCT_ANALYTICS_ARCHITECTURE.md](PRODUCT_ANALYTICS_ARCHITECTURE.md) | Produktdaten: Ereignisse, Trichter, Auswertung. |
 
@@ -93,6 +100,7 @@ Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeita
 | [features/P6_I18N_UEBERGABE.md](features/P6_I18N_UEBERGABE.md) | Zweisprachigkeit DE/EN: Architektur der Sprachschicht, verbindliche Migrationsregeln, Gates und Stand. |
 | [features/P8_DEAL_VERBINDLICHKEIT.md](features/P8_DEAL_VERBINDLICHKEIT.md) | Deal-Rücknahme und ihre Folgen: Zuverlässigkeitsquote, Bounty statt Strafe, mehrstufige Bestätigung, Besetzbarkeits-Vorschau. Wellen A–E. |
 | [features/P9_BOUNTY_MERKLISTE_ENTITLEMENTS.md](features/P9_BOUNTY_MERKLISTE_ENTITLEMENTS.md) | Drei Spuren: Bounty-System wahrheitsfähig und zuschaltbar machen (inkl. Rabatt, der die Rechnung erreicht), Merkliste für Angebote beidseitig, Freischaltung nach Zahlung härten. |
+| [features/Q_ZUVERLAESSIGKEIT_ZEUGNIS.md](features/Q_ZUVERLAESSIGKEIT_ZEUGNIS.md) | **Bauanweisung mit zwei Vorbehalten** (Owner 2026-09-06): Zuverlaessigkeit, Zeugnis, Abwesenheit. Zwei der drei Themen beruehren Arbeitsrecht und Datenschutz und sind nicht so baubar, wie sie zuerst klingen. |
 | [features/URSPRUNGSPROMPT_AUDIT.md](features/URSPRUNGSPROMPT_AUDIT.md) | Punkt-für-Punkt-Abgleich des Ursprungsprompts gegen den Code: erfüllt / teilweise / fehlt, mit Dateibelegen. |
 
 **Support-Ops**

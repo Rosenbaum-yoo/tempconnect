@@ -130,6 +130,95 @@ unverändert; sie prüfen die Rechenregel, nicht die Schreibbarkeit.
 Nicht in P9/A3 behoben: A3 macht Bounty-Beschreibungen ehrlich, es repariert nicht
 den Notdienst-Fluss. Der Fund stammt aus derselben Prüfung.
 
+### Nachtrag 2026-09-28 — der Suchindex kennt keine Sichtbarkeitsregel (Welle Z, nicht gepatcht)
+
+**P1-15 🔴 `searchService.reindexAll` ignoriert JEDE Sichtbarkeitsregel, die der
+DB-Rückfall durchsetzt.** Gefunden beim Abarbeiten der letzten Schema-Schulden,
+**bewusst nicht behoben**: nach Stop-Regel 7 der CLAUDE.md („Ein
+Public-Profile-Flow ohne Einwilligung existiert") und weil Org-Boundary der erste
+der sieben Produktionspfeiler ist, wird hier ein minimaler sicherer Fix
+vorgeschlagen und auf Bestätigung gewartet.
+
+Der Dienst schreibt seine Regeln selbst auf (Zeile ~385 ff.) und der DB-Rückfall
+hält sie. Die `reindexQuery` je Index hält **keine einzige**:
+
+| Index | Regel laut Code und Rückfall | reindexQuery tatsächlich |
+|---|---|---|
+| `companies` | nur Orgs mit Opt-in (`profile_visibility_settings.is_public` **und** `status='approved'`) | **alle** Firmen, kein Opt-in-Filter |
+| `suppliers` | dieselbe Verzeichnis-Regel | **alle** mit `type='agency'`, kein Filter |
+| `capacity_posts` | nur `status='active'`, nicht `visibility_status='private'`, nicht abgelaufen, Sperrliste beachtet | **alle** Anzeigen, ohne jede Bedingung |
+| `requisitions` | **ORG-PRIVAT** — nur die eigene Org, ohne Org-Kontext gar keine Treffer | `FROM requisitions r ORDER BY r.id` — **jede Anforderung jeder Organisation** |
+
+Die letzte Zeile ist die schwerste: ein gemeinsamer Suchindex, der die
+Anforderungen **aller** Mandanten enthält. Dass `org_id` als filterbares Attribut
+geführt wird, schützt nicht — die Daten liegen dann im Index, und eine Abfrage
+ohne Filter liefert sie.
+
+**Warum heute trotzdem nichts nach außen gelangt, und warum das kein Trost ist:**
+die Reindex-Abfragen benutzen fünf Spalten, die es nicht gibt
+(`users.type`, `users.legal_name`, `users.plan_id`, `capacity_posts.description`,
+`capacity_posts.hourly_rate` — geführt in der Bestandsliste von
+`api/test/sqlSchemaWaechter.test.js`). Der Reindex **wirft**, also ist der Index
+leer, und die Suche fällt auf den korrekt gefilterten DB-Weg zurück. Ausgerechnet
+ein Fehler hält den Schaden auf. Wer die Spalten „nur mal schnell" richtigstellt,
+ohne die Filter mitzubringen, schaltet die Veröffentlichung scharf.
+
+**Der minimale sichere Fix, gemessen und fertig — aber nicht angewandt:**
+1. Jede `reindexQuery` bekommt denselben Filter wie ihr Gegenstück im Rückfall
+   (Opt-in für `companies`/`suppliers`; aktiv/nicht-privat/nicht-abgelaufen für
+   `capacity_posts`).
+2. Die Spalten richtigstellen, und zwar an der gemessenen Wahrheit: die
+   Firmendaten liegen auf `organizations` (`name`, `legal_name`, `type`, `plan`,
+   `billing_city`, `billing_postal_code`), nicht auf `users`; `capacity_posts`
+   hat `notes` statt `description` und `price_type`/`price_min`/`price_max`
+   statt `hourly_rate`. `organizations.type` ist per CHECK auf
+   `company`/`agency` begrenzt, der Lieferanten-Index kann darauf filtern.
+3. **Owner-Entscheidung, weil es die Architektur berührt:** ob `requisitions`
+   überhaupt in einen gemeinsamen Index gehören. Sauber wären ein Index je
+   Organisation oder gar kein Index für org-private Daten. Ein Filterattribut
+   ist keine Mandantengrenze.
+
+**Stand 2026-09-28, abends — behoben durch eine KOPPLUNG statt durch eine Notiz:**
+
+Der Vorschlag aus der Gegenprüfung war der richtige: nicht dokumentieren, sondern
+den gefährlichen Zustand unmöglich machen. Umgesetzt, und jede Änderung ist
+einschränkend oder neutral — der Index kann danach nur enthalten, was der
+Datenbankweg ohnehin öffentlich zeigt:
+
+- `companies` und `suppliers` tragen jetzt denselben Opt-in-Filter wie ihr
+  Datenbank-Gegenstück (`profile_visibility_settings.is_public` **und**
+  `status='approved'`) und lesen aus `organizations` statt aus `users`.
+- `capacity_posts` trägt aktiv / nicht-privat / nicht-abgelaufen und die echten
+  Spalten (`notes`, `price_type/min/max`). Die **Sperrliste** bleibt bewusst
+  draußen: sie hängt am fragenden Unternehmen, ist also keine Eigenschaft des
+  Dokuments und muss beim Suchen angewandt werden — wer den Index aktiviert, muss
+  sie im Suchpfad nachziehen.
+- `requisitions` wird **gar nicht mehr indiziert** (`reindexQuery: null`, wie
+  `skills`). Die org-private Suche läuft über den gefilterten Datenbankweg.
+- **Erzwungen von `api/test/suchindexKenntDieGrenze.test.js`** (DB-frei, läuft im
+  Tor): jede vorhandene Reindex-Abfrage muss die Bestandteile des Filters ihres
+  Gegenstücks tragen; `requisitions` darf nur mit Org-Bindung im Dokument wieder
+  befüllt werden; keine Abfrage darf eine der fünf nicht existierenden Spalten
+  nennen. Fünf Rückmutationen, alle rot — darunter „Opt-in entfernt“ und
+  „requisitions wieder indiziert“.
+- Die fünf Spalten sind damit **aus der Bestandsliste gestrichen**. Das war das
+  eigentliche Dilemma: eine Liste, die laut eigener Regel nur schrumpfen darf,
+  taugt nicht als Merker — jemand hätte sie zum Schrumpfen entfernt und damit
+  genau die Lücke geöffnet. Der Merker ist jetzt die Kopplung.
+
+**Was beim Owner bleibt (Punkt 3, unverändert):** ob org-private Anforderungen
+überhaupt in einen Suchindex gehören. Sauber wäre ein Index **je** Organisation;
+ein gemeinsamer mit Filterattribut ist es nicht. Bis dahin: kein Index.
+
+**Und der Grund, warum es überhaupt so weit kam, gehört festgehalten:** in
+`searchService` stand seit Langem der Hinweis „Vor Aktivierung von Meilisearch:
+pro-Index-Filter ergaenzen (requisitions org_id, …)“. Das Wissen war da und hat
+nichts verhindert. Dazu die Messung aus der Gegenprüfung: `MEILISEARCH_URL` ist in
+beiden Beispiel-Umgebungen auskommentiert und im compose-Verbund gibt es keinen
+Dienst — **die Gefahr lag also nicht im Code, sondern in der Aktivierung**, und die
+sieht wie Konfiguration aus, nicht wie ein Eingriff. Dort schaut niemand nach
+Mandantengrenzen.
+
 ### Nachtrag 2026-08-08 — zwei neue Punkte aus P9/A1
 
 **P1-14 🟠 `reputationService` hat keinen Aufrufer.** `recomputeReputation` wird nur von
@@ -142,6 +231,50 @@ steht überall auf `UNRATED`. Betroffen ist alles, was aus dieser Tabelle liest;
 Zusatz: `assignmentService.js:277` schreibt in `supplier_reputation` in Spalten, die es dort
 nicht gibt (`supplier_org_id`/`score`) — im stummen `try/catch`, also seit jeher wirkungslos.
 Diese Leiche gehört mit weg.
+
+**Stand 2026-09-28 (Welle Z):**
+- ✅ **Die Leiche ist weg** (Z5, `db2fbe3`). `assignmentService.updateSupplierReputation` ist
+  entfernt, samt dem Rückfall in `capacityExchangeService`, der denselben nicht existierenden
+  Spalten nachlas, und samt einer Probe, die den unmöglichen Pfad mit `{ score: 55 }`
+  beglaubigt hatte. Offen hingeschrieben ist dort auch der Preis: der kanonische Schreiber
+  rechnet Abschlüsse aus `requests`, ein assignment-basiertes Signal ist damit **nicht** im
+  Score — das ist eine Owner-Entscheidung, weil es Rangplätze verschiebt.
+- ✅ Ebenfalls behoben (Z5): `instantMatchService` las `org_id`/`overall_score` (beides
+  existiert nicht) und ankerte die Smart-Rank-Abfrage an `organizations`, bekam aber
+  Nutzer-Kennungen → null Zeilen, ohne Fehler. Und `profileRankingService` fragte
+  `om.role` statt `om.role_key` ab: die Abfrage warf jedes Mal, das catch machte daraus
+  `null`, also **nie eine Rangposition** — die zweite Ursache für die dauerhaft leere Zeile
+  „Ihre Position: #N".
+- 🟠 **Der Kern von P1-14 bleibt offen, und er ist nachgemessen:** neun Zeilen in
+  `supplier_reputation`, davon **null** mit `reputation_score`, alle mit `grade='UNRATED'`,
+  nur `avg_stars` gesetzt. `batchRecompute` hat außerhalb der Tests weiterhin keinen
+  Aufrufer.
+- ℹ️ Berichtigt: der Kommentar in `api/services/betriebsTaktLaeufe.js` behauptete,
+  `supplier_reputation` werde von `recompute-supplier-metrics` fortgeschrieben. Gemessen
+  falsch — dieser Cron schreibt `supplier_metrics` (`agency_id`). Die Rangliste um 02:50
+  rechnet also auf leeren Werten, und ihre Reihenfolge im Takt ist richtig, nur ihre Quelle
+  leer.
+- **Die Frage an den Owner ist damit auf eine reduziert:** täglicher Takt vor der Rangliste
+  (wie `deal_reliability`, also z. B. 02:45) **oder** ereignisgesteuert nach Bewertung und
+  Deal-Abschluss? Der Takt ist billiger und vorhersehbar; ereignisgesteuert ist aktueller,
+  kostet aber je Bewertung eine Neuberechnung.
+- **Präzisierung 2026-09-28, sie macht die Entscheidung konkret:** „es fehlt nur der Aufruf"
+  war zu weich formuliert. Gemessen fehlt der **Griff**: `api/routes/internal.js` nennt
+  `reputation` an keiner Stelle (0 Treffer), und `docs/SCHEDULER.md` führt keinen Eintrag
+  dafür. Die Rechnung ist gebaut (`recomputeReputation`, `batchRecompute`), aber es gibt
+  keinen Weg, sie von außen anzustoßen — selbst eine Crontab-Zeile hätte nichts, worauf sie
+  zeigen könnte. Der Weg des Projekts für solche Läufe ist gemessen dreiteilig: ein
+  `POST /internal/…`-Endpunkt mit `checkCronAuth`, eine Zeile in `docs/SCHEDULER.md`
+  (dort steht die echte Crontab, z. B. `0 4 * * *` für
+  `recompute-supplier-metrics`) und — nur wenn der Lauf laufen MUSS — ein Eintrag in
+  `TAKTE`, damit sein Schweigen auffällt. Umsetzung ist klein; die Entscheidung, ob eine ab
+  PRO verkaufte Rangliste ab sofort Plätze vergibt, bleibt die des Owners.
+- **Zur Einordnung, damit die Nachbarzahlen nicht als Befund gelesen werden:**
+  `supplier_metrics` ist in der Entwicklungsdatenbank leer, aber **nicht** unversorgt —
+  `docs/SCHEDULER.md` führt `recompute-supplier-metrics` täglich um 04:00. Und dass 22 der
+  29 internen Endpunkte nicht in `TAKTE` stehen, ist ausdrücklich Absicht
+  (`betriebsTaktService`: „Eine Aufgabe OHNE Eintrag ist kein Fehler … Überwacht wird nur,
+  was laufen MUSS"). Beides gemessen am 2026-09-28.
 
 **P0-14 ✅ Referral-Gutschrift konnte sich vervielfachen** *(am 2026-08-08 geschlossen)*.
 `qualifyReferralReward` buchte die Gutschrift und setzte **danach** `reward_applied = TRUE` —
@@ -306,11 +439,24 @@ Marktstart.
 - **Status:** OFFEN (P2-B in CLAUDE.md)
 - **Wave:** WAVE 08
 
-### P2-04 🟡 Migration-Lücke 111 dokumentieren
-- **Status:** OFFEN
+### P2-04 ✅ Migration-Lücke 111 dokumentiert (2026-09-27)
+- **Status:** ERLEDIGT — dokumentiert in `sql/migrations/NUMBERING.md`, Abschnitt
+  „Die Lücken 111 und 117".
 - **Problem:** sql/migrations/ hat 110 und 112 aber keine 111
 - **Wave:** WAVE 04 (DB)
-- **Verify:** Owner-Entscheidung OE-05 vorher klären
+- **Antwort auf OE-05 („bewusst übersprungen oder Fehler?"), gemessen statt
+  vermutet:** die Buchhaltung `_migrations` führt **keinen** Eintrag 111 — es ist
+  also nie etwas unter dieser Nummer gelaufen, nichts ist verloren. Dass
+  Nummernkollisionen Alltag waren, zeigt die Gegenrichtung: **sieben** Nummern
+  sind doppelt belegt (064, 070, 074, 075, 086, 130, 140). Eine übersprungene
+  Nummer ist dasselbe Phänomen mit umgekehrtem Vorzeichen. Eine
+  Nachtrags-Migration wäre sinnlos: eine Nummer ist ein Ordnungsmerkmal, kein
+  Inventar.
+- **Bleibt beim Owner:** nur noch 117 — und das als Sachfrage, nicht als Lücke:
+  RLS auf ~60 weitere Tabellen (Roadmap, `TENANT_ISOLATION_EVIDENCE.md`).
+- **Erzwungen:** `api/test/dokuMigrationen.test.js` — beide Nummern stehen dort
+  als geplant mit Grund; der Wächter wird rot, sobald eine existiert und der
+  Eintrag stehenbleibt.
 
 ### P2-05 🟡 `app_notdienst.html` Plan-Gate
 - **Status:** OFFEN — Owner-Entscheidung OE-06 required

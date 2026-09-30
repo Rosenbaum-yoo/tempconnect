@@ -152,6 +152,17 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { migrationsFingerabdruck } from "../scripts/schema-snapshot.js";
 
+/* Der SQL-Scanner steht seit Z17 (2026-09-28) in test/lib/sqlScanner.mjs, weil
+   `test/identitaetenNichtVermischen.test.js` genau denselben braucht. Woertlich
+   verschoben, nicht umgeschrieben — die Selbstprobe unten belegt es. */
+import {
+  KORPUS, API_DIR, SCHEMA_DATEI, M_I, M_S,
+  jsLiterale, normalisiere, quellDateien
+} from "./lib/sqlScanner.mjs";
+
+export { jsLiterale, normalisiere };
+
+
 /*
  * hasDb steht hier woertlich statt als Import aus test/integration/helpers.js —
  * gemessen, nicht vermutet: dieser Import kostet 8,9 Sekunden, weil helpers.js
@@ -182,17 +193,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * ein Verzeichnis, in dem wirklich JavaScript mit SQL liegt.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-const KORPUS = ["services", "routes", "routes/occ", "middleware", "jobs", "db", "config", "utils"];
 
-function hatQuellen(apiDir) {
-  try {
-    return fs.readdirSync(path.join(apiDir, "services")).filter((f) => f.endsWith(".js")).length >= 20;
-  } catch { return false; }
-}
-
-const API_KANDIDATEN = [path.resolve(__dirname, ".."), process.cwd()];
-const API_DIR = API_KANDIDATEN.find(hatQuellen) || API_KANDIDATEN[0];
-const SCHEMA_DATEI = path.join(API_DIR, "test", "fixtures", "schema.json");
 
 /*
  * sql/ liegt NICHT immer eine Ebene ueber api/. Lokal ist es die Repo-Wurzel,
@@ -254,97 +255,6 @@ const RELATIONEN = new Set([...TAB_NAMEN, ...SICHTEN]);
  * nicht aus dem Tritt bringt.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-const M_I = "\u0001";   // maskierte Interpolation ${...}
-const M_S = "\u0002";   // maskiertes SQL-String-Literal
-
-function entschaerfe(s) {
-  return s.replace(/\\n/g, "\n").replace(/\\t/g, " ").replace(/\\r/g, " ").replace(/\\(.)/g, "$1");
-}
-
-export function jsLiterale(src) {
-  const out = [];
-  let i = 0, zeile = 1, vorher = "start";
-  const n = src.length;
-  while (i < n) {
-    const c = src[i];
-    if (c === "\n") { zeile++; i++; continue; }
-    if (c === " " || c === "\t" || c === "\r") { i++; continue; }
-    if (c === "/" && src[i + 1] === "/") { while (i < n && src[i] !== "\n") i++; continue; }
-    if (c === "/" && src[i + 1] === "*") {
-      i += 2;
-      while (i < n && !(src[i] === "*" && src[i + 1] === "/")) { if (src[i] === "\n") zeile++; i++; }
-      i += 2; continue;
-    }
-    if (c === "/" && (vorher === "op" || vorher === "start")) {
-      const start = i; i++;
-      let inClass = false, ok = false;
-      while (i < n) {
-        const d = src[i];
-        if (d === "\\") { i += 2; continue; }
-        if (d === "\n") break;
-        if (d === "[") inClass = true;
-        else if (d === "]") inClass = false;
-        else if (d === "/" && !inClass) { ok = true; i++; break; }
-        i++;
-      }
-      if (!ok) i = start + 1;
-      vorher = "wert"; continue;
-    }
-    if (c === "'" || c === '"') {
-      const q = c, startZ = zeile; let buf = ""; i++;
-      while (i < n && src[i] !== q) {
-        if (src[i] === "\\") { buf += src[i] + (src[i + 1] || ""); i += 2; continue; }
-        if (src[i] === "\n") zeile++;
-        buf += src[i]; i++;
-      }
-      i++;
-      out.push({ text: entschaerfe(buf), zeile: startZ });
-      vorher = "wert"; continue;
-    }
-    if (c === "`") {
-      const startZ = zeile; let buf = ""; i++;
-      while (i < n) {
-        const d = src[i];
-        if (d === "\\") { buf += d + (src[i + 1] || ""); i += 2; continue; }
-        if (d === "`") { i++; break; }
-        if (d === "$" && src[i + 1] === "{") {
-          // ${...} mit eigener Klammer-, String- und Template-Tiefe ueberspringen
-          let tiefe = 1; i += 2;
-          while (i < n && tiefe > 0) {
-            const e = src[i];
-            if (e === "\n") zeile++;
-            if (e === "{") tiefe++;
-            else if (e === "}") tiefe--;
-            else if (e === "`" || e === "'" || e === '"') {
-              const q2 = e; i++;
-              while (i < n && src[i] !== q2) {
-                if (src[i] === "\\") { i += 2; continue; }
-                if (src[i] === "\n") zeile++;
-                i++;
-              }
-            }
-            i++;
-          }
-          buf += M_I; continue;
-        }
-        if (d === "\n") zeile++;
-        buf += d; i++;
-      }
-      out.push({ text: entschaerfe(buf), zeile: startZ });
-      vorher = "wert"; continue;
-    }
-    if (/[A-Za-z_$]/.test(c)) {
-      let j = i; while (j < n && /[A-Za-z0-9_$]/.test(src[j])) j++;
-      const w = src.slice(i, j);
-      vorher = /^(return|typeof|instanceof|in|of|new|delete|void|case|do|else|yield|await)$/.test(w) ? "op" : "wert";
-      i = j; continue;
-    }
-    if (/[0-9]/.test(c)) { let j = i; while (j < n && /[0-9.eExXa-fA-F_]/.test(src[j])) j++; i = j; vorher = "wert"; continue; }
-    vorher = (c === ")" || c === "]" || c === "}") ? "wert" : "op";
-    i++;
-  }
-  return out;
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * 3. SQL NORMALISIEREN
@@ -359,33 +269,6 @@ export function jsLiterale(src) {
  * Pruefer 234 nicht existierende Tabellen.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-export function normalisiere(sql) {
-  let out = "", i = 0;
-  const n = sql.length;
-  while (i < n) {
-    const c = sql[i];
-    if (c === "-" && sql[i + 1] === "-") { while (i < n && sql[i] !== "\n") i++; out += " "; continue; }
-    if (c === "/" && sql[i + 1] === "*") {
-      i += 2; while (i < n && !(sql[i] === "*" && sql[i + 1] === "/")) i++; i += 2; out += " "; continue;
-    }
-    if (c === "'") {
-      i++;
-      while (i < n) {
-        if (sql[i] === "'" && sql[i + 1] === "'") { i += 2; continue; }
-        if (sql[i] === "'") { i++; break; }
-        i++;
-      }
-      out += `'${M_S}'`; continue;
-    }
-    if (c === "$" && sql[i + 1] === "$") {
-      i += 2; while (i < n && !(sql[i] === "$" && sql[i + 1] === "$")) i++; i += 2; out += `'${M_S}'`; continue;
-    }
-    if (c === '"') { i++; let b = ""; while (i < n && sql[i] !== '"') { b += sql[i]; i++; } i++; out += b; continue; }
-    if (c === "\n" || c === "\t" || c === "\r") { out += " "; i++; continue; }
-    out += c; i++;
-  }
-  return out;
-}
 
 /* EXTRACT(EPOCH FROM x) und SUBSTRING(x FROM y FOR z) benutzen FROM als
  * FUNKTIONS-Syntax, nicht als Klausel. Ohne diese Maskierung erfindet die
@@ -546,6 +429,21 @@ export function pruefeQuelle(rel, src, zaehler) {
        * lag Fund 2 (INSERT INTO audit_log (user_id, …)). */
       if (klausel !== "INSERT INTO" && klausel !== "UPDATE" && /^\s*\(/.test(rest)) { tabellenFunktion = true; continue; }
       if (fremdSchema === "information_schema" || fremdSchema === "pg_catalog") continue;
+      /*
+       * Z20 (2026-09-28): auch UNQUALIFIZIERT. Die Zeile darueber faengt
+       * `pg_catalog.pg_class`, aber `FROM pg_class c` schreibt niemand mit
+       * Praefix — der Suchpfad hat pg_catalog immer drin. Aufgefallen ist es,
+       * als der Korpus um `scripts` erweitert wurde: dort steht der
+       * Schema-Abzug selbst und fragt sechs Systemkataloge ab (pg_class,
+       * pg_constraint, pg_namespace, pg_attribute, pg_proc, pg_type). Alle
+       * sechs meldete der Waechter als fehlende Tabellen.
+       *
+       * Die Regel ist praezise und keine Abschwaechung: PostgreSQL RESERVIERT
+       * das Praefix `pg_` fuer Systemkataloge und verweigert benutzerdefinierte
+       * Relationen mit diesem Namen. Ein `pg_*`, das es nicht gibt, kann also
+       * keine Tabelle dieses Projekts sein.
+       */
+      if (name.startsWith("pg_")) continue;
       if (name.includes(M_I)) continue;
       relationen.push({ name, ende: m2.index + m2[0].length, fremdSchema });
       if (ctes.has(name) || abgeleitet.has(name)) continue;
@@ -688,81 +586,196 @@ export function pruefeQuelle(rel, src, zaehler) {
 
 const BESTAND = new Set([
   /* ── Fehlende Tabellen ──────────────────────────────────────────────────
-   * feature_overrides: Migration 059 existiert UND ist im Ledger _migrations
-   * als angewandt verbucht — die Tabelle fehlt trotzdem (sql/migrate.sh
-   * dokumentiert die Ursache: vor ON_ERROR_STOP=1 wurden fehlgeschlagene
-   * Migrationen faelschlich als applied eingetragen). Aufrufer:
-   * routes/admin.js (Liste/Anlegen/Loeschen), dealStaffingFastTrackService. */
-  "services/featureOverrideService.js::feature_overrides",
-  /* vendor_pool_history / vendor_pool_notes: nie angelegt. Verlauf und Notizen
-   * eines Lieferantenpools werfen beim Schreiben UND beim Lesen. */
-  "services/vendorPoolService.js::vendor_pool_history",
-  "services/vendorPoolService.js::vendor_pool_notes",
-  /* state_transitions: fehlt; der Aufruf steht in try/catch und liefert damit
-   * stumm eine LEERE Zeitleiste statt eines Fehlers — die gefaehrlichste
-   * Variante, weil die Oberflaeche plausibel aussieht. */
-  "services/dealProgressHelper.js::state_transitions",
+   * feature_overrides: am 2026-09-27 BEHOBEN (Welle Z, Z4) — Migration 223 traegt
+   * nach, was 059 versprochen und nicht gehalten hat. Die Buchung von 059 bleibt
+   * stehen (in einem Protokoll wird nicht radiert), der Nachtrag laeuft unter
+   * neuer Nummer. Der Aufbau ist ABSICHTLICH der von 059, bis auf zwei
+   * begruendete Abweichungen: der eindeutige Index traegt NULLS NOT DISTINCT
+   * (ohne das greift ON CONFLICT beim GLOBALEN Hebel nicht, die Zeilen vermehren
+   * sich stumm und checkOverride nimmt mit LIMIT 1 eine davon), und ein leerer
+   * Funktionsschluessel ist verboten. Insbesondere bleibt `id` SERIAL: eine erste
+   * Fassung hatte auf UUID umgestellt und damit eine zweite Definition derselben
+   * Tabelle geschaffen, samt gebrochener Loeschroute. Zusaetzlich behoben: der
+   * leere catch in dealStaffingFastTrackService (der Hebel war unbedienbar UND
+   * unsichtbar), die Zaehlabfrage mit $3 bei einem Parameter und parseInt auf
+   * der Org-UUID. Eintrag gestrichen. */
+  /* vendor_pool_history / vendor_pool_notes: am 2026-09-27 BEHOBEN (Welle Z, Z6)
+   * — und zwar UNTERSCHIEDLICH, weil die beiden Faelle verschieden sind:
+   *
+   *   `vendor_pool_history` wurde NICHT angelegt. Die Aenderungen stehen schon im
+   *     Audit-Log: die Routen schreiben `vendor_pool.tier_change` bzw.
+   *     `status_change` mit Akteur, altem und neuem Wert und Grund (alt und Grund
+   *     in Z6 ergaenzt). `getHistory` und die Uebersicht lesen jetzt dort. Eine
+   *     zweite Verlaufstabelle daneben waere die Parallelstruktur, die dieses
+   *     Projekt verbietet — und beim Streit um eine Sperrung (Tier BLOCKED) waere
+   *     die Frage, welcher der beiden Verlaeufe stimmt.
+   *   `vendor_pool_notes` wurde ANGELEGT (Migration 224). Eine Notiz ist INHALT,
+   *     kein Protokoll: das Audit-Log haelt fest, DASS eine Notiz entstand, und
+   *     schneidet den Text bei 200 Zeichen ab. `vendor_pool.notes` (eine
+   *     Textspalte, existiert) traegt EINEN Text ohne Verfasser und ohne
+   *     Reihenfolge — die Routen und die Doku beschreiben einen chronologischen
+   *     Verlauf mit Autor.
+   *
+   * Beim Messen dazu gefunden und mitbehoben: NEUN Abfragen der
+   * Lieferantenverwaltung verbanden `supplier_reputation.supplier_id` (ein NUTZER,
+   * per Fremdschluessel) mit `vendor_pool.supplier_org_id` (eine ORGANISATION, per
+   * Fremdschluessel). Ein LEFT JOIN, der nie trifft: kein Fehler, nur lauter NULL,
+   * und die Liste der schwaechsten Lieferanten (mit `WHERE sr.reputation_score IS
+   * NOT NULL`) war dauerhaft leer. Der Weg ueber den Eigentuemer steht jetzt
+   * EINMAL in `services/reputationSql.js`. Eintraege gestrichen. */
+  /* state_transitions: am 2026-09-27 BEHOBEN (Welle Z, Z3) — die Tabelle wurde
+   * NICHT angelegt, der LESER wurde auf die Wahrheit gerichtet. `audit_log`
+   * fuehrt jeden Wechsel einer Anfrage schon mit genau den vier Feldern, die
+   * die Zeitleiste braucht (details->>'from', details->>'to', actor_id,
+   * created_at); `dealDossierService` liest seine Zeitleiste bereits so. Die
+   * Abfrage war UEBRIGENS ZWEIFACH falsch: sie filterte zusaetzlich
+   * entity_type='DEAL', einen Wert, den kein Schreiber hinterlaesst —
+   * stateMachine.logTransition bildet DEAL und REQUEST beide auf 'request'
+   * ab. Neu ist auch, dass der Fehlschlag nicht mehr stumm ist
+   * (timeline_available: false, logger.error statt debug): "konnte nicht
+   * geladen werden" ist eine andere Auskunft als "es ist nichts passiert".
+   * Entdoppelt wird per DISTINCT ON, weil beide Schreiber denselben Wechsel
+   * protokollieren. Eintrag gestrichen. */
 
-  /* ── DSGVO-Export: dieselbe Klasse wie anonymizeUser, nur eine Funktion
-   * weiter. exportUserDataFull kapselt jede Abfrage in safeQuery(), das den
-   * Fehler schluckt — der Export liefert dem Betroffenen also stillschweigend
-   * LEERE Abschnitte statt seiner Daten (Art. 15 DSGVO). ──────────────────── */
-  "services/dataGovernanceService.js::users.is_active",        // gibt es nicht
-  "services/dataGovernanceService.js::users.plan",             // Plan haengt an organizations/subscriptions
-  "services/dataGovernanceService.js::requests.sender_id",     // richtig: requester_id
-  "services/dataGovernanceService.js::ratings.reviewer_id",    // ratings hat weder reviewer_id …
-  "services/dataGovernanceService.js::ratings.reviewee_id",    // … noch reviewee_id
-  "services/dataGovernanceService.js::offers.created_by",      // richtig: supplier_company_id
-  "services/dataGovernanceService.js::invoices.created_by",    // richtig: user_id
-  "services/dataGovernanceService.js::subscriptions.plan_name",  // richtig: plan
-  "services/dataGovernanceService.js::subscriptions.expires_at", // gibt es nicht
-  "services/dataGovernanceService.js::contracts.org_id",       // contracts hat buyer_org_id/supplier_org_id
+  /* ── DSGVO: Auskunft UND Loeschsperre in dataGovernanceService sind am
+   * 2026-09-15 behoben (Welle N2.10) — alle zehn Eintraege gestrichen. Die
+   * Auskunft hatte wegen users.plan/is_active fuer JEDEN Nutzer null geliefert;
+   * der Rechnungs-Riegel (invoices.created_by) hat nie gegriffen. ─────────── */
 
-  /* ── Passwort-Zuruecksetzen: users hat weder reset_token noch
-   * reset_token_expires. Der komplette Ablauf wirft. ───────────────────────── */
-  "services/authService.js::users.reset_token",
-  "services/authService.js::users.reset_token_expires",
+  /* ── Passwort-Zuruecksetzen: am 2026-09-27 BEHOBEN (Welle Z, Z1). Migration 222
+   * legt `reset_token` und `reset_token_expires` an — der Code war richtig, nur
+   * das Schema fehlte. Bauart wie `users.verification_token` (Feld am Konto, beim
+   * Gebrauch genullt), weil das das GELTENDE Muster ist:
+   * `email_verification_tokens` ist eine Waise, die echte Bestaetigung laeuft
+   * ueber das Feld. Ein Index kam dazu, den die Vorlage nicht hat — ohne ihn ist
+   * jeder Versuch ein vollstaendiger Durchlauf der Nutzertabelle. Ob das Token
+   * gehasht gehoert, ist eine Sicherheitsfrage, betrifft `verification_token`
+   * genauso und liegt beim Owner. Beide Eintraege gestrichen. ───────────────── */
 
-  /* ── supplier_reputation: DREI Services schreiben/lesen gegen drei
-   * verschiedene, jeweils nicht existierende Formen dieser Tabelle. Real sind
-   * supplier_id, reputation_score, completed_deals, total_deals. ──────────── */
-  "services/assignmentService.js::supplier_reputation.supplier_org_id",
-  "services/assignmentService.js::supplier_reputation.score",
-  "services/assignmentService.js::supplier_reputation.completed_assignments",
-  "services/assignmentService.js::supplier_reputation.cancelled_assignments",
-  "services/assignmentService.js::supplier_reputation.total_assignments",
-  "services/assignmentService.js::supplier_reputation.avg_duration_days",
-  "services/capacityExchangeService.js::supplier_reputation.supplier_org_id",
-  "services/capacityExchangeService.js::supplier_reputation.score",
-  "services/instantMatchService.js::supplier_reputation.org_id",
-  "services/instantMatchService.js::supplier_reputation.overall_score",
+  /* supplier_reputation: alle zehn Eintraege am 2026-09-27 BEHOBEN (Welle Z, Z5)
+   * — KEINE Spalte wurde angelegt. Die Tabelle hat einen EIGENTUEMER:
+   * `reputationService` (Zeile ~497) setzt alle fuenfzehn echten Spalten in EINEM
+   * Upsert, geschluesselt auf `supplier_id` (NOT NULL, Fremdschluessel auf
+   * `users`). Die drei Befunde waren zweite Schreiber/Leser mit erfundener Form:
+   *
+   *   assignmentService (6): schrieb org-geschluesselt mit eigener 1-5-Skala neben
+   *     `reputation_score` 0-100. Eine org-geschluesselte Zeile ist dort
+   *     STRUKTURELL unmoeglich — es fehlten nicht Spalten, es fehlte die Tabelle,
+   *     die dieser Code meinte. Der Weg ist entfernt; dass damit ein
+   *     assignment-basiertes Signal FEHLT (der Eigentuemer rechnet aus
+   *     `requests`), steht offen an der Stelle und gehoert dem Owner vorgelegt,
+   *     weil es Rangplaetze in einer ab PRO verkauften Faehigkeit verschiebt.
+   *   capacityExchangeService (2): las den Rueckfall, den nur dieser Schreiber
+   *     befuellt haette. Entfernt — samt einer Probe, die den unmoeglichen Pfad
+   *     mit score 55 beglaubigt hat (Paragraph 0.9, dokumentierter Ausnahmefall:
+   *     sie kodierte einen Bruch als Soll).
+   *   instantMatchService (2): las `org_id`/`overall_score`; richtig sind
+   *     `supplier_id`/`reputation_score`. Der Parametername `orgIds` log
+   *     ebenfalls: gemessen uebergibt der Aufrufer
+   *     `capacity_posts.supplier_company_id`, und diese Spalte hat einen
+   *     Fremdschluessel auf `users(id)` — trotz ihres Namens NUTZER. Die Karte
+   *     war also nicht nur falsch benannt, sie war immer leer; jetzt findet sie
+   *     (gemessen 2 von 6 Anbietern). Eintraege gestrichen. */
 
   /* ── Stundenzettel-Vorlagen: is_default gibt es nicht (weder Lesen noch
    * Schreiben), timesheet_template_fields heisst field_label statt label und
    * kennt weder is_visible noch created_at. ───────────────────────────────── */
-  "services/timesheetTemplateService.js::timesheet_templates.is_default",
-  "services/timesheetTemplateService.js::timesheet_template_fields.label",
-  "services/timesheetTemplateService.js::timesheet_template_fields.is_visible",
-  "services/timesheetTemplateService.js::timesheet_template_fields.created_at",
 
   /* ── Einzelbefunde ──────────────────────────────────────────────────────── */
-  "services/staffControlService.js::audit_log.user_id",        // richtig: actor_id — identisch zu Fund 2
-  "services/timesheetService.js::timesheets.worker_signed_at", // Arbeiter-Unterschrift wird nirgends gespeichert
-  "services/timesheetService.js::timesheets.worker_signed_ip",
-  "services/emergencyStaffingService.js::demand_requests.response_window_minutes",
-  "services/instantMatchService.js::compliance_documents.supplier_org_id", // richtig: org_id
-  "services/instantMatchService.js::organizations.is_verified",
-  "services/platformMetricsService.js::ratings.overall_score",
-  "services/onboardingService.js::capacity_posts.user_id",     // richtig: created_by / supplier_company_id
-  "routes/matching.js::capacity_posts.supplier_id",            // richtig: supplier_company_id
+  /* timesheets.worker_signed_at/_ip: am 2026-09-27 BEHOBEN (Welle Z, Z2) — der
+   * WEG ist entfallen, die Spalten wurden NICHT nachgezogen. Drei Messungen
+   * tragen das: (1) `worker_time_submissions` fuehrt den Vorgang der Kraft
+   * vollstaendig (worker_user_id, submitted_at/_by, customer_confirmed_at/_by,
+   * posted_to_timesheet_at) und der Zettel traegt dafuer
+   * source='worker_submission' (Mig 156) — die Frage war also schon
+   * beantwortet; (2) `timesheets` kennt den Menschen nur als Text, es gibt kein
+   * worker_user_id, die Route unterschrieb aber mit der Sitzung und der
+   * Firmen-Berechtigung timesheet.submit — angelegt haette das Feld eine
+   * Unterschrift belegen koennen, die jemand anders geleistet hat; (3) die
+   * Doku, gegen die der Code geschrieben wurde, nennt eine "Migration 031:
+   * Digital Signature Columns", die es nie gab (031 ist 031_rls_prep.sql).
+   * Der schwerere Teil des Befunds war der Leseweg: die Spalte stand in einem
+   * FILTER, also warf die GANZE Abfrage — GET /timesheets/worker-summary
+   * lieferte immer eine 500. Die Kennzahl heisst jetzt
+   * worker_confirmed_count und zaehlt an source. Eintraege gestrichen. */
+  /* demand_requests.response_window_minutes: am 2026-09-27 BEHOBEN (M4c.16) —
+   * der Schreibvorgang ist entfallen, nicht die Spalte nachgezogen. Niemand las
+   * sie; das Antwortfenster haengt allein an `urgency` und steht in
+   * URGENCY_CONFIG. Gespeichert waere es eine zweite Wahrheit, die bei jeder
+   * Aenderung der Konfiguration von ihr abweicht. Eintrag gestrichen. */
+  /* Die letzten fuenf: am 2026-09-28 BEHOBEN (Welle Z, Z16). Alle fuenf waren
+   * falsche Spaltennamen, alle fuenf liefen in ein catch - also stumm, und jeder
+   * hat etwas Sichtbares gekostet:
+   *
+   *   audit_log.user_id -> actor_id: der Staff sah einen LEEREN Verlauf statt
+   *     eines Fehlers.
+   *   compliance_documents.supplier_org_id -> org_id: die Nachweise flossen nie
+   *     in den Sofort-Abgleich ein. Und der Schluessel war ZUSAETZLICH falsch -
+   *     siehe unten.
+   *   organizations.is_verified: die Spalte gibt es dort gar nicht (0 Treffer auf
+   *     verif/trust/approved); `users` hat sie. Kein Anbieter galt je als
+   *     verifiziert.
+   *   ratings.overall_score -> stars: die Plattform-Kennzahl meldete dauerhaft
+   *     "keine Bewertungen", auch wenn welche da waren.
+   *   capacity_posts.user_id -> supplier_company_id/created_by: der
+   *     Einstiegsschritt "erstes Angebot" konnte sich nie abhaken.
+   *
+   * MIT BEHOBEN, weil beim Messen derselbe Fehler dahinter lag: in
+   * `instantMatchService` verbanden ZWEI weitere Karten org-geschluesselte
+   * Tabellen (`compliance_documents.org_id`, `vendor_pool.supplier_org_id`, beide
+   * per Fremdschluessel auf `organizations`) mit Nutzer-Kennungen aus
+   * `capacity_posts.supplier_company_id`. Gemessen an echten Daten: direkt 0
+   * Treffer, ueber den Eigentuemer (org_memberships, role_key=owner) 18. Die
+   * Vorzugsstufe eines Lieferanten ist also in keinen Sofort-Abgleich
+   * eingeflossen. Diese zwei standen in KEINER Bestandsliste, weil die Spalten
+   * existieren - falsch war der Schluessel. Ein Schema-Waechter sieht das nicht.
+   * Eintraege gestrichen. */
+  /* DER LETZTE EINTRAG: am 2026-09-28 BEHOBEN (Welle Z, Z17). Damit ist diese
+   * Liste LEER - zum ersten Mal seit sie existiert.
+   *
+   * `capacity_posts.supplier_id` gibt es nicht; der Anbieter steht als
+   * `supplier_company_id`. Aber die fehlende Spalte war der KLEINERE Teil des
+   * Befunds, und das ist die eigentliche Lehre dieser Welle: die Route
+   * `/matching/smart-explain/:supplierId` nimmt eine ORGANISATION und hat ihre
+   * VIER Datenquellen alle an `o.id` gehaengt - `supplier_reputation.supplier_id`,
+   * `supplier_metrics.agency_id`, `requests.receiver_id` und eben
+   * `capacity_posts.supplier_company_id`. Alle vier zeigen per Fremdschluessel auf
+   * `users`. Gegenprobe an echten Daten: direkt 0 Treffer, ueber den Eigentuemer
+   * 9. Die Route hat also NIE ein Signal gefunden und trotzdem mit 200 und einem
+   * Smart-Rank-Score geantwortet, der ausschliesslich auf Nullen beruhte - eine
+   * erklaerbare Bewertung, die nichts erklaert, gelistet in der oeffentlichen
+   * API-Doku.
+   *
+   * DIESER WAECHTER KONNTE DAVON GENAU EINEN VON VIER SEHEN. Die anderen drei
+   * Spalten existieren ja - falsch war der Schluessel, und einen Schluessel sieht
+   * eine Spaltenliste nicht. Dieselbe Blindstelle hat in Z16 zwei Funde verdeckt
+   * und in Z6 elf. Deshalb gibt es seit Z17 eine zweite Wache mit einer anderen
+   * Frage: `test/identitaetenNichtVermischen.test.js` liest die Fremdschluessel
+   * aus derselben Momentaufnahme (neu: Abschnitt `fremdschluessel`) und macht rot,
+   * wenn eine nutzer-geschluesselte Spalte mit einer Org-Kennung verglichen wird.
+   * Eintrag gestrichen. */
   /* searchService: Altbestand aus der Zeit vor der Org-Umstellung — users hat
    * weder type noch legal_name noch plan_id, capacity_posts weder description
    * noch hourly_rate. */
-  "services/searchService.js::users.type",
-  "services/searchService.js::users.legal_name",
-  "services/searchService.js::users.plan_id",
-  "services/searchService.js::capacity_posts.description",
-  "services/searchService.js::capacity_posts.hourly_rate"
+  /* searchService: alle fuenf am 2026-09-28 BEHOBEN (P1-15) — und die Behebung war
+   * NICHT die Spaltenkorrektur, sondern erst die Kopplung daneben. Der Reihenfolge
+   * wegen festgehalten, weil sie die Lehre ist:
+   *
+   * Die Reindex-Abfragen lasen `users.type/legal_name/plan_id` (die Firmenwahrheit
+   * liegt auf `organizations`) und `capacity_posts.description/hourly_rate` (dort
+   * heisst es `notes` und `price_type/min/max`). Sie warfen also. Und WEIL sie
+   * warfen, ist nie aufgefallen, dass keine einzige von ihnen den
+   * Sichtbarkeitsfilter ihres Datenbank-Gegenstuecks trug: `companies`/`suppliers`
+   * ohne Opt-in-Pruefung, `capacity_posts` ohne aktiv/nicht-privat/nicht-abgelaufen,
+   * und `requisitions` voellig ohne WHERE — die Anforderungen ALLER Mandanten in
+   * einem gemeinsamen Index. Ein Fehler war der einzige Schutz.
+   *
+   * Wer die Spalten allein richtiggestellt haette, haette die Veroeffentlichung
+   * scharf geschaltet. Behoben ist deshalb beides zusammen: Spalten richtig,
+   * Filter gespiegelt, `requisitions` gar nicht mehr indiziert (Owner entscheidet,
+   * ob je Organisation ein eigener Index kommt). Erzwungen von
+   * `test/suchindexKenntDieGrenze.test.js` — eine Notiz stand seit Langem in
+   * searchService Zeile ~181 und hat nichts verhindert. Eintraege gestrichen. */
 ]);
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -784,16 +797,6 @@ const LAUFZEIT_ADAPTIV = new Set([
  * 7. LAUF ÜBER DEN BESTAND
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-function quellDateien() {
-  const out = [];
-  for (const d of KORPUS) {
-    const p = path.join(API_DIR, d);
-    let eintraege;
-    try { eintraege = fs.readdirSync(p); } catch { continue; }
-    for (const f of eintraege) if (f.endsWith(".js")) out.push(path.join(p, f));
-  }
-  return out;
-}
 
 const zaehler = { dateien: 0, sqlLiterale: 0, tabellenRefs: 0, spaltenPruefungen: 0, uebersprungen: 0 };
 const alleBefunde = [];

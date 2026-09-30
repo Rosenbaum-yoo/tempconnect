@@ -25,6 +25,7 @@ import { Router } from "express";
 import { z } from "zod";
 import * as subreq from "../services/subscriptionRequestService.js";
 import { notifyRequestStatusChanged } from "../services/subscriptionNotificationService.js";
+import { verweigereArbeiter } from "../middleware/orgAccess.js";
 
 /**
  * Welle 8 Schritt 15: zentrale, fail-safe Notification-Hook-Helper.
@@ -269,7 +270,19 @@ export function createSubscriptionRequestsRouter(deps) {
   });
 
   /* ---- GET /subscription-requests/mine ---- */
-  router.get("/subscription-requests/mine", requireAuth, async (req, res, next) => {
+  /*
+   * M2.5/M2.7 — gemessen am 2026-09-03: diese Route reicht einer ARBEITERSITZUNG
+   * org-geschluesselte Daten ihrer Zeitarbeitsfirma durch. Ein Arbeiter ist
+   * regulaer Mitglied in der Org seines Arbeitgebers (workerService.acceptInvite,
+   * role_key='worker'), seine Sitzung traegt also deren Kennung.
+   *
+   * Bewusst `verweigereArbeiter` und nicht `requirePermission(...)`: welche Rollen
+   * diese Daten lesen duerfen, ist eine Produktfrage und gehoert dem Owner (M2.6).
+   * Dieser Riegel schliesst genau das Gemessene und nimmt sonst niemandem etwas.
+   */
+  const keinArbeiter = verweigereArbeiter({ logger });
+
+  router.get("/subscription-requests/mine", requireAuth, keinArbeiter, async (req, res, next) => {
     try {
       if (!req.session?.userId) return res.status(401).json({ error: { code: "NOT_AUTHENTICATED" } });
       const orgId = req.orgId || null;

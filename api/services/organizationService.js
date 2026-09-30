@@ -42,7 +42,20 @@ export async function getOrganization(pool, orgId) {
 export async function updateOrganization(pool, orgId, data) {
   const allowed = [
     'name', 'billing_email', 'tax_id', 'website', 'logo_url',
-    'legal_name', 'commercial_register', 'billing_contact', 'parent_org_id'
+    'legal_name', 'commercial_register', 'billing_contact', 'parent_org_id',
+    /* Rechnungsstammdaten (Mig 187, Welle J7): Migration und E-Rechnung haben
+     * die Felder geschaffen, aber kein Weg fuehrte hinein — gemessen am
+     * 2026-08-28 hatte KEINE von 2240 Organisationen eine Anschrift. Ohne sie
+     * ist keine Rechnung gueltig (§ 14 UStG) und `pruefeFirmenstammdaten`
+     * meldet dauerhaft Fehlanzeige. Sie gehoeren an die Rechtsperson, nicht an
+     * den Nutzer: `slaProfil.js` pflegt die Adresse auf `users`, und das ist
+     * genau NICHT der Rechnungssteller. */
+    'billing_street', 'billing_address_2', 'billing_postal_code',
+    'billing_city', 'billing_country_code', 'vat_id', 'iban', 'bic',
+    /* BT-42, seit Migration 205: Pflicht fuer XRechnung (BR-DE-6). Ohne sie
+       meldet der Schematron-Lauf einen Fehler, und eine Behoerde weist die
+       Rechnung ab. */
+    'billing_phone'
   ];
   const fields = [];
   const values = [orgId];
@@ -174,6 +187,17 @@ export async function createDepartment(pool, orgId, data) {
 }
 
 export async function updateDepartment(pool, deptId, orgId, data) {
+  /* U0.2 — DIESELBE GRENZE BEIM AENDERN WIE BEIM ANLEGEN.
+   * `createDepartment` (drei Zeilen weiter oben) prueft den Standort seit jeher;
+   * hier fehlte die Pruefung. Gemessen am 2026-09-20 ueber alle 967 Wege: der
+   * fremde Standort erreichte von hier aus die schreibende Abfrage
+   * (`UPDATE org_departments SET ... location_id = $4`), und der Fremdschluessel
+   * faengt ihn NICHT — er zeigt auf `org_locations(id)`, nicht auf
+   * `(id, org_id)`, und prueft damit nur die Existenz.
+   * Eine Grenze, die beim Anlegen gilt und beim Aendern nicht, ist keine. */
+  if (data.location_id) {
+    await assertLocationBelongsToOrg(pool, data.location_id, orgId);
+  }
   const allowed = ['name', 'cost_center', 'location_id', 'is_active'];
   const fields = [];
   const values = [deptId, orgId];

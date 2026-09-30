@@ -117,11 +117,64 @@ Das Frontend nutzt von /analytics/* nur provider-config und track-public. Nie si
 
 POST /timesheets/batch-approve (:405) und /batch-reject (:417) haben keinen Aufrufer — das Frontend kennt nur /api/timesheets und Einzelaktionen. Ein Unternehmen mit 80 Stundenzetteln pro Woche muss jeden einzeln freigeben, obwohl die Massenfreigabe inkl. Audit-Eintrag fertig gebaut ist. Ebenfalls unbenutzt: /timesheets/worker-summary (:434, KPIs je Mitarbeiter) und /timesheets/status-meta (:429, Status-Labels und -Farben vom Server).
 
+> **Nachtrag 2026-09-28 (Welle Z): `worker-summary` lieferte bis dahin nicht einmal Zahlen.**
+> Die Kennzahl `signed_count` stand auf `timesheets.worker_signed_at` — einer Spalte, die es
+> nicht gibt — und weil sie in einem `FILTER` stand, warf die GANZE Abfrage: der Endpunkt
+> antwortete immer mit einer 500, nie mit einer Zahl (behoben in Z2, `dc083b6`; die Kennzahl
+> heisst jetzt `worker_confirmed_count` und zaehlt an `timesheets.source`). Dasselbe bei
+> `GET /marketplace/deals/:id/progress`: die Zeitleiste las eine Tabelle, die es nicht gibt
+> (behoben in Z3, `a636404`). **Beide liefern jetzt echte Daten und haben weiterhin keinen
+> Aufrufer** — die Lücke ist also nicht mehr „Endpunkt gebaut, UI fehlt", sondern nur noch das
+> zweite.
+
+### Wie gross die Klasse „Endpunkt gebaut, niemand ruft ihn" wirklich ist
+
+**Gemessen am 2026-09-28** — mit der Methode hier, damit die Zahl nachrechenbar ist und nicht
+geglaubt werden muss: alle `router.<methode>("…")` unter `api/routes/` (967 Endpunkte) gegen den
+gesamten Frontend-Text (`frontend/public` + `frontend/src`, ohne die gebauten Staff-Bundles).
+Ein Endpunkt gilt als gerufen, wenn **alle** statischen Segmente seines Pfads irgendwo im
+Frontend vorkommen — absichtlich grosszuegig, weil das Frontend Pfade zusammenbaut und eine
+strengere Regel Dutzende Fehlalarme erzeugt.
+
+**Ergebnis: 123 von 967 ohne erkennbaren Frontend-Aufrufer.** Die Verteilung sagt mehr als die
+Zahl, denn die meisten sind es zu Recht:
+
+| Datei | ohne Aufrufer | Einordnung |
+|---|---|---|
+| `internal.js` | 29 | Cron-Endpunkte, gerufen vom Zeitplan mit `X-Internal-Secret` — kein Frontend-Fall |
+| `internalControlCenter.js` | 15 | interne Fläche, sitzungsbasiert; wer sie ruft, ist ungeklärt |
+| `preferredVendors.js` | 8 | ungeklärt, Kandidat für einen echten Befund |
+| `scim.js` | 7 | SCIM-Schnittstelle für fremde Identitätsanbieter — kein Frontend-Fall |
+| `analytics.js` | 6 | deckt sich mit dem Befund oben |
+| `mentoring.js` | 5 | ungeklärt |
+| übrige | 53 | verstreut |
+
+**Kein Wächter dafür, und das ist eine Entscheidung, keine Bequemlichkeit.** Ein Wächter
+bräuchte ein Register mit 123 begründeten Ausnahmen; eine Liste, die man nicht Zeile für Zeile
+verteidigen kann, wird zur Ausrede statt zum Befund — und die ehrlichen Fälle (Cron, SCIM)
+überwiegen die verdächtigen deutlich. Der Weg dorthin wäre umgekehrt: erst die drei ungeklärten
+Gruppen (`internal-control`, `preferred-vendors`, `mentoring`) klären, dann das Register aus dem
+Rest bilden.
+
+**Zwei Messfallen, die beim Ermitteln dieser Zahl zuerst zugeschlagen haben** (beide gehören zur
+Methode, nicht zur Anekdote): wer `frontend/src/owner-control/` ausschliesst, meldet die OCC-Fläche
+fälschlich als aufruferlos (130 statt 123); und wer die gebauten Staff-Bundles unter
+`frontend/public/staff/assets/` als „nur Build-Ausgabe" überspringt, verliert die einzige Spur
+des Staff Control Centers, dessen Quelltext unter `frontend/src/staff/` liegt. Wer nachmisst,
+prüfe zuerst, welche Flächen er gerade ausgeschlossen hat.
+
 ### Stored XSS: frei eingegebenes Feld-Label laeuft unescaped in ein value-Attribut
 
 **Beleg:** `frontend/public/timesheet-templates.html:325`  ·  **Aufwand:** klein
 
 Ein Nutzer legt ein Stundenzettel-Template mit dem Feld-Label " autofocus onfocus=alert(1) x=" an; sobald ein Kollege derselben Organisation den Template-Editor oeffnet, bricht der Wert aus dem value-Attribut aus und fremder JavaScript-Code laeuft in dessen angemeldeter Sitzung.
+
+> **Hinweis 2026-08-26:** Alle Befunde dieses Berichts, die
+> timesheet-templates.html oder timesheetTemplates.js betreffen — der Stored-XSS,
+> der quote-unsichere esc(), die fehlende i18n-Einbindung, die Emojis, der Aufrufer
+> ohne Ziel — sind **gegenstandslos**: Seite, Route und Dienst wurden nach
+> Owner-Entscheid entfernt. Die Einträge bleiben als Historie stehen; es gibt nichts
+> mehr zu beheben. Begründung und Messung: `docs/PLATTFORM_REGISTER.md`, Liste A, A1.
 
 ### esc() in timesheet-templates.html escapt keine Anfuehrungszeichen (Ursache des XSS)
 
@@ -488,6 +541,31 @@ applyStaticCardLocks selektiert [data-feature] und rendert daraus Schloss-Symbol
 **Beleg:** `api/routes/suppliers.js:119`  ·  **Aufwand:** klein
 
 PATCH /suppliers/:id/categorize (:119) setzt Kategorie und Notiz mit Audit-Eintrag, hat aber keinen Aufrufer; die Scorecard-Seite nutzt nur /suppliers/enriched, /suppliers/:id/scorecard und /suppliers/:id/notes. Die Kategorie, nach der /preferred-vendors und der Vendor-Pool filtern, kann im Produkt nie gesetzt werden.
+
+### Zwei Routenfamilien über einem Feld: `/vendor-pool` lebt, `/preferred-vendors` nicht
+
+**Beleg:** `api/routes/preferredVendors.js` gegen `api/routes/vendorPool.js`  ·  **Aufwand:** Owner-Entscheidung
+
+**Gemessen am 2026-09-28** (Entscheidungsgrundlage, nicht Empfehlung): beide Familien
+sind montiert, nutzen **denselben** Dienst (`vendorPoolService`) und dieselbe
+Berechtigung (`vendor_pool.view` / `.manage`). Sie überlappen in Liste, Anlegen und
+Löschen und haben je eigene Wege — `/preferred-vendors` bringt `summary`, `coverage`,
+`suggest`, `capacity`, `bulk`; `/vendor-pool` bringt `tier`, `status`, `from-deal`,
+`stats`, `supplier-lookup`, `my`.
+
+| Familie | Aufrufstellen im Frontend |
+|---|---|
+| `/vendor-pool` | **19** in vier Dateien (12 allein in `js/pages/vendorPool.js`, dazu `deal_management.html`, `offer_detail.html`, `api-docs.html`) |
+| `/preferred-vendors` | **0** — die einzigen Treffer stehen in Dokumenten (`api/docs/PREFERRED_VENDOR.md`, `docs/api/API_SURFACE.md`, `docs/PLATTFORM_REGISTER.md`) |
+
+`/preferred-vendors` hat also eine eigene Feature-Doku, einen Eintrag in der
+API-Fläche (als PRO+) und acht Endpunkte — und keine Oberfläche ruft einen davon.
+Entweder ist es eine bewusst reine API-Fläche für Partner (dann gehört das in die
+Doku, nicht in die Vermutung), oder es ist der Vorgänger von `/vendor-pool`, der
+stehen geblieben ist. **Verschmelzen oder Entfernen ist ein Eingriff in die
+veröffentlichte API-Fläche und damit Owner-Sache**; hier steht nur, was gemessen
+ist. Zusammen mit dem Befund darüber ergibt sich ein stimmiges Bild: die
+Kategorie, nach der beide Familien filtern, ist ohnehin nie setzbar.
 
 ### Admin-Panel: Sichtbarkeits-Audit, Pilot-Policy und Aktionstyp-Filter nicht verdrahtet
 

@@ -656,16 +656,34 @@ describe("browseFeed", () => {
   });
 
   it("drops fully-committed supply entries (remaining_headcount === 0)", async () => {
-    const pool = browseFeedPool({
-      supplyCount: { rows: [{ cnt: 1 }] },
-      supplyRows: { rows: [{
-        id: "cap-1", supplier_company_id: "sup", status: "active",
-        visibility_status: "public", headcount: 2, role: "r", location_city: "HH"
-      }] },
-      states: { rows: [{ capacity_post_id: "cap-1", committed_headcount: 2, counterparty_user_ids: ["b"] }] }
-    });
-    const out = await svc.browseFeed(pool, { viewer_user_id: "sup" });
-    assert.equal(out.items.length, 0, "filled supply removed from feed");
+    /*
+     * NACHGEZOGEN IN N2.8 (§0.9: die Probe pruefte, WO der Filter sitzt).
+     *
+     * Die erste Fassung liess den Muster-Pool eine AKTIVE, VOLL GEBUCHTE Zeile
+     * liefern und erwartete, dass JavaScript sie nach dem `LIMIT` verwirft.
+     * Genau dieses Verwerfen hinter dem `LIMIT` kuerzte Seiten und blaehte die
+     * Trefferzahl — deshalb steht der Filter jetzt im SQL, und eine solche
+     * Zeile kann die Abfrage gar nicht mehr liefern. Die Zusage bleibt: ein
+     * aktives Angebot ohne freien Platz steht nicht im Feed. Geprueft wird sie
+     * dort, wo sie jetzt eingeloest wird — in Zaehlung UND Abfrage.
+     * Die Wirkung ist gegen die laufende Datenbank belegt (N2.8).
+     */
+    const pool = browseFeedPool({ supplyCount: { rows: [{ cnt: 0 }] } });
+    await svc.browseFeed(pool, { viewer_user_id: "sup" });
+    const zaehlung = pool.calls.find((c) => c.sql.includes("COUNT(*)::int AS cnt") && c.sql.includes("FROM capacity_posts cp"));
+    const abfrage = pool.calls.find((c) => c.sql.includes("AS sort_date") && c.sql.includes("FROM capacity_posts cp"));
+    for (const [name, q] of [["Zaehlung", zaehlung], ["Abfrage", abfrage]]) {
+      assert.ok(q, `${name} lief nicht`);
+      assert.match(q.sql, /cp\.status <> 'active' OR LEAST\(GREATEST\(cp\.headcount - COALESCE\(zusage\.zugesagt, 0\), 0\), pool_frei\.frei\) > 0/,
+        `${name}: ein aktives Angebot ohne freien Platz wird nicht ausgeschlossen`);
+      assert.match(q.sql, /LEFT JOIN LATERAL[\s\S]*FROM offers o_zu[\s\S]*\) zusage ON TRUE/,
+        `${name}: die zugesagte Kopfzahl wird nicht berechnet`);
+      /* M4c.3: dieselbe Zusage fuer Sammelangebote — ein Angebot, dessen
+         Mitglieder alle anderswo gebunden sind, hat keinen freien Platz mehr
+         und steht damit ebenfalls nicht im Feed. */
+      assert.match(q.sql, /LEFT JOIN LATERAL[\s\S]*FROM capacity_post_pool_members m[\s\S]*\) pool_frei ON TRUE/,
+        `${name}: die freien Mitglieder eines Sammelangebots werden nicht berechnet`);
+    }
   });
 
   it("company viewer sees only supply (demand filtered out)", async () => {
@@ -702,23 +720,57 @@ describe("browseFeed", () => {
     assert.ok(out.items.every((i) => i.feed_type !== "supply"), "supply hidden from agency without inter-agency");
   });
 
-  it("applies post-query geo filter and distance sort", async () => {
+  it("applies the geo filter and distance sort — in SQL", async () => {
+    /*
+     * UMGESCHRIEBEN AM 2026-09-07 (Welle N2.4b).
+     *
+     * Diese Probe hielt fest, dass `browseFeed` eine ferne Zeile aus `items`
+     * entfernt. Das tat es damals in JavaScript, NACH der Abfrage und nach dem
+     * `LIMIT` — genau der Fehler, den N2.4b behoben hat: die Trefferzahl kannte
+     * den Umkreis nicht, und eine Seite lieferte weniger als angefordert.
+     *
+     * Die ZUSICHERUNG gilt unveraendert; nur setzt sie jetzt die Datenbank
+     * durch, und ein Muster-Pool kann das nicht nachstellen — er gibt zurueck,
+     * was man ihm sagt, ganz gleich was im WHERE steht. Geprueft wird deshalb
+     * die ERZEUGTE ABFRAGE: dass der Umkreis darin steht, dass Zeilen ohne
+     * Koordinaten herausfallen, dass der eigene Radius des Eintrags mitzaehlt
+     * und dass VOR dem Schneiden nach Naehe sortiert wird.
+     *
+     * Der echte Beweis, dass es rechnet, liegt woanders und ist gefuehrt:
+     * `api/test/trefferzahlStimmt.test.js` und ein Lauf gegen die laufende
+     * Datenbank (25 km -> 9, 300 km -> 11, 400 km -> 13).
+     */
+    const gesehen = [];
     const pool = browseFeedPool({
       supplyCount: { rows: [{ cnt: 2 }] },
       supplyRows: { rows: [
         { id: "near", supplier_company_id: "s1", status: "active", visibility_status: "public",
           headcount: 1, role: "r", location_city: "HH", location_lat: 53.55, location_lng: 9.99,
-          radius_km: 50, created_at: new Date().toISOString() },
-        { id: "far", supplier_company_id: "s2", status: "active", visibility_status: "public",
-          headcount: 1, role: "r", location_city: "M", location_lat: 48.13, location_lng: 11.58,
-          radius_km: 5, created_at: new Date().toISOString() }
+          radius_km: 50, created_at: new Date().toISOString(), _distance_km: 0.4567 }
       ] },
       states: { rows: [] }
     });
+    const echt = pool.query;
+    pool.query = async (sql, params) => { gesehen.push(String(sql)); return echt(sql, params); };
+
     const out = await svc.browseFeed(pool, { latitude: 53.55, longitude: 9.99, radius_km: 10 });
-    assert.equal(out.items.length, 1, "only the near entry is within radius");
+
+    const mitUmkreis = gesehen.filter((s) => /6371 \* 2 \* asin/.test(s));
+    assert.ok(mitUmkreis.length >= 2, "der Umkreis fehlt in Zaehlung oder Holabfrage");
+    for (const q of mitUmkreis) {
+      assert.match(q, /location_lat IS NOT NULL/, "Zeilen ohne Koordinaten bleiben drin");
+      assert.match(q, /GREATEST\(10, COALESCE\(\w+\.radius_km, 25\)\)/,
+        "der eigene Radius des Eintrags zaehlt nicht mit");
+    }
+    const holen = gesehen.filter((s) => /LIMIT/.test(s) && !/COUNT\(/.test(s));
+    for (const h of holen) {
+      assert.ok(h.indexOf("_distance_km ASC") > 0 && h.indexOf("_distance_km ASC") < h.indexOf("LIMIT"),
+        "sortiert wird erst nach dem Schneiden");
+    }
+
+    /* Was JavaScript noch tut: die Entfernung fuer die Anzeige runden. */
     assert.equal(out.items[0].id, "near");
-    assert.ok(typeof out.items[0]._distance_km === "number");
+    assert.equal(out.items[0]._distance_km, 0.5, "die Entfernung wird nicht gerundet");
   });
 });
 
@@ -836,7 +888,24 @@ describe("computeTrustSignals", () => {
     assert.equal(pool.calls.some((c) => c.sql.includes("FROM compliance_documents")), false);
   });
 
-  it("falls back to org-level reputation when supplier_id has no row", async () => {
+  /*
+   * Z5 (2026-09-27): HIER STAND "falls back to org-level reputation when
+   * supplier_id has no row", UND SIE WAR GRUEN, OBWOHL DER WEG NICHT EXISTIEREN
+   * KONNTE.
+   *
+   * Die Probe hat eine Abfrage auf `supplier_org_id` mit `{ score: 55 }`
+   * beantwortet. Beide Spalten gibt es nicht, und es kann sie auch nicht geben:
+   * `supplier_reputation.supplier_id` ist NOT NULL mit einem Fremdschluessel auf
+   * `users(id)` — eine org-geschluesselte Zeile ist dort strukturell unmoeglich.
+   * Der Muster-Pool hat einen unmoeglichen Pfad beglaubigt. Nebenbei war die 55
+   * auch im falschen Massstab: der (tote) Schreiber erzeugte 1.0-5.0, das Feld
+   * ist 0-100.
+   *
+   * Nach Paragraph 0.9 ist das der dokumentierte Ausnahmefall: die Probe kodierte
+   * einen Bruch als Soll. Sie wird ERSETZT, nicht geloescht - und die neue
+   * Zusicherung ist strenger, weil sie die Abwesenheit des Weges festnagelt.
+   */
+  it("Z5: ohne Reputationszeile bleibt der Wert leer - und es wird KEIN org-Rueckfall versucht", async () => {
     const pool = trackingPool((sql) => {
       if (sql.includes("FROM proofs")) return { rows: [{ cnt: 0 }] };
       if (sql.includes("FROM users u WHERE u.id = $1")) {
@@ -845,12 +914,16 @@ describe("computeTrustSignals", () => {
       if (sql.includes("FROM compliance_documents")) return { rows: [{ total: 0, verified: 0 }] };
       if (sql.includes("FROM requests")) return { rows: [{ cnt: 0 }] };
       if (sql.includes("last_confirmed_at > NOW()")) return { rows: [{ cnt: 0 }] };
-      if (sql.includes("supplier_id = $1")) return { rows: [] }; // no per-supplier row
-      if (sql.includes("supplier_org_id = $1")) return { rows: [{ score: 55 }] };
+      if (sql.includes("supplier_id = $1")) return { rows: [] }; // keine Zeile fuer diesen Anbieter
       return { rows: [] };
     });
     const s = await svc.computeTrustSignals(pool, "sup");
-    assert.equal(s.reputation_score, 55, "org-level fallback used");
+    assert.equal(s.reputation_score, undefined,
+      "es wird ein Reputationswert gemeldet, obwohl es keine Zeile gibt");
+    const rueckfall = pool.calls.filter((c) => c.sql.includes("supplier_org_id"));
+    assert.deepEqual(rueckfall, [],
+      "der org-geschluesselte Rueckfall wird wieder abgefragt - die Spalten existieren nicht, "
+      + "die Abfrage kann nur werfen: " + JSON.stringify(rueckfall.map((c) => c.sql)));
   });
 });
 

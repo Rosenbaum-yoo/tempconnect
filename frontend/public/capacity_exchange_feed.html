@@ -164,6 +164,10 @@
   <script src="/public/js/api.js"></script>
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
+  <!-- N8.1: der Rollenfilter haengt am Katalog. Beide Dateien VOR der Seitenlogik,
+       weil `marketplaceFeed.js` die Bindung beim Start aufruft. -->
+  <script src="/public/js/skillPicker.js"></script>
+  <script src="/public/js/katalogFeld.js"></script>
   <script src="/public/js/pages/marketplaceFeed.js"></script>
 
   <script src="/public/js/terminologyLabels.js"></script>
@@ -199,5 +203,6 @@
   <script src="/public/js/footer.js"></script>
 <script src="/public/js/demoBanner.js" defer></script>
 <script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/breadcrumb.js" defer></script>
+<script src="/public/js/schnellstart.js" defer></script>
 </body>
 </html>

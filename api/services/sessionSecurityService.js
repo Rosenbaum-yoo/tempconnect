@@ -134,6 +134,103 @@ export async function destroyAllUserSessions(pool, userId, { exceptSid = null } 
 }
 
 /**
+ * Grober Geraetetyp aus dem User-Agent (8.1.2, Owner-Entscheidung 2026-08-21:
+ * "Zeitpunkt + grober Geraetetyp", KEINE IP, KEIN Standort, KEINE Geraetekennung).
+ *
+ * WARUM UEBERHAUPT: Das Einsatzportal zeigt "2 aktive Sitzungen — davon 1 auf
+ * anderen Geraeten". Die zweite Zahl war schlicht `offen - 1`: die Anwendung
+ * kannte gar keine Geraete. Der Text versprach eine Unterscheidung, die die
+ * Daten nicht hatten — und genau darauf soll jemand entscheiden, ob er sein
+ * Konto fernabmeldet.
+ *
+ * WAS BEWUSST NICHT GESPEICHERT WIRD: der rohe User-Agent. Er ist ein
+ * Wiedererkennungsmerkmal (Browser-Fingerabdruck); fuer die Frage "ist das
+ * meins?" genuegt "Handy, Chrome". Gespeichert wird also nur das Ergebnis
+ * dieser Einordnung, nicht ihre Grundlage.
+ *
+ * Die Einordnung ist absichtlich grob und ohne Fremdbibliothek: sie muss
+ * "Handy oder Rechner" beantworten, nicht Modellnummern.
+ *
+ * @param {string} [userAgent]
+ * @returns {{ art: "handy"|"tablet"|"rechner"|"unbekannt", browser: string }}
+ */
+export function ordneGeraetEin(userAgent) {
+  const ua = String(userAgent || "");
+  if (!ua.trim()) return { art: "unbekannt", browser: "unbekannt" };
+
+  /* Reihenfolge zaehlt: ein Android-TABLET nennt sich "Android" OHNE "Mobile",
+   * ein Android-Handy mit. Deshalb zuerst die eindeutigen Tablet-Merkmale.
+   *
+   * ACHTUNG, hier ist es beim Bauen einmal schiefgegangen: `\b` ist in einem
+   * Template-Literal (und in vielen Werkzeugen, die den Code erzeugen) das
+   * BACKSPACE-Zeichen, keine Wortgrenze. Die erste Fassung dieser Muster trug
+   * 0x08 statt `\b` und traf deshalb fast nichts — iPhone wurde "rechner",
+   * jeder Browser "unbekannt". Dieselbe Falle wie beim Org-Grenzen-Waechter am
+   * 2026-08-19 (docs/UEBERGABE.md). Diese Muster stehen bewusst als
+   * Literale im Quelltext, nicht zusammengesetzt. */
+  let art = "rechner";
+  if (/\biPad\b|\bTablet\b|Android(?!.*\bMobile\b)/i.test(ua)) art = "tablet";
+  else if (/\bMobi|\biPhone\b|\bAndroid\b|\bIEMobile\b/i.test(ua)) art = "handy";
+
+  /* Auch hier zaehlt die Reihenfolge: Edge und Opera nennen sich beide
+   * zusaetzlich "Chrome", Chrome nennt sich zusaetzlich "Safari". Wer in der
+   * falschen Reihenfolge prueft, meldet jeden Edge als Chrome. */
+  let browser = "unbekannt";
+  if (/\bEdgA?\//i.test(ua)) browser = "Edge";
+  else if (/\bOPR\/|\bOpera\b/i.test(ua)) browser = "Opera";
+  else if (/\bFirefox\/|\bFxiOS\//i.test(ua)) browser = "Firefox";
+  else if (/\bChrome\/|\bCriOS\//i.test(ua)) browser = "Chrome";
+  else if (/\bSafari\//i.test(ua)) browser = "Safari";
+
+  return { art, browser };
+}
+
+/**
+ * Vermerkt Zeitpunkt und groben Geraetetyp auf der Sitzung.
+ *
+ * `stampSession` setzte bisher nur `createdAt` — der Zeitpunkt war also schon
+ * da, wurde aber nirgends ausgeliefert. Hier kommt die Einordnung dazu.
+ */
+export function vermerkeGeraet(session, userAgent) {
+  if (!session) return;
+  session.geraet = ordneGeraetEin(userAgent);
+}
+
+/**
+ * Die offenen Sitzungen eines Nutzers — mit Zeitpunkt und grobem Geraetetyp.
+ *
+ * AUSSCHLIESSLICH das eigene Konto: der Aufrufer uebergibt `req.session.userId`,
+ * es gibt keinen Parameter fuer eine fremde Kennung. Wer die Sitzungen anderer
+ * sehen darf, ist eine Flaechen-Frage und war am 2026-08-21 nicht entschieden —
+ * bis dahin gibt es die Fremdsicht nicht, statt sie vorsorglich zu bauen.
+ *
+ * `aktuell` markiert die Sitzung des Aufrufers, damit die Oberflaeche "dieses
+ * Geraet" sagen kann, ohne die Sitzungskennung auszuliefern (sie ist das
+ * Anmeldegeheimnis).
+ *
+ * @returns {Promise<Array<{ aktuell: boolean, seit: string|null, geraet: object }>>}
+ */
+export async function listUserSessions(pool, userId, aktuelleSid = null) {
+  if (!userId) return [];
+  const { rows } = await pool.query(
+    `SELECT sid, sess, expire FROM session
+      WHERE sess->>'userId' = $1 AND expire > NOW()
+      ORDER BY (sess->>'createdAt') DESC NULLS LAST`,
+    [String(userId)]
+  );
+  return rows.map((r) => {
+    const sess = typeof r.sess === "string" ? JSON.parse(r.sess) : (r.sess || {});
+    const erstellt = Number(sess.createdAt);
+    return {
+      aktuell: aktuelleSid ? r.sid === aktuelleSid : false,
+      seit: Number.isFinite(erstellt) ? new Date(erstellt).toISOString() : null,
+      laeuft_ab: r.expire ? new Date(r.expire).toISOString() : null,
+      geraet: sess.geraet || { art: "unbekannt", browser: "unbekannt" },
+    };
+  });
+}
+
+/**
  * Zaehlt die offenen Sitzungen eines Nutzers. Ohne diese Zahl ist "Alle Geraete abmelden"
  * ein Knopf ins Leere — der Nutzer soll sehen, dass es etwas zu beenden gibt.
  */

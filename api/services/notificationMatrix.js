@@ -38,6 +38,31 @@ const logger = createServiceLogger("notificationMatrix");
 export const ERLAUBTE_SEVERITY = Object.freeze(["info", "warning", "error", "success"]);
 
 const MATRIX = {
+  /*
+   * M4.8 (Owner-Vorgabe 2026-09-05) — DER ANSTOSS, DER FEHLTE.
+   *
+   * Der Veroeffentlichungsweg ist fertig: `setzeMarktpraesenz` legt SYNCHRON je
+   * Katalog-Faehigkeit einen anonymen Marktplatz-Eintrag an, und der Endpunkt
+   * `POST /workers/:id/marktpraesenz` ist org-gebunden, rechte-geprueft und
+   * auditiert. Der OK-Klick der Firma existiert also.
+   *
+   * Was fehlte: die Firma ERFUHR NICHT, dass etwas zur Freigabe liegt. Ein
+   * Mensch trug im Portal seine Faehigkeiten ein, und danach passierte —
+   * nichts. Kein Eintrag, keine Meldung, kein Hinweis. Gemessen: 30 von 33
+   * Kraeften unsichtbar.
+   *
+   * `dispatch` entdoppelt eine Stunde lang ueber
+   * (user_id, type, entity_type, entity_id). Wer seine Faehigkeiten dreimal
+   * hintereinander speichert, erzeugt deshalb EINE Meldung, nicht drei — ohne
+   * dass hier etwas dafuer getan werden muss.
+   */
+  'worker.skills_awaiting_release': {
+    type: 'worker_marktpraesenz',
+    severity: 'info',
+    title: 'Faehigkeiten eingetragen — Freigabe fuer den Marktplatz offen',
+    recipientStrategy: 'org_worker_managers',
+    linkPath: '/public/mitarbeiter.html?freigabe=offen'
+  },
   'requisition.submitted_for_approval': {
     type: 'requisition_approval',
     severity: 'info',
@@ -425,12 +450,39 @@ const MATRIX = {
     recipientStrategy: 'org_worker_managers',
     linkPath: '/public/mitarbeiter.html#live-abwesend'
   },
+  /* Eine Ersatz-Anfrage ist nach 4 h unbeantwortet verfallen (Plan I, 8.2 /
+   * Migration 193). Geht an ALLE mit worker.manage, nicht nur an den, der die
+   * Anfrage stellte — der Verfall erzeugt Handlungsdruck, und der urspruengliche
+   * Disponent ist um 22 Uhr vielleicht nicht da. linkPath wird vom Aufrufer
+   * pro Meldung gesetzt (bueroDeepLink zum Ausgefallenen: der Link fuehrt zum
+   * Menschen, nicht auf eine Uebersicht); der Wert hier ist der Rueckfall. */
+  'worker.replacement_expired': {
+    type: 'worker_replacement_expired',
+    severity: 'warning',
+    title: 'Ersatz-Anfrage verfallen',
+    recipientStrategy: 'org_worker_managers',
+    linkPath: '/public/mitarbeiter.html#live-abwesend'
+  },
   'worker.delay_reported': {
     type: 'worker_delay_reported',
     severity: 'info',
     title: 'Verspätung gemeldet',
     recipientStrategy: 'org_worker_managers',
     linkPath: '/public/mitarbeiter.html#live-im_einsatz'
+  },
+  /* Eine REGULAERE Zuweisung ist unbeantwortet verfallen (Migration 195,
+   * Owner-Entscheid 2026-08-24: 72 h, gedeckelt am Einsatzbeginn). Eigener Typ
+   * statt `worker_replacement_expired`: dessen Titel "Ersatz-Anfrage verfallen"
+   * erscheint in Vorschau, Push-Banner und Betreffzeile — bei einer regulaeren
+   * Zuweisung ist nichts ersetzt worden, und der Titel waere schlicht falsch.
+   * linkPath wird pro Meldung gesetzt (zum Angefragten, der ab jetzt wieder als
+   * verfuegbar gefuehrt wird); der Wert hier ist der Rueckfall. */
+  'worker.assignment_not_confirmed': {
+    type: 'worker_assignment_not_confirmed',
+    severity: 'warning',
+    title: 'Zuweisung nicht bestätigt',
+    recipientStrategy: 'org_worker_managers',
+    linkPath: '/public/mitarbeiter.html#live-verfuegbar'
   },
 
   /* ── Der Kunde erfaehrt es (Welle G4b) ────────────────────────
@@ -460,14 +512,33 @@ const MATRIX = {
     severity: 'warning',
     title: 'Einsatzkraft fällt aus',
     recipientStrategy: 'client_org_assignment_managers',
-    linkPath: '/public/company-timesheets.html#live'
+    linkPath: '/public/company-live-workforce.html'
   },
   'assignment.worker_replaced': {
     type: 'assignment_worker_replaced',
     severity: 'success',
     title: 'Ersatz für Ihren Einsatz',
     recipientStrategy: 'client_org_assignment_managers',
-    linkPath: '/public/company-timesheets.html#live'
+    linkPath: '/public/company-live-workforce.html'
+  },
+  /* Die vorgesehene Kraft hat die Zuweisung nicht innerhalb der Frist bestätigt
+   * (Migration 195). Der Kunde MUSS das erfahren, anders als beim Ersatz: die
+   * Live-Belegschaft blendet eine wartende reguläre Zuweisung nicht aus, er hat
+   * die Person also vom ersten Tag an auf seiner Tafel und plant seine Schicht
+   * darauf.
+   *
+   * DER TITEL ZEIGT AUF DEN EINSATZ, nicht auf die Person — dieselbe Linie wie
+   * "Einsatzkraft fällt aus" gegenüber "Krankmeldung". Was den Kunden angeht,
+   * ist sein Platz, nicht das Verhalten eines fremden Mitarbeiters.
+   *
+   * `warning`, nicht `error`: Der Platz ist wieder offen und wird neu besetzt —
+   * das ist eine Änderung an seiner Planung, kein Schaden. */
+  'assignment.worker_not_confirmed': {
+    type: 'assignment_worker_not_confirmed',
+    severity: 'warning',
+    title: 'Platz auf Ihrem Einsatz wieder offen',
+    recipientStrategy: 'client_org_assignment_managers',
+    linkPath: '/public/company-live-workforce.html'
   }
 };
 
@@ -485,16 +556,19 @@ export async function dispatch(pool, eventKey, context = {}) {
   const config = MATRIX[eventKey];
   if (!config) {
     logger.warn({ eventKey }, 'Unknown notification event — skipped');
-    return { sent: 0 };
+    return { sent: 0, failed: 0 };
   }
 
   const recipientIds = context.recipientUserIds || [];
   if (recipientIds.length === 0) {
     logger.debug({ eventKey }, 'No recipients for notification');
-    return { sent: 0 };
+    return { sent: 0, failed: 0 };
   }
 
   let sent = 0;
+  /* M4c.14: was NICHT entstanden ist, wird gezaehlt — nicht nur protokolliert. */
+  let failed = 0;
+  let fehlerCode = null;
   for (const userId of recipientIds) {
     // Check user preferences (unless caller already checked)
     let prefInApp = true;
@@ -513,7 +587,9 @@ export async function dispatch(pool, eventKey, context = {}) {
     // In-app notification (if preference allows)
     if (prefInApp) {
       const linkPath = context.linkPath || config.linkPath || null;
-      const { rows: erzeugt } = await pool.query(
+      let erzeugt;
+      try {
+        ({ rows: erzeugt } = await pool.query(
         `INSERT INTO notifications (user_id, org_id, type, title, message, entity_type, entity_id, severity, link_path)
          SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9
          WHERE NOT EXISTS (
@@ -528,7 +604,47 @@ export async function dispatch(pool, eventKey, context = {}) {
           context.entityType || null, context.entityId || null,
           config.severity, linkPath
         ]
-      );
+        ));
+      } catch (err) {
+        /*
+         * M4c.14 — DER GESCHLUCKTE FEHLER WIRD GEZAEHLT.
+         *
+         * Hier war der INSERT ungeschuetzt, und der Fehler flog zum Aufrufer.
+         * Der faengt ihn bewusst: eine gescheiterte Meldung darf das Speichern
+         * der Faehigkeiten nicht gefaehrden, und das bleibt richtig. Die Folge
+         * war trotzdem, dass ein ganzer Meldeweg drei Wochen lang tot war, ohne
+         * dass es jemand sah — `worker.skills_awaiting_release` traf auf einen
+         * Typ, den der CHECK nicht kannte (M4c.12).
+         *
+         * GESCHLUCKT BLEIBT GESCHLUCKT, SICHTBAR WIRD ES TROTZDEM. Die Zaehlung
+         * faehrt im Rueckgabewert mit (`failed`), und jeder Fehlschlag bekommt
+         * eine Audit-Zeile. Eine Protokollzeile allein hat drei Wochen lang
+         * niemand gelesen; das Audit liest die Aufsicht ohnehin.
+         *
+         * HIER UND NICHT AM AUFRUFER: `dispatch` ist die Stelle, durch die JEDE
+         * Benachrichtigung geht. Am Aufrufer waere die Zaehlung eine Sorgfalt,
+         * die man vergessen kann — und dann waere wieder nur der eine Weg
+         * sichtbar, an den jemand gedacht hat. Dasselbe Argument, mit dem diese
+         * Funktion schon den SSE-Push an sich gezogen hat.
+         */
+        failed++;
+        /* Der ERSTE Fehlercode genuegt: bei einem systematischen Fehlschlag ist er
+           bei jedem Empfaenger derselbe, und er ist das, was zu tun sagt
+           (23514 = CHECK, 23503 = Fremdschluessel). */
+        if (!fehlerCode) fehlerCode = err.code || null;
+        logger.error({ eventKey, type: config.type, severity: config.severity, code: err.code,
+                       err: err.message }, 'Benachrichtigung konnte nicht geschrieben werden');
+        /* DIE AUDIT-ZEILE ENTSTEHT NACH DER SCHLEIFE, nicht hier. Hier stand sie
+         * je Empfaenger — und damit je Speichern. Ein systematisch abgewiesener
+         * Typ haette in drei Wochen Tausende Zeilen erzeugt (genau der Fall aus
+         * M4c.12), und ein Audit, in dem das Wichtige untergeht, ist derselbe
+         * Fehler eine Ebene hoeher. Die Zaehlung steht jetzt IN der einen Zeile. */
+        /* WEITER MIT DEN ANDEREN EMPFAENGERN. Vorher flog der Fehler beim
+         * ERSTEN Fehlschlag hinaus, und von fuenf Berechtigten bekam nur der
+         * erste eine Chance. Ob am Ende ueberhaupt niemand erreicht wurde,
+         * entscheidet die Auswertung unten — nicht der erste Stolperstein. */
+        continue;
+      }
       if (erzeugt.length > 0) {
         sent++;
         /* ── Sofort zustellen, nicht erst beim naechsten Laden (Welle G4) ──
@@ -601,7 +717,112 @@ export async function dispatch(pool, eventKey, context = {}) {
     }
   }
 
-  return { sent };
+  /*
+   * ═════════════════════════════════════════════════════════════════════════
+   * EINE AUDIT-ZEILE JE EREIGNIS UND STUNDE — NICHT JE EMPFAENGER (M4c.14b)
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * Die erste Fassung schrieb die Zeile IN der Empfaengerschleife: je Empfaenger
+   * und je Speichern eine. Bei einem systematisch abgewiesenen Typ — genau dem
+   * Fall aus M4c.12, der drei Wochen lief — waeren daraus Tausende Zeilen
+   * geworden. Ein Audit, in dem das Wichtige untergeht, ist derselbe Fehler eine
+   * Ebene hoeher als eine Protokollzeile, die niemand liest.
+   *
+   * ZWEI SCHRANKEN, und beide braucht es:
+   *
+   *   Eine Zeile je DISPATCH-AUFRUF, mit `failed` als Zahl darin. Fuenf
+   *   abgewiesene Empfaenger sind ein Vorfall, nicht fuenf.
+   *
+   *   Eine Zeile je EREIGNIS UND STUNDE. Ein systematischer Fehlschlag schreibt
+   *   sonst bei jedem Speichern erneut. Dasselbe Fenster, mit dem `dispatch` schon
+   *   die Benachrichtigungen selbst entdoppelt — kein neues Muster.
+   *
+   * DIE ZEILE WIRD NICHT FORTGESCHRIEBEN, sondern hoechstens einmal je Fenster
+   * angelegt. Ein Audit-Eintrag ist ein Vorgang, kein Zaehlerstand; ihn spaeter zu
+   * veraendern hiesse, die Spur anzufassen, die er belegen soll.
+   *
+   * DIE ZEILE NENNT EREIGNIS, TYP UND FEHLERCODE. Steht dort nur
+   * "fehlgeschlagen", weiss der naechste Mensch, DASS etwas kaputt war, und misst
+   * von vorn. Der Code 23514 war genau deshalb in Minuten auffindbar.
+   */
+  if (failed > 0) {
+    try {
+      const auditLog = await import('./auditLog.js');
+      const { rows: schon } = await pool.query(
+        `SELECT 1 FROM audit_log
+          WHERE action = 'notification.dispatch_failed'
+            AND details->>'event_key' = $1
+            AND created_at > NOW() - INTERVAL '1 hour'
+          LIMIT 1`,
+        [eventKey]
+      );
+      if (!schon.length) {
+        await auditLog.writeAudit(pool, {
+          action: 'notification.dispatch_failed',
+          entity_type: context.entityType || 'notification',
+          entity_id: context.entityId || null,
+          org_id: context.orgId || null,
+          status: 'FAILURE',
+          details: {
+            event_key: eventKey,
+            notification_type: config.type,
+            severity: config.severity,
+            failed,
+            recipients_total: recipientIds.length,
+            error_code: fehlerCode,
+            /* Kein Fehlertext in die Details: er kann Nutzdaten der Zeile tragen,
+               und sensible Daten gehoeren nicht ins Audit. */
+            hinweis: 'Die Meldung entstand NICHT. Der Aufrufer schluckt den Fehler bewusst. '
+              + 'Hoechstens eine Zeile je Ereignis und Stunde — die Zahl steht in `failed`.'
+          }
+        });
+      }
+    } catch (auditErr) {
+      /* Die Sichtbarkeit darf das Beobachtete nie gefaehrden. */
+      logger.error({ eventKey, err: auditErr.message },
+        'Audit-Zeile zum Meldungs-Fehlschlag konnte nicht geschrieben werden');
+    }
+  }
+
+  /*
+   * ═════════════════════════════════════════════════════════════════════════
+   * WANN DER FEHLSCHLAG HINAUSFLIEGT — UND WARUM NICHT IMMER GESCHLUCKT WIRD
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * Die erste Fassung von M4c.14 schluckte JEDEN Fehlschlag und meldete ihn nur
+   * ueber `failed` und das Audit. Das war falsch, und eine vorhandene Probe hat
+   * es gefangen: `stupseNutzerAn` (Bounty-Anstupser) BRAUCHT den Fehler. Es setzt
+   * vorher einen Wochen-Vermerk und nimmt ihn im Fehlerfall zurueck — sonst
+   * stuende die Wochensperre, obwohl nichts zugestellt wurde, und der Anstupser
+   * waere bis Montag blockiert. Ein geschluckter Fehler haette diesen Aufrufer
+   * stillschweigend um seine Ruecknahme gebracht.
+   *
+   * Die Unterscheidung ist deshalb nicht "schlucken oder nicht", sondern:
+   *
+   *   Ein TEIL der Empfaenger scheitert  -> weitermachen, zaehlen, auditieren.
+   *                                         Die anderen haben ihre Meldung, und
+   *                                         niemandem ist geholfen, wenn sie
+   *                                         wegen eines Fremden verschwindet.
+   *   KEIN Empfaenger wurde erreicht     -> der Aufrufer erfaehrt es. Er allein
+   *                                         weiss, was er zurueckzunehmen hat.
+   *
+   * Der Fehler TRAEGT die Zahlen (`sent`, `failed`): ein Aufrufer, der nur
+   * aufraeumen will, faengt ihn wie bisher; einer, der genauer hinsehen will,
+   * liest sie ab. `workerPortal` faengt ihn weiterhin und laesst das Speichern
+   * der Faehigkeiten unberuehrt — dort war die Entscheidung von Anfang an
+   * richtig. Was M4c.14 hinzufuegt, ist nicht das Schlucken, sondern die
+   * SICHTBARKEIT: eine Audit-Zeile je Fehlschlag statt einer Protokollzeile, die
+   * drei Wochen lang niemand gelesen hat.
+   */
+  if (sent === 0 && failed > 0) {
+    const err = new Error('NOTIFICATION_DISPATCH_FAILED');
+    err.code = 'NOTIFICATION_DISPATCH_FAILED';
+    err.sent = sent;
+    err.failed = failed;
+    err.eventKey = eventKey;
+    throw err;
+  }
+  return { sent, failed };
 }
 
 /**

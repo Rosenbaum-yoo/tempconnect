@@ -57,7 +57,7 @@
 
   /* ── Helper ───────────────────────────────────────────────── */
 
-  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
   function fmtDate(s) { try { return s ? new Date(s).toLocaleDateString("de-DE") : "\u2013"; } catch (e) { return "\u2013"; } }
   function fmtCents(c) {
     if (c == null) return "\u2013";

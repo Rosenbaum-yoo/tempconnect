@@ -9,6 +9,60 @@
  */
 
 /**
+ * Die Bedingung "diese Kapazitaet gehoert KEINER fuer dieses Unternehmen
+ * gesperrten Kraft" - als SQL-Baustein, damit jede Flaeche dieselbe benutzt.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WARUM ALS BAUSTEIN UND NICHT DREIMAL GETIPPT
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Bis zum 2026-09-06 stand diese Bedingung genau EINMAL im Repo: im Feed
+ * (`capacityExchangeService.browseFeed`). Die Suche kannte sie nicht, die
+ * Detailansicht auch nicht - eine gesperrte Kraft war aus der Liste
+ * verschwunden und ueber die Suche oder einen alten Link weiterhin erreichbar.
+ *
+ * Der Riegel beim Buchen greift (Welle J2c, 409). Genau deshalb ist die
+ * Sichtbarkeit ein eigenes Problem: ein Angebot, das man nicht buchen darf, ist
+ * keine Auskunft, sondern eine Falle - der Kunde plant damit und erfaehrt es
+ * erst beim Abschluss.
+ *
+ * Eine Kopie je Flaeche waere hier besonders teuer: die Bedingung nennt zwei
+ * Tabellen und eine Frist. Wer eine davon spaeter aendert, aendert sie an einer
+ * Stelle und vergisst zwei.
+ *
+ * Die Spalte ist waehlbar, weil nicht jede Flaeche von einem ANGEBOT ausgeht:
+ * der Feed und die Suche haben `cp.worker_profile_id`, die Deckungsrechnung
+ * (N4.2) laeuft dagegen auf den Profilzeilen selbst - dort heisst dieselbe
+ * Kennung `k.id`. Ohne diese Wahl haette die Deckungsrechnung eine eigene
+ * Abschrift der Bedingung gebraucht, und genau die sollte hier verschwinden.
+ *
+ * @param {string} kapazitaetsAlias Alias der Zeile mit der Profil-Kennung (z. B. "cp").
+ * @param {number} platzhalter Nummer des Parameters mit der Org des Betrachters.
+ * @param {{spalte?: string}} [opt] Spalte mit der Profil-Kennung; Standard
+ *        `worker_profile_id`. Auf einer `worker_profiles`-Zeile ist es `id`.
+ * @returns {string} `NOT EXISTS (...)` - direkt in eine WHERE-Liste einsetzbar.
+ */
+export function nichtGesperrtSql(kapazitaetsAlias, platzhalter, opt = {}) {
+  const a = String(kapazitaetsAlias || "cp").trim();
+  const p = Number(platzhalter);
+  const spalte = String(opt.spalte || "worker_profile_id").trim();
+  if (!/^[a-z_][a-z0-9_]*$/i.test(a)) throw new Error("BLOCKLIST_ALIAS_UNGUELTIG");
+  if (!Number.isInteger(p) || p < 1) throw new Error("BLOCKLIST_PLATZHALTER_UNGUELTIG");
+  /* Dieselbe Schranke wie fuer den Alias: auch die Spalte landet unmaskiert
+     im SQL, und ein Aufrufer, der sie eines Tages durchreicht, findet hier
+     eine Tuer und keine Luecke. */
+  if (!/^[a-z_][a-z0-9_]*$/i.test(spalte)) throw new Error("BLOCKLIST_SPALTE_UNGUELTIG");
+  return `NOT EXISTS (
+      SELECT 1
+        FROM company_worker_blocklist bl
+        JOIN worker_profiles wpb ON wpb.user_id = bl.worker_user_id
+       WHERE wpb.id = ${a}.${spalte}
+         AND bl.company_org_id = $${p}
+         AND (bl.blocked_until IS NULL OR bl.blocked_until >= CURRENT_DATE)
+    )`;
+}
+
+/**
  * Guard-Check: ist Worker bei diesem Unternehmen AKTIV gesperrt?
  * @returns {Promise<{id,reason,blocked_until}|null>} null = nicht gesperrt.
  */
@@ -23,6 +77,133 @@ export async function isWorkerBlockedForCompany(db, companyOrgId, workerUserId) 
     [companyOrgId, workerUserId]
   );
   return rows[0] || null;
+}
+
+/**
+ * Dasselbe, aber ueber die PROFIL-Kennung statt der Nutzer-Kennung.
+ *
+ * Kapazitaets-Angebote haengen an `worker_profile_id`; die Sperrliste an
+ * `worker_user_id`. Wer von einem Angebot ausgeht, hat nur die erste - und den
+ * Umweg ueber ein separates Laden des Profils zu gehen waere eine zweite
+ * Abfrage fuer eine Frage, die eine beantwortet.
+ *
+ * Gibt die Sperrzeile zurueck oder `null`. Der `reason` bleibt HIER drin: die
+ * Auskunft geht an das Unternehmen, das die Sperre selbst gesetzt hat.
+ */
+export async function isWorkerBlockedForCompanyByProfile(db, companyOrgId, workerProfileId) {
+  if (!companyOrgId || !workerProfileId) return null;
+  const { rows } = await db.query(
+    `SELECT bl.id, bl.reason, bl.blocked_until
+       FROM company_worker_blocklist bl
+       JOIN worker_profiles wp ON wp.user_id = bl.worker_user_id
+      WHERE bl.company_org_id = $1
+        AND wp.id = $2
+        AND (bl.blocked_until IS NULL OR bl.blocked_until >= CURRENT_DATE)
+      LIMIT 1`,
+    [companyOrgId, workerProfileId]
+  );
+  return rows[0] || null;
+}
+
+/**
+ * Ist das Angebot fuer dieses Unternehmen gesperrt? — ueber die ANGEBOTS-Kennung.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WARUM ES DIESE FUNKTION GIBT (N4.5, gefunden in der Gegenpruefung 2026-09-12)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Die Detailansicht pruefte `entry.worker_profile_id`. Diese Spalte steht
+ * ABSICHTLICH nicht in der oeffentlichen Projektion (`NUR_INTERN`: "is_anonymous
+ * ist das Versprechen; diese Spalte draussen zu halten ist sein Vollzug"). Der
+ * geladene Datensatz trug sie also nie — die Bedingung war immer falsch, der
+ * Riegel feuerte kein einziges Mal.
+ *
+ * Die Probe dazu war gruen, weil sie die Spalte SELBST in die Muster-Zeile
+ * geschrieben hatte. Der Muster-Pool lieferte, was die Produktion nie liefert.
+ *
+ * Die Loesung darf die Spalte NICHT oeffentlich machen. Sie loest die Kraft
+ * serverseitig auf und benutzt danach dieselbe Einzelpruefung wie ueberall —
+ * zwei kleine Abfragen, keine zweite Abschrift der Sperrbedingung.
+ */
+export async function isCapacityPostBlockedForCompany(db, companyOrgId, capacityPostId) {
+  if (!companyOrgId || !capacityPostId) return null;
+  const { rows } = await db.query(
+    "SELECT worker_profile_id FROM capacity_posts WHERE id = $1",
+    [capacityPostId]
+  );
+  const profil = rows[0]?.worker_profile_id;
+  /* Ein Sammelangebot haengt an keinem Profil — es gibt nichts zu sperren. */
+  if (!profil) return null;
+  return isWorkerBlockedForCompanyByProfile(db, companyOrgId, profil);
+}
+
+/**
+ * Welche Unternehmen haben die Kraft hinter diesem Profil AKTIV gesperrt?
+ *
+ * Fuer die Gegenrichtung der Zuordnung: ein NEUES Angebot wird gegen offene
+ * Bedarfe gerechnet, und der Match-Trigger schreibt beide Seiten an. Ohne
+ * diese Menge bekaeme genau das Unternehmen, das die Kraft gesperrt hat, ihr
+ * Angebot zugeschickt.
+ *
+ * @returns {Promise<Set<string>>} Org-Kennungen als Zeichenketten.
+ */
+export async function sperrendeKundenFuerProfil(db, workerProfileId) {
+  if (!workerProfileId) return new Set();
+  const { rows } = await db.query(
+    `SELECT DISTINCT bl.company_org_id
+       FROM company_worker_blocklist bl
+       JOIN worker_profiles wp ON wp.user_id = bl.worker_user_id
+      WHERE wp.id = $1
+        AND (bl.blocked_until IS NULL OR bl.blocked_until >= CURRENT_DATE)`,
+    [workerProfileId]
+  );
+  return new Set(rows.map((r) => String(r.company_org_id)));
+}
+
+/*
+ * ── Die Firma eines Marktplatz-Bedarfs (Welle N2.11, Migration 218) ────────
+ *
+ * BEFUND 2026-09-15 (adversarische Pruefung, Mandantengrenze): vier Stellen
+ * rieten die Kunden-Firma eines Bedarfs ueber `users.org_id` — die persoenliche
+ * START-Firma des Anlegers. Ein eingeladenes Teammitglied von Firma A pruefte
+ * dort gegen die leere Sperrliste seiner Start-Firma; die bei A gesperrte Kraft
+ * wurde A vorgeschlagen und ihre Zeitarbeitsfirma angeschrieben.
+ *
+ * Seit Migration 218 traegt der Bedarf die Firma selbst (`requester_org_id`,
+ * beim Anlegen aus der aktiven Firma der Sitzung). Diese beiden Funktionen sind
+ * die EINZIGE Stelle, die sie liest — mit dem bisherigen Verhalten als Rueckfall
+ * fuer einen Bedarf ohne Firma, damit keiner ohne Sperre bleibt.
+ */
+
+/** @returns {Promise<string|null>} */
+export async function kundenOrgEinesBedarfs(db, bedarf) {
+  if (!bedarf) return null;
+  if (bedarf.requester_org_id) return bedarf.requester_org_id;
+  if (!bedarf.requester_company_id) return null;
+  const { rows } = await db.query("SELECT org_id FROM users WHERE id = $1", [bedarf.requester_company_id]);
+  return rows[0]?.org_id || null;
+}
+
+/**
+ * Dasselbe fuer viele Bedarfe — EINE Abfrage fuer alle, die keine Firma tragen,
+ * keine je Bedarf.
+ * @returns {Promise<Map<string, string|null>>} Bedarfs-Kennung -> Firma
+ */
+export async function kundenOrgsDerBedarfe(db, bedarfe) {
+  const ergebnis = new Map();
+  const offen = [];
+  for (const b of bedarfe || []) {
+    if (b.requester_org_id) ergebnis.set(String(b.id), String(b.requester_org_id));
+    else if (b.requester_company_id) offen.push(b);
+    else ergebnis.set(String(b.id), null);
+  }
+  if (offen.length) {
+    const nutzer = [...new Set(offen.map((b) => b.requester_company_id))];
+    const { rows } = await db.query("SELECT id, org_id FROM users WHERE id = ANY($1::uuid[])", [nutzer]);
+    const orgJeNutzer = new Map(rows.map((u) => [String(u.id), u.org_id ? String(u.org_id) : null]));
+    for (const b of offen) ergebnis.set(String(b.id), orgJeNutzer.get(String(b.requester_company_id)) ?? null);
+  }
+  return ergebnis;
 }
 
 /**
@@ -55,17 +236,62 @@ export async function listCompanyBlocklist(pool, companyOrgId, { includeExpired 
  * `blocklist.supplier_org_id` — letzteres ist nur ein abgeleiteter Kontext und kann NULL sein.
  * Nutzt den in Mig 149 genau dafür angelegten Index `(worker_user_id)`.
  */
-export async function listBlocksForSupplier(pool, supplierOrgId) {
+export async function listBlocksForSupplier(pool, supplierOrgId, { companyOrgId = null } = {}) {
   if (!supplierOrgId) return [];
+
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * WAS DIE AGENTUR ERFAEHRT - UND WAS NICHT (N4.3, Owner-Entscheid 2026-09-06)
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Bis hierher lieferte diese Abfrage `reason` und den KUNDENNAMEN mit. Der
+   * Disponenten-Bildschirm zeigte die Gruende sogar an ("2 gesperrt: zu spaet
+   * gekommen, Qualitaet").
+   *
+   * Eine Sperre ist ein Urteil eines Kunden ueber einen MENSCHEN. Es an dessen
+   * Arbeitgeber weiterzureichen, ist etwas anderes als es durchzusetzen - und
+   * der Grund wurde fuer den Kunden selbst notiert, nicht fuer die Gegenseite.
+   *
+   * Die Disposition braucht davon nichts. Sie braucht genau eine Antwort:
+   * "wen kann ich BEI DIESEM KUNDEN nicht einsetzen?" Deshalb beantwortet der
+   * Server jetzt die gestellte Frage, statt die ganze Liste herauszugeben:
+   *
+   *   companyOrgId gesetzt   nur die Sperren dieses einen Kunden, ohne Grund,
+   *                          ohne Namen - genau das, was die Auswahl braucht.
+   *   companyOrgId fehlt     die eigenen Kraefte, die IRGENDWO gesperrt sind,
+   *                          ohne zu sagen wo. Fuer eine Uebersicht, die sagen
+   *                          darf "hier gibt es eine Einschraenkung", ohne sie
+   *                          aufzuschluesseln.
+   *
+   * Der Riegel selbst bleibt davon unberuehrt: gebucht werden kann die Kraft
+   * ohnehin nicht (409 im Deal-Weg).
+   */
+  if (companyOrgId) {
+    const { rows } = await pool.query(
+      `SELECT b.worker_user_id, b.blocked_until
+         FROM company_worker_blocklist b
+         JOIN worker_profiles wp ON wp.user_id = b.worker_user_id
+        WHERE wp.supplier_org_id = $1
+          AND b.company_org_id = $2
+          AND (b.blocked_until IS NULL OR b.blocked_until >= CURRENT_DATE)
+        ORDER BY b.created_at DESC`,
+      [supplierOrgId, companyOrgId]
+    );
+    return rows;
+  }
+
+  /* Ohne Kunden: nur WELCHE Kraft, und bis wann die naechste Sperre laeuft.
+     `DISTINCT` je Kraft, damit die ANZAHL der Zeilen nicht verraet, bei wie
+     vielen Kunden jemand gesperrt ist - auch das waere eine Aussage. */
   const { rows } = await pool.query(
-    `SELECT b.worker_user_id, b.company_org_id, b.reason, b.blocked_until,
-            co.name AS company_name
+    `SELECT b.worker_user_id,
+            CASE WHEN bool_or(b.blocked_until IS NULL) THEN NULL
+                 ELSE MAX(b.blocked_until) END AS blocked_until
        FROM company_worker_blocklist b
        JOIN worker_profiles wp ON wp.user_id = b.worker_user_id
-       LEFT JOIN organizations co ON co.id = b.company_org_id
       WHERE wp.supplier_org_id = $1
         AND (b.blocked_until IS NULL OR b.blocked_until >= CURRENT_DATE)
-      ORDER BY b.created_at DESC`,
+      GROUP BY b.worker_user_id`,
     [supplierOrgId]
   );
   return rows;

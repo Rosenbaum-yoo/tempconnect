@@ -1,0 +1,53 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# Zeilenenden — und warum diese Datei entstanden ist (2026-09-28)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# `core.autocrlf=true` gibt einem Windows-Arbeitsbaum CRLF. Fuer fast alles ist
+# das richtig. Fuer SHELL-SKRIPTE, die in einem Linux-Container laufen, ist es
+# toedlich: `sql/migrate.sh` wird von `sql/test-fresh-install.sh` in einen
+# postgres:16-alpine eingebunden und dort mit `sh` ausgefuehrt. Mit CRLF endet
+# dort jede Zeile auf einem Wagenruecklauf, und `sh` meldet Unsinn.
+#
+# GEMESSEN am 2026-09-28: die im Repository gespeicherten Blobs sind bereits LF —
+# nur die Auscheckung auf Windows machte CRLF daraus. Diese Datei aendert deshalb
+# keinen Inhalt, sondern nur, was beim Auschecken ankommt.
+#
+# Aufgefallen ist es beim Versuch, das Frisch-Installations-Gate
+# (`sql/test-fresh-install.sh`) tatsaechlich zu FAHREN: es ist auf einem
+# Windows-Rechner aus drei unabhaengigen Gruenden nicht lauffaehig gewesen
+# (Pfaduebersetzung des Arguments, Pfaduebersetzung der Einbindung, CRLF im
+# eingebundenen Skript) — und es meldete dabei ALLE Kerntabellen als fehlend und
+# RLS als inaktiv. Wer das fuer einen Befund haelt, sucht am Schema statt am
+# Werkzeug. Genau das ist hier beinahe passiert.
+#
+# Grundregel: Git entscheidet selbst, was Text ist; die Ausnahmen stehen unten.
+* text=auto
+
+# Alles, was ein Linux-Interpreter liest, braucht LF — unabhaengig davon, auf
+# welchem Rechner es ausgecheckt wurde.
+*.sh        text eol=lf
+Dockerfile* text eol=lf
+*.bash      text eol=lf
+
+# Von psql eingelesen; CRLF ist dort harmlos, LF aber einheitlich und macht
+# Diffs zwischen Windows- und Linux-Arbeitsbaeumen ruhig.
+*.sql       text eol=lf
+
+# Windows-eigene Werkzeuge erwarten CRLF.
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text eol=crlf
+
+# Binaeres nie anfassen.
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.webp      binary
+*.pdf       binary
+*.woff      binary
+*.woff2     binary
+*.ttf       binary
+*.zip       binary
+*.gz        binary

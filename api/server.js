@@ -34,8 +34,28 @@ process.on("uncaughtException", (err) => {
 const app = await createApp();
 const PORT = config.PORT || 3000;
 const server = app.listen(PORT, () => {
-  logger.info({ port: PORT }, "TempConnect API gestartet");
-  startWorkers();
+  /*
+   * S4.3 — DER STAND STEHT IM STARTPROTOKOLL.
+   *
+   * Der Container bedient den HAUPTBAUM (`…/12_tempconnect_docker(D)/api → /app`),
+   * nicht den Arbeitsbaum, in dem gerade entwickelt wird. Wer aus einem gruenen
+   * Worktree auf einen laufenden Container schliesst, schliesst auf die falsche
+   * Datei — und das ist in diesem Projekt schon passiert. Bis hierher blieb nur
+   * `ps -o etime` und ein Dateivergleich, um zu sehen, ob ein Container den
+   * letzten Merge ueberhaupt kennt.
+   *
+   * `APP_COMMIT` wird beim Bauen gesetzt (siehe api/Dockerfile). Fehlt der Wert,
+   * steht "unbekannt" da — auch das ist eine Aussage, und eine ehrlichere als
+   * gar keine Zeile.
+   */
+  logger.info({
+    port: PORT,
+    commit: process.env.APP_COMMIT || "unbekannt",
+    node: process.version,
+    umgebung: config.NODE_ENV || "development"
+  }, "TempConnect API gestartet");
+  /* Der Mahnlauf braucht den echten Versandweg aus `createApp` — siehe dort. */
+  startWorkers({ sendMail: app.locals.sendMail });
 });
 
 // Graceful Shutdown – offene Connections sauber schliessen

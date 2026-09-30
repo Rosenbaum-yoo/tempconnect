@@ -6,7 +6,9 @@
  */
 
 import { getActiveReferralCount } from "./referralProgramService.js";
-import { getUserMaxDiscount, evaluateAndPromoteTier, getUserTier } from "./bountyTierService.js";
+import { getUserMaxDiscountMitBefund, evaluateAndPromoteTier, getUserTier } from "./bountyTierService.js";
+// Welle K1.1: der Ausfall der Rabatt-Ermittlung wird festgehalten statt verschwiegen.
+import { ausfallFesthalten } from "./rabattAusfallService.js";
 import { ladeZuverlaessigkeitsStreak } from "./dealReliabilityService.js";
 import { dateOnlyDE, todayDE } from "../utils/dateDE.js";
 
@@ -324,19 +326,114 @@ export async function getUserBounties(pool, userId) {
 
 /* ── Discount Calculation ──────────────────────────────────── */
 
-export async function getUserDiscount(pool, userId) {
+/**
+ * Der Rabattsatz MIT seinen Bestandteilen — Rohsumme, Deckel, Stufen-Befund.
+ *
+ * WARUM ES DIESE FASSUNG GIBT (Welle K1.2)
+ * Die Einzelfall-Ansicht muss zeigen, WARUM ein Kunde 8 % bekommt und nicht 30:
+ * Rohsumme, Obergrenze, gedeckelt ja/nein. Die Versuchung waere, die Rohsumme
+ * dort aus der Bounty-Liste zu addieren — das ergibt fast immer dieselbe Zahl.
+ * FAST: die Liste enthaelt bewusst auch beendete Vergaben, und ein Filter, der
+ * an zwei Orten gepflegt wird, wird an einem davon vergessen. Eine Flaeche, die
+ * anders rechnet als die Rechnung, behauptet eine Wahrheit, die auf keinem Beleg
+ * steht. Also: EIN Ort, eine Abfrage, zwei Sichten darauf.
+ *
+ * @param {object} [opts]
+ * @param {boolean} [opts.festhalten=true] Ob ein Stufen-Ausfall als Befund
+ *   abgelegt wird. Die Vorschau auf den naechsten Abrechnungslauf (K1.3) setzt
+ *   das auf `false`: sie muss dieselbe ZAHL liefern wie der echte Lauf, darf
+ *   aber nichts schreiben. Am Ergebnis aendert die Einstellung nichts.
+ * @returns {Promise<{satz:number, roh:number, deckel:number, gedeckelt:boolean,
+ *                    stufe:object|null, stufenFehler:string|null}>}
+ */
+export async function getUserDiscountDetail(pool, userId, opts = {}) {
+  /* WELLE K2.3 — die EINE Ausnahme an dieser Rechenkette.
+   *
+   * Bis hierher war jedes Bounty gleich: alles summieren, von der Stufe
+   * deckeln. Fuer Treue- und Leistungsbounties ist das genau richtig — die
+   * Stufe IST die Obergrenze dessen, was Treue wert sein soll.
+   *
+   * Der Werbe-Cashback ist etwas anderes: eine ZUSAGE ("die naechste Rechnung
+   * ist frei"), keine Belohnung fuer Treue. Unter der Stufen-Obergrenze waere
+   * er bei einem Bronze-Kunden von 100 % auf 8 % geschrumpft — die Praemie
+   * verkleinert sich lautlos auf ein Zwoelftel, und niemand merkt es.
+   * Gemessen am 2026-08-30: ein Diamant-Kunde bekam 25 statt 100.
+   *
+   * Die Trennung steht am KATALOG (`deckel_frei`), nicht an einem Schluessel im
+   * Code: ein `if (key === 'werbe_cashback')` waere der Sonderfall, den der
+   * naechste Anlass kopiert und der uebernaechste vergisst.
+   *
+   * Der Alias `total` bleibt bewusst stehen. Er traegt weiterhin genau die
+   * gedeckelte Summe — damit rechnet jeder bestehende Aufrufer und jede
+   * bestehende Probe unveraendert weiter, und die Aenderung ist eine
+   * Erweiterung statt eines Umbaus. */
   const { rows } = await pool.query(
-    `SELECT COALESCE(SUM(b.discount_pct), 0) AS total
+    `SELECT COALESCE(SUM(b.discount_pct) FILTER (WHERE NOT b.deckel_frei), 0) AS total,
+            COALESCE(SUM(b.discount_pct) FILTER (WHERE b.deckel_frei), 0)     AS deckel_frei_summe
      FROM user_bounties ub
      JOIN bounties b ON b.id = ub.bounty_id
      WHERE ub.user_id = $1 AND ub.is_active = TRUE AND b.is_active`,
     [userId]
   );
   const raw = Number(rows[0]?.total || 0);
+  const deckelFrei = Number(rows[0]?.deckel_frei_summe || 0);
   // Discount-Cap kommt vom aktuellen Tier (Bronze=8%, ..., Diamant=25%)
   let maxPct;
-  try { maxPct = await getUserMaxDiscount(pool, userId); } catch { maxPct = FALLBACK_MAX_DISCOUNT_PCT; }
-  return Math.min(maxPct, raw);
+  // Welle K1.1: `stufenFehler` unterscheidet "hat noch keine Stufe" von "die
+  // Abfrage kam nicht durch". Beides endet bei Deckel 8 — aber nur eines davon
+  // ist ein Fehler, und der war bisher voellig unsichtbar. Die Rechnung selbst
+  // bleibt Zeichen fuer Zeichen dieselbe; es entsteht nur ein Befund.
+  let stufenFehler = null;
+  let stufe = null;
+  try {
+    const befund = await getUserMaxDiscountMitBefund(pool, userId);
+    maxPct = befund.maxPct;
+    stufenFehler = befund.fehler;
+    stufe = befund.tier || null;
+  } catch { maxPct = FALLBACK_MAX_DISCOUNT_PCT; }
+
+  if (stufenFehler && opts.festhalten !== false) {
+    // `ausfallFesthalten` wirft nie — der Rabatt darf an seiner eigenen
+    // Protokollierung nicht scheitern. Trotzdem awaited: eine unbeachtete
+    // Zusage waere ein zweiter stiller Pfad.
+    await ausfallFesthalten(pool, {
+      userId,
+      stelle: "stufe",
+      fehler: stufenFehler,
+      angesetztPct: maxPct
+    });
+  }
+
+  /* Die Deckelung wirkt auf die gedeckelten Bounties, der deckel-freie Teil
+   * kommt DANEBEN hinzu. Die 100 sind die absolute Grenze: mehr als die ganze
+   * Rechnung laesst sich nicht erlassen, und `berechneRabatt` wuerde ohnehin
+   * dort abschneiden — nur waere die Zahl in der Flaeche dann eine andere als
+   * die auf dem Beleg. */
+  const satz = Math.min(100, Math.min(maxPct, raw) + deckelFrei);
+
+  return {
+    satz,
+    roh: raw,
+    deckel: maxPct,
+    gedeckelt: raw > maxPct,
+    // Getrennt ausgewiesen: die Staff-Flaeche muss erklaeren koennen, warum ein
+    // Kunde ueber seiner Stufen-Obergrenze liegt, ohne dass das ein Fehler ist.
+    deckel_frei_pct: deckelFrei,
+    stufe,
+    stufenFehler
+  };
+}
+
+/**
+ * Der Rabattsatz, wie ihn die Rechnung braucht — die eine Zahl.
+ *
+ * Bewusst eine duenne Huelle um `getUserDiscountDetail`: eine zweite Abfrage
+ * derselben Summe waere eine zweite Wahrheit.
+ *
+ * @param {object} [opts] siehe `getUserDiscountDetail`
+ */
+export async function getUserDiscount(pool, userId, opts = {}) {
+  return (await getUserDiscountDetail(pool, userId, opts)).satz;
 }
 
 /* ── Evaluate All Bounties for a User ──────────────────────── */
@@ -423,6 +520,52 @@ export async function evaluateBounties(pool, userId) {
   await handleReplacements(pool, userId, catalog);
 
   return results;
+}
+
+/**
+ * Prueft EIN Bounty gegen die echten Daten — ohne irgendetwas zu schreiben.
+ *
+ * WARUM ES DAS GIBT (Welle K1.4)
+ * Der Eingriffspunkt in die Rabatt-Automatik setzt keinen Betrag, er nennt einen
+ * Grund: "dieses Bounty haette zaehlen muessen". Damit daraus kein Wunschbetrag
+ * wird, muss die Schwelle gegen die echten Daten geprueft werden — und die
+ * Ablehnung muss sagen, WELCHE Bedingung fehlt. Genau das liefert
+ * `checkBountyCondition` in seinem `note`.
+ *
+ * Bewusst dieselbe Funktion wie die Automatik, nicht eine zweite Fassung
+ * derselben Regel: eine Pruefung, die anders rechnet als die Vergabe, ist keine
+ * Pruefung. Der Unterschied zu `evaluateBounties` ist ausschliesslich, dass hier
+ * NICHTS geschrieben wird.
+ *
+ * @returns {Promise<{gefunden:boolean, bounty?:object, verfuegbar?:boolean,
+ *   hinweis?:string|null, earned?:boolean, progress?:number, note?:string|null}>}
+ */
+export async function pruefeBountyBedingung(pool, userId, bountyKey) {
+  const catalog = await getBountyCatalog(pool);
+  const bounty = catalog.find((b) => b.key === bountyKey);
+  // Abgeschaltete Bounties sind hier gar nicht erst dabei (`getBountyCatalog`
+  // filtert auf `is_active`) — was der Not-Aus gestoppt hat, laesst sich auch
+  // nicht per Eingriff wiederbeleben.
+  if (!bounty) return { gefunden: false };
+
+  const streakWindows = bounty.threshold_type === "reliability_streak"
+    ? [Number(bounty.threshold_value?.days) || 90]
+    : [];
+  const data = await gatherUserData(pool, userId, { streakWindows });
+
+  const heute = todayDE();
+  const verfuegbar = istVerfuegbar(bounty, heute);
+  const { earned, progress, note } = checkBountyCondition(bounty, data);
+
+  return {
+    gefunden: true,
+    bounty,
+    verfuegbar,
+    hinweis: verfuegbar ? null : verfuegbarkeitsHinweis(bounty, heute),
+    earned,
+    progress,
+    note: note || null
+  };
 }
 
 /* ── Gather all user data needed for evaluation ────────────── */
@@ -896,6 +1039,36 @@ function checkBountyCondition(bounty, data) {
       const refCount = data.referralCount || 0;
       const needed = tv.min_referrals || 5;
       return { earned: refCount >= needed, progress: Math.min(100, (refCount / needed) * 100) };
+    }
+    case 'referral_cashback': {
+      /* WELLE K2 — die Kachel erklaert sich, vergibt aber NICHTS.
+       *
+       * Die Werbepraemie ist die einzige Kachel, deren Geld NICHT ueber
+       * `user_bounties` laeuft. Der Grund steht ausgeschrieben in Migration 209:
+       * `evaluateBounties` wird beim BESUCH der Bounty-Seite ausgefuehrt,
+       * zwischen dem Faelligwerden einer Praemie und dem naechsten Besuch
+       * koennen Wochen liegen — und ein veralteter Stand darf keine Rechnung
+       * bestimmen. Die Wahrheit fuer das Geld ist `referral_rewards`, gelesen
+       * vom Abrechnungslauf im Moment der Rechnung.
+       *
+       * `earned: false` ist deshalb kein Versehen, sondern Pflicht: waere es
+       * `true`, saehe `getUserDiscount` die 100 % ein ZWEITES Mal, und der
+       * Kunde bekaeme den Rabatt doppelt gutgeschrieben.
+       *
+       * Was diese Kachel leistet, ist die Erklaerung. Ohne sie stuende die
+       * Praemie als "gesperrt, 0 %" ohne ein Wort da — genau die stumme
+       * Kachel, die Welle P9/A2 an anderer Stelle aufgeraeumt hat. */
+      const geworben = data.referralCount || 0;
+      const deckel = Number(tv.max_praemien) || 3;
+      const tage = Number(tv.karenz_tage) || 30;
+      return {
+        earned: false,
+        progress: Math.min(100, Math.round((geworben / deckel) * 100)),
+        note: `Wird nicht hier vergeben, sondern direkt auf der Rechnung: `
+            + `wer ein Unternehmen wirbt, das ${tage} Tage bleibt, bekommt die `
+            + `naechste Monatsrechnung geschenkt — bis zu ${deckel}-mal. `
+            + `Bisher geworben: ${geworben}.`
+      };
     }
     case 'ratings_given': {
       const given = data.ratingsGiven || 0;

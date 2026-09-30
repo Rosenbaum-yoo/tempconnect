@@ -64,6 +64,121 @@ SELECT json_build_object(
       GROUP BY c.table_name
     ) t
   ), '{}'::json),
+  /*
+   * ERLAUBTE WERTE aus den CHECK-Constraints.
+   *
+   * WARUM DAS DAZUKAM: Der Abzug wusste bisher, WELCHE Spalten es gibt — aber
+   * nicht, welche WERTE sie annehmen duerfen. Genau in dieser Luecke lebte ein
+   * Fehler, der am 2026-08-22 gefunden wurde: getPendingAbuseReports las
+   * WHERE status = 'pending' auf einer Tabelle, deren CHECK nur
+   * open | under_review | resolved_dismissed | resolved_action_taken erlaubt.
+   * Der Posteingang war dauerhaft leer, und reportProfileAbuse schrieb drei
+   * Gruende, die der CHECK ablehnte. Beides lautlos, ueber Monate.
+   *
+   * Eine Spaltenliste haette das nie bemerkt: die Spalten waren ja da. Ab jetzt
+   * traegt der Abzug auch die erlaubte Wertemenge, sodass eine Probe einen
+   * geschriebenen Literal gegen die Wirklichkeit halten kann.
+   *
+   * Erfasst wird nur die einfache, mit Abstand haeufigste Form
+   * spalte = ANY (ARRAY['a','b',...]) (227 davon im Bestand). Zusammengesetzte
+   * Bedingungen bleiben aussen vor — lieber eine Teilmenge, die STIMMT, als
+   * eine vollstaendige, die raet.
+   */
+  'pruefwerte', COALESCE((
+    SELECT json_object_agg(p.tab, p.spalten)
+    FROM (
+      SELECT tab, json_object_agg(spalte, werte) AS spalten
+      FROM (
+        /*
+         * BEIDE DARSTELLUNGEN LESEN (Fund 2026-08-24).
+         *
+         * Hier stand LIKE '% = ANY %ARRAY[%' — also nur die Form
+         * = ANY (ARRAY['a'::text, ...]). Ein CHECK, der mit
+         * format('... CHECK (x = ANY (%L::text[]))', werte) geschrieben wird,
+         * sieht anders aus: = ANY ('{a,b,c}'::text[]).
+         *
+         * Und genau DAS ist das dokumentierte Hausmuster fuer additive
+         * CHECK-Erweiterungen (Vorlage 184_der_kunde_erfaehrt_dass_nicht_warum.sql,
+         * uebernommen von 189/190/193/194). Wer dem Muster folgte, liess die
+         * betroffene Spalte lautlos aus pruefwerte fallen — und jeder
+         * Waechter, der sich darauf stuetzt, hoerte auf zu pruefen, ohne rot zu
+         * werden. Gemessen waren drei sicherheitsrelevante Spalten betroffen:
+         * worker_assignment_links.worker_confirmation_status,
+         * notifications.type und profile_abuse_reports.reason.
+         *
+         * Die Literal-Form wird deshalb zuerst versucht und als Array geparst;
+         * nur wenn sie nicht greift, kommt die ARRAY[]-Form zum Zug.
+         */
+        SELECT t.relname AS tab,
+               (regexp_match(pg_get_constraintdef(c.oid), '\\(?([a-z_]+)\\)?(::text)? = ANY'))[1] AS spalte,
+               COALESCE(
+                 (SELECT json_agg(w ORDER BY w)
+                    FROM unnest(
+                      ((regexp_match(pg_get_constraintdef(c.oid), '''(\\{.*\\})''::text\\[\\]'))[1])::text[]
+                    ) AS u(w)),
+                 (SELECT json_agg(w ORDER BY w)
+                    FROM regexp_matches(pg_get_constraintdef(c.oid), '''([^'']+)''::', 'g') AS m(w2),
+                         LATERAL (SELECT m.w2[1]) AS x(w))
+               ) AS werte
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.conrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        WHERE c.contype = 'c'
+          AND n.nspname = 'public'
+          AND pg_get_constraintdef(c.oid) LIKE '% = ANY %'
+      ) roh
+      WHERE spalte IS NOT NULL
+      GROUP BY tab
+    ) p
+  ), '{}'::json),
+  /*
+   * FREMDSCHLUESSEL — WORAUF EINE SPALTE ZEIGT.
+   *
+   * WARUM DAS DAZUKAM (2026-09-28, Welle Z, Z17): Der Abzug wusste, WELCHE
+   * Spalten es gibt und welche WERTE sie annehmen duerfen — aber nicht, WORAUF
+   * sie zeigen. In dieser Luecke lebte die teuerste Fehlerklasse dieses Projekts:
+   * eine Spalte, die per Fremdschluessel auf users zeigt, wird mit einer
+   * Kennung aus organizations verglichen. Der Join trifft dann NIE — und weil
+   * es LEFT JOINs sind, gibt es keinen Fehler, nur lauter NULL.
+   *
+   * Gemessen in einer einzigen Welle gefunden: elf Stellen in
+   * vendorPoolService, drei in instantMatchService, vier in
+   * routes/matching.js, zwei in der Nachweis- und Vorzugsstufen-Karte. Ganze
+   * verkaufte Faehigkeiten waren dauerhaft leer — Reputation in der
+   * Lieferantenverwaltung, Smart Rank, Nachweise im Sofort-Abgleich.
+   *
+   * Eine Spaltenliste kann das nie bemerken: die Spalten sind ja alle da. Ein
+   * Schema-Waechter, der nur Namen kennt, meldet gruen. Ab jetzt traegt der Abzug
+   * die Zielrelation jeder einspaltigen Fremdschluessel-Beziehung, sodass
+   * test/identitaetenNichtVermischen.test.js einen solchen Vergleich rot machen
+   * kann, OHNE eine Datenbank zu brauchen.
+   *
+   * Nur EINSPALTIGE Beziehungen: zusammengesetzte Schluessel beantworten die
+   * Frage "ist das eine Nutzer- oder eine Org-Kennung" nicht, und dieselbe
+   * Hausregel wie bei pruefwerte gilt — lieber eine Teilmenge, die STIMMT, als
+   * eine vollstaendige, die raet.
+   */
+  'fremdschluessel', COALESCE((
+    SELECT json_object_agg(f.tab, f.spalten)
+    FROM (
+      SELECT quelle AS tab, json_object_agg(spalte, ziel ORDER BY spalte) AS spalten
+      FROM (
+        SELECT DISTINCT
+               tq.relname AS quelle,
+               aq.attname AS spalte,
+               tz.relname AS ziel
+        FROM pg_constraint c
+        JOIN pg_class tq ON tq.oid = c.conrelid
+        JOIN pg_class tz ON tz.oid = c.confrelid
+        JOIN pg_namespace n ON n.oid = tq.relnamespace
+        JOIN pg_attribute aq ON aq.attrelid = c.conrelid AND aq.attnum = c.conkey[1]
+        WHERE c.contype = 'f'
+          AND n.nspname = 'public'
+          AND array_length(c.conkey, 1) = 1
+      ) roh
+      GROUP BY quelle
+    ) f
+  ), '{}'::json),
   'sichten', COALESCE((
     SELECT json_agg(table_name ORDER BY table_name)
     FROM information_schema.tables
@@ -170,6 +285,12 @@ const ausgabe = {
   erzeugt_am: new Date().toISOString(),
   quelle: `docker exec ${CONTAINER} psql -U ${DB_USER} -d ${DB_NAME}`,
   migrations_fingerabdruck: migrationsFingerabdruck(REPO_ROOT),
+  pruefwerte: Object.fromEntries(
+    Object.entries(daten.pruefwerte || {}).sort(([a], [b]) => a.localeCompare(b))
+  ),
+  fremdschluessel: Object.fromEntries(
+    Object.entries(daten.fremdschluessel || {}).sort(([a], [b]) => a.localeCompare(b))
+  ),
   sichten: (daten.sichten || []).sort(),
   funktionen: (daten.funktionen || []).sort(),
   enums: (daten.enums || []).sort(),

@@ -799,7 +799,9 @@ export const KUNDE_PERMISSION = "assignment.edit";
 export const KUNDE_ANLAESSE = Object.freeze(["ausfall", "entwarnung", "ersatz"]);
 
 /** Einsaetze, die nicht mehr laufen, betreffen den Kunden nicht mehr. */
-const EINSATZ_ERLEDIGT = Object.freeze(["completed", "cancelled", "closed"]);
+/* Exportiert, seit der Frist-Sweep (workerService) denselben Ausschluss braucht:
+ * ein erledigter Einsatz bekommt keine Meldung mehr, egal aus welchem Anlass. */
+export const EINSATZ_ERLEDIGT = Object.freeze(["completed", "cancelled", "closed"]);
 
 /**
  * Der Text der Kundenmeldung.
@@ -870,9 +872,11 @@ export function kundenEreignis(anlass) {
   return anlass === "ersatz" ? "assignment.worker_replaced" : "assignment.worker_unavailable";
 }
 
-/** Zum betroffenen Einsatz in der Kundenansicht — nicht auf eine Uebersicht. */
+/** Zum betroffenen Einsatz in der Kundenansicht — nicht auf eine Uebersicht.
+ *  Seit Welle J1 ist die Live-Belegschaft eine eigene Flaeche; Alt-Links auf
+ *  company-timesheets.html leitet deren init() mitsamt ?einsatz= hierher um. */
 export function kundenDeepLink(assignmentId) {
-  return "/public/company-timesheets.html?einsatz=" + encodeURIComponent(String(assignmentId || "")) + "#live";
+  return "/public/company-live-workforce.html?einsatz=" + encodeURIComponent(String(assignmentId || ""));
 }
 
 /**

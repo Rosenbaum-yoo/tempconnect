@@ -45,6 +45,34 @@ Brauchen Owner-Bestätigung vor CLAUDE.md-Übernahme.
 - **Claude** ist der einzige KI-Agent im Stack und uebernimmt den gesamten Stack: Frontend, Backend, DB, Security, APIs, Tests, React, UX, API-Client, E2E — inkl. Prompt-/Task-Design, Scope-Definition, Akzeptanzkriterien und Testfall-Formulierung.
 - Architektur- und Sicherheitsentscheidungen mit grosser Tragweite: immer Owner-Freigabe einholen.
 
+### Das Team ist eine Person (Owner-Feststellung 2026-08-27, verbindlich)
+
+**Es gibt keine zweite Staff-Rolle. Der Owner IST das Staff — und Claude faktisch
+auch.** Was in der Oberflaeche „TempConnect-Team" heisst, ist heute ein Mensch plus
+dieser Agent.
+
+Das ist keine Randnotiz, sondern eine **Bauvorgabe**. Wer sie uebersieht, baut
+dreimal dasselbe falsch:
+
+- **Keine Genehmigungsschleifen zwischen Staff-Rollen.** Kein Vier-Augen-Prinzip,
+  keine „Freigabe durch Vorgesetzten", keine Bestaetigung durch eine zweite Person.
+  Es gibt niemanden, der bestaetigen koennte — ein solcher Weg waere dauerhaft
+  blockiert.
+- **Keine „an Kollegen zuweisen"-Muster.** Zuweisung, Uebergabe, Eskalation an eine
+  andere Staff-Person laufen ins Leere.
+- **Missbrauchsschutz durch STRUKTUR, nicht durch Kontrolle.** Wenn nur eine Person
+  handelt, schuetzt kein zweites Augenpaar. Was schuetzt: dass eine Handlung gar
+  nicht erst mehr vergeben kann, als die Regel hergibt (Beispiel: der Bounty-Eingriff
+  setzt keinen Betrag, er nennt einen Grund und laesst das System rechnen —
+  `docs/features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md`, Abschnitt 3a).
+- **Das eigentliche Risiko ist das Versehen, nicht der Vorsatz.** Deshalb:
+  Wirkungsvorschau vor der Handlung („diese Rechnung wird um 143,50 € niedriger"),
+  Verfall statt Dauerzustand, und Monatsuebersichten statt Einzelmeldungen an
+  sich selbst.
+- **Rollenmodell bleibt trotzdem stehen.** Die sechs Staff-Rollen (`8eb9971`) werden
+  nicht abgebaut — sie kosten nichts und greifen ab der zweiten Person automatisch.
+  Nur darf sich heute keine FUNKTION darauf verlassen, dass es sie besetzt gibt.
+
 ### Arbeitsweise mit dem Owner
 - Owner = Entscheidungsinstanz. Claude = Ausfuehrung mit Eigenverantwortung im definierten Rahmen.
 - **Sicherheitsentscheidungen**: Immer Owner fragen, nie autonom.
@@ -148,6 +176,14 @@ welche gehört — diese Lücke hat schon einmal zu einer Fehlplatzierung gefüh
 betrifft, nicht wie schwer sie wiegt. Ist die Antwort nicht eindeutig, wird **gefragt**, nicht
 abgeleitet: Produkt-Taxonomie steht nicht im Code. Vollständig inkl. Registry und
 Namenskollisionen: `docs/FLAECHEN.md`, erzwungen durch `api/test/flaechenZuordnung.test.js`.
+
+> **Owner-Entscheid 2026-08-27 — das Owner Control Center wird ins Staff Control Center
+> überführt.** Die Entscheidungsfrage oben bleibt richtig; was sich ändert, ist die
+> Oberfläche, in der die Owner-Antwort landet. Der Owner arbeitet dazu einen eigenen
+> Abschnitt aus — bis dahin **keine neuen OCC-Module anlegen und keine entfernen**, nur
+> umzugsfähig arbeiten. Offene Fragen (Zugangsstufe, Audit-Namensraum, sieben kollidierende
+> Modulnamen, React-Fläche vs. Staff-Bauart): `docs/FLAECHEN.md`, Abschnitt „Owner-Entscheid
+> 2026-08-27".
 
 ## Backend-Regeln
 - Routen nur fuer HTTP/Validation; Business-Logik in `api/services/*`.
@@ -281,8 +317,20 @@ Jede Aenderung muss diesen Standard einhalten. Kein Feature ist "fertig" wenn ei
 - 3754 Tests, 0 Failures
 
 P1-C: Docker-Verifikation (Pflicht vor jedem Release)
-- `docker exec tempconnect_api sh -c "cd /app && npm run test:unit"`
-- hubVisibility-Tests pruefen (Volume-Mount erforderlich)
+- `docker exec tempconnect_api sh -c "cd /app && npm run test:image"`
+- **Korrigiert 2026-08-25.** Vorher stand hier `test:unit` — und das konnte
+  strukturell nie gruen werden: gemessen 124 rote Tests von 9261, weil das
+  Abbild nur `api/`, `sql/migrations` und `frontend/public/js` enthaelt. Alles,
+  was `frontend/public/*.html`, `docs/`, `nginx/` oder die compose-Dateien
+  liest, scheitert dort zwangslaeufig. Ein Gate, das nie gruen wird, wird
+  uebersprungen — die Zeile war damit wertlos.
+- `--suite=image` laeuft die Tests, die das AUSGELIEFERTE ABBILD beweisen, und
+  laesst die aus, deren Gegenstand gar nicht mitgeliefert wird. Was ausgelassen
+  wurde, sagt der Lauf selbst; die Regel steht in `api/scripts/lib/abbildSuite.mjs`
+  und haengt an `api/test/abbildSuite.test.js`.
+- Der VOLLE Lauf bleibt Pflicht auf dem Host: `cd api && node scripts/run-tests.js`.
+  Oberflaechen-, Doku- und Infrastruktur-Tests laufen nur dort — und dort sind
+  sie nicht optional.
 - Aufwand: 0.5 Stunden | Nutzen: Hoch — Produktions-Konfidenz
 
 **PRIO 2 — Enterprise-Qualitaet (diese Woche)**
@@ -493,7 +541,11 @@ Zusätzlich verbindlich (Quelle: globale `~/CLAUDE.md` §0.10–§0.13 — gelte
 Coverage beweist „Zeile lief", nicht „Bug wird gefangen". Für sicherheits-, geld- und compliance-kritische Logik ist **Mutation Testing (Stryker, command-Runner)** die Pflicht-Verifikation (§0.12 Mehrfach-Verifikation).
 
 - **Wann Pflicht:** wo ein stiller Logik-Flip zu 403→200, frei-statt-bezahlt, kein-Audit, falschem-Betrag oder illegalem Status-Übergang führt. Reines UI/Format/Logging: nicht mutieren.
-- **Gate je Bereich:** Score-Ziel **+ null überlebende Mutanten im Entscheidungs-Branch** (wichtiger als die reine Prozentzahl).
+- **Gate je Bereich: 90 % — fest vorgeschrieben, auch für jeden künftigen Bereich** (Owner 2026-09-01). Die Schwelle steht als `thresholds.break` in jeder `api/stryker.*.conf.json` und wird von `api/test/mutationsSchwelle.test.js` erzwungen: eine gesenkte Schwelle sieht aus wie eine Einstellung und ist eine zurückgenommene Zusage. Ein neuer Bereich startet mit 90, nicht mit dem, was er gerade schafft.
+- **Und weiterhin: null überlebende Mutanten im Entscheidungs-Branch** — das bleibt wichtiger als die Prozentzahl. 90 % ohne Überlebende in `if`/`&&`/Vergleich ist gut; 95 % mit einem überlebenden Mandantengrenzen-Flip ist wertlos.
+- **Was die Punktzahl deckelt, gehört benannt, nicht wegdefiniert.** Eine DB-freie Suite kann keinen Mutanten in einem SQL-Text töten — der Muster-Pool führt die Abfrage nie aus. Die Antwort darauf ist die **Form-Probe** (`assert.ok(sql.includes(...))` je Bestandteil) und die **Bindungs-Probe** (`assert.deepEqual(call.params, [...])`), nicht das Ausschließen des Mutators. Beides pinnt den Vertrag der Abfrage und hat in Welle K3.8 die Punktzahl von 66 auf über 90 gehoben — ohne eine einzige Ausnahme.
+- **Nie inkrementell messen (`incremental: false`, Owner 2026-09-01).** Der Zwischenspeicher ist auf Änderungen am **Quelltext** geschlüsselt, nicht auf die der **Tests**. Wer Proben ergänzt und danach misst, bekommt sonst die alte Zahl — ohne Hinweis. Das hat einmal eine Stunde gekostet: 37 belegte Proben, und der Lauf meldete auf die Kommastelle dasselbe. Erzwungen von `api/test/mutationsSchwelle.test.js`, gilt **global und lokal** (auch im projektübergreifenden Playbook).
+- **Der Stryker-Bericht ist ein Hinweis, kein Urteil.** Gemessen 2026-09-01: von sechs als „überlebt" gemeldeten Entscheidungspunkten waren nach Prüfung von Hand fünf längst gefangen — Stryker mutiert Teilausdrücke, nicht ganze Ausdrücke. Vor jeder Probe, die einen Mutanten töten soll: von Hand rückmutieren und prüfen, dass die Suite dabei wirklich rot wird.
 - **Methode:** ein Bereich pro Welle; DB-freie Mock-Pool-Tests in den `commandRunner`; Diffs uncommitted bis Owner-Freigabe.
 - **Projekt-Plan (RBAC/Org-Boundary):** `_TEMPCONNECT_MUTATION_RBAC_PLAN.md`.
 - **Projektübergreifende Methodik (Blueprint für Folgeprojekte):** `../MUTATION_TESTING_PLAYBOOK.md`.

@@ -24,14 +24,36 @@
   'use strict';
 
   /* ── Step → Link Mapping ────────────────────────────────── */
+  /*
+   * RUECKFALLEBENE, und sie muss dem Server FOLGEN, nicht widersprechen.
+   *
+   * Der Katalog steht in `api/services/onboardingService.js` (STEP_CATALOG) und
+   * liefert `link` je Schritt mit; Zeile 195 unten nimmt ihn (`s.link ||
+   * STEP_LINKS[key]`). Diese Karte greift also nur, wenn die Antwort keinen
+   * Link traegt.
+   *
+   * GEPRUEFT AM 2026-09-04, und sie war an ZWEI Stellen abgedriftet:
+   *   first_deal    hier /public/angebote_verwalten.html, im Katalog
+   *                 /public/company_requests.html
+   *   team_invited  hier /public/mitarbeiter.html, im Katalog
+   *                 /public/sla_profil.html
+   *
+   * Die zweite war die gefaehrlichere. Der Schritt heisst "Teammitglied
+   * einladen" und zaehlt `org_memberships` — er meint einen KOLLEGEN, nicht
+   * eine Arbeitskraft. Und seit M3.7 gehoert `/public/mitarbeiter.html` der
+   * Zeitarbeitsfirma: ein Unternehmen, das diesem Rueckfall folgte, kaeme auf
+   * einer Seite an, deren API mit 403 antwortet.
+   *
+   * `onboardingCatalog.test.js` haelt beide Karten ab jetzt gegeneinander.
+   */
   var STEP_LINKS = {
     profile_complete:  '/public/sla_profil.html',
     org_configured:    '/public/sla_profil.html',
     first_capacity:    '/public/capacity_exchange_form.html',
     first_demand:      '/public/marketplace_demand_create.html',
     first_request:     '/public/capacity_search.html',
-    first_deal:        '/public/angebote_verwalten.html',
-    team_invited:      '/public/mitarbeiter.html',
+    first_deal:        '/public/company_requests.html',
+    team_invited:      '/public/sla_profil.html',
     platform_explored: '/public/enterprise.html'
   };
 
@@ -120,7 +142,7 @@
 
   function esc(s) {
     if (s == null) return '';
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   /* ── Toggle (expand / collapse) ─────────────────────────── */

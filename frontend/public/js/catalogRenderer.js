@@ -106,10 +106,21 @@
   var ESC_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
   function esc(s) {
     if (s == null) return "";
+    /*
+     * ZWEI WEGE, UND DER TEST NAHM DEN SICHEREN (gefunden 2026-09-05).
+     *
+     * Der Browser-Zweig ueber `textContent` escapt &, < und > — aber KEIN
+     * Anfuehrungszeichen. Der headless-Zweig darunter escapt ueber `ESC_MAP`
+     * alle fuenf. Eine Probe laeuft in Node und nimmt damit IMMER den sicheren
+     * Weg; der Mensch im Browser bekommt den anderen. Kein Test haette das
+     * fangen koennen — er haette die Luecke nie betreten.
+     *
+     * Beide Wege liefern jetzt dasselbe.
+     */
     if (typeof document !== "undefined" && document.createElement) {
       var d = document.createElement("div");
       d.textContent = String(s);
-      return d.innerHTML;
+      return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
     }
     return String(s).replace(/[&<>"']/g, function (ch) { return ESC_MAP[ch] || ch; });
   }

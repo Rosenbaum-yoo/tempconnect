@@ -47,7 +47,7 @@ export function apiKeyAuthMiddleware(pool, { logger, config = {} }) {
             // erst bei JWT-exp, bis zu 1h später). Spiegelt den strengen tc_live_-Pfad (lookupByHash).
             const key = await lookupById(pool, payload.sub).catch(() => null);
             if (key && key.org_id === payload.org_id) {
-              req.orgId = payload.org_id;
+              req.orgId = payload.org_id;   // belegt durch den Schluessel selbst (8.1.1)
               // Effektive Scopes = Token-Grant ∩ aktueller Key-Stand (scope-hierarchie-bewusst):
               // ein auf dem Key entzogener Scope greift dadurch sofort, auch im noch gültigen Token.
               const tokenScopes = (payload.scope || "").split(" ").filter(Boolean);
@@ -148,7 +148,21 @@ function extractBearerJwt(req) {
  * @returns {Function} Express Middleware
  */
 export function requireScope(scope) {
-  return (req, res, next) => {
+  /*
+   * BENANNT (M2.3, 2026-09-05) — eine namenlose Wache ist unsichtbar.
+   *
+   * Dieselbe Lehre wie in M2.7 bei `requireCompanyOrg` und davor bei
+   * `requirePermission` (Befund P1-20): ein Waechter kann Middleware nur
+   * ZAEHLEN, wenn sie keinen Namen tragen — und dabei sieht eine Route ohne
+   * Pruefung aus wie eine mit.
+   *
+   * Gemessen am 2026-09-05: 59 LESENDE Wege tragen `requireScope`. In der
+   * montierten Kette hiessen sie alle "(anonym)"; die Ableitung des
+   * Wach-Waechters haette sie als "gar keine Wache" eingestuft und 59
+   * Falschmeldungen erzeugt. Ein Waechter, der so oft falsch warnt, wird
+   * abgeschaltet — und nimmt die echten Befunde mit.
+   */
+  return function requireScopeMiddleware(req, res, next) {
     // Session-Auth: kein Scope-Check (RBAC steuert Zugriff)
     if (!req.isApiKeyAuth) return next();
 

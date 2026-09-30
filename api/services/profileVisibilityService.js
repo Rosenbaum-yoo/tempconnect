@@ -329,25 +329,95 @@ export async function getPendingVisibilitySubmissions(pool, { limit = 50 } = {})
  * @param {{ reportedOrgId: string, reporterUserId: string, reason: string, details?: string }} params
  * @returns {Promise<{ok: boolean, reason?: string}>}
  */
-export async function reportProfileAbuse(pool, { reportedOrgId, reporterUserId, reason, details }) {
-  const ALLOWED_REASONS = ["spam", "fake_profile", "misleading_info", "inappropriate_content", "other"];
-  if (!ALLOWED_REASONS.includes(reason)) {
+/*
+ * DREI FEHLER UEBEREINANDER, alle drei lautlos — am 2026-08-22 gegen die
+ * laufende Datenbank bewiesen (Migration 189 traegt die Belege im Kopf):
+ *
+ *   1. Drei der fuenf erlaubten Gruende (`fake_profile`, `misleading_info`,
+ *      `inappropriate_content`) verletzten den CHECK der Tabelle, der die
+ *      Kurzformen aus Migration 120 verlangte.
+ *   2. `ON CONFLICT (reported_org_id, reporter_user_id)` hatte KEINEN passenden
+ *      eindeutigen Index — Postgres lehnte damit auch die verbleibenden zwei
+ *      Gruende ab. Also JEDE Meldung.
+ *   3. `catch { return { ok:false, reason:"DB_ERROR" } }` verschluckte beides.
+ *      Der Nutzer las "Meldung konnte nicht gespeichert werden", niemand
+ *      erfuhr warum, und die leere Tabelle sah aus wie "es meldet halt niemand".
+ *
+ * Migration 189 raeumt 1 und 2 aus. Hier bleibt 3: der Fehler wird nicht mehr
+ * verschluckt, sondern als `fehler` mitgegeben, damit die Route ihn
+ * protokollieren kann. Ein Fehlerpfad, den niemand sieht, ist kein Fehlerpfad —
+ * er ist eine Lücke, die sich als Ruhe tarnt.
+ */
+
+/** Kurzformen aus Migration 120 auf das Vokabular der API und der Oberflaeche. */
+const GRUND_ABBILDUNG = Object.freeze({
+  fake: "fake_profile",
+  misleading: "misleading_info",
+  inappropriate: "inappropriate_content",
+});
+const ERLAUBTE_GRUENDE = Object.freeze([
+  "spam", "fake_profile", "misleading_info", "inappropriate_content", "other",
+  /* Mit der Personen-Meldung (194) kommen zwei Gruende dazu, die es bisher
+   * nicht gab — und die man NICHT in `other` einschmelzen darf:
+   *   `fraud`      ist nicht `fake_profile` (eine Firma kann echt sein und
+   *                trotzdem betruegen) und nicht `misleading_info` (das ist
+   *                eine Angabe, kein Vorsatz).
+   *   `harassment` ist ein VERHALTEN zwischen Personen,
+   *                `inappropriate_content` ein INHALT.
+   * `other` ist der Eimer, den ein Bearbeiter zuletzt oeffnet. Wer die
+   * Unterscheidung dort begraebt, loescht genau den Grund, aus dem jemand
+   * gemeldet hat. */
+  "fraud", "harassment",
+]);
+
+export async function reportProfileAbuse(pool, {
+  reportedOrgId, reporterUserId, reason, details, zielArt = "profil", zielId = null,
+}) {
+  const grund = GRUND_ABBILDUNG[reason] || reason;
+  if (!ERLAUBTE_GRUENDE.includes(grund)) {
     return { ok: false, reason: "INVALID_REASON" };
   }
-  // Kein Selbst-Report
-  if (!reportedOrgId || !reporterUserId) return { ok: false, reason: "MISSING_PARAMS" };
+  /* profil = die Organisation selbst, angebot = eine Zeile aus `offers`
+   * (sehen nur die zwei Parteien), kapazitaet = eine Zeile aus
+   * `capacity_posts` (sieht jeder angemeldete Nutzer mit SLA-Zugang),
+   * nutzer = eine PERSON (Migration 194).
+   * Die Liste muss mit dem CHECK uebereinstimmen — eine Probe haelt beide
+   * gegeneinander. */
+  if (!["profil", "angebot", "kapazitaet", "nutzer"].includes(zielArt)) {
+    return { ok: false, reason: "INVALID_TARGET" };
+  }
+  /*
+   * Die Organisation ist seit Migration 194 nur noch fuer die drei
+   * ORGANISATIONS-Zielarten Pflicht. Bei ziel_art='nutzer' ist Gegenstand der
+   * Meldung die PERSON; die Organisation ist optionaler Kontext, und gemessen
+   * haben 144 von 395 Nutzern gar keine. Ein `!reportedOrgId`-Riegel hier haette
+   * genau die Meldungen abgewiesen, fuer die diese Zielart gebaut wurde — und
+   * zwar mit MISSING_PARAMS, also aussehend wie ein Aufruferfehler.
+   * Der CHECK `par_org_pflicht_check` haelt die andere Richtung in der Datenbank.
+   */
+  if (!reporterUserId) return { ok: false, reason: "MISSING_PARAMS" };
+  if (zielArt !== "nutzer" && !reportedOrgId) return { ok: false, reason: "MISSING_PARAMS" };
+  if (zielArt === "nutzer" && !zielId) return { ok: false, reason: "MISSING_TARGET" };
+  /* Bei einer Profilmeldung IST das Ziel die Organisation. Die Spalte bewusst
+   * auch dann zu fuellen erspart einen COALESCE-Ausdrucksindex — und genau so
+   * ein Index war Fehler 2. */
+  const ziel = zielArt === "profil" ? reportedOrgId : zielId;
+  if (!ziel) return { ok: false, reason: "MISSING_TARGET" };
+
   try {
     const { rows } = await pool.query(
       `INSERT INTO profile_abuse_reports
-         (reported_org_id, reporter_user_id, reason, details)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (reported_org_id, reporter_user_id)
+         (reported_org_id, reporter_user_id, reason, details, ziel_art, ziel_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (reporter_user_id, ziel_art, ziel_id)
          DO UPDATE SET reason = EXCLUDED.reason, details = EXCLUDED.details, updated_at = NOW()
        RETURNING id`,
-      [reportedOrgId, reporterUserId, reason, details || null]
+      [reportedOrgId, reporterUserId, grund, details || null, zielArt, ziel]
     );
     return { ok: true, id: rows[0]?.id };
-  } catch { return { ok: false, reason: "DB_ERROR" }; }
+  } catch (fehler) {
+    return { ok: false, reason: "DB_ERROR", fehler };
+  }
 }
 
 /**
@@ -359,12 +429,37 @@ export async function reportProfileAbuse(pool, { reportedOrgId, reporterUserId, 
 export async function getPendingAbuseReports(pool, { limit = 100 } = {}) {
   try {
     const { rows } = await pool.query(
+      /* `status = 'pending'` stand hier — ein Wert, den der CHECK dieser Tabelle
+       * NIE erlaubt hat (`open | under_review | resolved_dismissed |
+       * resolved_action_taken`, Vorgabe `open`). Der Posteingang war damit
+       * dauerhaft leer, und weil `catch { return []; }` daneben stand, sah das
+       * aus wie "keine Meldungen" statt wie "die Abfrage trifft nichts".
+       *
+       * `under_review` gehoert dazu: ein Fall, den jemand angefasst hat, darf
+       * nicht aus der Liste fallen, bevor er erledigt ist — sonst arbeitet man
+       * ihn zweimal an oder gar nicht. */
       `SELECT par.id, par.reason, par.details, par.status,
               par.created_at, par.updated_at,
-              o.name AS reported_org_name, par.reported_org_id
+              par.ziel_art, par.ziel_id,
+              o.name AS reported_org_name, par.reported_org_id,
+              /* Bei ziel_art='nutzer' ist die Person der Gegenstand — ohne
+               * diese Felder saehe ein Bearbeiter nur eine Kennung. */
+              gemeldet.email AS gemeldete_person_email,
+              TRIM(COALESCE(gemeldet.contact_person, '')) AS gemeldete_person_name
        FROM profile_abuse_reports par
-       JOIN organizations o ON o.id = par.reported_org_id
-       WHERE par.status = 'pending'
+       /*
+        * LEFT JOIN, nicht INNER (Migration 194).
+        *
+        * Bis dahin war reported_org_id NOT NULL und dieser JOIN ein INNER —
+        * fuer Org-Meldungen richtig, fuer Personen-Meldungen toedlich: gemessen
+        * am 2026-08-24 haben 144 von 395 Nutzern keine aktive Mitgliedschaft.
+        * Eine Meldung ueber einen von ihnen waere hier unsichtbar geblieben,
+        * waehrend der Melder eine Bestaetigung bekommt — schlimmer als gar
+        * keine Meldefunktion.
+        */
+       LEFT JOIN organizations o ON o.id = par.reported_org_id
+       LEFT JOIN users gemeldet ON gemeldet.id = par.ziel_id AND par.ziel_art = 'nutzer'
+       WHERE par.status IN ('open', 'under_review')
        ORDER BY par.created_at ASC
        LIMIT $1`,
       [limit]
@@ -381,18 +476,36 @@ export async function getPendingAbuseReports(pool, { limit = 100 } = {}) {
  * @param {string} staffUserId
  * @returns {Promise<{ok: boolean, reason?: string}>}
  */
+/*
+ * Die Aufrufer (`staffControlCenter.js:2115`, `:2134`) sprechen `resolved` und
+ * `dismissed`. Die Tabelle kennt `resolved_action_taken` und
+ * `resolved_dismissed`. Geschrieben wurde bisher das WORT DES AUFRUFERS — was
+ * den CHECK verletzt haette, wenn die Abfrage ueberhaupt je eine Zeile getroffen
+ * haette: `WHERE ... status = 'pending'` traf nie etwas, also endete jede
+ * Aktion in "NOT_FOUND_OR_ALREADY_PROCESSED". Zwei Fehler, die sich gegenseitig
+ * verdeckt haben.
+ *
+ * Die Abbildung steht hier und nicht bei den Aufrufern: sonst muss sie jeder
+ * neue Aufrufer erneut richtig treffen.
+ */
+const ABSCHLUSS_STATUS = Object.freeze({
+  resolved: "resolved_action_taken",
+  dismissed: "resolved_dismissed",
+});
+
 export async function resolveAbuseReport(pool, reportId, newStatus, staffUserId) {
-  if (!["resolved", "dismissed"].includes(newStatus)) {
+  const zielStatus = ABSCHLUSS_STATUS[newStatus];
+  if (!zielStatus) {
     return { ok: false, reason: "INVALID_STATUS" };
   }
   try {
     const { rowCount } = await pool.query(
       `UPDATE profile_abuse_reports
        SET status = $2, reviewed_by = $3, reviewed_at = NOW(), updated_at = NOW()
-       WHERE id = $1 AND status = 'pending'`,
-      [reportId, newStatus, staffUserId]
+       WHERE id = $1 AND status IN ('open', 'under_review')`,
+      [reportId, zielStatus, staffUserId]
     );
     if (!rowCount) return { ok: false, reason: "NOT_FOUND_OR_ALREADY_PROCESSED" };
     return { ok: true };
-  } catch { return { ok: false, reason: "DB_ERROR" }; }
+  } catch (fehler) { return { ok: false, reason: "DB_ERROR", fehler }; }
 }

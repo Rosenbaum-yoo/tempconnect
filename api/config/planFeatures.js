@@ -69,6 +69,43 @@ export const planFeatures = {
   // Marketplace browsing (DEMO can view/browse but not create)
   legacy_access:              ["DEMO", "BASIS"],
   sla_access:                 ["DEMO", "BASIS", "PLUS", "PRO", I],
+
+  /* ── M1.5 · ERSTELLEN IST NICHT BROWSEN ────────────────────────────────
+     Gemessen am 2026-09-02: 20 von 23 bewachten Seiten trugen
+     `data-sla-guard="sla_access"` — und der Schluessel ist fuer JEDEN Plan
+     wahr. Der fertige Paywall-Block konnte dort also nie wegen des Plans
+     erscheinen, nur im Stoerfall (dem .catch-Zweig von slaGuard.js).
+
+     Darunter die beiden Seiten, auf denen etwas ENTSTEHT. Ein DEMO-Konto
+     fuellte das ganze Formular aus und bekam beim Absenden:
+
+       Kapazitaetsboerse   429 PLAN_LIMIT_REACHED   (listings-Limit ist 0)
+       Marktplatz-Bedarf   403 WORKER_LIMIT_EXCEEDED (max_workers ist 0)
+
+     Kein Sicherheitsloch — beide Wege halten. Aber die falsche Antwort zum
+     falschen Zeitpunkt: eine Quoten- bzw. Kopfzahl-Meldung, wo eine Paywall
+     gehoert, und erst NACH der Arbeit statt davor.
+
+     DIE PLANLISTEN SIND ABGELEITET, NICHT ERFUNDEN.
+     Sie enthalten genau die Plaene, deren zugehoeriges Limit in
+     `userService.PLAN_LIMITS` NICHT null ist — also die, die es ohnehin
+     schon duerfen. Damit wird hier KEINE neue Preisentscheidung getroffen:
+     der Schluessel sagt nur vorher, was das Backend hinterher ohnehin
+     entscheidet.
+
+       capacity_exchange_create  <- PLAN_LIMITS[p].listings !== 0
+       marketplace_demand_create <- PLAN_LIMITS[p].max_workers_per_request !== 0
+
+     `api/test/paywallSchluessel.test.js` rechnet beide Ableitungen nach und
+     wird rot, sobald ein Limit sich aendert und die Liste nicht. Zwei
+     Wahrheiten ueber dieselbe Frage sind genau der Zustand, den diese Welle
+     abschafft — die Ableitung darf nicht auseinanderlaufen.
+
+     NICHT hier importiert: `PLAN_LIMITS` lebt in `services/userService.js`,
+     und das importiert diese Datei. Ein Import zurueck waere ein Ringschluss.
+     Der Test uebernimmt die Bindung. */
+  capacity_exchange_create:   ["BASIS", "PLUS", "PRO", I],
+  marketplace_demand_create:  ["BASIS", "PLUS", "PRO", I],
   sla_offers_create:          ["PLUS", "PRO", I],
   sla_help:                   ["PLUS", "PRO", I],
   sla_subscriptions:          ["PLUS", "PRO", I],

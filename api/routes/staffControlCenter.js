@@ -20,6 +20,10 @@ import * as combinedInbox from "../services/staffCombinedInboxService.js";
 import * as subLifecycle from "../services/subscriptionLifecycleService.js";
 import * as customerOps from "../services/staffCustomerOperationsService.js";
 import * as orgSuspension from "../services/orgAccessSuspensionService.js";
+/* Markt-Sichtbarkeit (2026-09-02): derselbe Dienst, der die Angebote
+ * materialisiert, misst dabei seine eigene Luecke mit — hier wird sie lesbar. */
+import * as marktpraesenzService from "../services/marktpraesenzService.js";
+import * as skillCatalogService from "../services/skillCatalogService.js";
 import * as staffBilling from "../services/staffBillingOverviewService.js";
 import * as staffMail from "../services/staffMailCenterService.js";
 import * as staffIncidents from "../services/staffIncidentService.js";
@@ -27,6 +31,7 @@ import * as pilotPolicy from "../services/pilotPolicyService.js";
 import * as prereg from "../services/pilotPreregistrationService.js";
 import * as searchModeration from "../services/searchModerationService.js";
 import { config } from "../config/index.js";
+import { STAFF_ROLLEN } from "../config/staffRollen.js";
 import { withTransaction } from "../utils/transaction.js";
 import {
   notifyRequestStatusChanged,
@@ -75,6 +80,7 @@ function serviceError(code) {
 }
 import { REQUEST_TYPES as SUB_REQUEST_TYPES, STATUS as SUB_STATUS, listAllowedNextStatuses as subAllowedNext, canBypassStaffApproval as subCanBypass, applyApprovedChange } from "../services/subscriptionRequestService.js";
 import { writeStaffAudit, listStaffAudit, auditContextFromReq } from "../services/staffAuditService.js";
+import { queryAuditLog } from "../services/auditLog.js";
 import * as supportVendorAdmin from "../services/supportVendorAdminService.js";
 import {
   createStaffControlAccessMiddleware,
@@ -95,6 +101,12 @@ import * as bountyKatalog from "../services/bountyService.js";
 // materialisiert in user_bounty_tiers und heilt sonst erst beim naechsten Besuch
 // der Bounty-Seite des Kunden.
 import { evaluateAndPromoteTier } from "../services/bountyTierService.js";
+// Welle K1 — der Einzelfall statt nur des Katalogs: wer bekommt welchen Rabatt,
+// wo ist die Ermittlung ausgefallen, was wuerde der naechste Lauf ansetzen.
+import * as rabattFall from "../services/rabattFallService.js";
+import * as rabattEingriff from "../services/rabattEingriffService.js";
+import * as rabattAusfall from "../services/rabattAusfallService.js";
+import { vorschauRecurringInvoices } from "../services/recurringBillingService.js";
 
 // SCC WAVE 02: Typed-Confirmation-Text für critical Feature-Flags
 function computeFeatureFlagConfirmation(flagKey, enabled) {
@@ -243,12 +255,39 @@ export function createStaffControlCenterRouter(deps) {
   router.post("/preregistrations/:id/status", requireStaff, async (req, res) => {
     try {
       const status = String(req.body?.status || "");
+      /*
+       * BEGRUENDUNGSPFLICHT NUR DA, WO SIE ETWAS WERT IST (Befund 2026-08-24).
+       *
+       * Diese Route schrieb `confirmed: true` ins Protokoll, obwohl NICHTS
+       * bestaetigt wurde — und `riskLevel: "low"` auch fuer die Ablehnung. Ein
+       * Feld, das immer `true` ist, sagt nichts; es entwertet dieselbe Angabe
+       * ueberall dort, wo sie ehrlich gefuehrt wird.
+       *
+       * `requireConfirmAndReason` fuer ALLE sechs Status waere die falsche
+       * Antwort gewesen: pending/confirmed/qualified/accepted/waitlist sind
+       * Bewegung in der Pipeline, und eine 10-Zeichen-Pflicht bei jedem Klick
+       * erzeugt Textbausteine, keine Begruendungen.
+       *
+       * `rejected` ist etwas anderes: es beendet eine Bewerbung. Wer das tut,
+       * schreibt auf, warum — sonst steht spaeter nur "abgelehnt" da, und
+       * niemand kann es einem Menschen erklaeren.
+       */
+      const grund = String(req.body?.reason || "").trim();
+      if (status === "rejected" && grund.length < 10) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "SCC_REASON_REQUIRED", message: "Begruendung (reason) mit mindestens 10 Zeichen erforderlich, um eine Vorregistrierung abzulehnen." }
+        });
+      }
       const result = await prereg.setPreregStatus(pool, { id: req.params.id, status });
       await writeStaffAudit(pool, {
         actorId: req.sccActorId, area: "preregistrations",
         action: `staff_control.prereg.status.${status}`,
         entityType: "pilot_preregistration", entityId: req.params.id, status: "ok",
-        reason: req.body?.reason || null, confirmed: true, riskLevel: "low",
+        /* Die Wahrheit, nicht die Behauptung. */
+        reason: grund || null,
+        confirmed: req.body?.confirmed === true,
+        riskLevel: status === "rejected" ? "medium" : "low",
       });
       res.json({ success: true, data: result });
     } catch (err) {
@@ -516,8 +555,15 @@ export function createStaffControlCenterRouter(deps) {
   /** GET /staff-access — vollstaendige Staff-Liste (aktiv + inaktiv) fuer Access Review */
   router.get("/staff-access", requireStaff, async (req, res) => {
     try {
+      /* `expires_at` und `revoked_at` gehoeren in die Zugangsuebersicht — sie
+       * IST die Access-Review. Bis 2026-08-22 fehlten beide: ein Reviewer sah
+       * nur `is_active` und konnte einen befristeten Zugang nicht von einem
+       * unbefristeten unterscheiden. Jetzt greifen beide Spalten wirklich
+       * (staffControlAccess.js), also muss man sie auch sehen. */
       const { rows } = await pool.query(
-        `SELECT user_id, email, display_name, role, is_active, created_at
+        `SELECT user_id, email, display_name, role, is_active, created_at,
+                expires_at, revoked_at, last_reviewed_at,
+                (expires_at IS NOT NULL AND expires_at <= NOW()) AS abgelaufen
            FROM tempconnect_staff
            ORDER BY is_active DESC, COALESCE(display_name, email)`
       );
@@ -565,6 +611,105 @@ export function createStaffControlCenterRouter(deps) {
       res.json({ success: true, data: { deactivated: userId } });
     } catch (err) {
       logger?.error({ err }, "SCC staff-access deactivate error");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  /*
+   * ROLLE VERGEBEN (Owner-Entscheid 2026-08-24).
+   *
+   * Ohne diese Route waere die Rollen-Durchsetzung zwar scharf, aber
+   * unverwaltbar: die einzige Art, eine Rolle zu aendern, waere ein UPDATE von
+   * Hand auf der Datenbank. Ein Rechtesystem, das man nur mit psql bedienen
+   * kann, wird nicht benutzt — und dann tragen alle den Vorgabewert, was das
+   * System wieder wirkungslos macht.
+   *
+   * Drei Riegel, jeder aus einem eigenen Grund:
+   *   - `NUR_ADMIN` deckt `/staff-access` bereits im Rollentor ab; nur
+   *     `staff_admin` kommt ueberhaupt hierher.
+   *   - Die eigene Rolle darf man nicht aendern: sonst koennte der letzte
+   *     Admin sich versehentlich degradieren und niemand kaeme mehr an die
+   *     Verwaltung (und umgekehrt koennte man sich still befoerdern).
+   *   - Der letzte aktive `staff_admin` darf nicht weggenommen werden —
+   *     dieselbe Aussperr-Falle, nur von der anderen Seite.
+   */
+  router.patch("/staff-access/:userId/role", requireStaff, requireStepUpHigh, requireConfirmAndReason, async (req, res) => {
+    const { userId } = req.params;
+    const neueRolle  = String(req.body?.role || "").trim();
+    const reason     = String(req.body?.reason || "").trim();
+    const actorId    = req.session.staffUserId;
+
+    if (!STAFF_ROLLEN.includes(neueRolle)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "SCC_ROLE_INVALID",
+          message: `Unbekannte Rolle. Erlaubt: ${STAFF_ROLLEN.join(", ")}`
+        }
+      });
+    }
+    if (userId === actorId) {
+      return res.status(400).json({
+        success: false,
+        error: { code: "SCC_SELF_ROLE_FORBIDDEN", message: "Die eigene Rolle kann nicht geaendert werden." }
+      });
+    }
+
+    try {
+      const ergebnis = await withTransaction(pool, async (client) => {
+        const { rows: vorher } = await client.query(
+          `SELECT role FROM tempconnect_staff WHERE user_id = $1 FOR UPDATE`,
+          [userId]
+        );
+        if (!vorher[0]) return { fehler: "SCC_STAFF_NOT_FOUND" };
+
+        /* Der letzte Admin. In der Transaktion und mit FOR UPDATE oben, damit
+         * zwei gleichzeitige Degradierungen nicht beide durchgehen und die
+         * Verwaltung herrenlos zuruecklassen. */
+        if (vorher[0].role === "staff_admin" && neueRolle !== "staff_admin") {
+          const { rows: uebrig } = await client.query(
+            `SELECT count(*)::int AS n FROM tempconnect_staff
+              WHERE role = 'staff_admin' AND is_active = TRUE AND revoked_at IS NULL
+                AND (expires_at IS NULL OR expires_at > NOW()) AND user_id <> $1`,
+            [userId]
+          );
+          if (uebrig[0].n === 0) return { fehler: "SCC_LAST_ADMIN" };
+        }
+
+        await client.query(
+          `UPDATE tempconnect_staff SET role = $2 WHERE user_id = $1`,
+          [userId, neueRolle]
+        );
+        return { vorherRolle: vorher[0].role };
+      });
+
+      if (ergebnis.fehler === "SCC_STAFF_NOT_FOUND") {
+        return res.status(404).json({ success: false, error: { code: "SCC_STAFF_NOT_FOUND" } });
+      }
+      if (ergebnis.fehler === "SCC_LAST_ADMIN") {
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "SCC_LAST_ADMIN",
+            message: "Das ist der letzte aktive staff_admin. Erst einen weiteren ernennen, dann degradieren."
+          }
+        });
+      }
+
+      writeStaffAudit(pool, {
+        actorId,
+        area: "staff_access",
+        action: "staff_access.member.role_changed",
+        status: "ok",
+        confirmed: true,
+        riskLevel: "high",
+        ...auditContextFromReq(req),
+        details: { target_user_id: userId, von: ergebnis.vorherRolle, nach: neueRolle, reason }
+      }).catch((e) => logger?.warn?.({ err: e }, "SCC staff-access role audit error"));
+
+      res.json({ success: true, data: { user_id: userId, role: neueRolle, vorher: ergebnis.vorherRolle } });
+    } catch (err) {
+      logger?.error({ err }, "SCC staff-access role error");
       res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
     }
   });
@@ -719,6 +864,57 @@ export function createStaffControlCenterRouter(deps) {
     };
     const items = await listStaffAudit(pool, filters);
     res.json({ success: true, data: { items, filters } });
+  });
+
+  // ── Plattformweites Audit ueber ALLE Mandanten (8.1.1 e) ──────────────
+  //
+  // Nicht zu verwechseln mit `/audit` daneben: das liest
+  // `staff_control_audit_log`, also was das TEAM getan hat. Diese Route liest
+  // `audit_log` — was auf der PLATTFORM geschehen ist, ueber alle
+  // Organisationen hinweg.
+  //
+  // Bis 2026-08-21 gab es diese Sicht nur in `routes/admin.js`, also auf einer
+  // Flaeche, die laut `frontend/public/js/hubVisibility.js` bewusst fuer
+  // company UND agency sichtbar ist. Sie stand damit auf der falschen Seite der
+  // Trennung (`docs/FLAECHEN.md`: die Plattform als Ganzes gehoert ins Staff
+  // Control Center). Dort ist sie jetzt — hinter dem Flaechen-Tor `requireStaff`
+  // und der eigenen Staff-Session aus `app.js`.
+  //
+  // Bewusst DERSELBE Dienst wie die Kundensicht (`queryAuditLog`): eine zweite
+  // Abfrage waere eine zweite Stelle, an der die Mandantengrenze zu pflegen
+  // waere. Welle H2 hat gezeigt, wohin das fuehrt — gefaehrlich waren die
+  // Stellen OHNE Kopie. Der Unterschied ist hier ausschliesslich, dass kein
+  // Mandant vorgegeben wird.
+  router.get("/platform-audit", requireStaff, async (req, res) => {
+    const limit  = Math.min(500, parseInt(req.query.limit, 10) || 100);
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+    const orgId  = req.query.org_id || null;   // optional: auf einen Mandanten verengen
+    const result = await queryAuditLog(pool, {
+      org_id:       orgId,
+      actor_id:     req.query.actor_id     || null,
+      actor_search: req.query.actor_search || null,
+      org_search:   req.query.org_search   || null,
+      entity_type:  req.query.entity_type  || null,
+      action:       req.query.action       || null,
+      action_type:  req.query.action_type  || null,
+      status:       req.query.status       || null,
+      from:         req.query.from         || null,
+      to:           req.query.to           || null,
+      limit,
+      offset
+    });
+    res.json({
+      success: true,
+      data: {
+        items: result.items,
+        total: result.total,
+        limit,
+        offset,
+        // Scope-Transparenz (Produktionspfeiler 3): ohne org_id ist es die
+        // Plattformsicht — der Leser muss das sehen, nicht raten.
+        scope: { plattformweit: !orgId, org_id: orgId }
+      }
+    });
   });
 
   router.get("/customer-requests-meta/statuses", requireStaff, (_req, res) => {
@@ -1420,6 +1616,111 @@ export function createStaffControlCenterRouter(deps) {
   router.get("/support", requireStaff, async (_req, res) => {
     res.json({ success: true, data: await staffControlService.loadSupportSnapshot(pool) });
   });
+  /*
+   * Markt-Sichtbarkeit: wessen Kraefte am Markt unauffindbar sind.
+   *
+   * Die Zahl gab es schon — `sweepMarktpraesenz` misst sie bei jedem Lauf mit
+   * und gibt sie zurueck. Sie landete im Antwortkoerper eines internen
+   * Endpunkts und in einer Log-Zeile, danach war sie weg (M0-Bericht, Punkt
+   * 29). Gemessen am 2026-09-02: 30 von 33 aktiven Kraeften unsichtbar.
+   *
+   * Hier ist sie plattformweit und je Agentur lesbar. Bewusst NICHT im OCC:
+   * die Liste betrifft die Plattform als Ganzes und die Arbeit des Teams
+   * (docs/FLAECHEN.md, Antwort 3) — und neue OCC-Module sind seit dem
+   * Owner-Entscheid vom 2026-08-27 ohnehin gesperrt.
+   */
+  router.get("/markt-sichtbarkeit", requireStaff, async (_req, res) => {
+    /*
+     * N8.1b-6: die Altbezeichnungen kommen in DERSELBEN Antwort. Eine zweite
+     * Route haette eine zweite Kachel gebraucht, die jemand aufrufen muss —
+     * und die Zahl, die man nicht sieht, raeumt niemand auf. Beides gehoert
+     * zur selben Frage: warum steht im Markt weniger, als da sein muesste.
+     */
+    const [sichtbarkeit, altbezeichnungen, vorschlaege] = await Promise.all([
+      marktpraesenzService.marktSichtbarkeit(pool),
+      marktpraesenzService.katalogfremdeRollen(pool),
+      skillCatalogService.listeVorschlaege(pool)
+    ]);
+    res.json({
+      success: true,
+      data: {
+        ...sichtbarkeit,
+        katalogfremde_rollen: altbezeichnungen,
+        /* N8.1b-7: die offenen Vorschlaege stehen daneben, weil es DIESELBE
+           Frage ist — welches Vokabular kennt die Plattform, und welches nicht.
+           Die Altbezeichnungen sagen, was falsch drin steht; die Vorschlaege
+           sagen, was noch fehlt. Wer beides zusammen sieht, erkennt sofort,
+           dass der haeufigste Fall eine ZUORDNUNG ist. */
+        faehigkeits_vorschlaege: vorschlaege
+      }
+    });
+  });
+
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * N8.1b-7 — DAS VENTIL WIRD GELEERT
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * Gemessen am 2026-09-22: `status='proposed'` wurde von KEINER Zeile im
+   * ganzen Stack gelesen. Der Arbeiter hoerte "wird geprueft", und geprueft
+   * wurde nie. Unter dem Owner-Entscheid "keine Freitexte mehr" ist der
+   * Vorschlagsweg das EINZIGE Ventil — und ein Ventil, das niemand leert,
+   * laeuft ueber.
+   *
+   * WARUM BESTAETIGUNG UND BEGRUENDUNG: der Katalog ist plattformweite
+   * Wahrheit. Eine Zuordnung haengt fremde Faehigkeiten um, eine Ablehnung
+   * nimmt einem Menschen einen Begriff, den er eingetragen hat. Beides ohne
+   * Grund im Protokoll waere eine Aenderung ohne Verantwortlichen.
+   *
+   * KEIN Step-up HIGH: hier geht es nicht um Geld und nicht um Zugaenge,
+   * sondern um Vokabularpflege. Eine Huerde, die zur Aufgabe nicht passt,
+   * wird umgangen statt beachtet.
+   */
+  router.post("/faehigkeits-vorschlaege/:id/entscheiden",
+    requireStaff, requireConfirmAndReason,
+    async (req, res) => {
+      const entscheidung = String(req.body?.entscheidung || "").trim();
+      const zielSkillId = req.body?.ziel_skill_id ? String(req.body.ziel_skill_id).trim() : null;
+
+      try {
+        const ergebnis = await skillCatalogService.entscheideVorschlag(pool, {
+          vorschlagId: String(req.params.id || "").trim(),
+          entscheidung,
+          zielSkillId,
+          grund: req.sccReason,
+          actorId: req.session?.userId || null
+        });
+
+        res.locals.audit = {
+          action: "skill_catalog.proposal_decided",
+          entity_type: "platform_skill",
+          entity_id: String(req.params.id || ""),
+          details: {
+            entscheidung: ergebnis.entscheidung,
+            name: ergebnis.name,
+            ziel_skill_id: ergebnis.ziel?.id || null,
+            ziel_name: ergebnis.ziel?.name || null,
+            umgehaengte_zuordnungen: ergebnis.umgehaengt,
+            grund: req.sccReason
+          }
+        };
+        res.json({ success: true, data: ergebnis });
+      } catch (err) {
+        /* Die Ablehnung sagt, WELCHE Bedingung fehlt — das ist der Schutz,
+           nicht die Huerde. */
+        const bekannt = {
+          VORSCHLAG_FEHLT: 400, UNBEKANNTE_ENTSCHEIDUNG: 400, BEGRUENDUNG_FEHLT: 400,
+          ZIEL_FEHLT: 400, ZIEL_UNGUELTIG: 422, ZIEL_IST_VORSCHLAG: 422,
+          NICHT_GEFUNDEN: 404, SCHON_ENTSCHIEDEN: 409
+        };
+        const code = err?.code && bekannt[err.code];
+        if (code) {
+          return res.status(code).json({ success: false, error: { code: err.code, message: err.message } });
+        }
+        logger?.error({ err, vorschlag: req.params.id }, "SCC faehigkeits-vorschlag entscheiden");
+        res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+      }
+    });
 
   // ── Support Cases — Liste (filterbar) ───────────────────────
   router.get("/support/cases", requireStaff, async (req, res) => {
@@ -1436,7 +1737,7 @@ export function createStaffControlCenterRouter(deps) {
                sc.sla_resolved_at, sc.sla_first_responded_at,
                sc.created_at, sc.updated_at, sc.closed_at,
                o.name AS org_name,
-               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS reporter_name,
+               NULLIF(TRIM(COALESCE(u.contact_person,'')), '')  -- Z18: users hat weder first_name noch last_name (gemessen); der Mensch steht als contact_person. Die vier Abfragen warfen - die Listen des Staff Control Center blieben leer. AS reporter_name,
                sq.name AS queue_name
         FROM   support_cases sc
         LEFT JOIN organizations  o  ON o.id  = sc.reporter_org_id
@@ -1476,7 +1777,7 @@ export function createStaffControlCenterRouter(deps) {
       const { rows } = await pool.query(`
         SELECT sc.*,
                o.name AS org_name,
-               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS reporter_name,
+               NULLIF(TRIM(COALESCE(u.contact_person,'')), '')  -- Z18: users hat weder first_name noch last_name (gemessen); der Mensch steht als contact_person. Die vier Abfragen warfen - die Listen des Staff Control Center blieben leer. AS reporter_name,
                sq.name AS queue_name
         FROM   support_cases sc
         LEFT JOIN organizations  o  ON o.id  = sc.reporter_org_id
@@ -1491,7 +1792,7 @@ export function createStaffControlCenterRouter(deps) {
 
       const { rows: notes } = await pool.query(`
         SELECT scn.id, scn.note_type, scn.body, scn.created_at,
-               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS author_name,
+               NULLIF(TRIM(COALESCE(u.contact_person,'')), '')  -- Z18: users hat weder first_name noch last_name (gemessen); der Mensch steht als contact_person. Die vier Abfragen warfen - die Listen des Staff Control Center blieben leer. AS author_name,
                u.email AS author_email
         FROM   support_case_notes scn
         LEFT JOIN support_agents sa ON sa.id  = scn.author_agent_id
@@ -1538,7 +1839,7 @@ export function createStaffControlCenterRouter(deps) {
         SELECT dgr.id, dgr.request_type, dgr.subject_type, dgr.status,
                dgr.notes, dgr.created_at, dgr.completed_at,
                o.name AS org_name,
-               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS requested_by_name,
+               NULLIF(TRIM(COALESCE(u.contact_person,'')), '')  -- Z18: users hat weder first_name noch last_name (gemessen); der Mensch steht als contact_person. Die vier Abfragen warfen - die Listen des Staff Control Center blieben leer. AS requested_by_name,
                u.email AS requested_by_email
         FROM   data_governance_requests dgr
         LEFT JOIN organizations o ON o.id = dgr.org_id
@@ -2315,6 +2616,210 @@ export function createStaffControlCenterRouter(deps) {
     }
   );
 
+
+  /* ════════════════════════════════════════════════════════════════════════
+   * WELLE K1 — DER RABATT WIRD SICHTBAR
+   * ════════════════════════════════════════════════════════════════════════
+   *
+   * Der Katalog oben verwaltet die REGEL. Hier geht es um den EINZELFALL:
+   * welchen Rabatt bekommt Kunde X naechsten Monat, warum, wo ist die
+   * Ermittlung ausgefallen — und wie greift man ein.
+   *
+   * DER EINGRIFF IST DER HEIKLE TEIL (Plan-Abschnitt 3a). Es gibt keine zweite
+   * Staff-Rolle; ein Vier-Augen-Prinzip waere dauerhaft blockiert. Der Schutz
+   * ist deshalb strukturell und liegt vollstaendig im Dienst:
+   * kein freies Betragsfeld, Schwellenpruefung gegen die echten Daten,
+   * Wirkungsvorschau in Euro, Verfall nach einem Lauf, nie in eigener Sache,
+   * Quelle auf der Rechnung. Diese Route prueft HTTP und protokolliert — sie
+   * entscheidet nichts.
+   */
+
+  /** Die Kundenliste: wer haelt einen Rabatt, wo hakt es. */
+  router.get("/rabatt-faelle", requireStaff, async (req, res) => {
+    try {
+      const daten = await rabattFall.rabattFaelle(pool, {
+        limit: req.query.limit,
+        offset: req.query.offset,
+        suche: req.query.q,
+        nurAuffaellige: String(req.query.nur_auffaellige || "") === "true"
+      });
+      res.json({ success: true, data: daten });
+    } catch (err) {
+      logger?.error({ err }, "SCC rabatt-faelle");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  /** Der Einzelfall — K1.2. */
+  router.get("/rabatt-faelle/:userId", requireStaff, async (req, res) => {
+    try {
+      const fall = await rabattFall.rabattFall(pool, req.params.userId);
+      if (!fall) {
+        return res.status(404).json({
+          success: false,
+          error: { code: "KUNDE_NICHT_GEFUNDEN", message: "Kein Nutzer mit dieser Kennung." }
+        });
+      }
+      res.json({ success: true, data: fall });
+    } catch (err) {
+      logger?.error({ err, userId: req.params.userId }, "SCC rabatt-fall");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  /**
+   * Die Wirkungsvorschau eines Eingriffs — K1.4, Schritt 1.
+   *
+   * Bewusst GET: sie schreibt nichts und darf nichts schreiben. Der Nettobetrag
+   * kommt aus der Abrechnung, nicht aus dem Browser — ein Betrag von aussen
+   * waere genau das freie Feld, das Abschnitt 3a ausschliesst.
+   */
+  router.get("/rabatt-faelle/:userId/eingriff-vorschau", requireStaff, async (req, res) => {
+    const schluessel = String(req.query.bounty_key || "").trim();
+    if (!schluessel) {
+      return res.status(400).json({
+        success: false,
+        error: { code: "BOUNTY_KEY_REQUIRED", message: "bounty_key ist erforderlich." }
+      });
+    }
+    try {
+      const vorschau = await rabattFall.eingriffVorschauFuerNutzer(pool, req.params.userId, schluessel);
+      // Eine abgelehnte Vorschau ist KEIN Fehler, sondern das Ergebnis: sie sagt,
+      // warum der Eingriff nicht ginge. 200 mit `ok: false`.
+      res.json({ success: true, data: vorschau });
+    } catch (err) {
+      logger?.error({ err, userId: req.params.userId }, "SCC rabatt-eingriff vorschau");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  /**
+   * Der Eingriff — K1.4, Schritt 2. Step-up High + Confirm/Reason wie beim
+   * Katalog: es geht um Geld auf einer Rechnung.
+   */
+  router.post("/rabatt-eingriff",
+    requireStaff, mfaGuard, requireStepUpHigh, requireConfirmAndReason,
+    async (req, res) => {
+      const userId = String(req.body?.user_id || "").trim();
+      const schluessel = String(req.body?.bounty_key || "").trim();
+      if (!userId || !schluessel) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "EINGRIFF_UNVOLLSTAENDIG", message: "user_id und bounty_key sind erforderlich." }
+        });
+      }
+
+      try {
+        const abrechnung = await rabattFall.eingriffVorschauFuerNutzer(pool, userId, schluessel);
+        if (!abrechnung.ok) {
+          // Die Ablehnung sagt, WELCHE Bedingung fehlt — das ist der Schutz,
+          // nicht die Huerde.
+          return res.status(422).json({
+            success: false,
+            error: { code: abrechnung.code, message: abrechnung.grund }
+          });
+        }
+
+        const ergebnis = await rabattEingriff.eingriffAnlegen(pool, {
+          userId,
+          orgId: abrechnung.abrechnung?.org_id || null,
+          bountyKey: schluessel,
+          nettoCents: abrechnung.abrechnung?.netto_cents,
+          bestaetigteErsparnisCents: Number(req.body?.erwartete_ersparnis_cents),
+          grund: req.sccReason,
+          actorId: req.sccActorId
+        });
+
+        if (!ergebnis.ok) {
+          return res.status(422).json({
+            success: false,
+            error: { code: ergebnis.code, message: ergebnis.grund }
+          });
+        }
+
+        await writeStaffAudit(pool, {
+          actorId: req.sccActorId, area: "commercial",
+          action: "staff.rabatt_eingriff.angelegt",
+          entityType: "rabatt_eingriff", entityId: ergebnis.eingriff.id,
+          status: "ok", reason: req.sccReason, confirmed: true,
+          riskLevel: "high",
+          ...auditContextFromReq(req),
+          details: {
+            kunde_user_id: userId,
+            org_id: ergebnis.eingriff.org_id,
+            bounty_key: ergebnis.eingriff.bounty_key,
+            zusatz_pct: Number(ergebnis.eingriff.zusatz_pct),
+            satz_vorher_pct: ergebnis.vorschau.satz_heute,
+            satz_nachher_pct: ergebnis.vorschau.satz_nachher,
+            deckel_pct: ergebnis.vorschau.deckel,
+            netto_cents: ergebnis.vorschau.netto_cents,
+            // Die bestaetigte Zahl gehoert ins Audit: sie ist das, was ein
+            // Mensch gesehen und gutgeheissen hat.
+            erwartete_ersparnis_cents: ergebnis.eingriff.erwartete_ersparnis_cents
+          }
+        }).catch((e) => logger?.warn?.({ err: e }, "SCC rabatt-eingriff audit failed"));
+
+        res.json({ success: true, data: { eingriff: ergebnis.eingriff, vorschau: ergebnis.vorschau } });
+      } catch (err) {
+        logger?.error({ err, userId }, "SCC rabatt-eingriff");
+        res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+      }
+    }
+  );
+
+  /**
+   * Vorschau auf den naechsten Abrechnungslauf — K1.3.
+   *
+   * Dieselbe Auswahl und dieselbe Entscheidung wie der echte Lauf; nur ohne
+   * Folgen. Schreibt nichts, auch keinen Ausfall-Befund.
+   */
+  router.get("/rabatt-vorschau", requireStaff, async (req, res) => {
+    try {
+      const vorschau = await vorschauRecurringInvoices(pool, {
+        batchSize: req.query.limit, logger
+      });
+      res.json({ success: true, data: vorschau });
+    } catch (err) {
+      logger?.error({ err }, "SCC rabatt-vorschau");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  /**
+   * Monatsuebersicht der Eingriffe und Ausfaelle — K1.5.
+   *
+   * Statt einer Einzelmeldung an sich selbst (das waere Laerm): "August:
+   * 3 Eingriffe, zusammen 412 EUR" — zur Durchsicht und fuer die Buchhaltung.
+   * Die Ausfaelle desselben Monats stehen daneben, weil sie dieselbe Frage
+   * beantworten: was ist diesen Monat nicht automatisch gelaufen?
+   */
+  router.get("/rabatt-monat", requireStaff, async (req, res) => {
+    const roh = String(req.query.monat || "").trim();
+    // Europe/Berlin, nie ein roher UTC-Schnitt (DACH-first-Regel).
+    const monat = /^\d{4}-\d{2}$/.test(roh)
+      ? `${roh}-01`
+      : rabattAusfall.abrechnungsmonatDE();
+    try {
+      const [eingriffe, ausfaelle] = await Promise.all([
+        rabattEingriff.eingriffeImMonat(pool, monat),
+        rabattAusfall.ausfaelleImMonat(pool, monat)
+      ]);
+      res.json({
+        success: true,
+        data: {
+          monat,
+          ...eingriffe,
+          ausfaelle,
+          ausfaelle_anzahl: ausfaelle.length,
+          ausfaelle_vorfaelle: ausfaelle.reduce((s, a) => s + (Number(a.vorfaelle) || 0), 0)
+        }
+      });
+    } catch (err) {
+      logger?.error({ err, monat }, "SCC rabatt-monat");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
   return router;
 }
 
@@ -2334,10 +2839,18 @@ export function createStaffControlAuthRouter(deps) {
       if (!email || !password) return res.status(400).json({ success: false, error: { code: "MISSING_CREDENTIALS" } });
 
       const bcrypt = await import("bcryptjs");
+      /* Dasselbe Tor wie in `staffControlAccess.js`: Ablauf und Widerruf
+       * stehen im WHERE. Zwei Tore mit verschiedenen Bedingungen sind auf
+       * Dauer ein Tor — und zwar das schwaechere von beiden. Wer hier
+       * hereinkommt, bekommt `req.session.staffUserId` und damit den Schluessel
+       * fuer alle Routen darunter. */
       const { rows } = await pool.query(
         `SELECT u.id, u.email, u.password_hash
            FROM users u JOIN tempconnect_staff s ON s.user_id = u.id
-           WHERE LOWER(u.email) = $1 AND s.is_active = TRUE`,
+           WHERE LOWER(u.email) = $1
+             AND s.is_active = TRUE
+             AND s.revoked_at IS NULL
+             AND (s.expires_at IS NULL OR s.expires_at > NOW())`,
         [email]
       );
       const user = rows[0];

@@ -450,6 +450,13 @@
     uiNoEmoji + frontendCanonicalPages grün. **Offen (7c):** SVG-Illustrationen durch
     freigegebene KI-Bilder ersetzen (`data-motif` an jedem `figure` nennt das Ziel-Motiv),
     Hero-Video.
+    *Nachtrag 2026-08-22:* das `data-img`-Drop-in war bereits verdrahtet, obwohl die
+    Bilddateien nie existierten — vier Anfragen pro Seitenaufruf auf der meistbesuchten
+    Seite, vom Server mit HTTP 200 und der kompletten Startseite beantwortet (Soft-404
+    durch den nginx-Catch-All, nicht 404). Die vier `data-img` sind entfernt, der
+    Catch-All greift für Assets unter `/public/` nicht mehr, und
+    `api/test/assetWaechter.test.js` bindet Markup und Dateibestand in beide Richtungen
+    aneinander — das Zurückverdrahten beim Bild-Drop kann damit nicht vergessen werden.
 - **7b Upload-Bereiche (echt, KI-frei):** ✅ *erledigt (2026-08-03)*
   - **Profilfoto Einsatzportal:** Mig 158 (`worker_profiles.photo_file_ref/photo_mime`),
     Routen `POST/GET/DELETE /api/worker/me/photo` — personenbezogen, deshalb wird

@@ -158,13 +158,26 @@ export async function listAllRequestsAdmin(pool, opts = {}) {
   const limit = Math.min(200, Math.max(1, Number(opts.limit || 50)));
   const offset = Math.max(0, Number(opts.offset || 0));
   const status = opts.status ? String(opts.status).trim() : null;
+  /*
+   * `beteiligteOrgId` begrenzt auf Vorgaenge, an denen diese Organisation
+   * beteiligt ist — als Anfragende ODER als Angefragte. Beides zaehlt, sonst
+   * saehe eine Seite ihren eigenen Vorgang nicht. `null` heisst plattformweit
+   * und ist der Plattformverwaltung vorbehalten.
+   */
+  const beteiligteOrgId = opts.beteiligteOrgId || null;
 
   const params = [];
-  let where = "";
+  const bedingungen = [];
   if (status) {
     params.push(status);
-    where = `WHERE scr.status = $${params.length}`;
+    bedingungen.push(`scr.status = $${params.length}`);
   }
+  if (beteiligteOrgId) {
+    params.push(beteiligteOrgId);
+    bedingungen.push(`(scr.requester_org_id = $${params.length} OR scr.target_org_id = $${params.length})`);
+  }
+  const where = bedingungen.length ? `WHERE ${bedingungen.join(" AND ")}` : "";
+  const zaehlWerte = params.slice();
   params.push(limit, offset);
   const limitIdx = params.length - 1;
   const offsetIdx = params.length;
@@ -184,7 +197,7 @@ export async function listAllRequestsAdmin(pool, opts = {}) {
   );
   const { rows: countRows } = await pool.query(
     `SELECT COUNT(*)::int AS total FROM strategic_collaboration_requests scr ${where}`,
-    status ? [status] : []
+    zaehlWerte
   );
   return { items: rows, total: countRows[0]?.total || 0 };
 }

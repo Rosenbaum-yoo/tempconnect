@@ -1,4 +1,5 @@
 import { swallow } from "../utils/logger.js";
+import { assertMemberScopeBelongsToOrg } from "../utils/orgBoundary.js";
 /**
  * RBAC-Service: Rollen, Permissions, Org-Membership-Abfragen.
  * Rueckwaertskompatibel – bestehende company/agency Rollen funktionieren weiterhin.
@@ -252,6 +253,29 @@ export async function createOrganization(pool, userId, data) {
  * Mitglied zu Organisation hinzufuegen.
  */
 export async function addMember(pool, orgId, userId, roleKey, opts = {}) {
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * U0.2 — EIN FREMDER STANDORT MACHT AUS "GEBUNDEN" STILL "ORG-WEIT"
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Hier stand nichts: Standort und Abteilung wurden geschrieben, wie sie
+   * hereinkamen. Der Fremdschluessel faengt das nicht — er zeigt auf
+   * `org_locations(id)`, nicht auf `(id, org_id)`, und prueft damit nur, dass
+   * es die Zeile IRGENDWO gibt.
+   *
+   * Die Wirkung steht in `middleware/orgContext.js`: die Aufloesung von
+   * `req.locationId` laeuft ueber `resolveLocation(pool, req.orgId, ...)` und
+   * liefert fuer einen fremden Standort nichts. Ein paar Zeilen weiter heisst
+   * es dann "if no location resolved, user sees org-wide" — die Mitgliedschaft
+   * ist also formal an einen Standort gebunden, wirkt aber ORG-WEIT. Genau
+   * umgekehrt zur Absicht einer Standortleitung, und lautlos: niemand sieht es,
+   * weil nirgends ein Fehler entsteht.
+   *
+   * Die Pruefung gehoert in den SCHREIBWEG, nicht in die Route: `addMember`
+   * haengt an `POST /organizations/:id/members` UND an der Einladungsstrecke.
+   * Zwei Tueren, eine Grenze.
+   */
+  await assertMemberScopeBelongsToOrg(pool, opts, orgId);
   const { rows } = await pool.query(
     `INSERT INTO org_memberships (user_id, org_id, role_key, department_id, location_id)
      VALUES ($1, $2, $3, $4, $5)
@@ -356,6 +380,12 @@ export async function updateMemberRoleByMembershipId(pool, orgId, membershipId, 
  * Prueft org_id-Boundary in der WHERE-Clause.
  */
 export async function updateMemberScope(pool, orgId, membershipId, { location_id, department_id }) {
+  /* U0.2 — wie bei `addMember`. Die Route im Owner-Bereich prueft bereits
+     (`assertMemberScopeBelongsToOrg` in orgControlCenter.js); die Pruefung steht
+     hier trotzdem, weil der Dienst die Grenze traegt und nicht die eine Tuer,
+     die ihn heute aufruft. Doppelt geprueft kostet eine Abfrage; einmal
+     vergessen kostet die Grenze. */
+  await assertMemberScopeBelongsToOrg(pool, { location_id, department_id }, orgId);
   const { rows } = await pool.query(
     `UPDATE org_memberships SET location_id = $3, department_id = $4, updated_at = NOW()
      WHERE id = $1 AND org_id = $2 AND is_active = TRUE
@@ -440,6 +470,21 @@ export async function canAccessLocation(pool, membership, locationId) {
  */
 export async function getAllowedLocationsForMembership(pool, membership) {
   if (!membership) return [];
+  /*
+   * M2.7 — der Arbeiter bekommt keine Standortliste.
+   *
+   * Ohne `location_id` liefert diese Funktion ALLE aktiven Standorte der Org. Genau
+   * so legt `workerService.acceptInvite` den Arbeiter an: `INSERT INTO org_memberships
+   * (user_id, org_id, role_key, is_active)` — ohne Standortbindung. Ueber
+   * `GET /me` (routes/me.js) bekam er damit die vollstaendige Standortliste seiner
+   * Zeitarbeitsfirma; dieselben Daten, die `GET /org/locations` und
+   * `GET /me/active-location` in dieser Welle verweigern. Zwei Tueren zuzumachen
+   * und die dritte offen zu lassen, ist keine Trennwand.
+   *
+   * Er verliert dabei nichts: die Standortauswahl ist ein Verwaltungswerkzeug der
+   * Organisation. Sein Einsatzort steht am Einsatz, nicht in dieser Liste.
+   */
+  if (String(membership.role_key || "").trim().toLowerCase() === "worker") return [];
   if (membership.location_id) {
     const loc = await getLocation(pool, membership.location_id);
     return loc ? [loc] : [];

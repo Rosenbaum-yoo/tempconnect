@@ -105,7 +105,7 @@ vorhergesehen hatte:
    die Korrektur weitet Zugriff aus.** → P1-17, D-M5.
 
 **Eine Falle, die 20 Minuten gekostet hat und in jedes Folgeprojekt gehört:**
-``new RegExp(`${name}`)`` — `` ist im Template-Literal ein Backspace, keine
+``new RegExp(`\b${name}\b`)`` — `\b` ist im Template-Literal ein Backspace, keine
 Wortgrenze. Der Ausdruck traf nie, und ein Prüfer, der leer läuft, sieht aus wie
 einer, der nichts findet.
 

@@ -79,7 +79,14 @@ export const STEP_CATALOG = [
       );
       if (listings.length > 0) return true;
       const { rows: caps } = await pool.query(
-        "SELECT 1 FROM capacity_posts WHERE user_id = $1 LIMIT 1", [userId]
+        /* Z16: `capacity_posts` hat kein `user_id` (gemessen) - der Anbieter
+           steht als `supplier_company_id` (Fremdschluessel auf users), der
+           Anlegende als `created_by`. Beide zaehlen fuer die Frage "hat dieser
+           Mensch schon etwas eingestellt": eine Kollegin darf den Eintrag
+           angelegt haben. Vorher warf die Abfrage - der Einstiegsschritt galt
+           nie als erledigt, ein Haken, der sich nie setzt. */
+        "SELECT 1 FROM capacity_posts WHERE supplier_company_id = $1 OR created_by = $1 LIMIT 1",
+        [userId]
       );
       return caps.length > 0;
     }

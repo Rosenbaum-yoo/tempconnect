@@ -29,7 +29,7 @@
     { label: "\u00dcbersicht", key: "uebersicht", href: "/public/enterprise.html", match: ["/public/enterprise.html"], desc: "Pilot-Standard und naechste Schritte im Blick: Angebot, Deal, Besetzung und Zeiten vor Ausbauflächen." },
     { label: "Personal finden", key: "marktplatz", termKey: "navMarketplace", href: "/public/capacity_exchange_feed.html", match: ["/public/capacity_exchange_feed.html", "/public/capacity_exchange", "/public/capacity_search", "/public/agency_inbox", "/public/angebote_verwalten", "/public/matching_results", "/public/marketplace_capacity", "/public/sla_search_jobs", "/public/sla_angebote"], desc: "Pilot-Standard: Personal finden, passende Einsaetze und Vermittlungsreaktionen ohne Medienbruch steuern." },
     { label: "Arbeitsplatzangebote", key: "bedarfe", termKey: "navDemands", href: "/public/requisitions.html", match: ["/public/requisitions", "/public/company_requests", "/public/demand_create", "/public/request_detail", "/public/marketplace_demand_"], desc: "Pilot-Standard: Arbeitsplatzangebote anlegen, priorisieren und gezielt in belastbare Angebote ueberfuehren." },
-    { label: "Deals & Einsaetze", key: "deals_einsaetze", href: "/public/deal_management.html", match: ["/public/deal_management", "/public/offer_detail", "/public/worker-submissions-review", "/public/timesheets", "/public/company-timesheets", "/public/mitarbeiter", "/public/approvals", "/public/sla_nachweise"], desc: "Pilot-Standard: Deals abschliessen, Besetzungen fuehren, Stundenzettel freigeben und Folgeprozesse sauber halten." },
+    { label: "Deals & Einsaetze", key: "deals_einsaetze", href: "/public/deal_management.html", match: ["/public/deal_management", "/public/offer_detail", "/public/worker-submissions-review", "/public/timesheets", "/public/company-timesheets", "/public/company-live-workforce", "/public/monatsplan", "/public/mitarbeiter", "/public/approvals", "/public/sla_nachweise"], desc: "Pilot-Standard: Deals abschliessen, Besetzungen fuehren, Stundenzettel freigeben und Folgeprozesse sauber halten." },
     { label: "Steuerung", key: "steuerung", href: "/public/executive_dashboard.html", match: ["/public/executive_dashboard", "/public/vendor_pool", "/public/supplier_scorecard", "/public/rate-cards", "/public/spend-analytics", "/public/system-health", "/public/compliance_overview", "/public/admin_panel", "/public/organization", "/public/integrations", "/public/sso_config", "/public/sla_profil", "/public/sla_abo", "/public/credits"], desc: "Nachgelagerte Steuerungs- und Ausbauflaeche fuer Lieferantenleistung, Spend, Executive-Sicht und Governance." },
     { label: "\u2753", key: "help", href: "/public/hilfe.html", match: ["/public/hilfe.html", "/public/sla_hilfe"], desc: "FAQ, Anleitungen, Support-Kontakt und Onboarding-Assistent.", isIcon: true }
   ];
@@ -143,7 +143,7 @@
   function esc(s) {
     var d = document.createElement("div");
     d.textContent = s;
-    return d.innerHTML;
+    return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
   function isActive(item) {
@@ -1229,8 +1229,12 @@
         t: ["deal","deals","einsatz","einsaetze","besetzung","vermittlung abschliessen","angebot annehmen","abschluss","auftrag fuehren"] },
       { label: "Stundenzettel", sub: "Zeiterfassung & Freigaben", href: "/public/timesheets.html", key: "deals_einsaetze",
         t: ["stundenzettel","zeiterfassung","stunden erfassen","arbeitszeit","stunden freigeben","timesheet","zeiten","arbeitsstunden","stundennachweis"] },
-      { label: "Mitarbeiter", sub: "Besetzte Einsätze & Personen", href: "/public/mitarbeiter.html", key: "deals_einsaetze",
+      { label: "Monatsplanung", sub: "Der Monat als Fenster — Konflikte beim Planen", href: "/public/monatsplan.html", key: "deals_einsaetze",
+        t: ["monatsplan","monatsplanung","planung","planen","monat","kalender","raster","auslastung","wer ist frei","wer ist frei im monat","verfuegbarkeit","doppelbelegung","einsatzplanung","personalplanung","urlaubsplanung","aueg","hoechstdauer","ueberlassungsdauer"] },
+      { label: "Mitarbeiter", sub: "Besetzte Einsätze & Personen", href: "/public/mitarbeiter.html", key: "deals_einsaetze", org: "agency",
         t: ["mitarbeiter verwalten","personal verwalten","wer arbeitet","besetzte stellen","personenuebersicht","belegschaft"] },
+      { label: "Live-Belegschaft", sub: "Wer gerade bei Ihnen im Einsatz ist", href: "/public/company-live-workforce.html", key: "deals_einsaetze", org: "company",
+        t: ["belegschaft","live belegschaft","wer arbeitet","wer ist da","im einsatz","eingesetzte kraefte","sperrliste","sperren","problem melden","ausfall","live"] },
       { label: "Notdienst-Personal", sub: "Kurzfristigen Personalausfall decken", href: "/public/capacity_exchange_feed.html", key: "marktplatz", org: "company",
         t: ["notdienst","notfall","dringend personal","kurzfristig personal","sofort personal","ausfall ersetzen","krankheitsausfall","schnell personal","akut","spontan personal","ersatz finden","kurzfristig"] },
       { label: "Bewertungen", sub: "Lieferanten-Scorecards", href: "/public/supplier_scorecard.html", key: "steuerung",

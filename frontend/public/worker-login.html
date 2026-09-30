@@ -6,7 +6,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TempConnect – Worker Portal Login</title>
-  <link rel="stylesheet" href="worker.css">
+  <!-- ABSOLUT, nicht relativ (M1.4). Diese Seite wird per nginx-Alias an der
+       WURZEL ausgeliefert (/worker-login.html), damit der Link in der
+       Einladungsmail huebsch ist. Ein relatives "worker.css" laedt dort
+       /worker.css — das gibt es nicht, der Catch-all liefert die Landeseite
+       mit 200 und text/html, und der Browser verwirft sie als Stylesheet.
+       Gemessen am 2026-09-02: 200, text/html, 71681 B. Die Seite, auf der
+       ein eingeladener Mitarbeiter landet, war ungestaltet. -->
+  <link rel="stylesheet" href="/public/worker.css">
   <style>
     /* Editorial — Worker-Login an die Markenfarben angleichen. Nur Login-Scope (.wk-auth-page):
        --wk-primary lokal auf Forest umdefiniert -> Logo/Button/Focus folgen automatisch; restliches
@@ -77,6 +84,19 @@
       <div id="inviteInvalid" class="wk-alert wk-alert-danger" style="display:none">
         <span id="inviteInvalidText">Dieser Einladungslink ist nicht mehr gültig.</span>
       </div>
+      <!-- M3.4: DIE SACKGASSE BEKOMMT EINE TUER.
+           Bisher endete ein abgelaufener oder widerrufener Link mit einem roten
+           Kasten und sonst nichts. Der Weg nach vorn existierte laengst — er
+           steht zwei Abschnitte tiefer auf derselben Seite und war nur nicht
+           verlinkt. Wer eine Einladung bekommen hat, HAT ein Konto; das
+           Zuruecksetzen fuehrt ihn hinein. -->
+      <div id="inviteWegRaus" style="display:none;margin-top:14px;text-align:center">
+        <p class="wk-auth-subtitle" style="margin-bottom:10px" data-i18n="wk.invite.wegRausHint">
+          Ihr Konto besteht bereits. Setzen Sie einfach Ihr Passwort neu.
+        </p>
+        <button class="wk-btn wk-btn-primary wk-btn-full" onclick="showForgotPw()"
+                data-i18n="wk.invite.wegRausCta">Passwort setzen</button>
+      </div>
     </div>
 
     <!-- PHASE 2: Login -->
@@ -132,6 +152,35 @@
         <a href="#" onclick="showLogin()" style="color:var(--wk-primary)" data-i18n="wk.forgot.back">← Zurück zum Login</a>
       </div>
     </div>
+
+    <!-- PHASE 4: Neues Passwort setzen (M3.4)
+         Der Reset-Weg lebte nur in js/pages/landing.js — der Unternehmens-
+         Landeseite. Ein Arbeiter kam nach dem Neusetzen genau dort an und sah
+         seit F12 nichts mehr: kein Hub, keine Karten, kein Weg ins Portal.
+         Dieselbe Route, dieselbe Frist, eigene Tuer. -->
+    <div id="resetSection" style="display:none">
+      <h1 class="wk-auth-title" data-i18n="wk.reset.title">Neues Passwort setzen</h1>
+      <p class="wk-auth-subtitle" data-i18n="wk.reset.subtitle">Danach geht es direkt ins Einsatzportal</p>
+
+      <div class="wk-form-group">
+        <label class="wk-label" for="resetPassword"><span data-i18n="wk.invite.choosePw">Passwort wählen</span> <span class="required">*</span></label>
+        <input type="password" id="resetPassword" class="wk-input" placeholder="Mind. 8 Zeichen" data-i18n-ph="wk.invite.pwMin" autocomplete="new-password">
+      </div>
+
+      <div class="wk-form-group">
+        <label class="wk-label" for="resetPassword2"><span data-i18n="wk.invite.confirmPw">Passwort bestätigen</span> <span class="required">*</span></label>
+        <input type="password" id="resetPassword2" class="wk-input" placeholder="Passwort wiederholen" data-i18n-ph="wk.invite.repeatPw" autocomplete="new-password">
+      </div>
+
+      <button class="wk-btn wk-btn-primary wk-btn-full" onclick="doReset()" data-i18n="wk.reset.submit">
+        Passwort setzen
+      </button>
+      <div class="wk-error-msg" id="resetError" style="display:none;margin-top:10px;text-align:center"></div>
+
+      <div class="wk-auth-footer">
+        <a href="#" onclick="showLogin()" style="color:var(--wk-primary)" data-i18n="wk.forgot.back">← Zurück zum Login</a>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -141,6 +190,10 @@
 const API = '/api';
 const params = new URLSearchParams(location.search);
 const inviteToken = params.get('invite');
+/* M3.4: das Portal nimmt seinen eigenen Zuruecksetzen-Link entgegen. Die
+   Reset-Mail zeigt fuer Arbeiter hierher (routes/auth.js), fuer alle anderen
+   weiter auf die Landeseite. */
+const resetToken = params.get('reset');
 
 /* ── i18n (P6): Woerterbuch dieser Seite. DE = Quelle der Wahrheit,
    EN fuer internationale Kraefte — die Einladung ist ihre Eintrittstuer. ── */
@@ -162,6 +215,10 @@ TCi18n.register('de', {
   'wk.invite.done': 'Konto eingerichtet! Weiterleitung…',
   'wk.invite.errGeneric': 'Fehler beim Einrichten des Kontos. Bitte versuchen Sie es erneut.',
   'wk.invite.errUsed': 'Diese Einladung wurde bereits verwendet. Bitte melden Sie sich an.',
+  /* M2.1: dieser Fall braucht eine eigene Antwort. Vorher lief er in den
+     Sammeltext 'Bitte versuchen Sie es erneut' — und ein erneuter Versuch
+     hilft hier nie, weil die Adresse schon einem anderen Konto gehoert. */
+  'wk.invite.errOtherRole': 'Zu dieser E-Mail-Adresse gibt es bereits ein Konto. Melden Sie sich damit an — oder bitten Sie um eine Einladung an eine andere Adresse.',
   'wk.invite.errRevoked': 'Diese Einladung wurde widerrufen. Bitte kontaktieren Sie Ihren Arbeitgeber.',
   'wk.invite.errExpired': 'Dieser Einladungslink ist abgelaufen. Bitte fordern Sie eine neue Einladung an.',
   'wk.invite.errNotFound': 'Einladungslink nicht gefunden oder ungültig.',
@@ -182,6 +239,20 @@ TCi18n.register('de', {
   'wk.forgot.submit': 'Link senden',
   'wk.forgot.back': '← Zurück zum Login',
   'wk.forgot.sent': 'Falls ein Konto existiert, wurde ein Link gesendet.',
+  /* M3.4 — die Tuer aus dem abgelaufenen Link und der eigene Reset-Bereich.
+     Der Ton ist bewusst nicht entschuldigend: der Mensch hat nichts falsch
+     gemacht, sein Link ist nur alt. Er braucht keinen Trost, sondern den
+     naechsten Schritt. */
+  'wk.invite.wegRausHint': 'Ihr Konto besteht bereits. Setzen Sie einfach Ihr Passwort neu.',
+  'wk.invite.wegRausCta': 'Passwort setzen',
+  'wk.reset.title': 'Neues Passwort setzen',
+  'wk.reset.subtitle': 'Danach geht es direkt ins Einsatzportal',
+  'wk.reset.submit': 'Passwort setzen',
+  'wk.reset.ok': 'Passwort gesetzt. Sie werden weitergeleitet…',
+  'wk.reset.errShort': 'Das Passwort muss mindestens 8 Zeichen lang sein.',
+  'wk.reset.errNoToken': 'Dieser Link ist unvollständig. Bitte fordern Sie einen neuen an.',
+  'wk.reset.errInvalid': 'Dieser Link ist abgelaufen oder wurde schon benutzt. Bitte fordern Sie einen neuen an.',
+  'wk.reset.errFailed': 'Das hat nicht geklappt. Bitte später erneut versuchen.',
   'wk.common.email': 'E-Mail-Adresse',
   'wk.common.emailPh': 'ihre@email.de',
   'wk.common.password': 'Passwort',
@@ -207,6 +278,7 @@ TCi18n.register('en', {
   'wk.invite.done': 'Account ready! Redirecting…',
   'wk.invite.errGeneric': 'Could not set up your account. Please try again.',
   'wk.invite.errUsed': 'This invitation has already been used. Please sign in.',
+  'wk.invite.errOtherRole': 'An account already exists for this email address. Sign in with it — or ask for an invitation to a different address.',
   'wk.invite.errRevoked': 'This invitation was revoked. Please contact your employer.',
   'wk.invite.errExpired': 'This invitation link has expired. Please request a new invitation.',
   'wk.invite.errNotFound': 'Invitation link not found or invalid.',
@@ -227,6 +299,16 @@ TCi18n.register('en', {
   'wk.forgot.submit': 'Send link',
   'wk.forgot.back': '← Back to sign-in',
   'wk.forgot.sent': 'If an account exists, a link has been sent.',
+  'wk.invite.wegRausHint': 'Your account already exists. Just set a new password.',
+  'wk.invite.wegRausCta': 'Set password',
+  'wk.reset.title': 'Set a new password',
+  'wk.reset.subtitle': 'You will go straight to the worker portal',
+  'wk.reset.submit': 'Set password',
+  'wk.reset.ok': 'Password set. Redirecting…',
+  'wk.reset.errShort': 'The password must be at least 8 characters long.',
+  'wk.reset.errNoToken': 'This link is incomplete. Please request a new one.',
+  'wk.reset.errInvalid': 'This link has expired or was already used. Please request a new one.',
+  'wk.reset.errFailed': 'That did not work. Please try again later.',
   'wk.common.email': 'Email address',
   'wk.common.emailPh': 'you@email.com',
   'wk.common.password': 'Password',
@@ -268,13 +350,18 @@ async function getCsrf() {
   if (inviteToken) {
     show('inviteSection');
     await checkInvite();
+  } else if (resetToken) {
+    /* Vor dem Login: wer hierher kommt, hat den Link aus der Mail und soll
+       nicht erst an einer Anmeldemaske vorbei, deren Passwort er gerade nicht
+       kennt. Das war die Sackgasse. */
+    show('resetSection');
   } else {
     show('loginSection');
   }
 })();
 
 function show(id) {
-  ['inviteSection','loginSection','forgotSection'].forEach(s => {
+  ['inviteSection','loginSection','forgotSection','resetSection'].forEach(s => {
     document.getElementById(s).style.display = s === id ? 'block' : 'none';
   });
 }
@@ -300,6 +387,20 @@ async function checkInvite() {
       // Bei "already used" → Login zeigen
       if (data.error === 'INVITE_ALREADY_USED') {
         setTimeout(() => show('loginSection'), 2500);
+        return;
+      }
+
+      /* M3.4: DIE TUER AUS DER SACKGASSE.
+         Abgelaufen oder widerrufen heisst NICHT "kein Konto": `acceptInvite`
+         hat den Menschen laengst angelegt, sonst haette er die Mail nicht
+         bekommen. Der Weg nach vorn ist das Zuruecksetzen — er stand schon
+         zwei Abschnitte tiefer auf dieser Seite und war nur nicht verlinkt.
+
+         NICHT bei NOT_FOUND: dort ist unklar, ob es das Konto gibt, und ein
+         "setzen Sie Ihr Passwort neu" waere eine Behauptung ueber fremde
+         Konten. Der Vergessen-Weg bleibt ueber den Login erreichbar. */
+      if (data.error === 'INVITE_EXPIRED' || data.error === 'INVITE_REVOKED') {
+        document.getElementById('inviteWegRaus').style.display = 'block';
       }
       return;
     }
@@ -365,11 +466,19 @@ async function acceptInvite() {
     // Fortschrittsbanner eine Begruessung mit dem ersten offenen Schritt.
     // Der normale Login unten fuehrt weiterhin aufs Dashboard — eine Bestandskraft will
     // ihre Einsaetze sehen, nicht ihr Profil.
-    setTimeout(() => location.href = 'einsatzportal-profil.html?willkommen=1', 1500);
+    // ABSOLUT (M1.4): relativ landet der Sprung auf /einsatzportal-profil.html,
+    // und dort liefert der Catch-all die MARKETING-LANDESEITE mit HTTP 200.
+    // Kein 404, also lautlos falsch: wer gerade sein Passwort gesetzt hat,
+    // sieht die Verkaufsseite. Der Rest der Anwendung macht es an vier
+    // Stellen richtig (pageShell.js, worker-portal.html) — nur diese Seite
+    // fiel heraus, weil sie als einzige nicht unter /public/ ausgeliefert wird.
+    setTimeout(() => location.href = '/public/einsatzportal-profil.html?willkommen=1', 1500);
   } catch (e) {
     errEl.textContent = e.message === 'INVITE_ALREADY_USED'
       ? t('wk.invite.errUsed')
-      : t('wk.invite.errGeneric');
+      : e.message === 'EMAIL_EXISTS_OTHER_ROLE'
+        ? t('wk.invite.errOtherRole')
+        : t('wk.invite.errGeneric');
     errEl.style.display = 'block';
     btn.disabled = false; btn.textContent = t('wk.invite.submit');
   }
@@ -403,7 +512,7 @@ async function doLogin() {
       return;
     }
     await persistLocale(csrf);
-    location.href = 'einsatzportal-dashboard.html';
+    location.href = '/public/einsatzportal-dashboard.html';   // absolut, siehe oben (M1.4)
   } catch (e) {
     errEl.textContent = e.message === 'INVALID_CREDENTIALS'
       ? t('wk.login.errCreds')
@@ -439,6 +548,47 @@ async function doForgotPw() {
     msgEl.querySelector('span').textContent = t('wk.forgot.sent');
     msgEl.style.display = 'block';
   } catch { /* silent */ }
+}
+
+/* ── Neues Passwort setzen (M3.4) ───────────────────────────
+ *
+ * Dieselbe Route wie auf der Landeseite (`POST /auth/reset-password`), dieselbe
+ * Frist. Anders ist nur, wo der Mensch danach steht: hier fuehrt der Weg ins
+ * Einsatzportal statt auf eine Flaeche, die ein Arbeiter seit F12 leer sieht.
+ */
+async function doReset() {
+  const fehler = document.getElementById('resetError');
+  const pw  = document.getElementById('resetPassword').value;
+  const pw2 = document.getElementById('resetPassword2').value;
+
+  const zeige = (key) => {
+    fehler.textContent = t(key);
+    fehler.style.display = 'block';
+  };
+  fehler.style.display = 'none';
+
+  if (!pw || pw.length < 8) return zeige('wk.reset.errShort');
+  if (pw !== pw2)           return zeige('wk.invite.pwMismatch');
+  if (!resetToken)          return zeige('wk.reset.errNoToken');
+
+  try {
+    const csrf = await getCsrf();
+    const r = await fetch(`${API}/auth/reset-password`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify({ token: resetToken, password: pw })
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return zeige(r.status === 400 ? 'wk.reset.errInvalid' : 'wk.reset.errFailed');
+
+    /* Der Weg endet im Portal, nicht in einer Erfolgsmeldung. Genau das war
+       der Fehler der alten Fuehrung: der Reset gelang und liess den Menschen
+       stehen. */
+    showToast(t('wk.reset.ok'), 'success');
+    setTimeout(() => { window.location.href = '/public/einsatzportal-dashboard.html'; }, 1200);
+  } catch {
+    zeige('wk.reset.errFailed');
+  }
 }
 
 /* ── Toast ─────────────────────────────────────────────────── */

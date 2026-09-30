@@ -92,7 +92,11 @@ async function getCustomerRecipientForSubscriptionRequest(pool, requestId) {
           `SELECT u.id AS user_id, u.email, u.contact_person
              FROM org_memberships m
              JOIN users u ON u.id = m.user_id
-            WHERE m.org_id = $1 AND m.role = 'owner'
+            -- Z17: hier stand m.role; die Spalte heisst role_key (gemessen).
+            -- Die Abfrage warf, der Aufrufer faengt - also ging die
+            -- Abo-Benachrichtigung NIE an den Eigentuemer, sobald keine
+            -- contact_email hinterlegt war. Stumm, und es geht um Geld.
+            WHERE m.org_id = $1 AND m.role_key = 'owner'
             ORDER BY m.created_at ASC LIMIT 1`,
           [row.org_id]
         );

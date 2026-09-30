@@ -18,6 +18,56 @@ export function createCapacityDiscoveryRouter(deps) {
     res.json({ items: data });
   });
 
+  /**
+   * GET /capacity-discovery/by-skill - der Bestand je FAEHIGKEIT (N1.3)
+   *
+   * Die Zahl, die im Auswahlkatalog neben der Faehigkeit steht. `skills` grenzt
+   * auf die gerade sichtbaren ein, damit die Oberflaeche nicht den ganzen
+   * Katalog abfragt, um zwoelf Kacheln zu beschriften.
+   *
+   * `requireAuth` genuegt, wie beim Nachbarn `by-role`: die Zahlen sind
+   * Aggregate ueber den oeffentlichen Marktplatz und nennen keine Firma.
+   */
+  router.get("/capacity-discovery/by-skill", requireAuth, async (req, res) => {
+    const roh = typeof req.query.skills === "string" ? req.query.skills : "";
+    const skills = roh
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .slice(0, 100);
+    const data = await capacityDiscovery.aggregateBySkill(pool, {
+      city: req.query.city || null,
+      worker_category: req.query.worker_category || null,
+      skills: skills.length ? skills : null,
+      limit: parseInt(req.query.limit, 10) || 200
+    });
+    res.json({ items: data, count: data.length });
+  });
+
+  /**
+   * GET /capacity-discovery/marktluecke — Nachfrage und Angebot nebeneinander (N7.1)
+   *
+   * Das Nachfragesignal fuer die Zeitarbeitsfirma: "Im Raum Muenster werden 34
+   * Pflegekraefte gesucht, verfuegbar sind 6."
+   *
+   * Der Ort wird EINMAL uebergeben und gilt fuer beide Haelften — zwei getrennte
+   * Aufrufe mit womoeglich verschiedenen Filtern waeren ein Vergleich, der
+   * keiner ist. Deshalb ein Endpunkt statt zweier.
+   *
+   * `requireAuth` genuegt: die Zahlen sind Aggregate ueber den OEFFENTLICHEN
+   * Marktplatz — offene Bedarfe und aktive Angebote. Sie nennen keine Firma und
+   * keinen Menschen. Ein Org-Filter waere hier sogar falsch: die Firma will
+   * wissen, was DER MARKT sucht, nicht was sie selbst schon anbietet.
+   */
+  router.get("/capacity-discovery/marktluecke", requireAuth, async (req, res) => {
+    const data = await capacityDiscovery.getMarktLuecke(pool, {
+      city: req.query.city || null,
+      role: req.query.role || null,
+      limit: parseInt(req.query.limit, 10) || 50
+    });
+    res.json({ items: data });
+  });
+
   /** GET /capacity-discovery/by-region — aggregated by region */
   router.get("/capacity-discovery/by-region", requireAuth, async (req, res) => {
     const data = await capacityDiscovery.aggregateByRegion(pool, {

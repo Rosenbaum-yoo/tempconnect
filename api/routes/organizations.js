@@ -18,7 +18,24 @@ const createOrgSchema = z.object({
   parent_org_id: z.string().uuid().optional().nullable(),
   legal_name: z.string().max(300).optional().nullable(),
   commercial_register: z.string().max(100).optional().nullable(),
-  billing_contact: z.string().max(300).optional().nullable()
+  billing_contact: z.string().max(300).optional().nullable(),
+  /* Rechnungsstammdaten (Mig 187, Welle J7) — ohne sie ist keine Rechnung
+   * gueltig (§ 14 UStG). Die Laengen folgen den Spalten; `billing_country_code`
+   * ist ISO 3166-1 alpha-2, wie es die Norm fuer BT-40/BT-55 verlangt, und
+   * wird gross geschrieben entgegengenommen, damit "de" nicht an einer
+   * Formalie scheitert. */
+  billing_street: z.string().max(300).optional().nullable(),
+  billing_address_2: z.string().max(300).optional().nullable(),
+  billing_postal_code: z.string().max(20).optional().nullable(),
+  billing_city: z.string().max(200).optional().nullable(),
+  billing_country_code: z.string().trim().length(2).transform((s) => s.toUpperCase()).optional().nullable(),
+  vat_id: z.string().max(50).optional().nullable(),
+  iban: z.string().max(40).optional().nullable(),
+  bic: z.string().max(20).optional().nullable(),
+  /* BT-42 (Migration 205), Pflicht fuer XRechnung. Keine Formatpruefung:
+     internationale Nummern sind zu vielgestaltig, und eine zu strenge Regel
+     haelt gueltige Nummern auf. Die Norm selbst schreibt kein Format vor. */
+  billing_phone: z.string().max(50).optional().nullable()
 });
 
 const locationSchema = z.object({
@@ -56,8 +73,30 @@ export function createOrganizationsRouter(deps) {
   const sitesLimitGate = requireOrgLimit("sites", { pool, logger });
   const multiOrgSlotsGate = requireOrgLimit("multi_org_slots", { pool, logger });
 
+  /*
+   * Die Mandantengrenze dieser Datei — FAIL-CLOSED (gehaertet 2026-08-21).
+   *
+   * Hier stand `if (req.orgId && req.params.id !== req.orgId)`. Diese Form
+   * schaltet sich bei `req.orgId === null` selbst ab, und `null` heisst dann:
+   * der Pfad-Parameter waehlt die Organisation frei. Sie bewacht 12 Routen.
+   *
+   * Bemerkenswert: die richtige Form stand die ganze Zeit zwei Zeilen tiefer.
+   * `parentOrgBoundary` prueft `if (!req.orgId || ...)`. Zwei Grenzen
+   * nebeneinander, eine davon mit Selbstabschaltung — genau die Sorte
+   * Unterschied, die man beim Lesen nicht sieht.
+   *
+   * Erreichbar ist die Luecke fuer jeden Aufrufer ohne aufloesbaren
+   * Org-Kontext. Bei den vier reinen Lese-Routen unten stand vor dieser
+   * Haertung KEIN weiterer Guard davor (nur `requireAuth`), waehrend die
+   * schreibenden zusaetzlich `requirePermission` tragen. Der C-11-Kommentar in
+   * `middleware/orgContext.js` beschreibt dieselbe Klasse und stuetzt sich
+   * darauf, dass der Kontext auf die eigene Org zurueckfaellt — das gilt nur
+   * fuer Nutzer, die ueberhaupt eine Mitgliedschaft haben.
+   */
   const sameOrgParam = (req, res, next) => {
-    if (req.orgId && req.params.id !== req.orgId) return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+    if (!req.orgId || req.params.id !== req.orgId) {
+      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+    }
     next();
   };
   const parentOrgBoundary = (req, res, next) => {
@@ -84,11 +123,11 @@ export function createOrganizationsRouter(deps) {
     }
   });
 
-  router.get("/organizations/:id", requireAuth, async (req, res) => {
-    // F-001 fix: user must be member of the requested org
-    if (req.orgId && req.params.id !== req.orgId) {
-      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
-    }
+  // F-001: der Aufrufer muss Mitglied der angefragten Org sein. Die Pruefung
+  // stand hier als KOPIE von `sameOrgParam` — vier solche Kopien gab es, und
+  // alle vier trugen die selbstabschaltende Form weiter, als die Middleware
+  // laengst danebenstand. Eine Grenze, eine Stelle (Lehre aus Welle H2).
+  router.get("/organizations/:id", requireAuth, sameOrgParam, async (req, res) => {
     const org = await orgService.getOrganization(pool, req.params.id);
     if (!org) return res.status(404).json({ error: "NOT_FOUND" });
     res.json(org);
@@ -112,10 +151,7 @@ export function createOrganizationsRouter(deps) {
 
   /* ── Locations ─────────────────────────── */
 
-  router.get("/organizations/:id/locations", requireAuth, async (req, res) => {
-    if (req.orgId && req.params.id !== req.orgId) {
-      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
-    }
+  router.get("/organizations/:id/locations", requireAuth, sameOrgParam, async (req, res) => {
     const locations = await orgService.listLocations(pool, req.params.id);
     res.json({ items: locations });
   });
@@ -167,10 +203,7 @@ export function createOrganizationsRouter(deps) {
 
   /* ── Departments ───────────────────────── */
 
-  router.get("/organizations/:id/departments", requireAuth, async (req, res) => {
-    if (req.orgId && req.params.id !== req.orgId) {
-      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
-    }
+  router.get("/organizations/:id/departments", requireAuth, sameOrgParam, async (req, res) => {
     const depts = await orgService.listDepartments(pool, req.params.id);
     res.json({ items: depts });
   });
@@ -226,10 +259,7 @@ export function createOrganizationsRouter(deps) {
 
   /* ── Members ───────────────────────────── */
 
-  router.get("/organizations/:id/members", requireAuth, async (req, res) => {
-    if (req.orgId && req.params.id !== req.orgId) {
-      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
-    }
+  router.get("/organizations/:id/members", requireAuth, sameOrgParam, async (req, res) => {
     const members = await orgService.listOrgMembers(pool, req.params.id);
     res.json({ items: members });
   });
@@ -250,8 +280,22 @@ export function createOrganizationsRouter(deps) {
     requireRole(["owner", "admin", "platform_admin"], { pool, logger }),
     async (req, res) => {
       try {
-        // Org-Boundary: nur eigene Org
-        if (req.orgId && req.params.id !== req.orgId) {
+        /*
+         * Org-Grenze, FAIL-CLOSED (8.1.1 c, gehaertet 2026-08-21).
+         *
+         * Hier stand `if (req.orgId && req.params.id !== req.orgId)`. Diese Form
+         * schaltet sich bei `req.orgId === null` selbst ab — und `null` heisst
+         * dann: der Pfad-Parameter waehlt die Organisation frei. Erreichbar ist
+         * das heute nicht, weil `requireRole` davor fail-closed abbricht und
+         * `req.orgId` aus einer geprueften Mitgliedschaft neu setzt
+         * (`middleware/rbac.js`). Aber die Route verlaesst sich damit auf einen
+         * Nachbarn: wer die Guard-Reihenfolge aendert, oeffnet sie lautlos.
+         *
+         * Dieselbe Klasse wie Audit-Backlog C-11, dort an 45 Routen gefunden.
+         * Die Grenze gehoert an die Quelle der Wahrheit, nicht an die Annahme,
+         * dass vorher schon jemand geprueft hat.
+         */
+        if (!req.orgId || req.params.id !== req.orgId) {
           return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
         }
         const limit  = Math.min(500, parseInt(req.query.limit) || 100);
@@ -286,7 +330,8 @@ export function createOrganizationsRouter(deps) {
     requireRole(["owner", "admin", "platform_admin"], { pool, logger }),
     async (req, res) => {
       try {
-        if (req.orgId && req.params.id !== req.orgId) {
+        /* Fail-closed wie oben (8.1.1 c) — dieselbe Grenze, dieselbe Form. */
+        if (!req.orgId || req.params.id !== req.orgId) {
           return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
         }
         const entityType = req.query.entity_type;

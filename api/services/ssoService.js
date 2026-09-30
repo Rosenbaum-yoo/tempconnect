@@ -175,7 +175,9 @@ async function processSSSOProfile(pool, profile, config) {
 
   // User lookup
   const { rows: users } = await pool.query(
-    "SELECT id FROM users WHERE email = $1", [email.toLowerCase()]
+    /* M2.2: der Wert war kleingeschrieben, die SPALTE nicht — bei einem
+     Konto mit Grossbuchstaben traf die Abfrage deshalb nicht. */
+    "SELECT id FROM users WHERE LOWER(email) = LOWER($1)", [email]
   );
 
   let userId;
@@ -228,7 +230,7 @@ export async function isEnforceSSO(pool, email) {
     JOIN org_memberships om ON om.user_id = u.id AND om.is_active = TRUE
     JOIN organizations o ON o.id = om.org_id
     JOIN org_sso_config sc ON sc.org_id = o.id AND sc.is_active = TRUE AND sc.enforce_sso = TRUE
-    WHERE u.email = $1
+    WHERE LOWER(u.email) = LOWER($1)   /* M2.2 */
     LIMIT 1
   `, [email.toLowerCase()]);
   if (rows.length > 0) return { enforced: true, org_name: rows[0].org_name };

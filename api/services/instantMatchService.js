@@ -15,6 +15,8 @@ import { scoreMatch, classifyMatch, logMatch } from "./matchingEngine.js";
 import { computeFillRateSignal, computeSlaComplianceSignal, computeRoleExpertiseSignal, computeRecencySignal, computeSmartRankScore, classifySmartRank, SMART_RANK_LABELS } from "./smartRankingService.js";
 import { swallow } from "../utils/logger.js";
 import { loadSkillIndex } from "./skillNormalizationService.js";
+import * as companyBlocklistService from "./companyBlocklistService.js";
+import { anbieterOrganisationSql } from "./reputationSql.js";
 
 /* ── Batch-Loader ─────────────────────────────────────── */
 
@@ -22,12 +24,25 @@ async function loadComplianceMap(pool, supplierOrgIds) {
   if (!supplierOrgIds.length) return new Map();
   try {
     const { rows } = await pool.query(
-      `SELECT supplier_org_id,
-              COUNT(*) FILTER (WHERE status = 'GREEN')::int AS green_count,
+      /*
+       * Z16 (2026-09-28): ZWEI FEHLER IN EINER ABFRAGE, und beide waren stumm.
+       * Die Spalte heisst `org_id`, nicht `supplier_org_id` (gemessen) - damit
+       * warf die Abfrage, das catch gab eine leere Karte zurueck, und eine leere
+       * Karte sieht im Abgleich aus wie "niemand hat Nachweise".
+       * UND der Schluessel war falsch: `compliance_documents.org_id` zeigt per
+       * Fremdschluessel auf `organizations`, der Aufrufer uebergibt aber
+       * `capacity_posts.supplier_company_id` - und das sind NUTZER. Gemessen an
+       * den echten Daten: direkt 0 Treffer, ueber den Eigentuemer 18.
+       * Der Weg ueber `org_memberships` ist derselbe wie in `reputationSql.js`
+       * und `profileRankingService`.
+       */
+      `SELECT om.user_id AS supplier_org_id,
+              COUNT(*) FILTER (WHERE cd.status = 'GREEN')::int AS green_count,
               COUNT(*)::int AS total_count
-       FROM compliance_documents
-       WHERE supplier_org_id = ANY($1)
-       GROUP BY supplier_org_id`,
+       FROM compliance_documents cd
+       JOIN org_memberships om ON om.org_id = cd.org_id AND om.role_key = 'owner'
+       WHERE om.user_id = ANY($1)
+       GROUP BY om.user_id`,
       [supplierOrgIds]
     );
     const map = new Map();
@@ -39,25 +54,54 @@ async function loadComplianceMap(pool, supplierOrgIds) {
   } catch { return new Map(); }
 }
 
-async function loadReputationMap(pool, orgIds) {
-  if (!orgIds.length) return new Map();
+/*
+ * Z5 (2026-09-27): DIESE KARTE WAR IMMER LEER, UND ZWAR LAUTLOS.
+ *
+ * Sie fragte `SELECT org_id, overall_score ... WHERE org_id = ANY($1)`. KEINE
+ * dieser beiden Spalten existiert: die Tabelle traegt `supplier_id` und
+ * `reputation_score`. Der Wurf lief in `catch { return new Map(); }` — eine
+ * leere Karte sieht im Abgleich genauso aus wie "niemand hat Reputation", also
+ * hat nie jemand einen Reputationsbonus bekommen.
+ *
+ * Der Parametername `orgIds` war ebenfalls irrefuehrend. Gemessen: der Aufrufer
+ * uebergibt `capacity_posts.supplier_company_id`, und diese Spalte hat einen
+ * Fremdschluessel auf `users(id)` — trotz ihres Namens sind es NUTZER. Damit
+ * passt sie genau auf `supplier_reputation.supplier_id`, und die Karte
+ * funktioniert nach der Korrektur wirklich (gemessen: 2 der 6 Anbieter haben
+ * eine Reputationszeile).
+ */
+async function loadReputationMap(pool, supplierUserIds) {
+  if (!supplierUserIds.length) return new Map();
   try {
     const { rows } = await pool.query(
-      `SELECT org_id, overall_score FROM supplier_reputation WHERE org_id = ANY($1)`,
-      [orgIds]
+      `SELECT supplier_id, reputation_score FROM supplier_reputation WHERE supplier_id = ANY($1)`,
+      [supplierUserIds]
     );
     const map = new Map();
-    for (const r of rows) map.set(r.org_id, Number(r.overall_score) || 0);
+    for (const r of rows) map.set(r.supplier_id, Number(r.reputation_score) || 0);
     return map;
-  } catch { return new Map(); }
+  } catch (e) {
+    /* Z5: nicht mehr stumm — eine leere Karte und ein Fehler sehen im Ergebnis
+       gleich aus, und genau daran ist der Befund jahrelang vorbeigelaufen.
+       `swallow` ist das Werkzeug des Projekts fuer genau diesen Fall. */
+    swallow("instantMatchService.loadReputationMap")(e);
+    return new Map();
+  }
 }
 
 async function loadVendorPoolMap(pool, buyerOrgId, supplierOrgIds) {
   if (!buyerOrgId || !supplierOrgIds.length) return new Map();
   try {
     const { rows } = await pool.query(
-      `SELECT supplier_org_id, tier FROM vendor_pool
-       WHERE client_org_id = $1 AND supplier_org_id = ANY($2) AND status = 'active'`,
+      /* Z16: derselbe Schluesselfehler wie bei den Nachweisen.
+         `vendor_pool.supplier_org_id` zeigt auf `organizations`, uebergeben
+         werden Nutzer-Kennungen. Ohne die Bruecke ueber den Eigentuemer hat diese
+         Karte NIE einen Treffer gehabt - die Vorzugsstufe eines Lieferanten ist
+         also in keinen Sofort-Abgleich eingeflossen. */
+      `SELECT om.user_id AS supplier_org_id, vp.tier
+       FROM vendor_pool vp
+       JOIN org_memberships om ON om.org_id = vp.supplier_org_id AND om.role_key = 'owner'
+       WHERE vp.client_org_id = $1 AND om.user_id = ANY($2) AND vp.status = 'active'`,
       [buyerOrgId, supplierOrgIds]
     );
     const map = new Map();
@@ -66,12 +110,25 @@ async function loadVendorPoolMap(pool, buyerOrgId, supplierOrgIds) {
   } catch { return new Map(); }
 }
 
-async function loadVerifiedSet(pool, orgIds) {
-  if (!orgIds.length) return new Set();
+/*
+ * Z16 (2026-09-28): DRITTER FALL DERSELBEN KLASSE IN DIESER DATEI.
+ *
+ * Die Abfrage stand auf `organizations`, bekommt aber
+ * `capacity_posts.supplier_company_id` - und diese Spalte zeigt per
+ * Fremdschluessel auf `users`. Dazu hat `organizations` UEBERHAUPT KEINE
+ * Verifizierungsspalte (gemessen: 0 Treffer auf verif/trust/approved), `users`
+ * dagegen `is_verified`. Die Abfrage warf, das catch gab eine leere Menge
+ * zurueck - kein Anbieter galt je als verifiziert.
+ *
+ * Der Parametername `orgIds` log dabei mit, wie schon bei der Reputationskarte
+ * und beim Smart-Rank. Deshalb heisst er jetzt, was er ist.
+ */
+async function loadVerifiedSet(pool, supplierUserIds) {
+  if (!supplierUserIds.length) return new Set();
   try {
     const { rows } = await pool.query(
-      `SELECT id FROM organizations WHERE id = ANY($1) AND is_verified = TRUE`,
-      [orgIds]
+      `SELECT id FROM users WHERE id = ANY($1) AND is_verified = TRUE`,
+      [supplierUserIds]
     );
     return new Set(rows.map(r => r.id));
   } catch { return new Set(); }
@@ -102,19 +159,56 @@ async function loadSmartRankMap(pool, supplierIds, demandRole) {
   if (!supplierIds.length) return new Map();
   const map = new Map();
   try {
-    // Metrics + Reputation in einem Query
+    /*
+     * Z5 (2026-09-27): DIESE ABFRAGE LIEFERTE IMMER NULL ZEILEN, OHNE FEHLER.
+     *
+     * Sie stand auf `FROM organizations o WHERE o.id = ANY($1)` — bekommt aber
+     * `capacity_posts.supplier_company_id`, und diese Spalte hat einen
+     * Fremdschluessel auf `users(id)`. Nutzer-Kennungen gegen die Org-Tabelle:
+     * null Treffer (gemessen, und zwar per Regel, nicht per Zufall der Daten).
+     * Kein Wurf, keine Warnung — die Karte blieb leer, und `timesheet_quality`
+     * sowie `platform_activity` fehlten in JEDEM Smart-Rank. Die zweite Abfrage
+     * dieser Funktion (Rollen-Erfahrung) schluesselt uebrigens richtig, auf
+     * `requests.receiver_id` → `users`. Innerhalb einer Funktion zwei
+     * Schluesselwelten, eine davon falsch.
+     *
+     * Jetzt ist der Anker der ANBIETER (Nutzer), und die org-gebundenen
+     * Kennzahlen kommen ueber dieselbe Bruecke, die `profileRankingService`
+     * benutzt: `org_memberships` mit `role_key = 'owner'`. Gemessen: 6 von 6
+     * Anbietern finden darueber ihre Organisation.
+     *
+     * OFFEN UND HIER NICHT ZU LOESEN: `supplier_metrics` ist LEER (0 Zeilen).
+     * Die drei Kennzahlen bleiben also 0, bis `recompute-supplier-metrics`
+     * wirklich gelaufen ist. Der Unterschied ist trotzdem wesentlich: vorher
+     * konnte die Abfrage nichts finden, jetzt findet sie, was da ist.
+     *
+     * NACHTRAG Z17 (2026-09-28): dieser Fix war HALB falsch, und die Leere der
+     * Tabelle hat es verdeckt. `supplier_reputation` haengt hier richtig direkt
+     * am Nutzer — `supplier_metrics` hing daneben ueber die Bruecke an
+     * `om.org_id`. Gemessen zeigt aber auch `supplier_metrics.agency_id` per
+     * Fremdschluessel auf `users(id)`, und der Schreiber
+     * (`supplierMetricsService.recomputeForWindow`) befuellt ihn aus
+     * `requests.receiver_id`, ebenfalls ein Nutzer. Der Umweg ueber die
+     * Organisation haette also auch dann nichts gefunden, wenn der Takt
+     * gelaufen waere: aus "0, weil nichts da ist" waere "0, weil der Schluessel
+     * nicht passt" geworden — ununterscheidbar. Geschrieben hatte ich ihn auf
+     * eine ungemessene Warnung in `reputationSql.js` hin, die jetzt berichtigt
+     * ist. Der Anker ist hier ohnehin der Nutzer; die Bruecke bleibt nur noch
+     * fuer das stehen, was wirklich org-gebunden ist.
+     */
     const { rows } = await pool.query(
       `SELECT
-         o.id AS supplier_id,
+         u.id AS supplier_id,
          COALESCE(sm.requests_received, 0)::int AS requests_received,
          COALESCE(sm.requests_accepted, 0)::int AS requests_accepted,
          COALESCE(sm.sla_breaches, 0)::int AS sla_breaches,
          sr.timesheet_reliability_score,
          sr.activity_score
-       FROM organizations o
-       LEFT JOIN supplier_metrics sm ON sm.agency_id = o.id AND sm.window_days = 30
-       LEFT JOIN supplier_reputation sr ON sr.supplier_id = o.id
-       WHERE o.id = ANY($1)`,
+       FROM users u
+       LEFT JOIN org_memberships om ON om.user_id = u.id AND om.role_key = 'owner'
+       LEFT JOIN supplier_metrics sm ON sm.agency_id = u.id AND sm.window_days = 30
+       LEFT JOIN supplier_reputation sr ON sr.supplier_id = u.id
+       WHERE u.id = ANY($1)`,
       [supplierIds]
     );
     for (const r of rows) {
@@ -126,7 +220,12 @@ async function loadSmartRankMap(pool, supplierIds, demandRole) {
         platform_activity: r.activity_score != null ? Number(r.activity_score) : null
       });
     }
-  } catch { /* graceful degradation */ }
+  } catch (e) {
+    /* Z5: hier stand `catch { }` mit dem Vermerk "graceful degradation". Die
+       Abfrage darueber hat null Zeilen geliefert, ohne zu werfen — aber wenn sie
+       kuenftig wirft, darf das nicht wie "keine Signale" aussehen. */
+    swallow("instantMatchService.loadSmartRankMap")(e);
+  }
 
   // Role expertise: count completed deals per supplier for the demand role
   if (demandRole) {
@@ -220,12 +319,40 @@ export async function instantMatchFromParams(pool, demand, orgId, opts = {}) {
   const topN = opts.topN || 25;
   const minScore = opts.minScore || 10;
 
+  /*
+   * N4.5 — DIE KUNDENSPERRE GILT AUCH HIER.
+   *
+   * Dieser Motor steht hinter drei Wegen, die Anbieter AKTIV ansprechen: der
+   * Match-Trigger (schreibt beide Seiten an), die Notdienst-Alarmierung und ihre
+   * Eskalation. Ohne diesen Filter bekam die Zeitarbeitsfirma eine Anfrage fuer
+   * eine Kraft, die bei genau diesem Kunden nie buchbar ist — die Falle, die N4
+   * an vier Flaechen geschlossen hatte und die hier offen stand.
+   *
+   * `kundeOrgId` ist bewusst eine EIGENE Angabe und nicht `orgId`: `orgId`
+   * steuert die Vendor-Pool-Rangfolge, und im Match-Trigger haengt an derselben
+   * Org auch, WER benachrichtigt wird. Die Sperre darf beides nicht verschieben.
+   */
+  const sperrOrg = opts.kundeOrgId || orgId || null;
+
   // 2. Alle aktiven Capacity Posts laden
   const { rows: caps } = await pool.query(
+    /*
+     * Z17 (2026-09-28): `o.name AS supplier_name` WAR IMMER NULL.
+     *
+     * Hier stand `LEFT JOIN organizations o ON o.id = cp.supplier_company_id`.
+     * Diese Spalte zeigt per Fremdschluessel auf `users` — der Join traf nie, und
+     * weil er LINKS ist, gab es keinen Fehler: im Sofort-Abgleich stand bei jedem
+     * einzelnen Treffer kein Lieferantenname. Gemessen: direkt 0 Treffer, ueber
+     * den Eigentuemer alle 45. Gefunden hat es der neue Waechter
+     * `test/identitaetenNichtVermischen.test.js` in seinem ersten Lauf.
+     */
     `SELECT cp.*, o.name AS supplier_name
      FROM capacity_posts cp
-     LEFT JOIN organizations o ON o.id = cp.supplier_company_id
-     WHERE cp.is_active = TRUE`
+     ${anbieterOrganisationSql("cp.supplier_company_id", { alias: "o" })}
+     WHERE cp.is_active = TRUE${sperrOrg
+       ? `
+       AND ${companyBlocklistService.nichtGesperrtSql("cp", 1)}` : ""}`,
+    sperrOrg ? [sperrOrg] : []
   );
 
   if (caps.length === 0) return { matches: [], total: 0, demand };

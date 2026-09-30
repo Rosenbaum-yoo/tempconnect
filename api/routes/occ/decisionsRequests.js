@@ -364,6 +364,69 @@ export function createOccDecisionsRouter(deps) {
         await upsertCommercialOffer(pool, updated, req.occAccess?.user_id || null);
       }
 
+      /*
+       * DER OWNER-ENTSCHEID SCHLAEGT AUF DIE ESKALATION DURCH.
+       *
+       * BEFUND (2026-08-22): `support_escalations` traegt seit jeher
+       * `related_occ_request_id` — die Verbindung existierte, aber nur in EINE
+       * Richtung. Der Support legte den OCC-Vorgang an; entschied der Owner
+       * ihn, erfuhr die Eskalation davon nichts. Sie blieb `pending`, zaehlte
+       * im OCC-Bootstrap weiter als offen und stand im Staff CC ganz oben in
+       * der Prioritaetsliste — obwohl die Frage laengst beantwortet war.
+       *
+       * Owner-Entscheid 2026-08-23: beide Wege, OCC hat VORRANG. Deshalb steht
+       * das hier und nicht als optionaler Nachtrag im Support Center: wer im
+       * OCC entscheidet, muss nicht zusaetzlich daran denken, im Support Center
+       * abzuhaken.
+       *
+       * `status IN ('pending','acknowledged')` im WHERE: ein Supervisor, der
+       * schon abgehakt hat, behaelt seine Begruendung — der Entscheid
+       * ueberschreibt nur, was noch offen ist. Vorrang heisst nicht,
+       * vorhandene Arbeit zu ueberschreiben.
+       *
+       * Fehler hier duerfen den Entscheid nicht scheitern lassen: der
+       * OCC-Vorgang IST entschieden, die Eskalation ist die Nachwirkung.
+       * Deshalb protokolliert und weiter — aber nicht still.
+       */
+      if (statusPatch.resolveNow) {
+        try {
+          const { rows: eskalationen } = await pool.query(
+            `UPDATE support_escalations
+                SET status = $2,
+                    resolved_at = NOW(),
+                    resolution_note = $3
+              WHERE related_occ_request_id = $1::uuid
+                AND status IN ('pending', 'acknowledged')
+            RETURNING id, case_id`,
+            [
+              updated.id,
+              validation.action === "reject" ? "rejected" : "resolved",
+              `Durch Owner-Entscheid im Owner Control Center abgeschlossen (${validation.action}): ${validation.reason}`
+            ]
+          );
+          for (const e of eskalationen) {
+            await pool.query(
+              `UPDATE support_cases sc
+                  SET is_escalated = EXISTS (
+                        SELECT 1 FROM support_escalations se
+                         WHERE se.case_id = sc.id
+                           AND se.status IN ('pending', 'acknowledged')
+                      ),
+                      updated_at = NOW()
+                WHERE sc.id = $1::uuid`,
+              [ e.case_id ]
+            );
+          }
+          if (eskalationen.length) {
+            logger?.info?.({ requestId: updated.id, geschlossen: eskalationen.length },
+              "OCC-Entscheid hat Support-Eskalationen abgeschlossen");
+          }
+        } catch (err) {
+          logger?.error?.({ err, requestId: updated.id },
+            "OCC-Entscheid gefallen, aber die verknuepfte Support-Eskalation blieb offen");
+        }
+      }
+
       await writeAudit(pool, {
         action: auditActionByMutation(validation.action),
         actor_id: req.occAccess?.user_id || null,

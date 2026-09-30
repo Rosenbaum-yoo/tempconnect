@@ -8,6 +8,8 @@ import { Router } from "express";
 import * as marketplaceService from "../services/marketplaceService.js";
 import * as emergencyService from "../services/emergencyStaffingService.js";
 import * as capacityExchangeService from "../services/capacityExchangeService.js";
+/* M4c.3b: die Buchung bindet den Menschen in derselben Transaktion (siehe accept-deal). */
+import * as workerOfferReservationService from "../services/workerOfferReservationService.js";
 import * as matchingEngine from "../services/matchingEngine.js";
 import * as dealProgressHelper from "../services/dealProgressHelper.js";
 import * as eventTracking from "../services/eventTrackingService.js";
@@ -25,6 +27,10 @@ import * as dealStaffingFastTrackService from "../services/dealStaffingFastTrack
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
 import * as dealCommitmentService from "../services/dealCommitmentService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
+import { fristLabelDE, todayDE } from "../utils/dateDE.js";
+import * as companyBlocklistService from "../services/companyBlocklistService.js";
+import { pruefeBuchungsWuensche } from "../services/marktplatzBuchungService.js";
+import * as auegFrist from "../services/auegFristService.js";
 import { swallow } from "../utils/logger.js";
 import {
   buildDealHistoryBucketSql,
@@ -32,6 +38,7 @@ import {
   getDealHistoryBucket,
   normalizeDealHistoryBucket
 } from "../services/dealHistoryService.js";
+import * as marktGeo from "../services/marktGeoService.js";
 
 // Welle 7 – Phase 6+7+8: Schema fuer One-click-/Bulk-Zuweisung aus der Dealakte.
 const offerQuickAssignSchema = z.object({
@@ -87,6 +94,10 @@ const offerSchema = z.object({
   validity_until: z.string().optional().nullable(),
   replacement_sla_minutes: z.number().int().min(0).optional().nullable(),
   response_time_minutes: z.number().int().min(0).optional().nullable(),
+  /* Bleiben optional — die Pflicht setzt die ROUTE durch, mit Rueckfall auf das
+   * Profil des Anbieters (siehe `ansprechperson`). Sie hier zur Pflicht zu
+   * machen wuerde den Rueckfall unmoeglich machen: wer sie im Profil gepflegt
+   * hat, muesste sie bei jedem Angebot erneut tippen. */
   contact_name: z.string().max(200).optional().nullable(),
   contact_phone: z.string().max(50).optional().nullable(),
   compliance_check: z.object({
@@ -117,7 +128,18 @@ const demandRequestSchema = z.object({
   urgency: z.enum(["normal", "plus", "notdienst"]).optional().default("normal"),
   budget_min: z.number().optional().nullable(),
   budget_max: z.number().optional().nullable(),
-  sla_minutes: z.number().int().min(15).max(10080).optional().nullable()
+  sla_minutes: z.number().int().min(15).max(10080).optional().nullable(),
+  /* N3.0/M5.9: "Alle 30 oder keiner" ist waehlbar — die Spalten gibt es seit
+     Migration 070, gelesen hat sie bis dahin keine Zeile. Ohne Angabe bleibt es
+     beim Bisherigen: Teilerfuellung erlaubt, Ueberfuellung nicht. */
+  partial_fulfillment_allowed: z.boolean().optional(),
+  overfill_allowed: z.boolean().optional(),
+  /* Weich wie beim Angebot, aus demselben Grund: die Pflicht setzt die ROUTE
+   * durch, mit Rueckfall aufs Profil. Im Schema waere sie eine Pflicht ohne
+   * Rueckfall — wer sie im Profil gepflegt hat, muesste sie bei JEDEM Bedarf
+   * erneut tippen. */
+  contact_name: z.string().max(200).optional().nullable(),
+  contact_phone: z.string().max(50).optional().nullable()
 });
 
 const demandInteractionSchema = z.object({
@@ -286,10 +308,87 @@ const cancelAgreementSchema = z.object({
   note: z.string().max(2000).optional().nullable()
 });
 
+/*
+ * DIE ANSPRECHPERSON AM ANGEBOT (Plan I, 10b).
+ *
+ * Owner-Entscheid 2026-08-23: Ansprechperson mit Telefonnummer wird
+ * Pflichtfeld — mit Rueckfall auf das Profil des Anbieters. Der Grund steht im
+ * Plan: "Wer morgens um sechs vor einer leeren Schicht steht, schreibt keine
+ * Nachricht." Statt einen Nachrichtenkanal zu bauen, der Erwartungen an
+ * TempConnect erzeugt (Zustellung, Aufbewahrung, Moderation, DSGVO-Auskunft
+ * ueber fremde Gespraeche), tragen beide Seiten eine erreichbare Person.
+ *
+ * BESTAND, GEMESSEN am 2026-08-22: die Spalten `contact_name`/`contact_phone`
+ * stehen seit Migration 014 auf `offers` — und sind bei 0 von 38 Angeboten
+ * gefuellt. Nur 7 von 361 Konten haben ueberhaupt Name UND Nummer im Profil.
+ * Eine harte Pflicht ab sofort haette 20 von 21 Anbietern am Abschluss
+ * gehindert; deshalb der Rueckfall.
+ *
+ * WEN DIE PFLICHT TRIFFT: nur den, der auch handeln kann. Von den fuenf Wegen,
+ * die ein Angebot anlegen, handelt bei dreien der ANBIETER selbst
+ * (`/offers`, `/demand-requests/:id/accept-deal`, `.../negotiate-deal`) — dort
+ * gilt die Pflicht. Bei zweien handelt der KAEUFER und der Anbieter ist die
+ * Gegenseite (`/capacity-posts/:id/...`); dort wird nur aus dem Profil
+ * gefuellt. Den Kaeufer zu blockieren, weil ein anderer sein Profil nicht
+ * gepflegt hat, waere die falsche Adresse.
+ */
+async function ansprechperson(db, anbieterUserId, body = {}) {
+  const ausBody = {
+    name: String(body?.contact_name || "").trim(),
+    telefon: String(body?.contact_phone || "").trim(),
+  };
+  if (ausBody.name && ausBody.telefon) return { name: ausBody.name, telefon: ausBody.telefon };
+
+  let ausProfil = {};
+  try {
+    const { rows } = await db.query(
+      `SELECT NULLIF(TRIM(COALESCE(contact_person, '')), '') AS name,
+              NULLIF(TRIM(COALESCE(phone, '')), '')          AS telefon
+         FROM users WHERE id = $1::uuid LIMIT 1`,
+      [anbieterUserId]
+    );
+    ausProfil = rows[0] || {};
+  } catch {
+    /* Fail-closed im Ergebnis: ohne Profil gilt die Angabe als fehlend. */
+    ausProfil = {};
+  }
+
+  const name = ausBody.name || ausProfil.name || null;
+  const telefon = ausBody.telefon || ausProfil.telefon || null;
+  if (!name || !telefon) {
+    return { fehlt: true, name, telefon, fehltName: !name, fehltTelefon: !telefon };
+  }
+  return { name, telefon };
+}
+
+/** Die Antwort, die den Anbieter zum Nachtragen auffordert — an EINER Stelle. */
+function ansprechpersonFehltAntwort(res, kontakt) {
+  return res.status(409).json({
+    error: "CONTACT_REQUIRED",
+    message: "Für dieses Angebot fehlt eine Ansprechperson mit Telefonnummer. "
+      + "Bitte im Profil hinterlegen oder direkt am Angebot angeben — "
+      + "das Einsatzunternehmen muss jemanden erreichen können, wenn eine Schicht wackelt.",
+    fehlt: {
+      contact_name: kontakt.fehltName === true,
+      contact_phone: kontakt.fehltTelefon === true,
+    },
+  });
+}
+
 export function createMarketplaceRouter(deps) {
   const { pool, requireAuth, requireFeature, sendMail, getUserAndPlan, logger } = deps;
   const router = Router();
   const slaAccess = requireFeature("sla_access");
+  /*
+   * M1.5 — `sla_access` ist fuer JEDEN Plan wahr, DEMO eingeschlossen; als
+   * alleiniger Waechter einer Erstellen-Route sagt er nichts. Bis hierher
+   * blockierte ein DEMO-Konto erst weiter unten an
+   * `max_workers_per_request` (0) — mit 403 WORKER_LIMIT_EXCEEDED, also
+   * einer Meldung ueber die Kopfzahl, wo eine Planaussage gehoert. Die
+   * Planliste des neuen Schluessels ist aus genau diesem Limit abgeleitet:
+   * es aendert sich fuer keinen Kunden etwas ausser der Meldung.
+   */
+  const demandCreate = requireFeature("marketplace_demand_create");
 
   /* ── capacity_posts (Zeitarbeit = Supplier) ───────────────── */
 
@@ -363,6 +462,17 @@ export function createMarketplaceRouter(deps) {
       const wLimit = me?.limits?.max_workers_per_request;
       if (wLimit !== undefined && wLimit !== -1 && (parsed.data.headcount || 1) > wLimit) {
         return res.status(403).json({ error: "WORKER_LIMIT_EXCEEDED", limit: wLimit, requested: parsed.data.headcount || 1, plan: me.plan });
+      }
+      /* N2.0/N2.7 - ohne Koordinaten rechnet die Entfernungsbewertung nicht,
+         und der erfasste Radius bleibt wirkungslos. Der Punkt wird VOR dem
+         Datensatz bestimmt und gleich mitgeschrieben — so gibt es keinen
+         Augenblick, in dem das Angebot ohne ihn existiert. Best effort:
+         schlaegt der fremde Dienst fehl (oder dauert laenger als
+         GEO_TIMEOUT_MS), entsteht das Angebot trotzdem. Mitgeschickte
+         Koordinaten gelten und werden nicht ueberschrieben. */
+      if (parsed.data.location_lat == null || parsed.data.location_lng == null) {
+        const punkt = await marktGeo.punktFuer({ plz: parsed.data.location_postal, ort: parsed.data.location_city });
+        if (punkt) { parsed.data.location_lat = punkt.lat; parsed.data.location_lng = punkt.lng; }
       }
       const row = await marketplaceService.createCapacityPost(pool, req.session.userId, parsed.data);
       res.locals.audit = { action: "marketplace.capacity_post.create", entity_type: "capacity_post", entity_id: row.id, details: { role: parsed.data.role, city: parsed.data.location_city } };
@@ -444,6 +554,25 @@ export function createMarketplaceRouter(deps) {
         if (!cap) return { error: "NOT_FOUND" };
         if (cap.supplier_company_id === req.session.userId) return { error: "SELF_DEAL_FORBIDDEN" };
 
+        /* Sperrliste (Welle J2c, behebt Befund 2.2c): eine Kraft, die dieses
+         * Unternehmen gesperrt hat, ist fuer genau dieses Unternehmen nicht
+         * buchbar — der Feed blendet sie aus (browseFeed), aber der RIEGEL
+         * steht hier, serverseitig: ein direkter API-Aufruf oder eine
+         * veraltete Liste darf die Sperre nicht umgehen. */
+        if (cap.worker_profile_id && req.orgId) {
+          const { rows: wpRows } = await client.query(
+            "SELECT user_id FROM worker_profiles WHERE id = $1",
+            [cap.worker_profile_id]
+          );
+          const workerUserId = wpRows[0]?.user_id || null;
+          if (workerUserId) {
+            const sperre = await companyBlocklistService.isWorkerBlockedForCompany(client, req.orgId, workerUserId);
+            if (sperre) {
+              return { error: "WORKER_BLOCKED_FOR_COMPANY", blocked_until: sperre.blocked_until || null };
+            }
+          }
+        }
+
         const capacityState = await capacityExchangeService.getCapacityCommercialState(client, cap.id);
         const remainingHeadcount = Math.max(0, Number(capacityState.remaining_headcount) || 0);
         const requestedHeadcount = normalizeDealHeadcount(req.body?.headcount, remainingHeadcount || cap.headcount || 1);
@@ -457,13 +586,41 @@ export function createMarketplaceRouter(deps) {
           return capacityUnavailable(requestedHeadcount, remainingHeadcount);
         }
 
+        /* Die drei Fragen vor der Buchung (Welle J2c, Plan J §0.2): Zeitraum
+         * und Preis des Kaeufers werden GEGEN DAS ANGEBOT geprueft — ausserhalb
+         * ist keine Annahme, sondern Verhandlung. Ohne Wuensche gelten die
+         * Angebotswerte (der bestehende Aufrufer bleibt gueltig). */
+        const wuensche = pruefeBuchungsWuensche(cap, req.body || {}, todayDE());
+        if (wuensche.error) return wuensche;
+        const startDatum = wuensche.start_date || cap.availability_from;
+        const endDatum = wuensche.end_date || cap.availability_to || null;
+
+        /* AUEG-Konto (Welle J8): die Frist gilt je Kraft je Entleiher und
+         * rechnet die GEPLANTE Zeit mit — sonst warnte sie immer zu spaet.
+         * WARNEN, NICHT BLOCKIEREN (Owner-Entscheid): das Ergebnis faehrt in
+         * der Antwort mit, die Buchung laeuft weiter. TempConnect ist nicht
+         * der Verleiher; die Pflicht traegt die Zeitarbeitsfirma. */
+        let auegAuskunft = null;
+        if (cap.worker_profile_id && req.orgId) {
+          const { rows: wpRows } = await client.query(
+            "SELECT user_id FROM worker_profiles WHERE id = $1", [cap.worker_profile_id]
+          );
+          const workerUserId = wpRows[0]?.user_id || null;
+          if (workerUserId) {
+            const zeitraeume = await auegFrist.ladeZeitraeume(client, req.orgId, workerUserId);
+            auegAuskunft = auegFrist.pruefePlanung(
+              zeitraeume, { von: startDatum, bis: endDatum }, todayDE()
+            );
+          }
+        }
+
         const demandData = {
           title: `Zustimmung: ${cap.title}`,
           role: cap.role,
           skill_tags: cap.skill_tags || [],
           headcount: requestedHeadcount,
-          start_date: cap.availability_from,
-          end_date: cap.availability_to || null,
+          start_date: startDatum,
+          end_date: endDatum,
           location_city: cap.location_city,
           location_postal: cap.location_postal || null,
           location_lat: cap.location_lat ?? null,
@@ -471,25 +628,50 @@ export function createMarketplaceRouter(deps) {
           radius_km: cap.radius_km || 25,
           urgency: "normal"
         };
-        const demand = await marketplaceService.createDemandRequest(client, req.session.userId, me?.plan || "FREE", demandData);
+        /* Der Bedarf entsteht hier NEBENBEI, waehrend der Kaeufer ein
+         * Kapazitaetsangebot annimmt bzw. verhandelt. Seine Ansprechperson wird
+         * aus dem Profil gefuellt — aber er wird NICHT blockiert: mitten in
+         * einem schnellen Abschluss nach einer Telefonnummer zu fragen ist eine
+         * Wand an genau der Stelle, an der Tempo der Zweck ist. Fehlt sie,
+         * fragt der ausdrueckliche Bedarf beim naechsten Mal danach. */
+        const kaeuferKontakt = await ansprechperson(client, req.session.userId, req.body || {});
+        const demand = await marketplaceService.createDemandRequest(client, req.session.userId, me?.plan || "FREE", {
+          ...demandData,
+          contact_name: kaeuferKontakt.name || null,
+          contact_phone: kaeuferKontakt.telefon || null
+        });
+
+        /* Hier handelt der KAEUFER; der Anbieter ist die Gegenseite. Die
+         * Ansprechperson wird aus seinem Profil gefuellt — fehlt sie dort,
+         * bleibt sie leer und der Kaeufer wird NICHT blockiert. Ihn abzuweisen,
+         * weil ein anderer sein Profil nicht gepflegt hat, waere die falsche
+         * Adresse; der Anbieter wird gefragt, sobald er selbst handelt. */
+        const kontakt = await ansprechperson(client, cap.supplier_company_id);
 
         const { rows: offerRows } = await client.query(
           `INSERT INTO offers
            (demand_request_id, supplier_company_id, capacity_post_id, status,
-            price_type, price_min, price_max, offered_quantity, start_confirmed, end_date, notes)
-           VALUES ($1, $2, $3, 'accepted', $4, $5, $6, $7, $8, $9, $10)
+            price_type, price_min, price_max, offered_quantity, start_confirmed, end_date, notes,
+            contact_name, contact_phone)
+           VALUES ($1, $2, $3, 'accepted', $4, $5, $6, $7, $8, $9, $10, $11, $12)
            RETURNING *`,
           [
             demand.id,
             cap.supplier_company_id,
             cap.id,
             cap.price_type || null,
-            cap.price_min ?? null,
-            cap.price_max ?? null,
+            /* Ein gewaehlter Preis (Frage 3) wird als min UND max eingefroren:
+             * die Vereinbarung dokumentiert dann eine ZAHL, keinen Rahmen —
+             * genau das, was der Snapshot spaeter abrechnet. Ohne Wahl gilt
+             * der angebotene Rahmen wie bisher. */
+            wuensche.price_value ?? cap.price_min ?? null,
+            wuensche.price_value ?? cap.price_max ?? null,
             requestedHeadcount,
-            cap.availability_from || null,
-            cap.availability_to || null,
-            `Zustimmung zu Kapazitaetsangebot: ${cap.title}`
+            startDatum || null,
+            endDatum,
+            `Zustimmung zu Kapazitaetsangebot: ${cap.title}`,
+            kontakt.name || null,
+            kontakt.telefon || null
           ]
         );
         const offer = offerRows[0];
@@ -504,7 +686,31 @@ export function createMarketplaceRouter(deps) {
         const syncedDemand = await marketplaceService.syncDemandCommercialState(client, demand.id);
 
         const syncedCapacity = await capacityExchangeService.syncCapacityCommercialState(client, cap.id);
+
+        /*
+         * M4c.3b — DIE BUCHUNG BINDET DEN MENSCHEN, SOFORT UND IN DIESER
+         * TRANSAKTION.
+         *
+         * Bis hierher band sie nur die eine gebuchte ZEILE ('reserved'). Der
+         * Mensch dahinter blieb ueber jede andere Darstellung buchbar: seine
+         * uebrigen Einzelangebote, sein Gesamtangebot, jedes Sammelangebot mit
+         * ihm als Mitglied. Gebunden war er erst, wenn jemand spaeter von Hand
+         * zuwies — bis dahin konnten beliebig viele Unternehmen denselben
+         * Menschen kaufen, und jede Buchung sah fuer sich gueltig aus. Genau
+         * das nennt der Owner Betrug.
+         *
+         * IN DERSELBEN TRANSAKTION, nicht danach: ein Aufruf nach dem Commit
+         * haette ein Fenster gelassen, in dem die Buchung steht und die anderen
+         * Darstellungen noch offen sind — und bei einem Fehler waere der Mensch
+         * gebucht und nicht gebunden. Der 15-Minuten-Takt holt es ohnehin nach;
+         * dieser Aufruf sorgt dafuer, dass es keine 15 Minuten dauert.
+         */
+        if (cap.worker_profile_id) {
+          await workerOfferReservationService.syncWorkerReservation(client, cap.worker_profile_id);
+        }
+
         return {
+          aueg: auegAuskunft,
           cap,
           demand: syncedDemand || demand,
           offer: agreementResult.offer || offer,
@@ -519,6 +725,14 @@ export function createMarketplaceRouter(deps) {
       if (result.error === "SELF_DEAL_FORBIDDEN") return res.status(403).json({ error: "SELF_DEAL_FORBIDDEN" });
       if (result.error === "NOT_ACTIVE") return res.status(409).json({ error: "NOT_ACTIVE" });
       if (result.error === "CAPACITY_UNAVAILABLE") return res.status(409).json(result);
+      /* Sperre = 409 (Konflikt mit einer bestehenden Entscheidung des
+       * Unternehmens), Wunsch-Fehler = 400 (der Aufrufer kann sie korrigieren;
+       * PRICE_OUTSIDE_OFFER traegt den Rahmen, damit die Oberflaeche zur
+       * Verhandlung leiten kann statt raten zu lassen). */
+      if (result.error === "WORKER_BLOCKED_FOR_COMPANY") return res.status(409).json(result);
+      if (["PERIOD_INVALID", "PERIOD_IN_PAST", "PERIOD_OUTSIDE_OFFER", "PRICE_INVALID", "PRICE_OUTSIDE_OFFER"].includes(result.error)) {
+        return res.status(400).json(result);
+      }
 
       // 5) Audit + Notification
       res.locals.audit = {
@@ -585,6 +799,9 @@ export function createMarketplaceRouter(deps) {
         requested_headcount: result.requested_headcount,
         remaining_headcount: result.remaining_headcount,
         status: result.capacity_status || "reserved",
+        /* Die AUEG-Auskunft faehrt mit der Buchungsantwort (Welle J8): die
+         * Oberflaeche kann sie sofort zeigen, ohne einen zweiten Aufruf. */
+        aueg: result.aueg || null,
         document_url: documentUrl,
         conditions_url: result.offer.id ? `/api/marketplace/offers/${result.offer.id}/document?type=conditions` : null
       });
@@ -614,6 +831,37 @@ export function createMarketplaceRouter(deps) {
         if (!cap) return { error: "NOT_FOUND" };
         if (cap.supplier_company_id === req.session.userId) return { error: "SELF_DEAL_FORBIDDEN" };
 
+        /*
+         * ═══════════════════════════════════════════════════════════════════
+         * DIESELBE SPERRE WIE BEIM ABSCHLUSS (N4.2, 2026-09-06)
+         * ═══════════════════════════════════════════════════════════════════
+         *
+         * Bis hierher pruefte NUR `accept-deal` die Sperrliste. Der Weg direkt
+         * daneben - "ich moechte verhandeln" - pruefte sie nicht. Das ist keine
+         * theoretische Luecke: der Verhandlungsweg legt einen Bedarf an, sendet
+         * ein Angebot, benachrichtigt die Zeitarbeitsfirma und schickt ihr eine
+         * E-Mail. Ein Unternehmen konnte also eine Verhandlung ueber genau die
+         * Kraft anstossen, die es selbst gesperrt hat - und die Gegenseite
+         * bekam eine Anfrage, die niemals in einer Buchung enden kann.
+         *
+         * Peinlich wird es nicht am Server, sondern am Telefon: die Disposition
+         * ruft zurueck, stimmt Konditionen ab, und erst beim Abschluss faellt
+         * der 409. Zwei Haeuser haben dann Zeit fuer etwas aufgewendet, das von
+         * Anfang an ausgeschlossen war.
+         *
+         * Ueber die PROFIL-Kennung, in EINER Abfrage - `accept-deal` laedt dafuer
+         * noch das Profil separat nach. Beide Wege antworten mit demselben Code,
+         * damit die Oberflaeche nicht zwei Faelle unterscheiden muss.
+         */
+        if (cap.worker_profile_id && req.orgId) {
+          const sperre = await companyBlocklistService.isWorkerBlockedForCompanyByProfile(
+            client, req.orgId, cap.worker_profile_id
+          );
+          if (sperre) {
+            return { error: "WORKER_BLOCKED_FOR_COMPANY", blocked_until: sperre.blocked_until || null };
+          }
+        }
+
         const capacityState = await capacityExchangeService.getCapacityCommercialState(client, cap.id);
         const remainingHeadcount = Math.max(0, Number(capacityState.remaining_headcount) || 0);
         const requestedHeadcount = normalizeDealHeadcount(body.headcount, remainingHeadcount || cap.headcount || 1);
@@ -638,13 +886,32 @@ export function createMarketplaceRouter(deps) {
           radius_km: cap.radius_km || 25,
           urgency: "normal"
         };
-        const demand = await marketplaceService.createDemandRequest(client, req.session.userId, me?.plan || "FREE", demandData);
+        /* Der Bedarf entsteht hier NEBENBEI, waehrend der Kaeufer ein
+         * Kapazitaetsangebot annimmt bzw. verhandelt. Seine Ansprechperson wird
+         * aus dem Profil gefuellt — aber er wird NICHT blockiert: mitten in
+         * einem schnellen Abschluss nach einer Telefonnummer zu fragen ist eine
+         * Wand an genau der Stelle, an der Tempo der Zweck ist. Fehlt sie,
+         * fragt der ausdrueckliche Bedarf beim naechsten Mal danach. */
+        const kaeuferKontakt = await ansprechperson(client, req.session.userId, req.body || {});
+        const demand = await marketplaceService.createDemandRequest(client, req.session.userId, me?.plan || "FREE", {
+          ...demandData,
+          contact_name: kaeuferKontakt.name || null,
+          contact_phone: kaeuferKontakt.telefon || null
+        });
+
+        /* Hier handelt der KAEUFER; der Anbieter ist die Gegenseite. Die
+         * Ansprechperson wird aus seinem Profil gefuellt — fehlt sie dort,
+         * bleibt sie leer und der Kaeufer wird NICHT blockiert. Ihn abzuweisen,
+         * weil ein anderer sein Profil nicht gepflegt hat, waere die falsche
+         * Adresse; der Anbieter wird gefragt, sobald er selbst handelt. */
+        const kontakt = await ansprechperson(client, cap.supplier_company_id);
 
         const { rows: offerRows } = await client.query(
           `INSERT INTO offers
            (demand_request_id, supplier_company_id, capacity_post_id, status, price_type, price_min, price_max,
-            offered_quantity, start_confirmed, end_date, notes)
-           VALUES ($1, $2, $3, 'sent', $4, $5, $6, $7, $8, $9, $10)
+            offered_quantity, start_confirmed, end_date, notes,
+            contact_name, contact_phone)
+           VALUES ($1, $2, $3, 'sent', $4, $5, $6, $7, $8, $9, $10, $11, $12)
            RETURNING *`,
           [
             demand.id,
@@ -656,7 +923,9 @@ export function createMarketplaceRouter(deps) {
             requestedHeadcount,
             body.start_date || cap.availability_from,
             body.end_date || cap.availability_to || null,
-            body.message || `Verhandlungsanfrage zu: ${cap.title}`
+            body.message || `Verhandlungsanfrage zu: ${cap.title}`,
+            kontakt.name || null,
+            kontakt.telefon || null
           ]
         );
         return {
@@ -670,6 +939,7 @@ export function createMarketplaceRouter(deps) {
 
       if (result.error === "NOT_FOUND") return res.status(404).json({ error: "NOT_FOUND" });
       if (result.error === "SELF_DEAL_FORBIDDEN") return res.status(403).json({ error: "SELF_DEAL_FORBIDDEN" });
+      if (result.error === "WORKER_BLOCKED_FOR_COMPANY") return res.status(409).json(result);
       if (result.error === "NOT_ACTIVE") return res.status(409).json({ error: "NOT_ACTIVE" });
       if (result.error === "CAPACITY_UNAVAILABLE") return res.status(409).json(result);
 
@@ -754,33 +1024,93 @@ export function createMarketplaceRouter(deps) {
     }
   });
 
-  router.post("/marketplace/demand-requests", requireAuth, slaAccess, async (req, res) => {
+  router.post("/marketplace/demand-requests", requireAuth, slaAccess, demandCreate, async (req, res) => {
     try {
       const me = await getUserAndPlan(req.session.userId);
       if (me?.role !== "company") return res.status(403).json({ error: "COMPANY_ONLY" });
-      const urgency = (req.body?.urgency || "normal").toLowerCase();
-      if (urgency === "notdienst" && !me?.limits?.notdienst) return res.status(403).json({ error: "PLAN_REQUIRED_NOTDIENST" });
       const parsed = demandRequestSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+
+      /*
+       * ═══════════════════════════════════════════════════════════════════════
+       * DIE DRINGLICHKEIT WIRD ABGELEITET (N2.1, Owner-Vorgabe 2026-09-05)
+       * ═══════════════════════════════════════════════════════════════════════
+       *
+       * Hier stand `req.body.urgency`. Ein Feld im Formular, das sich in beide
+       * Richtungen falsch setzen liess: ein Einsatz morgen als "normal" (die
+       * 30-Minuten-Uhr laeuft nie an), ein Einsatz in drei Wochen als
+       * "notdienst" (50 Anbieter werden ohne Anlass alarmiert).
+       *
+       * Der Einsatzbeginn steht ohnehin im Formular. Jetzt entscheidet er:
+       * Vorlauf <= 2 Kalendertage in Europe/Berlin -> Notdienst.
+       *
+       * DER WERT AUS DEM RUMPF WIRD IGNORIERT, nicht abgewiesen. Das Schema ist
+       * nicht `strict`, und die oeffentliche Schnittstelle fuehrt `urgency` seit
+       * jeher — ein Altclient, der ihn noch schickt, soll nicht plötzlich 400
+       * bekommen. Was er schickt, spielt nur keine Rolle mehr.
+       *
+       * OHNE TARIF KEIN 403, SONDERN DER NORMALE WEG. Bisher wies die Route
+       * einen Kunden ohne Notdienst-Berechtigung ab, wenn er das Haekchen
+       * setzte. Abgeleitet waere daraus eine Sperre fuer JEDEN kurzfristigen
+       * Bedarf — ausgerechnet dann, wenn er am dringendsten ist. Und sie waere
+       * nicht einmal eine neue Einnahme: heute setzt derselbe Kunde einfach
+       * "normal" und schreibt aus. Er bekommt also, was er ohnehin bekaeme,
+       * plus den Hinweis, was ihm entgeht.
+       */
+      const abgeleitet = emergencyService.notdienstAusStartdatum(parsed.data.start_date);
+      const notdienstErlaubt = !!me?.limits?.notdienst;
+      const urgency = (abgeleitet === "notdienst" && notdienstErlaubt) ? "notdienst" : "normal";
+      const notdienstOhneTarif = abgeleitet === "notdienst" && !notdienstErlaubt;
       // Worker-Limit pro Vermittlung
       const wLimit = me?.limits?.max_workers_per_request;
       if (wLimit !== undefined && wLimit !== -1 && (parsed.data.headcount || 1) > wLimit) {
         return res.status(403).json({ error: "WORKER_LIMIT_EXCEEDED", limit: wLimit, requested: parsed.data.headcount || 1, plan: me.plan });
       }
 
+      /*
+       * ═══════════════════════════════════════════════════════════════════════
+       * N2.7 — DER PUNKT ENTSTEHT VOR DEM BEDARF, FUER BEIDE WEGE
+       * ═══════════════════════════════════════════════════════════════════════
+       *
+       * Hier stand vorher nichts, und weiter unten wurde nachgetragen — mit dem
+       * Kommentar "die Koordinaten muessen vor dem Matching stehen". Das stimmte
+       * nicht: `runInitialMatching` lief schon VOR dem Nachtragen und rechnete
+       * den ersten, sichtbarsten Durchgang ohne Punkt, samt der Mails an bis zu
+       * fuenfzehn Anbieter. Der Notdienst-Zweig kehrte sogar vor dem Nachtragen
+       * zurueck — ausgerechnet der dringendste Bedarf bekam nie Koordinaten,
+       * und seine Alarmierung verglich Staedtenamen.
+       *
+       * Jetzt wird der Punkt bestimmt, bevor ueberhaupt verzweigt wird. Nach
+       * der Pruefung der Grenzen (kein Netzabruf fuer eine Anfrage, die ohnehin
+       * abgewiesen wird), vor allem, was mit dem Ort rechnet.
+       */
+      if (parsed.data.location_lat == null || parsed.data.location_lng == null) {
+        const punkt = await marktGeo.punktFuer({ plz: parsed.data.location_postal, ort: parsed.data.location_city });
+        if (punkt) { parsed.data.location_lat = punkt.lat; parsed.data.location_lng = punkt.lng; }
+      }
+
       const plan = me?.plan ?? "FREE";
       if (urgency === "notdienst") {
+        /*
+         * Die ABGELEITETE Dringlichkeit muss mit - `createEmergencyRequest`
+         * liest `payload.urgency`, und im geparsten Rumpf steht noch der
+         * Standardwert des Schemas ("normal"). Ohne diese Zeile liefe die
+         * Notdienst-Maschinerie mit NORMALER SLA-Einstellung an: 120 Minuten
+         * statt 30, kein Antwortfenster, keine Eskalation. Gefunden hat das
+         * eine Probe, die den gespeicherten Wert prueft statt die Antwort.
+         */
         const emergencyResult = await emergencyService.createEmergencyRequest(
-          pool, req.session.userId, plan, parsed.data
+          pool, req.session.userId, plan, { ...parsed.data, urgency, requester_org_id: req.orgId || null }
         );
         const demand = emergencyResult.demand;
         const events = await marketplaceService.getDemandSlaEvents(pool, demand.id);
         const matchList = await marketplaceService.getDemandMatches(pool, demand.id);
-        res.locals.audit = { action: "marketplace.demand_request.create", entity_type: "demand_request", entity_id: demand.id, details: { role: parsed.data.role, urgency: parsed.data.urgency, city: parsed.data.location_city } };
+        res.locals.audit = { action: "marketplace.demand_request.create", entity_type: "demand_request", entity_id: demand.id, details: { role: parsed.data.role, urgency, urgency_source: "start_date", city: parsed.data.location_city } };
         res.status(201).json({
           ...demand,
           sla_events: events,
           matches: matchList,
+          urgency_source: "start_date",
           emergency: {
             urgency_level: emergencyResult.urgency_level,
             urgency_config: emergencyResult.urgency_config,
@@ -790,14 +1120,49 @@ export function createMarketplaceRouter(deps) {
         });
         return;
       }
-      const demand = await marketplaceService.createDemandRequest(pool, req.session.userId, plan, parsed.data);
+      /* Hier legt das EINSATZUNTERNEHMEN seinen Bedarf an — seine
+       * Ansprechperson ist die Nummer, die die Agentur spaeter in Besetzung und
+       * Live-Belegschaft sieht.
+       *
+       * NUR FUELLEN, NICHT BLOCKIEREN (korrigiert 2026-08-26). Die erste Fassung
+       * wies den Bedarf mit 409 und der Nachtrage-Aufforderung ab, wenn Name oder Telefon
+       * fehlten — an der breitesten Stelle des Trichters. Am laufenden Bestand
+       * gemessen bedeutete das:
+       *
+       *   22 Firmen haben je einen Bedarf angelegt, 18 davon ohne Telefon;
+       *   von den 19 in 90 Tagen aktiven Firmen waren 18 gesperrt;
+       *   38 der 39 vorhandenen Bedarfe tragen ohnehin keine Ansprechperson.
+       *
+       * Sperren erzeugt die fehlende Nummer nicht — es haelt nur die
+       * Kernhandlung der Plattform an. Und das Formular bot bis dahin gar kein
+       * Feld, um sie nachzutragen: der Riegel war fuer den Kunden unaufloesbar.
+       *
+       * Die Pflicht bleibt dort, wo sie hingehoert und wo der Handelnde sie
+       * selbst erfuellen kann: beim ANBIETER, der ein Angebot abgibt oder einen
+       * Deal schliesst (Zeilen ~1082/1204/1273). Bevor jemand tatsaechlich vor
+       * Ort steht, ist damit eine erreichbare Nummer hinterlegt. */
+      const kontakt = await ansprechperson(pool, req.session.userId, parsed.data);
+
+      const demand = await marketplaceService.createDemandRequest(pool, req.session.userId, plan, {
+        ...parsed.data,
+        /* Nach dem Spread, damit die Ableitung den Schema-Standardwert schlaegt. */
+        urgency,
+        contact_name: kontakt.name,
+        contact_phone: kontakt.telefon,
+        /* N2.11: die Firma, fuer die angelegt wird — aus der Sitzung, nie aus dem
+           Rumpf (nach dem Spread). Traeger der Kundensperre fuer jede spaetere
+           Stelle, die den Bedarf abgleicht. */
+        requester_org_id: req.orgId || null
+      });
 
       if (demand.sla_status === "RUNNING") {
         await marketplaceService.recordDemandSlaStarted(pool, demand.id);
       }
 
       const verifiedIds = await marketplaceService.getVerifiedSupplierIds(pool);
-      const { candidateCount, matchCount, matches } = await marketplaceService.runInitialMatching(pool, demand, verifiedIds);
+      const { candidateCount, matchCount, matches } = await marketplaceService.runInitialMatching(
+        pool, demand, verifiedIds, { kundeOrgId: req.orgId || null }
+      );
 
       await marketplaceService.recordDemandMatchingAttempt(pool, demand.id, { candidateCount, matchCount });
 
@@ -840,8 +1205,21 @@ export function createMarketplaceRouter(deps) {
 
       const events = await marketplaceService.getDemandSlaEvents(pool, demand.id);
       const matchList = await marketplaceService.getDemandMatches(pool, demand.id);
-      res.locals.audit = { action: "marketplace.demand_request.create", entity_type: "demand_request", entity_id: demand.id, details: { role: parsed.data.role, urgency: parsed.data.urgency, city: parsed.data.location_city } };
-      res.status(201).json({ ...demand, sla_events: events, matches: matchList });
+      res.locals.audit = { action: "marketplace.demand_request.create", entity_type: "demand_request", entity_id: demand.id, details: { role: parsed.data.role, urgency, urgency_source: "start_date", notdienst_ohne_tarif: notdienstOhneTarif, city: parsed.data.location_city } };
+      res.status(201).json({
+        ...demand,
+        sla_events: events,
+        matches: matchList,
+        urgency_source: "start_date",
+        /*
+         * Der Aufstiegs-Moment, nicht die Sperre. Wer kurzfristig sucht und den
+         * Notdienst nicht im Tarif hat, bekommt seine Ausschreibung — und
+         * erfaehrt, was ihm entgeht. Ein 403 haette ihn ausgesperrt und nichts
+         * eingebracht; er haette einfach ein spaeteres Datum eingetragen.
+         */
+        notdienst_verfuegbar: !notdienstOhneTarif,
+        ...(notdienstOhneTarif ? { notdienst_hinweis: "PLAN_REQUIRED_NOTDIENST" } : {})
+      });
     } catch (e) {
       logger.error({ err: e }, "POST /marketplace/demand-requests");
       res.status(500).json({ error: "SERVER_ERROR" });
@@ -861,7 +1239,10 @@ export function createMarketplaceRouter(deps) {
       // Match Suggestions: top matching capacity posts for this demand
       let suggested_matches = [];
       try {
-        const suggestions = await matchingEngine.findMatches(pool, id, { topN: 5, minScore: 20 });
+        /* N4.5: die Org des BEDARFSTELLERS, nicht die des Betrachters. */
+        const suggestions = await matchingEngine.findMatches(pool, id, {
+          topN: 5, minScore: 20, kundeOrgId: row.requester_org_id || null
+        });
         suggested_matches = suggestions.map(m => ({
           id: m.capacity_post?.id,
           title: m.capacity_post?.title,
@@ -943,11 +1324,20 @@ export function createMarketplaceRouter(deps) {
         );
         if (offeredQuantity <= 0) return { error: "DEMAND_NOT_OPEN" };
 
+        /* Hier handelt der ANBIETER (supplier_company_id = req.session.userId),
+         * also gilt die Pflicht — mit Rueckfall auf sein Profil. */
+        const kontakt = await ansprechperson(client, req.session.userId, body);
+        if (kontakt.fehlt) {
+          await client.query("ROLLBACK");
+          return ansprechpersonFehltAntwort(res, kontakt);
+        }
+
         const { rows: offerRows } = await client.query(
           `INSERT INTO offers
            (demand_request_id, supplier_company_id, status,
-            price_min, price_max, offered_quantity, notes)
-           VALUES ($1, $2, 'accepted', $3, $4, $5, $6)
+            price_min, price_max, offered_quantity, notes,
+            contact_name, contact_phone)
+           VALUES ($1, $2, 'accepted', $3, $4, $5, $6, $7, $8)
            RETURNING *`,
           [
             demand.id,
@@ -955,7 +1345,9 @@ export function createMarketplaceRouter(deps) {
             body.price_min ?? demand.budget_min ?? null,
             body.price_max ?? demand.budget_max ?? null,
             offeredQuantity,
-            `Zustimmung zu Bedarf: ${demand.title}`
+            `Zustimmung zu Bedarf: ${demand.title}`,
+            kontakt.name,
+            kontakt.telefon
           ]
         );
         const offer = offerRows[0];
@@ -1057,12 +1449,17 @@ export function createMarketplaceRouter(deps) {
       if (!isDemandCommerciallyOpen(demand)) return res.status(409).json({ error: "DEMAND_NOT_OPEN" });
 
       const body = req.body || {};
+      /* Auch hier handelt der ANBIETER. */
+      const kontakt = await ansprechperson(pool, req.session.userId, body);
+      if (kontakt.fehlt) return ansprechpersonFehltAntwort(res, kontakt);
+
       const { rows: offerRows } = await pool.query(
         `INSERT INTO offers
          (demand_request_id, supplier_company_id, status,
           price_min, price_max, offered_quantity,
-          start_confirmed, end_date, notes)
-         VALUES ($1, $2, 'sent', $3, $4, $5, $6, $7, $8)
+          start_confirmed, end_date, notes,
+          contact_name, contact_phone)
+         VALUES ($1, $2, 'sent', $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
         [
           demand.id, req.session.userId,
@@ -1074,7 +1471,9 @@ export function createMarketplaceRouter(deps) {
           ),
           body.start_date || demand.start_date,
           body.end_date || demand.end_date || null,
-          body.message || `Verhandlungsanfrage zu: ${demand.title}`
+          body.message || `Verhandlungsanfrage zu: ${demand.title}`,
+          kontakt.name,
+          kontakt.telefon
         ]
       );
       const offer = offerRows[0];
@@ -1116,7 +1515,21 @@ export function createMarketplaceRouter(deps) {
       if (demand.status === "fulfilled") return res.status(400).json({ error: "DEMAND_ALREADY_FULFILLED" });
       const parsed = offerSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
-      const offer = await marketplaceService.createOffer(pool, req.session.userId, demandId, parsed.data);
+      /* Hier handelt der ANBIETER selbst — also gilt die Pflicht. Der Rueckfall
+       * aufs Profil erspart ihm die Eingabe, wenn er sie dort schon gepflegt
+       * hat; fehlt sie auch dort, wird er hier aufgefordert. Genau an der
+       * Stelle, an der es ihn betrifft. */
+      const kontakt = await ansprechperson(pool, req.session.userId, parsed.data);
+      if (kontakt.fehlt) return ansprechpersonFehltAntwort(res, kontakt);
+
+      const offer = await marketplaceService.createOffer(pool, req.session.userId, demandId, {
+        ...parsed.data,
+        contact_name: kontakt.name,
+        contact_phone: kontakt.telefon,
+      });
+      /* N3.0/M5.8: wer auf den EIGENEN Bedarf bietet, bekommt die Absage hier —
+         nicht erst beim Annehmen. */
+      if (offer?.error === "SELF_DEAL_FORBIDDEN") return res.status(403).json(offer);
       res.locals.audit = { action: "marketplace.offer.create", entity_type: "offer", entity_id: offer.id, details: { demand_request_id: demandId } };
       res.status(201).json(offer);
     } catch (e) {
@@ -1157,6 +1570,11 @@ export function createMarketplaceRouter(deps) {
       const result = await marketplaceService.updateOfferStatus(pool, req.params.id, newStatus, req.session.userId);
       if (result.error === "NOT_FOUND") return res.status(404).json({ error: "NOT_FOUND" });
       if (result.error === "FORBIDDEN") return res.status(403).json({ error: "FORBIDDEN" });
+      /* N3.0/M5: derselbe Weg, dieselben Riegel — dieser Endpunkt nimmt ein
+         Angebot mit `status: "accepted"` genauso an wie /accept. */
+      if (result.error === "SELF_DEAL_FORBIDDEN") return res.status(403).json(result);
+      if (result.error === "OVERFILL_NOT_ALLOWED") return res.status(409).json(result);
+      if (result.error === "PARTIAL_NOT_ALLOWED") return res.status(409).json(result);
       if (result.error === "CAPACITY_UNAVAILABLE") return res.status(409).json(result);
       if (result.error === "INVALID_TRANSITION") return res.status(409).json(result);
       res.locals.audit = { action: `marketplace.offer.${newStatus}`, entity_type: "offer", entity_id: req.params.id, new_values: { status: newStatus } };
@@ -1195,6 +1613,12 @@ export function createMarketplaceRouter(deps) {
       const result = await marketplaceService.acceptOffer(pool, req.params.id, req.session.userId);
       if (result.error === "NOT_FOUND") return res.status(404).json({ error: "NOT_FOUND" });
       if (result.error === "FORBIDDEN") return res.status(403).json({ error: "FORBIDDEN" });
+      /* N3.0/M5: die drei Riegel des Normalwegs. Ueberfuellung und Teilerfuellung
+         sind ein Konflikt mit dem Stand des Bedarfs (409), das Selbstgeschaeft
+         ist verboten (403). */
+      if (result.error === "SELF_DEAL_FORBIDDEN") return res.status(403).json(result);
+      if (result.error === "OVERFILL_NOT_ALLOWED") return res.status(409).json(result);
+      if (result.error === "PARTIAL_NOT_ALLOWED") return res.status(409).json(result);
       if (result.error === "CAPACITY_UNAVAILABLE") return res.status(409).json(result);
       if (result.error === "INVALID_TRANSITION") return res.status(409).json(result);
       if (result.error) return res.status(400).json(result);
@@ -1825,7 +2249,8 @@ export function createMarketplaceRouter(deps) {
           pool,
           assigned.worker_user_id,
           assigned.link_id,
-          parsed.data.client_name || offer.requester_company_name || null
+          parsed.data.client_name || offer.requester_company_name || null,
+          fristLabelDE(assigned.frist_bis)
         ).catch(swallow("marketplace"));
       }
 

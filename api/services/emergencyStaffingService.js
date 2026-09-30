@@ -11,6 +11,8 @@
  */
 
 import { createServiceLogger } from "../utils/logger.js";
+import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
+import { kundenOrgEinesBedarfs } from "./companyBlocklistService.js";
 
 const logger = createServiceLogger("emergencyStaffing");
 
@@ -27,6 +29,101 @@ export const URGENCY_CONFIG = {
 };
 
 const EMERGENCY_LEVELS = new Set(["URGENT", "CRITICAL", "NOTDIENST"]);
+
+/* ═══════════════════════════════════════════════════════
+   Der Notdienst wird ABGELEITET, nicht gefragt
+   ═══════════════════════════════════════════════════════ */
+
+/**
+ * Wie viele Tage Vorlauf ein Bedarf haben muss, um KEIN Notdienst zu sein.
+ *
+ * Owner-Vorgabe 2026-09-05: "Wenn er sagt Einsatz ab morgen, ist es Notdienst;
+ * wenn er sagt Einsatz in 2 Tagen, ist es auch Notdienst; alles andere nicht
+ * Notdienst." Also: Vorlauf <= 2 Tage.
+ */
+export const NOTDIENST_VORLAUF_TAGE = 2;
+
+/** Ganze Kalendertage zwischen zwei JJJJ-MM-TT, negativ wenn `bis` frueher liegt. */
+function tageZwischen(von, bis) {
+  const a = String(von || "").slice(0, 10);
+  const b = String(bis || "").slice(0, 10);
+  const muster = /^\d\d\d\d-\d\d-\d\d$/;
+  if (!muster.test(a) || !muster.test(b)) return null;
+  /* Mittags-UTC als Anker: so kippt keine Zeitzonenverschiebung den Tag. */
+  const t = (x) => Date.UTC(+x.slice(0, 4), +x.slice(5, 7) - 1, +x.slice(8, 10), 12);
+  return Math.round((t(b) - t(a)) / 86400000);
+}
+
+/**
+ * Leitet die Dringlichkeit aus dem Einsatzbeginn ab.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WARUM ABGELEITET UND NICHT GEFRAGT
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Die Dringlichkeit war bis hierher ein Feld im Formular - an VIER Stellen, mit
+ * VIER verschiedenen Wertelisten (`marketplace.js`, `requisitions.js`,
+ * `slaSearchJobs.js`, `emergency.js`). Sie liess sich in BEIDE Richtungen
+ * falsch setzen:
+ *
+ *   Einsatz morgen als "normal"      Die 30-Minuten-Uhr laeuft nie an, niemand
+ *                                    wird alarmiert, die Schicht bleibt leer.
+ *   Einsatz in drei Wochen als       Es klingelt bei 50 Anbietern ohne Anlass -
+ *   "notdienst"                      und beim naechsten Mal sieht keiner mehr hin.
+ *
+ * Der Einsatzbeginn steht ohnehin im Formular. Aus zwei Angaben eine zu machen,
+ * die einander widersprechen koennen, ist die Fehlerquelle - nicht die
+ * Bequemlichkeit.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * TAGESGENAU HEISST EUROPE/BERLIN
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * `todayDE()`, nicht `new Date().toISOString().slice(0,10)`. Zwischen 23:00 und
+ * 01:00 unterscheiden sich die beiden um einen Tag - und dieser eine Tag
+ * entscheidet hier ueber die Einstufung eines Auftrags, nicht ueber eine
+ * Anzeige. Ein Bedarf, der um 23:30 fuer uebermorgen angelegt wird, waere unter
+ * UTC-Rechnung faelschlich ein Notdienst.
+ *
+ * Gerechnet wird auf KALENDERTAGEN, nicht auf Stunden: "Einsatz ab morgen" ist
+ * ein Notdienst, gleich ob er um 06:00 oder um 22:00 beginnt.
+ *
+ * @param {string|Date|null} startDatum Einsatzbeginn (Kalendertag).
+ * @param {{heute?: string}} [opt] `heute` nur fuer Proben - sonst todayDE().
+ * @returns {"notdienst"|"normal"} `normal`, wenn kein gueltiges Datum vorliegt:
+ *          eine Einstufung aus dem Nichts waere schlimmer als keine.
+ */
+export function notdienstAusStartdatum(startDatum, opt = {}) {
+  /*
+   * NUR Zeichenkette oder Datum. `new Date(42)` ergibt den 01.01.1970 - also
+   * "laengst ueberfaellig" und damit einen Notdienst. Das ist folgerichtig und
+   * trotzdem falsch: eine Zahl an dieser Stelle ist ein Fehler des Aufrufers,
+   * und ihn stillschweigend als Zeitstempel zu deuten verbirgt ihn. Aufgefallen
+   * durch eine Probe, die genau das durchgehen liess.
+   */
+  if (typeof startDatum !== "string" && !(startDatum instanceof Date)) return "normal";
+  const roh = typeof startDatum === "string" ? startDatum.trim() : startDatum;
+  /*
+   * Ein reiner Kalendertag braucht KEINEN Sonderweg. Hier stand einer - eine
+   * Rueckmutation hat gezeigt, dass er nichts bewirkt: `new Date("2026-09-08")`
+   * ist Mitternacht UTC, und Berlin liegt ganzjaehrig davor (UTC+1 bzw. +2).
+   * Aus 00:00 UTC wird 01:00 oder 02:00 Berliner Zeit - derselbe Tag.
+   *
+   * Der Zweig war also ein Pfad, den keine Probe rechtfertigen konnte. Weg
+   * damit: weniger Code, ein Weg statt zwei, und die Zeitzonenrechnung an
+   * genau einer Stelle. (Fuer eine Zone WESTLICH von UTC waere er noetig -
+   * dann aber gehoerte er in `dateOnlyDE`, nicht hierher.)
+   */
+  const start = dateOnlyDE(roh);
+  if (!start) return "normal";
+
+  const tage = tageZwischen(opt.heute || todayDE(), start);
+  if (tage === null) return "normal";
+
+  /* Ein Beginn in der VERGANGENHEIT ist erst recht dringend - er ist schon da.
+     Ohne diesen Fall waere ein nachgetragener Bedarf fuer gestern "normal". */
+  return tage <= NOTDIENST_VORLAUF_TAGE ? "notdienst" : "normal";
+}
 
 /* ── Urgency-Normalisierung ──────────────────────────── */
 
@@ -102,13 +199,38 @@ export async function createEmergencyRequest(pool, userId, plan, payload) {
 
   const demand = await createDemandRequest(pool, userId, plan, demandPayload);
 
-  // Response-Window setzen
-  if (cfg.responseWindow) {
-    await pool.query(
-      `UPDATE demand_requests SET response_window_minutes = $1 WHERE id = $2`,
-      [cfg.responseWindow, demand.id]
-    );
-  }
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * HIER STAND EIN SCHREIBVORGANG AUF EINE SPALTE, DIE ES NICHT GIBT (M4c.16)
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   *   UPDATE demand_requests SET response_window_minutes = $1 WHERE id = $2
+   *
+   * `demand_requests.response_window_minutes` steht in keiner Migration und
+   * existiert in der Datenbank nicht (gemessen am 2026-09-27: 0 Treffer in
+   * information_schema). Der Schreibvorgang wirft, und weil er NACH dem Anlegen
+   * des Bedarfs laeuft, endet der ganze Notdienst-Weg in einer 500 — der Weg, den
+   * der Owner als USP fuehrt. `test/sqlSchemaWaechter.test.js` fuehrt den Fall
+   * seit laengerem in seiner Bestandsliste; was fehlte, war die Behebung.
+   *
+   * ENTSCHIEDEN WURDE GEGEN DIE MIGRATION, und zwar aus zwei Gruenden:
+   *
+   *   NIEMAND LIEST DIE SPALTE. Die einzige Auswertung, die das Antwortfenster
+   *   braucht (`reportingService`, Dringlichkeits-Punktzahl), liest
+   *   `urgencyConfig.responseWindow` aus DIESER Konfiguration — nicht aus der
+   *   Datenbank.
+   *
+   *   SIE WAERE EINE ZWEITE WAHRHEIT. Der Wert haengt allein an `urgency`, und
+   *   `urgency` steht am Bedarf. Waere er zusaetzlich gespeichert, trueg eine
+   *   alte Zeile weiter 15 Minuten, nachdem NOTDIENST auf 10 geaendert wurde —
+   *   waehrend die Auswertung 10 sagt. Genau die Sorte Schattenwahrheit, die das
+   *   Projekt an anderer Stelle mit `zusageFormel` und `koepfeFormel` beseitigt
+   *   hat.
+   *
+   * `GET /emergency/config` gibt `response_window_minutes` weiter aus. Das ist
+   * richtig: dort beschreibt es die FAEHIGKEIT einer Dringlichkeitsstufe, nicht
+   * den Zustand einer Zeile.
+   */
 
   // 2. SLA starten
   if (demand.sla_status === "RUNNING") {
@@ -130,7 +252,12 @@ export async function createEmergencyRequest(pool, userId, plan, payload) {
       start_date: demand.start_date,
       end_date: demand.end_date
     };
+    /* N4.5: `kundeOrgId` fuer die Sperre. `orgId` bleibt null, damit sich an
+       der Vendor-Pool-Rangfolge der Alarmierung nichts verschiebt.
+       N2.11: aus dem GESPEICHERTEN Bedarf (Migration 218), mit Rueckfall — so
+       rechnet die Anlage mit derselben Firma wie jede spaetere Stelle. */
     matchResults = await instantMatchFromParams(pool, demandParams, null, {
+      kundeOrgId: await kundenOrgEinesBedarfs(pool, { ...demand, requester_org_id: demand.requester_org_id || payload.requester_org_id }),
       topN: 25, minScore: 10,
       budgetPerHour: demand.budget_max,
       workersNeeded: demand.headcount,
@@ -206,6 +333,55 @@ export async function createEmergencyRequest(pool, userId, plan, payload) {
    getActiveEmergencies
    ═══════════════════════════════════════════════════════ */
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DIE FELDER, DIE EINE FREMDE ORGANISATION SEHEN DARF (N7.5, 2026-09-06)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * `demand_requests` hat 44 Spalten. Der ausdruecklich oeffentliche Nachbarpfad
+ * `GET /marketplace/public/demand-requests` waehlt davon **14 von Hand** aus -
+ * und laesst `contact_name`, `contact_phone`, `budget_min`, `budget_max`,
+ * `requirements`, `shifts`, `location_lat/lng` und `location_postal`
+ * ausdruecklich weg. Diese Auswahl IST die Aussage; `SELECT dr.*` ist keine
+ * Entscheidung, sondern deren Abwesenheit.
+ *
+ * Bis zum 2026-09-06 lieferte `?all=1` die ganze Zeile. Die Durchwahl der
+ * Ansprechperson gehoert aber NACH die Besetzung, nicht in eine
+ * Entdeckungsliste - `assignmentStaffingService.js` liest sie mit genau dieser
+ * Begruendung ("Wer besetzt, braucht die Nummer der Gegenseite").
+ *
+ * Dazu die Notdienst-eigenen Kennzahlen, die den Leitstand ausmachen und im
+ * oeffentlichen Pfad fehlen: Alter, SLA-Stand, Eskalationsstufe.
+ *
+ * DIE EIGENE ORGANISATION SIEHT WEITERHIN ALLES. Die Einschraenkung greift nur
+ * fuer den plattformweiten Blick - wer die eigene Notlage ansieht, hat auf jedes
+ * Feld ohnehin Anspruch.
+ *
+ * Die Auswahl steht ALS LISTE hier und nicht als Streichung in der Route: eine
+ * Erlaubnisliste laesst ein NEUES Feld standardmaessig draussen. Eine
+ * Streichliste wuerde es standardmaessig durchlassen - und niemand denkt beim
+ * Anlegen einer Spalte an diesen Endpunkt.
+ */
+const FREMDE_SICHT = Object.freeze([
+  /* dieselben 14 wie der oeffentliche Nachbarpfad */
+  "id", "title", "role", "skill_tags", "headcount", "required_total_count",
+  "remaining_open_count", "currently_committed_count", "status",
+  "start_date", "end_date", "location_city", "urgency", "created_at",
+  "requester_company_name",
+  /* was den Leitstand ausmacht */
+  "urgency_level", "urgency_label", "age_minutes", "sla_overdue",
+  "sla_due_at", "escalation_level", "supplier_response_count"
+]);
+
+/** Reduziert eine Zeile auf die Felder, die eine fremde Organisation sehen darf. */
+function nurFremdeSicht(zeile) {
+  const raus = {};
+  for (const feld of FREMDE_SICHT) {
+    if (Object.prototype.hasOwnProperty.call(zeile, feld)) raus[feld] = zeile[feld];
+  }
+  return raus;
+}
+
 export async function getActiveEmergencies(pool, orgId) {
   const { rows } = await pool.query(
     `SELECT dr.*, u.company_name AS requester_company_name,
@@ -226,13 +402,18 @@ export async function getActiveEmergencies(pool, orgId) {
        dr.created_at ASC`,
     [orgId || null]
   );
-  return rows.map(r => ({
+  const angereichert = rows.map(r => ({
     ...r,
     urgency_level: classifyUrgency(r.urgency),
     urgency_label: getUrgencyConfig(r.urgency).label,
     age_minutes: Math.round(Number(r.age_minutes) || 0),
     sla_overdue: r.sla_overdue ?? false
   }));
+
+  /* Ohne `orgId` ist dies der PLATTFORMWEITE Blick: fremde Notlagen, also
+     reduzierte Sicht. Mit `orgId` sind es die eigenen - dort aendert sich
+     nichts. */
+  return orgId ? angereichert : angereichert.map(nurFremdeSicht);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -355,8 +536,13 @@ export async function recordSupplierResponse(pool, demandId, supplierId) {
  * Erhoeht escalation_level, re-triggert Alerts.
  */
 export async function escalateEmergency(pool, demandId, actorId) {
+  /* `requester_company_id` (N4.5): ohne diese Spalte konnte die Eskalation die
+     Org des Auftraggebers nie bestimmen — und die Kundensperre griff bei genau
+     dem Weg nicht, der die meisten Anbieter anschreibt (bis zu fuenfzig). Beim
+     ersten Einbau fehlte sie hier; der Riegel war damit so tot wie der der
+     Detailansicht, aus demselben Grund. */
   const { rows } = await pool.query(
-    `SELECT id, urgency, status, escalation_level, title, role, location_city
+    `SELECT id, urgency, status, escalation_level, title, role, location_city, requester_company_id, requester_org_id
      FROM demand_requests WHERE id = $1`,
     [demandId]
   );
@@ -390,11 +576,16 @@ export async function escalateEmergency(pool, demandId, actorId) {
     const { instantMatchFromParams } = await import("./instantMatchService.js");
 
     const demand = rows[0];
+    /* N4.5: die Eskalation schreibt BIS ZU FUENFZIG Anbieter an — gerade dort
+       darf keine Anfrage fuer eine gesperrte Kraft hinausgehen.
+       N2.11: die Firma steht am Bedarf (Migration 218); `users.org_id` war die
+       Start-Firma des Anlegers und fuer Teammitglieder falsch. */
+    const kundeOrgId = await kundenOrgEinesBedarfs(pool, demand);
     const matchResults = await instantMatchFromParams(pool, {
       role: demand.role,
       skill_tags: [],
       location_city: demand.location_city
-    }, null, { topN: 50, minScore: 5, urgency: "CRITICAL" });
+    }, null, { topN: 50, minScore: 5, urgency: "CRITICAL", kundeOrgId });
 
     const supplierIds = [...new Set(
       (matchResults.matches || []).map(m => m.capacity_post?.supplier_company_id).filter(Boolean)

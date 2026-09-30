@@ -4,6 +4,8 @@
  */
 
 import { getSystemDiagnostics } from "./healthService.js";
+import { taktStand } from "./betriebsTaktService.js";
+import { mailStand } from "./mailProtokollService.js";
 
 export async function loadExecutiveSnapshot(pool) {
   const snapshot = {
@@ -86,6 +88,15 @@ export async function loadOperationsSnapshot(pool) {
     recent_runs: [],
     infra_health: [],   // Letzter Snapshot pro Host (max. 24 h alt)
     service_health: null, // Live-Diagnostics (DB/Redis/Process/API/Billing/Email) — Phase I Slice 2
+    /*
+     * M1.1 — DER BETRIEBSTAKT. Hier statt in einem eigenen Modul: die Frage
+     * "laeuft das noch?" ist genau die Frage, wegen der jemand Operations
+     * aufschlaegt. Ein zweites Modul daneben waere eine zweite Anlaufstelle
+     * fuer dieselbe Sorge.
+     */
+    betriebs_takt: null,
+    /* M1.3 — kommen die Mails an? Siehe Begruendung am Aufruf unten. */
+    mail_versand: null,
     errors: []
   };
 
@@ -126,6 +137,36 @@ export async function loadOperationsSnapshot(pool) {
     snapshot.service_health = await getSystemDiagnostics(pool);
   } catch (err) {
     snapshot.errors.push({ area: "service_health", error: String(err.code || err.message || err) });
+  }
+
+  /*
+   * Der Betriebstakt kommt ZULETZT — aus demselben Grund, den die Zeilen ueber
+   * service_health nennen: Muster-Pool-Proben zaehlen Abfragen der Reihe nach.
+   * Eine neue Abfrage vorne verschiebt jede bestehende Sequenz um eins und
+   * macht Proben rot, die mit der Sache nichts zu tun haben. Beim ersten
+   * Anlauf stand dieser Block ganz oben — genau der Fehler, vor dem die
+   * Bemerkung warnt.
+   *
+   * Und er faengt seinen eigenen Fehler: faellt der Takt aus, fehlt EINE
+   * Kachel, nicht die ganze Seite. `taktStand` wirft ohnehin nicht.
+   */
+  try {
+    snapshot.betriebs_takt = await taktStand(pool);
+  } catch (e) {
+    snapshot.errors.push({ area: "betriebs_takt", error: String(e?.code || e?.message || e) });
+  }
+
+  /*
+   * M1.3 — DAS VERSANDPROTOKOLL, aus demselben Grund an derselben Stelle wie
+   * der Betriebstakt darueber: "kommen die Einladungen an?" ist eine Frage der
+   * Betriebsaufsicht, nicht ein eigenes Modul. Und sie hat dieselbe Form wie
+   * "laeuft das noch?" — beide beantwortet man, indem man nachsieht, was
+   * SCHWEIGT.
+   */
+  try {
+    snapshot.mail_versand = await mailStand(pool, { tage: 7 });
+  } catch (e) {
+    snapshot.errors.push({ area: "mail_versand", error: String(e?.code || e?.message || e) });
   }
 
   return snapshot;
@@ -174,7 +215,12 @@ export async function loadRiskSnapshot(pool) {
       SELECT dgr.id, dgr.request_type, dgr.subject_type, dgr.status,
              dgr.notes, dgr.created_at,
              o.name AS org_name,
-             NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS requested_by_name,
+             -- Z18 (2026-09-28): dieselben zwei nicht existierenden Spalten wie im Staff
+             -- Control Center, und hier wiegt es schwerer: das ist die Liste der
+             -- DSGVO-Anfragen, sortiert nach Frist. Die Abfrage warf, der Aufrufer
+             -- faengt - die Liste war dauerhaft LEER, waehrend die gesetzlichen
+             -- Fristen liefen. Niemand konnte sehen, dass etwas offen ist.
+             NULLIF(TRIM(COALESCE(u.contact_person,'')), '') AS requested_by_name,
              u.email AS requested_by_email
       FROM   data_governance_requests dgr
       LEFT JOIN organizations o ON o.id = dgr.org_id
@@ -343,7 +389,10 @@ const DATA_EXPLORER_VIEWS = {
   },
   "failed_audit_actions_24h": {
     description: "Fehlgeschlagene Audit-Aktionen (Plattform) der letzten 24 h",
-    sql: `SELECT created_at, action, entity_type, entity_id, user_id
+    /* Z16 (2026-09-28): hier stand `user_id`. Die Spalte heisst `actor_id`
+       (gemessen: audit_log hat KEIN user_id). Die Abfrage warf, der Aufrufer
+       faengt - der Staff sah also einen leeren Verlauf statt eines Fehlers. */
+    sql: `SELECT created_at, action, entity_type, entity_id, actor_id AS user_id
           FROM audit_log
           WHERE created_at > NOW() - INTERVAL '24 hours'
             AND (action LIKE '%.error%' OR details->>'success' = 'false')

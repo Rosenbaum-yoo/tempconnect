@@ -49,11 +49,223 @@ const origLinkRow = (over = {}) => ({
   notes: "Original", ...over
 });
 
+describe("replaceAssignmentWorker — der zweite Anlauf nach einer Absage (8.2)", () => {
+  /*
+   * DIE SACKGASSE, die entstand, sobald der Ersatz absagen DARF.
+   *
+   * Sagt er ab, bleibt der Link des Ausgefallenen auf `worker_unavailable` und
+   * `is_active = FALSE` liegen. `replaceAssignmentWorker` wies jeden weiteren
+   * Versuch mit `LINK_NOT_ACTIVE` ab — der Disponent konnte niemand anderen
+   * mehr anfragen. Der Verify-Satz des Plans ("er lehnt ab, der Einsatz ist
+   * wieder offen und der Vorschlag erscheint erneut") scheiterte genau hier.
+   */
+
+  /** Der liegengebliebene Link des Ausgefallenen. */
+  const ausgefallen = (extra = {}) => origLinkRow({
+    is_active: false,
+    worker_confirmation_status: "worker_unavailable",
+    ...extra,
+  });
+
+  function sequenz(orig, riegel = { rows: [], rowCount: 0 }) {
+    return fakePool([
+      { rows: [], rowCount: 0 },                                          // BEGIN
+      { rows: [orig], rowCount: 1 },                                      // SELECT ... FOR UPDATE
+      riegel,                                                             // Riegel gegen Doppelbesetzung
+      { rows: [{ user_id: REPLACEMENT, is_active: true }], rowCount: 1 }, // Ersatz-Profil
+      { rows: [], rowCount: 0 },                                          // keine Terminkollision
+      { rows: [], rowCount: 0 },                                          // nicht gesperrt
+      { rows: [ausgefallen()], rowCount: 1 },                             // UPDATE freigestellt
+      { rows: [{ id: "link-3", worker_user_id: REPLACEMENT, assignment_id: ASG }], rowCount: 1 },
+      { rows: [], rowCount: 0 }                                           // COMMIT
+    ]);
+  }
+
+  it("laesst einen zweiten Anlauf zu, wenn der Ausgefallene ohne Ersatz dasteht", async () => {
+    const pool = sequenz(ausgefallen());
+    const result = await replaceAssignmentWorker(pool, {
+      linkId: LINK, supplierOrgId: ORG, replacementWorkerUserId: REPLACEMENT,
+      effectiveDate: "2026-08-12", reason: "Ersatz hat abgesagt", createdBy: "chef-1"
+    });
+
+    assert.equal(result.error, undefined, "der zweite Anlauf darf nicht an LINK_NOT_ACTIVE scheitern");
+    assert.ok(result.replacement_link, "es muss ein neuer Ersatz-Link entstehen");
+  });
+
+  it("DER RIEGEL: keine zweite Anfrage, solange eine laeuft", async () => {
+    /*
+     * Das schwerwiegendste Risiko dieser Aenderung. Ohne den Riegel koennte der
+     * Disponent zwei Ersaetze parallel anfragen — beide `pending_confirmation`,
+     * beide aktiv. Sagen BEIDE zu, stehen zwei Menschen beim Kunden:
+     * `confirmAssignment` prueft nur den eigenen Link, und
+     * `recalcAssignmentStaffing` zaehlt nur, es sperrt nicht.
+     */
+    const pool = sequenz(ausgefallen(), { rows: [{ "?column?": 1 }], rowCount: 1 });
+    const result = await replaceAssignmentWorker(pool, {
+      linkId: LINK, supplierOrgId: ORG, replacementWorkerUserId: REPLACEMENT,
+      effectiveDate: "2026-08-12", reason: "zweiter Versuch", createdBy: "chef-1"
+    });
+
+    assert.equal(result.error, "REPLACEMENT_PENDING");
+    const sqls = pool.calls.map((c) => c.sql);
+    assert.ok(!sqls.some((q) => q.includes("INSERT INTO worker_assignment_links")),
+      "es darf kein zweiter Ersatz angelegt worden sein");
+    assert.ok(sqls.some((q) => q.includes("ROLLBACK")), "die Transaktion muss zurueckgerollt werden");
+  });
+
+  it("der Riegel steht INNERHALB der Transaktion, nach dem Zeilenriegel", async () => {
+    /*
+     * Stuende die Pruefung vor dem `FOR UPDATE`, gewaennen zwei gleichzeitige
+     * Anfragen beide: erst der Zeilenriegel auf dem Alt-Link serialisiert sie.
+     * Die Reihenfolge ist hier die eigentliche Zusicherung, nicht das Ergebnis.
+     */
+    const pool = sequenz(ausgefallen());
+    await replaceAssignmentWorker(pool, {
+      linkId: LINK, supplierOrgId: ORG, replacementWorkerUserId: REPLACEMENT,
+      effectiveDate: "2026-08-12", reason: "Ersatz hat abgesagt", createdBy: "chef-1"
+    });
+
+    const sqls = pool.calls.map((c) => c.sql);
+    const begin = sqls.findIndex((q) => q.includes("BEGIN"));
+    const forUpdate = sqls.findIndex((q) => /FOR UPDATE/.test(q));
+    const riegel = sqls.findIndex((q) => q.includes("ersetzt_link_id = $1"));
+
+    assert.ok(begin >= 0 && forUpdate > begin, "der Zeilenriegel liegt in der Transaktion");
+    assert.ok(riegel > forUpdate,
+      "der Riegel gegen Doppelbesetzung muss NACH dem FOR UPDATE stehen — sonst gewinnen zwei gleichzeitige Anfragen beide");
+  });
+
+  it("ein laufender Einsatz bleibt unantastbar", async () => {
+    /*
+     * Die Lockerung oeffnet GENAU EINEN Fall. Griffe sie auch bei
+     * `worker_confirmed` oder `worker_declined`, waere ein laufender Einsatz
+     * ueberschreibbar — oder eine Absage wuerde zum Einfallstor.
+     */
+    for (const status of ["worker_confirmed", "auto_confirmed", "worker_declined"]) {
+      const pool = fakePool([
+        { rows: [], rowCount: 0 },
+        { rows: [origLinkRow({ is_active: false, worker_confirmation_status: status })], rowCount: 1 },
+        { rows: [], rowCount: 0 }
+      ]);
+      const result = await replaceAssignmentWorker(pool, {
+        linkId: LINK, supplierOrgId: ORG, replacementWorkerUserId: REPLACEMENT,
+        effectiveDate: "2026-08-12", reason: "Versuch", createdBy: "chef-1"
+      });
+      assert.equal(result.error, "LINK_NOT_ACTIVE", `${status} darf nicht ersetzbar sein`);
+      assert.equal(result.current_status, status);
+    }
+  });
+});
+
+describe("replaceAssignmentWorker — der Ersatz wird GEFRAGT, nicht gebunden (8.2)", () => {
+  /*
+   * BEFUND 2026-08-21: Es gab ZWEI Wege, denselben Einsatz zu besetzen, und nur
+   * einer fragte den Menschen, den er besetzt.
+   *
+   *   quick-assign   legt `pending_confirmation` an und benachrichtigt zur Zusage
+   *   replace        legte `auto_confirmed` an — eine Absage war damit nicht
+   *                  bloss unueblich, sondern UNMOEGLICH: `declineAssignment`
+   *                  verlangt ausdruecklich `pending_confirmation` und haette
+   *                  den Link abgewiesen.
+   *
+   * Owner-Vorgabe (Plan I, 8.2): "Eine Zuweisung, die der Zugewiesene nicht
+   * bestaetigt hat, ist eine Absichtserklaerung, keine Besetzung."
+   */
+
+  it("legt den Ersatz-Link als pending_confirmation an, nicht als auto_confirmed", async () => {
+    const pool = fakePool([
+      { rows: [], rowCount: 0 },
+      { rows: [origLinkRow()], rowCount: 1 },
+      { rows: [], rowCount: 0 },                                   // NEU (8.2): Riegel gegen doppelte Besetzung — kein laufender Ersatz
+      { rows: [{ user_id: REPLACEMENT, is_active: true }], rowCount: 1 },
+      { rows: [], rowCount: 0 },
+      { rows: [], rowCount: 0 },
+      { rows: [origLinkRow({ is_active: false, worker_confirmation_status: "worker_unavailable" })], rowCount: 1 },
+      { rows: [{ id: "new-link", worker_user_id: REPLACEMENT, assignment_id: ASG }], rowCount: 1 },
+      { rows: [], rowCount: 0 }
+    ]);
+
+    await replaceAssignmentWorker(pool, {
+      linkId: LINK, supplierOrgId: ORG, replacementWorkerUserId: REPLACEMENT,
+      effectiveDate: "2026-08-10", reason: "Krankmeldung", createdBy: "chef-1"
+    });
+
+    const insert = pool.calls.map((c) => c.sql).find((q) => q.includes("INSERT INTO worker_assignment_links"));
+    assert.ok(insert, "das INSERT muss laufen");
+    assert.ok(insert.includes("'pending_confirmation'"),
+      "der Ersatz muss zusagen koennen — sonst ist die Zuweisung eine Absichtserklaerung");
+    assert.ok(!insert.includes("'auto_confirmed'"),
+      "auto_confirmed bindet den Ersatz ungefragt und macht declineAssignment unmoeglich");
+  });
+
+  it("traegt ein, WESSEN Ersatz es ist — sonst kann die Kundenmeldung nicht warten", async () => {
+    /*
+     * `ersetzt_link_id` (Migration 188) traegt den Zusammenhang in die Daten.
+     * Ohne ihn lebte er nur im Ablauf der Route — und die Kundenmeldung "Ersatz
+     * gestellt" kann erst bei der ZUSAGE rausgehen, nicht schon beim Zuweisen
+     * (Gate aus Welle G4b: erst nach echter Neubesetzung).
+     */
+    const pool = fakePool([
+      { rows: [], rowCount: 0 },
+      { rows: [origLinkRow()], rowCount: 1 },
+      { rows: [], rowCount: 0 },                                   // NEU (8.2): Riegel gegen doppelte Besetzung — kein laufender Ersatz
+      { rows: [{ user_id: REPLACEMENT, is_active: true }], rowCount: 1 },
+      { rows: [], rowCount: 0 },
+      { rows: [], rowCount: 0 },
+      { rows: [origLinkRow({ is_active: false, worker_confirmation_status: "worker_unavailable" })], rowCount: 1 },
+      { rows: [{ id: "new-link", worker_user_id: REPLACEMENT, assignment_id: ASG }], rowCount: 1 },
+      { rows: [], rowCount: 0 }
+    ]);
+
+    await replaceAssignmentWorker(pool, {
+      linkId: LINK, supplierOrgId: ORG, replacementWorkerUserId: REPLACEMENT,
+      effectiveDate: "2026-08-10", reason: "Krankmeldung", createdBy: "chef-1"
+    });
+
+    const aufruf = pool.calls.find((c) => c.sql.includes("INSERT INTO worker_assignment_links"));
+    assert.ok(aufruf.sql.includes("ersetzt_link_id"), "die Spalte muss geschrieben werden");
+    assert.ok((aufruf.params || []).includes(LINK),
+      "es muss der Link des AUSGEFALLENEN sein — sonst zeigt der Zusammenhang ins Leere");
+  });
+
+  it("setzt eine fruehere Absage zurueck, wenn derselbe Mensch erneut gefragt wird", async () => {
+    /*
+     * Der ON-CONFLICT-Zweig. Wer einmal abgelehnt hat, traegt `worker_declined_at`
+     * und einen Grund. Wird er spaeter erneut angefragt, muessen diese Spuren
+     * weg — sonst steht an einer offenen Anfrage eine alte Absage, und niemand
+     * weiss, welche gilt.
+     */
+    const pool = fakePool([
+      { rows: [], rowCount: 0 },
+      { rows: [origLinkRow()], rowCount: 1 },
+      { rows: [], rowCount: 0 },                                   // NEU (8.2): Riegel gegen doppelte Besetzung — kein laufender Ersatz
+      { rows: [{ user_id: REPLACEMENT, is_active: true }], rowCount: 1 },
+      { rows: [], rowCount: 0 },
+      { rows: [], rowCount: 0 },
+      { rows: [origLinkRow({ is_active: false })], rowCount: 1 },
+      { rows: [{ id: "new-link", worker_user_id: REPLACEMENT, assignment_id: ASG }], rowCount: 1 },
+      { rows: [], rowCount: 0 }
+    ]);
+
+    await replaceAssignmentWorker(pool, {
+      linkId: LINK, supplierOrgId: ORG, replacementWorkerUserId: REPLACEMENT,
+      effectiveDate: "2026-08-10", reason: "Krankmeldung", createdBy: "chef-1"
+    });
+
+    const insert = pool.calls.map((c) => c.sql).find((q) => q.includes("ON CONFLICT"));
+    assert.ok(insert, "der ON-CONFLICT-Zweig muss existieren");
+    assert.ok(/worker_declined_at\s*=\s*NULL/.test(insert), "alte Absage-Zeit muss geloescht werden");
+    assert.ok(/worker_declined_reason\s*=\s*NULL/.test(insert), "alter Absage-Grund muss geloescht werden");
+    assert.ok(/worker_confirmed_at\s*=\s*NULL/.test(insert), "alte Zusage-Zeit muss geloescht werden");
+  });
+});
+
 describe("replaceAssignmentWorker — Happy Path", () => {
   it("stellt A frei, legt Ersatz-Link ab Wirk-Datum an und committet", async () => {
     const pool = fakePool([
       { rows: [], rowCount: 0 },                                   // BEGIN
       { rows: [origLinkRow()], rowCount: 1 },                      // SELECT ... FOR UPDATE
+      { rows: [], rowCount: 0 },                                   // NEU (8.2): Riegel gegen doppelte Besetzung — kein laufender Ersatz
       { rows: [{ user_id: REPLACEMENT, is_active: true }], rowCount: 1 }, // SELECT replacement profile
       { rows: [], rowCount: 0 },                                   // Kollisionsprüfung Ersatz: kein Konflikt
       { rows: [], rowCount: 0 },                                   // Sperrlisten-Prüfung Ersatz: nicht gesperrt
@@ -140,6 +352,7 @@ describe("replaceAssignmentWorker — Guards (ROLLBACK, kein INSERT)", () => {
     const pool = fakePool([
       { rows: [], rowCount: 0 },
       { rows: [origLinkRow()], rowCount: 1 },
+      { rows: [], rowCount: 0 },                                   // NEU (8.2): Riegel gegen doppelte Besetzung — kein laufender Ersatz
       { rows: [], rowCount: 0 } // SELECT replacement profile → leer
     ]);
     const r = await replaceAssignmentWorker(pool, {
@@ -154,6 +367,7 @@ describe("replaceAssignmentWorker — Guards (ROLLBACK, kein INSERT)", () => {
     const pool = fakePool([
       { rows: [], rowCount: 0 },                                         // BEGIN
       { rows: [origLinkRow()], rowCount: 1 },                            // SELECT FOR UPDATE
+      { rows: [], rowCount: 0 },                                   // NEU (8.2): Riegel gegen doppelte Besetzung — kein laufender Ersatz
       { rows: [{ user_id: REPLACEMENT, is_active: true }], rowCount: 1 },// SELECT replacement profile
       { rows: [{ id: "conflict-link" }], rowCount: 1 }                   // Kollisionsprüfung: Konflikt!
     ]);
@@ -170,6 +384,7 @@ describe("replaceAssignmentWorker — Guards (ROLLBACK, kein INSERT)", () => {
     const pool = fakePool([
       { rows: [], rowCount: 0 },                                          // BEGIN
       { rows: [origLinkRow()], rowCount: 1 },                             // SELECT FOR UPDATE
+      { rows: [], rowCount: 0 },                                   // NEU (8.2): Riegel gegen doppelte Besetzung — kein laufender Ersatz
       { rows: [{ user_id: REPLACEMENT, is_active: true }], rowCount: 1 },// SELECT replacement profile
       { rows: [], rowCount: 0 },                                          // Kollisionsprüfung: kein Konflikt
       { rows: [{ id: "blk1", reason: "gesperrt", blocked_until: null }], rowCount: 1 } // Sperrliste: gesperrt!

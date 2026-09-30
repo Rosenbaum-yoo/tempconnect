@@ -13,7 +13,24 @@
 > 185 severity zurueck auf die vier (Befund M0-B9: die laufende Datenbank
 > erlaubte ein fuenftes `urgent`, das keine Migration je gewaehrt hat),
 > 186 Guthaben nur gegen Zahlung (Befund P1-22, Owner-Entscheidung Stripe:
-> eindeutiger Index auf der Kauf-Referenz gegen doppelte Webhook-Zustellung)
+> eindeutiger Index auf der Kauf-Referenz gegen doppelte Webhook-Zustellung),
+> 187 die Rechnung braucht eine Anschrift (E-Rechnungspflicht EN 16931: Rechnungs-
+> stammdaten auf `organizations`, ohne die keine XRechnung/ZUGFeRD erzeugbar ist),
+> 200 Marktpraesenz-Automatik (Welle J2b: Ausschalter je Kraft auf
+> worker_profiles + Herkunftsspalte `quelle` auf capacity_posts — Vorstufe
+> "Verfuegbarkeit ist das Angebot", Plan J §0/§3.2),
+> 201 Markt-Profil der Kraft (Welle J9: Merkmal-Katalog als CHECK, Horizont
+> einsetzbar_bis, interne dispo_notiz),
+> 202 Audit-Log traegt den Mandanten an der Quelle (beim Zusammenfuehren von 187
+> auf 202 gerueckt: die Release-Linie hatte 187 fuer die Rechnungs-Anschrift
+> vergeben, und ab 158 ist keine Nummer mehr doppelt zulaessig),
+> 203 Rechnungsnummer je Firma (Welle J7: eigener lueckenloser Kreis je
+> Zeitarbeitsfirma und Jahr, Vergabe erst beim Stellen, eingefrorener
+> Abrechnungssatz an der Rechnung),
+> 217 ein Angebot traegt hoechstens eine Zuweisung (Welle N2.9: eindeutiger
+> Teilindex auf `assignments(offer_id)`, Ausfaelle ueber die Warteliste im Einsatz),
+> 218 ein Bedarf kennt seine Firma (Welle N2.11: `demand_requests.requester_org_id`
+> als Traeger der Kundensperre, Altbestand ueber die einzige Unternehmens-Mitgliedschaft)
 
 This document records known legacy numbering anomalies and establishes the rule
 for all future migrations.
@@ -28,7 +45,7 @@ for all future migrations.
 
 ## Rule: Next migration number
 
-**Next migration MUST start at: 187**
+**Next migration MUST start at: 226**
 
 Format: `<NNN>_<short_description>.sql` (three-digit zero-padded)
 
@@ -104,9 +121,38 @@ alphabetical order within the number (e.g. `064_capacity_…` before `064_strate
 
 ## Checklist for new migrations
 
-1. Use the next sequential number (currently **187**)
-2. File name: `187_<short_snake_case>.sql`
+1. Use the next sequential number (currently **226**)
+2. File name: `226_<short_snake_case>.sql`
 3. Wrap DDL in a transaction if the DB supports transactional DDL
 4. Include a `-- Migration NNN:` comment header with a brief description
 5. Use `SET client_min_messages TO WARNING;` to suppress noise
 6. Test on a fresh schema before committing (see `sql/test-fresh-install.sh`)
+
+## Die Luecken 111 und 117 — gemessen, nicht vermutet (2026-09-27)
+
+`sql/migrations/` hat 110 und 112, aber keine 111; ebenso fehlt 117. Seit der
+Finalisierungsphase stand dazu die Owner-Frage **OE-05: „Bewusst uebersprungen
+oder Fehler?"** offen (`docs/releases/FINALIZATION_SCOPE.md`,
+`docs/releases/OPEN_BLOCKERS.md` P2-04). Sie ist jetzt beantwortet, und zwar
+durch Messung:
+
+| Frage | Messung am 2026-09-27 | Folge |
+|---|---|---|
+| Wurde je etwas unter 111 angewandt? | Die Buchhaltung `_migrations` fuehrt **keinen** Eintrag `111…` | Nichts ist verloren. Es gab nie eine Datei, die gelaufen ist. |
+| Ist das ein Einzelfall? | **Sieben** Nummern sind **doppelt** belegt: 064, 070, 074, 075, 086, 130, 140 | Nummernkollisionen waren Alltag. Eine uebersprungene Nummer ist dasselbe Phaenomen mit umgekehrtem Vorzeichen. |
+| Und 117? | Steht in `docs/enterprise-readiness/TENANT_ISOLATION_EVIDENCE.md` und `docs/security/SECURITY_OVERVIEW.md` ausdruecklich als **Roadmap** („RLS auf ~60 weitere Tabellen, Owner-Entscheidung ausstehend") | Kein Fehler, sondern ein Vorausverweis auf eine Entscheidung. |
+
+**Damit ist 111 eine Luecke ohne Inhalt.** Sie braucht keine Nachtrags-Migration:
+eine Nummer ist ein Ordnungsmerkmal, kein Inventar. Was sie braucht, ist genau
+diese Zeile — damit der naechste Leser nicht wieder sucht.
+
+Erzwungen wird das ab jetzt von `api/test/dokuMigrationen.test.js`: eine in
+einem Dokument genannte Migrationsnummer muss als Datei existieren oder dort im
+Register `GEPLANT` mit Grund stehen. Beide Nummern stehen darin — mit genau
+dieser Messung als Grund, und der Waechter wird rot, sobald eine von ihnen
+angelegt wird und der Eintrag bleibt.
+
+> Anmerkung zur Buchhaltung: `_migrations` fuehrt 239 Buchungen, das Verzeichnis
+> 224 Dateien. Die Differenz ist ein eigener Gegenstand (Buchungen aus aelteren
+> Namensschemata, z. B. `sql_005_reviews_pgcrypto.sql`) und wird getrennt
+> geprueft — sie beruehrt die Antwort auf OE-05 nicht.

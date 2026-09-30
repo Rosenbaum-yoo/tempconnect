@@ -111,6 +111,58 @@
     } catch (e) { /* Unread-Count ist nicht kritisch — still ignorieren */ }
   }
 
+  /* ── Live-Strom ────────────────────────────────────────────────────
+   *
+   * DAS EINSATZPORTAL HAT BIS HIERHER NIE VON SELBST NACHGESEHEN.
+   * Kein Polling, kein Live-Strom: `loadUnreadCount()` lief genau einmal beim
+   * Laden der Seite, danach nur nach einer Nutzeraktion. Wer das Portal offen
+   * hatte und nichts anklickte, erfuhr von einer neuen Anfrage gar nichts.
+   *
+   * Bei der 4-Stunden-Frist der Ersatz-Anfrage (Migration 193) ist das der
+   * Unterschied zwischen einer Frist und einer Falle: die Erinnerung nach zwei
+   * Stunden erreichte einen Arbeiter faktisch erst, wenn er ohnehin
+   * hineinsah — die Uhr lief trotzdem.
+   *
+   * DER STROM EXISTIERTE BEREITS (`GET /api/notifications/stream`, montiert in
+   * app.js) und wird von der Hauptplattform seit Welle G4 benutzt
+   * (`pageShell.js`). Hier wird er nicht neu gebaut, sondern angeschlossen —
+   * mit demselben Rueckfall auf Polling, damit ein Browser oder ein Proxy ohne
+   * SSE nicht schlechter dasteht als vorher.
+   */
+  var _sseFehler = 0;
+  var _pollTimer = null;
+
+  function startePolling() {
+    if (_pollTimer) return;
+    /* 60 Sekunden: haeufig genug fuer eine Frist in Stunden, selten genug, dass
+       ein offenes Portal keine Last erzeugt. */
+    _pollTimer = setInterval(loadUnreadCount, 60000);
+  }
+
+  function starteLiveStrom() {
+    if (typeof EventSource === 'undefined') { startePolling(); return; }
+    try {
+      var es = new EventSource('/api/notifications/stream', { withCredentials: true });
+      es.addEventListener('notification', function () {
+        /* Den Zaehler NEU LADEN statt hochzuzaehlen: die Entdopplung in
+           `notifyWorker` kann eine Meldung verwerfen, und zwei offene Reiter
+           wuerden sonst auseinanderlaufen. Eine Abfrage ist billiger als eine
+           falsche Zahl. */
+        loadUnreadCount();
+      });
+      es.addEventListener('connected', function () { _sseFehler = 0; });
+      es.onerror = function () {
+        _sseFehler++;
+        /* Nach drei Fehlern aufgeben — sonst versucht der Browser es endlos
+           weiter und die Meldung kommt trotzdem nie an. Dasselbe Muster wie in
+           pageShell.js. */
+        if (_sseFehler >= 3) { es.close(); startePolling(); }
+      };
+    } catch (e) {
+      startePolling();
+    }
+  }
+
   /* ── Logout ────────────────────────────────────────────────────── */
   async function doLogout() {
     try { await PortalApi.post('/auth/logout', {}); } catch (e) { /* Logout trotzdem ausführen */ }
@@ -318,6 +370,9 @@
     if (await _enforceOnboarding()) return me; // Umleitung laeuft — nichts mehr aufbauen
     _reveal(); // Session bestaetigt -> Portal-Huelle einblenden (vorher .ep-preauth)
     loadUnreadCount(); // fire-and-forget — kein await
+    /* Und ab hier von selbst nachsehen — bis 2026-08-24 lief die Zeile
+       darueber genau einmal und danach nie wieder. */
+    starteLiveStrom();
     return me;
   }
 

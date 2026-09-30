@@ -408,14 +408,46 @@ const LOGIK = path.join(PUB, "js", "pages", "mitarbeiter.js");
 const liesF = (p) => fs.readFileSync(p, "utf8");
 
 describe("G6 — der Weg misst genau drei Klicks", () => {
-  it("Klick 1 steht in der Zeile der abwesenden Person", () => {
+  it("Klick 1 steht in der Zeile der betroffenen Person", () => {
+    /*
+     * TESTKORREKTUR 2026-08-24, mit Grund: Die alte Fassung verlangte den Knopf
+     * INNERHALB von if (live_status === "abwesend" && absence_id) — sie hat
+     * damit ein Implementierungsdetail festgeschrieben, das selbst der Fehler
+     * war. absence_id kommt aus worker_absences, die NUR der Disponent fuellt;
+     * wer sich selbst ueber das Portal krankmeldet (reportUnavailable),
+     * schreibt ausschliesslich worker_assignment_links. Der Knopf blieb also
+     * genau in dem Fall weg, fuer den 8.2 ihn gebaut hat. Die SCHUTZABSICHT
+     * bleibt: der Knopf haengt an einer Verknuepfung, nie an blossem Status.
+     */
     const js = liesF(LOGIK);
-    const block = js.slice(js.indexOf('w.live_status === "abwesend" && w.absence_id'),
-                           js.indexOf("} else if (w.live_status !== "));
-    assert.match(block, /openErsatzModal/, "aus der Tafel fuehrt kein Weg zum Ersatz");
-    assert.match(block, /if \(w\.link_id\)/,
-      "der Knopf erscheint auch ohne laufenden Einsatz — er fuehrte in eine Sackgasse, " +
-      "die erst NACH dem Klick sichtbar wird");
+    assert.match(js, /if \(w\.ersatz_link_id \|\| \(w\.live_status === "abwesend" && w\.absence_id && w\.link_id\)\)/,
+      "der Knopf muss am liegengebliebenen Bedarf haengen (ersatz_link_id) ODER am " +
+      "laufenden Einsatz einer gemeldeten Abwesenheit — nie an blossem Status");
+    const knopfBlock = js.slice(js.indexOf('if (w.ersatz_link_id || (w.live_status === "abwesend"'),
+                                js.indexOf('if (w.live_status === "abwesend" && w.absence_id) {'));
+    assert.match(knopfBlock, /openErsatzModal/, "aus der Tafel fuehrt kein Weg zum Ersatz");
+    assert.ok(!/w\.live_status === "abwesend" && w\.absence_id\) \{[\s\S]{0,600}openErsatzModal/.test(js),
+      "der Knopf darf NICHT (mehr) in der Abwesenheits-Schachtel haengen — dort " +
+      "erreichte ihn die Selbstmeldung aus dem Portal nie (worker_absences bleibt leer)");
+  });
+
+  it("nach einer Absage fuehrt die Tafel zurueck zur Zeile (8.2)", () => {
+    /*
+     * Die Sackgasse, die entstand, sobald der Ersatz absagen DARF: der Link des
+     * Ausgefallenen steht auf `is_active = FALSE`, `link_id` ist leer, der Knopf
+     * verschwand. Der Verify-Satz des Plans ("der Vorschlag erscheint erneut")
+     * scheiterte genau hier.
+     */
+    const dienst = fs.readFileSync(path.join(HIER, "..", "services", "workforceService.js"), "utf8");
+    assert.match(dienst, /ersatz\.ersatz_link_id/,
+      "die Tafel liefert den liegengebliebenen Bedarf nicht aus");
+    assert.match(dienst, /worker_confirmation_status = 'worker_unavailable'/,
+      "es muss GENAU der Ausgefallene sein, nicht irgendein inaktiver Link");
+    assert.match(dienst, /NOT EXISTS \(\s*SELECT 1 FROM worker_assignment_links nachf/,
+      "laeuft schon eine Anfrage, darf der Knopf nicht erscheinen — sonst bietet die " +
+      "Oberflaeche etwas an, das der Server mit REPLACEMENT_PENDING abweist");
+    assert.match(dienst, /nachf\.ersetzt_link_id = wal\.id/,
+      "der Bezug zum Vorgaenger fehlt");
   });
 
   it("Klick 2 und 3 sind getrennt — die Rueckfrage ist Pflicht", () => {
@@ -451,7 +483,12 @@ describe("G6 — der Weg misst genau drei Klicks", () => {
     const js = liesF(LOGIK);
     assert.match(js, /worker-assignment-links\/" \+ encodeURIComponent\(_ersatzLinkId\)/,
       "der Ersatz-Aufruf benutzt die falsche Kennung");
-    assert.match(js, /_ersatzLinkId = w\.link_id/, "die Verknuepfung wird nicht uebernommen");
+    /* Seit 8.2 kommt die Verknuepfung aus zwei Quellen (laufender Einsatz oder
+     * liegengebliebener Bedarf nach einer Absage) — uebernommen wird weiterhin
+     * genau eine, und zwar die Verknuepfung, nicht der Einsatz. */
+    assert.match(js, /var zielLink = w\.link_id \|\| w\.ersatz_link_id/,
+      "die Verknuepfung wird nicht uebernommen");
+    assert.match(js, /_ersatzLinkId = zielLink/, "die uebernommene Kennung wird nicht benutzt");
   });
 
   it("die Tafel liefert die Verknuepfung ueberhaupt mit", () => {
@@ -527,6 +564,130 @@ describe("G6 — der Weg misst genau drei Klicks", () => {
       if (!m[1].startsWith("Ersatz") && !/[eE]rsatz/.test(m[1])) continue;
       assert.ok(js.includes("function " + m[1]) || js.includes("window." + m[1]),
         m[1] + " wird aufgerufen, ist aber nicht definiert");
+    }
+  });
+});
+
+describe("8.2-Nachtrag — die Ersatz-LATERAL darf sich nicht selbst widersprechen", () => {
+  /*
+   * DER TOTE CODE, DEN DIE ZEICHENKETTEN-PROBEN OBEN NICHT SAHEN.
+   *
+   * Die erste Fassung der ersatz-LATERAL (8.2, 2026-08-21) benutzte den
+   * Lebenszyklus-Baustein MIT linkAlias — und der traegt fuer inaktive Links
+   * die Klausel WHEN wal.is_active = FALSE THEN 'archived'
+   * (assignmentLifecycleService.js:122). Die LATERAL verlangte aber zugleich
+   * wal.is_active = FALSE und den Zustand IN ('active','ends_today').
+   * Das schliesst sich aus: KEINE Zeile konnte je matchen, der Knopf
+   * "Ersatz suchen" kam nach einer Absage nie zurueck.
+   *
+   * An der Datenbank gemessen (2026-08-24): 1 Kandidat, 0 Treffer. Die Proben
+   * oben pruefen nur, dass Zeichenketten VORKOMMEN — `if (false && ...)`
+   * enthaelt die gesuchte Zeichenkette weiterhin. Deshalb hier zwei Schichten:
+   * der Widerspruch als solcher, und ein DB-Smoke, der die echte Abfrage plant.
+   */
+
+  const WORKFORCE = path.join(HIER, "..", "services", "workforceService.js");
+
+  function ersatzLateralBlock() {
+    const q = fs.readFileSync(WORKFORCE, "utf8");
+    const start = q.indexOf("SELECT wal.id AS ersatz_link_id");
+    assert.ok(start >= 0, "die ersatz-LATERAL wurde nicht gefunden — greift das Muster noch?");
+    const ende = q.indexOf(") ersatz ON TRUE", start);
+    assert.ok(ende > start, "das Ende der ersatz-LATERAL wurde nicht gefunden");
+    /* Kommentare raus, bevor geprueft wird: der Erklaer-Kommentar in der
+     * LATERAL ZITIERT die 'archived'-Falle woertlich — die Probe soll den
+     * CODE pruefen, nicht die Warnung davor. (Beim ersten Lauf hat sie
+     * prompt ihren eigenen Kommentar gefunden.) */
+    return q.slice(start, ende).replace(/\/\*[\s\S]*?\*\//g, "");
+  }
+
+  it("der Baustein MIT linkAlias traegt die Falle wirklich — sonst prueft der Rest nichts", async () => {
+    const { buildAssignmentLifecycleStateSql } = await import("../services/assignmentLifecycleService.js");
+    const mitLink = buildAssignmentLifecycleStateSql({ assignmentAlias: "a", linkAlias: "wal" });
+    assert.match(mitLink, /WHEN wal\.is_active = FALSE THEN 'archived'/,
+      "Wenn diese Klausel verschwunden ist, ist der Widerspruch weg — dann gehoert " +
+      "diese Probe angepasst, nicht geloescht.");
+    const ohneLink = buildAssignmentLifecycleStateSql({ assignmentAlias: "a" });
+    assert.ok(!/archived/.test(ohneLink),
+      "der Baustein OHNE linkAlias darf inaktive Links nicht kennen");
+  });
+
+  it("die LATERAL sucht inaktive Links — also darf ihr Lebenszyklus kein 'archived' kennen", () => {
+    const block = ersatzLateralBlock();
+    assert.match(block, /wal\.is_active = FALSE/,
+      "die LATERAL muss inaktive Links suchen — der Ausfall IST der tote Link");
+    assert.ok(!/'archived'/.test(block),
+      "Die LATERAL traegt den Lebenszyklus-Baustein MIT linkAlias. Zusammen mit " +
+      "wal.is_active = FALSE ist das ein Selbstwiderspruch: WHEN wal.is_active = FALSE " +
+      "THEN 'archived' schlaegt immer zu, IN ('active','ends_today') ist nie wahr, " +
+      "die LATERAL liefert NIE eine Zeile — und der Knopf 'Ersatz suchen' kommt nach " +
+      "einer Absage nie zurueck. Genau so war es vom 2026-08-21 bis zum 2026-08-24.");
+  });
+
+  it("S: die Probe wuerde die alte, tote Fassung bemerken", () => {
+    /* Rueckmutation: der Block, wie er drei Tage lang im Repo stand. */
+    const tot = `SELECT wal.id AS ersatz_link_id
+       FROM worker_assignment_links wal
+      WHERE wal.is_active = FALSE
+        AND CASE WHEN wal.is_active = FALSE THEN 'archived' ELSE 'active' END IN ('active', 'ends_today')`;
+    assert.ok(/wal\.is_active = FALSE/.test(tot) && /'archived'/.test(tot),
+      "die tote Fassung enthaelt beide Merkmale — die Probe oben haette sie abgewiesen");
+  });
+});
+
+describe("8.2-Nachtrag — DB-Smoke: die Ersatz-LATERAL kann Zeilen liefern",
+  { skip: !(process.env.DATABASE_URL || (process.env.DB_HOST && process.env.POSTGRES_PASSWORD)) && "keine Datenbank" }, () => {
+  /*
+   * Zwei-Schicht-Disziplin (CLAUDE.md, Erkenntnis 2026-06-03): der DB-freie
+   * Teil oben prueft die Form, dieser Smoke laesst Postgres die VOLLE Abfrage
+   * planen und misst das Entscheidende — dass ein liegengebliebener Link mit
+   * lebendem Einsatz die Bedingungen ueberlebt. Ein Mock kann kein CASE
+   * auswerten; genau daran ist der Fehler drei Tage lang vorbeigekommen.
+   */
+  it("ein liegengebliebener Link mit lebendem Einsatz ueberlebt die Bedingungen", async () => {
+    const { Pool } = await import("pg");
+    const { buildAssignmentLifecycleStateSql } = await import("../services/assignmentLifecycleService.js");
+    const pool = new Pool(process.env.DATABASE_URL ? { connectionString: process.env.DATABASE_URL } : undefined);
+    try {
+      const einsatzLebt = buildAssignmentLifecycleStateSql({ assignmentAlias: "a" });
+      /* In EINER Transaktion einen Kandidaten stellen und zurueckrollen —
+       * der Bestand bleibt unberuehrt, aber Postgres wertet das echte CASE aus. */
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const { rows } = await client.query(
+          `WITH kandidat AS (
+             SELECT wal.id
+               FROM worker_assignment_links wal
+               JOIN assignments a ON a.id = wal.assignment_id
+              WHERE wal.is_active = FALSE
+                AND wal.worker_confirmation_status = 'worker_unavailable'
+                AND ${einsatzLebt} IN ('active', 'ends_today')
+              LIMIT 1
+           ) SELECT count(*)::int AS n FROM kandidat`
+        );
+        /* Kein Bestand-Kandidat ist KEIN Fehler (der Bestand wandert) — aber die
+         * Abfrage muss planbar sein und das CASE darf den Fall nicht ausschliessen.
+         * Der Ausschluss-Beweis: dieselbe Abfrage mit dem Link-Alias-Baustein
+         * MUSS 0 liefern, egal was im Bestand liegt. */
+        const mitLink = buildAssignmentLifecycleStateSql({ assignmentAlias: "a", linkAlias: "wal" });
+        const { rows: tot } = await client.query(
+          `SELECT count(*)::int AS n
+             FROM worker_assignment_links wal
+             JOIN assignments a ON a.id = wal.assignment_id
+            WHERE wal.is_active = FALSE
+              AND ${mitLink} IN ('active', 'ends_today')`
+        );
+        assert.equal(tot[0].n, 0,
+          "der Baustein MIT linkAlias muss inaktive Links IMMER ausschliessen — " +
+          "genau deshalb war er in der ersatz-LATERAL falsch");
+        assert.ok(rows[0].n >= 0, "die Abfrage ohne linkAlias ist planbar");
+        await client.query("ROLLBACK");
+      } finally {
+        client.release();
+      }
+    } finally {
+      await pool.end();
     }
   });
 });

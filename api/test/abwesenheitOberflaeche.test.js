@@ -123,6 +123,9 @@ suite("Spur E — die Live-Belegschaft in der Oberflaeche", () => {
     hole("timelineBody");
     hole("timelineWorker");
     hole("timelineModal");
+    /* M4c.5: der Bericht "Nicht im Markt" faesst diese zwei an. */
+    hole("unsichtbarList");
+    hole("unsichtbarCount");
   });
 
   /* ── Die Woerterbuecher ─────────────────────────────────────────────────── */
@@ -487,5 +490,87 @@ suite("Spur E — die Live-Belegschaft in der Oberflaeche", () => {
     assert.ok(abschnitt.includes("showAbsenceError"), "der Dialog hat eine sichtbare Fehlerzeile");
     assert.ok(abschnitt.includes("ABSENCE_OVERLAP"), "die Ueberlappung bekommt eine eigene, verstaendliche Meldung");
     assert.ok(!/\.catch\(function\(\)\s*\{\s*\}\)/.test(abschnitt), "kein leerer catch-Block");
+  });
+
+  /* ── M4c.5 · Nicht im Markt: die WIRKUNG, nicht der Quelltext ───────────── */
+
+  it("der Bericht zeichnet je Mensch eine Karte mit Grund, Hinweis und Zustaendigkeit", () => {
+    /*
+     * `niemandFehltWortlos.test.js` haelt die KETTE fest (Meldung -> Seite ->
+     * Bericht -> Profil) und liest dafuer Quelltext. Diese Probe fuehrt den
+     * Render-Pfad wirklich aus: sie faengt Abweichungen, die der Text nicht
+     * zeigt — eine falsche Verschachtelung, ein vergessener Wert, eine Karte,
+     * die gar nicht entsteht.
+     *
+     * Ein Browserlauf wuerde hier nichts beweisen: der API-Container mountet das
+     * Haupt-Repo, nicht diesen Arbeitsbaum.
+     */
+    ctx.zeigeUnsichtbar([
+      {
+        worker_profile_id: "wp-1",
+        name: "Anna Beispiel",
+        gruende: [
+          { schluessel: "kein_wohnort", grund: "Es ist kein Wohnort hinterlegt.",
+            hinweis: "Ohne Ort gibt es nichts zu rechnen.", wer: "mensch" },
+          { schluessel: "entwurf_blockiert", grund: "6 Entwuerfe blockieren 6 Angebote.",
+            hinweis: "Veroeffentlichen oder verwerfen loest es.", wer: "firma", anzahl: 6 }
+        ]
+      }
+    ]);
+    const html = elemente.unsichtbarList.innerHTML;
+    assert.ok(html.includes("Anna Beispiel"), "der Name fehlt");
+    assert.ok(html.includes("Es ist kein Wohnort hinterlegt."), "der erste Grund fehlt");
+    assert.ok(html.includes("6 Entwuerfe blockieren 6 Angebote."), "der zweite Grund fehlt");
+    assert.ok(html.includes("Ohne Ort gibt es nichts zu rechnen."), "der Hinweis fehlt");
+    /* IN der Plakette, nicht irgendwo im Markup: sonst genuegt es, dass der Text
+       zufaellig anderswo vorkommt, und die Plakette selbst darf fehlen. */
+    for (const wer of ["mensch", "firma"]) {
+      const text = woerter.de["mit.unsichtbar.wer." + wer];
+      assert.ok(text, `die Bezeichnung fuer '${wer}' fehlt im Woerterbuch`);
+      assert.ok(new RegExp('class="badge"[^>]*>' + text + "</span>").test(html),
+        `die Zustaendigkeit '${wer}' steht nicht in ihrer Plakette`);
+    }
+    /* AM onclick, nicht am Text: die erste Fassung prueffte nur, DASS
+       "oeffneUnsichtbar('wp-1')" irgendwo dasteht — data-x="oeffneUnsichtbar('wp-1')"
+       erfuellte sie ebenso, und der Knopf waere tot gewesen. */
+    assert.match(html, /onclick="oeffneUnsichtbar\('wp-1'\)"/,
+      "der Sprung in die Personalakte ist nicht als onclick gebunden — ein toter Knopf");
+    assert.equal(elemente.unsichtbarCount.textContent, "1", "der Zaehler nennt nicht die Zahl der Menschen");
+  });
+
+  it("der Leerfall sagt, dass alle im Markt stehen — und nennt nicht nichts", () => {
+    ctx.zeigeUnsichtbar([]);
+    const html = elemente.unsichtbarList.innerHTML;
+    assert.ok(html.includes(woerter.de["mit.unsichtbar.empty"]),
+      "eine leere Liste ohne Satz laesst offen, ob geladen wurde oder niemand fehlt");
+    assert.equal(elemente.unsichtbarCount.textContent, "0");
+  });
+
+  it("Name, Grund und Hinweis werden escapt — sie kommen aus der Datenbank", () => {
+    /* CLAUDE.md: keine Nutzdaten in `innerHTML` ohne `esc()`. Geprueft wird die
+       WIRKUNG: nach dem Zeichnen darf kein ausfuehrbares Markup dastehen. */
+    ctx.zeigeUnsichtbar([{
+      worker_profile_id: "wp-x",
+      name: '<img src=x onerror="alert(1)">',
+      gruende: [{ schluessel: "k", grund: "<script>alert(2)</script>",
+                  hinweis: "<b>fett</b>", wer: "firma" }]
+    }]);
+    const html = elemente.unsichtbarList.innerHTML;
+    assert.ok(!html.includes("<img src=x"), "der Name landet ungefiltert im Markup");
+    assert.ok(!html.includes("<script>"), "der Grund landet ungefiltert im Markup");
+    assert.ok(!html.includes("<b>fett</b>"), "der Hinweis landet ungefiltert im Markup");
+    assert.ok(html.includes("&lt;img"), "der Name wurde gar nicht uebernommen");
+  });
+
+  it("die Zustaendigkeit faellt auf ihren Schluessel zurueck statt zu verschwinden", () => {
+    /* Eine neue Zustaendigkeit ohne Bezeichnung soll sichtbar roh dastehen — das
+       faellt auf und wird behoben. Waere sie leer, saehe die Karte vollstaendig
+       aus und waere es nicht. */
+    ctx.zeigeUnsichtbar([{
+      worker_profile_id: "wp-y", name: "Ohne Bezeichnung",
+      gruende: [{ schluessel: "neu", grund: "Ein neuer Grund.", hinweis: "Ein Hinweis dazu.", wer: "traegerkreis" }]
+    }]);
+    assert.ok(elemente.unsichtbarList.innerHTML.includes("traegerkreis"),
+      "eine unbekannte Zustaendigkeit verschwindet stillschweigend aus der Karte");
   });
 });

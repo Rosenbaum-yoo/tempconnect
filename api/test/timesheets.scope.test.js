@@ -163,7 +163,11 @@ const AUTH_ROUTES = [
   ["post", "/timesheets/:id/cancel", WRITE],
   ["post", "/timesheets/:id/return-to-draft", WRITE],
   ["post", "/timesheets/prefill", WRITE],
-  ["post", "/timesheets/:id/sign", WRITE],
+  /* ["post", "/timesheets/:id/sign", WRITE] — ENTFERNT am 2026-09-27 (Welle Z,
+     Z2). Der Weg schrieb timesheets.worker_signed_at/_ip, zwei Spalten, die es
+     nie gab; er konnte nur eine 500 liefern. Begruendung, warum entfernt und
+     nicht angelegt: services/timesheetService.js. Dass er nicht
+     zurueckkehrt, haelt test/timesheetPerfect.test.js fest. */
   ["post", "/timesheets/batch-approve", WRITE],
   ["post", "/timesheets/batch-reject", WRITE],
   ["get", "/timesheets/worker-summary", READ],

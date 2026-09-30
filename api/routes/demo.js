@@ -5,6 +5,8 @@
  * — Demo-Reset (bereinigt Session-Daten)
  */
 import { Router } from "express";
+import { vermerkeGeraet } from "../services/sessionSecurityService.js";
+import { orgNachAnmeldung } from "../services/auditLog.js";
 
 /* ── Rollen-basierte Demo-Accounts (primär) ───────────── */
 const ROLE_ACCOUNTS = {
@@ -43,7 +45,9 @@ export function createDemoRouter(deps) {
   /* ── Shared: Lookup + Session erstellen ─────────────────── */
   async function loginDemoUser(email, meta, req, res) {
     const { rows } = await pool.query(
-      "SELECT id, role FROM users WHERE email = $1 AND is_demo = TRUE",
+      /* M2.2: auch hier, obwohl Demo-Adressen erzeugt werden — eine
+         Ausnahme von der Konvention ist die naechste Fehlerquelle. */
+      "SELECT id, role FROM users WHERE LOWER(email) = LOWER($1) AND is_demo = TRUE",
       [email]
     );
     if (!rows[0]) {
@@ -58,16 +62,43 @@ export function createDemoRouter(deps) {
       });
     }
     const user = rows[0];
+
+    /*
+     * Sitzung neu erzeugen, BEVOR der Demo-Nutzer eingetragen wird (8.1.1,
+     * gemessen 2026-08-21).
+     *
+     * `/auth/login` tut das seit SEC-001 gegen Session-Fixation — hier fehlte es.
+     * Die Folge war groesser als Fixation: die alte Sitzung behielt ihren
+     * `_orgCache`, und `req.orgId` zeigte fuer den Demo-Nutzer weiter auf die
+     * Organisation des zuvor angemeldeten Kontos. Damit lief nicht nur das Audit
+     * falsch (102 `notification.mark_read` und 4 `demo.login` in einer fremden
+     * Org), sondern auch die Mandantengrenze von 45 Routen, die als
+     * `if (req.orgId && ressource.org_id !== req.orgId)` gebaut ist.
+     *
+     * `regenerate` verwirft den alten Sitzungsinhalt vollstaendig; alles unten
+     * Gesetzte gehoert danach zur neuen Sitzung.
+     */
+    await new Promise((resolve, reject) =>
+      req.session.regenerate((err) => (err ? reject(err) : resolve()))
+    );
     req.session.userId   = user.id;
     req.session.userRole = user.role;
     req.session.isDemo   = true;
+    vermerkeGeraet(req.session, req.headers?.["user-agent"]);  // 8.1.2
 
     const me = await getUserAndPlan(user.id);
+    /* Die Org ausdruecklich mitgeben — nach `session.regenerate()` ist der
+     * `_orgCache` des Vorgaengers weg (richtig so), und `req.orgId` wurde
+     * aufgeloest, bevor es diesen Nutzer gab. Ohne diese Zeile traegt der
+     * Demo-Login keine Organisation. Begruendung bei `orgNachAnmeldung`;
+     * die Demo-Konten haben `users.org_id = NULL` bei vorhandener
+     * Mitgliedschaft, `me.org_id` waere hier also wirkungslos. */
     res.locals.audit = {
       action: "demo.login",
       entity_type: "user",
       entity_id: user.id,
-      details: { ...meta, email }
+      details: { ...meta, email },
+      org_id: await orgNachAnmeldung(pool, user.id)
     };
     logger.info({ ...meta, userId: user.id }, "Demo-Login erfolgreich");
     return res.json({ ...me, is_demo: true });

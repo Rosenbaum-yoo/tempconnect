@@ -42,6 +42,14 @@ TCi18n.register('de', {
   'ts.rev.hub.subs.desc': 'Einreichungen prüfen, an Kunden senden und Freigaben sauber steuern.',
   'ts.rev.hub.workers.title': 'Einsatzkräfte',
   'ts.rev.hub.workers.desc': 'Einsatzkräfte, Einladungen und operative Stammdaten pflegen.',
+  'ts.rev.hub.live.title': 'Live-Belegschaft',
+  'ts.rev.hub.live.desc': 'Wer ist heute im Einsatz, verfügbar, abwesend oder auf Montage – live, alle 30 Sekunden aktualisiert.',
+  'ts.rev.companyHub.live.title': 'Live-Belegschaft',
+  'ts.rev.companyHub.live.desc': 'Wer von Ihren Zeitarbeitsfirmen gerade bei Ihnen arbeitet – live, mit Meldungen und Sperrliste.',
+  'ts.rev.companyHub.timesheets.title': 'Stundenzettel-Eingang',
+  'ts.rev.companyHub.timesheets.desc': 'Gesendete Stundenzettel Ihrer eingesetzten Kräfte prüfen, bestätigen oder zurückweisen.',
+  'ts.rev.companyHub.deals.title': 'Meine Deals',
+  'ts.rev.companyHub.deals.desc': 'Vereinbarungen, Besetzungen und Einsatzverfolgung aus Unternehmenssicht.',
   'ts.rev.hub.approvals.title': 'Freigabe-Queue',
   'ts.rev.hub.approvals.desc': 'Ausstehende Genehmigungen über Einsätze, Zeiten und Nachweise hinweg.',
   'ts.rev.hub.timesheets.title': 'Stundenzettel',
@@ -52,6 +60,59 @@ TCi18n.register('de', {
   'ts.rev.tab.subs': 'Stundenzettel-Freigaben',
   'ts.rev.tab.workers': 'Einsatzkräfte',
   'ts.rev.tab.asgn': 'Einsätze',
+  'ts.rev.tab.inv': 'Rechnungen',
+
+  /* Rechnungen (Welle J7) — aus freigegebenen Stundenzetteln wird die
+     Rechnung an das Unternehmen. */
+  'ts.rev.inv.kpiDraft': 'Entwürfe',
+  'ts.rev.inv.kpiIssued': 'Gestellt',
+  'ts.rev.inv.kpiOverdue': 'Überfällig',
+  'ts.rev.inv.kpiOutstanding': 'Offener Betrag',
+  'ts.rev.inv.billableTitle': 'Abrechenbare Stundenzettel',
+  'ts.rev.inv.billableHint': 'Freigegebene Zeiten, für die noch keine Rechnung besteht. Wählen Sie einen Einsatz, um daraus eine Rechnung zu erzeugen.',
+  'ts.rev.inv.billableEmpty': 'Nichts abzurechnen. Sobald ein Unternehmen Stundenzettel freigibt, erscheinen sie hier.',
+  'ts.rev.inv.listTitle': 'Meine Rechnungen',
+  'ts.rev.inv.listEmpty': 'Noch keine Rechnungen. Erzeugen Sie oben eine aus freigegebenen Stundenzetteln.',
+  'ts.rev.inv.filterAll': 'Alle',
+  'ts.rev.inv.refresh': 'Aktualisieren',
+  'ts.rev.inv.thAssignment': 'Einsatz',
+  'ts.rev.inv.thClient': 'Unternehmen',
+  'ts.rev.inv.thSheets': 'Zettel',
+  'ts.rev.inv.thHours': 'Stunden',
+  'ts.rev.inv.thRate': 'Satz',
+  'ts.rev.inv.thNumber': 'Nummer',
+  'ts.rev.inv.thPeriod': 'Zeitraum',
+  'ts.rev.inv.thTotal': 'Gesamt',
+  'ts.rev.inv.thStatus': 'Status',
+  'ts.rev.inv.statusDraft': 'Entwurf',
+  'ts.rev.inv.statusIssued': 'Gestellt',
+  'ts.rev.inv.statusOverdue': 'Überfällig',
+  'ts.rev.inv.statusPaid': 'Bezahlt',
+  'ts.rev.inv.statusVoid': 'Storniert',
+  'ts.rev.inv.noNumberYet': 'noch ohne Nummer',
+  'ts.rev.inv.noRate': 'kein Stundensatz',
+  'ts.rev.inv.assignmentFallback': 'Einsatz',
+  'ts.rev.inv.create': 'Rechnung erzeugen',
+  'ts.rev.inv.confirmCreate': 'Aus {n} freigegebenen Stundenzetteln eine Rechnung erzeugen? Sie entsteht als Entwurf und trägt noch keine Nummer.',
+  'ts.rev.inv.createOk': 'Rechnungsentwurf erstellt',
+  'ts.rev.inv.createFail': 'Rechnung konnte nicht erzeugt werden',
+  'ts.rev.inv.issue': 'Stellen',
+  'ts.rev.inv.confirmIssue': 'Rechnung verbindlich stellen? Jetzt fällt die Rechnungsnummer – sie lässt sich danach nicht mehr ändern.',
+  'ts.rev.inv.issueOk': 'Rechnung gestellt',
+  'ts.rev.inv.markPaid': 'Als bezahlt',
+  'ts.rev.inv.paidOk': 'Als bezahlt vermerkt',
+  'ts.rev.inv.void': 'Stornieren',
+  'ts.rev.inv.confirmVoid': 'Rechnung stornieren? Das lässt sich nicht rückgängig machen.',
+  'ts.rev.inv.voidOk': 'Rechnung storniert',
+  'ts.rev.inv.pdf': 'PDF',
+  'ts.rev.inv.csv': 'CSV',
+  'ts.rev.inv.actionFail': 'Aktion fehlgeschlagen',
+  'ts.rev.inv.readinessTitle': 'Rechnungsstammdaten unvollständig',
+  'ts.rev.inv.readinessText': 'Ohne diese Angaben ist keine Rechnung gültig (§ 14 UStG). Sie gehören zur Organisation, nicht zum Benutzerprofil – ergänzen Sie sie unter Organisation & Team. Es fehlt:',
+  'ts.rev.inv.loadFailTitle': 'Rechnungen nicht geladen',
+  'ts.rev.inv.loadFailText': 'Bitte erneut versuchen.',
+  'ts.rev.inv.noAccessTitle': 'Keine Abrechnungsberechtigung',
+  'ts.rev.inv.noAccessText': 'Rechnungen sehen und stellen dürfen Inhaber, Administratoren und die Buchhaltung.',
 
   'ts.rev.cust.title': 'Kundenversand Stundenzettel',
   'ts.rev.cust.subtitle': 'Status aller Kundenversand-Vorgänge auf einen Blick',
@@ -411,6 +472,9 @@ TCi18n.register('de', {
   'ts.rev.asgn.workerPickNoAccess': 'Die Worker-Auswahl ist für Ihren aktuellen Organisationskontext nicht verfügbar.',
   'ts.rev.asgn.closedLoadFail': 'Abgeschlossene Deals konnten nicht geladen werden.',
   'ts.rev.asgn.slotsFilled': '{filled} von {requested} besetzt',
+  /* Ansprechperson beim KUNDEN — aus dem Bedarf. Das Angebot traegt die
+     eigene; diese Flaeche ist die des Anbieters. */
+  'ts.rev.asgn.clientContact': 'Ansprechperson beim Kunden:',
   'ts.rev.asgn.slots': '{filled} besetzt · {reserved} reserviert · {open} offen von {requested}',
   'ts.rev.asgn.statusActive': 'Aktiv',
   'ts.rev.asgn.statusArchived': 'Archiv',
@@ -420,6 +484,14 @@ TCi18n.register('de', {
   'ts.rev.asgn.rowPeriodEmpty': 'Kein Datum gesetzt',
   'ts.rev.asgn.replaceCta': 'Ersatz zuweisen',
   'ts.rev.asgn.replaceTitle': 'Bei Krankheit/Ausfall: Ersatz ab Wirk-Datum zuweisen, Ausfallenden freistellen',
+  'ts.rev.asgn.withdrawCta': 'Anfrage zurückziehen',
+  'ts.rev.asgn.withdrawTitle': 'Die offene Anfrage zurückziehen — der Platz wird sofort wieder frei. Möglich, solange nicht zugesagt wurde.',
+  'ts.rev.asgn.withdrawPrompt': 'Warum wird die Anfrage zurückgezogen? Der Grund steht im Audit, nicht in der Nachricht an die Einsatzkraft.',
+  'ts.rev.asgn.withdrawNeedsReason': 'Bitte einen Grund angeben (mindestens 3 Zeichen).',
+  'ts.rev.asgn.withdrawDone': 'Anfrage zurückgezogen — der Platz ist wieder offen.',
+  'ts.rev.asgn.withdrawTooLate': 'Zu spät: Die Anfrage wurde inzwischen beantwortet oder ist verfallen.',
+  'ts.rev.asgn.withdrawGone': 'Diese Anfrage gibt es nicht mehr.',
+  'ts.rev.asgn.withdrawFailed': 'Die Anfrage konnte nicht zurückgezogen werden.',
   'ts.rev.asgn.hoursPerDay': 'h/Tag',
 
   'ts.rev.assign.title': 'Manuelle Zuweisung → Worker',
@@ -452,7 +524,7 @@ TCi18n.register('de', {
   'ts.rev.assign.infoStaff': 'Personal:',
   'ts.rev.assign.blockedSuffix': '— gesperrt bei diesem Kunden',
   'ts.rev.assign.blockedTitle': '{n} Kraft/Kräfte von diesem Kunden gesperrt',
-  'ts.rev.assign.blockedHint': '— im Dropdown deaktiviert. Grund: {names}',
+  'ts.rev.assign.blockedHint': '— im Dropdown deaktiviert. Den Grund kennt nur der Kunde.',
   'ts.rev.assign.doneDeal': 'Deal-Einsatz zugewiesen – Worker wird benachrichtigt',
   'ts.rev.assign.doneCapacity': 'Personal zugewiesen – Worker wird benachrichtigt',
   'ts.rev.assign.errCapacityNotFound': 'Personalangebot nicht gefunden.',
@@ -645,6 +717,9 @@ TCi18n.register('de', {
   'ts.rev.conf.pending': 'Bestätigung offen',
   'ts.rev.conf.confirmed': 'Bestätigt',
   'ts.rev.conf.declined': 'Abgelehnt',
+  'ts.rev.conf.expired': 'Frist abgelaufen',
+  'ts.rev.conf.unavailable': 'Abwesend',
+  'ts.rev.conf.withdrawn': 'Zurückgezogen',
   'ts.rev.due.overdue': 'Überfällig',
   'ts.rev.due.overdueTitle': 'Einreichfrist verstrichen, noch nicht eingereicht',
   'ts.rev.due.late': 'Verspätet',
@@ -837,6 +912,14 @@ TCi18n.register('en', {
   'ts.rev.hub.subs.desc': 'Review submissions, send them to clients and steer approvals cleanly.',
   'ts.rev.hub.workers.title': 'Workers',
   'ts.rev.hub.workers.desc': 'Maintain workers, invitations and operational master data.',
+  'ts.rev.hub.live.title': 'Live workforce',
+  'ts.rev.hub.live.desc': 'Who is on assignment, available, absent or on site work today – live, refreshed every 30 seconds.',
+  'ts.rev.companyHub.live.title': 'Live workforce',
+  'ts.rev.companyHub.live.desc': 'Who from your staffing firms is working at your site right now – live, with reports and block list.',
+  'ts.rev.companyHub.timesheets.title': 'Incoming timesheets',
+  'ts.rev.companyHub.timesheets.desc': 'Review, confirm or reject the timesheets submitted for your assigned staff.',
+  'ts.rev.companyHub.deals.title': 'My deals',
+  'ts.rev.companyHub.deals.desc': 'Agreements, staffing and assignment tracking from the company perspective.',
   'ts.rev.hub.approvals.title': 'Approval queue',
   'ts.rev.hub.approvals.desc': 'Pending approvals across assignments, time and records.',
   'ts.rev.hub.timesheets.title': 'Timesheets',
@@ -847,6 +930,58 @@ TCi18n.register('en', {
   'ts.rev.tab.subs': 'Timesheet approvals',
   'ts.rev.tab.workers': 'Workers',
   'ts.rev.tab.asgn': 'Assignments',
+  'ts.rev.tab.inv': 'Invoices',
+
+  /* Invoices (wave J7) — approved timesheets become the invoice to the client. */
+  'ts.rev.inv.kpiDraft': 'Drafts',
+  'ts.rev.inv.kpiIssued': 'Issued',
+  'ts.rev.inv.kpiOverdue': 'Overdue',
+  'ts.rev.inv.kpiOutstanding': 'Outstanding',
+  'ts.rev.inv.billableTitle': 'Billable timesheets',
+  'ts.rev.inv.billableHint': 'Approved hours without an invoice yet. Pick an assignment to create one from them.',
+  'ts.rev.inv.billableEmpty': 'Nothing to bill. As soon as a client approves timesheets, they appear here.',
+  'ts.rev.inv.listTitle': 'My invoices',
+  'ts.rev.inv.listEmpty': 'No invoices yet. Create one above from approved timesheets.',
+  'ts.rev.inv.filterAll': 'All',
+  'ts.rev.inv.refresh': 'Refresh',
+  'ts.rev.inv.thAssignment': 'Assignment',
+  'ts.rev.inv.thClient': 'Client',
+  'ts.rev.inv.thSheets': 'Sheets',
+  'ts.rev.inv.thHours': 'Hours',
+  'ts.rev.inv.thRate': 'Rate',
+  'ts.rev.inv.thNumber': 'Number',
+  'ts.rev.inv.thPeriod': 'Period',
+  'ts.rev.inv.thTotal': 'Total',
+  'ts.rev.inv.thStatus': 'Status',
+  'ts.rev.inv.statusDraft': 'Draft',
+  'ts.rev.inv.statusIssued': 'Issued',
+  'ts.rev.inv.statusOverdue': 'Overdue',
+  'ts.rev.inv.statusPaid': 'Paid',
+  'ts.rev.inv.statusVoid': 'Voided',
+  'ts.rev.inv.noNumberYet': 'no number yet',
+  'ts.rev.inv.noRate': 'no hourly rate',
+  'ts.rev.inv.assignmentFallback': 'Assignment',
+  'ts.rev.inv.create': 'Create invoice',
+  'ts.rev.inv.confirmCreate': 'Create one invoice from {n} approved timesheets? It starts as a draft and carries no number yet.',
+  'ts.rev.inv.createOk': 'Invoice draft created',
+  'ts.rev.inv.createFail': 'Could not create the invoice',
+  'ts.rev.inv.issue': 'Issue',
+  'ts.rev.inv.confirmIssue': 'Issue this invoice for good? The invoice number is assigned now and cannot be changed afterwards.',
+  'ts.rev.inv.issueOk': 'Invoice issued',
+  'ts.rev.inv.markPaid': 'Mark paid',
+  'ts.rev.inv.paidOk': 'Marked as paid',
+  'ts.rev.inv.void': 'Void',
+  'ts.rev.inv.confirmVoid': 'Void this invoice? This cannot be undone.',
+  'ts.rev.inv.voidOk': 'Invoice voided',
+  'ts.rev.inv.pdf': 'PDF',
+  'ts.rev.inv.csv': 'CSV',
+  'ts.rev.inv.actionFail': 'Action failed',
+  'ts.rev.inv.readinessTitle': 'Invoicing details incomplete',
+  'ts.rev.inv.readinessText': 'Without these an invoice is not valid (§ 14 UStG). They belong to the organisation, not to your user profile — add them under Organisation & team. Missing:',
+  'ts.rev.inv.loadFailTitle': 'Invoices not loaded',
+  'ts.rev.inv.loadFailText': 'Please try again.',
+  'ts.rev.inv.noAccessTitle': 'No billing permission',
+  'ts.rev.inv.noAccessText': 'Owners, administrators and finance may view and issue invoices.',
 
   'ts.rev.cust.title': 'Client dispatch of timesheets',
   'ts.rev.cust.subtitle': 'Status of every client dispatch at a glance',
@@ -1206,6 +1341,7 @@ TCi18n.register('en', {
   'ts.rev.asgn.workerPickNoAccess': 'The worker selection is not available for your current organisation context.',
   'ts.rev.asgn.closedLoadFail': 'Closed deals could not be loaded.',
   'ts.rev.asgn.slotsFilled': '{filled} of {requested} filled',
+  'ts.rev.asgn.clientContact': 'Client contact:',
   'ts.rev.asgn.slots': '{filled} filled · {reserved} reserved · {open} open of {requested}',
   'ts.rev.asgn.statusActive': 'Active',
   'ts.rev.asgn.statusArchived': 'Archive',
@@ -1215,6 +1351,14 @@ TCi18n.register('en', {
   'ts.rev.asgn.rowPeriodEmpty': 'No date set',
   'ts.rev.asgn.replaceCta': 'Assign a replacement',
   'ts.rev.asgn.replaceTitle': 'On sickness/absence: assign a replacement from the effective date and release the absentee',
+  'ts.rev.asgn.withdrawCta': 'Withdraw request',
+  'ts.rev.asgn.withdrawTitle': 'Withdraw the open request — the spot frees up immediately. Possible until the worker has accepted.',
+  'ts.rev.asgn.withdrawPrompt': 'Why is the request being withdrawn? The reason goes into the audit trail, not into the message to the worker.',
+  'ts.rev.asgn.withdrawNeedsReason': 'Please give a reason (at least 3 characters).',
+  'ts.rev.asgn.withdrawDone': 'Request withdrawn — the spot is open again.',
+  'ts.rev.asgn.withdrawTooLate': 'Too late: the request has since been answered or expired.',
+  'ts.rev.asgn.withdrawGone': 'This request no longer exists.',
+  'ts.rev.asgn.withdrawFailed': 'The request could not be withdrawn.',
   'ts.rev.asgn.hoursPerDay': 'h/day',
 
   'ts.rev.assign.title': 'Manual assignment → worker',
@@ -1247,7 +1391,7 @@ TCi18n.register('en', {
   'ts.rev.assign.infoStaff': 'Staff:',
   'ts.rev.assign.blockedSuffix': '— blocked at this client',
   'ts.rev.assign.blockedTitle': '{n} worker(s) blocked by this client',
-  'ts.rev.assign.blockedHint': '— disabled in the dropdown. Reason: {names}',
+  'ts.rev.assign.blockedHint': '— disabled in the dropdown. Only the client knows the reason.',
   'ts.rev.assign.doneDeal': 'Deal assignment staffed – the worker is notified',
   'ts.rev.assign.doneCapacity': 'Staff assigned – the worker is notified',
   'ts.rev.assign.errCapacityNotFound': 'Staff offer not found.',
@@ -1440,6 +1584,9 @@ TCi18n.register('en', {
   'ts.rev.conf.pending': 'Confirmation pending',
   'ts.rev.conf.confirmed': 'Confirmed',
   'ts.rev.conf.declined': 'Declined',
+  'ts.rev.conf.expired': 'Deadline passed',
+  'ts.rev.conf.unavailable': 'Absent',
+  'ts.rev.conf.withdrawn': 'Withdrawn',
   'ts.rev.due.overdue': 'Overdue',
   'ts.rev.due.overdueTitle': 'Submission deadline passed, not submitted yet',
   'ts.rev.due.late': 'Late',
@@ -1633,7 +1780,7 @@ const AGENCY_SUBS_URL = `${API}/agency/submissions`;
 const AGENCY_KPIS_URL = `${API}/agency/submissions/kpis`;
 const AGENCY_BUNDLE_PREVIEW_URL = `${API}/agency/submissions/bundles/preview`;
 const AGENCY_BUNDLES_URL = `${API}/agency/submissions/bundles`;
-const TAB_ORDER=['subs','wrks','asgn'];
+const TAB_ORDER=['subs','wrks','asgn','inv'];
 let pageAccess=createEmptyPageAccess();
 let staffingFastTrackContext=createEmptyStaffingFastTrackContext();
 let _csrfToken=null;
@@ -1655,7 +1802,8 @@ function createEmptyPageAccess(){
     tabs:{
       subs:false,
       wrks:false,
-      asgn:false
+      asgn:false,
+      inv:false
     }
   };
 }
@@ -1712,7 +1860,12 @@ function derivePageAccess(me){
     tabs:{
       subs:workerModule&&permissions.workerReview,
       wrks:workerModule&&permissions.workerView,
-      asgn:workerModule&&permissions.workerView
+      asgn:workerModule&&permissions.workerView,
+      /* Rechnungen (Welle J7): haengt NICHT am worker_module, sondern allein
+       * an der Abrechnungsberechtigung — dieselbe, die die Endpunkte
+       * verlangen (org.billing: owner, admin, finance). Eine Buchhaltung darf
+       * Rechnungen stellen, ohne Einsatzkraefte zu verwalten. */
+      inv:!!caps.org_billing
     }
   };
 }
@@ -2149,6 +2302,9 @@ async function initializePage(){
     // Verwaltungs-Hub-Grid "an Kunden senden / Freigabe-Queue / Einsatzkraefte").
     toggleElement('pilotPriorityBanner', false);
     toggleElement('verwaltungHubSection', false);
+    // Welle J1: Statt der reinen Sackgasse ("nur lesend") bekommen Unternehmen
+    // ihre eigenen Einstiege - Live-Belegschaft, Stundenzettel-Eingang, Deals.
+    toggleElement('companyHubSection', true);
     var _sub = document.getElementById('pageSubtitle');
     // Marker mitziehen: sonst wuerde das naechste TCi18n.apply() (Sprachwechsel)
     // wieder den Agentur-Untertitel einsetzen und die Unternehmenssicht ueberschreiben.
@@ -2209,6 +2365,7 @@ async function switchTab(t,opts={}){
       }
       if(!closedDealAsgnLoaded||opts.force) await loadClosedDealAsgn();
     }
+    if(t==='inv'&&(!invLoaded||opts.force)) await loadInv();
   }catch(err){
     // Transient-Errors hier nicht eskalieren — die jeweilige load*-Funktion
     // setzt bereits eine passende Panel-Notice. Andere Fehler bubble'n aber
@@ -3295,7 +3452,7 @@ function renderWorkerAssignCardBody(assignment,cardState){
   const canManualAssign=!!(suggestion&&suggestion.is_selectable&&open>0);
   return `
     <div style="margin-top:12px;border-top:1px solid var(--tc-tone-neutral-border);padding-top:12px;display:grid;gap:12px">
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:10px">
         <div style="padding:10px 12px;border:1px solid var(--tc-tone-neutral-border);border-radius:10px;background:var(--tc-surface-subtle)">
           <div style="font-size:11px;color:var(--wk-text-muted);text-transform:uppercase;letter-spacing:.05em">${esc(tt('ts.rev.drawer.contextHeading'))}</div>
           <div style="display:grid;gap:6px;margin-top:8px;font-size:12px">
@@ -3552,7 +3709,8 @@ async function loadAssignData(){
     // in submitAssign waehlt anhand dessen das richtige Backend-Ziel.
     const dC=await fetchJson(`${API}/assignable-sources`);
     unassignedCaps=dC.items||[];
-    await loadSupplierBlocks();
+    /* Die Sperren werden nicht mehr vorab geladen (N4.3) \u2014 sie kommen je Kunde,
+       sobald der Disponent einen Einsatz waehlt. Siehe `ladeSperren`. */
     if(!wrksLoaded){
       const dW=await fetchJson(`${API}/workers`);
       allWrks=dW.items||dW.workers||[];
@@ -3628,16 +3786,32 @@ function parseAssignableSelection(raw){
   if(idx<=0)return { source:'capacity', id:raw };
   return { source:raw.slice(0,idx), id:raw.slice(idx+1) };
 }
-/* P3.3 \u2014 Sperr-Hinweise: welcher eigene Worker ist bei welchem Kunden gesperrt.
- * Einmal geladen, dann rein clientseitig gefiltert (kein Request je Auswahl). */
-let supplierBlocks=[];
+/* P3.3 / N4.3 \u2014 Sperr-Hinweise: wen kann ich BEI DIESEM KUNDEN nicht einsetzen.
+ *
+ * Frueher lud diese Seite EINMAL die komplette Sperrliste \u2014 mit Kundennamen und
+ * Sperrgruenden \u2014 und filterte im Browser. Das war bequem und gab dem Disponenten
+ * Dinge preis, die ihn nichts angehen: warum ein Kunde jemanden nicht mehr will,
+ * und bei wem sonst noch. Jetzt fragt die Seite pro Kunde \u2014 also genau dann, wenn
+ * der Disponent ohnehin fuer diesen Kunden plant \u2014 und bekommt nur Kraft + Frist.
+ *
+ * Je Kunde EINMAL: gemerkt wird nur ein GELUNGENER Abruf, sonst wuerde ein
+ * kurzer Netzausfall die Sperren fuer den Rest der Sitzung unsichtbar machen. */
+const sperrenJeKunde=new Map();
+async function ladeSperren(companyOrgId){
+  if(!companyOrgId)return new Map();
+  const key=String(companyOrgId);
+  if(sperrenJeKunde.has(key))return sperrenJeKunde.get(key);
+  const m=new Map();
+  try{
+    const d=await fetchJson(`${API}/workers/blocks?company_org_id=${encodeURIComponent(key)}`);
+    (d.items||[]).forEach((b)=>m.set(String(b.worker_user_id),b));
+    sperrenJeKunde.set(key,m);
+  }catch(e){ /* Hinweis ist Zusatz \u2014 die Zuweisung darf nie daran scheitern */ }
+  return m;
+}
 function blocksForCompany(companyOrgId){
   if(!companyOrgId)return new Map();
-  const m=new Map();
-  supplierBlocks.forEach((b)=>{
-    if(String(b.company_org_id)===String(companyOrgId))m.set(String(b.worker_user_id),b);
-  });
-  return m;
+  return sperrenJeKunde.get(String(companyOrgId))||new Map();
 }
 
 function rebuildWorkerSelect(blockedWorkerUserIds,companyOrgId){
@@ -3650,7 +3824,9 @@ function rebuildWorkerSelect(blockedWorkerUserIds,companyOrgId){
   const hidden=activeW.length-available.length;
   const hiddenLabel=hidden>0?` (${hidden} ausgeblendet: bereits zugewiesen)`:'';
   // Vom Kunden gesperrte Kr\u00e4fte werden NICHT versteckt, sondern sichtbar deaktiviert \u2014
-  // der Disponent muss den Grund sehen, nicht r\u00e4tseln, warum jemand fehlt.
+  // sonst sucht der Disponent nach jemandem, der einfach fehlt. Sichtbar-aber-
+  // gesperrt beantwortet die Frage; der GRUND steht seit N4.3 nicht mehr dabei
+  // (Owner-Entscheid 2026-09-06), denn er wurde f\u00fcr den Kunden notiert.
   const byCompany=blocksForCompany(companyOrgId);
   let blockedCount=0;
   wSel.innerHTML='<option value="">'+esc(tt('ts.rev.assign.pleaseChoose'))+hiddenLabel+'</option>'
@@ -3664,27 +3840,41 @@ function rebuildWorkerSelect(blockedWorkerUserIds,companyOrgId){
       return `<option value="${uid}" disabled>${name} ${esc(tt('ts.rev.assign.blockedSuffix'))}${esc(until)}</option>`;
     }).join('');
   if(prev && !blocked.has(String(prev)) && !byCompany.has(String(prev))) wSel.value=prev;
-  setAssignBlockNotice(byCompany,blockedCount);
+  setAssignBlockNotice(blockedCount);
 }
 
-function setAssignBlockNotice(byCompany,count){
+/* Der Hinweis sagt WIE VIELE und dass sie deaktiviert sind \u2014 nicht warum.
+ * `byCompany` ist bewusst kein Parameter mehr: solange die Sperrzeilen hier
+ * ankommen, kommt irgendwann jemand auf die Idee, wieder etwas daraus zu zeigen. */
+function setAssignBlockNotice(count){
   const info=document.getElementById('asgCapInfo');
   if(!info||!count)return;
-  const names=[...byCompany.values()].map((b)=>esc(b.reason||'ohne Grundangabe')).slice(0,3);
   info.insertAdjacentHTML('beforeend',
     '<div class="wk-alert wk-alert-warn" style="margin-top:8px;font-size:.8rem">'
     +'<strong>'+esc(tt('ts.rev.assign.blockedTitle', { n: count }))+'</strong> '
-    +esc(tt('ts.rev.assign.blockedHint', { names: names.join(' \u00b7 ') }))
+    +esc(tt('ts.rev.assign.blockedHint'))
     +'</div>');
 }
 
-async function loadSupplierBlocks(){
-  try{
-    const d=await fetchJson(`${API}/workers/blocks`);
-    supplierBlocks=d.items||[];
-  }catch(e){ supplierBlocks=[]; }  // Hinweis ist Zusatz \u2014 Zuweisung darf nie daran scheitern
-}
-function onCapSelect(){
+/*
+ * N2.11 — WER NACH DEM WARTEN SCHREIBT, MUSS NOCH GEMEINT SEIN.
+ *
+ * Seit N4.3 ist `onCapSelect` asynchron (die Sperren des Kunden werden erst beim
+ * Auswaehlen geholt). Danach wurde nie geprueft, ob die Auswahl noch dieselbe
+ * ist. Befund der Pruefung vom 2026-09-15, in einer Sandbox nachgestellt:
+ * Einsatz A waehlen (Kunde X, Oktober), dann B (Kunde Y, Dezember) — kommt die
+ * Antwort fuer X spaeter, baut sie die Kraefte-Liste mit den Sperren von X,
+ * haengt den Sperr-Hinweis an die Info-Box von B und schreibt Start und Ende
+ * von A in die Felder, die "Zuweisen" dann absendet. Erreichbar auch ohne
+ * langsames Netz: ein schon geladener Kunde kommt sofort aus dem Zwischenspeicher.
+ *
+ * Ein Zaehler je Aufruf: nur der JUENGSTE schreibt.
+ */
+let capAuswahlLauf = 0;
+
+async function onCapSelect(){
+  const lauf = ++capAuswahlLauf;
+  const nochGemeint = () => lauf === capAuswahlLauf;
   const raw=document.getElementById('asgCap').value;
   const info=document.getElementById('asgCapInfo');
   const sel=parseAssignableSelection(raw);
@@ -3716,7 +3906,12 @@ function onCapSelect(){
     +(c.availability_from?`<br>${esc(tt('ts.rev.assign.optPeriod'))} ${fmtD(c.availability_from)}${c.availability_to?' \u2013 '+fmtD(c.availability_to):''}`:'')
     +(c.shift_model?`<br>Schichtmodell: ${esc(c.shift_model)}`:'')
     +(remain?`<br>${esc(tt('ts.rev.assign.infoStaff'))} ${esc(remain)}`:'');
-  // Erst jetzt, damit der Sperr-Hinweis an die fertige Info-Box angehängt wird.
+  // Erst die Sperren dieses Kunden holen (N4.3: je Kunde, nicht vorab alle),
+  // dann aufbauen \u2014 damit der Sperr-Hinweis an die fertige Info-Box kommt.
+  await ladeSperren(c.client_org_id||null);
+  /* Inzwischen ein anderer Einsatz gewaehlt? Dann gehoert die Anzeige ihm —
+     dieser Lauf schreibt nichts mehr (weder Sperren noch Zeitraum). */
+  if(!nochGemeint()) return;
   rebuildWorkerSelect(Array.isArray(c.assigned_worker_user_ids)?c.assigned_worker_user_ids:[], c.client_org_id||null);
   // Pre-fill Start/End aus der Quelle (capacity.availability_* bzw. deal_assignment.start_date/planned_end_date)
   if(c.availability_from) document.getElementById('asgStart').value=String(c.availability_from).substring(0,10);
@@ -3998,6 +4193,25 @@ function renderClosedDealCard(a){
     +esc(tt('ts.rev.asgn.slotsFilled', { filled: filled, requested: requested }))
     +(linkTotal?' · '+linkActive+' aktive Verknuepfung'+(linkActive===1?'':'en')+' / '+linkTotal+' gesamt':'')
     +'</div>'
+    /* DIE ANSPRECHPERSON BEIM KUNDEN (Plan I, 10b).
+       "Sichtbar an der Besetzung und in der Live-Belegschaft, nicht nur in der
+       Deal-Akte" — bis hierher fuehrte von dieser Karte nur der Knopf "Dealakte
+       oeffnen" weiter, also genau der Umweg, den die Vorgabe abstellt.
+       Aus dem BEDARF, nicht aus dem Angebot: das Angebot traegt die
+       Ansprechperson des Anbieters, und das ist die Flaeche des Anbieters.
+       Die Nummer ist waehlbar. Fehlt sie, steht hier nichts — gemessen haben
+       61 von 68 Einsaetzen gar keinen Vorgang hinter sich. */
+    +((a.kunde_kontakt_name||a.kunde_kontakt_telefon)
+      ?'<div style="margin-top:4px;font-size:12px;color:var(--wk-text-muted);line-height:1.5">'
+        +'<strong style="color:var(--wk-text)">'+esc(tt('ts.rev.asgn.clientContact'))+'</strong> '
+        +esc(a.kunde_kontakt_name||'')
+        +(a.kunde_kontakt_telefon
+          ?(a.kunde_kontakt_name?' · ':'')
+            +'<a href="tel:'+esc(String(a.kunde_kontakt_telefon).replace(/[^+0-9]/g,''))+'" style="color:inherit">'
+            +esc(a.kunde_kontakt_telefon)+'</a>'
+          :'')
+        +'</div>'
+      :'')
     +(detailHref?'<div style="margin-top:10px"><a class="wk-btn wk-btn-ghost wk-btn-sm" href="'+detailHref+'">Dealakte oeffnen</a></div>':'')
     +'</div>';
 }
@@ -4037,9 +4251,17 @@ function staffingFactorText(factorScores){
     .map(f=>`${staffingFactorLabel(f.factor)} ${Number(f.points||0)}/${Number(f.max||0)}`)
     .join(' · ');
 }
+/* Blocker und fehlende Anforderungen sind eine Vollstaendigkeits-Aussage, kein
+ * Auszug: Wer "2 Blocker" liest, obwohl es 5 sind, disponiert auf einer
+ * falschen Grundlage. Die Kappung auf 3 bleibt (sonst sprengt es die Kachel),
+ * aber sie sagt jetzt, dass sie kappt. Zusammen mit `nenneListe` im Service
+ * endet damit die doppelte stille Kuerzung 3-von-N und nochmals 3-von-N. */
 function staffingCriteriaText(items){
   if(!Array.isArray(items)||!items.length)return '';
-  return items.map(item=>item.label||item.reason||'').filter(Boolean).slice(0,3).join(' · ');
+  const alle=items.map(item=>item.label||item.reason||'').filter(Boolean);
+  if(!alle.length)return '';
+  const rest=alle.length-3;
+  return rest>0?`${alle.slice(0,3).join(' · ')} (+${rest} weitere)`:alle.join(' · ');
 }
 function staffingWorkerLabel(worker){
   return `${worker?.first_name||''} ${worker?.last_name||''}`.trim()||worker?.personnel_number||worker?.worker_user_id||'Worker';
@@ -5004,6 +5226,14 @@ function renderAsgnCard(l){
   const replaceAction=(pageAccess.permissions.workerEdit&&isCurrentAssignmentLink(l))
     ? '<button class="wk-btn wk-btn-sm" style="background:var(--tc-tone-danger-bg,#fef1f1);color:var(--tc-tone-danger-text,#b42318);border:1px solid var(--wk-danger,#e5484d)" onclick="openReplaceModal(\''+l.id+'\')" title="'+esc(tt('ts.rev.asgn.replaceTitle'))+'">&#8644; '+esc(tt('ts.rev.asgn.replaceCta'))+'</button>'
     : '';
+  /* Zurueckziehen (Migration 198): NUR solange die Anfrage offen ist. Wer schon
+     zugesagt hat, wird nicht zurueckgezogen — dafuer gibt es den Ersatz-Weg mit
+     Wirk-Datum. `worker.manage` statt `worker.edit`, wie in der Route: der
+     Rueckzug loest Meldungen an Arbeiter UND Kunde aus. */
+  const withdrawAction=(pageAccess.permissions.workerManage
+      &&l.worker_confirmation_status==='pending_confirmation'&&l.is_active!==false)
+    ? '<button class="wk-btn wk-btn-sm" onclick="openWithdrawModal(\''+l.id+'\')" title="'+esc(tt('ts.rev.asgn.withdrawTitle'))+'">&#8617; '+esc(tt('ts.rev.asgn.withdrawCta'))+'</button>'
+    : '';
   return '<div class="asgn-card">'
     +'<div class="asgn-card-head">'
     +'<div class="wk-avatar" style="'+aColor((l.first_name||'')+(l.last_name||''))+'">'+ini+'</div>'
@@ -5033,9 +5263,51 @@ function renderAsgnCard(l){
     +'</div>'
     +'<div class="asgn-card-foot">'
     +editAction
+    +withdrawAction
     +replaceAction
     +'</div>'
     +'</div>';
+}
+
+/* ── Anfrage zurueckziehen (Migration 198) ──────────────────────────────────
+ *
+ * Grund ist Pflicht (min. 3 Zeichen, wie beim Ersatz-Weg): er landet im Audit.
+ * Ohne ihn liesse sich spaeter nicht mehr sagen, warum jemandem eine Anfrage
+ * genommen wurde. Ein `prompt` statt eines eigenen Modals, weil genau das
+ * gebraucht wird — eine Frage, eine Antwort; ein Drawer waere hier Zierrat. */
+function openWithdrawModal(linkId){
+  if(!ensurePermission('workerManage',tt('ts.rev.perm.lnkEdit')))return;
+  var l=allLinks.find(function(x){return x.id===linkId;});
+  var wer=l?((l.first_name||'')+' '+(l.last_name||'')).trim():'';
+  var grund=window.prompt(tt('ts.rev.asgn.withdrawPrompt')+(wer?'\n\n'+wer:''),'');
+  if(grund===null)return;                       // abgebrochen
+  grund=String(grund).trim();
+  if(grund.length<3){toast(tt('ts.rev.asgn.withdrawNeedsReason'),'error');return;}
+  withdrawLink(linkId,grund);
+}
+async function withdrawLink(linkId,reason){
+  try{
+    var csrf=await getCsrf();
+    const r=await fetch(`${API}/worker-assignment-links/${encodeURIComponent(linkId)}/zurueckziehen`,{
+      method:'POST',credentials:'include',
+      headers:{'Content-Type':'application/json','x-csrf-token':csrf},
+      body:JSON.stringify({reason})
+    });
+    const d=await r.json().catch(function(){return {};});
+    if(!r.ok){
+      /* Rohe Fehlerschluessel gehoeren nicht in einen Toast. */
+      var txt=d.error==='NICHT_MEHR_OFFEN'?tt('ts.rev.asgn.withdrawTooLate')
+             :d.error==='NOT_FOUND'?tt('ts.rev.asgn.withdrawGone')
+             :tt('ts.rev.asgn.withdrawFailed');
+      toast(txt,'error');
+      await loadAsgn();                         // Ansicht auf den echten Stand ziehen
+      return;
+    }
+    toast(tt('ts.rev.asgn.withdrawDone'),'success');
+    await loadAsgn();
+  }catch(e){
+    toast(tt('ts.rev.asgn.withdrawFailed'),'error');
+  }
 }
 function openLnkDrwById(id){
   if(!ensurePermission('workerEdit',tt('ts.rev.perm.lnkEdit')))return;
@@ -5421,7 +5693,16 @@ function renderPlanungView(){
     todayMarker='<div class="plan-today" style="left:'+(colFor(td.getDate())+dayPct/2)+'%" title="Heute"></div>';
   }
   var blockClass=function(l){
-    if(l.worker_confirmation_status==='worker_unavailable')return 'pb-unavail';
+    /* Nicht zustande gekommene Besetzungen duerfen im Monatsplan nicht wie
+       gebuchte aussehen — der Knopf weist ihn als abrechnungsrelevant aus.
+       `expired` (Frist verstrichen, Migration 195) und `worker_declined`
+       (abgelehnt) liefen vorher in die Datumslogik und wurden dort zu einem
+       blauen "Geplant"-Balken. Dieselbe Klasse wie bei einer Abwesenheit:
+       gemeint ist beide Male "hier arbeitet niemand". */
+    if(l.worker_confirmation_status==='worker_unavailable'
+       ||l.worker_confirmation_status==='expired'
+       ||l.worker_confirmation_status==='withdrawn'
+       ||l.worker_confirmation_status==='worker_declined')return 'pb-unavail';
     var s=parseD(l.start_date), e=parseD(l.end_date)||'9999-12-31';
     if(e<todayIso)return 'pb-past';
     if(l.assignment_lifecycle_state==='ends_today'||e===todayIso)return 'pb-ends';
@@ -5489,7 +5770,13 @@ function confBadge(s){
   const m={
     pending_confirmation:'<span class="pill pill-warn" style="margin-left:6px">'+esc(tt('ts.rev.conf.pending'))+'</span>',
     worker_confirmed:'<span class="pill pill-act" style="margin-left:6px">'+esc(tt('ts.rev.conf.confirmed'))+'</span>',
-    worker_declined:'<span class="pill pill-danger" style="margin-left:6px">'+esc(tt('ts.rev.conf.declined'))+'</span>'
+    worker_declined:'<span class="pill pill-danger" style="margin-left:6px">'+esc(tt('ts.rev.conf.declined'))+'</span>',
+    /* Verfall ist keine Absage — neutral statt rot. Ohne diese beiden Eintraege
+       blieb die Karte wortlos, und der Disponent sah keinen Unterschied zu
+       einer bestaetigten Besetzung. */
+    expired:'<span class="pill" style="margin-left:6px">'+esc(tt('ts.rev.conf.expired'))+'</span>',
+    worker_unavailable:'<span class="pill pill-danger" style="margin-left:6px">'+esc(tt('ts.rev.conf.unavailable'))+'</span>',
+    withdrawn:'<span class="pill" style="margin-left:6px">'+esc(tt('ts.rev.conf.withdrawn'))+'</span>'
   };
   return m[s]||'';
 }
@@ -5621,3 +5908,264 @@ document.addEventListener('tc:langchange', function () {
     /* Netz-/Zugriffsfehler melden bereits die jeweiligen load*-Notices. */
   });
 });
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RECHNUNGEN (Welle J7) — der letzte Schritt derselben Kette
+
+   Aus freigegebenen Stundenzetteln wird die Rechnung an das Unternehmen. Der
+   Reiter liegt bewusst hier und nicht auf einer eigenen Flaeche: wer die
+   Zettel freigibt, stellt auch die Rechnung.
+
+   ZWEI DINGE, DIE DIE OBERFLAECHE ERNST NIMMT:
+
+   1. OHNE STAMMDATEN KEINE GUELTIGE RECHNUNG. Die Bereitschaftspruefung des
+      Servers nennt die fehlenden Felder im Klartext (nicht "BR-08"). Fehlt
+      etwas, steht es oben — nicht erst, wenn das Stellen scheitert.
+   2. DIE NUMMER FAELLT ERST BEIM STELLEN. Ein Entwurf traegt keine, und das
+      sagt die Oberflaeche auch so. Wer einen Entwurf verwirft, reisst keine
+      Luecke in den Kreis (Mig 203).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const INVOICE_URL = `${API}/invoices/operational`;
+let invLoaded = false;
+let invRows = [], invBillableRows = [];
+
+/** Cent in einen lesbaren Betrag. */
+function invBetrag(cents) {
+  const n = Number(cents || 0) / 100;
+  return n.toLocaleString(TCi18n.locale() === 'en' ? 'en-GB' : 'de-DE',
+    { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+}
+
+function invDatum(d) {
+  if (!d) return '–';
+  const p = String(d).split('T')[0].split('-');
+  if (p.length !== 3) return '–';
+  return TCi18n.locale() === 'en' ? `${p[2]}/${p[1]}/${p[0]}` : `${p[2]}.${p[1]}.${p[0]}`;
+}
+
+const INV_STATUS_TON = { draft: '', issued: 'o', overdue: 'r', paid: 'g', void: '' };
+
+function invStatusText(s) {
+  return tt('ts.rev.inv.status' + String(s).charAt(0).toUpperCase() + String(s).slice(1)) || s;
+}
+
+/**
+ * Laedt Bereitschaft, Kennzahlen, abrechenbare Zettel und Rechnungen.
+ * Vier Abrufe, bewusst nebenlaeufig: sie haengen nicht voneinander ab, und
+ * der Reiter soll nicht viermal nacheinander warten.
+ */
+async function loadInv() {
+  if (!pageAccess.tabs.inv) {
+    invLoaded = true;
+    setPanelNotice('invStateNotice', tt('ts.rev.inv.noAccessTitle'), tt('ts.rev.inv.noAccessText'), 'info');
+    return;
+  }
+  const feld = document.getElementById('invFilterStatus');
+  const status = feld ? feld.value : '';
+  try {
+    const [bereit, kpis, billable, liste] = await Promise.all([
+      fetchJson(`${API}/invoices/e-rechnung/bereitschaft`).catch(() => null),
+      fetchJson(`${INVOICE_URL}/kpis`).catch(() => null),
+      fetchJson(`${INVOICE_URL}/billable`).catch(() => ({ items: [] })),
+      fetchJson(`${INVOICE_URL}${status ? `?status=${encodeURIComponent(status)}` : ''}`).catch(() => ({ items: [] }))
+    ]);
+    invLoaded = true;
+    renderInvReadiness(bereit);
+    renderInvKpis(kpis);
+    renderInvBillable((billable && billable.items) || []);
+    renderInvList((liste && liste.items) || []);
+    setPanelNotice('invStateNotice', '', '', 'info');
+  } catch (err) {
+    if (isTransientError(err)) return;
+    setPanelNotice('invStateNotice', tt('ts.rev.inv.loadFailTitle'),
+      (err && (err.code || err.message)) || tt('ts.rev.inv.loadFailText'), 'danger');
+  }
+}
+
+/** Die Stammdaten-Warnung — nur wenn wirklich etwas fehlt. */
+function renderInvReadiness(bereit) {
+  const el = document.getElementById('invReadiness');
+  if (!el) return;
+  if (!bereit || bereit.bereit || !Array.isArray(bereit.fehlend) || !bereit.fehlend.length) {
+    el.style.display = 'none';
+    return;
+  }
+  /* Klartext statt Regelnummer: die Meldung des Servers nennt Feld und Ort.
+     Der Weg dorthin steht dabei — sonst weiss niemand, wo er pflegen soll. */
+  el.innerHTML = '<strong>' + esc(tt('ts.rev.inv.readinessTitle')) + '</strong><br>' +
+    esc(tt('ts.rev.inv.readinessText')) + '<ul style="margin:6px 0 0 18px">' +
+    bereit.fehlend.map(function (f) { return '<li>' + esc(f.feld) + '</li>'; }).join('') +
+    '</ul>';
+  el.style.display = '';
+}
+
+function renderInvKpis(k) {
+  const setz = function (id, wert) { const e = document.getElementById(id); if (e) e.textContent = wert; };
+  if (!k) { ['ki1', 'ki2', 'ki3', 'ki4'].forEach(function (id) { setz(id, '–'); }); return; }
+  setz('ki1', k.draft_count != null ? k.draft_count : 0);
+  setz('ki2', k.issued_count != null ? k.issued_count : 0);
+  setz('ki3', k.overdue_count != null ? k.overdue_count : 0);
+  setz('ki4', invBetrag(k.outstanding_cents));
+}
+
+/**
+ * Abrechenbare Stundenzettel, nach Einsatz gebuendelt — eine Rechnung entsteht
+ * je Einsatz, nicht je Zettel. Wer sie einzeln auflistete, liesse den Nutzer
+ * die Buendelung im Kopf machen.
+ */
+function renderInvBillable(items) {
+  invBillableRows = items || [];
+  const el = document.getElementById('invBillable');
+  if (!el) return;
+  if (!invBillableRows.length) {
+    el.innerHTML = '<div class="hub-empty"><p>' + esc(tt('ts.rev.inv.billableEmpty')) + '</p></div>';
+    return;
+  }
+  const jeEinsatz = new Map();
+  for (const z of invBillableRows) {
+    const key = z.assignment_id || 'ohne';
+    if (!jeEinsatz.has(key)) {
+      jeEinsatz.set(key, {
+        einsatz: key, zettel: [], stunden: 0,
+        satz: z.hourly_rate_cents, titel: z.assignment_description, kunde: z.org_name
+      });
+    }
+    const g = jeEinsatz.get(key);
+    g.zettel.push(z);
+    g.stunden += Number(z.total_hours || 0);
+  }
+  const kopf = '<table class="wk-table"><thead><tr>' +
+    '<th>' + esc(tt('ts.rev.inv.thAssignment')) + '</th>' +
+    '<th>' + esc(tt('ts.rev.inv.thClient')) + '</th>' +
+    '<th>' + esc(tt('ts.rev.inv.thSheets')) + '</th>' +
+    '<th>' + esc(tt('ts.rev.inv.thHours')) + '</th>' +
+    '<th>' + esc(tt('ts.rev.inv.thRate')) + '</th><th></th></tr></thead><tbody>';
+  const zeilen = Array.from(jeEinsatz.values()).map(function (g) {
+    const ohneSatz = !g.satz;
+    /* Kein Satz = keine Rechnung. Das sagt die Zeile, statt den Knopf still
+       scheitern zu lassen (der Server meldet NO_HOURLY_RATE). */
+    const satzZelle = ohneSatz
+      ? '<span class="wk-badge wk-badge-warn">' + esc(tt('ts.rev.inv.noRate')) + '</span>'
+      : invBetrag(g.satz) + '/h';
+    const knopf = ohneSatz ? ''
+      : '<button class="wk-btn wk-btn-primary" onclick="invErzeugen(\'' + esc(g.einsatz) + '\')">' +
+        esc(tt('ts.rev.inv.create')) + '</button>';
+    return '<tr><td>' + esc(g.titel || tt('ts.rev.inv.assignmentFallback')) + '</td>' +
+      '<td>' + esc(g.kunde || '–') + '</td>' +
+      '<td>' + g.zettel.length + '</td>' +
+      '<td>' + esc(String(g.stunden)) + '</td>' +
+      '<td>' + satzZelle + '</td>' +
+      '<td style="text-align:right">' + knopf + '</td></tr>';
+  }).join('');
+  el.innerHTML = kopf + zeilen + '</tbody></table>';
+}
+
+function renderInvList(items) {
+  invRows = items || [];
+  const el = document.getElementById('invRechnungen');
+  if (!el) return;
+  if (!invRows.length) {
+    el.innerHTML = '<div class="hub-empty"><p>' + esc(tt('ts.rev.inv.listEmpty')) + '</p></div>';
+    return;
+  }
+  const kopf = '<table class="wk-table"><thead><tr>' +
+    '<th>' + esc(tt('ts.rev.inv.thNumber')) + '</th>' +
+    '<th>' + esc(tt('ts.rev.inv.thClient')) + '</th>' +
+    '<th>' + esc(tt('ts.rev.inv.thPeriod')) + '</th>' +
+    '<th>' + esc(tt('ts.rev.inv.thTotal')) + '</th>' +
+    '<th>' + esc(tt('ts.rev.inv.thStatus')) + '</th><th></th></tr></thead><tbody>';
+  const zeilen = invRows.map(function (r) {
+    const ton = INV_STATUS_TON[r.status] || '';
+    const tonKlasse = ton === 'r' ? ' wk-badge-danger' : ton === 'o' ? ' wk-badge-warn' : ton === 'g' ? ' wk-badge-ok' : '';
+    /* Ein Entwurf hat KEINE Nummer — das ist kein Fehler, sondern die Zusage
+       aus Mig 203. Die Oberflaeche sagt es so, statt eine Luecke zu zeigen. */
+    const nummer = r.invoice_number
+      ? esc(r.invoice_number)
+      : '<span class="hub-sub">' + esc(tt('ts.rev.inv.noNumberYet')) + '</span>';
+    return '<tr><td>' + nummer + '</td>' +
+      '<td>' + esc(r.buyer_org_name || '–') + '</td>' +
+      '<td>' + invDatum(r.billing_period_start) + ' – ' + invDatum(r.billing_period_end) + '</td>' +
+      '<td><strong>' + invBetrag(r.total_cents) + '</strong></td>' +
+      '<td><span class="wk-badge' + tonKlasse + '">' + esc(invStatusText(r.status)) + '</span></td>' +
+      '<td style="text-align:right;white-space:nowrap">' + invAktionen(r) + '</td></tr>';
+  }).join('');
+  el.innerHTML = kopf + zeilen + '</tbody></table>';
+}
+
+/** Die Knoepfe einer Zeile — nur, was der Zustandsautomat wirklich zulaesst. */
+function invAktionen(r) {
+  const knopf = function (fn, label, klasse) {
+    return '<button class="wk-btn ' + klasse + '" style="margin-left:4px" onclick="' + fn +
+      '(\'' + esc(r.id) + '\')">' + esc(tt(label)) + '</button>';
+  };
+  let h = '<a class="wk-btn" style="text-decoration:none" href="' + API +
+    '/invoices/operational/' + esc(r.id) + '/export/csv">' + esc(tt('ts.rev.inv.csv')) + '</a>';
+  /* Das PDF nur fuer GESTELLTE Rechnungen: ein Entwurf hat weder Nummer noch
+     Datum, der Beleg entstuende gar nicht (422). Ein Knopf, der verlaesslich
+     einen Fehler liefert, ist ein toter Knopf. */
+  if (r.status !== 'draft') {
+    h += ' <a class="wk-btn" style="text-decoration:none" href="' + API +
+      '/invoices/operational/' + esc(r.id) + '/pdf">' + esc(tt('ts.rev.inv.pdf')) + '</a>';
+  }
+  if (r.status === 'draft') {
+    h += knopf('invStellen', 'ts.rev.inv.issue', 'wk-btn-primary');
+    h += knopf('invStornieren', 'ts.rev.inv.void', '');
+  } else if (r.status === 'issued' || r.status === 'overdue') {
+    h += knopf('invBezahlt', 'ts.rev.inv.markPaid', 'wk-btn-primary');
+    h += knopf('invStornieren', 'ts.rev.inv.void', '');
+  }
+  return h;
+}
+
+/** Rechnung aus allen abrechenbaren Zetteln EINES Einsatzes erzeugen. */
+async function invErzeugen(assignmentId) {
+  const zettel = invBillableRows.filter(function (z) {
+    return String(z.assignment_id) === String(assignmentId);
+  });
+  if (!zettel.length) return;
+  if (!confirm(tt('ts.rev.inv.confirmCreate', { n: zettel.length }))) return;
+  try {
+    const csrf = await getCsrf();
+    const r = await fetch(`${INVOICE_URL}/generate`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify({ assignment_id: assignmentId, timesheet_ids: zettel.map(function (z) { return z.id; }) })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.message || d.error || tt('ts.rev.inv.createFail'));
+    toast(tt('ts.rev.inv.createOk'), 'ok');
+    await loadInv();
+  } catch (e) { toast(e.message || tt('ts.rev.inv.createFail'), 'error'); }
+}
+
+/** Ein Zustandswechsel. Der Server ist der Riegel; hier steht die Rueckmeldung. */
+async function invUebergang(id, ziel, frageKey, okKey) {
+  if (frageKey && !confirm(tt(frageKey))) return;
+  try {
+    const csrf = await getCsrf();
+    const r = await fetch(`${INVOICE_URL}/${encodeURIComponent(id)}/${ziel}`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: '{}'
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.message || d.error || tt('ts.rev.inv.actionFail'));
+    /* Beim Stellen faellt die Nummer — sie gehoert in die Rueckmeldung, sonst
+       muesste der Nutzer die Liste absuchen, um zu sehen, was er bekommen hat. */
+    const nummer = d.invoice && d.invoice.invoice_number;
+    toast(nummer ? tt(okKey) + ' · ' + nummer : tt(okKey), 'ok');
+    await loadInv();
+  } catch (e) { toast(e.message || tt('ts.rev.inv.actionFail'), 'error'); }
+}
+
+function invStellen(id) { return invUebergang(id, 'issue', 'ts.rev.inv.confirmIssue', 'ts.rev.inv.issueOk'); }
+function invBezahlt(id) { return invUebergang(id, 'paid', null, 'ts.rev.inv.paidOk'); }
+function invStornieren(id) { return invUebergang(id, 'void', 'ts.rev.inv.confirmVoid', 'ts.rev.inv.voidOk'); }
+
+window.loadInv = loadInv;
+window.invErzeugen = invErzeugen;
+window.invStellen = invStellen;
+window.invBezahlt = invBezahlt;
+window.invStornieren = invStornieren;

@@ -291,12 +291,29 @@ describe("notification factories", () => {
     assert.doesNotMatch(last(pool).params[P.message], /für /);
   });
 
-  it("notifyAssignmentPendingConfirmation targets benachrichtigungen page", async () => {
+  /*
+   * GEAENDERT 2026-08-26, mit Begruendung (Test-Integritaet, CLAUDE.md 0.9).
+   *
+   * Diese Probe hielt den Wert "/public/einsatzportal-benachrichtigungen.html"
+   * fest. Ihr Name beschrieb einen WERT, keine Regel - und der Wert
+   * widersprach einer ausdruecklichen Hausregel: "Deep-Links statt Sackgassen:
+   * Meldungen, die auf etwas verweisen, muessen direkt zum konkreten Ziel
+   * fuehren, nicht auf eine allgemeine Uebersicht."
+   *
+   * Er war ausserdem zirkulaer: Die Meldung fuehrte auf die Liste, in der sie
+   * selbst steht. Der Arbeiter las "Ihre Antwort steht noch aus, die Anfrage
+   * verfaellt am ..." und musste den Einsatz danach selbst suchen, waehrend
+   * seine Frist lief.
+   *
+   * Die Probe prueft jetzt die REGEL statt des alten Wertes. Die uebrigen
+   * Zusicherungen (Typ, Dringlichkeit, Text) sind unveraendert.
+   */
+  it("notifyAssignmentPendingConfirmation fuehrt zum Einsatz, nicht auf die Liste", async () => {
     await svc.notifyAssignmentPendingConfirmation(pool, "u", "link-1", "ACME");
     const c = last(pool);
     assert.equal(c.params[P.type], "worker_assignment_pending_confirmation");
     assert.equal(c.params[P.severity], "warning");
-    assert.equal(c.params[P.linkPath], "/public/einsatzportal-benachrichtigungen.html");
+    assert.equal(c.params[P.linkPath], "/public/einsatzportal-einsaetze.html?einsatz=link-1");
     assert.match(c.params[P.message], /bei ACME/);
   });
 });

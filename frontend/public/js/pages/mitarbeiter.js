@@ -23,6 +23,18 @@ TCi18n.register('de', {
   'mit.page.createCta': '+ Anlegen',
   'mit.tab.list': 'Mitarbeiter',
   'mit.tab.live': 'Live-Belegschaft',
+  'mit.tab.unsichtbar': 'Nicht im Markt',
+  'mit.unsichtbar.title': 'Warum diese Kraefte im Marktplatz nicht erscheinen',
+  'mit.unsichtbar.lead': 'Je Mensch steht hier, welche Bedingung fehlt — und was sie behebt. Wer alle erfuellt, steht im Markt und erscheint hier nicht.',
+  'mit.unsichtbar.loading': 'Wird geladen...',
+  'mit.unsichtbar.error': 'Der Bericht konnte nicht geladen werden.',
+  'mit.unsichtbar.empty': 'Alle Kraefte erfuellen die Bedingungen und stehen im Marktplatz.',
+  'mit.unsichtbar.ohneName': 'Ohne Namen',
+  'mit.unsichtbar.oeffnen': 'Profil oeffnen',
+  'mit.unsichtbar.wer.mensch': 'Die Kraft selbst',
+  'mit.unsichtbar.wer.firma': 'Ihre Firma',
+  'mit.unsichtbar.wer.organisation': 'Ihre Organisation',
+  'mit.unsichtbar.wer.zeitlich': 'Loest sich von selbst',
   'mit.tab.skills': 'Profil & Talent Hub',
   'mit.tab.create': 'Manuell anlegen',
   'mit.tab.invite': 'Einladen',
@@ -94,6 +106,10 @@ TCi18n.register('de', {
   'mit.live.empty': 'Noch keine Mitarbeiter in der Belegschaft.',
   'mit.live.asOf': 'Stand: {time}',
   'mit.live.atClient': 'bei {client}',
+  /* Ansprechperson beim KUNDEN (Plan I, 10b) — aus dem Bedarf, nicht aus dem
+     Angebot: das Angebot traegt unsere eigene. Wer vor einer leeren Schicht
+     steht, ruft die Gegenseite an. */
+  'mit.live.kontakt': 'Ansprechperson beim Kunden:',
   'mit.live.until': 'bis {date}',
   'mit.live.timesheetsBadge': '{count} Stundenzettel',
   'mit.live.status.endingSoon': 'Endet bald',
@@ -121,6 +137,42 @@ TCi18n.register('de', {
 
   /* Zustands-Zeitstrahl (Welle E5) */
   'mit.live.verlauf.btn': 'Verlauf',
+
+  'mit.live.markt.aus': 'Marktplatz: aus',
+  'mit.live.markt.ausInfo': 'Diese Kraft erscheint nicht als automatisches Angebot im Marktplatz. Mit „Markt an" nehmen Sie sie wieder auf.',
+  'mit.live.markt.anBtn': 'Markt an',
+  'mit.live.markt.anTitle': 'Diese Kraft wieder automatisch im Marktplatz anbieten',
+  'mit.live.markt.ausBtn': 'Markt aus',
+  'mit.live.markt.ausTitle': 'Diese Kraft nicht mehr automatisch im Marktplatz anbieten – laufende Deals bleiben unberührt',
+  'mit.live.markt.unsichtbar': 'Im Marktplatz unsichtbar – Katalog-Skills fehlen',
+  'mit.live.markt.unsichtbarTitle': 'Der Marktplatz bietet nur an, was er kennt: Ohne Katalog-Skill kann für diese Kraft kein automatisches Angebot entstehen. Skills pflegen Sie über den Namen → Fähigkeiten.',
+  'mit.live.markt.toastAn': 'Marktpräsenz an – {n} Angebot(e) im Marktplatz.',
+  'mit.live.markt.toastAus': 'Marktpräsenz aus – {n} Angebot(e) zurückgenommen.',
+  'mit.live.markt.fehler': 'Marktpräsenz konnte nicht geändert werden.',
+
+  'mit.mp.btn': 'Markt-Profil',
+  'mit.mp.btnTitle': 'Merkmale, Einsetzbarkeits-Horizont und interne Notiz zu dieser Kraft pflegen',
+  'mit.mp.title': 'Markt-Profil',
+  'mit.mp.intro': 'Was Unternehmen im Marktplatz über diese Kraft sehen — und was nur Sie sehen.',
+  'mit.mp.merkmaleLabel': 'Merkmale (erscheinen im Angebot, fester Katalog)',
+  'mit.mp.bisLabel': 'Einsetzbar bis (leer = unbefristet)',
+  'mit.mp.bisHelp': 'Wird als Verfügbarkeitsende in die automatischen Angebote gespiegelt — Unternehmen können nur bis zu diesem Datum buchen.',
+  'mit.mp.notizLabel': 'Interne Dispo-Notiz (sieht NIE ein Unternehmen)',
+  'mit.mp.notizPh': 'z. B. seit einer Woche abwesend ohne Rückmeldung – nur für Ihre Disposition',
+  'mit.mp.submit': 'Speichern',
+  'mit.mp.saved': 'Markt-Profil gespeichert – Horizont in {n} Angebot(e) übernommen.',
+  'mit.mp.fehler': 'Markt-Profil konnte nicht gespeichert werden.',
+
+  'mit.merkmal.zuverlaessig': 'Zuverlässig',
+  'mit.merkmal.sehr_fleissig': 'Sehr fleißig',
+  'mit.merkmal.arbeitet_sauber': 'Arbeitet sauber',
+  'mit.merkmal.langfristig_einsetzbar': 'Langfristig einsetzbar',
+  'mit.merkmal.kurzfristig_startklar': 'Kurzfristig startklar',
+  'mit.merkmal.schicht_flexibel': 'Flexibel bei Schichten',
+
+  'mit.aueg.rest': 'AÜG: {monate}/18 Mon. – Frist bis {date}',
+  'mit.aueg.alarm': 'AÜG-Frist überschritten (seit {date})',
+  'mit.aueg.help': 'Höchstüberlassungsdauer nach § 1 AÜG: 18 Monate je Kraft beim selben Entleiher. Verbraucht: {monate} Monate, Frist endet {date}. Unterbrechungen unter 3 Monaten zählen mit — die Einhaltung liegt bei Ihnen als Verleiher; TempConnect rechnet mit und weist Sie rechtzeitig darauf hin.',
   'mit.live.verlauf.title': 'Verlauf',
   'mit.live.verlauf.intro': 'Jede Zustandsänderung der letzten 90 Tage – mitgeschrieben an der Quelle, nicht nachträglich abgeleitet.',
   'mit.live.verlauf.loading': 'Verlauf wird geladen …',
@@ -141,15 +193,16 @@ TCi18n.register('de', {
   'mit.ersatz.loading': 'Passende Kräfte werden gesucht…',
   'mit.ersatz.empty': 'Für diesen Einsatz ist derzeit niemand verfügbar. Sie können den Einsatz im Marktplatz ausschreiben.',
   'mit.ersatz.loadFail': 'Die Vorschläge konnten nicht geladen werden.',
-  'mit.ersatz.take': 'Einsetzen',
+  'mit.ersatz.take': 'Anfragen',
   'mit.ersatz.blocked': 'Nicht einsetzbar',
   'mit.ersatz.fit': 'Eignung {n} %',
   'mit.ersatz.confirm': '{name} für {kunde} einsetzen?',
-  'mit.ersatz.confirmSub': 'Die Zuweisung gilt sofort. {name} wird benachrichtigt, der Kunde ebenfalls — ohne den Grund des Ausfalls.',
-  'mit.ersatz.yes': 'Verbindlich einsetzen',
-  'mit.ersatz.done': '{name} übernimmt den Einsatz.',
+  'mit.ersatz.confirmSub': '{name} wird gefragt und muss zusagen — erst dann ist der Einsatz besetzt. Der Kunde erfährt es mit der Zusage, ohne den Grund des Ausfalls.',
+  'mit.ersatz.yes': 'Anfragen',
+  'mit.ersatz.done': '{name} wurde gefragt. Sobald zugesagt wird, ist der Einsatz besetzt — und der Kunde wird informiert.',
   'mit.ersatz.failBlocked': 'Diese Kraft ist beim Kunden gesperrt.',
   'mit.ersatz.failConflict': 'Diese Kraft hat im Zeitraum bereits einen Einsatz.',
+  'mit.ersatz.failPending': 'Für diesen Ausfall läuft bereits eine Ersatz-Anfrage. Sie muss erst beantwortet werden.',
   'mit.ersatz.failGeneric': 'Der Ersatz konnte nicht eingesetzt werden.',
   'mit.ersatz.noAssignment': 'Zu dieser Person ist kein laufender Einsatz hinterlegt.',
   'mit.live.absence.title': 'Abwesenheit erfassen',
@@ -387,6 +440,8 @@ TCi18n.register('de', {
   'mit.asgState.archived': 'Archiv',
   'mit.asgState.pendingConfirmation': 'Bestätigung offen',
   'mit.asgState.unavailable': 'Abwesend',
+  'mit.asgState.expiredRequest': 'Anfrage verfallen',
+  'mit.asgState.withdrawnRequest': 'Anfrage zurückgezogen',
 
   /* Externe Profilfreigabe */
   'mit.public.title': 'Externe Profilfreigabe',
@@ -549,6 +604,11 @@ TCi18n.register('de', {
   'mit.csv.errRowUnknown': 'Zeile unbekannt',
   'mit.csv.errMore': '… und {count} weitere',
   'mit.csv.inviteImportedCta': 'Jetzt alle {count} importierten Mitarbeiter einladen',
+  /* M3.1 — die Zahl auf dem Knopf war die Zahl der ANGELEGTEN, nicht die der
+     einladbaren. Wer ohne E-Mail importiert wurde, hat kein Nutzerkonto und faellt
+     aus `listInvitableWorkers` heraus (JOIN users). Der Knopf versprach also
+     zehn und lieferte sieben — ohne zu sagen, warum. */
+  'mit.csv.inviteOhneMail': '{count} ohne E-Mail-Adresse — für sie ist noch keine Einladung möglich.',
   'mit.csv.rowLabel': 'Zeile {row}:',
   'mit.csv.unknownError': 'Unbekannter Fehler',
   'mit.csv.headCreated': 'Erstellt ({count})',
@@ -567,7 +627,20 @@ TCi18n.register('de', {
   'mit.ok.allAlreadyInvited': 'Alle Mitarbeiter sind bereits registriert oder eingeladen.',
   'mit.ok.bulkInvited': '{count} eingeladen',
   'mit.ok.bulkMailErrors': '{count} Mail-Fehler',
+  /* M1.3: ueber die Warteschlange ist die Mail EINGEREIHT, nicht zugestellt.
+     Der Unterschied gehoert in die Meldung — sonst liest der Disponent
+     wieder eine Zustellung, die noch gar nicht stattgefunden hat. */
+  'mit.ok.bulkQueued': 'Versand laeuft im Hintergrund ({count} eingereiht)',
   'mit.ok.bulkSkipped': '{count} übersprungen',
+  /* M3.3 — DIE DREI FELDER, DIE DER SERVER SCHON IMMER SCHICKTE.
+     `truncated`, `skipped_pending` und `skipped_accepted` stehen seit jeher in
+     der Antwort und wurden nie angezeigt. Bei 500 Kandidaten und einer
+     Obergrenze von 200 verschwanden 300 Menschen lautlos — die Meldung sagte
+     "200 eingeladen", und das stimmte sogar. Sie sagte nur nicht, dass 300
+     uebrig blieben. */
+  'mit.ok.bulkTruncated': '{count} nicht angefasst (Obergrenze {max} je Lauf) — erneut klicken',
+  'mit.ok.bulkPending': '{count} bereits eingeladen',
+  'mit.ok.bulkAccepted': '{count} bereits registriert',
   'mit.confirm.inviteImported': '{count} importierte Mitarbeiter jetzt ins Einsatzportal einladen? Bereits Eingeladene/Registrierte werden übersprungen.',
   'mit.confirm.inviteUnregistered': '{count} noch nicht registrierte Mitarbeiter einladen? Bereits Registrierte werden übersprungen.',
   'mit.confirm.revokeInvite': 'Einladung wirklich widerrufen?',
@@ -626,6 +699,18 @@ TCi18n.register('en', {
   'mit.page.createCta': '+ Add',
   'mit.tab.list': 'Workers',
   'mit.tab.live': 'Live workforce',
+  'mit.tab.unsichtbar': 'Not on the market',
+  'mit.unsichtbar.title': 'Why these workers do not appear on the marketplace',
+  'mit.unsichtbar.lead': 'For each person: which condition is missing, and what fixes it. Anyone meeting all of them is on the market and not listed here.',
+  'mit.unsichtbar.loading': 'Loading...',
+  'mit.unsichtbar.error': 'The report could not be loaded.',
+  'mit.unsichtbar.empty': 'All workers meet the conditions and appear on the marketplace.',
+  'mit.unsichtbar.ohneName': 'Unnamed',
+  'mit.unsichtbar.oeffnen': 'Open profile',
+  'mit.unsichtbar.wer.mensch': 'The worker',
+  'mit.unsichtbar.wer.firma': 'Your company',
+  'mit.unsichtbar.wer.organisation': 'Your organisation',
+  'mit.unsichtbar.wer.zeitlich': 'Resolves by itself',
   'mit.tab.skills': 'Profile & talent hub',
   'mit.tab.create': 'Add manually',
   'mit.tab.invite': 'Invite',
@@ -694,6 +779,7 @@ TCi18n.register('en', {
   'mit.live.empty': 'No workers in the workforce yet.',
   'mit.live.asOf': 'As of: {time}',
   'mit.live.atClient': 'at {client}',
+  'mit.live.kontakt': 'Client contact:',
   'mit.live.until': 'until {date}',
   'mit.live.timesheetsBadge': '{count} timesheets',
   'mit.live.status.endingSoon': 'Ending soon',
@@ -719,6 +805,42 @@ TCi18n.register('en', {
   'mit.live.detail.notFound': 'This worker is not in the profile hub selection.',
 
   'mit.live.verlauf.btn': 'History',
+
+  'mit.live.markt.aus': 'Marketplace: off',
+  'mit.live.markt.ausInfo': 'This worker does not appear as an automatic offer in the marketplace. Use "Market on" to include them again.',
+  'mit.live.markt.anBtn': 'Market on',
+  'mit.live.markt.anTitle': 'Offer this worker automatically in the marketplace again',
+  'mit.live.markt.ausBtn': 'Market off',
+  'mit.live.markt.ausTitle': 'Stop offering this worker automatically in the marketplace – running deals stay untouched',
+  'mit.live.markt.unsichtbar': 'Invisible in the marketplace – catalogue skills missing',
+  'mit.live.markt.unsichtbarTitle': 'The marketplace can only offer what it knows: without a catalogue skill no automatic offer can be created for this worker. Maintain skills via the name → skills.',
+  'mit.live.markt.toastAn': 'Market presence on – {n} offer(s) in the marketplace.',
+  'mit.live.markt.toastAus': 'Market presence off – {n} offer(s) withdrawn.',
+  'mit.live.markt.fehler': 'Market presence could not be changed.',
+
+  'mit.mp.btn': 'Market profile',
+  'mit.mp.btnTitle': 'Maintain traits, deployability horizon and the internal note for this worker',
+  'mit.mp.title': 'Market profile',
+  'mit.mp.intro': 'What companies see about this worker in the marketplace — and what only you see.',
+  'mit.mp.merkmaleLabel': 'Traits (appear in the offer, fixed catalogue)',
+  'mit.mp.bisLabel': 'Deployable until (empty = open-ended)',
+  'mit.mp.bisHelp': 'Mirrored as the availability end into the automatic offers — companies can only book up to this date.',
+  'mit.mp.notizLabel': 'Internal dispo note (NEVER visible to a company)',
+  'mit.mp.notizPh': 'e.g. absent for a week without response – for your scheduling only',
+  'mit.mp.submit': 'Save',
+  'mit.mp.saved': 'Market profile saved – horizon applied to {n} offer(s).',
+  'mit.mp.fehler': 'The market profile could not be saved.',
+
+  'mit.merkmal.zuverlaessig': 'Reliable',
+  'mit.merkmal.sehr_fleissig': 'Very hardworking',
+  'mit.merkmal.arbeitet_sauber': 'Works cleanly',
+  'mit.merkmal.langfristig_einsetzbar': 'Deployable long-term',
+  'mit.merkmal.kurzfristig_startklar': 'Ready at short notice',
+  'mit.merkmal.schicht_flexibel': 'Shift-flexible',
+
+  'mit.aueg.rest': 'AÜG: {monate}/18 mo. – limit until {date}',
+  'mit.aueg.alarm': 'AÜG limit exceeded (since {date})',
+  'mit.aueg.help': 'Maximum assignment duration under § 1 AÜG: 18 months per worker at the same hirer. Used: {monate} months, the limit ends {date}. Breaks shorter than 3 months still count — compliance is yours as the lender; TempConnect does the maths and flags it in time.',
   'mit.live.verlauf.title': 'History',
   'mit.live.verlauf.intro': 'Every state change of the last 90 days – recorded at the source, not derived afterwards.',
   'mit.live.verlauf.loading': 'Loading history …',
@@ -738,15 +860,16 @@ TCi18n.register('en', {
   'mit.ersatz.loading': 'Looking for matching people…',
   'mit.ersatz.empty': 'Nobody is available for this assignment right now. You can post it on the marketplace.',
   'mit.ersatz.loadFail': 'The suggestions could not be loaded.',
-  'mit.ersatz.take': 'Assign',
+  'mit.ersatz.take': 'Ask',
   'mit.ersatz.blocked': 'Not assignable',
   'mit.ersatz.fit': 'Fit {n} %',
   'mit.ersatz.confirm': 'Assign {name} to {kunde}?',
-  'mit.ersatz.confirmSub': 'The assignment takes effect immediately. {name} is notified, and so is the client — without the reason for the absence.',
-  'mit.ersatz.yes': 'Assign bindingly',
-  'mit.ersatz.done': '{name} takes over the assignment.',
+  'mit.ersatz.confirmSub': '{name} is asked and has to accept — only then is the assignment staffed. The client is informed on acceptance, without the reason for the absence.',
+  'mit.ersatz.yes': 'Ask',
+  'mit.ersatz.done': '{name} has been asked. Once they accept, the assignment is staffed — and the client is informed.',
   'mit.ersatz.failBlocked': 'This person is blocked by the client.',
   'mit.ersatz.failConflict': 'This person already has an assignment in that period.',
+  'mit.ersatz.failPending': 'A replacement request for this absence is already open. It has to be answered first.',
   'mit.ersatz.failGeneric': 'The replacement could not be assigned.',
   'mit.ersatz.noAssignment': 'No running assignment is recorded for this person.',
   'mit.live.absence.title': 'Record an absence',
@@ -974,6 +1097,8 @@ TCi18n.register('en', {
   'mit.asgState.archived': 'Archive',
   'mit.asgState.pendingConfirmation': 'Confirmation pending',
   'mit.asgState.unavailable': 'Unavailable',
+  'mit.asgState.expiredRequest': 'Request expired',
+  'mit.asgState.withdrawnRequest': 'Request withdrawn',
 
   'mit.public.title': 'External profile sharing',
   'mit.public.intro': 'No automatic public mode: only the fields you explicitly release become visible.',
@@ -1130,6 +1255,7 @@ TCi18n.register('en', {
   'mit.csv.errRowUnknown': 'Unknown row',
   'mit.csv.errMore': '… and {count} more',
   'mit.csv.inviteImportedCta': 'Invite all {count} imported workers now',
+  'mit.csv.inviteOhneMail': '{count} without an email address — they cannot be invited yet.',
   'mit.csv.rowLabel': 'Row {row}:',
   'mit.csv.unknownError': 'Unknown error',
   'mit.csv.headCreated': 'Created ({count})',
@@ -1147,7 +1273,11 @@ TCi18n.register('en', {
   'mit.ok.allAlreadyInvited': 'All workers are already registered or invited.',
   'mit.ok.bulkInvited': '{count} invited',
   'mit.ok.bulkMailErrors': '{count} mail errors',
+  'mit.ok.bulkQueued': 'Sending in the background ({count} queued)',
   'mit.ok.bulkSkipped': '{count} skipped',
+  'mit.ok.bulkTruncated': '{count} not processed (limit {max} per run) — click again',
+  'mit.ok.bulkPending': '{count} already invited',
+  'mit.ok.bulkAccepted': '{count} already registered',
   'mit.confirm.inviteImported': 'Invite {count} imported workers to the worker portal now? Anyone already invited or registered is skipped.',
   'mit.confirm.inviteUnregistered': 'Invite {count} workers who are not registered yet? Anyone already registered is skipped.',
   'mit.confirm.revokeInvite': 'Really revoke this invitation?',
@@ -1201,90 +1331,37 @@ var _currentWorkerDocuments = [];
 var _currentWorkerDocumentSummary = null;
 var MAX_SKILL_TAGS = 50;
 var PLAN_ORDER = ["DEMO", "BASIS", "PLUS", "PRO", "INDIVIDUELL"];
-/* P6.1: Labels kommen aus dem Woerterbuch — die Feld-Schluessel (name, city, …)
-   bleiben unveraendert, weil sie an das Backend gehen. */
-var _publicFieldLabelKeys = {
-  name: "mit.public.f.name",
-  city: "mit.public.f.city",
-  skill_tags: "mit.public.f.skills",
-  qualifications: "mit.public.f.quals",
-  profile_text: "mit.public.f.profileText",
-  availability_note: "mit.public.f.availability"
-};
-var SKILL_CATALOG_GROUPS = [
-  {
-    id: "lager_logistik",
-    title: "Lager & Logistik",
-    description: "Operative Lager-, Versand- und Intralogistik-Kompetenzen.",
-    skills: ["Kommissionierung", "Wareneingang", "Warenausgang", "Stapler", "Frontstapler", "Schubmaststapler", "Hochregal", "Scanner / MDE", "Pick-by-Voice", "Versand", "Verpackung", "Inventur"]
-  },
-  {
-    id: "produktion_montage",
-    title: "Produktion & Montage",
-    description: "Serienfertigung, Montage und Linienkompetenzen.",
-    skills: ["Maschinenbedienung", "Montage", "Serienfertigung", "Qualitätskontrolle", "Sichtprüfung", "Rüsten", "Endkontrolle", "Löten", "Kabelkonfektion", "Kunststoffverarbeitung", "Lebensmittelproduktion", "Pharma-Produktion"]
-  },
-  {
-    id: "metall_industrie",
-    title: "Metall & Industrie",
-    description: "Technische und industrielle Fertigungskompetenzen.",
-    skills: ["MAG-Schweißen", "WIG-Schweißen", "MIG-Schweißen", "Metallbau", "Kanten / Biegen", "Drehen", "Fräsen", "CNC-Bedienung", "Zeichnung lesen", "Instandhaltung", "Hydraulik", "Pneumatik"]
-  },
-  {
-    id: "bau_handwerk",
-    title: "Bau & Handwerk",
-    description: "Baunahe, handwerkliche und montageorientierte Fähigkeiten.",
-    skills: ["Trockenbau", "Elektroinstallation", "Sanitär", "Heizungsbau", "Malerarbeiten", "Fliesenlegen", "Holzmontage", "Fenster- / Türenmontage", "Rohbau", "Betonarbeiten", "Garten- und Landschaftsbau", "Gerüstbau"]
-  },
-  {
-    id: "transport_fahrdienst",
-    title: "Transport & Fahrdienst",
-    description: "Fahr-, Touren- und Transportfertigkeiten.",
-    skills: ["Führerschein B", "Führerschein C / CE", "Ladungssicherung", "Auslieferung", "Tourenplanung", "Nahverkehr", "Fernverkehr", "Kurierdienst", "Fahrzeugpflege", "Fahrerkarte", "Kühltransport", "Personenbeförderung"]
-  },
-  {
-    id: "buero_verwaltung",
-    title: "Büro & Verwaltung",
-    description: "Administrative, kaufmännische und koordinative Skills.",
-    skills: ["MS Office", "Excel-Reporting", "Datenerfassung", "Sachbearbeitung", "Auftragsbearbeitung", "Disposition", "Terminplanung", "Empfang", "Telefonzentrale", "Rechnungsprüfung", "Personalassistenz", "Dokumentenmanagement"]
-  },
-  {
-    id: "handel_service",
-    title: "Handel & Service",
-    description: "Vertriebs-, Retail- und serviceorientierte Kompetenzen.",
-    skills: ["Kundenberatung", "Kasse / POS", "Warenverräumung", "Merchandising", "Reklamationsbearbeitung", "Call Center", "Telesales", "Serviceannahme", "Filialsupport", "Upselling", "Beschwerdemanagement", "Front Office"]
-  },
-  {
-    id: "gastro_event",
-    title: "Gastro & Event",
-    description: "Gastgewerbe-, Veranstaltungs- und Front-of-House-Skills.",
-    skills: ["Service", "Küche", "Spülküche", "Bar", "Housekeeping", "Rezeption", "Catering", "Bankettservice", "Veranstaltungsaufbau", "Garderobe", "Frühstücksservice", "Night Audit"]
-  },
-  {
-    id: "pflege_soziales",
-    title: "Pflege & Soziales",
-    description: "Pflege-, Betreuungs- und sozialnahe Kompetenzen.",
-    skills: ["Grundpflege", "Behandlungspflege", "Betreuung", "Seniorenbetreuung", "Pflegedokumentation", "Medikamentengabe", "OP-Begleitung", "Stationshilfe", "Alltagsbegleitung", "Kita-Betreuung", "Schulbegleitung", "Sozialberatung"]
-  },
-  {
-    id: "facility_reinigung",
-    title: "Facility & Reinigung",
-    description: "Gebäude-, Reinigungs- und Betreiberservices.",
-    skills: ["Unterhaltsreinigung", "Glasreinigung", "Industriereinigung", "Maschinenreinigung", "Hausmeisterservice", "Gebäudetechnik", "Winterdienst", "Grünpflege", "Abfallmanagement", "Sicherheitsdienst", "Empfangsdienst", "Zutrittskontrolle"]
-  },
-  {
-    id: "digital_systeme",
-    title: "Digital & Systeme",
-    description: "IT-nahe, systemische und prozessunterstützende Skills.",
-    skills: ["Hardware-Rollout", "First-Level-Support", "Ticketing", "ERP / Warenwirtschaft", "SAP-Grundkenntnisse", "CRM-Pflege", "E-Commerce Support", "Contentpflege", "Social Media Support", "Datenanalyse", "Power BI", "Prozessdokumentation"]
-  },
-  {
-    id: "sprachen_kommunikation",
-    title: "Sprachen & Kommunikation",
-    description: "Sprachkompetenzen für Einsätze, Kundenkontakt und Teams.",
-    skills: ["Deutsch B2", "Deutsch C1", "Englisch B1", "Englisch B2", "Polnisch", "Rumänisch", "Türkisch", "Arabisch", "Russisch", "Französisch"]
-  }
-];
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * N1b (2026-09-06) - HIER STAND EINE ZWEITE FAEHIGKEITSLISTE
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * `SKILL_CATALOG_GROUPS`: 12 Gruppen, 142 Begriffe, von Hand gepflegt, ohne
+ * Schreibvarianten. Daneben gibt es seit Migration 145 den PLATTFORM-Katalog
+ * (`platform_skills`, 162 Faehigkeiten in 14 Kategorien, 115 davon mit
+ * Aliasen) - und dieselbe Datei rief ihn an anderer Stelle bereits ab
+ * (Pool-Generator). Zwei Wahrheiten in einer Datei.
+ *
+ * WARUM DAS MEHR WAR ALS UNORDNUNG. Gemessen am 2026-09-06: von den 142
+ * Begriffen standen **33** im Katalog (Namen und Aliase zusammen) - **109
+ * nicht**. Darunter "Stapler", "Pick-by-Voice", "MAG-Schweissen", "Ruesten".
+ *
+ * `matchingEngine.scoreMatch` vergleicht die Faehigkeiten einer Nachfrage mit
+ * denen eines Angebots als MENGEN, ohne Index kleingeschrieben und roh. Seit
+ * Welle N1 waehlt das Unternehmen aus dem Katalog. Ein Mensch, an dem hier
+ * "Stapler" stand, war fuer eine Ausschreibung nach "Staplerfahrer:in"
+ * unsichtbar - und niemand sah, warum.
+ *
+ * Schlimmer noch: dieser Weg schrieb `skill_tags` per `PATCH /workers/:id` als
+ * Freitext. `worker_profile_skills` blieb dabei LEER - und genau daraus baut
+ * der Angebotsgenerator die Marktangebote. Wer seine Leute hier pflegte, brachte
+ * sie nie in den Markt.
+ *
+ * Jetzt: `TCSkillPicker` (dasselbe Bauteil wie auf beiden Marktseiten) gegen
+ * `/skills/catalog`, gespeichert ueber `PUT /workers/:userId/skills`, das die
+ * Kennungen gegen `platform_skills` prueft und den Spiegel synchron haelt.
+ */
+
 var _skillCatalogMeta = null;
 
 /* ── API + CSRF ──────────────────────────────────────── */
@@ -1327,18 +1404,6 @@ function api(path, opts) {
   });
 }
 
-/* Skill-Gruppen: Titel/Beschreibung sind UI-Text und kommen aus dem
-   Woerterbuch (Schluessel aus der Gruppen-ID). Die Skill-NAMEN bleiben
-   bewusst deutsch — sie werden als skill_tags gespeichert und gematcht. */
-function skillGroupTitle(group) {
-  if (!group) return "";
-  return TCi18n.t("mit.skillgroup." + group.id + ".title") || group.title;
-}
-function skillGroupDescription(group) {
-  if (!group) return "";
-  return TCi18n.t("mit.skillgroup." + group.id + ".desc") || group.description;
-}
-
 function toast(msg, type) {
   var el = document.getElementById("toast");
   el.textContent = msg;
@@ -1347,7 +1412,7 @@ function toast(msg, type) {
   el._t = setTimeout(function() { el.className = "toast"; }, 4000);
 }
 
-function esc(s) { return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function esc(s) { return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g, "&#39;"); }
 function normalizePlan(plan) {
   var p = String(plan || "").toUpperCase();
   if (p === "FREE") p = "DEMO";
@@ -1488,6 +1553,7 @@ function showTab(name) {
   // eingeloest — vorher gibt es die Option noch nicht, die gesetzt werden soll.
   if (name === "skills") populateSkillsWorkerSelect().then(applyPendingHubWorker);
   if (name === "live") startLiveBoard(); else stopLiveBoard();
+  if (name === "unsichtbar") ladeUnsichtbar();
 }
 
 /* ── Live-Belegschaft (Disposition) ─────────────────────
@@ -1750,7 +1816,37 @@ function renderLiveList(workers) {
         sub.push(esc(absParts.join(" · ")));
       }
       if (w.client_name) sub.push(esc(TCi18n.t("mit.live.atClient", { client: w.client_name })));
+      /* DIE ANSPRECHPERSON BEIM KUNDEN (Plan I, 10b).
+         Aus dem BEDARF, nicht aus dem Angebot — das Angebot traegt die
+         Ansprechperson der Agentur, also unsere eigene. Diese Tafel ist die der
+         Agentur; gebraucht wird die Nummer der Gegenseite.
+         Die Nummer ist waehlbar, nicht nur lesbar: wer morgens um sechs vor
+         einer leeren Schicht steht, drueckt drauf.
+         Fehlt sie, steht hier NICHTS statt eines leeren Feldes — gemessen haben
+         61 von 68 Einsaetzen gar keinen Vorgang hinter sich, und ein Platzhalter
+         an 61 Zeilen waere Laerm. */
+      if (w.kunde_kontakt_name || w.kunde_kontakt_telefon) {
+        var kontakt = esc(w.kunde_kontakt_name || "");
+        if (w.kunde_kontakt_telefon) {
+          var waehlbar = String(w.kunde_kontakt_telefon).replace(/[^+0-9]/g, "");
+          kontakt += (kontakt ? " · " : "")
+            + '<a href="tel:' + esc(waehlbar) + '" style="color:inherit">' + esc(w.kunde_kontakt_telefon) + "</a>";
+        }
+        sub.push(esc(TCi18n.t("mit.live.kontakt")) + " " + kontakt);
+      }
       if (w.effective_end_date) sub.push(esc(TCi18n.t("mit.live.until", { date: formatDateLabel(w.effective_end_date) })));
+      /* AUEG-Konto beim AKTUELLEN Kunden (Welle J8) — die Zahl fuer die
+         Monatsplanung. Nur wenn sie Handlung braucht: ein Abzeichen an jeder
+         Zeile waere nach zwei Tagen Tapete. */
+      if (w.aueg && w.aueg.stufe && w.aueg.stufe !== "ok" && w.aueg.frist_ende) {
+        var auegFarbe = w.aueg.stufe === "alarm" ? "var(--ds-danger,#b91c1c)" : "var(--ds-warning,#b45309)";
+        var auegText = w.aueg.stufe === "alarm"
+          ? TCi18n.t("mit.aueg.alarm", { date: formatDateLabel(w.aueg.frist_ende) })
+          : TCi18n.t("mit.aueg.rest", { monate: w.aueg.verbrauchte_monate, date: formatDateLabel(w.aueg.frist_ende) });
+        sub.push('<span style="color:' + auegFarbe + ';font-weight:600" title="' +
+          esc(TCi18n.t("mit.aueg.help", { monate: w.aueg.verbrauchte_monate, date: formatDateLabel(w.aueg.frist_ende) })) +
+          '">' + esc(auegText) + "</span>");
+      }
       /* 'montage' ueberdeckt 'endet_bald' im Zustand — der Hinweis darf deshalb
          nicht verloren gehen, sonst uebersieht der Disponent genau die Rueckkehr,
          die er planen muss. */
@@ -1769,19 +1865,60 @@ function renderLiveList(workers) {
         aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" onclick="openTimeline(\'' + esc(w.id) + '\')">' +
                   esc(TCi18n.t("mit.live.verlauf.btn")) + '</button>';
       }
+      /* KLICK 1 von dreien (Welle G6). Nur wenn wirklich ein Einsatz
+         betroffen ist — ohne Verknuepfung gaebe es nichts zu ersetzen, und
+         ein Knopf, der das erst nach dem Klick sagt, ist eine Sackgasse.
+
+         ersatz_link_id kam mit 8.2 dazu: Sobald jemand ausfaellt, steht seine
+         Verknuepfung auf is_active = FALSE und link_id ist leer. Das Feld
+         traegt genau diesen liegengebliebenen Bedarf und ist leer, solange
+         eine Anfrage laeuft.
+
+         DER KNOPF STEHT SEIT 2026-08-24 AUSSERHALB DER ABWESENHEITS-SCHACHTEL.
+         Vorher hing er in if (live_status === "abwesend" && absence_id) — und
+         absence_id kommt aus worker_absences, die NUR der Disponent fuellt.
+         Wer sich selbst ueber das Portal krankmeldet (reportUnavailable),
+         schreibt ausschliesslich worker_assignment_links: live_status wurde
+         nie "abwesend", der Knopf blieb trotz liegengebliebenem Bedarf weg.
+         An der Datenbank gemessen: worker_absences war leer, der einzige
+         Kandidat kam aus der Selbstmeldung. ersatz_link_id ist bereits die
+         praezisere Bedingung — der Server setzt es nur, wenn es wirklich
+         etwas zu ersetzen gibt (inkl. REPLACEMENT_PENDING-Pruefung). */
+      if (w.ersatz_link_id || (w.live_status === "abwesend" && w.absence_id && w.link_id)) {
+        aktion += '<button class="btn primary" style="padding:5px 10px;font-size:12px" onclick="openErsatzModal(\'' + esc(w.id) + '\')">' +
+                  esc(TCi18n.t("mit.ersatz.btn")) + '</button>';
+      }
       if (w.live_status === "abwesend" && w.absence_id) {
-        /* KLICK 1 von dreien (Welle G6). Nur wenn wirklich ein Einsatz
-           betroffen ist — ohne link_id gaebe es nichts zu ersetzen, und ein
-           Knopf, der das erst nach dem Klick sagt, ist eine Sackgasse. */
-        if (w.link_id) {
-          aktion += '<button class="btn primary" style="padding:5px 10px;font-size:12px" onclick="openErsatzModal(\'' + esc(w.id) + '\')">' +
-                    esc(TCi18n.t("mit.ersatz.btn")) + '</button>';
-        }
         aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" onclick="revokeAbsence(\'' + esc(w.absence_id) + '\')">' +
                  esc(TCi18n.t("mit.live.absence.revokeBtn")) + '</button>';
       } else if (w.live_status !== "inaktiv" && w.id) {
         aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" onclick="openAbsenceModal(\'' + esc(w.id) + '\')">' +
                  esc(TCi18n.t("mit.live.absence.reportBtn")) + '</button>';
+      }
+      /* Marktpraesenz (Welle J2c): der AUSSCHALTER der Automatik
+         "Verfuegbarkeit ist das Angebot" (Mig 200). Praesenz ist der
+         Grundzustand — deshalb traegt nur die Abweichung ein Abzeichen.
+         Und: ohne Katalog-Skill ist die Kraft am Markt UNSICHTBAR (gemessen
+         traf das 30 von 33) — genau das muss die Tafel sagen, sonst wundert
+         sich die Agentur, warum niemand bucht. */
+      if (w.live_status !== "inaktiv" && w.id) {
+        /* Markt-Profil (J9): Merkmale, Horizont, interne Notiz — direkt an
+           der Zeile, denn hier faellt die Monatsplanungs-Entscheidung. */
+        aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" title="' + esc(TCi18n.t("mit.mp.btnTitle")) + '"' +
+                  ' onclick="openMarktProfil(\'' + esc(w.id) + '\')">' + esc(TCi18n.t("mit.mp.btn")) + '</button>';
+        if (w.marktpraesenz_deaktiviert) {
+          sub.push('<span style="color:var(--wk-text-muted,#64748b)" title="' + esc(TCi18n.t("mit.live.markt.ausInfo")) + '">' +
+                   esc(TCi18n.t("mit.live.markt.aus")) + '</span>');
+          aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" title="' + esc(TCi18n.t("mit.live.markt.anTitle")) + '"' +
+                    ' onclick="toggleMarktpraesenz(\'' + esc(w.id) + '\', false)">' + esc(TCi18n.t("mit.live.markt.anBtn")) + '</button>';
+        } else {
+          if (!w.hat_katalog_skill) {
+            sub.push('<span style="color:var(--ds-warning,#b45309);font-weight:600" title="' + esc(TCi18n.t("mit.live.markt.unsichtbarTitle")) + '">' +
+                     esc(TCi18n.t("mit.live.markt.unsichtbar")) + '</span>');
+          }
+          aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" title="' + esc(TCi18n.t("mit.live.markt.ausTitle")) + '"' +
+                    ' onclick="toggleMarktpraesenz(\'' + esc(w.id) + '\', true)">' + esc(TCi18n.t("mit.live.markt.ausBtn")) + '</button>';
+        }
       }
       /* data-person traegt die Profil-ID an der Zeile. Sie ist der Anker, an dem
          eine Benachrichtigung landet (Welle G4): ohne sie muesste der Fokus die
@@ -1817,6 +1954,7 @@ function renderLiveList(workers) {
  * Gesamtliste. Ein Deep-Link, der nur in die Naehe fuehrt, laesst den Nutzer
  * die Suche ein zweites Mal machen; genau das soll er verhindern. */
 var _fokusPerson = null;
+var _zeigeUnsichtbarBeimLaden = false;
 
 /** Liest ?person= aus der Adresse. Einmalig beim Laden — danach ist der Wert
  *  verbraucht, sonst spraenge die Ansicht bei jedem Polling-Lauf zurueck. */
@@ -1825,7 +1963,17 @@ function leseFokusAusAdresse() {
     var such = new URLSearchParams(window.location.search || "");
     var p = such.get("person");
     if (p) _fokusPerson = String(p);
+    /* M4c.5: `?freigabe=offen` ist der Link, den die Benachrichtigung aus M4c.12
+       verschickt ("Faehigkeiten eingetragen — Freigabe fuer den Marktplatz
+       offen"). Er zeigte auf DIESE Seite, und die Seite kannte den Parameter
+       nicht: wer klickte, landete auf der Gesamtliste und suchte selbst. Genau
+       dieselbe Luecke wie bei `?person=` eine Ebene darueber. */
+    if (such.get("freigabe") === "offen") _zeigeUnsichtbarBeimLaden = true;
   } catch (_) { /* alte Browser ohne URLSearchParams: kein Fokus, kein Fehler */ }
+  if (_zeigeUnsichtbarBeimLaden) {
+    _zeigeUnsichtbarBeimLaden = false;
+    showTab("unsichtbar");
+  }
 }
 
 function fokussierePerson() {
@@ -1984,6 +2132,82 @@ function renderTimeline(items, scope) {
              '</div></div>';
   }).join("");
 }
+
+/* ── Markt-Profil (Welle J9): Katalog-Merkmale, Horizont, interne Notiz ────
+   Der Katalog ist die Wahrheit des Servers (workerMerkmalKatalog + DB-CHECK
+   Mig 201) — hier stehen nur die Schluessel fuers Ankreuzen; ein unbekannter
+   Haken wuerde der Server mit MERKMAL_UNBEKANNT abweisen. */
+var MERKMAL_KATALOG = ["zuverlaessig", "sehr_fleissig", "arbeitet_sauber",
+  "langfristig_einsetzbar", "kurzfristig_startklar", "schicht_flexibel"];
+var _mpProfileId = null;
+
+function openMarktProfil(profileId) {
+  var w = _liveWorkers.find(function(x) { return String(x.id) === String(profileId); }) || {};
+  _mpProfileId = profileId;
+  document.getElementById("mpWorker").textContent =
+    ((w.first_name || "") + " " + (w.last_name || "")).trim() + (w.personnel_number ? " · #" + w.personnel_number : "");
+  var gesetzt = new Set(w.markt_merkmale || []);
+  document.getElementById("mpMerkmale").innerHTML = MERKMAL_KATALOG.map(function(key) {
+    return '<label class="og-chip" style="cursor:pointer"><input type="checkbox" class="mp-merkmal" value="' + esc(key) + '"' +
+      (gesetzt.has(key) ? " checked" : "") + "> " + esc(TCi18n.t("mit.merkmal." + key)) + "</label>";
+  }).join("");
+  document.getElementById("mpBis").value = w.einsetzbar_bis ? String(w.einsetzbar_bis).slice(0, 10) : "";
+  document.getElementById("mpNotiz").value = w.dispo_notiz || "";
+  var err = document.getElementById("mpError"); err.style.display = "none";
+  document.getElementById("mpSubmitBtn").disabled = false;
+  document.getElementById("marktProfilModal").classList.add("show");
+}
+window.openMarktProfil = openMarktProfil;
+
+function closeMarktProfil() {
+  document.getElementById("marktProfilModal").classList.remove("show");
+  _mpProfileId = null;
+}
+window.closeMarktProfil = closeMarktProfil;
+
+function saveMarktProfil() {
+  if (!_mpProfileId) return;
+  var merkmale = Array.prototype.slice.call(document.querySelectorAll(".mp-merkmal:checked"))
+    .map(function(cb) { return cb.value; });
+  var btn = document.getElementById("mpSubmitBtn");
+  btn.disabled = true;
+  api("/workers/" + encodeURIComponent(_mpProfileId) + "/markt-profil", {
+    method: "POST",
+    body: {
+      merkmale: merkmale,
+      einsetzbar_bis: (document.getElementById("mpBis").value || "").trim() || null,
+      dispo_notiz: (document.getElementById("mpNotiz").value || "").trim() || null
+    }
+  }).then(function(r) {
+    closeMarktProfil();
+    toast(TCi18n.t("mit.mp.saved", { n: (r && r.horizont_gespiegelt) || 0 }), "ok");
+    loadLiveBoard();
+  }).catch(function(e) {
+    var err = document.getElementById("mpError");
+    err.textContent = (e && (e.message || e.error)) || TCi18n.t("mit.mp.fehler");
+    err.style.display = "";
+    btn.disabled = false;
+  });
+}
+window.saveMarktProfil = saveMarktProfil;
+
+/* Marktpraesenz-Schalter (Welle J2c): setzt den Ausschalter und laesst den
+   Server die Folgen sofort nachziehen (eigene Auto-Angebote zurueck bzw.
+   wieder in den Markt). Kein confirm-Dialog: der Schritt ist jederzeit
+   umkehrbar, und der Erfolgs-Toast benennt, was passiert ist. */
+function toggleMarktpraesenz(profileId, deaktiviert) {
+  if (!profileId) return;
+  api("/workers/" + encodeURIComponent(profileId) + "/marktpraesenz", { method: "POST", body: { deaktiviert: deaktiviert === true } })
+    .then(function(r) {
+      toast(TCi18n.t(deaktiviert ? "mit.live.markt.toastAus" : "mit.live.markt.toastAn",
+        { n: deaktiviert ? (r && r.zurueckgenommen) || 0 : ((r && r.wiederhergestellt) || 0) + ((r && r.materialisiert) || 0) }), "ok");
+      loadLiveBoard();
+    })
+    .catch(function(e) {
+      toast((e && (e.message || e.error)) || TCi18n.t("mit.live.markt.fehler"), "err");
+    });
+}
+window.toggleMarktpraesenz = toggleMarktpraesenz;
 
 function revokeAbsence(absenceId) {
   if (!absenceId) return;
@@ -2244,15 +2468,65 @@ function inviteOhneKonto(profileId) {
   });
 }
 
-/* ── CSV-Ergebnis → direkt einladen (7c-Bonus) ─────────────────────────────
-   Ruft die Bulk-Route direkt: die lokale _workers-Liste ist nach dem Import
-   noch stale — der Server kennt die frischen Kandidaten (is_verified=false)
-   und dedupliziert ohnehin serverseitig. */
+/* ── Was aus einem Sammel-Lauf wirklich wurde ──────────────────────────────
+ *
+ * M3.3 (2026-09-04): DREI FELDER STANDEN SEIT JEHER IN DER ANTWORT UND WURDEN
+ * NIE ANGEZEIGT.
+ *
+ *   truncated         wie viele der Lauf gar nicht angefasst hat, weil die
+ *                     Obergrenze (BULK_INVITE_MAX = 200) erreicht war
+ *   skipped_pending   wie viele schon eine offene Einladung hatten
+ *   skipped_accepted  wie viele sich schon registriert haben
+ *
+ * Die Meldung nannte nur `invited_count` — und die Zahl stimmte sogar. Sie sagte
+ * nur nicht, dass bei 500 Kandidaten 300 Menschen uebrig blieben. Ein Deckel,
+ * den niemand sieht, sieht aus wie Vollstaendigkeit; der Disponent klickt
+ * einmal, liest "200 eingeladen" und haelt die Liste fuer abgearbeitet.
+ *
+ * `truncated` traegt deshalb ausdruecklich die Aufforderung, erneut zu klicken:
+ * der Lauf ist wiederholbar und ueberspringt beim zweiten Mal die schon
+ * Eingeladenen von selbst.
+ *
+ * Die beiden `skipped_*` sind keine Fehler und werden auch nicht so gefaerbt —
+ * sie erklaeren die Luecke zwischen "so viele wollte ich einladen" und "so viele
+ * gingen raus". Ohne sie sieht ein erfolgreicher Lauf nach einem halben aus.
+ */
+var BULK_INVITE_MAX = 200;   /* Spiegel von workerService.BULK_INVITE_MAX */
+
+function bulkMeldung(r) {
+  var teile = [TCi18n.t("mit.ok.bulkInvited", { count: r.invited_count || 0 })];
+  if (r.queued_count)      teile.push(TCi18n.t("mit.ok.bulkQueued",    { count: r.queued_count }));
+  if (r.skipped_pending)   teile.push(TCi18n.t("mit.ok.bulkPending",   { count: r.skipped_pending }));
+  if (r.skipped_accepted)  teile.push(TCi18n.t("mit.ok.bulkAccepted",  { count: r.skipped_accepted }));
+  if (r.failed_count)      teile.push(TCi18n.t("mit.ok.bulkMailErrors",{ count: r.failed_count }));
+  if (r.truncated)         teile.push(TCi18n.t("mit.ok.bulkTruncated",
+                                        { count: r.truncated, max: BULK_INVITE_MAX }));
+  return teile.join(" · ") + ".";
+}
+
+/* ── CSV-Ergebnis → direkt einladen ────────────────────────────────────────
+ *
+ * M3.2 (2026-09-04): DIESER KNOPF HAT MEHR GETAN, ALS ER SAGTE.
+ *
+ * Hier stand: "Ruft die Bulk-Route direkt — der Server kennt die frischen
+ * Kandidaten und dedupliziert ohnehin serverseitig." Das stimmte, beantwortete
+ * aber die falsche Frage. Der Server kannte ALLE noch nicht bestaetigten
+ * Kraefte der Organisation, nicht die gerade importierten. Der Dialog fragte
+ * "die 3 gerade importierten einladen?" — bei einer Belegschaft von 200
+ * unbestaetigten gingen 200 Mails hinaus, und an der Antwort war es nicht zu
+ * erkennen.
+ *
+ * Der Bericht des Imports traegt die Kennungen laengst mit
+ * (`created[].profile_id`); sie wurden nur weggeworfen. Jetzt gehen sie mit,
+ * und der Server filtert sie zusaetzlich gegen die eigene Organisation.
+ */
+var _csvImportierteProfilIds = [];
+
 function csvInviteImported(createdCount) {
   if (!window.confirm(TCi18n.t("mit.confirm.inviteImported", { count: createdCount }))) return;
-  api("/worker-invites/bulk", { method: "POST", body: {} }).then(function(r) {
-    toast(TCi18n.t("mit.ok.bulkInvited", { count: r.invited_count || 0 }) +
-      (r.failed_count ? " · " + TCi18n.t("mit.ok.bulkMailErrors", { count: r.failed_count }) : "") + ".");
+  var rumpf = _csvImportierteProfilIds.length ? { profile_ids: _csvImportierteProfilIds } : {};
+  api("/worker-invites/bulk", { method: "POST", body: rumpf }).then(function(r) {
+    toast(bulkMeldung(r));
     showTab("invites");
     loadWorkers();
     loadInvites();
@@ -2267,8 +2541,7 @@ function inviteAllUnregistered() {
   if (!count) { toast(TCi18n.t("mit.ok.allAlreadyInvited")); return; }
   if (!window.confirm(TCi18n.t("mit.confirm.inviteUnregistered", { count: count }))) return;
   api("/worker-invites/bulk", { method: "POST", body: {} }).then(function(r) {
-    toast(TCi18n.t("mit.ok.bulkInvited", { count: r.invited_count || 0 }) +
-      (r.failed_count ? " · " + TCi18n.t("mit.ok.bulkSkipped", { count: r.failed_count }) : "") + ".");
+    toast(bulkMeldung(r));
     loadWorkers();
     loadInvites();
   }).catch(function(e) {
@@ -2629,52 +2902,9 @@ function normalizeSkillKey(value) {
   return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function getSkillCatalogMeta() {
-  if (_skillCatalogMeta) return _skillCatalogMeta;
-  var order = {};
-  var groups = {};
-  var totalSkills = 0;
-  SKILL_CATALOG_GROUPS.forEach(function(group) {
-    groups[group.id] = group;
-    group.skills.forEach(function(skill) {
-      var key = normalizeSkillKey(skill);
-      if (order[key]) return;
-      order[key] = {
-        label: skill,
-        groupId: group.id,
-        groupTitle: group.title,
-        index: totalSkills
-      };
-      totalSkills += 1;
-    });
-  });
-  _skillCatalogMeta = {
-    order: order,
-    groups: groups,
-    totalSkills: totalSkills
-  };
-  return _skillCatalogMeta;
-}
-
-function isCatalogSkill(skill) {
-  return !!getSkillCatalogMeta().order[normalizeSkillKey(skill)];
-}
-
 function hasSkill(skill) {
   var key = normalizeSkillKey(skill);
   return _currentSkills.some(function(current) { return normalizeSkillKey(current) === key; });
-}
-
-function sortSkillList(skills) {
-  var catalogOrder = getSkillCatalogMeta().order;
-  return (skills || []).slice().sort(function(a, b) {
-    var aMeta = catalogOrder[normalizeSkillKey(a)];
-    var bMeta = catalogOrder[normalizeSkillKey(b)];
-    if (aMeta && bMeta) return aMeta.index - bMeta.index;
-    if (aMeta) return -1;
-    if (bMeta) return 1;
-    return String(a || "").localeCompare(String(b || ""), TCi18n.dateLocale(), { sensitivity: "base" });
-  });
 }
 
 function setCurrentSkills(skills) {
@@ -2687,34 +2917,69 @@ function setCurrentSkills(skills) {
     seen[key] = true;
     if (next.length < MAX_SKILL_TAGS) next.push(value);
   });
-  _currentSkills = sortSkillList(next);
+  /* Die Reihenfolge kommt jetzt aus dem Katalog (Kategorie, dann Name) -
+     eine eigene Sortierung hier waere eine zweite Ordnung. */
+  _currentSkills = next;
 }
 
-function addSkillValue(skill, opts) {
-  var options = opts || {};
-  var value = String(skill || "").trim().replace(/\s+/g, " ");
-  if (!value) return false;
-  if (hasSkill(value)) return false;
-  if (_currentSkills.length >= MAX_SKILL_TAGS) {
-    if (!options.silentLimitToast) toast(TCi18n.t("mit.skills.limit", { max: MAX_SKILL_TAGS }), "err");
-    return false;
-  }
-  _currentSkills.push(value);
-  _currentSkills = sortSkillList(_currentSkills);
-  return true;
-}
 
-function removeSkillValue(skill) {
-  var key = normalizeSkillKey(skill);
-  _currentSkills = _currentSkills.filter(function(current) {
-    return normalizeSkillKey(current) !== key;
+/* ── N1b · Der Faehigkeiten-Waehler ────────────────────────────────────────
+ *
+ * Dasselbe Bauteil wie auf beiden Marktseiten (`/public/js/skillPicker.js`).
+ * Es liest `/skills/catalog` und liefert die Auswahl MIT Katalog-Kennung -
+ * genau das, was `PUT /workers/:userId/skills` braucht, um sie relational in
+ * `worker_profile_skills` abzulegen.
+ *
+ * `_currentSkills` bleibt die Lesequelle fuer alles andere auf dieser Seite
+ * (Kopfzeile, Zusammenfassung, oeffentliches Profil) - nur SCHREIBEN tut jetzt
+ * ausschliesslich der Waehler.
+ */
+var _skillWaehler = null;
+
+function faehigkeitenWaehlerAufsetzen(vorbelegung) {
+  var ziel = document.getElementById("skillPickerMitarbeiter");
+  if (!ziel || !window.TCSkillPicker) return;
+  _skillWaehler = TCSkillPicker.mount({
+    container: ziel,
+    initial: Array.isArray(vorbelegung) ? vorbelegung : [],
+    showAvailability: false,
+    groupActions: true,
+    onChange: function (namen) {
+      setCurrentSkills(namen);
+      /* Eine Stelle, die weiss, was nach einer Auswahl neu zu zeichnen ist -
+         sonst laufen die beiden Listen beim naechsten Zusatz auseinander. */
+      updateSkillSelectionViews();
+    }
   });
-  _currentSkills = sortSkillList(_currentSkills);
+}
+
+function renderSkillZusammenfassung() {
+  var el = document.getElementById("skillSelectionSummary");
+  if (!el) return;
+  el.textContent = _currentSkills.length
+    ? TCi18n.t("mit.skills.summary", { total: _currentSkills.length, catalog: _currentSkills.length })
+    : TCi18n.t("mit.skills.noneSelected");
+}
+
+/**
+ * Speichert die Faehigkeiten ueber den KATALOG-GEBUNDENEN Weg.
+ *
+ * Getrennt vom Profil-PATCH, und das ist kein Umweg: die Zuordnung ist eine
+ * eigene Beziehung (`worker_profile_skills`) mit eigener Pruefung gegen
+ * `platform_skills`. Sie als Wortliste durch das Profil zu schieben war genau
+ * der Fehler, den diese Welle behebt.
+ */
+function faehigkeitenSpeichern(workerUserId) {
+  if (!_skillWaehler) return Promise.resolve(null);
+  var auswahl = _skillWaehler.auswahl();
+  return api("/workers/" + encodeURIComponent(workerUserId) + "/skills", {
+    method: "PUT",
+    body: { skills: auswahl.map(function (a) { return { skill_id: a.skill_id }; }) }
+  });
 }
 
 function updateSkillSelectionViews() {
-  renderSkillTags();
-  renderSkillCatalog();
+  renderSkillZusammenfassung();
   renderWorkerHubHeader(_currentSkillWorker);
 }
 
@@ -2758,8 +3023,7 @@ function resetWorkerHubSelection() {
   var hint = document.getElementById("skillsEmptyHint");
   if (panel) panel.style.display = "none";
   if (hint) hint.style.display = "";
-  renderSkillTags();
-  renderSkillCatalog();
+  renderSkillZusammenfassung();
 }
 
 function openWorkerProfileHub(userId) {
@@ -2845,143 +3109,6 @@ function renderWorkerHubHeader(worker) {
       "</div>" +
     "</div>";
 }
-function renderSkillCatalog() {
-  var container = document.getElementById("skillCatalogSections");
-  if (!container) return;
-  var metaEl = document.getElementById("skillCatalogMeta");
-  var searchInput = document.getElementById("skillCatalogSearch");
-  var query = (searchInput && searchInput.value || "").trim().toLowerCase();
-  var catalogMeta = getSkillCatalogMeta();
-  var selectedCatalogCount = _currentSkills.filter(function(skill) { return isCatalogSkill(skill); }).length;
-  var customCount = Math.max(0, _currentSkills.length - selectedCatalogCount);
-  if (metaEl) {
-    var metaParts = [
-      TCi18n.t("mit.skills.metaCatalog", { skills: catalogMeta.totalSkills, groups: SKILL_CATALOG_GROUPS.length }),
-      TCi18n.t("mit.skills.metaSelected", { count: _currentSkills.length })
-    ];
-    if (customCount) metaParts.push(TCi18n.t("mit.skills.metaCustom", { count: customCount }));
-    if (query) metaParts.push(TCi18n.t("mit.skills.metaFilter", { query: query }));
-    metaParts.push(TCi18n.t("mit.skills.metaHint"));
-    metaEl.textContent = metaParts.join(" · ");
-  }
-  var groupsHtml = SKILL_CATALOG_GROUPS.map(function(group) {
-    var groupTitle = skillGroupTitle(group);
-    var groupDescription = skillGroupDescription(group);
-    var visibleSkills = group.skills.filter(function(skill) {
-      if (!query) return true;
-      // Suche laeuft ueber die angezeigte (uebersetzte) Gruppenbeschriftung
-      // UND die deutschen Skill-Namen — beides ist auf dem Schirm sichtbar.
-      var haystack = (groupTitle + " " + groupDescription + " " + skill).toLowerCase();
-      return haystack.indexOf(query) >= 0;
-    });
-    if (!visibleSkills.length) return "";
-    var selectedCount = group.skills.filter(function(skill) { return hasSkill(skill); }).length;
-    var groupMeta = TCi18n.t("mit.skills.groupSelected", { selected: selectedCount, total: group.skills.length });
-    if (query) groupMeta = TCi18n.t("mit.skills.groupHits", { count: visibleSkills.length }) + " · " + groupMeta;
-    return '<div class="skill-catalog-group">' +
-      '<div class="skill-catalog-group__head">' +
-        '<div>' +
-          '<div class="hub-section-title" style="margin:0 0 2px">' + esc(groupTitle) + '</div>' +
-          '<div class="skill-catalog-group__meta">' + esc(groupDescription) + ' · ' + esc(groupMeta) + '</div>' +
-        "</div>" +
-        '<div class="skill-catalog-group__actions">' +
-          '<button type="button" class="action-btn" data-group-id="' + esc(group.id) + '" onclick="selectSkillGroup(this.getAttribute(&quot;data-group-id&quot;))">' + esc(TCi18n.t("mit.skills.selectGroup")) + '</button>' +
-          '<button type="button" class="action-btn" data-group-id="' + esc(group.id) + '" onclick="clearSkillGroup(this.getAttribute(&quot;data-group-id&quot;))">' + esc(TCi18n.t("mit.skills.clearGroup")) + '</button>' +
-        "</div>" +
-      "</div>" +
-      '<div class="skill-checkbox-grid">' +
-        visibleSkills.map(function(skill) {
-          return '<label class="skill-checkbox-option">' +
-            '<input type="checkbox" data-skill="' + esc(skill) + '" ' + (hasSkill(skill) ? "checked" : "") + ' onchange="handleSkillCatalogToggle(this)">' +
-            '<span>' + esc(skill) + "</span>" +
-          "</label>";
-        }).join("") +
-      "</div>" +
-    "</div>";
-  }).join("");
-  if (!groupsHtml) {
-    container.innerHTML = '<div class="hub-list-item"><div class="hub-list-title">' + esc(TCi18n.t("mit.skills.noMatch")) + '</div><div class="hub-list-meta">' + esc(TCi18n.t("mit.skills.noMatchHint")) + '</div></div>';
-    return;
-  }
-  container.innerHTML = groupsHtml;
-}
-
-function renderSkillTags() {
-  var el = document.getElementById("skillTagsList");
-  var summaryEl = document.getElementById("skillSelectionSummary");
-  if (!el) return;
-  var catalogCount = _currentSkills.filter(function(skill) { return isCatalogSkill(skill); }).length;
-  var customCount = Math.max(0, _currentSkills.length - catalogCount);
-  if (summaryEl) {
-    if (!_currentSkills.length) summaryEl.textContent = TCi18n.t("mit.skills.noneSelected");
-    else summaryEl.textContent = TCi18n.t("mit.skills.summary", { total: _currentSkills.length, catalog: catalogCount }) +
-      (customCount ? " · " + TCi18n.t("mit.skills.summaryCustom", { count: customCount }) : "");
-  }
-  if (!_currentSkills.length) {
-    el.innerHTML = '<span style="color:var(--wk-text-muted);font-size:13px">' + esc(TCi18n.t("mit.skills.emptyHint")) + '</span>';
-    return;
-  }
-  el.innerHTML = _currentSkills.map(function(skill, index) {
-    var customClass = isCatalogSkill(skill) ? "" : " custom";
-    var customBadge = isCatalogSkill(skill) ? "" : '<span class="skill-chip-note">' + esc(TCi18n.t("mit.skills.customBadge")) + '</span>';
-    return '<span class="hub-chip' + customClass + '">' + esc(skill) + customBadge + '<button onclick="removeSkill(' + index + ')" style="background:none;border:none;color:var(--wk-text-muted);cursor:pointer;font-size:14px;padding:0;line-height:1">&times;</button></span>';
-  }).join("");
-}
-
-function addSkillTag() {
-  var input = document.getElementById("newSkillInput");
-  var value = (input && input.value || "").trim();
-  if (!value) return;
-  addSkillValue(value);
-  if (input) input.value = "";
-  updateSkillSelectionViews();
-}
-
-function handleSkillCatalogToggle(input) {
-  if (!input) return;
-  var skill = input.getAttribute("data-skill") || "";
-  if (input.checked) addSkillValue(skill);
-  else removeSkillValue(skill);
-  updateSkillSelectionViews();
-}
-
-function selectSkillGroup(groupId) {
-  var group = getSkillCatalogMeta().groups[groupId];
-  if (!group) return;
-  var added = 0;
-  var limitHit = false;
-  group.skills.forEach(function(skill) {
-    var alreadySelected = hasSkill(skill);
-    if (addSkillValue(skill, { silentLimitToast: true })) added += 1;
-    else if (!alreadySelected && _currentSkills.length >= MAX_SKILL_TAGS) limitHit = true;
-  });
-  updateSkillSelectionViews();
-  if (limitHit) toast(TCi18n.t("mit.skills.limit", { max: MAX_SKILL_TAGS }), "err");
-  else if (added > 0) toast(TCi18n.t("mit.skills.groupAdded", { group: skillGroupTitle(group), count: added }));
-}
-
-function clearSkillGroup(groupId) {
-  var group = getSkillCatalogMeta().groups[groupId];
-  if (!group) return;
-  var before = _currentSkills.length;
-  group.skills.forEach(function(skill) { removeSkillValue(skill); });
-  updateSkillSelectionViews();
-  if (before !== _currentSkills.length) toast(TCi18n.t("mit.skills.groupCleared", { group: skillGroupTitle(group) }));
-}
-
-function clearAllSkills() {
-  if (!_currentSkills.length) return;
-  setCurrentSkills([]);
-  updateSkillSelectionViews();
-  toast(TCi18n.t("mit.skills.allCleared"));
-}
-
-function removeSkill(index) {
-  _currentSkills.splice(index, 1);
-  _currentSkills = sortSkillList(_currentSkills);
-  updateSkillSelectionViews();
-}
-
 function getDocumentsForQualification(name) {
   var key = String(name || "").trim().toLowerCase();
   if (!key) return [];
@@ -3218,7 +3345,12 @@ function renderWorkerLinkage(worker) {
   var rows = [
     { label: TCi18n.t("mit.linkage.account"), value: linkage.email || worker.email || "–", meta: linkage.is_verified ? TCi18n.t("mit.linkage.verified") : TCi18n.t("mit.linkage.notVerified") },
     { label: TCi18n.t("mit.linkage.createdAt"), value: formatDateLabel(linkage.account_created_at), meta: worker.supplier_org_name || "–" },
-    { label: TCi18n.t("mit.linkage.portal"), value: linkage.worker_portal_path || "/public/einsatzportal-profil.html", meta: linkage.org_membership_active === false ? TCi18n.t("mit.linkage.membershipInactive") : TCi18n.t("mit.linkage.portalActive") },
+    /* Kein hartkodierter Portalpfad als Ersatzwert (Owner-Vorgabe 2026-09-01):
+     * die Plattform nennt den Weg ins Einsatzportal nicht von sich aus. Liefert
+     * das Backend keinen, zeigt der Renderer unten ohnehin "–". Nebenbei war der
+     * feste Pfad eine Altlast: er waere stehen geblieben, wenn das Portal je
+     * umzieht. */
+    { label: TCi18n.t("mit.linkage.portal"), value: linkage.worker_portal_path, meta: linkage.org_membership_active === false ? TCi18n.t("mit.linkage.membershipInactive") : TCi18n.t("mit.linkage.portalActive") },
     { label: TCi18n.t("mit.linkage.sharing"), value: worker.profile_public ? TCi18n.t("mit.linkage.sharedExternally") : TCi18n.t("mit.linkage.internalOnly"), meta: (worker.public_profile_preview && worker.public_profile_preview.public_fields || []).map(publicFieldLabel).join(", ") || TCi18n.t("mit.linkage.noFields") }
   ];
   el.innerHTML = rows.map(function(row) {
@@ -3255,6 +3387,12 @@ function getOperationalAssignmentBadge(item) {
   if (confirmation === "pending_confirmation") return { tone: "warn", label: TCi18n.t("mit.asgState.pendingConfirmation") };
   if (confirmation === "worker_unavailable") return { tone: "warn", label: TCi18n.t("mit.asgState.unavailable") };
   if (confirmation === "worker_declined") return { tone: "warn", label: TCi18n.t("mit.doc.status.rejected") };
+  /* Eine verfallene Anfrage (Migration 195) faellt sonst auf "Aktiv" durch —
+     gruen fuer etwas, das nie zustande kam. Heute maskiert der Zweig
+     `archived` oben das meistens, weil der Verfall is_active=FALSE setzt; fuer
+     jede `expired`-Zeile, die aktiv bleibt, griff der gruene Rueckfall. */
+  if (confirmation === "expired") return { tone: "warn", label: TCi18n.t("mit.asgState.expiredRequest") };
+  if (confirmation === "withdrawn") return { tone: "info", label: TCi18n.t("mit.asgState.withdrawnRequest") };
   return { tone: "good", label: TCi18n.t("mit.status.active") };
 }
 
@@ -3324,8 +3462,10 @@ function loadWorkerSkills() {
     if (panel) panel.style.display = "";
     if (hint) hint.style.display = "none";
     fillWorkerHubForm(worker);
-    renderSkillCatalog();
-    renderSkillTags();
+    /* N1b: auch dieser Ladepfad setzt den Waehler auf - sonst steht er beim
+       Oeffnen eines Mitarbeiters leer neben gefuellten Faehigkeiten. */
+    faehigkeitenWaehlerAufsetzen((worker.skill_tags || []).slice());
+    renderSkillZusammenfassung();
     renderQualifications();
     renderWorkerDocuments();
     renderWorkerHubHeader(worker);
@@ -3355,20 +3495,41 @@ function saveWorkerHub() {
     availability_note: document.getElementById("availabilityNoteInput").value.trim() || null,
     profile_text: document.getElementById("profileTextarea").value.trim() || null,
     notes: document.getElementById("profileNotes").value.trim() || null,
-    skill_tags: _currentSkills.slice(),
+    /*
+     * N1b - `skill_tags` steht hier NICHT mehr.
+     *
+     * Faehigkeiten sind eine eigene Beziehung mit eigener Pruefung gegen den
+     * Katalog (`worker_profile_skills.skill_id`). Sie als Wortliste durch das
+     * Profil zu schieben war der Weg, auf dem 109 von 142 Begriffen entstanden,
+     * die kein Unternehmen je finden konnte. Sie gehen jetzt ueber
+     * `PUT /workers/:userId/skills` - siehe `faehigkeitenSpeichern`.
+     */
     qualifications: _currentQuals.slice(),
     profile_public: isPublic,
     public_profile_fields: publicFields
   };
-  api("/workers/" + encodeURIComponent(_currentSkillWorker.user_id || _currentSkillWorker.id), { method: "PATCH", body: body }).then(function(worker) {
+  var kennung = _currentSkillWorker.user_id || _currentSkillWorker.id;
+  /*
+   * ERST die Faehigkeiten, DANN das Profil - und beides muss durch.
+   *
+   * Die Reihenfolge ist nicht gleichgueltig: `setWorkerSkills` schreibt den
+   * Spiegel `worker_profiles.skill_tags[]` selbst. Liefe das Profil-PATCH
+   * danach mit einer alten Wortliste, wuerde es den frisch gesetzten Spiegel
+   * ueberschreiben. Deshalb traegt der Rumpf oben keine `skill_tags` mehr - und
+   * die Reihenfolge haelt die Antwort des PATCH als letzte Wahrheit.
+   */
+  faehigkeitenSpeichern(kennung).then(function () {
+  return api("/workers/" + encodeURIComponent(kennung), { method: "PATCH", body: body });
+  }).then(function(worker) {
     _currentSkillWorker = worker;
     setCurrentSkills((worker.skill_tags || []).slice());
     _currentQuals = (worker.qualifications || []).slice();
     _currentWorkerDocuments = (worker.document_hub && worker.document_hub.recent_documents || []).slice();
     _currentWorkerDocumentSummary = worker.document_hub && worker.document_hub.summary || null;
     fillWorkerHubForm(worker);
-    renderSkillCatalog();
-    renderSkillTags();
+    /* N1b: die geladenen Faehigkeiten in den Waehler, nicht daneben. */
+    faehigkeitenWaehlerAufsetzen((worker.skill_tags || []).slice());
+    renderSkillZusammenfassung();
     renderQualifications();
     renderWorkerDocuments();
     renderWorkerHubHeader(worker);
@@ -4071,7 +4232,22 @@ function csvExecuteImport() {
 
 function csvShowResult(res) {
   var summary = document.getElementById("csv-result-summary");
+  /* M3.2: die Kennungen des Stapels festhalten — der Einladen-Knopf unten
+     schickt sie mit, damit er genau die einlaedt, die er nennt.
+   *
+   * M3.1 (2026-09-04): und zwar NUR die einladbaren. Ein ohne E-Mail
+   * importierter Mensch bekommt kein Nutzerkonto (`user_id: null`), und
+   * `listInvitableWorkers` verbindet ueber `JOIN users` — er kann also gar nicht
+   * eingeladen werden. Gezaehlt wurde trotzdem er mit: der Knopf versprach
+   * "alle 10 einladen" und lud sieben ein.
+   *
+   * Das ist dieselbe Klasse wie der Knopf aus M3.2, eine Ebene hoeher — eine
+   * Zahl, die etwas anderes meint als der Satz daneben. Sie steht jetzt auf dem,
+   * was wirklich geht, und die Luecke wird BENANNT statt verschwiegen. */
+  var einladbar = (res.created || []).filter(function(e) { return e && e.profile_id && e.email; });
+  _csvImportierteProfilIds = einladbar.map(function(e) { return e.profile_id; });
   var created = (res.created || []).length;
+  var ohneMail = created - einladbar.length;
   var updated = (res.updated || []).length;
   var skipped = (res.skipped || []).length;
   var errors  = (res.errors  || []).length;
@@ -4082,9 +4258,15 @@ function csvShowResult(res) {
     (errors > 0 ? '<div class="csv-kpi err"><span class="num">' + errors + '</span> ' + esc(TCi18n.t("mit.csv.kpiErrors")) + '</div>' : '') +
     // 7c-Bonus: Import endet nicht in der Sackgasse \u2014 die frisch importierten
     // Kraefte (is_verified=false) sind jetzt Einladungs-Kandidaten.
-    (created > 0
-      ? '<div style="flex-basis:100%;margin-top:10px"><button class="btn primary" onclick="csvInviteImported(' + created + ')" title="' + esc(TCi18n.t("mit.list.inviteAllTitle")) + '">' +
-        esc(TCi18n.t("mit.csv.inviteImportedCta", { count: created })) + '</button></div>'
+    (einladbar.length > 0
+      ? '<div style="flex-basis:100%;margin-top:10px"><button class="btn primary" onclick="csvInviteImported(' + einladbar.length + ')" title="' + esc(TCi18n.t("mit.list.inviteAllTitle")) + '">' +
+        esc(TCi18n.t("mit.csv.inviteImportedCta", { count: einladbar.length })) + '</button></div>'
+      : '') +
+    /* Die Luecke wird genannt, nicht verschwiegen — sonst fragt sich der
+       Disponent, wo die anderen drei geblieben sind, und findet es nirgends. */
+    (ohneMail > 0
+      ? '<div style="flex-basis:100%;margin-top:6px;color:var(--tc-text-muted);font-size:13px">' +
+        esc(TCi18n.t("mit.csv.inviteOhneMail", { count: ohneMail })) + '</div>'
       : '');
 
   var details = document.getElementById("csv-result-details");
@@ -4158,13 +4340,6 @@ window.populateSkillsWorkerSelect = populateSkillsWorkerSelect;
 window.loadWorkerSkills = loadWorkerSkills;
 window.openWorkerProfileHub = openWorkerProfileHub;
 window.resetWorkerHubSelection = resetWorkerHubSelection;
-window.renderSkillCatalog = renderSkillCatalog;
-window.handleSkillCatalogToggle = handleSkillCatalogToggle;
-window.selectSkillGroup = selectSkillGroup;
-window.clearSkillGroup = clearSkillGroup;
-window.clearAllSkills = clearAllSkills;
-window.addSkillTag = addSkillTag;
-window.removeSkill = removeSkill;
 window.addQualification = addQualification;
 window.removeQual = removeQual;
 window.uploadWorkerDocument = uploadWorkerDocument;
@@ -4190,8 +4365,7 @@ window.csvReset = csvReset;
 document.addEventListener("tc:langchange", function() {
   renderWorkers();
   renderInvites();
-  renderSkillCatalog();
-  renderSkillTags();
+  renderSkillZusammenfassung();
   if (_currentSkillWorker) {
     renderQualifications();
     renderWorkerDocuments();
@@ -4202,14 +4376,16 @@ document.addEventListener("tc:langchange", function() {
   updatePublicProfileControls();
   populateSkillsWorkerSelect();
   if (_liveTimer) loadLiveBoard();
+  var up = document.getElementById("panel-unsichtbar");
+  if (up && up.classList.contains("active")) ladeUnsichtbar();
   if (_csvData.headers.length) csvBuildMapping();
   if (_csvData.validated.length) csvRenderValidationTable();
 });
 
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", function() { init(); csvInitUpload(); renderSkillCatalog(); });
+  document.addEventListener("DOMContentLoaded", function() { init(); csvInitUpload(); });
 } else {
-  init(); csvInitUpload(); renderSkillCatalog();
+  init(); csvInitUpload();
 }
 
 /* ── Ersatz suchen (Welle G6) ───────────────────────────────────────────────
@@ -4250,9 +4426,14 @@ function openErsatzModal(profileId) {
      kein Fehler. Der Knopf erscheint in diesem Fall gar nicht erst; die
      Pruefung steht hier trotzdem, weil die Tafel zwischen Rendern und Klick
      neu geladen worden sein kann. */
-  if (!w.link_id) { toast(TCi18n.t("mit.ersatz.noAssignment"), "err"); return; }
+  /* link_id = laufender Einsatz. ersatz_link_id = die liegengebliebene
+     Verknuepfung des Ausgefallenen, nachdem ein Ersatz abgesagt hat (8.2).
+     Beide fuehren zu derselben Route; der Server entscheidet, ob der zweite
+     Anlauf zulaessig ist (REPLACEMENT_PENDING, wenn schon eine Anfrage laeuft). */
+  var zielLink = w.link_id || w.ersatz_link_id;
+  if (!zielLink) { toast(TCi18n.t("mit.ersatz.noAssignment"), "err"); return; }
 
-  _ersatzLinkId = w.link_id;
+  _ersatzLinkId = zielLink;
   _ersatzKunde = w.client_name || "";
   _ersatzFuer = ((w.first_name || "") + " " + (w.last_name || "")).trim();
   _ersatzAbwesendAb = w.absence_von || null;
@@ -4395,6 +4576,11 @@ function bestaetigeErsatz(workerUserId, name) {
       var code = e && (e.error || e.code);
       if (code === "BLOCKED_BY_COMPANY") showErsatzFehler(TCi18n.t("mit.ersatz.failBlocked"));
       else if (code === "SCHEDULE_CONFLICT") showErsatzFehler(TCi18n.t("mit.ersatz.failConflict"));
+      /* 8.2: fuer diesen Ausfall laeuft schon eine Anfrage. Der Knopf sollte in
+         dem Fall gar nicht erscheinen — aber die Tafel kann zwischen Rendern
+         und Klick veraltet sein, und dann braucht es einen klaren Satz statt
+         eines generischen Fehlers. */
+      else if (code === "REPLACEMENT_PENDING") showErsatzFehler(TCi18n.t("mit.ersatz.failPending"));
       else showErsatzFehler(TCi18n.t("mit.ersatz.failGeneric"));
     });
 }
@@ -4403,3 +4589,103 @@ window.openErsatzModal = openErsatzModal;
 window.closeErsatzModal = closeErsatzModal;
 window.waehleErsatz = waehleErsatz;
 window.bestaetigeErsatz = bestaetigeErsatz;
+
+/* ── Nicht im Markt: warum jemand nicht erscheint (M4c.5) ──────────────────
+ *
+ * DER BERICHT EXISTIERTE UND WURDE NIE GELESEN.
+ *
+ * `GET /api/workers/marktpraesenz/unsichtbar` liefert seit N7.3 je Mensch, welche
+ * der sieben Praesenz-Bedingungen fehlt — jede mit einem lesbaren Grund und einem
+ * naechsten Schritt. Gemessen am 2026-09-26: kein Aufrufer im Frontend. Die
+ * Antwort auf "warum ist niemand im Markt" lag fertig da, und die Frage wurde
+ * nie gestellt. Gemessen am 2026-09-24 betraf das 30 von 33 Kraeften.
+ *
+ * DIE ZAHL IST DAS SIGNAL, nicht die Liste. Sie steht deshalb am Reiter: wer die
+ * Seite oeffnet, sieht "Nicht im Markt: 30", bevor er irgendwo hinklickt. Eine
+ * Liste, die man erst suchen muss, wird nicht gelesen.
+ *
+ * SORTIERT KOMMT SIE VOM SERVER — was der Mensch oder die Firma beheben kann,
+ * steht oben, vor dem, was sich von selbst loest (Abwesenheit). Die Oberflaeche
+ * sortiert NICHT um: sonst haette dieselbe Wahrheit zwei Reihenfolgen.
+ */
+var _unsichtbarLaeuft = false;
+
+function ladeUnsichtbar() {
+  if (_unsichtbarLaeuft) return;
+  var box = document.getElementById("unsichtbarList");
+  if (!box) return;
+  _unsichtbarLaeuft = true;
+  box.innerHTML = '<div class="empty-state">' + esc(TCi18n.t("mit.unsichtbar.loading")) + "</div>";
+  api("/workers/marktpraesenz/unsichtbar?limit=200")
+    .then(function(r) { zeigeUnsichtbar(r && r.items ? r.items : []); })
+    .catch(function(e) {
+      /* Der Fehlerfall ist ein eigener Zustand, kein leerer: eine leere Liste
+         heisst "alle im Markt" und waere hier eine Luege. */
+      box.innerHTML = '<div class="ds-alert ds-alert--warning">'
+        + esc(TCi18n.t("mit.unsichtbar.error"))
+        + " " + esc(e && e.message ? e.message : "") + "</div>";
+      setzeUnsichtbarZahl(null);
+    })
+    .finally(function() { _unsichtbarLaeuft = false; });
+}
+
+function setzeUnsichtbarZahl(n) {
+  var badge = document.getElementById("unsichtbarCount");
+  if (badge) badge.textContent = (n === null || n === undefined) ? "?" : String(n);
+}
+
+function zeigeUnsichtbar(items) {
+  var box = document.getElementById("unsichtbarList");
+  if (!box) return;
+  setzeUnsichtbarZahl(items.length);
+  if (!items.length) {
+    box.innerHTML = '<div class="empty-state">'
+      + esc(TCi18n.t("mit.unsichtbar.empty"))
+      + "</div>";
+    return;
+  }
+  var WER = {
+    mensch: TCi18n.t("mit.unsichtbar.wer.mensch"),
+    firma: TCi18n.t("mit.unsichtbar.wer.firma"),
+    organisation: TCi18n.t("mit.unsichtbar.wer.organisation"),
+    zeitlich: TCi18n.t("mit.unsichtbar.wer.zeitlich")
+  };
+  box.innerHTML = items.map(function(e) {
+    var gruende = (e.gruende || []).map(function(g) {
+      return '<li style="margin-bottom:6px">'
+        + '<span class="badge" style="margin-right:6px">' + esc(WER[g.wer] || g.wer) + "</span>"
+        + "<strong>" + esc(g.grund) + "</strong>"
+        + (g.hinweis ? '<div style="font-size:12px;color:var(--wk-text-muted);margin-top:2px">'
+            + esc(g.hinweis) + "</div>" : "")
+        + "</li>";
+    }).join("");
+    /* Sprung auf DIESEN Menschen, nicht auf die allgemeine Liste: wer einen Grund
+       liest, will ihn dort beheben, wo er entsteht. Ueber `oeffneUnsichtbar`, das
+       den vorhandenen Weg in die Personalakte benutzt — ein eigener
+       `?worker=`-Link waere ein zweites Muster fuer dieselbe Sache. */
+    return '<div class="ds-card" style="margin-bottom:10px;padding:12px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
+      + "<strong>" + esc(e.name || TCi18n.t("mit.unsichtbar.ohneName")) + "</strong>"
+      + '<button class="btn" onclick="oeffneUnsichtbar(\'' + esc(e.worker_profile_id) + '\')">'
+      + esc(TCi18n.t("mit.unsichtbar.oeffnen")) + "</button>"
+      + "</div>"
+      + '<ul style="margin:8px 0 0;padding-left:18px">' + gruende + "</ul>"
+      + "</div>";
+  }).join("");
+}
+
+/**
+ * Aus dem Bericht in die Personalakte (M4c.5).
+ *
+ * `openWorkerDetail` erwartet eine Kennung, die in der Hub-Auswahl steht — das
+ * ist die NUTZER-Kennung, waehrend der Bericht die PROFIL-Kennung liefert. Steht
+ * der Mensch in der geladenen Liste, wird umgeschluesselt; sonst uebernimmt
+ * `applyPendingHubWorker` das Melden ("nicht gefunden") statt wortlos auf dem
+ * Platzhalter zu landen.
+ */
+function oeffneUnsichtbar(profileId) {
+  var w = (_workers || []).filter(function(x) { return x.id === profileId; })[0]
+       || (_liveWorkers || []).filter(function(x) { return x.id === profileId; })[0];
+  _pendingHubWorker = String((w && (w.user_id || w.id)) || profileId);
+  showTab("skills");
+}

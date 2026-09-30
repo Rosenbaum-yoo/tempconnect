@@ -48,8 +48,8 @@ Owner-Entscheidung ausstehend. Stub aktiv damit `build:all` grün bleibt.
 | worker-login.html | Worker-Login | Worker | — | ✅ |
 | worker-timesheet.html | Worker-Stundenzettel | Worker | — | ✅ |
 | timesheets.html | Stundenzettelliste | Company/Agency | PLUS+ | ✅ |
-| timesheet-templates.html | Zeiterfassungs-Vorlagen | Company | PLUS+ | ✅ |
 | worker-submissions-review.html | Einreichungen prüfen | Company/Agency | PLUS+ | ✅ |
+| company-live-workforce.html | Live-Belegschaft (Unternehmen) | Company | PLUS+ | ✅ |
 | approvals.html | Genehmigungen | Company | PLUS+ | ✅ |
 | spend-analytics.html | Spend-Analyse | Company | PLUS+ | ⚠️ Scope-Display fehlt (P2-A) |
 | rate-cards.html | Konditionsblätter | Company | INDIVIDUELL | ✅ |

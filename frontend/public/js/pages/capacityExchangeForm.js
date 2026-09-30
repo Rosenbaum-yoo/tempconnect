@@ -48,9 +48,9 @@ TCi18n.register('de', {
   'cap.f.rolePh': 'z.B. Lagerhelfer',
   'cap.f.category': 'Kategorie',
   'cap.f.headcount': 'Anzahl Personen',
-  'cap.f.skills': 'Skills (kommagetrennt)',
+  'cap.f.skills': 'Faehigkeiten',
   'cap.f.skillsPh': 'z.B. Stapler, Kommissionierung, SAP',
-  'cap.f.skillsHelp': 'Kommagetrennte Schlagworte fuer besseres Matching.',
+  'cap.f.skillsHelp': 'Aus dem Plattform-Katalog - dieselbe Achse, auf der die Gegenseite sucht.',
   'cap.f.availType': 'Verfuegbarkeitstyp',
   'cap.f.from': 'Verfuegbar ab',
   'cap.f.to': 'Verfuegbar bis',
@@ -194,9 +194,9 @@ TCi18n.register('en', {
   'cap.f.rolePh': 'e.g. warehouse assistant',
   'cap.f.category': 'Category',
   'cap.f.headcount': 'Number of people',
-  'cap.f.skills': 'Skills (comma-separated)',
+  'cap.f.skills': 'Skills',
   'cap.f.skillsPh': 'e.g. forklift, order picking, SAP',
-  'cap.f.skillsHelp': 'Comma-separated keywords for better matching.',
+  'cap.f.skillsHelp': 'From the platform catalogue - the same axis the other side searches on.',
   'cap.f.availType': 'Availability type',
   'cap.f.from': 'Available from',
   'cap.f.to': 'Available until',
@@ -449,12 +449,40 @@ TCi18n.register('en', {
       }).catch(function() {});
     }
 
-    // Geocode helper
+    /*
+     * Geocode helper — MIT PLZ ZUERST DER FREITEXT (Welle N2.0, 2026-09-07).
+     *
+     * Hier stand die strukturierte Abfrage (postal_code= + city=), sobald eine
+     * Postleitzahl vorlag. Gegen den echten Dienst gemessen ignoriert Nominatim
+     * die PLZ auf diesem Weg meistens:
+     *
+     *   48143 + Münster  vs  nur Münster   0,0 km
+     *   21031 + Hamburg  vs  nur Hamburg   0,0 km
+     *   81929 + München  vs  nur München   0,0 km
+     *   13403 + Berlin   vs  nur Berlin    9,3 km
+     *
+     * Der Freitext loest sie auf (3,4-10,6 km vom Ortsmittelpunkt). Das Angebot
+     * bekam damit den Stadtmittelpunkt statt des Stadtteils — und seit N2.4b
+     * rechnet der Umkreis wirklich mit diesem Punkt.
+     *
+     * Dieselbe Reihenfolge wie im Server (`marktGeoService.koordinatenNachtragen`):
+     * Freitext, und nur wenn der nichts findet, der strukturierte Weg. Zwei
+     * verschiedene Reihenfolgen ergaeben zwei verschiedene Punkte fuer denselben
+     * Ort — je nachdem, wer ihn gerade bestimmt.
+     */
     function geocode(city, postal) {
-      var q = postal
-        ? "/geo/coordinates?postal_code=" + encodeURIComponent(postal) + "&city=" + encodeURIComponent(city)
-        : "/geo/coordinates?q=" + encodeURIComponent(city);
-      return fetch(API + q, { credentials: "include" }).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; });
+      var hole = function(pfad) {
+        return fetch(API + pfad, { credentials: "include" })
+          .then(function(r) { return r.ok ? r.json() : null; })
+          .catch(function() { return null; });
+      };
+      if (!postal) return hole("/geo/coordinates?q=" + encodeURIComponent(city));
+      var frei = String(postal) + (city ? " " + city : "");
+      return hole("/geo/coordinates?q=" + encodeURIComponent(frei)).then(function(p) {
+        if (p) return p;
+        return hole("/geo/coordinates?postal_code=" + encodeURIComponent(postal)
+          + "&city=" + encodeURIComponent(city));
+      });
     }
 
     // Populate form for edit mode
@@ -473,6 +501,12 @@ TCi18n.register('en', {
         val("f-worker-category", e.worker_category || "");
         val("f-headcount", e.headcount || 1);
         val("f-skills", Array.isArray(e.skill_tags) ? e.skill_tags.join(", ") : "");
+        /* N1.1: Ein verstecktes Feld per Skript zu setzen loest kein Ereignis
+           aus - der Faehigkeiten-Waehler erfaehrt sonst nichts davon und
+           ueberschreibt die geladene Auswahl mit einer leeren. */
+        document.dispatchEvent(new CustomEvent("tc:skills-loaded", {
+          detail: Array.isArray(e.skill_tags) ? e.skill_tags : []
+        }));
         val("f-availability-type", e.availability_type || "immediate");
         val("f-from", e.availability_from ? String(e.availability_from).substring(0,10) : "");
         val("f-to", e.availability_to ? String(e.availability_to).substring(0,10) : "");

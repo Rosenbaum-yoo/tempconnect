@@ -334,6 +334,16 @@ TCi18n.register('en', {
       return;
     }
 
+    /* Unternehmen gehoeren in ihren Stundenzettel-Eingang (echtes System,
+       worker_time_submissions) — nicht auf diese Seite des alten Modells, auf
+       der eine Zeitarbeitsfirma die Kunden-Org-ID noch von Hand eintraegt.
+       An DIESER Stelle, damit jeder Weg hierher greift: Kachel, Benachrichtigung,
+       Aktivitaet, Lesezeichen. Filter und Sprungziel reisen mit. */
+    if (_me && String(_me.org_type || '').toLowerCase() === 'company') {
+      window.location.replace('/public/company-timesheets.html' + window.location.search + window.location.hash);
+      return;
+    }
+
     await PlanFeatures.load();
     var plan = (_me && _me.plan) ? _me.plan : 'DEMO';
     if (plan === 'FREE') plan = 'DEMO';
@@ -642,7 +652,7 @@ TCi18n.register('en', {
   /* ── Utilities ─────────────────────────────────────── */
   function esc(v) {
     if (v == null) return '';
-    return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g, '&#39;');
   }
   function fmtDate(d) {
     if (!d) return '–';

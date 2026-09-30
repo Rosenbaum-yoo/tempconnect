@@ -7,6 +7,7 @@
 import { z } from "zod";
 import { Router } from "express";
 import * as dealFeedbackService from "../services/dealFeedbackService.js";
+import { verweigereArbeiter } from "../middleware/orgAccess.js";
 
 const submitSchema = z.object({
   assignment_id: z.string().uuid(),
@@ -33,7 +34,19 @@ export function createDealFeedbackRouter(deps) {
   const router = Router();
 
   /** Bewertbare abgeschlossene Deals der aktiven Org. */
-  router.get("/deal-feedback/pending", requireAuth, async (req, res) => {
+  /*
+   * M2.5/M2.7 — gemessen am 2026-09-03: diese Route reicht einer ARBEITERSITZUNG
+   * org-geschluesselte Daten ihrer Zeitarbeitsfirma durch. Ein Arbeiter ist
+   * regulaer Mitglied in der Org seines Arbeitgebers (workerService.acceptInvite,
+   * role_key='worker'), seine Sitzung traegt also deren Kennung.
+   *
+   * Bewusst `verweigereArbeiter` und nicht `requirePermission(...)`: welche Rollen
+   * diese Daten lesen duerfen, ist eine Produktfrage und gehoert dem Owner (M2.6).
+   * Dieser Riegel schliesst genau das Gemessene und nimmt sonst niemandem etwas.
+   */
+  const keinArbeiter = verweigereArbeiter({ logger });
+
+  router.get("/deal-feedback/pending", requireAuth, keinArbeiter, async (req, res) => {
     try {
       if (!req.orgId) return res.json({ items: [], total: 0 });
       const items = await dealFeedbackService.getPendingFeedback(pool, { orgIds: [req.orgId] });

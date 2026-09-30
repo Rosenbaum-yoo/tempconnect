@@ -7,6 +7,7 @@
 import { z } from "zod";
 import { Router } from "express";
 import * as capacityExchangeService from "../services/capacityExchangeService.js";
+import * as feedKopie from "../services/feedKopieService.js";
 import * as capacityOfferGeneratorService from "../services/capacityOfferGeneratorService.js";
 import * as capacityOfferMatchService from "../services/capacityOfferMatchService.js";
 import * as marketplaceService from "../services/marketplaceService.js";
@@ -23,6 +24,8 @@ import { requireOrgLimit } from "../middleware/entitlementGuard.js";
 import { requireScope } from "../middleware/apiKeyAuth.js";
 import { swallow } from "../utils/logger.js";
 import { canAccessAsOwner } from "../utils/ownerCheck.js";
+import * as merkmalKatalog from "../services/workerMerkmalKatalog.js";
+import * as companyBlocklistService from "../services/companyBlocklistService.js";
 
 /* ── Zod Schemas ──────────────────────────────────── */
 
@@ -105,12 +108,22 @@ export function createCapacityExchangeRouter(deps) {
 
   // Feature gates
   const ceBasic = requireFeature("capacity_exchange_basic");
+  /*
+   * M1.5 — ERSTELLEN IST NICHT BROWSEN.
+   * `capacity_exchange_basic` ist fuer JEDEN Plan wahr, DEMO eingeschlossen.
+   * Bis hierher blockierte ein DEMO-Konto erst `listingsLimitGate` — mit
+   * 429 PLAN_LIMIT_REACHED, also einer Quotenmeldung, wo eine Planaussage
+   * gehoert. Der Schluessel davor sagt dasselbe frueher und richtig; die
+   * Planliste ist aus demselben Limit abgeleitet, es aendert sich also fuer
+   * keinen Kunden etwas ausser der Meldung.
+   */
+  const ceCreate = requireFeature("capacity_exchange_create");
   const ceMatching = requireFeature("capacity_exchange_matching");
   const listingsLimitGate = requireOrgLimit("listings", { pool, logger });
 
   /* ── Supplier: Create entry ───────────────────────── */
 
-  router.post("/capacity-exchange/entries", requireAuth, requireScope("write:capacity"), ceBasic, listingsLimitGate, async (req, res) => {
+  router.post("/capacity-exchange/entries", requireAuth, requireScope("write:capacity"), ceBasic, ceCreate, listingsLimitGate, async (req, res) => {
     try {
       const me = req.user;
       if (me?.role !== "agency") return res.status(403).json({ error: "AGENCY_ONLY" });
@@ -331,7 +344,13 @@ export function createCapacityExchangeRouter(deps) {
         headcount: gefordert,
         from: demand.start_date || null,
         to: demand.end_date || null,
-        alleSkills: false
+        alleSkills: false,
+        /* N4.2 - gerechnet wird gegen DIESEN Kunden. Wer dort gesperrt ist,
+         * zaehlt nicht mit: eine Deckungszusage, die zwei Kraefte einschliesst,
+         * die sich nachher nicht zuweisen lassen, ist schlimmer als eine
+         * offene Luecke. Die Agentur erfaehrt daraus keinen Namen und keinen
+         * Grund - die Zahl faellt, mehr nicht. */
+        kundeOrgId: demand.requester_org_id || null
       });
 
       res.json({
@@ -404,9 +423,9 @@ export function createCapacityExchangeRouter(deps) {
     }
   }
 
-  router.post("/capacity-exchange/entries/:id/activate", requireAuth, requireScope("write:capacity"), ceBasic, listingsLimitGate, (req, res) => handleTransition(req, res, "active"));
+  router.post("/capacity-exchange/entries/:id/activate", requireAuth, requireScope("write:capacity"), ceBasic, ceCreate, listingsLimitGate, (req, res) => handleTransition(req, res, "active"));
   router.post("/capacity-exchange/entries/:id/pause", requireAuth, requireScope("write:capacity"), ceBasic, (req, res) => handleTransition(req, res, "paused"));
-  router.post("/capacity-exchange/entries/:id/reactivate", requireAuth, requireScope("write:capacity"), ceBasic, listingsLimitGate, (req, res) => handleTransition(req, res, "active"));
+  router.post("/capacity-exchange/entries/:id/reactivate", requireAuth, requireScope("write:capacity"), ceBasic, ceCreate, listingsLimitGate, (req, res) => handleTransition(req, res, "active"));
   router.post("/capacity-exchange/entries/:id/fill", requireAuth, requireScope("write:capacity"), ceBasic, (req, res) => handleTransition(req, res, "filled"));
   router.post("/capacity-exchange/entries/:id/archive", requireAuth, requireScope("write:capacity"), ceBasic, (req, res) => handleTransition(req, res, "archived"));
 
@@ -518,6 +537,12 @@ export function createCapacityExchangeRouter(deps) {
   /* ── Company: Browse capacity feed ────────────────── */
 
   router.get("/capacity-exchange/feed", requireAuth, requireScope("read:capacity"), async (req, res) => {
+    /* VOR dem try deklariert, damit der Rueckfall im catch weiss, WAS gefragt
+     * wurde. Mit `const` innerhalb des try war es dort nicht sichtbar — die
+     * Routenprobe hat es beim ersten Lauf gefunden (ReferenceError). Bleibt es
+     * null, ist der Fehler vor dem Zusammenbauen aufgetreten; dann wissen wir
+     * nicht, wonach gesucht wurde, und liefern ehrlich den Fehler. */
+    let opts = null;
     try {
       const me = await getUserAndPlan(req.session.userId);
       let interAgencyEnabled = false;
@@ -528,7 +553,7 @@ export function createCapacityExchangeRouter(deps) {
         interAgencyEnabled = planAllows && settings.inter_agency_matching_enabled === true;
         interAgencySupplyVisible = interAgencyEnabled && settings.inter_agency_supply_visible === true;
       }
-      const opts = {
+      opts = {
         worker_category: req.query.worker_category || undefined,
         role: req.query.role || undefined,
         location_city: req.query.city || undefined,
@@ -542,18 +567,72 @@ export function createCapacityExchangeRouter(deps) {
         longitude: req.query.longitude ? parseFloat(req.query.longitude) : undefined,
         radius_km: req.query.radius_km ? parseInt(req.query.radius_km, 10) : undefined,
         skill_tags: req.query.skill_tags ? String(req.query.skill_tags).split(",").map(t => t.trim()).filter(Boolean) : undefined,
+        merkmale: req.query.merkmale ? String(req.query.merkmale).split(",").map(t => t.trim()).filter(Boolean) : undefined,
         sort: req.query.sort || undefined,
         viewer_role: me?.role || null,
         viewer_user_id: req.session.userId,
+        /* Sperrliste (Welle J2c): eine fuer dieses Unternehmen gesperrte Kraft
+         * erscheint gar nicht erst im Feed. Der Riegel gegen Umgehung steht
+         * zusaetzlich serverseitig in accept-deal. */
+        viewer_company_org_id: (me?.role === "company" && req.orgId) ? req.orgId : undefined,
         inter_agency_enabled: interAgencyEnabled,
         inter_agency_supply_visible: interAgencySupplyVisible,
         page: parseInt(req.query.page, 10) || 1,
         limit: Math.min(100, parseInt(req.query.limit, 10) || 25)
       };
+      /* Merkmal-Filter (Welle J9): unbekannte Schluessel sind ein 400, kein
+       * stilles Weglassen — ein Filter, der heimlich weniger filtert als
+       * behauptet, liefert falsche Gewissheit. */
+      if (opts.merkmale) {
+        const geprueft = merkmalKatalog.pruefeMerkmale(opts.merkmale);
+        if (geprueft.error) return res.status(400).json({ error: geprueft.error, unbekannt: geprueft.unbekannt });
+        opts.merkmale = geprueft.ok;
+      }
       const result = await capacityExchangeService.browseFeed(pool, opts);
+
+      /* Die letzte gute Seite aufheben (Welle K4). Fire-and-forget: eine
+       * misslungene Kopie darf die Antwort nie aufhalten. Nur die
+       * ungefilterte erste Seite, und seit N4.4 JE MARKTSEITE — ein
+       * Unternehmen und eine Zeitarbeitsfirma sehen nicht dieselbe Liste.
+       * Siehe feedKopieService. */
+      if (feedKopie.istKopierwuerdig(opts)) {
+        feedKopie.kopieSchreiben(pool, result, feedKopie.seiteFuer(opts.viewer_role)).catch(() => {});
+      }
+
       res.json(result);
     } catch (e) {
       logger.error({ err: e }, "GET /capacity-exchange/feed");
+
+      /*
+       * EIN FEHLER DARF NIE ZU EINER LEEREN LISTE WERDEN (Welle K4).
+       *
+       * Am 26.08. warf dieser Endpunkt fuer JEDEN angemeldeten Betrachter
+       * einen 500er. Was ankam, war eine leere Flaeche — ununterscheidbar von
+       * "es gibt gerade keine Angebote". Das ist die schlimmere Lesart: sie
+       * ist falsch UND sie alarmiert niemanden.
+       *
+       * Nur fuer den ungefilterten Normalfall: wer gefiltert hat, bekaeme
+       * sonst eine Liste, die seinen Filter ignoriert — und das waere eine
+       * neue Unwahrheit statt einer alten.
+       */
+      if (opts && feedKopie.istKopierwuerdig(opts)) {
+        const kopie = await feedKopie.kopieLesen(pool, feedKopie.seiteFuer(opts.viewer_role));
+        if (kopie) {
+          /* Das Festhalten des Rueckfalls (Zaehler + Fehler-Protokoll)
+           * passiert in `kopieLesen`. Hier stand zuerst ein dispatch() auf
+           * `system.feed_rueckfall` — der waere still versickert: die
+           * Meldungs-Matrix ueberspringt unbekannte Schluessel wortlos, und
+           * eine Empfaenger-Strategie fuer das Team gibt es dort nicht. */
+          return res.json({
+            ...kopie.inhalt,
+            /* Die Oberflaeche MUSS den Stand zeigen. Eine Kopie, die man fuer
+             * aktuell haelt, ist gefaehrlicher als gar keine. */
+            aus_kopie: true,
+            kopie_stand: kopie.erstellt_am
+          });
+        }
+      }
+
       res.status(500).json({ error: "SERVER_ERROR" });
     }
   });
@@ -564,6 +643,38 @@ export function createCapacityExchangeRouter(deps) {
     try {
       const entry = await capacityExchangeService.getEntryById(pool, req.params.id, req.session.userId);
       if (!entry) return res.status(404).json({ error: "NOT_FOUND" });
+
+      /*
+       * N4.1 - DIE SPERRE WIRKT AUCH HIER, nicht erst beim Buchen.
+       *
+       * Der Feed blendet eine gesperrte Kraft aus. Diese Ansicht tat es nicht:
+       * ein alter Link, ein offener Tab oder ein Treffer aus der Suche fuehrte
+       * weiterhin auf das Angebot. Der Kunde konnte es lesen, planen, im Team
+       * besprechen - und erfuhr die Sperre erst beim Abschluss (409).
+       *
+       * KEIN 404. Das Unternehmen hat die Sperre SELBST gesetzt; ihm hier
+       * "nicht gefunden" zu antworten laesst es den Fehler bei sich suchen.
+       * Also derselbe Code wie beim Buchen, damit die Oberflaeche denselben Satz
+       * sagen kann - und niemand sonst erfaehrt etwas: die Auskunft geht nur an
+       * den, der gesperrt hat.
+       */
+      const meDetail = await getUserAndPlan(req.session.userId);
+      /* N4.5 — ueber die ANGEBOTS-Kennung, nicht ueber `entry.worker_profile_id`:
+         diese Spalte steht mit Absicht nicht in der oeffentlichen Projektion, der
+         Datensatz trug sie nie, und der Riegel feuerte deshalb kein einziges Mal.
+         Siehe `isCapacityPostBlockedForCompany`. */
+      if (meDetail?.role === "company" && req.orgId) {
+        const sperre = await companyBlocklistService.isCapacityPostBlockedForCompany(
+          pool, req.orgId, entry.id
+        );
+        if (sperre) {
+          return res.status(409).json({
+            error: "WORKER_BLOCKED_FOR_COMPANY",
+            blocked_until: sperre.blocked_until || null
+          });
+        }
+      }
+
       // Attach trust signals for the viewer
       entry.trust_signals = await capacityExchangeService.computeTrustSignals(pool, entry.supplier_company_id);
 

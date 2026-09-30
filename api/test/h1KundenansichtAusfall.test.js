@@ -58,7 +58,14 @@ const ERLAUBT = new Set([
   "role", "start_date", "effective_end_date",
   "shift_start", "shift_end",
   "agency_name", "supplier_org_id", "worker_description",
-  "lifecycle_state", "endet_bald", "live_status", "ausfall_bis"
+  "lifecycle_state", "endet_bald", "live_status", "ausfall_bis",
+  /* AUEG-Konto (Welle J8, Owner-Entscheid 2026-08-26): bewusst erlaubt.
+   * Es ist eine Auskunft ueber die EIGENE Ueberlassung des Entleihers —
+   * verbrauchte Zeit, Fristende, Warnstufe. Kein Beschaeftigtendatum ueber
+   * den Menschen, sondern die Rechtslage seines eigenen Einsatzes, mit der
+   * er planen muss. Der Waechter hat richtig angeschlagen: neue Felder
+   * erreichen den Kunden nur nach bewusster Eintragung hier. */
+  "aueg"
 ]);
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -308,6 +315,11 @@ describe("H1 · Teil B — die Abfrage bindet die Mandantengrenze", () => {
 
 /* ═══════════════════════════════════════════════════════════════════════════
  *  Teil C — die Oberflaeche, wirklich ausgefuehrt
+ *
+ *  Seit Welle J1 lebt die Kundenansicht der Live-Belegschaft auf ihrer
+ *  eigenen Flaeche (company-live-workforce.html + companyLiveWorkforce.js);
+ *  vorher war sie ein Reiter in company-timesheets.html. Der Test folgt dem
+ *  Umzug — die geschuetzten Verhaltensweisen sind unveraendert.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /* Aufwaerts suchen UND auf Inhalt pruefen: Docker legt Mount-Ziele als leere
@@ -317,7 +329,7 @@ function findeWurzel() {
   for (const start of [HIER, process.cwd()]) {
     let dir = path.resolve(start);
     for (let i = 0; i < 8; i++) {
-      const kandidat = path.join(dir, "frontend/public/js/pages/companyTimesheets.js");
+      const kandidat = path.join(dir, "frontend/public/js/pages/companyLiveWorkforce.js");
       if (fs.existsSync(kandidat) && fs.statSync(kandidat).size > 1000) return dir;
       const eltern = path.dirname(dir);
       if (eltern === dir) break;
@@ -405,7 +417,7 @@ suite("H1 · Teil C — die Kundenansicht rendert den Ausfall", () => {
         },
         createElement: () => elem("tmp")
       },
-      window: { location: { search, hash, href: "/public/company-timesheets.html" } },
+      window: { location: { search, hash, href: "/public/company-live-workforce.html" } },
       localStorage: { getItem: () => null, setItem: () => {} },
       navigator: { language: "de-DE", languages: ["de-DE"] },
       URLSearchParams, Date, Math, JSON, encodeURIComponent, decodeURIComponent, Intl, String, Boolean, Number, Object, Array, RegExp, Error, Promise,
@@ -422,7 +434,7 @@ suite("H1 · Teil C — die Kundenansicht rendert den Ausfall", () => {
     ctx.window.TCi18n = TCi18n;
     ctx.globalThis = ctx;
     vm.createContext(ctx);
-    vm.runInContext(js, ctx, { filename: "companyTimesheets.js" });
+    vm.runInContext(js, ctx, { filename: "companyLiveWorkforce.js" });
 
     // init() laeuft asynchron an — ein paar Runden geben ihm Zeit.
     for (let i = 0; i < 12; i++) await new Promise((r) => setImmediate(r));
@@ -444,13 +456,12 @@ suite("H1 · Teil C — die Kundenansicht rendert den Ausfall", () => {
       available: true, workers,
       kpis: { total: workers.length, im_einsatz: workers.length, endet_bald: 0, faellt_aus: 0, agencies: 1, ...kpis }
     },
-    "/me": { id: "u1" },
-    "/company/submissions": { items: [] }
+    "/me": { id: "u1" }
   });
 
   before(() => {
-    js = fs.readFileSync(path.join(ROOT, "frontend/public/js/pages/companyTimesheets.js"), "utf8");
-    html = fs.readFileSync(path.join(ROOT, "frontend/public/company-timesheets.html"), "utf8");
+    js = fs.readFileSync(path.join(ROOT, "frontend/public/js/pages/companyLiveWorkforce.js"), "utf8");
+    html = fs.readFileSync(path.join(ROOT, "frontend/public/company-live-workforce.html"), "utf8");
     // Gegenprobe: gelesen wurde wirklich etwas, und zwar diese Seite.
     assert.ok(js.length > 5000 && html.length > 5000, "Datei leer oder Mount-Attrappe");
   });
@@ -459,7 +470,7 @@ suite("H1 · Teil C — die Kundenansicht rendert den Ausfall", () => {
 
   it("jeder neue Schluessel steht in DE UND EN", async () => {
     const { woerter } = await sandbox();
-    const neu = Object.keys(woerter.de).filter((k) => k.indexOf("cts.live.out.") === 0 || k === "cts.live.badge.out" || k === "cts.live.badge.unknown" || k === "cts.live.kpi.out");
+    const neu = Object.keys(woerter.de).filter((k) => k.indexOf("clw.live.out.") === 0 || k === "clw.live.badge.out" || k === "clw.live.badge.unknown" || k === "clw.live.kpi.out");
     assert.ok(neu.length >= 6, `erwartet: die Schluessel der Welle H1, gefunden: ${neu.length}`);
     assert.deepEqual(neu.filter((k) => !woerter.en[k]), [], "diese Schluessel fehlen im englischen Woerterbuch");
   });
@@ -488,7 +499,8 @@ suite("H1 · Teil C — die Kundenansicht rendert den Ausfall", () => {
   /* ── Der Zustand in der Zeile ─────────────────────────────────────────── */
 
   async function rendere(workers, kpis) {
-    const s = await sandbox({ hash: "#live", antworten: antwort(workers, kpis) });
+    /* Kein Hash noetig: seit J1 ist die Live-Tafel der Startzustand der Seite. */
+    const s = await sandbox({ antworten: antwort(workers, kpis) });
     return { markup: s.elemente.lwBody.innerHTML, ...s };
   }
 
@@ -580,7 +592,7 @@ suite("H1 · Teil C — die Kundenansicht rendert den Ausfall", () => {
 
   it("die Seite bringt die vierte Kachel und die dritte Abzeichen-Klasse mit", () => {
     assert.ok(html.includes('id="lwOut"'), "die Kachel, die updateLiveKPIs beschreibt, muss es geben");
-    assert.ok(html.includes("cts.live.kpi.out"), "mit uebersetzbarer Beschriftung");
+    assert.ok(html.includes("clw.live.kpi.out"), "mit uebersetzbarer Beschriftung");
     assert.ok(/\.ct-badge--out\s*\{/.test(html), "die dritte Abzeichen-Klasse fehlt — der Zustand waere unsichtbar");
   });
 
@@ -591,20 +603,27 @@ suite("H1 · Teil C — die Kundenansicht rendert den Ausfall", () => {
     assert.ok(markup.includes('data-einsatz="a-1"'));
   });
 
-  it("?einsatz= oeffnet den Live-Reiter — nicht die Stundenzettel-Liste", async () => {
+  it("?einsatz= landet auf der aktiven Live-Ansicht", async () => {
     const { elemente, gerufen } = await sandbox({
-      search: "?einsatz=a-1", hash: "#live",
+      search: "?einsatz=a-1",
       antworten: antwort([{ ...ZEILE, live_status: "faellt_aus", ausfall_bis: "2026-08-25" }], { faellt_aus: 1, im_einsatz: 0 })
     });
     assert.ok(elemente.tabLive._classes.has("ct-tab--active"), "der Live-Reiter ist aktiv");
     assert.equal(elemente.viewLive.style.display, "", "die Live-Ansicht ist sichtbar");
-    assert.equal(elemente.viewTimesheets.style.display, "none");
     assert.ok(gerufen.includes("/company/live-workforce"), "und ihre Daten wurden geholt");
+  });
+
+  it("auch der ALTE Hash '#live' aus Bestands-Benachrichtigungen bleibt gueltig", async () => {
+    /* G4b-Zeilen im Bestand tragen '…#live'. company-timesheets.html leitet
+       sie mitsamt search hierher weiter; die Seite darf am Hash nicht
+       scheitern. */
+    const { elemente } = await sandbox({ search: "?einsatz=a-1", hash: "#live", antworten: antwort([ZEILE]) });
+    assert.equal(elemente.viewLive.style.display, "", "die Live-Ansicht ist sichtbar");
   });
 
   it("der Deep-Link fuehrt zur ZEILE, nicht nur in ihre Naehe", async () => {
     const { elemente } = await sandbox({
-      search: "?einsatz=a-1", hash: "#live",
+      search: "?einsatz=a-1",
       antworten: antwort([{ ...ZEILE, live_status: "faellt_aus" }, { ...ZEILE, link_id: "l2", assignment_id: "a-2" }], { faellt_aus: 1, im_einsatz: 1, total: 2 })
     });
     const ziel = elemente.__zeile_a1 || elemente["__zeile_a-1"];
@@ -613,25 +632,52 @@ suite("H1 · Teil C — die Kundenansicht rendert den Ausfall", () => {
     assert.ok(String(ziel.style.outline).includes("solid"), "sie wurde nicht hervorgehoben");
   });
 
-  it("ohne Adressangabe bleibt der Startzustand die Stundenzettel-Liste", async () => {
+  it("ohne Adressangabe ist die Live-Tafel der Startzustand", async () => {
+    /* Seit J1 ist die Seite die Flaeche der Live-Belegschaft — ihre Tafel
+       laedt sofort, die Nebenreiter (Meldungen, Sperrliste) erst beim
+       Oeffnen. */
     const { gerufen } = await sandbox({ antworten: antwort([ZEILE]) });
-    assert.ok(gerufen.includes("/company/submissions"), "der Standardreiter laedt weiterhin");
-    assert.ok(!gerufen.includes("/company/live-workforce"),
-      "ohne Deep-Link wird die Live-Tafel nicht geholt — der Reiter laedt sie beim Oeffnen");
+    assert.ok(gerufen.includes("/company/live-workforce"), "die Tafel laedt ohne Umweg");
+    assert.ok(!gerufen.some((p) => p.indexOf("/company/complaints") === 0),
+      "Meldungen laedt erst der Reiterwechsel");
+    assert.ok(!gerufen.some((p) => p.indexOf("/company/blocklist") === 0),
+      "die Sperrliste ebenfalls");
+  });
+
+  it("#meldungen und #sperrliste oeffnen den jeweiligen Reiter direkt", async () => {
+    const a = await sandbox({ hash: "#meldungen", antworten: antwort([ZEILE]) });
+    assert.equal(a.elemente.viewComplaints.style.display, "", "die Meldungen sind sichtbar");
+    assert.equal(a.elemente.viewLive.style.display, "none");
+    const b = await sandbox({ hash: "#sperrliste", antworten: antwort([ZEILE]) });
+    assert.equal(b.elemente.viewBlocklist.style.display, "", "die Sperrliste ist sichtbar");
   });
 
   /* ── Der Takt ─────────────────────────────────────────────────────────── */
 
   it("die Live-Tafel erneuert sich von selbst, solange ihr Reiter offen ist", async () => {
-    const { ctx, timer } = await sandbox({ hash: "#live", antworten: antwort([ZEILE]) });
+    const { ctx, timer } = await sandbox({ antworten: antwort([ZEILE]) });
     const laufend = timer.intervalle.filter(Boolean);
     assert.equal(laufend.length, 1, "genau ein Takt — nicht keiner und nicht zwei");
     assert.equal(laufend[0].ms, 30000, "derselbe Takt wie auf der Agenturtafel");
 
     /* Ueber window, weil das Modul eine IIFE ist: nur was es dort ablegt,
        ist von aussen bedienbar — genau wie im Browser. */
-    ctx.window.ctView("timesheets");
+    ctx.window.clwView("complaints");
     assert.deepEqual(timer.intervalle.filter(Boolean), [],
       "wer den Reiter verlaesst, soll nicht weiter abfragen — sonst laeuft die Seite unbemerkt im Hintergrund");
+  });
+
+  /* ── Die Weiterleitung der Alt-Links ──────────────────────────────────── */
+
+  it("company-timesheets.html leitet alte Deep-Links mitsamt Kennung hierher", () => {
+    /* Bestands-Benachrichtigungen (G4b vor J1) zeigen auf die alte Adresse.
+       Der Quelltext der alten Seite muss die Weiterleitung tragen — sonst
+       enden genau die dringendsten Links der Plattform auf der falschen
+       Flaeche. */
+    const alt = fs.readFileSync(path.join(ROOT, "frontend/public/js/pages/companyTimesheets.js"), "utf8");
+    assert.ok(alt.includes("location.replace('/public/company-live-workforce.html'"),
+      "die Weiterleitung fehlt in companyTimesheets.js");
+    assert.ok(alt.includes("einsatz=") && alt.includes("#live"),
+      "sie muss auf beide Alt-Formen reagieren: ?einsatz= und #live");
   });
 });

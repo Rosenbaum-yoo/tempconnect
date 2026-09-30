@@ -77,6 +77,9 @@ const SURFACE_BY_TYPE = {
   // Ereignis an seinem EINSATZ, nicht an einer fremden Personalakte.
   assignment_worker_unavailable: "assignments",
   assignment_worker_replaced: "assignments",
+  /* Auch der Verfall einer Zuweisung ist fuer den Kunden ein Ereignis an seinem
+   * EINSATZ (Migration 195) — dieselbe Karte wie Ausfall und Ersatz. */
+  assignment_worker_not_confirmed: "assignments",
 
   // Gamification / Meilensteine → Bounties-Card
   milestone: "bounties",

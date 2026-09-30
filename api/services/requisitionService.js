@@ -4,6 +4,7 @@
  */
 
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
+import * as settingsService from "./settingsService.js";
 
 /** Erlaubte Status-Uebergaenge
  *  PARTIALLY_FILLED: Migration 113 — einige, aber nicht alle Headcount-Positionen besetzt.
@@ -30,10 +31,28 @@ export class RequisitionTransitionError extends Error {
   }
 }
 
-export function assertTransition(from, to) {
+export function assertTransition(from, to, { approvalRequired = false } = {}) {
   const allowed = REQUISITION_TRANSITIONS[from];
   if (!Array.isArray(allowed) || !allowed.includes(to)) {
     throw new RequisitionTransitionError(from, to);
+  }
+  /*
+   * DIE ABKUERZUNG AN DER FREIGABE VORBEI.
+   *
+   * `DRAFT -> OPEN` steht in der Tabelle und ist fuer den Normalfall richtig:
+   * wer keine Freigabe braucht, soll nicht durch sie hindurch. Verlangt die
+   * Anforderung aber eine, war genau dieser Uebergang das Schlupfloch — die
+   * Freigabe blieb freiwillig, und `approval_required` war ein Etikett.
+   *
+   * Der Weg durch die Freigabe fuehrt sauber hinaus
+   * (PENDING_APPROVAL -> APPROVED -> OPEN), es entsteht also keine Sackgasse.
+   */
+  if (approvalRequired && from === "DRAFT" && to === "OPEN") {
+    const err = new RequisitionTransitionError(from, to);
+    err.message = "Diese Anforderung verlangt eine Freigabe: erst zur Freigabe einreichen "
+                + "(DRAFT -> PENDING_APPROVAL), dann freigeben (-> APPROVED), dann oeffnen.";
+    err.code = "APPROVAL_REQUIRED";
+    throw err;
   }
 }
 
@@ -54,7 +73,27 @@ export async function createRequisition(pool, userId, data) {
   await assertLocationBelongsToOrg(pool, data.location_id, data.org_id);
   await assertDepartmentBelongsToOrg(pool, data.department_id, data.org_id);
 
-  const approvalRequired = data.approval_required ?? false;
+  /*
+   * DIE ORG-EINSTELLUNG WIRD ENDLICH GELESEN.
+   *
+   * BEFUND (2026-08-24): `org_settings.approval_required` ist in DREI Masken
+   * einstellbar und wird als `approval_workflow: true` zurueckgemeldet
+   * (orgControlCenter.js:497) — gelesen hat sie NIEMAND. `requiresApproval()`
+   * stand seit jeher ohne Aufrufer da. Eine Einstellung, die sich als aktiv
+   * meldet und nichts bewirkt, ist schlimmer als keine: der Kunde glaubt, seine
+   * Anforderungen brauchen eine Freigabe.
+   *
+   * `??` und nicht `||`: gibt der Aufrufer ausdruecklich `false` an, gilt das.
+   * Die Org-Einstellung ist der VORGABEWERT, keine Zwangsjacke — wer eine
+   * einzelne Anforderung ohne Freigabe stellen darf, entscheidet die
+   * Berechtigung, nicht diese Zeile.
+   *
+   * Gemessen: 0 von 18 Organisationen haben die Einstellung heute an. Das
+   * Scharfschalten aendert also fuer niemanden etwas — es kann kuenftig nur
+   * niemand mehr daran vorbei.
+   */
+  const approvalRequired = data.approval_required
+    ?? (data.org_id ? await settingsService.requiresApproval(pool, data.org_id) : false);
   // Alle neuen Requisitions starten in DRAFT — expliziter Uebergang nach OPEN oder PENDING_APPROVAL erforderlich.
   const initialStatus = 'DRAFT';
   const { rows } = await pool.query(
@@ -160,6 +199,24 @@ export async function listRequisitions(pool, filters = {}) {
  */
 export async function updateRequisition(pool, id, userId, data, orgId = null) {
   if (!orgId) return null;
+  /*
+   * U0.2b (2026-09-28): DIESELBE GRENZE BEIM AENDERN WIE BEIM ANLEGEN.
+   *
+   * createRequisition (Zeile ~73) prueft den Standort seit jeher; hier fehlte
+   * die Pruefung, obwohl die allowed-Liste unten location_id UND
+   * department_id fuehrt. Die Route davor prueft nur, dass die ANFORDERUNG der
+   * eigenen Organisation gehoert (assertOrgOwnership) - ueber den Standort, den
+   * sie danach bekommt, sagt das nichts. Der Fremdschluessel faengt es nicht: er
+   * zeigt auf org_locations(id), nicht auf (id, org_id).
+   *
+   * Wortgleich zu dem, was am 2026-09-20 in organizationService.updateDepartment
+   * stand - und dort steht der Satz, der auch hier gilt: eine Grenze, die beim
+   * Anlegen gilt und beim Aendern nicht, ist keine. Dass diese Stelle damals
+   * durchrutschte, lag an der Schreibweg-Liste der Probe: sie fuehrte
+   * createRequisition und nicht updateRequisition.
+   */
+  await assertLocationBelongsToOrg(pool, data.location_id, orgId);
+  await assertDepartmentBelongsToOrg(pool, data.department_id, orgId);
   const allowed = [
     'title', 'description', 'role', 'skill_tags', 'headcount',
     'start_date', 'end_date', 'location_city', 'location_postal',
@@ -198,7 +255,11 @@ export async function updateRequisition(pool, id, userId, data, orgId = null) {
 export async function transitionStatus(pool, id, userId, newStatus, payload = {}) {
   const req = await getRequisitionById(pool, id);
   if (!req) return { error: 'NOT_FOUND' };
-  assertTransition(req.status, newStatus);
+  /* Die Fahne der ANFORDERUNG entscheidet, nicht die der Sitzung: sie wurde
+     beim Anlegen aus der Org-Einstellung gesetzt und kann sich seither nicht
+     mehr aendern. Ohne sie hier waere die Sperre in `assertTransition` tot —
+     ihr Vorgabewert ist `false`. */
+  assertTransition(req.status, newStatus, { approvalRequired: req.approval_required === true });
 
   const extraFields = [];
   const extraValues = [];

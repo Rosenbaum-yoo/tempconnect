@@ -7,7 +7,6 @@
  */
 
 import * as auditLog from './auditLog.js';
-import { getTemplateForAssignment } from './timesheetTemplateService.js';
 import { withTransaction } from '../utils/transaction.js';
 import { dateOnlyDE } from '../utils/dateDE.js';
 
@@ -447,25 +446,26 @@ export async function prefillFromAssignment(pool, { assignmentId, supplierOrgId,
   );
   const link = linkRows[0] || {};
 
-  // Template-Defaults (Fallback)
-  let tmplDefaults = {};
-  try {
-    const tmpl = await getTemplateForAssignment(pool, assignmentId, supplierOrgId);
-    if (tmpl) {
-      tmplDefaults = {
-        default_hours_per_day: tmpl.default_hours_per_day,
-        default_shift_start:   tmpl.default_shift_start,
-        default_shift_end:     tmpl.default_shift_end,
-        default_break_minutes: tmpl.default_break_minutes
-      };
-    }
-  } catch { /* Template optional */ }
-
-  // Effektive Defaults (Link > Template > Fallback)
-  const hoursPerDay  = link.default_hours_per_day  ?? tmplDefaults.default_hours_per_day  ?? 8;
-  const shiftStart   = link.default_shift_start    ?? tmplDefaults.default_shift_start    ?? null;
-  const shiftEnd     = link.default_shift_end      ?? tmplDefaults.default_shift_end      ?? null;
-  const breakMinutes = link.default_break_minutes  ?? tmplDefaults.default_break_minutes  ?? 30;
+  /*
+   * Vorgabewerte: Zuweisung, sonst Hausvorgabe.
+   *
+   * Hier stand bis zum 26.08. eine mittlere Stufe — die Stundenzettel-Vorlage.
+   * Sie hat nie einen Wert geliefert: `timesheetTemplateService` fragte
+   * `timesheet_templates.is_default` ab, eine Spalte, die es dort nicht gibt
+   * (sie liegt auf `timesheet_template_assignments`). Jeder Aufruf warf, und
+   * ein blosses catch an dieser Stelle (mit dem Vermerk, die Vorlage sei
+   * optional) hat den
+   * SQL-Fehler verschluckt — samt der Tatsache, dass auch das ANLEGEN einer
+   * Vorlage warf und die Tabelle deshalb dauerhaft leer blieb.
+   *
+   * Owner-Entscheid 2026-08-26: die Vorlagen werden entfernt, nicht repariert.
+   * Damit faellt die mittlere Stufe weg; die Kette ist wieder so kurz, wie sie
+   * in Wahrheit immer war.
+   */
+  const hoursPerDay  = link.default_hours_per_day  ?? 8;
+  const shiftStart   = link.default_shift_start    ?? null;
+  const shiftEnd     = link.default_shift_end      ?? null;
+  const breakMinutes = link.default_break_minutes  ?? 30;
 
   // Worker-Name ermitteln
   let workerName = asg.worker_description || 'Mitarbeiter';
@@ -532,31 +532,59 @@ export async function prefillFromAssignment(pool, { assignmentId, supplierOrgId,
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   Digitale Unterschrift
+   Digitale Unterschrift — ENTFERNT (Welle Z, Z2, 2026-09-27)
+   ══════════════════════════════════════════════════════════════════════════════
+
+   Hier stand `signTimesheet(pool, id, actorId, { ip })`. Es schrieb
+
+     UPDATE timesheets SET worker_signed_at = NOW(), worker_signed_ip = $2 ...
+
+   und pruefte vorher `ts.worker_signed_at`. BEIDE SPALTEN EXISTIEREN NICHT
+   (gemessen am 2026-09-27: 26 Spalten an `timesheets`, keine davon). Jeder
+   Aufruf warf `column "worker_signed_at" of relation "timesheets" does not
+   exist` — der Weg hat nie funktioniert, keinen einzigen Tag.
+
+   DIE SPALTEN WERDEN NICHT ANGELEGT, SONDERN DER WEG ENTFERNT. Drei Messungen
+   tragen die Entscheidung:
+
+   1. DIE WAHRHEIT EXISTIERT SCHON, ANDERSWO UND VOLLSTAENDIGER.
+      `worker_time_submissions` (47 Spalten) fuehrt den ganzen Vorgang: die
+      Kraft reicht selbst ein (`worker_user_id`, `submitted_at`,
+      `submitted_by`), es wird geprueft, intern genehmigt, an den Kunden
+      geschickt, vom Kunden bestaetigt (`customer_confirmed_at/_by`) und
+      schliesslich in den Zettel gebucht (`posted_to_timesheet_at`,
+      `timesheet_id`). Der Zettel traegt dafuer `source='worker_submission'`,
+      und `workerSubmissionService` sagt in eigenen Worten, warum:
+      "dieser Zettel beruht auf einer Meldung der Kraft selbst — es gibt einen
+      Nachweis. Der Unterschied zur direkten Erfassung ist in Abrechnung und
+      Streitfall entscheidend." Ein Unterschriftsfeld daneben waere genau die
+      zweite Wahrheit, die dieses Projekt verbietet.
+
+   2. DER ZETTEL KENNT DEN MENSCHEN NUR ALS TEXT. `timesheets.worker_name` ist
+      `text NOT NULL`, `worker_identifier` ist `text` — es gibt KEIN
+      `worker_user_id`. Die Route unterschrieb aber mit `req.session.userId`
+      und der Berechtigung `timesheet.submit`, die auf der Firmenseite liegt.
+      Angelegt haette das Feld also eine "Arbeiter-Unterschrift" beweisen
+      koennen, die jemand anders geleistet hat. Auf einem Geldpfad ist ein
+      irrefuehrender Nachweis schlimmer als kein Nachweis.
+
+   3. ES GIBT EINEN PRAEZEDENZFALL GLEICHER FORM. Die Stundenzettel-Vorlagen
+      fragten `timesheet_templates.is_default` ab, eine Spalte, die dort nicht
+      existiert; Owner-Entscheid 2026-08-26: "die Vorlagen werden entfernt,
+      nicht repariert" (siehe `prefillFromAssignment`).
+
+   Der Zaehler der Zusammenfassung wandert mit: aus `signed_count` (auf einer
+   Spalte, die es nicht gibt) wird `worker_confirmed_count` auf
+   `source='worker_submission'` — dieselbe Frage, an der Wahrheit gemessen, die
+   wirklich gefuehrt wird. Das war auch der SCHWERERE Bruch: die fehlende
+   Spalte stand in einem FILTER und hat die GANZE Abfrage werfen lassen, also
+   `GET /timesheets/worker-summary` insgesamt in eine 500 geschickt, nicht bloss
+   eine Kennzahl auf 0 gesetzt.
+
+   Rueckweg, falls der Owner die Unterschrift doch als eigenen Rechtsakt will:
+   sie gehoert an `worker_time_submissions` (dort ist die Kraft am Konto
+   gebunden), nicht an `timesheets`.
    ══════════════════════════════════════════════════════════════════════════════ */
-
-export async function signTimesheet(pool, id, actorId, { ip } = {}) {
-  const ts = await getTimesheet(pool, id);
-  if (!ts) return { error: 'NOT_FOUND' };
-  if (!['draft', 'submitted'].includes(ts.status)) {
-    return { error: 'NOT_SIGNABLE', status: ts.status, message: 'Unterschrift nur in draft/submitted moeglich.' };
-  }
-  if (ts.worker_signed_at) {
-    return { error: 'ALREADY_SIGNED', signed_at: ts.worker_signed_at };
-  }
-
-  const { rows } = await pool.query(
-    `UPDATE timesheets
-     SET worker_signed_at = NOW(), worker_signed_ip = $2, updated_at = NOW()
-     WHERE id = $1 RETURNING *`,
-    [id, ip || null]
-  );
-  await auditLog.writeAudit(pool, {
-    action: 'timesheet.signed', entity_type: 'timesheet', entity_id: id,
-    actor_id: actorId, details: { ip: ip || null }
-  });
-  return { timesheet: rows[0] };
-}
 
 /* ══════════════════════════════════════════════════════════════════════════════
    Batch-Operationen
@@ -668,6 +696,17 @@ export async function getWorkerTimesheetSummary(pool, { workerName, orgId, suppl
 
   const where = conditions.join(' AND ');
 
+  /*
+   * Z2 (2026-09-27): die letzte Kennzahl hiess `signed_count` und stand auf
+   * einer Spalte, die es nicht gibt. Weil sie in einem FILTER stand, warf nicht
+   * die Kennzahl, sondern die GANZE Abfrage — `GET /timesheets/worker-summary`
+   * lieferte also immer eine 500, nie eine Zahl. Jetzt zaehlt
+   * `worker_confirmed_count` an `source='worker_submission'` (Mig 156): die
+   * Wahrheit, die der Zettel wirklich fuehrt.
+   *
+   * Der Wortlaut ist absichtlich frei von der alten Spalte — `timesheetPerfect`
+   * prueft genau das, und ein Rueckfall waere kein Schoenheitsfehler.
+   */
   const { rows } = await pool.query(
     `SELECT
        COUNT(*)::int AS total_timesheets,
@@ -684,9 +723,10 @@ export async function getWorkerTimesheetSummary(pool, { workerName, orgId, suppl
          WHERE ts.status = 'approved'
            AND ts.week_start >= DATE_TRUNC('month', NOW())
        ), 0)::numeric AS overtime_hours_this_month,
+       -- Z2: zaehlt die Zettel, hinter denen die Kraft selbst steht.
        COUNT(*) FILTER (
-         WHERE ts.worker_signed_at IS NOT NULL
-       )::int AS signed_count
+         WHERE ts.source = 'worker_submission'
+       )::int AS worker_confirmed_count
      FROM timesheets ts
      WHERE ${where}`,
     params
@@ -702,6 +742,6 @@ export async function getWorkerTimesheetSummary(pool, { workerName, orgId, suppl
     approved_hours_total:     parseFloat(row.approved_hours_total) || 0,
     approved_hours_this_month: parseFloat(row.approved_hours_this_month) || 0,
     overtime_hours_this_month: parseFloat(row.overtime_hours_this_month) || 0,
-    signed_count:             row.signed_count ?? 0
+    worker_confirmed_count:   row.worker_confirmed_count ?? 0
   };
 }

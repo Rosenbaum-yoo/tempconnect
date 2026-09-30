@@ -10,6 +10,7 @@ import { getPlanDisplayLabel } from "../services/planDisplayService.js";
 import * as totpService from "../services/totpService.js";
 import * as entitlementService from "../services/entitlementService.js";
 import { swallow } from "../utils/logger.js";
+import { verweigereArbeiter } from "../middleware/orgAccess.js";
 const PLAN_ORDER = ["DEMO", "BASIS", "PLUS", "PRO", "INDIVIDUELL"];
 function normalizePlanKey(plan) {
   let p = String(plan || "DEMO").toUpperCase();
@@ -211,7 +212,22 @@ export function createMeRouter(deps) {
    * Also returns all available locations for the current org so the
    * frontend can render a location switcher.
    */
-  router.get("/me/active-location", requireAuth, async (req, res) => {
+  /*
+   * M2.5/M2.7 — der Standortwechsel gehoert zur Verwaltung der Organisation.
+   *
+   * GET liefert nicht nur den GEWAEHLTEN Standort, sondern die vollstaendige
+   * Standortliste der Traegerorg (`SELECT … FROM org_locations WHERE org_id = $1`)
+   * — dieselben Daten wie `GET /org/locations`, das in dieser Welle geschlossen
+   * wurde. Eine Tuer zuzumachen und die Tuer daneben offen zu lassen, ist keine
+   * Trennwand.
+   *
+   * Die Oberflaeche vertraegt das: `pageShell.js` prueft `r.ok` und laesst die
+   * Standort-Auswahl bei einer Ablehnung einfach weg — fuer einen Arbeiter ist
+   * genau das richtig.
+   */
+  const keinArbeiter = verweigereArbeiter({ logger: logger });
+
+  router.get("/me/active-location", requireAuth, keinArbeiter, async (req, res) => {
     try {
       const orgId = req.orgId || null;
       if (!orgId) {
@@ -246,7 +262,7 @@ export function createMeRouter(deps) {
    *
    * Security: location-bound memberships cannot switch to a different location.
    */
-  router.post("/me/active-location", requireAuth, async (req, res) => {
+  router.post("/me/active-location", requireAuth, keinArbeiter, async (req, res) => {
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     try {
       const orgId = req.orgId || null;
@@ -526,7 +542,7 @@ export function createMeRouter(deps) {
       if (!anonResult.success) {
         return res.status(409).json({
           error: "ACCOUNT_DELETE_BLOCKED",
-          message: "Dein Konto kann noch nicht gelöscht werden: Es bestehen offene Vorgänge (aktive Einsätze, offene Rechnungen oder unbestätigte Stundenzettel). Bitte schließe diese zuerst ab.",
+          message: "Dein Konto kann noch nicht gelöscht werden: Es bestehen offene Vorgänge (laufende oder zugesagte Einsätze, offene Rechnungen oder unbestätigte Stundenzettel). Nach Einsatzende bzw. Abschluss ist die Löschung möglich.",
           blockers: anonResult.blockers || []
         });
       }

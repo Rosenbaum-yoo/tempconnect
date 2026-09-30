@@ -16,6 +16,7 @@
 
 import { config } from "../config/index.js";
 import { createServiceLogger, swallow } from "../utils/logger.js";
+import * as companyBlocklistService from "./companyBlocklistService.js";
 
 const log = createServiceLogger("searchService");
 
@@ -26,45 +27,111 @@ const log = createServiceLogger("searchService");
 const INDEX_CONFIG = {
   companies: {
     primaryKey: "id",
-    searchableAttributes: ["company_name", "legal_name", "city", "postal_code", "description", "industry"],
-    filterableAttributes: ["city", "postal_code", "type", "is_verified", "plan_id"],
+    /* Attribute an der gemessenen Wahrheit: `organizations` hat weder
+       `description`/`industry` noch `is_verified`/`plan_id`. Was es nicht gibt,
+       steht hier auch nicht — sonst verspricht die Index-Beschreibung Felder,
+       die nie ankommen. */
+    searchableAttributes: ["company_name", "legal_name", "city", "postal_code"],
+    filterableAttributes: ["city", "postal_code", "type", "plan"],
     sortableAttributes: ["company_name", "created_at"],
-    // SQL fuer Reindex
+    /*
+     * P1-15 (2026-09-28): DIESE ABFRAGE HATTE KEINEN EINWILLIGUNGSFILTER.
+     *
+     * Sie stand auf `FROM users u WHERE u.company_name IS NOT NULL` und hat
+     * damit JEDE Firma indiziert. Der Datenbankweg derselben Domaene
+     * (`domains.companies` weiter unten) laesst dagegen nur Organisationen mit
+     * ausdruecklichem Opt-in durch: `profile_visibility_settings.is_public` UND
+     * `status = 'approved'`. Ein Verzeichnis, das Profile zeigt, die niemand
+     * veroeffentlicht hat, ist keine Suche, sondern eine Veroeffentlichung ohne
+     * Einwilligung (Stop-Regel 7 der CLAUDE.md).
+     *
+     * Ausserdem stimmten drei Spalten nicht: `users` hat kein `type`, kein
+     * `legal_name` und kein `plan_id` — die Firmenwahrheit liegt auf
+     * `organizations` (gemessen am 2026-09-28). Die Abfolge ist kein Zufall:
+     * WEIL die Spalten fehlten, warf der Reindex, und WEIL er warf, ist der
+     * fehlende Filter nie aufgefallen. Ein Fehler war hier der einzige Schutz.
+     *
+     * Erzwungen wird der Filter jetzt von
+     * `api/test/suchindexKenntDieGrenze.test.js` — eine Notiz haette es nicht
+     * getan: die stand seit Langem in Zeile ~181 und hat nichts verhindert.
+     */
     reindexQuery: `
-      SELECT u.id, u.company_name, u.legal_name, u.city, u.postal_code,
-             u.type, u.is_verified, u.plan_id, u.latitude, u.longitude,
-             u.created_at
-      FROM users u
-      WHERE u.company_name IS NOT NULL AND u.company_name != ''
-      ORDER BY u.id`
+      SELECT o.id, o.name AS company_name, o.legal_name,
+             o.billing_city AS city, o.billing_postal_code AS postal_code,
+             o.type, o.plan, o.created_at
+      FROM organizations o
+      WHERE o.name IS NOT NULL AND o.name != ''
+        AND EXISTS (SELECT 1 FROM profile_visibility_settings pvs
+                     WHERE pvs.org_id = o.id
+                       AND pvs.is_public = TRUE
+                       AND pvs.status = 'approved')
+      ORDER BY o.id`
   },
 
   suppliers: {
     primaryKey: "id",
-    searchableAttributes: ["company_name", "legal_name", "city", "specializations", "description"],
-    filterableAttributes: ["city", "is_verified", "type", "specializations"],
+    /* `specializations` und `description` gibt es auf `organizations` nicht;
+       ebenso kein `is_verified`. Entfernt statt versprochen. */
+    searchableAttributes: ["company_name", "legal_name", "city"],
+    filterableAttributes: ["city", "type", "plan"],
     sortableAttributes: ["company_name", "created_at"],
+    /*
+     * P1-15: dieselbe Verzeichnis-Regel wie bei `companies` — dieselbe Luecke,
+     * dieselbe Behebung. Zusaetzlich stand die Auswahl auf `users.type`, eine
+     * Spalte, die es nicht gibt; `organizations.type` ist per CHECK auf
+     * 'company'/'agency' begrenzt (gemessen).
+     *
+     * Eine Zeitarbeitsfirma landet also nur im Index, wenn sie ihr Profil
+     * ausdruecklich veroeffentlicht hat. Das ist strenger als vorher und genau
+     * so streng wie der Datenbankweg.
+     */
     reindexQuery: `
-      SELECT u.id, u.company_name, u.legal_name, u.city, u.postal_code,
-             u.type, u.is_verified, u.latitude, u.longitude,
-             u.created_at
-      FROM users u
-      WHERE u.type = 'agency'
-      ORDER BY u.id`
+      SELECT o.id, o.name AS company_name, o.legal_name,
+             o.billing_city AS city, o.billing_postal_code AS postal_code,
+             o.type, o.plan, o.created_at
+      FROM organizations o
+      WHERE o.type = 'agency'
+        AND EXISTS (SELECT 1 FROM profile_visibility_settings pvs
+                     WHERE pvs.org_id = o.id
+                       AND pvs.is_public = TRUE
+                       AND pvs.status = 'approved')
+      ORDER BY o.id`
   },
 
   capacity_posts: {
     primaryKey: "id",
-    searchableAttributes: ["title", "role", "description", "location_city", "skill_tags"],
+    /* `description` und `hourly_rate` gibt es nicht (gemessen): der Freitext
+       heisst `notes`, der Preis steht als `price_type`/`price_min`/`price_max`. */
+    searchableAttributes: ["title", "role", "notes", "location_city", "skill_tags"],
     filterableAttributes: ["status", "role", "location_city", "supplier_company_id", "is_active"],
-    sortableAttributes: ["created_at", "availability_from", "hourly_rate"],
+    sortableAttributes: ["created_at", "availability_from", "price_min"],
+    /*
+     * P1-15 (2026-09-28): DIESE ABFRAGE HATTE KEINE EINZIGE BEDINGUNG.
+     *
+     * `FROM capacity_posts cp ORDER BY cp.id` — also auch private
+     * (`visibility_status = 'private'`), inaktive und abgelaufene Anzeigen. Der
+     * Datenbankweg derselben Domaene laesst nur durch: `status = 'active'`,
+     * nicht privat, nicht abgelaufen, und er beachtet ausserdem die Sperrliste
+     * des fragenden Unternehmens.
+     *
+     * Die drei ersten Bedingungen stehen jetzt hier. Die Sperrliste NICHT, und
+     * das ist kein Versehen: sie haengt am FRAGENDEN Unternehmen und ist damit
+     * keine Eigenschaft des Dokuments. Ein gemeinsamer Index kann sie nicht
+     * tragen; sie muss beim Suchen angewandt werden. Wer diesen Index aktiviert,
+     * muss die Sperre also im Suchpfad nachziehen — `search()` tut das heute nur
+     * auf dem Datenbankweg.
+     */
     reindexQuery: `
-      SELECT cp.id, cp.title, cp.role, cp.description, cp.location_city,
+      SELECT cp.id, cp.title, cp.role, cp.notes, cp.location_city,
              cp.status, cp.is_active, cp.supplier_company_id,
              cp.skill_tags, cp.availability_from, cp.availability_to,
-             cp.hourly_rate, cp.headcount, cp.location_lat, cp.location_lng,
+             cp.price_type, cp.price_min, cp.price_max,
+             cp.headcount, cp.location_lat, cp.location_lng,
              cp.created_at
       FROM capacity_posts cp
+      WHERE cp.status = 'active'
+        AND (cp.visibility_status IS NULL OR cp.visibility_status <> 'private')
+        AND (cp.availability_to IS NULL OR cp.availability_to >= CURRENT_DATE)
       ORDER BY cp.id`
   },
 
@@ -73,13 +140,34 @@ const INDEX_CONFIG = {
     searchableAttributes: ["title", "role", "description", "location_city", "skill_tags"],
     filterableAttributes: ["status", "org_id", "priority", "role", "location_city"],
     sortableAttributes: ["created_at", "start_date", "priority"],
-    reindexQuery: `
-      SELECT r.id, r.title, r.role, r.description, r.location_city,
-             r.status, r.org_id, r.priority, r.skill_tags,
-             r.start_date, r.end_date, r.headcount,
-             r.created_at
-      FROM requisitions r
-      ORDER BY r.id`
+    /*
+     * ══════════════════════════════════════════════════════════════════════
+     * P1-15 (2026-09-28): ORG-PRIVATE DATEN WERDEN NICHT INDIZIERT.
+     * ══════════════════════════════════════════════════════════════════════
+     *
+     * Hier stand `FROM requisitions r ORDER BY r.id` — ohne WHERE. Das haette
+     * die Anforderungen ALLER Mandanten in EINEN gemeinsamen Index gelegt. Der
+     * Datenbankweg derselben Domaene ist dagegen eindeutig: er filtert
+     * `WHERE org_id = $5` und ist ohne Org-Kontext gar nicht vorhanden
+     * (`requisitions: !viewerOrgId ? null : …`) — ohne Org keine Treffer.
+     *
+     * DASS `org_id` ALS FILTERBARES ATTRIBUT GEFUEHRT WIRD, SCHUETZT NICHT. Ein
+     * Filter ist eine Bitte an die Abfrage; eine Mandantengrenze ist eine
+     * Zusage ueber den Inhalt. Liegen die Daten im Index, liefert sie jede
+     * Abfrage, die den Filter vergisst — und Abfragen vergisst man.
+     *
+     * Deshalb `null` wie bei `skills`: dieser Index wird nicht gefuellt, die
+     * Suche nach Anforderungen laeuft ueber den korrekt gefilterten
+     * Datenbankweg. Die Attribute darueber bleiben stehen, damit der Vertrag
+     * dokumentiert ist, falls der Owner den Index will.
+     *
+     * OFFENE OWNER-ENTSCHEIDUNG (P1-15, Punkt 3): ob org-private Anforderungen
+     * ueberhaupt in einen Suchindex gehoeren. Sauber waere ein Index JE
+     * Organisation; ein gemeinsamer mit Filter ist es nicht. Bis das entschieden
+     * ist, bleibt hier `null` — und `api/test/suchindexKenntDieGrenze.test.js`
+     * faerbt rot, wenn jemand ihn ohne Org-Bindung wieder befuellt.
+     */
+    reindexQuery: null
   },
 
   skills: {
@@ -178,7 +266,10 @@ export async function search(pool, query, opts = {}) {
     // SICHERHEIT: Der Meilisearch-Pfad filtert (noch) NICHT pro Viewer (org-privat/opt-in). In der
     // Pilot-/Hetzner-Umgebung ist Meilisearch nicht aktiv -> es laeuft der org-/sichtbarkeits-gescopte
     // DB-Pfad unten. Vor Aktivierung von Meilisearch: pro-Index-Filter ergaenzen (requisitions org_id,
-    // capacity status, orgs is_public) — sonst cross-org-Leak.
+    // capacity status, orgs is_public) — sonst cross-org-Leak. UND die Kundensperre (N4.2,
+    // `companyBlocklistService.nichtGesperrtSql`): ohne sie sieht ein Unternehmen die von ihm
+    // gesperrte Kraft in der Suche wieder, waehrend `searchService.rbac.test.js` gruen bleibt,
+    // weil er nur den DB-Pfad prueft.
     return searchMeilisearch(client, query, { type, limit, offset, filters: opts.filters, sort: opts.sort, start });
   }
 
@@ -383,6 +474,29 @@ async function searchDatabase(pool, query, { type, limit, offset, start, viewerO
   //  - capacity_posts: MARKTPLATZ -> nur aktiv, nicht-privat, nicht-abgelaufen.
   //  - companies: VERZEICHNIS -> nur Orgs mit Opt-in (profile_visibility_settings is_public + approved).
   // Match = Substring (ILIKE) ODER Trigram-Aehnlichkeit (%) -> Tippfehler-/Teilwort-Toleranz; Ranking via similarity().
+  /*
+   * ═════════════════════════════════════════════════════════════════════════
+   * N4.2 - DIE SUCHE KENNT DIE SPERRE
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * Der Feed blendet eine fuer dieses Unternehmen gesperrte Kraft aus. Die
+   * Suche tat es nicht - derselbe Datensatz, zwei Meinungen darueber, ob er
+   * existiert. Wer den Namen tippte, fand ihn; wer blaetterte, nicht.
+   *
+   * Ohne Betrachter-Org bleibt die Bedingung WEG statt "false" zu werden: eine
+   * anonyme oder org-lose Suche sieht den oeffentlichen Marktplatz, und dort
+   * gibt es niemanden, der gesperrt haette. Ein hartes `false` haette hier den
+   * ganzen Zweig geleert.
+   *
+   * Kein Rollen-Check davor. Steht in der Sperrliste eine Zeile mit dieser Org
+   * als Kunde, dann IST sie in diesem Moment Kunde - unabhaengig davon, was in
+   * `users.role` steht. Fuer eine Zeitarbeitsfirma findet die Bedingung nichts
+   * und laesst alles durch; eine zusaetzliche Abfrage nach der Rolle waere ein
+   * Rundgang fuer eine Antwort, die die Bedingung selbst schon gibt.
+   */
+  const gesperrtRaus = (platzhalter) =>
+    viewerOrgId ? companyBlocklistService.nichtGesperrtSql("cp", platzhalter) : "TRUE";
+
   const domains = {
     requisitions: !viewerOrgId ? null : {
       sql: `SELECT id, title, role, location_city, status, org_id, 'requisitions' AS _index,
@@ -399,21 +513,23 @@ async function searchDatabase(pool, query, { type, limit, offset, start, viewerO
       countParams: [like, query, viewerOrgId]
     },
     capacity_posts: {
-      sql: `SELECT id, title, role, location_city, status, 'capacity_posts' AS _index,
-                   GREATEST(similarity(f_unaccent(coalesce(title,'')),f_unaccent($2)), similarity(f_unaccent(coalesce(role,'')),f_unaccent($2))) AS _score
-            FROM capacity_posts
-            WHERE status = 'active'
-              AND (visibility_status IS NULL OR visibility_status <> 'private')
-              AND (availability_to IS NULL OR availability_to >= CURRENT_DATE)
-              AND (f_unaccent(title) ILIKE f_unaccent($1) OR f_unaccent(role) ILIKE f_unaccent($1) OR f_unaccent(location_city) ILIKE f_unaccent($1) OR f_unaccent(title) % f_unaccent($2) OR f_unaccent(role) % f_unaccent($2))
-            ORDER BY _score DESC NULLS LAST, created_at DESC
+      sql: `SELECT cp.id, cp.title, cp.role, cp.location_city, cp.status, 'capacity_posts' AS _index,
+                   GREATEST(similarity(f_unaccent(coalesce(cp.title,'')),f_unaccent($2)), similarity(f_unaccent(coalesce(cp.role,'')),f_unaccent($2))) AS _score
+            FROM capacity_posts cp
+            WHERE cp.status = 'active'
+              AND (cp.visibility_status IS NULL OR cp.visibility_status <> 'private')
+              AND (cp.availability_to IS NULL OR cp.availability_to >= CURRENT_DATE)
+              AND ${gesperrtRaus(5)}
+              AND (f_unaccent(cp.title) ILIKE f_unaccent($1) OR f_unaccent(cp.role) ILIKE f_unaccent($1) OR f_unaccent(cp.location_city) ILIKE f_unaccent($1) OR f_unaccent(cp.title) % f_unaccent($2) OR f_unaccent(cp.role) % f_unaccent($2))
+            ORDER BY _score DESC NULLS LAST, cp.created_at DESC
             LIMIT $3 OFFSET $4`,
-      params: [like, query, limit, offset],
-      count: `SELECT COUNT(*)::int AS c FROM capacity_posts
-              WHERE status = 'active' AND (visibility_status IS NULL OR visibility_status <> 'private')
-                AND (availability_to IS NULL OR availability_to >= CURRENT_DATE)
-                AND (f_unaccent(title) ILIKE f_unaccent($1) OR f_unaccent(role) ILIKE f_unaccent($1) OR f_unaccent(location_city) ILIKE f_unaccent($1) OR f_unaccent(title) % f_unaccent($2) OR f_unaccent(role) % f_unaccent($2))`,
-      countParams: [like, query]
+      params: viewerOrgId ? [like, query, limit, offset, viewerOrgId] : [like, query, limit, offset],
+      count: `SELECT COUNT(*)::int AS c FROM capacity_posts cp
+              WHERE cp.status = 'active' AND (cp.visibility_status IS NULL OR cp.visibility_status <> 'private')
+                AND (cp.availability_to IS NULL OR cp.availability_to >= CURRENT_DATE)
+                AND ${gesperrtRaus(3)}
+                AND (f_unaccent(cp.title) ILIKE f_unaccent($1) OR f_unaccent(cp.role) ILIKE f_unaccent($1) OR f_unaccent(cp.location_city) ILIKE f_unaccent($1) OR f_unaccent(cp.title) % f_unaccent($2) OR f_unaccent(cp.role) % f_unaccent($2))`,
+      countParams: viewerOrgId ? [like, query, viewerOrgId] : [like, query]
     },
     companies: {
       sql: `SELECT o.id, o.name AS company_name, o.legal_name, 'companies' AS _index,

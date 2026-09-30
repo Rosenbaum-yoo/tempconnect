@@ -312,6 +312,7 @@ function zeroInvoiceTruth() {
     void_count: 0,
     invoiced_revenue_cents: 0,
     paid_revenue_cents: 0,
+    vermitteltes_volumen_cents: 0,
     open_receivables_cents: 0,
     overdue_receivables_cents: 0,
     operational_count: 0,
@@ -365,10 +366,28 @@ async function queryInvoiceTruth(pool, orgId, invoiceColumns) {
       COUNT(*) FILTER (WHERE i.status = 'overdue')::int AS overdue_count,
       COUNT(*) FILTER (WHERE i.status = 'paid')::int AS paid_count,
       COUNT(*) FILTER (WHERE i.status = 'void')::int AS void_count,
-      COALESCE(SUM(i.total_cents) FILTER (WHERE i.status IN ('issued', 'paid', 'overdue')), 0)::bigint AS invoiced_revenue_cents,
-      COALESCE(SUM(i.total_cents) FILTER (WHERE i.status = 'paid'), 0)::bigint AS paid_revenue_cents,
-      COALESCE(SUM(i.total_cents) FILTER (WHERE i.status IN ('issued', 'overdue')), 0)::bigint AS open_receivables_cents,
-      COALESCE(SUM(i.total_cents) FILTER (WHERE i.status = 'overdue'), 0)::bigint AS overdue_receivables_cents,
+      /*
+       * Owner-Entscheid 2026-09-03: "Umsatz" ist NUR Geld, das an TempConnect geht.
+       *
+       * Operative Rechnungen (zwischen ZWEI KUNDEN, Agentur -> Unternehmen) und
+       * Abo-Rechnungen (an TempConnect) liegen in DERSELBEN Tabelle, unterschieden
+       * allein durch invoice_type. Die beiden ZAEHLUNGEN unten trennten sauber, die
+       * vier GELDSUMMEN hier nicht — die Trennung war also bekannt und wurde auf die
+       * Zaehlung angewendet, auf die Betraege nicht.
+       *
+       * Folgenlos war das nur, solange POST /internal/invoice-overdue-scan still
+       * steht. Sobald der Takt laeuft, waeren fremde Rueckstaende als eigener Umsatz
+       * und eigene Forderung erschienen.
+       *
+       * Das Kundengeld verschwindet nicht: es steht unten als vermitteltes_volumen_cents
+       * — eine Zahl, die die Groesse des Marktplatzes zeigt und deshalb fuer sich steht,
+       * statt eine fremde Summe zu vergroessern.
+       */
+      COALESCE(SUM(i.total_cents) FILTER (WHERE ${invoiceTypeExpr} = 'subscription' AND i.status IN ('issued', 'paid', 'overdue')), 0)::bigint AS invoiced_revenue_cents,
+      COALESCE(SUM(i.total_cents) FILTER (WHERE ${invoiceTypeExpr} = 'subscription' AND i.status = 'paid'), 0)::bigint AS paid_revenue_cents,
+      COALESCE(SUM(i.total_cents) FILTER (WHERE ${invoiceTypeExpr} = 'subscription' AND i.status IN ('issued', 'overdue')), 0)::bigint AS open_receivables_cents,
+      COALESCE(SUM(i.total_cents) FILTER (WHERE ${invoiceTypeExpr} = 'subscription' AND i.status = 'overdue'), 0)::bigint AS overdue_receivables_cents,
+      COALESCE(SUM(i.total_cents) FILTER (WHERE ${invoiceTypeExpr} = 'operational' AND i.status IN ('issued', 'paid', 'overdue')), 0)::bigint AS vermitteltes_volumen_cents,
       COUNT(*) FILTER (WHERE ${invoiceTypeExpr} = 'operational')::int AS operational_count,
       COUNT(*) FILTER (WHERE ${invoiceTypeExpr} = 'subscription')::int AS subscription_count
     FROM invoices i
@@ -387,6 +406,8 @@ async function queryInvoiceTruth(pool, orgId, invoiceColumns) {
     paid_revenue_cents: toInt(row.paid_revenue_cents, 0),
     open_receivables_cents: toInt(row.open_receivables_cents, 0),
     overdue_receivables_cents: toInt(row.overdue_receivables_cents, 0),
+    /* Getrennt ausgewiesen, nicht in den Umsatz gerechnet — Owner-Entscheid 2026-09-03. */
+    vermitteltes_volumen_cents: toInt(row.vermitteltes_volumen_cents, 0),
     operational_count: toInt(row.operational_count, 0),
     subscription_count: toInt(row.subscription_count, 0)
   };

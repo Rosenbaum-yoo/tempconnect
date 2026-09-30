@@ -67,6 +67,10 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile
+      # S4.3: der Stand des Abbilds, damit der Container im Startprotokoll sagen
+      # kann, welchen Commit er traegt. Nicht gesetzt -> "unbekannt".
+      args:
+        APP_COMMIT: ${APP_COMMIT:-unbekannt}
     image: tempconnect_api:prod
     container_name: tempconnect_api
     restart: unless-stopped

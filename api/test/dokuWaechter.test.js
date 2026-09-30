@@ -39,6 +39,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { getrackteDateien, nichtImRepo } from "./helpers/repoBestand.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -190,9 +191,45 @@ suite("Doku-Waechter — das Register gegen die Wirklichkeit", () => {
     /* Das Register schreibt Seitenpfade so, wie der Server sie ausliefert
      * (`trust/security.html`), Codepfade dagegen ab der Repo-Wurzel. Beides ist
      * fuer den Leser richtig — also loest der Waechter gegen beide Wurzeln auf. */
-    const WURZELN = [ROOT, path.join(ROOT, "frontend/public"), path.join(ROOT, "frontend")];
-    const tot = [...kandidaten].filter((p) => !WURZELN.some((w) => fs.existsSync(path.join(w, p))));
-    assert.deepEqual(tot, [],
+    const WURZELN = ["", "frontend/public", "frontend"];
+    const tot = [...kandidaten].filter(
+      (p) => !WURZELN.some((w) => fs.existsSync(path.join(ROOT, w, p)))
+    );
+
+    /*
+     * NICHT GEFUNDEN ist nicht dasselbe wie NICHT DA (P2-W1).
+     *
+     * Der Haupt-Checkout traegt Verzeichnisse, die git bewusst ignoriert —
+     * `.agents/` (der Skill) und `frontend/support-ops/` (die SOC-Quellen).
+     * Ein Worktree und ein frischer Klon tragen sie nicht. Dieser Waechter war
+     * deshalb im Worktree dauerhaft rot und meldete zwei Karteileichen, die
+     * keine waren; zwei Sitzungen sind unabhaengig voneinander hineingelaufen.
+     *
+     * Also wird unterschieden: Was das Repo bewusst nicht traegt, ist NICHT
+     * PRUEFBAR — es wird benannt und gezaehlt, aber nicht bewertet. Alles
+     * andere bleibt rot.
+     *
+     * Das ist keine Hintertuer: `git check-ignore` befragt den Index mit, eine
+     * GETRACKTE Datei gilt also nie als ignoriert. Wer eine versionierte Datei
+     * loescht, wird den Befund nicht dadurch los, dass er den Pfad in
+     * `.gitignore` eintraegt. S1 weist genau das nach.
+     */
+    const varianten = new Map();
+    for (const p of tot) {
+      for (const w of WURZELN) varianten.set(w ? `${w}/${p}` : p, p);
+    }
+    const ausserhalb = nichtImRepo(ROOT, varianten.keys(), getrackteDateien(ROOT));
+    const nichtPruefbar = new Set([...ausserhalb].map((v) => varianten.get(v)));
+    const echtTot = tot.filter((p) => !nichtPruefbar.has(p));
+
+    if (nichtPruefbar.size) {
+      console.log(
+        `    ℹ ${nichtPruefbar.size} Registerpfad(e) nicht geprueft — dieses Repo traegt sie ` +
+        `bewusst nicht (git-ignoriert): ${[...nichtPruefbar].join(", ")}`
+      );
+    }
+
+    assert.deepEqual(echtTot, [],
       "Das Register belegt diese Pfade — es gibt sie nicht (mehr).\n" +
       "Das ist die Richtung, die man vergisst: die Doku behauptet etwas, das " +
       "entfernt oder umbenannt wurde. Genau so entstehen Karteileichen.");
@@ -292,5 +329,30 @@ suite("Doku-Waechter — das Register gegen die Wirklichkeit", () => {
       .filter((p) => !fs.existsSync(path.join(ROOT, p)));
     assert.deepEqual(totB, ["frontend/public/gibt-es-nicht.html"],
       "Richtung B wuerde eine Karteileiche nicht bemerken");
+
+    /*
+     * Richtung B, zweiter Teil: die Ausnahme in B1 darf NUR ignorierte Pfade
+     * entschuldigen. Ohne diese Probe koennte sie unbemerkt zur Hintertuer
+     * werden — und dann meldete der Waechter nichts mehr, waehrend er weiter
+     * gruen aussieht. Gemessen wird am echten Repo, nicht an einer Attrappe.
+     */
+    const getrackt = getrackteDateien(ROOT);
+    assert.deepEqual(
+      [...nichtImRepo(ROOT, ["frontend/public/gibt-es-nicht.html", "api/routes/erfunden.js"], getrackt)],
+      [],
+      "Die Ausnahme entschuldigt einen erfundenen Pfad — sie ist eine Hintertuer geworden"
+    );
+
+    /* Und eine VERSIONIERTE Datei, auf die eine `.gitignore`-Regel passt
+     * (`docs/launch/*` mit `!`-Ausnahme), bleibt pruefbar. Sonst liesse sich ein
+     * Befund dadurch entfernen, dass man den Pfad in `.gitignore` eintraegt. */
+    const versioniertTrotzRegel = "docs/launch/G_DEMO-CLOUDFLARE-TUNNEL.md";
+    assert.ok(getrackt.includes(versioniertTrotzRegel), `${versioniertTrotzRegel} ist nicht mehr versioniert — Probe anpassen`);
+    assert.equal(nichtImRepo(ROOT, [versioniertTrotzRegel], getrackt).size, 0,
+      "Eine versionierte Datei darf nie als 'nicht im Repo' durchgehen");
+
+    /* Gegenprobe: fuer das, wofuer die Ausnahme gebaut wurde, greift sie. */
+    assert.equal(nichtImRepo(ROOT, [".agents"], getrackt).size, 1,
+      "Die Ausnahme greift nicht mehr — dann ist der Waechter im Worktree wieder rot");
   });
 });

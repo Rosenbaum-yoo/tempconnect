@@ -131,7 +131,40 @@ export async function createRateCard(pool, data) {
 /**
  * Update an existing Rate Card (allowed fields only).
  */
-export async function updateRateCard(pool, id, data, actorId) {
+/*
+ * U0.2b (2026-09-28): orgId ist dazugekommen, und der Grund steht unten.
+ *
+ * Der Parameter ist ABSICHTLICH am Ende und hat keine Vorgabe: ein Aufrufer, der
+ * ihn weglaesst, soll nicht stillschweigend an der Pruefung vorbeikommen. Ohne
+ * ihn wirft die Funktion, sobald wirklich ein Standort oder eine Abteilung
+ * gesetzt wird - fail-closed, wie in U0.2 beschlossen. Wer nur Preise aendert,
+ * merkt nichts davon.
+ */
+export async function updateRateCard(pool, id, data, actorId, orgId = null) {
+  /*
+   * DIE GRENZE BEIM AENDERN, dieselbe Klasse wie in updateRequisition.
+   *
+   * createRateCard prueft den Standort (Zeile ~108); hier fehlte die Pruefung,
+   * obwohl die allowed-Liste unten location_id und department_id fuehrt.
+   * Die Route prueft davor, dass die KARTE der eigenen Organisation gehoert
+   * (existing.org_id !== req.orgId -> 403) - ueber den Standort, den sie danach
+   * bekommt, sagt das nichts.
+   *
+   * OFFEN UND DEM OWNER VORGELEGT, hier ABSICHTLICH nicht mitgeschlossen:
+   * dieselbe Liste enthaelt supplier_org_id. Ein Aendern davon setzt eine
+   * Konditionskarte auf eine ANDERE Organisation - fachlich etwas anderes als
+   * ein Standort, und es gibt dafuer kein etabliertes Muster in orgBoundary.js.
+   * Ob ein Lieferant, mit dem keine Beziehung besteht, hier stehen darf, ist
+   * eine Produktfrage; sie wird nicht nebenbei entschieden.
+   */
+  if (data.location_id !== undefined && data.location_id !== null) {
+    if (!orgId) throw new OrgBoundaryError("Organisation fehlt - Standort nicht pruefbar.");
+    await assertLocationBelongsToOrg(pool, data.location_id, orgId);
+  }
+  if (data.department_id !== undefined && data.department_id !== null) {
+    if (!orgId) throw new OrgBoundaryError("Organisation fehlt - Abteilung nicht pruefbar.");
+    await assertDepartmentBelongsToOrg(pool, data.department_id, orgId);
+  }
   const allowed = [
     "role_category", "region", "location_id", "department_id",
     "supplier_org_id", "contract_id",

@@ -21,6 +21,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { createAdminRouter } from "../routes/admin.js";
 
 /* ── Mocks ─────────────────────────────────────────────────────────────── */
@@ -706,6 +707,469 @@ describe("GET /admin/audit-log", () => {
 
 /* ── GET /admin/audit-log/recent-changes ───────────────────────────────── */
 
+describe("Admin-Flaeche — jede Route bekennt ihren Umfang", () => {
+  /*
+   * DER RIEGEL. Die 25 Routen dieser Datei sind einzeln eingestuft — aber die
+   * naechste, die jemand hinzufuegt, ist es nicht. Genau so ist der Befund
+   * entstanden: `/admin/users` war seit jeher org-begrenzt, die drei
+   * Audit-Routen und die beiden Nutzer-Mutationen kamen spaeter dazu und haben
+   * die Frage nie gestellt.
+   *
+   * Deshalb muss JEDE Route dieser Datei sichtbar Stellung beziehen: entweder
+   * `bestimmeAdminUmfang` (org-begrenzt), `zielNutzerErlaubt` (Ziel gehoert zur
+   * eigenen Org) oder `nurPlattform` (der Plattformverwaltung vorbehalten).
+   * Wer eine Route ohne eines der drei hinzufuegt, wird rot.
+   *
+   * Bewusste Ausnahme, mit Grund: Routen, die nur einen statischen Katalog
+   * zurueckgeben und KEINE Abfrage stellen, brauchen keinen Umfang. Sie sind
+   * unten namentlich genannt, damit die Ausnahme nicht stillschweigend waechst —
+   * und die Probe darunter prueft nach, dass sie wirklich keine Daten anfassen.
+   */
+
+  /** Statische Kataloge ohne Datenzugriff — geprueft, nicht behauptet. */
+  const OHNE_DATEN = ["/admin/activity-feed/action-types"];
+
+  function routenAbschnitte(quelle) {
+    const zeilen = quelle.split("\n");
+    const starts = [];
+    zeilen.forEach((z, i) => {
+      const m = z.match(/^\s*router\.(get|post|patch|put|delete)\("([^"]+)"/);
+      if (m) starts.push({ methode: m[1], pfad: m[2], von: i });
+    });
+    return starts.map((s, i) => ({
+      ...s,
+      text: zeilen.slice(s.von, i + 1 < starts.length ? starts[i + 1].von : zeilen.length).join("\n"),
+    }));
+  }
+
+  const adminQuelle = fs.readFileSync(new URL("../routes/admin.js", import.meta.url), "utf8");
+  const abschnitte = routenAbschnitte(adminQuelle);
+
+  it("erkennt ueberhaupt Routen — sonst prueft der Riegel nichts", () => {
+    assert.ok(abschnitte.length >= 20,
+      `nur ${abschnitte.length} Routen erkannt — greift das Muster noch?`);
+  });
+
+  it("jede Route nennt bestimmeAdminUmfang, zielNutzerErlaubt oder nurPlattform", () => {
+    const ohne = abschnitte
+      .filter((a) => !OHNE_DATEN.includes(a.pfad))
+      .filter((a) => !/bestimmeAdminUmfang|zielNutzerErlaubt|nurPlattform/.test(a.text))
+      .map((a) => `${a.methode.toUpperCase()} ${a.pfad}`);
+    assert.deepEqual(ohne, [],
+      "Diese Routen beziehen keine Stellung zum Umfang. `admin.js` ist eine " +
+      "KUNDENFLAECHE (hubVisibility.js: company und agency) — eine Route ohne " +
+      "Umfang liefert dort Plattformdaten an 201 Kundenkonten.\n" +
+      "Entweder `bestimmeAdminUmfang` (org-begrenzt), `zielNutzerErlaubt` " +
+      "(Ziel in der eigenen Org) oder `nurPlattform` (Plattformverwaltung).");
+  });
+
+  it("die Ausnahme gilt nur fuer Routen, die wirklich keine Abfrage stellen", () => {
+    /* Sonst waere `OHNE_DATEN` eine Hintertuer: man traegt eine Route ein und
+     * die Umfangspflicht faellt weg. */
+    for (const pfad of OHNE_DATEN) {
+      const a = abschnitte.find((x) => x.pfad === pfad);
+      assert.ok(a, `${pfad} steht auf der Ausnahmeliste, existiert aber nicht mehr`);
+      assert.ok(!/pool\.query|await \w+Service\.|await import\(/.test(a.text),
+        `${pfad} greift auf Daten zu und darf keine Ausnahme sein`);
+    }
+  });
+
+  it("S: der Riegel wuerde eine Route ohne Umfang bemerken", () => {
+    const erfunden = 'router.get("/admin/erfunden", requireAuth, requireAdmin, async (req, res) => {\n  const { rows } = await pool.query("SELECT 1");\n});';
+    assert.ok(!/bestimmeAdminUmfang|zielNutzerErlaubt|nurPlattform/.test(erfunden),
+      "der Riegel wuerde eine Route ohne Umfang durchlassen");
+    const brav = 'router.get("/admin/brav", requireAuth, requireAdmin, async (req, res) => {\n  if (!nurPlattform(req, res)) return;\n});';
+    assert.ok(/bestimmeAdminUmfang|zielNutzerErlaubt|nurPlattform/.test(brav),
+      "der Riegel wuerde eine korrekte Route als Fehler melden");
+  });
+});
+
+describe("Admin-Flaeche — was der Plattformverwaltung vorbehalten bleibt", () => {
+  /*
+   * BEFUND 8.1.1 (d), Abschluss. `routes/admin.js` ist laut
+   * `frontend/public/js/hubVisibility.js` bewusst fuer company UND agency
+   * sichtbar und aus `enterprise.html` verlinkt — es ist also eine
+   * KUNDENFLAECHE. Sie lieferte trotzdem Plattformdaten an jeden
+   * `requireAdmin`-Passierer: 201 von 395 Konten, alle Kunden.
+   *
+   * Owner-Entscheidung 2026-08-21: jede Route wird org-begrenzt. Wo es keine
+   * sinnvolle org-begrenzte Fassung gibt — Plattformkonfiguration,
+   * kaufmaennische Hebel, Systeminternes, Team-Workflows —, bleibt die Route
+   * der Plattformverwaltung vorbehalten (`docs/FLAECHEN.md`).
+   */
+
+  const kunde = (extra = {}) => mockReq({
+    orgRole: "owner",
+    orgId: "org-A",
+    orgMembership: { org_id: "org-A", role_key: "owner" },
+    session: { userId: "u-kunde", userRole: "company" },
+    ...extra,
+  });
+
+  /** Routen ohne sinnvolle org-begrenzte Fassung. */
+  const NUR_PLATTFORM = [
+    ["get", "/admin/visibility-audit", "Sichtbarkeitsmatrix = Plattformkonfiguration"],
+    ["patch", "/admin/organizations/:id/pilot-policy", "Pilot-Ausnahme = kaufmaennische Konzession"],
+    ["get", "/admin/metrics", "zaehlt ueber alle Nutzer und Organisationen"],
+    ["get", "/admin/revenue", "Plattformumsatz ueber alle Kunden"],
+    ["get", "/admin/system-health", "Systeminternes"],
+    ["get", "/admin/feature-overrides", "Freischalt-Hebel"],
+    ["put", "/admin/feature-overrides", "schaltet Funktionen fuer JEDE Org frei"],
+    ["delete", "/admin/feature-overrides/:id", "Freischalt-Hebel"],
+    ["get", "/admin/feature-keys", "Katalog der Freischalt-Schluessel"],
+    ["patch", "/admin/requests/:id/status", "Eingriff von aussen in einen Marktplatz-Vorgang"],
+    ["patch", "/admin/strategic-collaboration/requests/:id/status", "Team-Workflow zwischen zwei Kunden"],
+    ["patch", "/admin/strategic-collaboration/requests/:id/assign", "Zuweisung an einen Bearbeiter"],
+    ["patch", "/admin/strategic-collaboration/requests/:id/notes", "interne Notizen"],
+  ];
+
+  const RUMPF = { feature_key: "k", reason: "ein ausreichend langer Grund", status: "SENT" };
+
+  for (const [methode, pfad, warum] of NUR_PLATTFORM) {
+    it(`${methode.toUpperCase()} ${pfad} ist fuer Kunden gesperrt (${warum})`, async () => {
+      const pool = trackingPool([{ match: () => true, respond: { rows: [], rowCount: 0 } }]);
+      const handler = getHandler(createAdminRouter(makeDeps(pool)), methode, pfad);
+      const res = mockRes();
+      await handler(kunde({ params: { id: "x" }, body: { ...RUMPF } }), res);
+
+      assert.strictEqual(res._status, 403, `${pfad} laesst einen Kunden-Admin durch`);
+      assert.strictEqual(res._json.error.code, "NUR_PLATTFORMVERWALTUNG");
+      assert.strictEqual(pool.calls.length, 0, "vor der Sperre darf keine Abfrage gelaufen sein");
+    });
+  }
+
+  it("der platform_admin erreicht sie alle weiterhin", async () => {
+    /* Gegenprobe: eine Sperre, die auch die Plattformverwaltung aussperrt,
+     * waere kein Schutz, sondern ein Ausfall. */
+    for (const [methode, pfad] of NUR_PLATTFORM) {
+      const pool = trackingPool([{ match: () => true, respond: { rows: [{ id: "x" }], rowCount: 1 } }]);
+      const handler = getHandler(createAdminRouter(makeDeps(pool)), methode, pfad);
+      const res = mockRes();
+      await handler(mockReq({ params: { id: "x" }, body: { ...RUMPF } }), res);
+      assert.notStrictEqual(res._json?.error?.code, "NUR_PLATTFORMVERWALTUNG",
+        `${pfad} sperrt die Plattformverwaltung aus`);
+    }
+  });
+
+  it("die Organisationsliste zeigt einem Kunden nur die eigene Organisation", async () => {
+    const pool = trackingPool([
+      { match: (t) => t.includes("COUNT("), respond: { rows: [{ total: 0 }] } },
+      { match: () => true, respond: { rows: [] } },
+    ]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/organizations");
+    const res = mockRes();
+    await handler(kunde({ query: {} }), res);
+
+    assert.strictEqual(res._status, 200);
+    assert.ok(pool.calls.flatMap((c) => c.params).includes("org-A"),
+      "ohne Filter listet ein Kunden-Admin jede Organisation der Plattform");
+    assert.deepStrictEqual(res._json.data.scope, { plattformweit: false, org_id: "org-A" });
+  });
+
+  it("die Anfragenliste begrenzt ueber die Mitgliedschaft, weil requests keine org_id traegt", async () => {
+    /* Gemessen am 2026-08-21: 47 von 47 Zeilen in `requests` haben org_id NULL.
+     * Der Bezug haengt an `requester_id`/`receiver_id` — die zeigen auf `users`. */
+    const pool = trackingPool([
+      { match: (t) => t.includes("COUNT("), respond: { rows: [{ total: 0 }] } },
+      { match: () => true, respond: { rows: [] } },
+    ]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/requests");
+    const res = mockRes();
+    await handler(kunde({ query: {} }), res);
+
+    assert.strictEqual(res._status, 200);
+    const sql = pool.calls.map((c) => c.sql).join(" ");
+    assert.ok(sql.includes("org_memberships"),
+      "ohne die Mitgliedschafts-Bruecke gibt es hier keine Grenze");
+    assert.ok(pool.calls.flatMap((c) => c.params).includes("org-A"));
+  });
+
+  it("die strategischen Anfragen zaehlen BEIDE Seiten", async () => {
+    /* Zweiseitiger Vorgang: die eigene Org kann Anfragende oder Angefragte sein.
+     * Nur eine Seite zu pruefen liesse eine Haelfte der eigenen Vorgaenge
+     * verschwinden — eine Trennung, die das eigene Haus leert, ist keine. */
+    const pool = trackingPool([
+      { match: (t) => t.includes("COUNT("), respond: { rows: [{ total: 0 }] } },
+      { match: () => true, respond: { rows: [] } },
+    ]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/strategic-collaboration/requests");
+    const res = mockRes();
+    await handler(kunde({ query: {} }), res);
+
+    assert.strictEqual(res._status, 200);
+    const sql = pool.calls.map((c) => c.sql).join(" ");
+    assert.ok(/requester_org_id/.test(sql) && /target_org_id/.test(sql),
+      "beide Seiten des Vorgangs muessen im Filter stehen");
+  });
+
+  it("der Taetigkeitsverlauf faellt nicht mehr auf plattformweit zurueck", async () => {
+    /* `queryActivityFeed(pool, orgId)` liest bei `orgId === null` die ganze
+     * Plattform. `req.orgId || null` war damit dieselbe selbstabschaltende Form
+     * wie in 8.1.1 (c). */
+    const pool = trackingPool([
+      { match: (t) => t.includes("COUNT("), respond: { rows: [{ total: 0 }] } },
+      { match: () => true, respond: { rows: [] } },
+    ]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/activity-feed");
+    const res = mockRes();
+    await handler(kunde({ orgId: null, orgMembership: null, query: {} }), res);
+
+    assert.strictEqual(res._status, 403, "ohne Organisationskontext gibt es keine Ersatz-Plattformsicht");
+    assert.strictEqual(res._json.error.code, "ORG_CONTEXT_REQUIRED");
+  });
+});
+
+describe("Admin-Nutzerverwaltung — die Mandantengrenze am SCHREIBPFAD", () => {
+  /*
+   * BEFUND 8.1.1 (d), zweite Haelfte. `GET /admin/users` war laengst
+   * org-begrenzt — `PATCH /admin/users/:id` und
+   * `POST /admin/users/:id/deactivate` nicht. Die Grenze lebte damit nur in dem,
+   * was die Oberflaeche ZEIGT, nicht in dem, was der Endpunkt ZULAESST.
+   * Wer die Kennung kennt, braucht die Liste nicht.
+   *
+   * Erreichbar fuer jeden `requireAdmin`-Passierer: 201 von 395 Konten, alle in
+   * Kunden-Organisationen — bis hin zum Deaktivieren fremder Konten.
+   */
+
+  const kunde = (extra = {}) => mockReq({
+    orgRole: "owner",
+    orgId: "org-A",
+    orgMembership: { org_id: "org-A", role_key: "owner" },
+    session: { userId: "u-kunde", userRole: "company" },
+    params: { id: "u-fremd" },
+    ...extra,
+  });
+
+  /** Mitgliedschaftsabfrage: liefert einen Treffer nur fuer die eigene Org. */
+  function mitgliedschaftsPool(trefferFuer = []) {
+    return trackingPool([
+      { match: (s) => s.includes("FROM org_memberships"),
+        respond: (_s, params) => ({
+          rows: trefferFuer.includes(`${params[0]}|${params[1]}`) ? [{ "?column?": 1 }] : [],
+          rowCount: trefferFuer.includes(`${params[0]}|${params[1]}`) ? 1 : 0,
+        }) },
+      { match: (s) => s.includes("UPDATE users"),
+        respond: { rows: [{ id: "x", email: "a@b.c", role: "company" }], rowCount: 1 } },
+    ]);
+  }
+
+  it("ein Kunden-Admin kann einen FREMDEN Nutzer nicht aendern", async () => {
+    const pool = mitgliedschaftsPool([]);   // keine Mitgliedschaft in org-A
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "patch", "/admin/users/:id");
+    const res = mockRes();
+    await handler(kunde({ body: { is_verified: true } }), res);
+
+    assert.strictEqual(res._status, 403);
+    assert.strictEqual(res._json.error.code, "ORG_BOUNDARY_VIOLATION");
+    assert.ok(!pool.calls.some((c) => c.sql.includes("UPDATE users")),
+      "es darf kein UPDATE abgesetzt worden sein");
+  });
+
+  it("ein Kunden-Admin kann einen FREMDEN Nutzer nicht deaktivieren", async () => {
+    /* Der schwerere Fall: `role = 'inactive'` sperrt das Konto aus. */
+    const pool = mitgliedschaftsPool([]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "post", "/admin/users/:id/deactivate");
+    const res = mockRes();
+    await handler(kunde(), res);
+
+    assert.strictEqual(res._status, 403);
+    assert.strictEqual(res._json.error.code, "ORG_BOUNDARY_VIOLATION");
+    assert.ok(!pool.calls.some((c) => c.sql.includes("UPDATE users")),
+      "kein fremdes Konto darf deaktiviert werden");
+  });
+
+  it("den EIGENEN Nutzer darf er weiterhin freischalten", async () => {
+    /* Gegenprobe: eine Grenze, die auch die eigene Verwaltung sperrt, waere
+     * keine Reparatur, sondern ein Ausfall. */
+    const pool = mitgliedschaftsPool(["u-eigen|org-A"]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "patch", "/admin/users/:id");
+    const res = mockRes();
+    await handler(kunde({ params: { id: "u-eigen" }, body: { is_verified: true } }), res);
+
+    assert.strictEqual(res._status, 200);
+    assert.ok(pool.calls.some((c) => c.sql.includes("UPDATE users")), "das UPDATE muss laufen");
+  });
+
+  it("Rolle und Tarif bleiben der Plattformverwaltung vorbehalten", async () => {
+    /*
+     * `users.role` und `users.plan` sind Plattform-Felder: die Org-Rolle steht
+     * in `org_memberships.role_key`, der wirksame Tarif in `subscriptions`.
+     * Die Oberflaeche bot beides trotzdem als Auswahlfeld an — auch dem
+     * Kunden-Admin, auch fuer die eigene Zeile.
+     */
+    const pool = mitgliedschaftsPool(["u-eigen|org-A"]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "patch", "/admin/users/:id");
+
+    for (const feld of ["role", "plan"]) {
+      const res = mockRes();
+      await handler(kunde({ params: { id: "u-eigen" }, body: { [feld]: "PRO" } }), res);
+      assert.strictEqual(res._status, 403, `${feld} darf ein Kunden-Admin nicht setzen`);
+      assert.strictEqual(res._json.error.code, "PLATTFORM_FELD");
+    }
+    assert.ok(!pool.calls.some((c) => c.sql.includes("UPDATE users")),
+      "keines der beiden Felder darf geschrieben werden");
+  });
+
+  it("der platform_admin aendert und deaktiviert weiterhin jeden", async () => {
+    const pool = mitgliedschaftsPool([]);   // ohne Mitgliedschaft — darf trotzdem
+    const patch = getHandler(createAdminRouter(makeDeps(pool)), "patch", "/admin/users/:id");
+    const res = mockRes();
+    await patch(mockReq({ params: { id: "u-fremd" }, body: { plan: "PRO" } }), res);
+
+    assert.strictEqual(res._status, 200);
+    assert.ok(pool.calls.some((c) => c.sql.includes("UPDATE users")));
+    assert.ok(!pool.calls.some((c) => c.sql.includes("FROM org_memberships")),
+      "plattformweit braucht es keine Mitgliedschaftsabfrage");
+  });
+
+  it("die Liste sagt der Oberflaeche, wessen Daten sie zeigt", async () => {
+    /* Ohne diese Angabe rendert die Oberflaeche plattformweite Schalter fuer
+     * einen Kunden-Admin, und jeder Klick endet in einem 403 (tote Knoepfe). */
+    const pool = trackingPool([
+      { match: (s) => s.includes("COUNT("), respond: { rows: [{ total: 0 }] } },
+      { match: () => true, respond: { rows: [] } },
+    ]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/users");
+    const res = mockRes();
+    await handler(kunde({ params: {}, query: {} }), res);
+
+    assert.strictEqual(res._status, 200);
+    assert.deepStrictEqual(res._json.data.scope, { plattformweit: false, org_id: "org-A" });
+  });
+});
+
+describe("Admin-Audit — die Mandantengrenze", () => {
+  /*
+   * DER BEFUND, am 2026-08-21 gegen die laufende Datenbank gemessen:
+   *
+   * `requireAdmin` laesst jeden mit der ORG-Rolle `owner` oder `admin` durch —
+   * das sind **201 von 395 Konten**, davon 142 in Unternehmens- und 59 in
+   * Zeitarbeits-Organisationen. Kein einziges gehoert TempConnect.
+   *
+   * Die drei Audit-Routen dieser Datei uebergaben `org_id: req.query.org_id ||
+   * null` an `queryAuditLog`. Ohne Angabe hiess das: **die gesamte Plattform**.
+   * Inklusive CSV-Ausfuhr. Owner-Vorgabe: "Firmen duerfen nur Zugang zu den
+   * Daten der eigenen Mitarbeiter haben."
+   *
+   * `/admin/users` machte es laengst richtig — die Audit-Routen hatten die
+   * Frage nie gestellt. Diese Proben halten das fest.
+   */
+
+  /** Ein Kunden-Admin: Org-Rolle owner, Legacy-Rolle company. Genau die 142+59. */
+  const kunde = (extra = {}) => mockReq({
+    orgRole: "owner",
+    orgId: "org-A",
+    orgMembership: { org_id: "org-A", role_key: "owner" },
+    session: { userId: "u-kunde", userRole: "company" },
+    ...extra,
+  });
+
+  function auditPool() {
+    return trackingPool([
+      { match: (s) => s.includes("COUNT(") && s.toLowerCase().includes("audit"),
+        respond: { rows: [{ total: 0 }] } },
+      { match: (s) => s.toLowerCase().includes("audit"), respond: { rows: [] } },
+    ]);
+  }
+
+  it("ein Kunden-Admin liest im Audit-Log nur die eigene Organisation", async () => {
+    const pool = auditPool();
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/audit-log");
+    const res = mockRes();
+    await handler(kunde(), res);
+
+    assert.strictEqual(res._status, 200);
+    const params = pool.calls.flatMap((c) => c.params);
+    assert.ok(params.includes("org-A"),
+      "die eigene Org muss als Filter in der Abfrage stehen — sonst laeuft sie plattformweit");
+  });
+
+  it("ein Kunden-Admin kann den Umfang mit ?org_id NICHT erweitern", async () => {
+    /* Der Angriffsfall. `org_id` aus der Anfrage darf nur verengen, nie oeffnen. */
+    const pool = auditPool();
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/audit-log");
+    const res = mockRes();
+    await handler(kunde({ query: { org_id: "org-FREMD" } }), res);
+
+    const params = pool.calls.flatMap((c) => c.params);
+    assert.ok(!params.includes("org-FREMD"), "die fremde Org darf die Abfrage nie erreichen");
+    assert.ok(params.includes("org-A"), "es bleibt bei der eigenen Org");
+  });
+
+  it("die CSV-Ausfuhr ist ebenso begrenzt — sie traegt die Zeilen ausser Haus", async () => {
+    const pool = auditPool();
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/audit-log/export/csv");
+    const res = mockRes();
+    await handler(kunde({ query: { org_id: "org-FREMD" } }), res);
+
+    const params = pool.calls.flatMap((c) => c.params);
+    assert.ok(params.includes("org-A"), "die Ausfuhr muss auf die eigene Org begrenzt sein");
+    assert.ok(!params.includes("org-FREMD"), "die fremde Org darf die Ausfuhr nie erreichen");
+  });
+
+  it("recent-changes nimmt fuer Kunden die org-gebundene Fassung", async () => {
+    /* `getRecentChangesPlatformWide` ist bewusst so benannt, dass man sie nicht
+     * versehentlich trifft (Befund E-5) — sie wurde hier trotzdem fuer jeden
+     * `requireAdmin`-Passierer aufgerufen. */
+    const pool = trackingPool([{ match: () => true, respond: { rows: [] } }]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/audit-log/recent-changes");
+    const res = mockRes();
+    await handler(kunde({ query: { entity_type: "timesheet", entity_id: "ts-1" } }), res);
+
+    assert.strictEqual(res._status, 200);
+    const params = pool.calls.flatMap((c) => c.params);
+    assert.ok(params.includes("org-A"), "ohne die eigene Org waere es wieder die Plattformsicht");
+  });
+
+  it("ohne Organisationskontext gibt es keine Ersatz-Plattformsicht, sondern 403", async () => {
+    /* Fail-closed. Frueher fiel der Aufruf hier auf `null` zurueck — und `null`
+     * heisst in `queryAuditLog` "kein Filter", also alles. */
+    const pool = auditPool();
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/audit-log");
+    const res = mockRes();
+    await handler(mockReq({
+      orgRole: "owner", orgId: null, orgMembership: null,
+      session: { userId: "u-ohne-org", userRole: "company" },
+    }), res);
+
+    assert.strictEqual(res._status, 403);
+    assert.strictEqual(res._json.error.code, "ORG_CONTEXT_REQUIRED");
+  });
+
+  it("die Legacy-Rolle owner oeffnet die Plattformsicht nicht mehr", async () => {
+    /*
+     * `isGlobalAdminScope` liess frueher `session.userRole` in
+     * ('platform_admin','admin','owner') plattformweit lesen. Gemessen traegt
+     * KEIN Konto einen dieser Werte in `users.role` — ein Tor, das heute
+     * niemand passiert und morgen jeder.
+     */
+    const pool = auditPool();
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/audit-log");
+    const res = mockRes();
+    await handler(mockReq({
+      orgRole: null, orgId: null, orgMembership: null,
+      session: { userId: "u-legacy", userRole: "owner" },
+    }), res);
+
+    assert.strictEqual(res._status, 403, "die Legacy-Rolle darf nicht mehr plattformweit lesen");
+    assert.strictEqual(res._json.error.code, "ORG_CONTEXT_REQUIRED");
+  });
+
+  it("der platform_admin sieht weiterhin die ganze Plattform", async () => {
+    /* Gegenprobe: eine Trennung, die auch die Plattformsicht schliesst, waere
+     * keine Reparatur, sondern ein Ausfall. */
+    const pool = auditPool();
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/audit-log");
+    const res = mockRes();
+    await handler(mockReq({ orgRole: "platform_admin", query: { org_id: "org-BELIEBIG" } }), res);
+
+    assert.strictEqual(res._status, 200);
+    const params = pool.calls.flatMap((c) => c.params);
+    assert.ok(params.includes("org-BELIEBIG"),
+      "der Plattform-Admin darf weiterhin gezielt jede Org waehlen");
+  });
+});
+
 describe("GET /admin/audit-log/recent-changes", () => {
   it("400 MISSING_PARAMS when entity_type/entity_id absent", async () => {
     const handler = getHandler(createAdminRouter(makeDeps(trackingPool())), "get", "/admin/audit-log/recent-changes");
@@ -1059,6 +1523,76 @@ describe("DELETE /admin/feature-overrides/:id", () => {
     await handler(mockReq({ params: { id: "7" } }), res);
     assert.strictEqual(res._status, 200);
     assert.strictEqual(res._json.success, true);
+  });
+
+  it("Z4: eine unbrauchbare Kennung gibt 400 und fragt die Datenbank nicht", async () => {
+    /* `feature_overrides.id` ist SERIAL (059/223) - eine Zahl ist hier also
+       RICHTIG, und die Probe darf nicht auf UUID umgestellt werden. Geprueft
+       wird, was wirklich gilt: was keine Zahl ist, erreicht die Datenbank nicht. */
+    const pool = trackingPool([
+      { match: (s) => s.includes("feature_overrides"), respond: { rows: [], rowCount: 0 } }
+    ]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "delete", "/admin/feature-overrides/:id");
+    const res = mockRes();
+    await handler(mockReq({ params: { id: "keine-zahl" } }), res);
+    assert.strictEqual(res._status, 400);
+    assert.strictEqual(res._json.error.code, "INVALID_ID");
+    assert.strictEqual(pool.calls.length, 0,
+      "die Route hat mit einer unbrauchbaren Kennung die Datenbank befragt");
+  });
+
+  it("Z4: ein GUELTIGER Org-Filter kommt durch und erreicht die Abfrage als UUID", async () => {
+    /* DIESE PROBE FEHLTE, und ihr Fehlen war kein Detail: die Probe darunter
+       prueft nur, dass Unbrauchbares abgewiesen wird. Sie bleibt gruen, wenn der
+       GUELTIGE Weg zerstoert wird - mit `parseInt` wird aus dieser UUID die Zahl
+       3, die faellt durch dieselbe Schranke, und jeder echte Filter endete in
+       einer 400. Gefunden von der eigenen Rueckmutation, nicht vom Nachdenken. */
+    const pool = trackingPool([
+      { match: (s) => s.includes("feature_overrides") && s.includes("COUNT("),
+        respond: { rows: [{ total: 1 }], rowCount: 1 } },
+      { match: (s) => s.includes("feature_overrides"),
+        respond: { rows: [{ id: 7, feature_key: "x", org_id: "3f1c9b42-0a5e-4d77-9c31-8b6e2f40a1d9" }], rowCount: 1 } }
+    ]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/feature-overrides");
+    const res = mockRes();
+    await handler(mockReq({ query: { org_id: "3f1c9b42-0a5e-4d77-9c31-8b6e2f40a1d9" } }), res);
+    assert.strictEqual(res._json.success, true,
+      "ein gueltiger Org-Filter wird abgewiesen: " + JSON.stringify(res._json));
+    assert.ok(!res._json.error, "die Route meldet einen Fehler: " + JSON.stringify(res._json.error));
+    const mitOrg = pool.calls.filter((c) => (c.params || []).includes("3f1c9b42-0a5e-4d77-9c31-8b6e2f40a1d9"));
+    assert.ok(mitOrg.length >= 1,
+      "die Org-Kennung erreicht die Abfrage nicht als UUID - gebunden wurde: "
+      + JSON.stringify(pool.calls.map((c) => c.params)));
+  });
+
+  it("Z4: ein Funktionsschluessel aus Leerzeichen gibt 400 und erreicht die Datenbank nicht", async () => {
+    /* Ebenfalls von der Rueckmutation gefunden. `if (!feature_key)` auf dem rohen
+       Wert laesst "   " durch: der Hebel stuende in der Liste, sperrte den echten
+       Schluessel nicht und wirkte nie, weil checkOverride am Schluessel sucht. */
+    const pool = trackingPool([
+      { match: (s) => s.includes("feature_overrides"), respond: { rows: [{ id: 7 }], rowCount: 1 } }
+    ]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "put", "/admin/feature-overrides");
+    const res = mockRes();
+    await handler(mockReq({ body: { feature_key: "   ", enabled: true } }), res);
+    assert.strictEqual(res._status, 400);
+    assert.strictEqual(res._json.error.code, "MISSING_FEATURE_KEY");
+    assert.strictEqual(pool.calls.length, 0,
+      "ein Schluessel aus Leerzeichen wurde in die Datenbank geschrieben");
+  });
+
+  it("Z4: ein Org-Filter, der keine UUID ist, gibt 400", async () => {
+    /* Org-Kennungen sind UUIDs (gemessen: organizations.id ist uuid). Vorher las
+       die Route sie mit parseInt - der Filter konnte nie greifen, und die
+       Liste zeigte stillschweigend ALLE Ausnahmen statt der einen Org. */
+    const pool = trackingPool([
+      { match: (s) => s.includes("feature_overrides"), respond: { rows: [], rowCount: 0 } }
+    ]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/feature-overrides");
+    const res = mockRes();
+    await handler(mockReq({ query: { org_id: "42" } }), res);
+    assert.strictEqual(res._status, 400);
+    assert.strictEqual(res._json.error.code, "INVALID_ORG_ID");
   });
 });
 

@@ -76,14 +76,67 @@ export async function getDealProgress(pool, requestId) {
   const progress = STATUS_PROGRESS[req.status] || { pct: 0, label: req.status };
   const nextAction = getNextAction(req.status);
 
-  // Load transition timeline from state_transitions
+  /*
+   * ══════════════════════════════════════════════════════════════════════════
+   * Z3 (2026-09-27): DIE ZEITLEISTE KOMMT AUS DEM AUDIT-LOG
+   * ══════════════════════════════════════════════════════════════════════════
+   *
+   * Hier stand eine Abfrage auf `state_transitions` — und sie war ZWEIFACH
+   * falsch:
+   *
+   *   1. Die Tabelle existiert nicht. Keine Migration legt sie an.
+   *   2. Sie filterte `entity_type = 'DEAL'`. Selbst mit Tabelle waere das ins
+   *      Leere gegangen: `stateMachine.logTransition` bildet `DEAL` und
+   *      `REQUEST` beide auf `'request'` ab (ENTITY_TYPE_MAP). Kein Schreiber
+   *      hat je `'DEAL'` hinterlassen.
+   *
+   * Und der Fehler war STUMM: der Wurf lief in ein catch mit `logger.debug`,
+   * `timeline` blieb `[]`. Die Oberflaeche zeigte damit eine plausible, leere
+   * Zeitleiste — die gefaehrlichste Variante, weil nichts danach aussieht wie
+   * ein Fehler. Ein Deal, der dreimal die Hand gewechselt hat, sah aus wie
+   * einer, bei dem nie etwas passiert ist.
+   *
+   * DIE WAHRHEIT LAG DIE GANZE ZEIT DA. `audit_log` fuehrt jeden Wechsel mit
+   * genau den vier Feldern, die diese Zeitleiste braucht: `details->>'from'`,
+   * `details->>'to'`, `actor_id`, `created_at`. Gemessen am 2026-09-27 in der
+   * laufenden Datenbank. `dealDossierService` liest seine Zeitleiste bereits so
+   * — hier wird kein Muster erfunden, sondern das bestehende benutzt.
+   *
+   * WARUM `DISTINCT ON`: jeder Wechsel steht ZWEIMAL im Log. `stateMachine`
+   * schreibt `state_machine.transition`, und `routes/requests.js` schreibt
+   * zusaetzlich `request.status_change` (gemessen: 4 und 4 Zeilen fuer dieselben
+   * vier Wechsel). Ohne die Entdopplung haette jede Station der Zeitleiste
+   * doppelt gestanden — aus einem behobenen Fehler waere ein neuer geworden.
+   * Die Sortierung innerhalb der Gruppe entscheidet, WELCHE Zeile bleibt: die
+   * des kanonischen Schreibers (`state_machine.transition`), bei Gleichstand die
+   * frueheste — der Zeitpunkt, an dem der Wechsel wirklich geschah.
+   *
+   * UND ER IST NICHT MEHR STUMM: schlaegt die Abfrage fehl, sagt die Antwort
+   * das (`timeline_available: false`) und der Fehler steht als `error` im Log,
+   * nicht als `debug`. "Konnte nicht geladen werden" ist eine andere Auskunft
+   * als "es ist nichts passiert", und die Oberflaeche darf sie unterscheiden.
+   */
   let timeline = [];
+  let timelineAvailable = true;
   try {
     const { rows: transitions } = await pool.query(
-      `SELECT from_status, to_status, actor_id, created_at, details
-       FROM state_transitions
-       WHERE entity_type = 'DEAL' AND entity_id = $1
-       ORDER BY created_at ASC`,
+      `SELECT from_status, to_status, actor_id, created_at
+         FROM (
+           SELECT DISTINCT ON (details->>'from', details->>'to')
+                  details->>'from' AS from_status,
+                  details->>'to'   AS to_status,
+                  actor_id,
+                  created_at
+             FROM audit_log
+            WHERE entity_type = 'request'
+              AND entity_id = $1
+              AND action IN ('state_machine.transition', 'request.status_change')
+              AND details->>'to' IS NOT NULL
+            ORDER BY details->>'from', details->>'to',
+                     (action = 'state_machine.transition') DESC,
+                     created_at ASC
+         ) je_wechsel
+        ORDER BY created_at ASC`,
       [requestId]
     );
     timeline = transitions.map(t => ({
@@ -94,8 +147,9 @@ export async function getDealProgress(pool, requestId) {
       label: STATUS_PROGRESS[t.to_status]?.label || t.to_status
     }));
   } catch (e) {
-    // state_transitions may not exist or have different schema — graceful fallback
-    logger.debug({ err: e?.message }, 'Could not load deal timeline');
+    timelineAvailable = false;
+    logger.error({ err: e?.message, request_id: requestId },
+      'Deal-Zeitleiste konnte nicht geladen werden');
   }
 
   return {
@@ -108,7 +162,9 @@ export async function getDealProgress(pool, requestId) {
     receiver_id: req.receiver_id,
     created_at: req.created_at,
     updated_at: req.updated_at,
-    timeline
+    timeline,
+    /* Z3: leer und nicht ladbar sind zwei verschiedene Auskuenfte. */
+    timeline_available: timelineAvailable
   };
 }
 

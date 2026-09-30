@@ -50,13 +50,33 @@ function agencyOwner(extra = {}) {
   };
 }
 
+/**
+ * Ein Arbeiter, wie `GET /me` ihn wirklich liefert.
+ *
+ * BIS ZUM 2026-09-04 STAND HIER `org_type: "worker"` UND `org_role: "member"` —
+ * eine Gestalt, die es nicht gibt. Die Datenbank kennt nur die Org-Typen
+ * `company` (1872) und `agency` (694); ein Arbeiter ist regulaer Mitglied in der
+ * Org SEINER Zeitarbeitsfirma (`workerService.acceptInvite` schreibt
+ * `role_key='worker'` auf die `supplier_org_id`), sein `org_type` ist also
+ * `agency` und sein `org_role` `worker`.
+ *
+ * Deshalb waren alle Proben dieser Datei gruen, waehrend der Zustand
+ * `hidden_worker` in der Wirklichkeit NIE eintrat: sie pruefte eine Welt, die es
+ * nicht gibt. Gemessen mit der echten Nutzlast standen einem Arbeiter sieben von
+ * zwoelf Flaechen auf `full` offen.
+ *
+ * Die Werte hier sind jetzt die gemessenen. `plan: "PRO"` ebenfalls: der Plan
+ * kommt aus der FIRMA, ein Arbeiter einer PRO-Agentur traegt PRO — mit `DEMO`
+ * haetten Plan-Tore die Sperre uebernommen und den fehlenden Riegel verdeckt.
+ */
 function workerUser(extra = {}) {
   return {
     id: "u3",
+    user: { id: "u3", role: "worker" },
     role: "worker",
-    org_type: "worker",
-    org_role: "member",
-    plan: "DEMO",
+    org_type: "agency",
+    org_role: "worker",
+    plan: "PRO",
     ...extra
   };
 }
@@ -438,6 +458,115 @@ describe("Worker-Portal Abgrenzung — vollständige hidden_worker-Suite",
     for (const key of ["marketplace", "executive_dashboard", "admin_panel"]) {
       assert.equal(hv.resolve(me, key).state, "hidden_worker",
         `${key} muss hidden_worker sein`);
+    }
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   M0/F12 · Der Riegel haengt an der ROLLE, nicht am Org-Typ
+   ═══════════════════════════════════════════════════════════════════ */
+
+describe("M0/F12 · hidden_worker gegen die WIRKLICHE /me-Nutzlast", () => {
+  const hv = loadHubVisibility();
+
+  /*
+   * Bis zum 2026-09-04 fragten beide Guards den ORG-TYP `worker` — und den gibt
+   * es nicht. Die Datenbank kennt `company` (1872 Orgs) und `agency` (694). Ein
+   * Arbeiter ist regulaer Mitglied in der Org SEINER Zeitarbeitsfirma; sein
+   * org_type ist `agency`.
+   *
+   * Die Testhilfe `workerUser()` baute bis dahin `org_type: "worker"` — eine
+   * Gestalt, die es nicht gibt. Alle Proben dieser Datei waren deshalb gruen,
+   * waehrend der Zustand in der Wirklichkeit NIE eintrat. Gemessen mit der
+   * echten Nutzlast: sieben von zwoelf Flaechen auf `full`, und die
+   * vollstaendige Enterprise-Nav sichtbar.
+   *
+   * Diese Proben halten die WIRKLICHKEIT fest, nicht die Annahme.
+   */
+
+  /** Genau das, was `GET /me` fuer einen Arbeiter liefert (gemessen 2026-09-03). */
+  const echterArbeiter = {
+    user: { id: "u9", role: "worker" },
+    org_type: "agency",          // <- seine Zeitarbeitsfirma, nicht "worker"
+    org_role: "worker",          // <- org_memberships.role_key
+    plan: "PRO",                 // <- der Plan der FIRMA
+    memberships: [{ org_id: "o1", role_key: "worker", org_type: "agency" }]
+  };
+
+  it("die Testhilfe bildet die Wirklichkeit ab, nicht eine Annahme", () => {
+    /* Ohne diese Probe koennte `org_type: "worker"` unbemerkt zurueckkehren —
+       und mit ihm die gruene Suite ueber einer toten Sperre. */
+    const w = workerUser();
+    assert.notEqual(w.org_type, "worker",
+      "den Org-Typ 'worker' gibt es nicht — die Datenbank kennt company und agency");
+    assert.equal(w.org_role, "worker",
+      "die Rolle ist das Merkmal, das einen Arbeiter ausmacht");
+  });
+
+  it("keine einzige Hub-Flaeche ist fuer ihn sichtbar", () => {
+    /*
+     * `[...]` ist nicht Kosmetik: `hv` laeuft in einem vm-Sandkasten, und
+     * `listSurfaces()` liefert ein Array aus DESSEN Realm. `deepStrictEqual`
+     * vergleicht auch den Prototyp — zwei leere Arrays aus verschiedenen Welten
+     * sind ihm ungleich, und die Meldung zeigt zweimal `[]`. Das Ausbreiten holt
+     * die Werte in diesen Realm.
+     */
+    const offen = [...hv.listSurfaces()
+      .map((k) => ({ k, r: hv.resolve(echterArbeiter, k) }))
+      .filter((x) => x.r.visible)
+      .map((x) => `${x.k} (${x.r.state})`)];
+    assert.deepStrictEqual(offen, [],
+      "diese Flaechen stehen einem Arbeiter offen — sie fuehren auf Klick ins Leere");
+  });
+
+  it("und der Grund ist immer derselbe", () => {
+    for (const key of hv.listSurfaces()) {
+      assert.equal(hv.resolve(echterArbeiter, key).state, "hidden_worker",
+        `${key}: abgewiesen, aber aus einem anderen Grund — ein Zufallstreffer `
+        + "ueber Org-Typ oder Plan ist kein Riegel");
+    }
+  });
+
+  it("die Enterprise-Navigation ebenfalls — bis auf Hilfe", () => {
+    /* Der zweite tote Guard, gefunden erst durch die korrigierte Testhilfe:
+       `resolveNav` prueft `hideForOrgTypes: ["worker"]` — denselben Org-Typ,
+       den es nicht gibt. */
+    for (const nav of ["uebersicht", "marktplatz", "bedarfe", "deals_einsaetze", "steuerung"]) {
+      assert.equal(hv.resolveNav(echterArbeiter, nav).visible, false,
+        `Nav '${nav}' ist fuer einen Arbeiter sichtbar`);
+    }
+    assert.equal(hv.resolveNav(echterArbeiter, "help").visible, true,
+      "wer nicht weiterweiss, muss fragen koennen");
+  });
+
+  it("jedes der vier Merkmale traegt den Riegel ALLEIN", () => {
+    /*
+     * Ein Riegel, der an EINEM Feld haengt, faellt mit ihm. Geprueft wird jede
+     * Gestalt einzeln — auch die Altbestaende ohne `org_role` und die Sitzung
+     * ohne aufgeloeste Mitgliedschaft.
+     */
+    const gestalten = {
+      "nur org_role": { org_role: "worker", org_type: "agency" },
+      "nur role": { role: "worker", org_type: "agency" },
+      "nur user.role": { user: { role: "worker" }, org_type: "agency" },
+      "nur org_type": { org_type: "worker" },
+      "mit Grossschreibung": { org_role: "WORKER", org_type: "agency" },
+      "mit Leerzeichen": { org_role: " worker ", org_type: "agency" }
+    };
+    for (const [name, me] of Object.entries(gestalten)) {
+      assert.equal(hv.resolve(me, "marketplace").state, "hidden_worker",
+        `${name}: der Riegel greift nicht`);
+      assert.equal(hv.resolveNav(me, "uebersicht").visible, false,
+        `${name}: die Navigation bleibt offen`);
+    }
+  });
+
+  it("und faerbt niemanden sonst rot", () => {
+    /* Die Gegenprobe: ein Riegel, der zu weit greift, ist ein Ausfall. */
+    for (const me of [companyOwner(), agencyOwner(), companyOwner({ org_role: "member" })]) {
+      assert.notEqual(hv.resolve(me, "marketplace").state, "hidden_worker",
+        `${me.org_type}/${me.org_role} wird faelschlich als Arbeiter abgewiesen`);
+      assert.equal(hv.resolveNav(me, "help").visible, true);
     }
   });
 });

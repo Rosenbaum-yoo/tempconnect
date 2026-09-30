@@ -25,6 +25,10 @@ export function emailQueue()    { return getOrCreate("email"); }
 export function matchQueue()    { return getOrCreate("match"); }
 export function capacityQueue() { return getOrCreate("capacity"); }
 export function staffingQueue() { return getOrCreate("staffing"); }
+/* M1.9 — die Geld- und Lebenszyklus-Takte. Eigene Warteschlange, damit der
+ * Herzschlag "betrieb:dunning-sweep" heisst und eine haengende Mahnstrecke
+ * nicht die Zustellung von Einladungen blockiert. */
+export function betriebQueue()  { return getOrCreate("betrieb"); }
 
 /* ── Convenience: add a job if the queue is available ── */
 

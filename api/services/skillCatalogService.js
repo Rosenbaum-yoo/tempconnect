@@ -10,6 +10,9 @@
  * der Katalog ist plattformweite Referenzdaten (kein Org-Scope nötig).
  */
 
+import { logger } from "../config/index.js";
+import { withTransaction } from "../utils/transaction.js";
+
 // Kuratierte Reihenfolge der Branchen für eine stabile, sinnvolle UI.
 // Kategorien, die (noch) nicht in dieser Liste stehen, werden alphabetisch
 // hinten angehängt — der Katalog bleibt also robust gegen spätere Ergänzungen.
@@ -130,6 +133,51 @@ function normalizeName(value) {
 }
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DAS GEMEINSAME KATALOG-TOR (M4b.1, 2026-09-05)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * WAS HIER FALSCH WAR, GEMESSEN AN DREI STELLEN:
+ *
+ *   `proposeSkill` legt an mit   status = 'proposed'   (Zeile weiter unten)
+ *   `platform_skills.is_active`  NOT NULL DEFAULT TRUE (Mig 023)
+ *
+ * Ein frischer Vorschlag ist damit `is_active = TRUE, status = 'proposed'` —
+ * und die beiden Wege in den Marktplatz pruefen VERSCHIEDENE Spalten:
+ *
+ *   marktpraesenzService (Automatik)      JOIN ... AND ps.is_active = TRUE
+ *   capacityOfferGeneratorService (Hand)  AND ps.status = 'approved'
+ *
+ * Die Automatik nahm den unkuratierten Vorschlag also MIT. Der manuelle Weg
+ * lehnte ihn ab — und sein Kommentar begruendet ausdruecklich, warum das nicht
+ * passieren darf ("sonst stuende im Marktplatz eine Faehigkeit, nach der
+ * niemand sucht"). Beides gleichzeitig ist unwahr, und der Weg, der laeuft, ist
+ * der falsche: waehrend das Portal dem Menschen sagt "wir pruefen sie, danach
+ * zaehlt sie", stand sie laengst oeffentlich im Markt.
+ *
+ * Die Gegenrichtung war genauso offen: der manuelle Weg nahm eine
+ * `approved`-Faehigkeit auch dann, wenn sie inzwischen DEAKTIVIERT wurde.
+ *
+ * BEIDE SPALTEN, EIN ORT. Nicht zwei Zeilen, die zufaellig dasselbe sagen —
+ * die sind heute schon auseinandergelaufen. Wer eine Bedingung aendert, aendert
+ * sie fuer jeden Veroeffentlichungsweg.
+ *
+ * WAS HIER BEWUSST NICHT DURCHGESETZT WIRD: das Tor gilt fuer die
+ * VEROEFFENTLICHUNG, nicht fuer das Zuordnen. Ein Mensch darf einen Vorschlag
+ * an sein Profil haengen (M4b.3: "Pflicht ist mindestens eine Faehigkeit — ein
+ * Vorschlag zaehlt dafuer"), und die Namensaufloesung muss Vorschlaege sehen,
+ * sonst entstuende bei jeder Schreibweise ein neuer. Oeffentlich wird er erst
+ * nach der Kuratierung.
+ *
+ * @param {string} alias Der Tabellen-Alias von `platform_skills` in der Abfrage.
+ * @returns {string} Eine SQL-Bedingung fuer die WHERE- oder JOIN-Klausel.
+ */
+export function katalogTorSql(alias = "ps") {
+  const a = String(alias || "ps").trim();
+  return `${a}.is_active = TRUE AND ${a}.status = 'approved'`;
+}
+
+/**
  * Eigene Faehigkeit eintragen (Mig 160).
  *
  * Erst suchen, dann anlegen — und zwar in dieser Reihenfolge, weil der haeufigste
@@ -185,3 +233,236 @@ export async function proposeSkill(pool, { name, userId = null, orgId = null, ca
   );
   return { skill: inserted.rows[0], matched: false, matched_on: null };
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   N8.1b-7 — DAS VENTIL WIRD GELEERT
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Der Vorschlagsweg ist seit Migration 160 gebaut, und er ist richtig gebaut:
+   ein vorgeschlagener Begriff erreicht den Markt NIE ungeprueft (der Katalog
+   liefert nur `approved`, das Katalog-Tor verlangt dasselbe). Genau deshalb
+   ist er unter dem Owner-Entscheid vom 2026-09-22 ("keine Freitexte mehr") das
+   EINZIGE Ventil: wer einen Begriff braucht, den es nicht gibt, kann nur noch
+   hier hinein.
+
+   GEMESSEN AM 2026-09-22: `status='proposed'` wird von KEINER Zeile im ganzen
+   Stack gelesen — kein Endpunkt, keine Flaeche, kein Staff CC. Und
+   `merged_into_skill_id` schreibt niemand. Der Arbeiter hoert "wird geprueft",
+   und geprueft wird nie. Ein Ventil, das niemand leert, laeuft ueber.
+
+   DREI AUSGAENGE, und der dritte ist der haeufigste:
+
+     annehmen   der Begriff fehlte wirklich -> er wird Katalogeintrag
+     ablehnen   kein Gewerk, Tippfehler, Unsinn -> stillgelegt
+     zuordnen   es gibt ihn schon, anders geschrieben -> er wird ALIAS am
+                vorhandenen Eintrag, und alle Zuordnungen wandern mit
+
+   Warum der dritte der haeufigste ist, steht in den Daten: von 54
+   katalogfremden Eintraegen im Markt sind 20 allein "Lagerhelfer" gegen
+   "Lagerhelfer:in". Ein Alias loest die auf einen Schlag auf — und zwar
+   DAUERHAFT, weil `proposeSkill` beim naechsten Mal ueber genau diesen Alias
+   trifft und gar kein Vorschlag mehr entsteht.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Vergleichsform fuer den Zuordnungsvorschlag: wie im Browser (`katalogFeld.js`). */
+function vergleichsform(wert) {
+  return String(wert || "")
+    .toLowerCase()
+    .replace(/:in\b/g, "")
+    .replace(/[\s\-_/]+/g, "")
+    .replace(/[\u00e4\u00f6\u00fc\u00df]/g, (c) => ({ "\u00e4": "ae", "\u00f6": "oe", "\u00fc": "ue", "\u00df": "ss" }[c]))
+    .trim();
+}
+
+/**
+ * Offene Vorschlaege mit Zuordnungsvorschlag.
+ *
+ * WARUM DER ZUORDNUNGSVORSCHLAG HIER ENTSTEHT und nicht in der Oberflaeche:
+ * er entscheidet nichts, aber er bestimmt, wie lange eine Kuratierung dauert.
+ * Wer "Lagerhelfer" sieht und daneben "Lagerhelfer:in" vorgeschlagen bekommt,
+ * ist in zwei Sekunden fertig; wer 162 Eintraege durchsuchen muss, vertagt.
+ *
+ * EINE Abfrage fuer die Vorschlaege, EINE fuer den Katalog — kein N+1. Der
+ * Katalog hat 162 Zeilen; die Aehnlichkeit im Arbeitsspeicher zu rechnen ist
+ * billiger als 162 Abfragen und braucht keine Erweiterung (pg_trgm).
+ *
+ * Wirft nie: eine Aufsichtsliste darf die Seite nicht mitreissen.
+ */
+export async function listeVorschlaege(pool, { limit = 100 } = {}) {
+  const leer = { verfuegbar: false, anzahl: 0, vorschlaege: [] };
+  if (!pool || typeof pool.query !== "function") return leer;
+
+  let offen = [];
+  let katalog = [];
+  try {
+    const [v, k] = await Promise.all([
+      pool.query(
+        `SELECT ps.id, ps.name, ps.category, ps.created_at,
+                ps.proposed_by_user_id, ps.proposed_by_org_id,
+                o.name AS org_name,
+                (SELECT COUNT(*) FROM worker_profile_skills wps
+                  WHERE wps.skill_id = ps.id)::int AS traeger
+           FROM platform_skills ps
+           LEFT JOIN organizations o ON o.id = ps.proposed_by_org_id
+          WHERE ps.status = 'proposed'
+          ORDER BY ps.created_at ASC
+          LIMIT $1`, [Math.min(Math.max(Number(limit) || 100, 1), 500)]),
+      pool.query(
+        `SELECT id, name, aliases FROM platform_skills
+          WHERE status = 'approved' AND is_active = TRUE`)
+    ]);
+    offen = v.rows || [];
+    katalog = k.rows || [];
+  } catch (e) {
+    logger.warn({ err: e?.message }, "Offene Faehigkeits-Vorschlaege konnten nicht gelesen werden");
+    return leer;
+  }
+
+  const vorschlaege = offen.map((v) => {
+    const form = vergleichsform(v.name);
+    /* Naheliegend heisst: der Katalogeintrag faengt mit dem Vorschlag an oder
+       umgekehrt. Das trifft genau die Schreibvarianten ("Lagerhelfer" ->
+       "Lagerhelfer:in") und laesst fremde Gewerke aussen vor. */
+    const nahe = katalog.filter((k) => {
+      const kf = vergleichsform(k.name);
+      if (!kf || !form) return false;
+      return kf.indexOf(form) === 0 || form.indexOf(kf) === 0
+        || (k.aliases || []).some((a) => vergleichsform(a).indexOf(form) === 0);
+    }).slice(0, 5).map((k) => ({ id: k.id, name: k.name }));
+
+    return {
+      id: v.id,
+      name: v.name,
+      kategorie: v.category || null,
+      seit: v.created_at,
+      traeger: Number(v.traeger) || 0,
+      vorgeschlagen_von_org: v.org_name || null,
+      zuordnungsvorschlag: nahe
+    };
+  });
+
+  return { verfuegbar: true, anzahl: vorschlaege.length, vorschlaege };
+}
+
+/**
+ * Die drei Ausgaenge, in der Reihenfolge ihrer HAEUFIGKEIT — nicht in der
+ * Reihenfolge, in der man sie sich ausdenkt. Wer kuratiert, soll die
+ * haeufigste Antwort zuerst sehen: von 54 katalogfremden Eintraegen im Markt
+ * sind 20 allein "Lagerhelfer" gegen "Lagerhelfer:in" — eine Zuordnung, keine
+ * neue Faehigkeit. Eine Oberflaeche, die "annehmen" zuerst anbietet, laesst den
+ * Katalog wachsen, wo er nur praeziser werden sollte.
+ */
+export const VORSCHLAG_ENTSCHEIDUNGEN = Object.freeze(["zuordnen", "annehmen", "ablehnen"]);
+
+/**
+ * Einen Vorschlag entscheiden.
+ *
+ * ALLES IN EINER TRANSAKTION, und zwar aus einem Grund: beim Zuordnen haengen
+ * drei Schreibvorgaenge zusammen (Alias am Ziel, Zuordnungen umhaengen,
+ * Vorschlag stilllegen). Bricht einer davon ab, stuende eine Faehigkeit an
+ * einem stillgelegten Eintrag — der Arbeiter haette sie dann verloren.
+ *
+ * @param {import('pg').Pool} pool
+ * @param {{vorschlagId: string, entscheidung: string, zielSkillId?: string,
+ *          grund: string, actorId?: string}} eingabe
+ */
+export async function entscheideVorschlag(pool, eingabe = {}) {
+  const { vorschlagId, entscheidung, zielSkillId = null, grund = "", actorId = null } = eingabe;
+
+  if (!vorschlagId) throw Object.assign(new Error("VORSCHLAG_FEHLT"), { code: "VORSCHLAG_FEHLT" });
+  if (!VORSCHLAG_ENTSCHEIDUNGEN.includes(entscheidung)) {
+    throw Object.assign(new Error("UNBEKANNTE_ENTSCHEIDUNG"), { code: "UNBEKANNTE_ENTSCHEIDUNG" });
+  }
+  /* Begruendungspflicht wie bei jeder mutierenden Staff-Aktion. Der Katalog
+     ist plattformweite Wahrheit; wer ihn aendert, sagt warum. */
+  if (String(grund || "").trim().length < 10) {
+    throw Object.assign(new Error("BEGRUENDUNG_FEHLT"), { code: "BEGRUENDUNG_FEHLT" });
+  }
+  if (entscheidung === "zuordnen" && !zielSkillId) {
+    throw Object.assign(new Error("ZIEL_FEHLT"), { code: "ZIEL_FEHLT" });
+  }
+
+  return withTransaction(pool, async (client) => {
+    /* Gesperrt lesen: zwei Kuratierende duerfen denselben Vorschlag nicht
+       gleichzeitig entscheiden. */
+    const { rows: gefunden } = await client.query(
+      `SELECT id, name, status FROM platform_skills WHERE id = $1 FOR UPDATE`, [vorschlagId]);
+    const vorschlag = gefunden[0];
+    if (!vorschlag) throw Object.assign(new Error("NICHT_GEFUNDEN"), { code: "NICHT_GEFUNDEN" });
+    if (vorschlag.status !== "proposed") {
+      throw Object.assign(new Error("SCHON_ENTSCHIEDEN"), { code: "SCHON_ENTSCHIEDEN" });
+    }
+
+    if (entscheidung === "annehmen") {
+      await client.query(
+        `UPDATE platform_skills
+            SET status = 'approved', is_active = TRUE, updated_at = NOW()
+          WHERE id = $1`, [vorschlagId]);
+      return { entscheidung, name: vorschlag.name, ziel: null, umgehaengt: 0 };
+    }
+
+    if (entscheidung === "ablehnen") {
+      await client.query(
+        `UPDATE platform_skills
+            SET status = 'rejected', is_active = FALSE, updated_at = NOW()
+          WHERE id = $1`, [vorschlagId]);
+      return { entscheidung, name: vorschlag.name, ziel: null, umgehaengt: 0 };
+    }
+
+    /* ── zuordnen ────────────────────────────────────────────────────── */
+    const { rows: zielZeilen } = await client.query(
+      `SELECT id, name FROM platform_skills
+        WHERE id = $1 AND status = 'approved' AND is_active = TRUE`, [zielSkillId]);
+    const ziel = zielZeilen[0];
+    if (!ziel) throw Object.assign(new Error("ZIEL_UNGUELTIG"), { code: "ZIEL_UNGUELTIG" });
+    if (String(ziel.id) === String(vorschlagId)) {
+      throw Object.assign(new Error("ZIEL_IST_VORSCHLAG"), { code: "ZIEL_IST_VORSCHLAG" });
+    }
+
+    /* 1. Der Name wird ALIAS am Ziel — das ist der eigentliche Gewinn: beim
+          naechsten Mal trifft `proposeSkill` sofort, und es entsteht gar kein
+          Vorschlag mehr. Ohne diesen Schritt waere die Zuordnung eine
+          Einmal-Aufraeumung statt einer Regel. */
+    await client.query(
+      `UPDATE platform_skills
+          SET aliases = (
+                SELECT ARRAY(SELECT DISTINCT unnest(COALESCE(aliases, '{}') || ARRAY[$2::text]))
+              ),
+              updated_at = NOW()
+        WHERE id = $1
+          AND NOT EXISTS (SELECT 1 FROM unnest(COALESCE(aliases, '{}')) a
+                           WHERE LOWER(a) = LOWER($2))`,
+      [ziel.id, vorschlag.name]);
+
+    /* 2. Wer den Vorschlag UND das Ziel traegt, verliert die Dublette —
+          sonst schluege die Eindeutigkeit (worker_profile_id, skill_id) zu. */
+    await client.query(
+      `DELETE FROM worker_profile_skills alt
+        WHERE alt.skill_id = $1
+          AND EXISTS (SELECT 1 FROM worker_profile_skills neu
+                       WHERE neu.worker_profile_id = alt.worker_profile_id
+                         AND neu.skill_id = $2)`,
+      [vorschlagId, ziel.id]);
+
+    /* 3. Die uebrigen wandern mit. Ohne diesen Schritt haette der Arbeiter
+          seine Faehigkeit an einem stillgelegten Eintrag — also verloren. */
+    const { rowCount: umgehaengt } = await client.query(
+      `UPDATE worker_profile_skills SET skill_id = $2, updated_at = NOW()
+        WHERE skill_id = $1`, [vorschlagId, ziel.id]);
+
+    await client.query(
+      `UPDATE platform_skills
+          SET status = 'merged', is_active = FALSE,
+              merged_into_skill_id = $2, updated_at = NOW()
+        WHERE id = $1`, [vorschlagId, ziel.id]);
+
+    return {
+      entscheidung,
+      name: vorschlag.name,
+      ziel: { id: ziel.id, name: ziel.name },
+      umgehaengt: Number(umgehaengt) || 0,
+      actorId
+    };
+  });
+}
+

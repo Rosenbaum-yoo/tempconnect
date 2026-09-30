@@ -25,6 +25,15 @@ import {
   computeScoreGrade
 } from './reputationService.js';
 import { getApprovedPublicOrgIds } from './profileVisibilityService.js';
+/* N3.5 — `new Date().toISOString().slice(0,10)` ist UTC. Der Takt laeuft um
+   02:50 Berliner Zeit, also 00:50 oder 01:50 UTC — dasselbe Kalenderdatum, das
+   ganze Jahr ueber? Nein: im Sommer ist Berlin UTC+2, der Lauf um 01:30 Ortszeit
+   traegt dann das Datum des VORTAGS. Die Momentaufnahme landet auf dem falschen
+   Tag, die Rangpositionen werden fuer einen anderen Tag berechnet als der, den
+   die Liste liest — und die Liste ist leer. Genau der Bug, gegen den es
+   `todayDE()` gibt. */
+import { todayDE } from '../utils/dateDE.js';
+import { swallow } from '../utils/logger.js';
 
 /* ── Snapshot schreiben ───────────────────────────────── */
 
@@ -46,7 +55,7 @@ import { getApprovedPublicOrgIds } from './profileVisibilityService.js';
  * @returns {Promise<Object|null>}
  */
 export async function saveRankingSnapshot(pool, orgId, data) {
-  const date = data.snapshotDate || new Date().toISOString().slice(0, 10);
+  const date = data.snapshotDate || todayDE();
   try {
     const { rows } = await pool.query(
       `INSERT INTO profile_ranking_snapshots
@@ -116,14 +125,26 @@ export async function buildSnapshotForOrg(pool, orgId) {
               sr.deal_success_rate, sr.ranking_score AS legacy_ranking_score,
               o.plan AS org_plan
        FROM organizations o
-       LEFT JOIN org_memberships om ON om.org_id = o.id AND om.role = 'owner'
+       -- Z5 (2026-09-27): hier stand om.role = 'owner'. Die Spalte heisst
+       -- role_key (gemessen: 201 Zeilen mit owner); role gibt es nicht. Die
+       -- Abfrage warf damit JEDES MAL, das catch darunter machte daraus
+       -- rep = null, und buildSnapshotForOrg gab null zurueck - also nie eine
+       -- Momentaufnahme und nie eine Rangposition. Das ist die zweite Ursache
+       -- fuer die dauerhaft leere Zeile "Ihre Position: #N" in sla_profil.html
+       -- (die erste, fehlende Aufrufer, ist am 2026-09-19 behoben worden). Ein
+       -- Kunde bezahlt ab PRO eine Rangliste; ein Wort hat sie verhindert.
+       LEFT JOIN org_memberships om ON om.org_id = o.id AND om.role_key = 'owner'
        LEFT JOIN supplier_reputation sr ON sr.supplier_id = om.user_id
        WHERE o.id = $1
        LIMIT 1`,
       [orgId]
     );
     rep = rows[0] || null;
-  } catch { /* org oder supplier_reputation nicht gefunden */ }
+  } catch (e) {
+    /* Z5: nicht mehr stumm. "Keine Reputation" und "die Abfrage ist kaputt"
+       sahen hier gleich aus — genau deshalb hat es niemand gemerkt. */
+    swallow("profileRankingService.buildSnapshotForOrg")(e);
+  }
 
   if (!rep) return null;
 
@@ -188,14 +209,21 @@ export async function runDailySnapshotBatch(pool) {
  * @returns {Promise<number>} Anzahl aktualisierter Snapshots
  */
 export async function updateRankPositions(pool, snapshotDate) {
-  const date = snapshotDate || new Date().toISOString().slice(0, 10);
+  const date = snapshotDate || todayDE();
   try {
     const { rowCount } = await pool.query(
       `UPDATE profile_ranking_snapshots prs
        SET rank_position = ranks.pos
        FROM (
          SELECT id,
-                ROW_NUMBER() OVER (ORDER BY COALESCE(effective_rank_score, 0) DESC, created_at ASC) AS pos
+                /* O-L1 (docs/features/O_RAHMENBEDINGUNGEN.md): sortiert wird nach der
+                   VERDIENTEN Zahl. effective_rank_score ist Basis PLUS bezahlter
+                   Hebung — wer danach ordnet, laesst die Hebung ueber eine bessere
+                   Reputation steigen. Sie entscheidet jetzt erst bei Gleichstand,
+                   und created_at haelt die Reihenfolge stabil. */
+                ROW_NUMBER() OVER (ORDER BY COALESCE(ranking_score, 0) DESC,
+                                            COALESCE(premium_boost, 0) DESC,
+                                            created_at ASC) AS pos
          FROM profile_ranking_snapshots
          WHERE snapshot_date = $1
        ) ranks
@@ -222,7 +250,7 @@ export async function updateRankPositions(pool, snapshotDate) {
  * @returns {Promise<Object[]>}
  */
 export async function getPublicRanking(pool, { limit = 100, segment = null, snapshotDate } = {}) {
-  const date = snapshotDate || new Date().toISOString().slice(0, 10);
+  const date = snapshotDate || todayDE();
   try {
     const params = [date, limit];
     const segmentClause = segment ? `AND prs.rank_segment = $3` : '';
@@ -233,6 +261,7 @@ export async function getPublicRanking(pool, { limit = 100, segment = null, snap
          prs.org_id,
          prs.rank_position,
          prs.ranking_score,
+         prs.premium_boost,
          prs.effective_rank_score,
          prs.rank_segment,
          prs.reputation_score,
@@ -251,14 +280,25 @@ export async function getPublicRanking(pool, { limit = 100, segment = null, snap
          SELECT cp2.user_id, cp2.logo_url, cp2.industry_focus,
                 cp2.headquarters_city, cp2.company_size
          FROM company_profiles cp2
-         JOIN org_memberships om2 ON om2.user_id = cp2.user_id AND om2.role = 'owner'
+         /* Z17 (2026-09-28): hier stand zweimal role = 'owner'. Die Spalte
+            heisst role_key — org_memberships.role gibt es nicht (gemessen).
+            Beide Abfragen warfen also, und diese Rangliste wird ab PRO verkauft.
+            Sichtbar war es nicht, weil profile_ranking_snapshots leer ist: der
+            Erzeuger hat ausserhalb der Tests keinen Aufrufer (offener Punkt P1-14).
+            Ein zweiter Fehler hinter einem ersten. */
+         JOIN org_memberships om2 ON om2.user_id = cp2.user_id AND om2.role_key = 'owner'
        ) cp ON cp.user_id IN (
-         SELECT user_id FROM org_memberships WHERE org_id = prs.org_id AND role = 'owner'
+         SELECT user_id FROM org_memberships WHERE org_id = prs.org_id AND role_key = 'owner'
        )
        WHERE prs.snapshot_date = $1
          ${segmentClause}
        ORDER BY COALESCE(prs.rank_position, 99999) ASC,
-                COALESCE(prs.effective_rank_score, 0) DESC
+                /* O-L1 auch im Rueckfall: solange keine Position berechnet ist,
+                   ordnet diese Zeile die Liste. Stand hier effective_rank_score,
+                   sortierte genau dann die bezahlte Hebung, wenn der Takt einmal
+                   ausgefallen ist — die Ausnahme haette die Regel ausgehebelt. */
+                COALESCE(prs.ranking_score, 0) DESC,
+                COALESCE(prs.premium_boost, 0) DESC
        LIMIT $2`,
       params
     );

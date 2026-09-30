@@ -19,6 +19,7 @@ import { z } from "zod";
 import { Router } from "express";
 import * as analyticsSvc from "../services/profileAnalyticsService.js";
 import * as visSvc from "../services/profileVisibilityService.js";
+import { verweigereArbeiter } from "../middleware/orgAccess.js";
 
 const viewEventSchema = z.object({
   org_id:  z.string().uuid(),
@@ -74,7 +75,21 @@ export function createProfileAnalyticsRouter(deps) {
 
   /* ── Eigene Profilreichweite (Basic, PRO+) ─────────────── */
 
-  router.get("/profile-analytics/me", requireAuth, analyticsBasic, async (req, res) => {
+  /*
+   * M2.5/M2.7 — "me" im Pfad, gemeint ist die ORG.
+   *
+   * `getProfileAnalyticsSummary(pool, req.orgId, …)` liefert die Zahlen zum
+   * OEFFENTLICHEN PROFIL DER FIRMA — Aufrufe, Merkungen, Reichweite. Die Route
+   * stand zuerst als "eigene Daten" im Register mit der Begruendung "die Zahlen zu
+   * SEINEM eigenen Profil". Das war falsch, und es ist beim Aufschreiben einer
+   * tragfaehigen Begruendung aufgefallen: es sind die Zahlen des Arbeitgebers.
+   *
+   * `analyticsBasic`/`analyticsAdvanced` sehen aus wie Wachen und pruefen den PLAN —
+   * den sie aus der FIRMA holen. Je besser deren Tarif, desto weiter kam er.
+   */
+  const keinArbeiter = verweigereArbeiter({ logger: logger });
+
+  router.get("/profile-analytics/me", requireAuth, analyticsBasic, keinArbeiter, async (req, res) => {
     try {
       if (!req.orgId) return fail(res, 403, "NO_ORG", "Keine aktive Organisation.");
       const data = await analyticsSvc.getProfileAnalyticsSummary(pool, req.orgId, { advanced: false });
@@ -87,7 +102,7 @@ export function createProfileAnalyticsRouter(deps) {
 
   /* ── Erweiterte Analytics (INDIVIDUELL) ───────────────── */
 
-  router.get("/profile-analytics/me/advanced", requireAuth, analyticsAdvanced, async (req, res) => {
+  router.get("/profile-analytics/me/advanced", requireAuth, analyticsAdvanced, keinArbeiter, async (req, res) => {
     try {
       if (!req.orgId) return fail(res, 403, "NO_ORG", "Keine aktive Organisation.");
       const data = await analyticsSvc.getProfileAnalyticsSummary(pool, req.orgId, { advanced: true });

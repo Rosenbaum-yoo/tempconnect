@@ -43,7 +43,12 @@ export function createAnalyticsRouter(deps) {
       let me = null;
       if (userId) {
         const { rows } = await pool.query(
-          `SELECT u.id, u.role, u.is_demo, u.plan, u.customer_stage AS user_stage,
+          /* Z18 (2026-09-28): hier stand u.plan. Die Spalte gibt es in `users`
+             nicht - der Tarif haengt an der Organisation, seit der Org-Umstellung.
+             Die Abfrage warf also, und mit ihr dieser ganze Endpunkt. Die
+             Organisation ist zwei Zeilen tiefer ohnehin verbunden; ohne sie gibt
+             es auch keinen Tarif, und NULL ist dann die richtige Auskunft. */
+          `SELECT u.id, u.role, u.is_demo, o.plan, u.customer_stage AS user_stage,
                   om.role_key AS org_role, o.id AS org_id, o.name AS org_name, o.customer_stage AS org_stage
            FROM users u
            LEFT JOIN org_memberships om ON om.user_id = u.id AND om.is_active = TRUE

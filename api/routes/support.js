@@ -26,6 +26,91 @@ const CASE_STATUSES = new Set([
   "reopened"
 ]);
 
+/*
+ * DIE VIER ESKALATIONSZUSTAENDE GEHOEREN DEM `escalate`-ZWEIG.
+ *
+ * BEFUND (2026-08-22, am echten Handler ausgefuehrt): `change_status` pruefte
+ * ausschliesslich Mengenmitgliedschaft. Ein Agent mit der Rolle
+ * `internal_support_agent` konnte `new_status: "escalated_ops"` setzen und
+ * bekam HTTP 200 — ein einziges UPDATE, `is_escalated` unberuehrt.
+ *
+ * Damit umging er alles, was eine Eskalation ausmacht: die Pflichtbegruendung
+ * (>= 20 Zeichen), `createOccEscalation`, den `support_escalations`-INSERT und
+ * das Ops-Signal. `escalate` ist Supervisor-only, `change_status` ist
+ * Default-Aktion JEDER Rolle — der einfache Agent erreichte ueber die eine
+ * Aktion den Zustand, den ihm die andere verwehrt.
+ *
+ * Die Folge war nicht nur eine Rechteluecke, sondern eine LUEGE IN DEN ZAHLEN:
+ * der Fall trug sichtbar den Eskalationsstatus, zaehlte aber in keiner
+ * Eskalationsauswertung mit (die filtern auf `is_escalated`). Und da
+ * `is_escalated = FALSE` repo-weit nirgends gesetzt wird, blieb die Entkopplung
+ * dauerhaft.
+ *
+ * Owner-Entscheid 2026-08-23: erreichbar nur ueber `escalate`.
+ */
+const ESKALATIONS_STATUS = new Set([
+  "escalated", "escalated_decisions", "escalated_commercial", "escalated_ops"
+]);
+
+/*
+ * ERLAUBTE NACHFOLGER je Zustand — fuer `change_status`.
+ *
+ * CLAUDE.md Stop-Regel 5 ("Statusuebergaenge nicht definiert") war hier formal
+ * ausgeloest: es gab keinen Automaten, nur eine Menge. Eine Menge sagt, welche
+ * Woerter es gibt; sie sagt nicht, welcher Schritt Sinn ergibt.
+ *
+ * Absichtlich NICHT enthalten:
+ *   * die vier `escalated_*` (siehe oben — sie gehoeren dem `escalate`-Zweig),
+ *   * der Weg auf sich selbst. Ein Statuswechsel von `open` nach `open` ist
+ *     keine Aenderung, schreibt aber ein Ereignis in die Zeitleiste, das eine
+ *     vortaeuscht.
+ *
+ * Aus einem Eskalationszustand fuehrt der Weg zurueck — sonst waere eine
+ * Eskalation eine Sackgasse und der Fall nur noch ueber die Datenbank zu
+ * retten.
+ */
+const ARBEITSZUSTAENDE = [ "open", "in_progress", "waiting_customer", "waiting_internal" ];
+const ABSCHLUSS = [ "resolved", "closed" ];
+
+function nachfolger(...listen) {
+  return new Set(listen.flat());
+}
+
+/*
+ * Der Weg auf sich selbst wird beim BAU entfernt, nicht bei jeder Abfrage.
+ * Die erste Fassung schloss ihn nur im Kommentar aus — `open` stand in der
+ * Nachfolgerliste von `open`, und ein Wechsel von `open` nach `open` waere
+ * durchgegangen: keine Aenderung, aber ein Ereignis in der Zeitleiste, das
+ * eine vortaeuscht. Hier gilt die Regel EINMAL fuer die ganze Tabelle.
+ */
+function ohneSichSelbst(tabelle) {
+  const raus = {};
+  for (const [zustand, ziele] of Object.entries(tabelle)) {
+    const kopie = new Set(ziele);
+    kopie.delete(zustand);
+    raus[zustand] = kopie;
+  }
+  return Object.freeze(raus);
+}
+
+const STATUS_UEBERGAENGE = ohneSichSelbst({
+  new:                  nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  open:                 nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  in_progress:          nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  waiting_customer:     nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  waiting_internal:     nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  escalated:            nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  escalated_decisions:  nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  escalated_commercial: nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  escalated_ops:        nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+  /* Aus `resolved` fuehrt der Weg zum endgueltigen Abschluss oder zurueck ins
+   * Verfahren — aber nicht mehr in die laufende Bearbeitung, ohne den Fall
+   * ausdruecklich wieder zu oeffnen. */
+  resolved:             nachfolger([ "closed", "reopened" ]),
+  closed:               nachfolger([ "reopened" ]),
+  reopened:             nachfolger(ARBEITSZUSTAENDE, ABSCHLUSS),
+});
+
 const CASE_PRIORITIES = new Set([ "low", "normal", "high", "urgent", "critical" ]);
 const CASE_TYPES = new Set([
   "general",
@@ -208,7 +293,31 @@ function computeAllowedActions(caseRow, req) {
   for (const action of actions) {
     if (!ACTIONS.has(action)) continue;
     if (!roleAllowsAction(req.supportAgent.role, action)) continue;
-    if (isResolvedStatus(caseRow.status) && [ "accept", "assign", "change_status", "change_priority", "escalate", "close" ].includes(action)) {
+    /*
+     * `change_status` ist hier NICHT mehr gesperrt — und das war der Kern
+     * zweier Befunde auf einmal (2026-08-22):
+     *
+     *   * Ein Fall in `resolved` konnte nie `closed` werden. Beide Endzustaende
+     *     existieren, aber welcher galt, entschied der Zufall des ersten Klicks.
+     *   * `reopened` stand im CHECK der Migration 110 und wurde im GESAMTEN
+     *     Repo nirgends gesetzt — unerreichbar. Und genau darauf rechnete eine
+     *     veroeffentlichte Qualitaetskennzahl: `reopen_rate_percent` zaehlt
+     *     `WHERE sc.status = 'reopened'` und konnte nur 0 % ergeben. Eine Zahl,
+     *     die gemessen aussieht und nur eines sagen kann.
+     *
+     * Der einzige Rueckweg aus `closed` fuehrte ueber `POST /support/escalations`,
+     * dessen Rechtepruefung mit einer FEST VERDRAHTETEN Zeile `{status:"open"}`
+     * arbeitet und die Sperre damit umgeht. "Um einen Fall wieder zu oeffnen,
+     * eskaliere ihn" ist kein Arbeitsablauf.
+     *
+     * Owner-Entscheid 2026-08-23: Wiedereroeffnen wird gebaut. Welche Schritte
+     * aus einem Endzustand herausfuehren, sagt jetzt `STATUS_UEBERGAENGE`
+     * (`resolved` -> closed | reopened, `closed` -> reopened) — nicht mehr eine
+     * pauschale Sperre. Wer `reopened` setzen darf, entscheidet die Rolle;
+     * das steht im `change_status`-Zweig, weil es vom ZIEL abhaengt und nicht
+     * von der Aktion.
+     */
+    if (isResolvedStatus(caseRow.status) && [ "accept", "assign", "change_priority", "escalate", "close" ].includes(action)) {
       continue;
     }
     if (action === "accept" && caseRow.assigned_to_agent_id) continue;
@@ -857,12 +966,26 @@ function buildSupportRouter(deps) {
       const nowEventDetail = { action };
 
       let auditAction = action;
+      /* Was nach dem COMMIT zu versenden ist. Eine verschickte Mail holt kein
+       * Rollback zurueck — deshalb wird der Auftrag hier nur vermerkt. */
+      let versandAuftrag = null;
       if (action === "accept") {
+        /* `sla_first_responded_at` wird hier NICHT mehr gestempelt.
+         *
+         * BEFUND (2026-08-22): Die Uhr stand an drei Stellen — `accept`,
+         * `change_status` und `add_note` (letzteres OHNE Ruecksicht auf den
+         * Notiztyp). Keine davon ist eine Antwort. Gemessen wurde damit "ein
+         * Agent hat den Fall angefasst", ausgewiesen wurde es als
+         * "Ø Erstreaktion" — und dem Kunden in seiner eigenen Fallakte gezeigt.
+         *
+         * Der Code definiert selbst, was der Kunde sieht:
+         * `supportIntakeService.js` filtert hart auf `note_type = 'external'`.
+         * Genau diese Grenze hat die Uhr ignoriert. Owner-Entscheid 2026-08-23:
+         * es zaehlt nur eine externe Notiz. Die Stelle dafuer ist `add_note`. */
         await client.query(
           `UPDATE support_cases
               SET assigned_to_agent_id = $2::uuid,
                   status = CASE WHEN status = 'new' THEN 'open' ELSE status END,
-                  sla_first_responded_at = COALESCE(sla_first_responded_at, NOW()),
                   updated_at = NOW()
             WHERE id = $1::uuid`,
           [currentRow.id, req.supportAgent.id]
@@ -906,18 +1029,67 @@ function buildSupportRouter(deps) {
           await client.query("ROLLBACK");
           return res.status(400).json({ error: "INVALID_STATUS", message: "new_status ist ungültig." });
         }
+        /* Der Eskalationszustand entsteht NUR im `escalate`-Zweig, der die
+         * Begruendung verlangt, den OCC-Entscheid anlegt, die
+         * `support_escalations`-Zeile schreibt und `is_escalated` setzt. Hier
+         * durchzulassen hiesse, all das umgehbar zu machen — und der Fall saehe
+         * eskaliert aus, ohne in einer Eskalationsauswertung zu erscheinen. */
+        if (ESKALATIONS_STATUS.has(nextStatus)) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            error: "ESCALATION_VIA_ACTION_ONLY",
+            message: "Eskalationszustände entstehen nur über die Aktion `escalate` — mit Begründung, OCC-Vorgang und Eskalations-Eintrag."
+          });
+        }
+        /* Einen abgeschlossenen Fall wieder aufzumachen ist keine
+         * Bearbeitungsentscheidung, sondern eine Aufsichtsentscheidung: sie
+         * setzt eine Loesung zurueck, auf die sich der Kunde bereits verlassen
+         * hat, und sie faellt in die Wiedereroeffnungs-Quote ein, an der die
+         * Arbeit des Teams gemessen wird. Deshalb Supervisor-Rollen — dieselbe
+         * Grenze wie bei `escalate`. */
+        if (nextStatus === "reopened" && !SUPERVISOR_ROLES.has(req.supportAgent.role)) {
+          await client.query("ROLLBACK");
+          return res.status(403).json({
+            error: "REOPEN_REQUIRES_SUPERVISOR",
+            message: "Einen abgeschlossenen Fall wieder zu öffnen ist Supervisor-Rollen vorbehalten."
+          });
+        }
+        const erlaubt = STATUS_UEBERGAENGE[currentRow.status];
+        if (!erlaubt || !erlaubt.has(nextStatus)) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            error: "INVALID_TRANSITION",
+            message: `Von "${currentRow.status}" führt kein Weg nach "${nextStatus}".`,
+            from: currentRow.status,
+            to: nextStatus,
+            allowed: erlaubt ? [ ...erlaubt ].sort() : []
+          });
+        }
         await client.query(
+          /* Auch hier faellt der Stempel weg (siehe `accept`): ein Statuswechsel
+           * ist keine Antwort. Er war sogar die irrefuehrendste der drei
+           * Stellen — `$2 <> 'new'` heisst "irgendein anderer Zustand", also
+           * stoppte schon das Verschieben nach `waiting_internal` die Uhr, das
+           * der Kunde nie zu sehen bekommt. */
           `UPDATE support_cases
               SET status = $2,
-                  sla_first_responded_at = CASE
-                    WHEN sla_first_responded_at IS NULL AND $2 <> 'new' THEN NOW()
-                    ELSE sla_first_responded_at
-                  END,
+                  /* Beim Wiedereroeffnen werden Loesungs- und Abschlusszeit
+                   * GELOESCHT. Ohne das behielte der Fall den Zeitstempel der
+                   * ersten Runde: COALESCE(sla_resolved_at, NOW()) liesse ihn
+                   * beim zweiten Abschluss stehen, und die Loesungsdauer waere
+                   * ab der ersten Meldung gerechnet — der zweite Durchgang
+                   * bliebe in der Kennzahl unsichtbar. Genau so entstehen
+                   * Zahlen, die eine Messung vortaeuschen. */
                   sla_resolved_at = CASE
+                    WHEN $2 = 'reopened' THEN NULL
                     WHEN $2 IN ('resolved', 'closed') THEN COALESCE(sla_resolved_at, NOW())
                     ELSE sla_resolved_at
                   END,
-                  closed_at = CASE WHEN $2 = 'closed' THEN NOW() ELSE closed_at END,
+                  closed_at = CASE
+                    WHEN $2 = 'reopened' THEN NULL
+                    WHEN $2 = 'closed' THEN NOW()
+                    ELSE closed_at
+                  END,
                   updated_at = NOW()
             WHERE id = $1::uuid`,
           [currentRow.id, nextStatus]
@@ -955,12 +1127,27 @@ function buildSupportRouter(deps) {
            VALUES ($1::uuid, $2::uuid, $3, $4)`,
           [currentRow.id, req.supportAgent.id, noteType, note]
         );
+        /*
+         * DIE EINZIGE STELLE, an der die Erstreaktionsuhr noch stehenbleibt —
+         * und nur bei `external`.
+         *
+         * Vorher stand hier `COALESCE(sla_first_responded_at, NOW())` OHNE
+         * jede Unterscheidung: der Parameter war nur `[currentRow.id]`. Zwei
+         * von drei Notiztypen (`internal`, `system`) stoppten die Uhr also
+         * unsichtbar — eine interne Randnotiz galt als Antwort an den Kunden.
+         *
+         * Die Grenze steht im SQL und nicht in JS, damit sie nicht beim
+         * naechsten Umbau dieser Abfrage verlorengeht.
+         */
         await client.query(
           `UPDATE support_cases
               SET updated_at = NOW(),
-                  sla_first_responded_at = COALESCE(sla_first_responded_at, NOW())
+                  sla_first_responded_at = CASE
+                    WHEN $2 = 'external' THEN COALESCE(sla_first_responded_at, NOW())
+                    ELSE sla_first_responded_at
+                  END
             WHERE id = $1::uuid`,
-          [currentRow.id]
+          [currentRow.id, noteType]
         );
         await insertCaseEvent(client, currentRow.id, req.supportAgent.id, "note_added", { note_type: noteType });
         auditAction = "note_added";
@@ -1044,6 +1231,37 @@ function buildSupportRouter(deps) {
           });
         }
       } else if (action === "resend_verification" || action === "resend_invite") {
+        /*
+         * DIESER ZWEIG WAR EINE ATTRAPPE.
+         *
+         * BEFUND (2026-08-22): Er schrieb eine Zeitleisten-Zeile, setzte
+         * `auditAction` und antwortete `success: true` — ohne eine einzige
+         * Mail. Kein `sendMail`, kein UPDATE, nicht einmal `updated_at`.
+         *
+         * Es war kein "Daten fehlen"-Fall: `createCaseBaseSelect` liefert
+         * `reporter_user_id` und `reporter_email` direkt in `currentRow`.
+         *
+         * Verschaerfend: der EINZIGE POST der gesamten Support-Oberflaeche ging
+         * auf diese Attrappe, waehrend die funktionierende Route
+         * `/support/user-actions` gar keinen Aufrufer hatte. Ein Agent klickte,
+         * bekam eine Bestaetigung, und der Kunde wartete weiter auf eine Mail,
+         * die nie kam.
+         *
+         * Owner-Entscheid 2026-08-23: echten Versand anschliessen.
+         *
+         * WARUM ERST NACH DEM COMMIT: Eine verschickte Mail holt kein Rollback
+         * zurueck. Wuerde hier gesendet und die Transaktion scheiterte danach,
+         * haette der Kunde eine Mail zu einem Vorgang, den es nicht gibt.
+         * Deshalb wird der Auftrag nur VERMERKT und unten ausgefuehrt.
+         */
+        if (!currentRow.reporter_user_id) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            error: "NO_REPORTER",
+            message: "Dieser Fall hat keinen hinterlegten Melder — es gibt niemanden, an den gesendet werden könnte."
+          });
+        }
+        versandAuftrag = { action, nutzerId: currentRow.reporter_user_id };
         await insertCaseEvent(client, currentRow.id, req.supportAgent.id, action, nowEventDetail);
         auditAction = action;
       } else if (action === "close") {
@@ -1094,8 +1312,25 @@ function buildSupportRouter(deps) {
 
       await client.query("COMMIT");
 
+      /* Erst jetzt. Der Vorgang steht in der Datenbank; was danach schiefgeht,
+       * kann ihn nicht mehr umwerfen. Umgekehrt waere es fatal: eine Mail, die
+       * raus ist, holt kein Rollback zurueck. */
+      let versandErgebnis = null;
+      if (versandAuftrag) {
+        versandErgebnis = await versendeAnNutzer(versandAuftrag.action, versandAuftrag.nutzerId);
+        if (!versandErgebnis.ok) {
+          logger?.error?.({ caseId: currentRow.id, action: versandAuftrag.action, grund: versandErgebnis.grund },
+            "Support-Versand fehlgeschlagen");
+        }
+      }
+
       return res.json({
         success: true,
+        /* Ehrlich statt beruhigend: `success: true` allein war genau das, was
+         * die Attrappe so lange unsichtbar gemacht hat. Wenn der Versand
+         * scheitert, steht es in der Antwort — der Agent muss es wissen, bevor
+         * er dem Kunden sagt, die Mail sei unterwegs. */
+        ...(versandErgebnis ? { versand: versandErgebnis } : {}),
         case: updatedRow ? caseDetailFromRow(updatedRow, req, notes, timeline) : null
       });
     } catch (err) {
@@ -1508,6 +1743,159 @@ function buildSupportRouter(deps) {
     }
   });
 
+  /*
+   * EINE ESKALATION KONNTE NIE ZU ENDE KOMMEN.
+   *
+   * BEFUND (2026-08-22): Zwei INSERTs mit fest verdrahtetem `'pending'`,
+   * repo-weit NULL `UPDATE` und NULL `DELETE` auf `support_escalations`, keine
+   * Trigger, keine Rules. `resolved_at`, `resolution_note` und
+   * `resolved_by_agent_id` existieren seit Migration 110 ohne Default — und
+   * ohne einen einzigen Schreiber. Die einzige Oberflaeche ist eine reine
+   * Anzeige (`frontend/src/support/modules.tsx`: `<td>{e.status}</td>`, kein
+   * Aktions-Knopf); es gab zwei GET und einen POST, kein PATCH.
+   *
+   * Zwei Folgen, beide dauerhaft:
+   *   * Im OCC zaehlt `occ/bootstrap.js` jede Eskalation als offen, solange der
+   *     Fall offen ist.
+   *   * Im Staff CC filtert die Liste zwar auf `status IN ('pending',
+   *     'acknowledged')` — nur konnte den Status nie jemand verlassen. Jede je
+   *     erzeugte Eskalation blieb fuer immer stehen, und die
+   *     Prioritaetssortierung schob die aeltesten toten Eintraege nach vorn.
+   *
+   * Owner-Entscheid 2026-08-23: Der Supervisor darf abhaken, UND ein
+   * Owner-Entscheid im OCC schlaegt automatisch durch — mit Vorrang fuer den
+   * OCC. Diese Route ist die erste Haelfte; die zweite steht in
+   * `api/routes/occ/decisionsRequests.js`.
+   */
+  /*
+   * EIN Versandweg fuer beide Aufrufer.
+   *
+   * Bis 2026-08-23 gab es zwei: `/support/user-actions` versendete wirklich,
+   * der Zweig in der Fall-Aktion war eine Attrappe (Zeitleisten-Zeile,
+   * `success: true`, keine Mail). Die Oberflaeche rief ausgerechnet die
+   * Attrappe auf.
+   *
+   * Zwei Kopien desselben Vorgangs driften — das ist heute an drei anderen
+   * Stellen dieses Repos passiert (Grund-Vokabular, Sichtbarkeitsregel,
+   * Erstreaktionsgrenze). Deshalb EINE Funktion, und beide Aufrufer gehen
+   * hindurch.
+   *
+   * Gibt `{ ok, grund }` zurueck statt zu werfen: der Aufrufer hat seinen
+   * Vorgang schon geschrieben, ein Versandfehler darf ihn nicht umwerfen — er
+   * muss aber sichtbar sein.
+   */
+  async function versendeAnNutzer(action, nutzerId) {
+    if (!nutzerId) return { ok: false, grund: "NO_USER" };
+    try {
+      if (action === "resend_verification") {
+        const ergebnis = await internalControlCenterService.resendVerificationForUser(
+          pool, nutzerId, config?.BASE_URL || "", sendMail
+        );
+        if (ergebnis?.code === "NOT_FOUND") return { ok: false, grund: "USER_NOT_FOUND" };
+        /* `ALREADY_VERIFIED` ist kein Fehler, sondern eine Auskunft: es gab
+         * nichts zu senden. Der Agent soll das erfahren, statt zu glauben,
+         * eine Mail sei unterwegs. */
+        if (ergebnis?.code && ergebnis.code !== "OK") return { ok: false, grund: ergebnis.code };
+        return { ok: true, grund: null };
+      }
+      if (action === "resend_invite") {
+        const { rows } = await pool.query(
+          `SELECT email FROM users WHERE id = $1::uuid LIMIT 1`, [ nutzerId ]
+        );
+        const ziel = rows[0]?.email || null;
+        if (!ziel) return { ok: false, grund: "USER_NOT_FOUND" };
+        if (!sendMail) return { ok: false, grund: "NO_MAILER" };
+        await sendMail(
+          ziel,
+          "TempConnect Einladung",
+          "<p>Ihre TempConnect-Einladung wurde erneut gesendet. Bitte melden Sie sich mit Ihrem bestehenden Zugang an.</p>"
+        );
+        return { ok: true, grund: null };
+      }
+      return { ok: false, grund: "UNKNOWN_ACTION" };
+    } catch (err) {
+      logger?.error?.({ err, action, nutzerId }, "Support-Versand fehlgeschlagen");
+      return { ok: false, grund: "SEND_FAILED" };
+    }
+  }
+
+  const ESKALATIONS_ABSCHLUSS = new Set([ "acknowledged", "resolved", "rejected" ]);
+
+  router.post("/support/escalations/:id/resolve", async (req, res) => {
+    if (!SUPERVISOR_ROLES.has(req.supportAgent.role)) {
+      return res.status(403).json({ error: "PERMISSION_DENIED", message: "Eskalationen abschließen ist Supervisor-Rollen vorbehalten." });
+    }
+    const zielStatus = String(req.body?.status || "").trim().toLowerCase();
+    if (!ESKALATIONS_ABSCHLUSS.has(zielStatus)) {
+      return res.status(400).json({
+        error: "INVALID_STATUS",
+        message: "status muss acknowledged, resolved oder rejected sein.",
+        allowed: [ ...ESKALATIONS_ABSCHLUSS ]
+      });
+    }
+    /* Eine Eskalation abzuhaken ist eine Aussage darueber, was mit einem
+     * herausgehobenen Vorgang geschehen ist. Ohne Begruendung ist sie eine
+     * leere Geste — dieselbe Schwelle wie beim Eskalieren selbst. */
+    const notiz = nullableText(req.body?.resolution_note);
+    if (!notiz || notiz.length < 20) {
+      return res.status(400).json({ error: "RESOLUTION_NOTE_REQUIRED", message: "resolution_note mit mindestens 20 Zeichen ist erforderlich." });
+    }
+
+    try {
+      /* `status = 'pending' OR 'acknowledged'` im WHERE: ein bereits
+       * abgeschlossener Vorgang wird nicht ein zweites Mal abgeschlossen —
+       * sonst ueberschreibt der zweite Klick die Begruendung des ersten und
+       * verschiebt `resolved_at`. */
+      const { rows } = await pool.query(
+        `UPDATE support_escalations
+            SET status = $2,
+                resolved_by_agent_id = $3::uuid,
+                resolved_at = NOW(),
+                resolution_note = $4
+          WHERE id = $1::uuid
+            AND status IN ('pending', 'acknowledged')
+        RETURNING id, case_id, target, status, related_occ_request_id`,
+        [ req.params.id, zielStatus, req.supportAgent.id, notiz ]
+      );
+      if (!rows.length) {
+        return res.status(404).json({ error: "NOT_FOUND_OR_ALREADY_CLOSED", message: "Eskalation nicht gefunden oder bereits abgeschlossen." });
+      }
+      const eskalation = rows[0];
+
+      /* Der Fall traegt die Eskalation weiterhin sichtbar, solange nicht ALLE
+       * seine Eskalationen abgeschlossen sind. Ein Fall mit zwei Eskalationen,
+       * von denen eine erledigt ist, ist nicht "nicht mehr eskaliert". */
+      await pool.query(
+        `UPDATE support_cases sc
+            SET is_escalated = EXISTS (
+                  SELECT 1 FROM support_escalations se
+                   WHERE se.case_id = sc.id
+                     AND se.status IN ('pending', 'acknowledged')
+                ),
+                updated_at = NOW()
+          WHERE sc.id = $1::uuid`,
+        [ eskalation.case_id ]
+      );
+
+      await insertCaseEvent(pool, eskalation.case_id, req.supportAgent.id, "escalation_resolved", {
+        escalation_id: eskalation.id,
+        target: eskalation.target,
+        status: zielStatus
+      });
+
+      res.locals.audit = {
+        action: "support.escalation.resolved",
+        entity_type: "support_escalation",
+        entity_id: eskalation.id,
+        details: { status: zielStatus, target: eskalation.target }
+      };
+      return res.json({ success: true, escalation: eskalation });
+    } catch (err) {
+      logger?.error?.({ err }, "support escalation resolve failed");
+      return res.status(500).json({ error: "SERVER_ERROR", message: "Eskalation konnte nicht abgeschlossen werden." });
+    }
+  });
+
   router.get("/support/knowledge", requireSupportFeature("knowledge_base"), async (req, res) => {
     try {
       const category = nullableText(req.query.category);
@@ -1604,7 +1992,31 @@ function buildSupportRouter(deps) {
               CASE WHEN COUNT(*) = 0 THEN NULL
                    ELSE 100.0 * COUNT(*) FILTER (WHERE sc.status = 'reopened') / COUNT(*)
               END::numeric, 1
-            ) AS reopen_rate_percent
+            ) AS reopen_rate_percent,
+            /*
+             * DIE UNBEANTWORTETEN — die Haelfte, die der Mittelwert verschweigt.
+             *
+             * AVG() ueberspringt NULL still. Ein Fall, den nie jemand
+             * beantwortet hat, verschlechtert die "Ø Erstreaktion" also nicht,
+             * er verschwindet aus ihr. Je schlechter der Support arbeitet,
+             * desto besser sieht die Zahl aus — und close schreibt die Spalte
+             * ohnehin nie, ein Fall kann also ohne jede Antwort geschlossen
+             * werden. Owner-Entscheid 2026-08-23: die Zahl wird ausgewiesen.
+             *
+             * Nur Faelle, die alt genug fuer eine Antwort sind, zaehlen hier
+             * nicht mit — ein Fall von vor drei Minuten ist nicht unbeantwortet,
+             * sondern neu. Die Grenze ist die Erstreaktionsfrist des Falles
+             * selbst; wo keine gesetzt ist, gilt er als noch nicht faellig.
+             */
+            COUNT(*) FILTER (
+              WHERE sc.sla_first_responded_at IS NULL
+                AND sc.sla_first_response_deadline IS NOT NULL
+                AND sc.sla_first_response_deadline < NOW()
+            )::int AS ohne_erstreaktion,
+            COUNT(*) FILTER (
+              WHERE sc.sla_first_responded_at IS NULL
+                AND sc.status IN ('resolved', 'closed')
+            )::int AS ohne_erstreaktion_abgeschlossen
            FROM support_cases sc
           ${whereClause}`,
         params
@@ -1620,6 +2032,12 @@ function buildSupportRouter(deps) {
         sla_met_percent: toNumber(row.sla_met_percent, null),
         escalation_rate_percent: toNumber(row.escalation_rate_percent, null),
         reopen_rate_percent: toNumber(row.reopen_rate_percent, null),
+        /* Gehoert NEBEN den Mittelwert, nicht dahinter versteckt: `AVG()`
+         * ueberspringt NULL still, ein nie beantworteter Fall verschlechtert
+         * die "Ø Erstreaktion" also nicht, sondern verschwindet aus ihr. Ohne
+         * diese beiden Zahlen sieht schlechter Support besser aus als guter. */
+        ohne_erstreaktion: toInt(row.ohne_erstreaktion, 0),
+        ohne_erstreaktion_abgeschlossen: toInt(row.ohne_erstreaktion_abgeschlossen, 0),
         csat_score: null
       });
     } catch (err) {
@@ -1995,33 +2413,20 @@ function buildSupportRouter(deps) {
         return res.status(404).json({ error: "USER_NOT_FOUND", message: "User konnte nicht aufgelöst werden." });
       }
 
-      if (action === "resend_verification") {
-        const result = await internalControlCenterService.resendVerificationForUser(
-          pool,
-          resolvedUserId,
-          config.BASE_URL || "",
-          sendMail
-        );
-        if (result.code === "NOT_FOUND") {
-          return res.status(404).json({ error: "USER_NOT_FOUND", message: "User nicht gefunden." });
-        }
-      } else if (action === "resend_invite") {
-        const userRows = await pool.query(
-          `SELECT email
-             FROM users
-            WHERE id = $1::uuid
-            LIMIT 1`,
-          [resolvedUserId]
-        );
-        const targetEmail = userRows.rows[0]?.email || null;
-        if (!targetEmail) {
-          return res.status(404).json({ error: "USER_NOT_FOUND", message: "User nicht gefunden." });
-        }
-        await sendMail?.(
-          targetEmail,
-          "TempConnect Einladung",
-          "<p>Ihre TempConnect-Einladung wurde erneut gesendet. Bitte melden Sie sich mit Ihrem bestehenden Zugang an.</p>"
-        );
+      /* Derselbe Versandweg wie im Fall-Zweig. Bis 2026-08-23 standen hier zwei
+       * Kopien: diese versendete wirklich, die andere war eine Attrappe — und
+       * die Oberflaeche rief ausgerechnet die Attrappe auf. Zwei Kopien
+       * desselben Vorgangs driften; jetzt gibt es eine. */
+      const versand = await versendeAnNutzer(action, resolvedUserId);
+      if (!versand.ok && versand.grund === "USER_NOT_FOUND") {
+        return res.status(404).json({ error: "USER_NOT_FOUND", message: "User nicht gefunden." });
+      }
+      if (!versand.ok) {
+        return res.status(502).json({
+          error: "SEND_FAILED",
+          message: "Der Versand ist nicht gelungen.",
+          grund: versand.grund
+        });
       }
 
       await insertSupportAudit(pool, {

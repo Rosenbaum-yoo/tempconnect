@@ -128,7 +128,7 @@ Die Gegenrichtung ist der Teil, den man vergisst — sie fängt genau den Fall
 **Gate W2:** Eine Negativprobe belegt jede der vier Richtungen: Element einfügen →
 rot; Beleg entfernen → rot. Ohne Negativprobe zählt der Wächter nicht.
 
-#### Welle W3 — Der Generator
+#### Welle W3 — Der Generator *(erste Stufe steht: die Testzahlen)*
 
 `api/scripts/doku-generieren.js` erzeugt die ableitbaren Teile neu: Endpunktliste,
 Seitenliste, Tabellen, Jobs, Migrationen, Testzahlen.
@@ -140,6 +140,36 @@ wird nach dem ersten Verlust nie wieder benutzt.
 
 **Gate W3:** Zweimal laufen lassen ohne Codeänderung erzeugt **keinen Diff**
 (Idempotenz), und ein kuratierter Absatz überlebt zehn Läufe.
+
+**Stand 2026-08-22 — gebaut, Gate erfüllt, Umfang zunächst die Testzahlen.**
+Anlass war der Beweis, dass die Auslassung nicht hält: der Doku-Wächter hat die
+Zahl der Testdateien bewusst *nicht* geprüft (sie ändert sich mit jedem Test, und
+ein Alarm ohne Ein-Befehl-Fix trainiert das Wegschauen an) — und prompt stand im
+Register an drei Stellen 340, während es 359 waren.
+
+- Aufruf: `npm run doku:generieren` bzw. `npm run doku:pruefen` (aus `api/`).
+- **Engerer Wirkungsbereich als geplant.** Statt „außerhalb kuratierter Blöcke"
+  schreibt der Generator nur zwischen *Wert-Marken*
+  (`<!--zahl:backend-testdateien-->359<!--/zahl-->`). Er kennt weder Absätze noch
+  Tabellen und kann handgeschriebenen Text damit gar nicht erreichen; dieselbe
+  Zahl darf in beliebig vielen Sätzen stehen, der Satz drumherum bleibt frei.
+  Blockmarken bleiben für die späteren Listen (Endpunkte, Seiten) vorgesehen.
+- Idempotenz ohne Sonderfall: ändert sich kein Wert, wird die Datei **gar nicht**
+  geschrieben. Das Stand-Datum wandert nur bei echter Änderung mit — sonst wäre
+  es selbst die Quelle eines Diffs bei jedem Lauf.
+- **Gate belegt** durch `api/test/dokuGenerator.test.js` (11 Tests): zehn Läufe
+  über handgeschriebenen Text (byte-identisch), zweiter Lauf ohne Diff, `--pruefen`
+  schreibt nachweislich nicht, und ein Attrappen-Repo im Temp-Verzeichnis prüft
+  den Schreibpfad, ohne das echte Register anzufassen. Neun Rückmutationen
+  belegen einzeln, dass jede Schicht rot werden kann.
+- Bewusst **nicht** generiert: Zahlen mit einer Ermessensentscheidung darin
+  (Datenbanktabellen ist um einen Kommentar-Treffer bereinigt, Nutzerflächen
+  zählt drei Vite-Einstiegsdateien nicht mit). Was ein Mensch entschieden hat,
+  darf ein Skript nicht überschreiben — solche Zahlen prüft W2, statt sie
+  fortzuschreiben.
+
+**Offen für W3:** Endpunktliste, Seitenliste, Migrationen und Jobs als generierte
+Blöcke. Erst dafür werden die `kuratiert`-Blockmarken gebraucht.
 
 ### Phase B — Zuschnitt je Leser
 

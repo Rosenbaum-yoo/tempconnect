@@ -132,7 +132,21 @@ describe("vendorPoolService — changeTier", () => {
     );
   });
 
-  it("updates tier and writes history", async () => {
+  /*
+   * Z6 (2026-09-27): DIESE PROBEN WAREN GRUEN, WAEHREND NICHTS GESCHRIEBEN WURDE.
+   *
+   * Sie haben den Schreibvorgang nach `vendor_pool_history` festgenagelt - gegen
+   * einen Muster-Pool, der die Abfrage annimmt. Die Tabelle existiert nicht; im
+   * Betrieb hat `swallow` den Wurf gefangen, jede Tier-Aenderung eine Warnung
+   * erzeugt und keinen Verlauf hinterlassen. Nach Paragraph 0.9 ist das der
+   * dokumentierte Ausnahmefall (die Probe kodiert einen Bruch als Soll), also
+   * werden sie ERSETZT: gemessen wird jetzt, dass der Dienst KEINE eigene
+   * Verlaufstabelle mehr anfasst - der Verlauf steht im Audit-Log, geschrieben
+   * von der Route und gelesen von `getHistory` (belegt in
+   * test/integration/lieferantAkteUndVerlauf.flow.test.js an der echten
+   * Datenbank).
+   */
+  it("updates tier — und schreibt KEINE eigene Verlaufszeile mehr", async () => {
     const captured = [];
     const pool = mockPool(async (sql, params) => {
       captured.push({ sql, params });
@@ -150,12 +164,11 @@ describe("vendorPoolService — changeTier", () => {
     const result = await changeTier(pool, 'vp-1', 'PREFERRED', 'actor-1', 'Promoted');
     assert.ok(result);
     assert.strictEqual(result.tier, 'PREFERRED');
-    // History insert should have been called
+    /* Z6: KEINE eigene Verlaufstabelle mehr - siehe Vorwort oben. */
     const historyInsert = captured.find(c => c.sql.includes('vendor_pool_history'));
-    assert.ok(historyInsert, 'History insert should be called');
-    assert.strictEqual(historyInsert.params[1], 'tier');
-    assert.strictEqual(historyInsert.params[2], 'TRIAL');
-    assert.strictEqual(historyInsert.params[3], 'PREFERRED');
+    assert.strictEqual(historyInsert, undefined,
+      'der Dienst schreibt wieder in vendor_pool_history - die Tabelle existiert nicht, '
+      + 'der Verlauf gehoert ins Audit-Log');
   });
 
   it("does NOT write history when tier unchanged", async () => {
@@ -198,7 +211,7 @@ describe("vendorPoolService — changeStatus", () => {
     );
   });
 
-  it("updates status and writes history", async () => {
+  it("updates status — und schreibt KEINE eigene Verlaufszeile mehr", async () => {
     const captured = [];
     const pool = mockPool(async (sql, params) => {
       captured.push({ sql, params });
@@ -213,10 +226,13 @@ describe("vendorPoolService — changeStatus", () => {
     const result = await changeStatus(pool, 'vp-1', 'suspended', 'actor-1', 'Compliance issue');
     assert.ok(result);
     const historyInsert = captured.find(c => c.sql.includes('vendor_pool_history'));
-    assert.ok(historyInsert, 'History insert should be called');
-    assert.strictEqual(historyInsert.params[1], 'status');
-    assert.strictEqual(historyInsert.params[2], 'active');
-    assert.strictEqual(historyInsert.params[3], 'suspended');
+    assert.strictEqual(historyInsert, undefined,
+      'der Dienst schreibt wieder in vendor_pool_history');
+    /* Dass der Wechsel WIRKT, steht in der Zusicherung auf `result` darueber;
+       von-nach und Grund stehen im Audit-Log und werden in
+       test/integration/lieferantAkteUndVerlauf.flow.test.js an der echten
+       Datenbank gelesen. */
+    assert.strictEqual(result.status, 'suspended');
   });
 
   it("does NOT write history when status unchanged", async () => {
@@ -581,9 +597,11 @@ describe("vendorPoolService — getVendorDashboard", () => {
       if (sql.includes('ORDER BY sr.reputation_score ASC')) {
         return { rows: [{ id: 'vp-5', supplier_name: 'Worst Co', reputation_score: 30 }] };
       }
-      // Recent changes
-      if (sql.includes('vendor_pool_history')) {
-        return { rows: [{ id: 'h-1', field_changed: 'tier', old_value: 'TRIAL', new_value: 'PREFERRED' }] };
+      /* Recent changes — Z6: aus dem Audit-Log, nicht aus `vendor_pool_history`
+         (die Tabelle gab es nie, die Abfrage warf und riss die ganze Uebersicht
+         mit). Reine Fixture-Pflege: die Zusicherungen darunter sind unberuehrt. */
+      if (sql.includes('FROM audit_log a') && sql.includes('vendor_pool.tier_change')) {
+        return { rows: [{ field_changed: 'tier', old_value: 'TRIAL', new_value: 'PREFERRED' }] };
       }
       return { rows: [] };
     });
@@ -694,56 +712,49 @@ describe("supplierManagementService — getSupplierProfile", () => {
 // Integration: changeTier triggers history write
 // ═══════════════════════════════════════════════════════
 
-describe("vendorPoolService — Integration: tier change → history", () => {
-  it("writes history record with correct field values", async () => {
-    let historyParams = null;
-    const pool = mockPool(async (sql, params) => {
-      if (sql.includes('SELECT tier FROM vendor_pool')) {
-        return { rows: [{ tier: 'SECONDARY' }] };
-      }
-      if (sql.includes('UPDATE vendor_pool SET tier')) {
-        return { rows: [{ id: 'vp-1', tier: 'PREFERRED' }] };
-      }
-      if (sql.includes('INSERT INTO vendor_pool_history')) {
-        historyParams = params;
-        return { rows: [] };
-      }
+describe("vendorPoolService — Integration: tier-Wechsel schreibt KEINEN eigenen Verlauf", () => {
+  it("fasst vendor_pool_history nicht mehr an", async () => {
+    /* Z6: hier stand eine Probe, die die sechs Parameter des Schreibvorgangs
+       festgenagelt hat - gegen eine Tabelle, die es nicht gibt. Der Gegenstand
+       ist umgedreht: gemessen wird, dass der Dienst sie NICHT mehr anfasst.
+       Was stattdessen passiert (Audit-Eintrag der Route mit alt, neu und Grund),
+       ist an der echten Datenbank belegt:
+       test/integration/lieferantAkteUndVerlauf.flow.test.js. */
+    const gesehen = [];
+    const pool = mockPool(async (sql) => {
+      gesehen.push(sql);
+      if (sql.includes("SELECT tier FROM vendor_pool")) return { rows: [{ tier: "SECONDARY" }] };
+      if (sql.includes("UPDATE vendor_pool SET tier")) return { rows: [{ id: "vp-1", tier: "PREFERRED" }] };
       return { rows: [] };
     });
-
-    await changeTier(pool, 'vp-1', 'PREFERRED', 'actor-1', 'Excellent performance');
-    assert.ok(historyParams, 'History params should be set');
-    assert.strictEqual(historyParams[0], 'vp-1');      // vendor_pool_id
-    assert.strictEqual(historyParams[1], 'tier');        // field_changed
-    assert.strictEqual(historyParams[2], 'SECONDARY');   // old_value
-    assert.strictEqual(historyParams[3], 'PREFERRED');   // new_value
-    assert.strictEqual(historyParams[4], 'actor-1');     // changed_by
-    assert.strictEqual(historyParams[5], 'Excellent performance'); // reason
+    const ergebnis = await changeTier(pool, "vp-1", "PREFERRED", "actor-1", "Grund");
+    assert.strictEqual(ergebnis.tier, "PREFERRED", "der Wechsel wirkt nicht");
+    assert.strictEqual(gesehen.some((s) => s.includes("vendor_pool_history")), false,
+      "der Dienst schreibt wieder in eine Tabelle, die es nicht gibt: "
+      + JSON.stringify(gesehen.filter((s) => s.includes("vendor_pool_history"))));
   });
 });
 
-describe("vendorPoolService — Integration: status change → history", () => {
-  it("writes history record with correct field values", async () => {
-    let historyParams = null;
-    const pool = mockPool(async (sql, params) => {
-      if (sql.includes('SELECT status FROM vendor_pool')) {
-        return { rows: [{ status: 'active' }] };
-      }
-      if (sql.includes('UPDATE vendor_pool SET status')) {
-        return { rows: [{ id: 'vp-1', status: 'suspended' }] };
-      }
-      if (sql.includes('INSERT INTO vendor_pool_history')) {
-        historyParams = params;
-        return { rows: [] };
-      }
+describe("vendorPoolService — Integration: status-Wechsel schreibt KEINEN eigenen Verlauf", () => {
+  it("fasst vendor_pool_history nicht mehr an", async () => {
+    /* Z6: hier stand eine Probe, die die sechs Parameter des Schreibvorgangs
+       festgenagelt hat - gegen eine Tabelle, die es nicht gibt. Der Gegenstand
+       ist umgedreht: gemessen wird, dass der Dienst sie NICHT mehr anfasst.
+       Was stattdessen passiert (Audit-Eintrag der Route mit alt, neu und Grund),
+       ist an der echten Datenbank belegt:
+       test/integration/lieferantAkteUndVerlauf.flow.test.js. */
+    const gesehen = [];
+    const pool = mockPool(async (sql) => {
+      gesehen.push(sql);
+      if (sql.includes("SELECT status FROM vendor_pool")) return { rows: [{ status: "active" }] };
+      if (sql.includes("UPDATE vendor_pool SET status")) return { rows: [{ id: "vp-1", status: "suspended" }] };
       return { rows: [] };
     });
-
-    await changeStatus(pool, 'vp-1', 'suspended', 'actor-1', 'Compliance violation');
-    assert.ok(historyParams);
-    assert.strictEqual(historyParams[1], 'status');
-    assert.strictEqual(historyParams[2], 'active');
-    assert.strictEqual(historyParams[3], 'suspended');
-    assert.strictEqual(historyParams[5], 'Compliance violation');
+    const ergebnis = await changeStatus(pool, "vp-1", "suspended", "actor-1", "Grund");
+    assert.strictEqual(ergebnis.status, "suspended", "der Wechsel wirkt nicht");
+    assert.strictEqual(gesehen.some((s) => s.includes("vendor_pool_history")), false,
+      "der Dienst schreibt wieder in eine Tabelle, die es nicht gibt: "
+      + JSON.stringify(gesehen.filter((s) => s.includes("vendor_pool_history"))));
   });
 });
+

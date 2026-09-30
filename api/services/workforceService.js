@@ -559,6 +559,28 @@ export async function getCompanyLiveWorkforce(pool, companyOrgId, filters = {}) 
       WHERE wal.org_id = $1
         AND wal.is_active = TRUE
         AND wal.worker_confirmation_status NOT IN ('worker_declined','worker_unavailable')
+        /*
+         * Ein ANGEFRAGTER Ersatz ist noch keine Besetzung (8.2, 2026-08-21).
+         *
+         * Seit replaceAssignmentWorker den Ersatz mit pending_confirmation
+         * anlegt statt ihn ungefragt zu binden, wartet die Meldung "Ersatz
+         * gestellt" bewusst bis zur Zusage (Gate aus Welle G4b: erst nach
+         * echter Neubesetzung). Ohne diese Zeile lernt der Kunde es trotzdem
+         * frueher - aus der Tafel. Dann liefe die Verlegung der Meldung leer,
+         * und er plant seine Schicht auf eine Anfrage statt auf eine Zusage.
+         *
+         * Bewusst NUR der Ersatzfall: eine regulaere Zuweisung, die noch auf
+         * Bestaetigung wartet, war hier immer schon sichtbar. Ihr Kunde hat nie
+         * eine Ausfallmeldung bekommen, es gibt also nichts, wovor die Zeile
+         * vorauseilen koennte.
+         *
+         * OHNE BACKTICKS: dieser Kommentar steht INNERHALB eines
+         * Template-Literals. Ein Backtick fuer einen Code-Verweis - im Projekt
+         * sonst ueblich - beendet hier die Zeichenkette. Beim Schreiben genau
+         * so passiert.
+         */
+        AND NOT (wal.ersetzt_link_id IS NOT NULL
+                 AND wal.worker_confirmation_status = 'pending_confirmation')
         AND wal.start_date <= CURRENT_DATE
         AND (wal.end_date IS NULL OR wal.end_date >= CURRENT_DATE)
         AND ${lifecycleStateSql} IN ('active','ends_today')
@@ -683,8 +705,27 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
 
   const { rows } = await pool.query(
     `SELECT wp.id, wp.user_id, wp.first_name, wp.last_name, wp.personnel_number, wp.is_active,
+            /* Marktpraesenz (Welle J2c): der Ausschalter (Mig 200) und ob die
+             * Kraft ueberhaupt materialisierbar ist. Ohne Katalog-Skill ist
+             * sie am Markt UNSICHTBAR — gemessen traf das 30 von 33 Kraeften;
+             * die Tafel muss das zeigen, sonst merkt es niemand. */
+            wp.marktpraesenz_deaktiviert,
+            EXISTS (
+              SELECT 1 FROM worker_profile_skills wps_x
+               WHERE wps_x.worker_profile_id = wp.id
+            ) AS hat_katalog_skill,
+            /* Markt-Profil (Welle J9): Merkmale + Horizont + interne Notiz.
+             * Die Notiz ist hier RICHTIG — dies ist die Agenturtafel, ihre
+             * eigene Flaeche. In den Marktplatz-Feed darf sie nie (Waechter). */
+            wp.markt_merkmale, wp.einsetzbar_bis, wp.dispo_notiz,
             cur.assignment_id, cur.link_id, cur.assignment_status, cur.client_name, cur.start_date,
+            /* Der ENTLEIHER (Welle J8): die AUEG-Frist gilt je Kraft je
+             * Entleiher — ohne diese Kennung koennte die Tafel das Konto
+             * nicht der richtigen Gegenseite zuordnen. */
+            cur.kunde_org_id,
+            cur.kunde_kontakt_name, cur.kunde_kontakt_telefon,
             cur.effective_end_date, cur.lifecycle_state,
+            ersatz.ersatz_link_id,
             abw.id AS absence_id, abw.art AS absence_art,
             abw.von AS absence_von, abw.bis AS absence_bis, abw.notiz AS absence_notiz,
             COALESCE(cur.is_montage, FALSE) AS is_montage,
@@ -725,11 +766,34 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
           * welche der Verknuepfungen gemeint ist. */
          SELECT a.id AS assignment_id, wal.id AS link_id,
                 a.status AS assignment_status, o.name AS client_name,
+                wal.org_id AS kunde_org_id,
                 wal.start_date, wal.is_montage,
+                /* DIE ANSPRECHPERSON BEIM KUNDEN (Plan I, 10b).
+                 *
+                 * Aus dem BEDARF, nicht aus dem Angebot. Die erste Fassung las
+                 * offers.contact_name — und das ist die Ansprechperson des
+                 * ANBIETERS, also derselben Organisation, deren Tafel das hier
+                 * ist. Die Agentur bekam ihre EIGENE Nummer angezeigt. Belegt
+                 * an der Datenbank: assignments.supplier_org_id ist die
+                 * Agentur, und offers.supplier_company_id ist ein Mitglied
+                 * ebendieser Agentur.
+                 *
+                 * Besetzung und Live-Belegschaft sind Anbieter-Flaechen; dort
+                 * gehoert die Nummer des KUNDEN hin. Die Gegenrichtung traegt
+                 * offers.contact_name, wo der Kunde hinsieht.
+                 *
+                 * GEMESSEN 2026-08-23: 61 von 68 Einsaetzen haben weder Bedarf
+                 * noch Deal noch Angebot. Fuer die bleibt das Feld leer — das
+                 * ist keine Luecke dieser Abfrage, sondern eine der Herkunft:
+                 * ein Einsatz ohne Vorgang hat keine Gegenseite, die man
+                 * anrufen koennte. */
+                bedarf.contact_name AS kunde_kontakt_name,
+                bedarf.contact_phone AS kunde_kontakt_telefon,
                 ${effEndSql} AS effective_end_date, ${lifecycleStateSql} AS lifecycle_state
            FROM worker_assignment_links wal
            JOIN assignments a ON a.id = wal.assignment_id
            LEFT JOIN organizations o ON o.id = a.org_id
+           LEFT JOIN demand_requests bedarf ON bedarf.id = a.demand_request_id
           WHERE wal.worker_user_id = wp.user_id
             AND wal.supplier_org_id = $1
             AND wal.is_active = TRUE
@@ -737,6 +801,58 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
           ORDER BY ${effEndSql} ASC NULLS LAST
           LIMIT 1
        ) cur ON TRUE
+       LEFT JOIN LATERAL (
+         /*
+          * DER OFFENE ERSATZBEDARF (8.2, 2026-08-21).
+          *
+          * Die cur-LATERAL oben findet nur AKTIVE Verknuepfungen. Faellt jemand aus,
+          * steht seine auf is_active = FALSE - die Zeile verliert ihre link_id,
+          * und der Knopf "Ersatz suchen" verschwindet. Solange der erste Ersatz
+          * gleich gebunden wurde, fiel das nicht auf. Seit er absagen darf, ist
+          * es die haeufigste Sackgasse: nach der Absage gibt es keinen Weg
+          * zurueck zur Zeile.
+          *
+          * Diese LATERAL findet genau den liegengebliebenen Link - und nur,
+          * wenn KEIN lebender Ersatz daran haengt. Laeuft bereits eine Anfrage,
+          * bleibt der Knopf weg: sonst boete die Oberflaeche etwas an, das der
+          * Riegel in replaceAssignmentWorker mit REPLACEMENT_PENDING abweist,
+          * und ein Knopf, der das erst nach dem Klick sagt, ist eine Sackgasse.
+          *
+          * supplier_org_id = $1 auch hier: die Mandantengrenze gilt in JEDER
+          * Unterabfrage, nicht nur in der ersten.
+          */
+         SELECT wal.id AS ersatz_link_id
+           FROM worker_assignment_links wal
+           JOIN assignments a ON a.id = wal.assignment_id
+          WHERE wal.worker_user_id = wp.user_id
+            AND wal.supplier_org_id = $1
+            AND wal.is_active = FALSE
+            AND wal.worker_confirmation_status = 'worker_unavailable'
+            /*
+             * Der Lebenszyklus des EINSATZES — ausdruecklich der Baustein OHNE
+             * Link-Alias (Zeile 23). Die erste Fassung nahm hier dieselbe
+             * lifecycleStateSql wie die cur-LATERAL, und die traegt bei
+             * gesetztem linkAlias WHEN wal.is_active = FALSE THEN 'archived'
+             * (assignmentLifecycleService.js:122). Zusammen mit dem
+             * wal.is_active = FALSE zwei Zeilen weiter oben schloss sich das
+             * aus: die LATERAL konnte KEINE Zeile liefern, der Knopf "Ersatz
+             * suchen" kam nach einer Absage nie zurueck. An der Datenbank
+             * gemessen (2026-08-24): 1 Kandidat, 0 Treffer.
+             *
+             * Gemeint war immer: lebt der EINSATZ noch? Der LINK ist
+             * absichtlich tot — das ist ja der Ausfall.
+             */
+            AND ${workforceAssignmentLifecycleStateSql} IN ('active', 'ends_today')
+            AND NOT EXISTS (
+              SELECT 1 FROM worker_assignment_links nachf
+               WHERE nachf.ersetzt_link_id = wal.id
+                 AND nachf.is_active = TRUE
+                 AND nachf.worker_confirmation_status
+                     IN ('pending_confirmation','worker_confirmed','auto_confirmed')
+            )
+          ORDER BY wal.unavailable_reported_at DESC NULLS LAST
+          LIMIT 1
+       ) ersatz ON TRUE
        LEFT JOIN (
          SELECT worker_user_id, COUNT(*) AS pending_count
            FROM worker_time_submissions

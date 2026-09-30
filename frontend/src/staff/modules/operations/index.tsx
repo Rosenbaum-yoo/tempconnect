@@ -67,6 +67,8 @@ interface ServiceHealth {
 }
 
 interface OperationsData {
+  mail_versand?: MailVersand | null;
+  betriebs_takt?: BetriebsTakt | null;
   generated_at?:   string;
   infra_health:    InfraSnapshot[];
   recent_runs:     RunbookRun[];
@@ -224,6 +226,299 @@ function MiniBar({ pct, tone }: { pct: number | null; tone: string }) {
 
 // ─── Component ───────────────────────────────────────────────
 
+/* ── M1.1 · Der Betriebstakt ──────────────────────────────────────────────
+   Die Frage "laeuft das noch?" gehoert hierher und nicht in ein eigenes Modul:
+   sie ist genau die Frage, wegen der jemand Operations aufschlaegt.
+
+   Der wichtigste Zustand ist STILL — eine Aufgabe, die noch nie lief. Genau so
+   ist die Marktplatz-Automatik ein Jahr lang durchgerutscht: nichts war alt,
+   nichts war rot, es war einfach nichts da. Deshalb steht sie hier ganz oben
+   und in der auffaelligsten Farbe. */
+
+type TaktAufgabe = {
+  aufgabe: string;
+  zustand: "still" | "spaet" | "fehler" | "ok";
+  minuten_her: number | null;
+  soll_min: number | null;
+  zweck: string | null;
+  dauer_ms?: number | null;
+  laeufe?: number;
+  fehler_in_folge?: number;
+  letzter_fehler?: string | null;
+  quelle?: string | null;
+  grund: string | null;
+};
+
+type BetriebsTakt = {
+  ueberwacht: TaktAufgabe[];
+  beobachtet: { aufgabe: string; minuten_her: number | null; ergebnis: string;
+                laeufe: number; quelle: string | null }[];
+  zusammenfassung: { ueberwacht: number; still: number; spaet: number;
+                     fehler: number; ok: number; beobachtet: number };
+  toleranz: number;
+};
+
+const TAKT_TEXT: Record<TaktAufgabe["zustand"], string> = {
+  still:  "nie gelaufen",
+  spaet:  "überfällig",
+  fehler: "letzter Lauf gescheitert",
+  ok:     "läuft"
+};
+
+/* Der stille Zustand bekommt den schärfsten Ton, nicht den mildesten: „nie
+   gelaufen" ist der Zustand, der ein Jahr lang unbemerkt bleiben kann. */
+const TAKT_TON: Record<TaktAufgabe["zustand"], string> = {
+  still:  "critical",
+  spaet:  "warn",
+  fehler: "error",
+  ok:     "ok"
+};
+
+/** Aus Minuten wird eine Angabe, die ein Mensch liest. */
+function seit(minuten: number | null): string {
+  if (minuten == null) return "—";
+  if (minuten < 60) return `vor ${minuten} min`;
+  if (minuten < 1440) return `vor ${Math.round(minuten / 60)} h`;
+  return `vor ${Math.round(minuten / 1440)} d`;
+}
+
+function BetriebsTaktKachel({ takt }: { takt: BetriebsTakt | null }) {
+  if (!takt) {
+    /* Kein stiller Leerzustand: dass der Takt NICHT gelesen werden konnte, ist
+       selbst ein Befund — und von „alles in Ordnung" nicht zu unterscheiden,
+       wenn hier nichts steht. */
+    return (
+      <>
+        <div className="scc-section__header" style={{ marginTop: 0 }}>
+          <h2 className="scc-section__title" style={{ fontSize: 14 }}>Betriebstakt</h2>
+        </div>
+        <div className="scc-error-inline" style={{ marginBottom: 28 }}>
+          Der Betriebstakt konnte nicht gelesen werden. Das ist ein Befund, keine
+          Entwarnung — solange er fehlt, ist unbekannt, ob die Automatismen laufen.
+        </div>
+      </>
+    );
+  }
+
+  const z = takt.zusammenfassung;
+  const dringend = takt.ueberwacht.filter((a) => a.zustand !== "ok");
+
+  return (
+    <>
+      <div className="scc-section__header" style={{ marginTop: 0 }}>
+        <h2 className="scc-section__title" style={{ fontSize: 14 }}>Betriebstakt</h2>
+        <span className="scc-muted" style={{ fontSize: 12 }}>
+          {z.ueberwacht} überwacht · überfällig ab Intervall × {takt.toleranz}
+        </span>
+      </div>
+
+      <div className="scc-grid" style={{ marginBottom: 16 }}>
+        <div className={`scc-card${z.ok > 0 ? " scc-card--ok" : ""}`}>
+          <div className="scc-card__eyebrow">Laufen im Takt</div>
+          <div className="scc-card__value">{z.ok}</div>
+        </div>
+        <div className={`scc-card${z.spaet > 0 ? " scc-card--warn" : ""}`}>
+          <div className="scc-card__eyebrow">Überfällig</div>
+          <div className="scc-card__value">{z.spaet}</div>
+        </div>
+        <div className={`scc-card${z.fehler > 0 ? " scc-card--danger" : ""}`}>
+          <div className="scc-card__eyebrow">Gescheitert</div>
+          <div className="scc-card__value">{z.fehler}</div>
+        </div>
+        <div className={`scc-card${z.still > 0 ? " scc-card--danger" : ""}`}>
+          <div className="scc-card__eyebrow">Nie gelaufen</div>
+          <div className="scc-card__value">{z.still}</div>
+          <div className="scc-card__hint">
+            {z.still > 0 ? "Automatik ist nie angesprungen" : "alle Aufgaben kennen einen Lauf"}
+          </div>
+        </div>
+      </div>
+
+      {dringend.length === 0 ? (
+        <div className="scc-empty-state" style={{ marginBottom: 28 }}>
+          <div className="scc-empty-state__icon">○</div>
+          <div className="scc-empty-state__text">
+            Alle {z.ueberwacht} überwachten Aufgaben laufen im Takt.
+          </div>
+        </div>
+      ) : (
+        <table className="scc-table" style={{ marginBottom: 28 }}>
+          <thead>
+            <tr>
+              <th>Aufgabe</th><th>Zustand</th><th>Zuletzt</th><th>Soll</th><th>Befund</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dringend.map((a) => (
+              <tr key={a.aufgabe}>
+                <td>
+                  <strong>{a.aufgabe}</strong>
+                  {a.zweck ? (
+                    <div className="scc-muted" style={{ fontSize: 11 }}>{a.zweck}</div>
+                  ) : null}
+                </td>
+                <td>
+                  <span className={`scc-status scc-status--${TAKT_TON[a.zustand]}`}>
+                    {TAKT_TEXT[a.zustand]}
+                  </span>
+                </td>
+                <td>{seit(a.minuten_her)}</td>
+                <td>{a.soll_min != null ? `alle ${a.soll_min} min` : "—"}</td>
+                <td className="scc-muted">{a.grund || a.letzter_fehler || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {takt.beobachtet.length > 0 ? (
+        <div className="scc-muted" style={{ fontSize: 12, marginTop: -16, marginBottom: 28 }}>
+          Dazu {takt.beobachtet.length} Aufgabe(n), die laufen, ohne überwacht zu
+          sein — zuletzt {seit(takt.beobachtet[0]?.minuten_her ?? null)}.
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+/* ── M1.3 · Das Versandprotokoll ──────────────────────────────────────────
+   Dieselbe Frage wie beim Betriebstakt, nur fuer Mails: was SCHWEIGT?
+
+   Ein Zweck, zu dem in sieben Tagen kein einziger Versuch lief, hat in der
+   Tabelle keine Zeile — er faellt aus jeder Abfrage heraus. Deshalb kommt die
+   Liste der erwarteten Zwecke aus dem Code (ZWECKE_ERWARTET), und der Dienst
+   fuellt sie auf. "stumm" ist der Befund, "keine Zeile" waere es nicht.
+
+   Und "ohne Versandweg" zaehlt getrennt von "fehlgeschlagen": das erste ist
+   ein Konfigurationsfehler, das zweite ein Betriebsvorfall. Sie brauchen
+   verschiedene Antworten, also stehen sie in verschiedenen Spalten. */
+
+type MailZweck = {
+  zweck: string;
+  erwartet: boolean;
+  versucht: number;
+  zugestellt: number;
+  fehlgeschlagen: number;
+  ohne_versandweg: number;
+  stumm: boolean;
+  letzte_um: string | null;
+  letzter_weg: string | null;
+  letzter_fehler: string | null;
+  auffaellig: boolean;
+};
+
+type MailVersand = {
+  verfuegbar: boolean;
+  fenster_tage: number;
+  zwecke: MailZweck[];
+  zusammenfassung: {
+    zwecke: number; versucht: number; zugestellt: number;
+    fehlgeschlagen: number; ohne_versandweg: number; stumm: number;
+  };
+};
+
+function MailVersandKachel({ mail }: { mail: MailVersand | null }) {
+  if (!mail || !mail.verfuegbar) {
+    /* Nicht lesbar ist ein Befund, keine Entwarnung — dieselbe Regel wie
+       beim Betriebstakt. Ein leeres Feld sieht aus wie "alles in Ordnung". */
+    return (
+      <>
+        <div className="scc-section__header" style={{ marginTop: 0 }}>
+          <h2 className="scc-section__title" style={{ fontSize: 14 }}>Mailversand</h2>
+        </div>
+        <div className="scc-error-inline" style={{ marginBottom: 28 }}>
+          Das Versandprotokoll konnte nicht gelesen werden. Solange es fehlt, ist
+          unbekannt, ob Einladungen und Zahlungserinnerungen ankommen.
+        </div>
+      </>
+    );
+  }
+
+  const z = mail.zusammenfassung;
+  const auffaellig = mail.zwecke.filter((x) => x.auffaellig);
+
+  return (
+    <>
+      <div className="scc-section__header" style={{ marginTop: 0 }}>
+        <h2 className="scc-section__title" style={{ fontSize: 14 }}>Mailversand</h2>
+        <span className="scc-muted" style={{ fontSize: 12 }}>
+          {z.zwecke} Zwecke · letzte {mail.fenster_tage} Tage
+        </span>
+      </div>
+
+      <div className="scc-grid" style={{ marginBottom: 16 }}>
+        <div className={`scc-card${z.zugestellt > 0 ? " scc-card--ok" : ""}`}>
+          <div className="scc-card__eyebrow">Zugestellt</div>
+          <div className="scc-card__value">{z.zugestellt}</div>
+          <div className="scc-card__hint">von {z.versucht} Versuchen</div>
+        </div>
+        <div className={`scc-card${z.fehlgeschlagen > 0 ? " scc-card--warn" : ""}`}>
+          <div className="scc-card__eyebrow">Fehlgeschlagen</div>
+          <div className="scc-card__value">{z.fehlgeschlagen}</div>
+        </div>
+        <div className={`scc-card${z.ohne_versandweg > 0 ? " scc-card--danger" : ""}`}>
+          <div className="scc-card__eyebrow">Ohne Versandweg</div>
+          <div className="scc-card__value">{z.ohne_versandweg}</div>
+          <div className="scc-card__hint">
+            {z.ohne_versandweg > 0
+              ? "nie versucht — kein Transport konfiguriert"
+              : "jeder Versuch hatte einen Weg"}
+          </div>
+        </div>
+        <div className={`scc-card${z.stumm > 0 ? " scc-card--warn" : ""}`}>
+          <div className="scc-card__eyebrow">Stumme Zwecke</div>
+          <div className="scc-card__value">{z.stumm}</div>
+          <div className="scc-card__hint">erwartet, aber kein Versuch</div>
+        </div>
+      </div>
+
+      {auffaellig.length === 0 ? (
+        <div className="scc-empty-state" style={{ marginBottom: 28 }}>
+          <div className="scc-empty-state__icon">○</div>
+          <div className="scc-empty-state__text">
+            Alle erwarteten Zwecke haben in den letzten {mail.fenster_tage} Tagen
+            zugestellt.
+          </div>
+        </div>
+      ) : (
+        <table className="scc-table" style={{ marginBottom: 28 }}>
+          <thead>
+            <tr>
+              <th>Zweck</th><th>Befund</th><th>Zugestellt</th>
+              <th>Ohne Weg</th><th>Letzter Fehler</th>
+            </tr>
+          </thead>
+          <tbody>
+            {auffaellig.map((x) => (
+              <tr key={x.zweck}>
+                <td>
+                  <strong>{x.zweck}</strong>
+                  {x.letzter_weg ? (
+                    <div className="scc-muted" style={{ fontSize: 11 }}>zuletzt via {x.letzter_weg}</div>
+                  ) : null}
+                </td>
+                <td>
+                  <span className={`scc-status scc-status--${
+                    x.ohne_versandweg > 0 ? "critical"
+                      : x.stumm ? "warn"
+                        : x.fehlgeschlagen > 0 ? "error" : "ok"}`}>
+                    {x.ohne_versandweg > 0 ? "ohne Versandweg"
+                      : x.stumm ? "kein Versuch"
+                        : `${x.fehlgeschlagen} fehlgeschlagen`}
+                  </span>
+                </td>
+                <td>{x.zugestellt} / {x.versucht}</td>
+                <td>{x.ohne_versandweg}</td>
+                <td className="scc-muted">{x.letzter_fehler || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </>
+  );
+}
+
 export default function Operations() {
   const { data, loading, error, reload } = useSccQuery<OperationsData>("/operations");
 
@@ -235,6 +530,8 @@ export default function Operations() {
     </div>
   );
 
+  const takt   = data?.betriebs_takt ?? null;
+  const mail   = data?.mail_versand ?? null;
   const infra  = data?.infra_health ?? [];
   const runs   = data?.recent_runs  ?? [];
   const health = data?.service_health ?? null;
@@ -264,6 +561,10 @@ export default function Operations() {
           </button>
         </div>
       </div>
+
+      <BetriebsTaktKachel takt={takt} />
+
+      <MailVersandKachel mail={mail} />
 
       {/* ── Live-Service-Health (Phase I Slice 2) ───────────── */}
       {health && (

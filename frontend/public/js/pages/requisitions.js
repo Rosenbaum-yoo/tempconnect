@@ -287,7 +287,7 @@ TCi18n.register('en', {
   'req.error.network': 'Network error or server unreachable.'
 });
 
-function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
 
 /* Naechster operativer Schritt je Requisition-Status — Inline-Guidance auf der Zeile
    ("jeder weiss was als Naechstes zu tun ist"), analog zu .dm-card__nextstep bei Deals.

@@ -1,0 +1,74 @@
+Bausteine fuer PDF/A-3b (Welle J7, angelegt 2026-08-29)
+=======================================================
+
+Warum diese Dateien hier liegen und nicht woanders
+--------------------------------------------------
+api/.dockerignore schliesst test/, scripts/ und *.md aus. Dort abgelegt kaemen
+die Dateien NIE ins Produktionsabbild — und weil der api-Dienst in
+docker-compose.prod.yml keinen Bind-Mount hat, faellt das erst im Betrieb auf.
+api/assets/ wird von "COPY . ." (api/Dockerfile:16) mitgenommen.
+
+Diese Datei heisst bewusst HERKUNFT.txt und nicht README.md: *.md steht in
+der .dockerignore, die Herkunftsangabe waere im Abbild sonst verschwunden.
+
+
+Warum es sie ueberhaupt braucht
+-------------------------------
+PDF/A verlangt, dass JEDE zum Rendern benutzte Schrift vollstaendig im
+Dokument eingebettet ist. Die Ausnahme fuer die 14 Standardschriften (Helvetica,
+Times, Courier) gilt dort NICHT — ein Dokument, das Helvetica nur referenziert,
+verletzt die Einbettungspflicht (veraPDF-Regel 6.2.11.4.1-1). pdf-lib kann eine
+TTF nur mit @pdf-lib/fontkit einbetten; darum die zusaetzliche Abhaengigkeit.
+
+Ausserdem verlangt PDF/A ein eingebettetes ICC-Zielprofil, sobald DeviceRGB
+oder DeviceGray ohne Standardfarbraum verwendet wird — und jeder gezeichnete
+Text landet in DeviceGray. Ein blosser Verweis genuegt nicht;
+/DestOutputProfileRef ist ausdruecklich verboten.
+
+
+Die Dateien
+-----------
+
+LiberationSans-Regular.ttf   410712 Byte
+LiberationSans-Bold.ttf      414456 Byte
+  Liberation Fonts 2.1.5
+  Herkunft: https://github.com/liberationfonts/liberation-fonts
+            liberation-fonts-ttf-2.1.5.tar.gz
+  Lizenz:   SIL Open Font License 1.1 -> LIBERATION-LICENSE.txt
+            Die OFL verlangt, dass die Lizenz mitgeliefert wird. Das Repo ist
+            oeffentlich; die Datei ist deshalb Pflicht, nicht Kuer.
+  Warum diese Schrift: metrisch kompatibel zu Helvetica/Arial. Das bestehende
+            Rechnungslayout ist auf Helvetica-Breiten gesetzt und verrutscht
+            dadurch nicht. Im erzeugten PDF landen dank Subsetting nur wenige
+            Kilobyte pro Rechnung, nicht die vollen 800 KB.
+  SHA256:   76d04c18ea243f426b7de1f3ad208e927008f961dc5945e5aad352d0dfde8ee8  (Regular)
+            788abee4c806d660e8aee46689dd8540cd4bb98da03dcc9d171ce3efd99a9173  (Bold)
+
+sRGB-v2-micro.icc            456 Byte
+  Compact ICC Profiles
+  Herkunft: https://github.com/saucecontrol/Compact-ICC-Profiles
+            profiles/sRGB-v2-micro.icc
+  Lizenz:   CC0-1.0 (gemeinfrei) -> ICC-LICENSE-CC0.txt
+  Geprueft am 2026-08-29 gegen die veraPDF-Anforderung 6.2.3-1:
+            Device Class  mntr   (verlangt: mntr oder prtr)
+            Farbraum      "RGB " (verlangt: "RGB ", "CMYK" oder "GRAY")
+            Fassung       2.1    (verlangt: kleiner als 5.0)
+            Groesse im Header stimmt mit der Dateigroesse ueberein.
+            Diese Pruefung laeuft bei jeder Erzeugung erneut
+            (services/pdfa/index.js, pruefeIccProfil) und bei jedem Testlauf
+            (test/pdfaAssets.test.js) — ein stillschweigend ausgetauschtes
+            Profil faellt damit auf, bevor ein Beleg das Haus verlaesst.
+  SHA256:   0a8a33aea66a6f154a5642ebe168ef287e73265d9f7b51c42a45e6eedbacda7a
+
+
+Wenn eine dieser Dateien ersetzt wird
+-------------------------------------
+Die SHA256-Werte stehen in test/pdfaAssets.test.js. Ein Austausch ohne
+Anpassung dort laesst den Testlauf rot werden — das ist Absicht: eine
+stillschweigend andere Schrift aendert das Aussehen jeder Rechnung, ein
+stillschweigend anderes Farbprofil kann die PDF/A-Konformitaet brechen. Beides
+soll jemand bewusst tun, nicht versehentlich.
+
+Nach jeder Aenderung an den Dateien ODER an der PDF-Huelle:
+    npm run test:pdfa      (veraPDF, braucht Docker)
+Ohne diesen Lauf ist "PDF/A-3b" eine Behauptung, kein Nachweis.

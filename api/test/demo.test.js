@@ -41,6 +41,17 @@ function mockLogger() {
 }
 
 function mockReq(body = {}, session = {}) {
+  /* `regenerate` gehoert zur Attrappe, seit der Demo-Login die Sitzung neu
+   * erzeugt (8.1.1): ohne `regenerate` erbte die Sitzung den `_orgCache` des
+   * zuvor angemeldeten Kontos, und `req.orgId` zeigte fuer den Demo-Nutzer auf
+   * eine fremde Organisation. Die Attrappe raeumt wie express-session: alles
+   * vor dem Aufruf Gesetzte ist danach weg. */
+  session.regenerate = (cb) => {
+    for (const schluessel of Object.keys(session)) {
+      if (schluessel !== "regenerate") delete session[schluessel];
+    }
+    cb(null);
+  };
   return { body, session };
 }
 

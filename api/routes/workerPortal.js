@@ -582,6 +582,56 @@ export function createWorkerPortalRouter(deps) {
         entity_id: req.session.userId,
         details: { skill_count: result.count }
       };
+
+      /*
+       * ═══════════════════════════════════════════════════════════════════
+       * M4.8 — DER ANSTOSS AN DIE FIRMA
+       * ═══════════════════════════════════════════════════════════════════
+       *
+       * Bis hierher endete der Weg. Der Mensch speicherte seine Faehigkeiten,
+       * und niemand erfuhr davon: die Freigabe liegt bei der Zeitarbeitsfirma,
+       * aber sie bekam kein Signal. Der Veroeffentlichungsweg selbst ist fertig
+       * (`setzeMarktpraesenz` legt synchron je Katalog-Faehigkeit einen Eintrag
+       * an) — es fehlte nur der Anstoss.
+       *
+       * NUR BEI FAEHIGKEITEN, DIE ES IN DEN MARKT SCHAFFEN KOENNEN. Ein
+       * Vorschlag wartet auf Kuratierung und erzeugt keinen Eintrag; ihn zur
+       * Freigabe zu melden waere eine Aufforderung zu einem Klick, der nichts
+       * bewirkt. `result.count` zaehlt die zugeordneten Katalog-Faehigkeiten.
+       *
+       * DER FEHLSCHLAG DARF DAS SPEICHERN NICHT GEFAEHRDEN. Die Faehigkeiten
+       * sind geschrieben; eine Meldung, die daran scheitert, waere der
+       * schlechteste Tausch. Deshalb geschluckt und protokolliert — dieselbe
+       * Entscheidung wie beim Herzschlag der Takte.
+       */
+      if (result.count > 0) {
+        try {
+          const [{ dispatch, findOrgMembersWithPermission }] = await Promise.all([
+            import("../services/notificationMatrix.js")
+          ]);
+          const empfaenger = await findOrgMembersWithPermission(
+            pool, profile.supplier_org_id, "worker.edit");
+          if (empfaenger.length) {
+            await dispatch(pool, "worker.skills_awaiting_release", {
+              recipientUserIds: empfaenger,
+              orgId: profile.supplier_org_id,
+              entityType: "worker_profile",
+              entityId: profile.id,
+              message: `${profile.first_name || ""} ${profile.last_name || ""}`.trim()
+                + ` hat ${result.count} Faehigkeit${result.count === 1 ? "" : "en"} `
+                + "eingetragen. Ein Klick auf \u201eIm Marktplatz zeigen\u201c "
+                + "veroeffentlicht sie sofort."
+            });
+          }
+        } catch (e) {
+          /* `deps.logger`, nicht `logger`: diese Datei bindet den Protokoll-Dienst
+             nicht ein — der Nachbarcode nutzt denselben Weg. Ein Fehlerpfad, der
+             selbst wirft, ist der schlechteste Ort fuer einen Tippfehler. */
+          deps.logger?.warn?.({ err: e?.message, workerProfileId: profile.id },
+            "Freigabe-Hinweis an die Firma konnte nicht zugestellt werden");
+        }
+      }
+
       res.json({ ok: true, count: result.count, skill_ids: result.skill_ids });
     } catch (err) { next(err); }
   });
@@ -1241,8 +1291,59 @@ export function createWorkerPortalRouter(deps) {
           pool, result.link.created_by, result.link.id, workerName
         );
       }
-      res.locals.audit = { action: "worker_assignment.confirm", entity_type: "worker_assignment_link", entity_id: req.params.id };
-      res.json(result);
+      /* ── Ersatz an den Kunden (Welle G4b, hierher verlegt in 8.2) ────────
+       *
+       * Das Gate von G4b lautet: "die Ersatz-Meldung geht erst nach echter
+       * Neubesetzung raus" — der Kunde plant auf diese Meldung hin seine
+       * Schicht, und ein Versprechen laesst sich nicht zurueckrollen.
+       *
+       * Bis 2026-08-21 stand sie in `POST /worker-assignment-links/:id/replace`.
+       * Das war damals richtig: der Ersatz-Link war `auto_confirmed`, die
+       * Besetzung mit dem Zuweisen also vollzogen. Seit der Ersatz ZUSAGEN muss,
+       * ist sie erst HIER eine Tatsache — vorher war sie eine Anfrage.
+       *
+       * `ersetzt_link_id` sagt, dass dieser Einsatz ein Ersatz ist und fuer wen
+       * (Migration 188). Bei einer regulaeren Zuweisung ist sie NULL und es
+       * passiert nichts — der Kunde hat dort nie einen Ausfall gemeldet bekommen.
+       *
+       * Fire-and-forget nach dem Schreiben, wie die Meldung an den Disponenten
+       * darueber: eine fehlgeschlagene Benachrichtigung darf die Zusage nicht
+       * zurueckdrehen. */
+      let kundeInformiert = 0;
+      if (result.link.ersetzt_link_id) {
+        try {
+          const supplierOrgId = result.link.supplier_org_id;
+          const original = await workerService.getAssignmentLink(pool, result.link.ersetzt_link_id);
+          const ausgefallen = original
+            ? await abwesenheit.profilZuNutzer(pool, supplierOrgId, original.worker_user_id)
+            : null;
+          if (ausgefallen) {
+            const ersatz = await abwesenheit.profilZuNutzer(pool, supplierOrgId, req.session.userId);
+            const einsatz = await abwesenheit.einsatzFuerKundenmeldung(
+              pool, supplierOrgId, result.link.assignment_id
+            );
+            if (einsatz) {
+              const k = await abwesenheit.benachrichtigeKunde(pool, supplierOrgId, {
+                anlass: "ersatz",
+                workerProfileId: ausgefallen.id,
+                einsaetze: [einsatz],
+                ersatzName: ersatz ? ersatz.name : null,
+              });
+              kundeInformiert = k.benachrichtigt;
+            }
+          }
+        } catch (e) {
+          deps.logger?.error?.({ err: e?.message }, "worker_assignment.confirm: Kundenmeldung fehlgeschlagen");
+        }
+      }
+
+      res.locals.audit = {
+        action: "worker_assignment.confirm",
+        entity_type: "worker_assignment_link",
+        entity_id: req.params.id,
+        details: { ersatz_fuer: result.link.ersetzt_link_id || null, kunde_informiert: kundeInformiert }
+      };
+      res.json({ ...result, kunde_informiert: kundeInformiert });
     } catch (err) { next(err); }
   });
 

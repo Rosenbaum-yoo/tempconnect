@@ -13,7 +13,10 @@ const suggestQuerySchema = z.object({
   role: z.string().min(1).max(200).optional(),
   region: z.string().min(1).max(200).optional(),
   urgency: z.enum(["normal", "high", "urgent", "critical", "notdienst"]).optional().default("normal"),
-  context: z.enum(["supply", "demand", "offer"]).optional()
+  context: z.enum(["supply", "demand", "offer"]).optional(),
+  /* N7.2 — der eigene Satz in Cent. Optional: ohne ihn liefert der Motor
+     wie bisher nur die Spanne. `coerce`, weil Abfrageparameter Text sind. */
+  own_price_cents: z.coerce.number().int().positive().max(1000000).optional()
 }).refine(d => d.role || d.region, { message: "Mindestens role oder region angeben." });
 
 /**
@@ -36,13 +39,14 @@ export function createSmartPricingRouter(deps) {
         });
       }
 
-      const { role, region, urgency, context } = parsed.data;
+      const { role, region, urgency, context, own_price_cents: ownPriceCents } = parsed.data;
 
       const result = await smartPricingService.getSuggestion(pool, {
         role,
         region,
         urgency,
-        context
+        context,
+        ownPriceCents
       });
 
       if (result.error) {

@@ -37,7 +37,7 @@ function buildMockPool({ supplyRows, demandRows, plans = [], reputations = [] })
           }))
         };
       }
-      if (sql.includes("FROM demand_requests dr") && sql.includes("ORDER BY COALESCE(dr.updated_at, dr.created_at) DESC")) {
+      if (sql.includes("FROM demand_requests dr") && sql.includes("sort_date DESC, dr.id DESC")) {
         const companyOnly = sql.includes("u.role = 'company'");
         return { rows: companyOnly ? demandRows.filter(r => r.supplier_role === "company") : demandRows };
       }
@@ -184,7 +184,7 @@ describe("capacity feed ranking hierarchy", () => {
         if (sql.includes("FROM capacity_posts cp") && sql.includes("ORDER BY sort_date DESC")) {
           return { rows: [] };
         }
-        if (sql.includes("FROM demand_requests dr") && sql.includes("ORDER BY COALESCE(dr.updated_at, dr.created_at) DESC")) {
+        if (sql.includes("FROM demand_requests dr") && sql.includes("sort_date DESC, dr.id DESC")) {
           demandListSql = sql;
           return {
             rows: [{
@@ -247,7 +247,7 @@ describe("capacity feed ranking hierarchy", () => {
           demandCountSql = sql;
           return { rows: [{ cnt: 0 }] };
         }
-        if (sql.includes("FROM demand_requests dr") && sql.includes("ORDER BY COALESCE(dr.updated_at, dr.created_at) DESC")) {
+        if (sql.includes("FROM demand_requests dr") && sql.includes("sort_date DESC, dr.id DESC")) {
           demandListSql = sql;
           return { rows: [] };
         }
@@ -258,7 +258,16 @@ describe("capacity feed ranking hierarchy", () => {
       }
     };
 
-    await browseFeed(pool, { viewer_role: "agency", availability_window: "immediate", availability_from: "2026-04-15", limit: 25, page: 1 });
+    /* Zwei Betrachter statt einem (nachgezogen in N2.7). Hier stand nur eine
+       Zeitarbeitsfirma — und die Probe setzte damit voraus, dass sie ANGEBOTE
+       holt, die sie nie sieht. Genau das war der Fehler: diese Zeilen
+       verbrauchten ihre Seite und flogen danach wieder raus. Seit N2.7 holt
+       jede Rolle nur ihre eigene Marktseite. Die Zusage dieser Probe — das
+       Fenster "sofort" steht in BEIDEN Abfragen — bleibt unveraendert; sie wird
+       mit dem Betrachter geprueft, der die jeweilige Seite wirklich holt. */
+    const fenster = { availability_window: "immediate", availability_from: "2026-04-15", limit: 25, page: 1 };
+    await browseFeed(pool, { viewer_role: "company", ...fenster });
+    await browseFeed(pool, { viewer_role: "agency", ...fenster });
     assert.match(supplyCountSql, /cp\.availability_from <=/);
     assert.match(supplyCountSql, /cp\.availability_to/);
     assert.match(supplyListSql, /cp\.availability_from <=/);

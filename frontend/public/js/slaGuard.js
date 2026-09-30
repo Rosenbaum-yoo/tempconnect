@@ -32,14 +32,20 @@
     sla_access: "Pulse-Bereich",
     sla_profile: "Profil",
     sla_proofs: "Nachweise",
-    sla_offers_create: "Angebote erstellen"
+    sla_offers_create: "Angebote erstellen",
+    /* M1.5: ohne Eintrag zeigt die Paywall den technischen Schluessel —
+       "capacity_exchange_create" statt "Kapazitaet einstellen". */
+    capacity_exchange_create: "Kapazität einstellen",
+    marketplace_demand_create: "Bedarf veröffentlichen"
   };
 
   var FEATURE_LABELS_EN = {
     sla_access: "Pulse area",
     sla_profile: "Profile",
     sla_proofs: "Proofs",
-    sla_offers_create: "Create offers"
+    sla_offers_create: "Create offers",
+    capacity_exchange_create: "Post capacity",
+    marketplace_demand_create: "Publish demand"
   };
 
   var registered = false;

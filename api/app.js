@@ -13,6 +13,15 @@ import path from "path";
 import cors from "cors";
 import helmet from "helmet";
 import { createTransport } from "nodemailer";
+import { mitRahmen } from "./services/emailHtmlTemplates.js";
+/* M1.3 — der Riegel gegen den stillen Versand und das Protokoll je Zweck.
+ * Beide Mailwege benutzen dieselbe Entscheidung: zwei Mechaniken fuer
+ * dieselbe Zusage waeren genau der Zustand, den M1.3 abschafft. */
+import { versandwegPflicht } from "./services/emailProviderService.js";
+import {
+  mailNotieren, KeinVersandweg, ZWECK_UNBENANNT
+} from "./services/mailProtokollService.js";
+import { sendMail as emailServiceSendMail } from "./services/emailService.js";
 import Stripe from "stripe";
 import { config, logger, runProductionValidation } from "./config/index.js";
 import { captureException, setupSentryErrorHandler, sentryContextMiddleware } from "./utils/monitoring.js";
@@ -29,6 +38,7 @@ import { createAuthRouter } from "./routes/auth.js";
 import { createMeRouter } from "./routes/me.js";
 import { createPlansRouter } from "./routes/plans.js";
 import { createPublicPlansRouter } from "./routes/publicPlans.js";
+import { createSchaufensterRouter } from "./routes/schaufenster.js";
 import { createPilotPreregistrationRouter } from "./routes/pilotPreregistration.js";
 import { createSubscriptionRequestsRouter } from "./routes/subscriptionRequests.js";
 import { createSubscriptionDocumentsRouter } from "./routes/subscriptionDocuments.js";
@@ -36,7 +46,6 @@ import { createGeoRouter } from "./routes/geo.js";
 import { createListingsRouter } from "./routes/listings.js";
 import { createCapacitiesRouter } from "./routes/capacities.js";
 import { createInternalRouter } from "./routes/internal.js";
-import { createReportsRouter } from "./routes/reports.js";
 import { createPaymentRouter } from "./routes/payment.js";
 import { createProofsRouter } from "./routes/proofs.js";
 import { createMarketplaceRouter } from "./routes/marketplace.js";
@@ -70,7 +79,6 @@ import { createSkillCatalogRouter } from "./routes/skills.js";
 import { createAgencyPortalRouter } from "./routes/agencyPortal.js";
 import { createCompanyTimesheetsRouter } from "./routes/companyTimesheets.js";
 import { createTimesheetsRouter } from "./routes/timesheets.js";
-import { createTimesheetTemplatesRouter } from "./routes/timesheetTemplates.js";
 import { createInvoicesRouter } from "./routes/invoices.js";
 import { createOfferAssetsRouter } from "./routes/offerAssets.js";
 import { createDemoRouter } from "./routes/demo.js";
@@ -97,6 +105,7 @@ import { createStrategicCollaborationRouter } from "./routes/strategicCollaborat
 import { createInternalControlCenterRouter } from "./routes/internalControlCenter.js";
 import { createOwnerControlCenterRouter } from "./routes/ownerControlCenter.js";
 import { createSupportRouter } from "./routes/support.js";
+import { createSupportIntakeRouter } from "./routes/supportIntake.js";
 import { createNotificationStreamRouter } from "./routes/notificationStream.js";
 import { createStaffControlCenterRouter, createStaffControlAuthRouter } from "./routes/staffControlCenter.js";
 import { staffApiCacheControl, staffSecurityHeaders, createStaffOriginGuard } from "./middleware/staffSecurity.js";
@@ -111,6 +120,7 @@ import { createScimRouter } from "./routes/scim.js";
 import { correlationMiddleware } from "./utils/logger.js";
 import { metricsMiddleware, metricsEndpoint, registerDbPoolMetrics, wrapPoolWithMetrics } from "./utils/metrics.js";
 import { orgContextMiddleware } from "./middleware/orgContext.js";
+import { arbeiterRiegel } from "./middleware/arbeiterRiegel.js";
 import { auditWriteMiddleware } from "./middleware/auditWrite.js";
 import { demoGuard } from "./middleware/demoGuard.js";
 
@@ -127,22 +137,87 @@ export async function createApp() {
     if (SMTP_USER && SMTP_PASS) transportConfig.auth = { user: SMTP_USER, pass: SMTP_PASS };
     mailTransport = createTransport(transportConfig);
   }
-  async function sendMail(to, subject, html) {
+  /**
+   * @param {string} to
+   * @param {string} subject
+   * @param {string} html
+   * @param {{zweck?: string}} [opts] Wofuer die Mail geht — landet im
+   *   Versandprotokoll (M1.3). Ohne Angabe zaehlt sie unter "unbenannt", und
+   *   das ist im Staff CC sichtbar, nicht still.
+   */
+  async function sendMail(to, subject, html, opts = {}) {
+    const zweck = opts?.zweck || ZWECK_UNBENANNT;
+
     // Demo-Mail-Adressen unterdrücken (kein Versand an Demo-Accounts)
     if (to && (/^demo[-.].*@tempconnect\.de$/i.test(to) || /@demo\.tempconnect\.de$/i.test(to))) {
       logger.debug({ to, subject }, "Demo-Mail unterdrückt");
+      /* Bewusst NICHT protokolliert: eine unterdrueckte Demo-Mail ist kein
+       * Versandversuch. Sie als "zugestellt" zu zaehlen waere dieselbe Luege
+       * in klein — und als "fehlgeschlagen" ein Fehlalarm. */
       return true;
     }
+
+    /*
+     * ═════════════════════════════════════════════════════════════════════
+     * DER RIEGEL (M1.3)
+     * ═════════════════════════════════════════════════════════════════════
+     * Vorher endete diese Funktion ohne Transport mit `return true`. Eine
+     * Einladung meldete damit Zustellung, ohne dass je etwas das Haus
+     * verliess — und 36 von 42 Aufrufern pruefen die Rueckgabe gar nicht.
+     *
+     * In Produktion wird das jetzt hart abgelehnt. In Entwicklung bleibt es
+     * beim Loggen: Mailpit und `console` sind dort der Normalzustand.
+     */
+    const pflicht = versandwegPflicht(config);
+    if (!pflicht.senden) {
+      await mailNotieren(pool, { zweck, ergebnis: "ohne_versandweg", weg: pflicht.weg, fehler: pflicht.grund });
+      if (pflicht.hart) {
+        logger.error({ zweck, weg: pflicht.weg }, "E-Mail ohne Versandweg abgelehnt");
+        throw new KeinVersandweg(pflicht.grund);
+      }
+      logger.info({ to, subject, zweck, weg: pflicht.weg }, "E-Mail nicht gesendet (kein Versandweg, Entwicklung)");
+      return true;
+    }
+
     if (mailTransport) {
       try {
-        await mailTransport.sendMail({ from: SMTP_FROM, to, subject, html });
+        /*
+         * JEDE Mail bekommt den Absender-Fuss — auch die, die ihr HTML am
+         * Aufrufort zusammenbaut. Gemessen am 2026-08-24: von 40 Aufrufern
+         * gingen nur 16 durch eine Vorlage; die anderen 24 trugen weder
+         * Firmierung noch Kontakt. Fuer Geschaeftsbriefe sind das
+         * Pflichtangaben (§ 37a HGB), und sie muessen der UG-Gruendung folgen
+         * koennen — `COMPANY.name` ist bis dahin ein Platzhalter.
+         *
+         * `mitRahmen` packt NUR ein, was noch kein vollstaendiges Dokument ist;
+         * die Vorlagen bleiben unberuehrt.
+         */
+        await mailTransport.sendMail({ from: SMTP_FROM, to, subject, html: mitRahmen(html, subject) });
+        await mailNotieren(pool, { zweck, ergebnis: "zugestellt", weg: pflicht.weg });
         return true;
       } catch (e) {
-        logger.error({ err: e.message }, "E-Mail-Fehler");
+        logger.error({ err: e.message, zweck }, "E-Mail-Fehler");
+        await mailNotieren(pool, { zweck, ergebnis: "fehlgeschlagen", weg: pflicht.weg, fehler: e.message });
         return false;
       }
     }
-    return true;
+
+    /*
+     * Hierher kommt nur, wer einen Versandweg HAT, aber keinen Transport in
+     * dieser Funktion — konkret: SendGrid. `emailService.sendMail` kennt den
+     * Weg, diese Funktion hier baut ihren Transport nur aus SMTP_*.
+     *
+     * Vorher stand hier `return true`, was denselben Fehlschluss enthielt wie
+     * oben. Jetzt wird der Versand an den Dienst gereicht, der den Weg
+     * wirklich kennt, statt Erfolg zu behaupten.
+     */
+    try {
+      await emailServiceSendMail({ to, subject, html, from: SMTP_FROM, zweck });
+      return true;
+    } catch (e) {
+      logger.error({ err: e.message, zweck, weg: pflicht.weg }, "E-Mail-Fehler (Provider-Weg)");
+      return false;
+    }
   }
   const stripe = config.STRIPE_SECRET_KEY ? new Stripe(config.STRIPE_SECRET_KEY) : null;
   const app = express();
@@ -339,6 +414,22 @@ export async function createApp() {
   const getUserAndPlan = (userId, opts) => userService.getUserAndPlan(pool, userId, opts);
   const requireFeatureGate = (featureKey) => requireFeature(featureKey, { getUserAndPlan, logger });
   const deps = { pool, logger, config, sendMail, requireAuth, getUserAndPlan, requireFeature: requireFeatureGate, stripe, ...limiters };
+  /*
+   * M1.9 — DERSELBE VERSANDWEG FUER DIE HINTERGRUNDTAKTE.
+   *
+   * `sendMail` ist eine Schliessung ueber `config`, `mailTransport` und
+   * `mailNotieren`: sie unterdrueckt Demo-Adressen, haelt den M1.3-Riegel
+   * (kein stiller Erfolg ohne Versandweg), setzt den HGB-Absenderfuss und
+   * schreibt das Versandprotokoll. Der Mahnlauf laeuft ab jetzt auch als
+   * eingeplanter Takt, und der startet in `server.js` — ausserhalb dieser
+   * Schliessung.
+   *
+   * Er bekommt deshalb GENAU DIESE Funktion gereicht, nicht `emailService`
+   * direkt. Ein zweiter Versandweg fuer Mahnungen waere ein Weg ohne Riegel,
+   * ohne Protokoll und ohne Pflichtangaben — bei der einen Mailsorte, die
+   * sicher an einen echten zahlenden Kunden geht.
+   */
+  app.locals.sendMail = sendMail;
   app.get("/health", simpleHealthHandler);
 
   // ── Prometheus metrics endpoint (Admin-Secret protected) ──────────────
@@ -354,6 +445,25 @@ export async function createApp() {
   registerDbPoolMetrics(pool);
   wrapPoolWithMetrics(pool);
 
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * M2.6 — DER ARBEITERRIEGEL STEHT VOR ALLEM ANDEREN
+   * ═══════════════════════════════════════════════════════════════════════
+   * Owner-Entscheid 2026-09-03: fail-closed. Eine Arbeitersitzung erreicht nur
+   * die Wege aus `config/arbeiterRiegel.js`; jede neue Route ist fuer sie zu,
+   * bis jemand sie eintraegt.
+   *
+   * DIE ZEILE MUSS DIE ERSTE BLEIBEN. Jeder Router darunter ist damit gedeckt —
+   * auch die, die es morgen gibt. Rutscht sie nach unten, sind genau die Router
+   * darueber ungeschuetzt, und zwar lautlos: sie funktionieren ja weiter.
+   * `arbeiterRiegel.test.js` haelt die Position fest.
+   *
+   * Und sie haengt am ROUTER, nicht am Mount: `v1` ist zweimal montiert
+   * (`/api/v1` und `/api`). Am Mount haette man den Riegel mit dem Weglassen
+   * von "/v1" umgangen.
+   */
+  v1.use(arbeiterRiegel({ logger }));
+
   v1.use(createCsrfRouter(deps));
   v1.use(createOAuthRouter(deps));
   v1.use(createScimRouter(deps));
@@ -362,6 +472,9 @@ export async function createApp() {
   v1.use(createMeRouter(deps));
   v1.use(createPlansRouter(deps));
   v1.use(createPublicPlansRouter(deps));
+  /* M1.6 — ohne Konto lesbar, bewusst NEBEN dem Tarifkatalog und nicht
+   * darin: der eine beschreibt Preise, der andere den Markt. */
+  v1.use(createSchaufensterRouter(deps));
   v1.use(createPilotPreregistrationRouter(deps));
   v1.use(createSubscriptionRequestsRouter(deps));
   v1.use(createSubscriptionDocumentsRouter(deps));
@@ -372,7 +485,6 @@ export async function createApp() {
   v1.use(createRateCardsRouter(deps));
   v1.use(createSpendAnalyticsRouter(deps));
   v1.use(createDataGovernanceRouter(deps));
-  v1.use(createReportsRouter(deps));
   v1.use(createPaymentRouter(deps));
   v1.use(createProofsRouter(deps));
   v1.use(createMarketplaceRouter(deps));
@@ -410,7 +522,6 @@ export async function createApp() {
   v1.use(createAgencyPortalRouter(deps));
   v1.use(createCompanyTimesheetsRouter(deps));
   v1.use(createTimesheetsRouter(deps));
-  v1.use(createTimesheetTemplatesRouter(deps));
   v1.use(createInvoicesRouter(deps));
   v1.use(createOfferAssetsRouter(deps));
   v1.use(createDemoRouter(deps));
@@ -433,6 +544,10 @@ export async function createApp() {
   v1.use(createStrategicCollaborationRouter(deps));
   v1.use(createInternalControlCenterRouter(deps));
   v1.use(createSupportRouter(deps));
+  // Der Weg HINEIN (Plan I, Abschnitt 10). Bewusst NICHT unter dem Praefix
+  // `/support` — dort steht das Staff-Tor `supportAuth`, und eine Kundenroute
+  // darunter waere ein Loch, das ab da fuer alle Routen darunter gilt.
+  v1.use(createSupportIntakeRouter(deps));
   // Marketplace Visibility Center (Phase 4 Track A — M-04 2026-05-30)
   v1.use(createProfileVisibilityRouter(deps));
   v1.use(createProfileAnalyticsRouter(deps));

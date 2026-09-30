@@ -3,7 +3,7 @@
  *
  * Covers:
  *  1. prefillFromAssignment  — 3-tier defaults, entries creation, edge cases
- *  2. signTimesheet          — digital signature, already-signed, not-signable
+ *  2. Unterschrift        — ENTFERNT (Z2): die Spalten gab es nie, siehe Block unten
  *  3. batchApprove           — multi-approve, partial errors, limit
  *  4. batchReject            — multi-reject with reason, limit
  *  5. validateBreakCompliance — ArbZG §4 (6h/30min, 9h/45min)
@@ -16,10 +16,16 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+/* Pfade immer relativ zur Testdatei — sonst haengt das Ergebnis am
+   Startverzeichnis (§0.9). */
+const HIER = path.dirname(fileURLToPath(import.meta.url));
 
 import {
   prefillFromAssignment,
-  signTimesheet,
   batchApprove,
   batchReject,
   validateBreakCompliance,
@@ -170,56 +176,67 @@ describe("prefillFromAssignment", () => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════════
-// 2. signTimesheet
-// ═══════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
+// 2. Die Unterschrift — ENTFERNT (Welle Z, Z2, 2026-09-27)
+// ════════════════════════════════════════════════════════════════
+//
+// HIER STANDEN FUENF PROBEN AUF `signTimesheet`, UND SIE WAREN ALLE GRUEN,
+// WAEHREND DER WEG IN WAHRHEIT JEDES MAL WARF. Das ist die Lehre dieser Welle:
+// sie liefen gegen einen Muster-Pool, der jede Abfrage annimmt, also konnte
+// keine von ihnen merken, dass `timesheets.worker_signed_at` und
+// `worker_signed_ip` NICHT EXISTIEREN (gemessen 2026-09-27: 26 Spalten, keine
+// davon). Eine Probe, die den SQL-Text prueft, belegt den Vertrag der Abfrage —
+// nicht, dass sie ausfuehrbar ist.
+//
+// Nach §0.9 werden Proben nicht abgeschwaecht, um Code gruen zu bekommen. Der
+// dokumentierte Ausnahmefall ist genau dieser: die Probe kodierte einen Bruch
+// als Soll. Sie wird deshalb ERSETZT, nicht geloescht — durch Proben auf die
+// Wahrheit, die das Projekt wirklich fuehrt, und durch eine Probe an der echten
+// Datenbank (test/integration/stundenzettelKennzahlLaeuft.flow.test.js), die
+// die Abfrage tatsaechlich AUSFUEHRT.
+//
+// Warum die Spalten nicht angelegt wurden: `services/timesheetService.js` an
+// der Stelle der entfernten Funktion — kurz: die Kraft steht ueber
+// `worker_time_submissions` + `timesheets.source='worker_submission'` hinter
+// ihren Stunden, und der Zettel kennt den Menschen nur als Text.
 
-describe("signTimesheet", () => {
-  it("returns NOT_FOUND for missing timesheet", async () => {
-    const pool = mockPool({});
-    const result = await signTimesheet(pool, "x", "u1", { ip: "1.2.3.4" });
-    assert.equal(result.error, "NOT_FOUND");
+describe("Z2 — die Unterschrift ist fort, und zwar spurlos", () => {
+  it("der Dienst bietet keine Unterschrift mehr an", async () => {
+    const dienst = await import("../services/timesheetService.js");
+    assert.equal(dienst.signTimesheet, undefined,
+      "signTimesheet ist wieder da — dann schreibt der Dienst erneut in Spalten, die es nicht gibt");
   });
 
-  it("returns NOT_SIGNABLE for approved timesheet", async () => {
-    const pool = mockPool({
-      "FROM timesheets ts": [{ id: "t1", status: "approved", worker_signed_at: null }]
-    });
-    const result = await signTimesheet(pool, "t1", "u1");
-    assert.equal(result.error, "NOT_SIGNABLE");
-    assert.equal(result.status, "approved");
+  it("keine Abfrage des Dienstes nennt noch eine Unterschriftsspalte", () => {
+    /* Der Gegenstand ist der QUELLTEXT, nicht ein Aufruf: eine vergessene
+       Erwaehnung in einer anderen Abfrage wuerde dort genauso werfen.
+       ERST DIE KOMMENTARE ENTFERNEN, DANN SUCHEN. Meine erste Fassung hat das
+       nicht getan und deshalb die Begruendung der Entfernung selbst angeklagt —
+       eine Probe, die ihre eigene Dokumentation fuer Code haelt, ist nicht
+       streng, sondern blind fuer den Unterschied. */
+    const quelle = fs.readFileSync(
+      path.join(HIER, "..", "services", "timesheetService.js"), "utf8");
+    const ohneKommentare = quelle
+      .replace(/\/\*[\s\S]*?\*\//g, " ")
+      .replace(/(^|[^:])\/\/[^\n]*/g, "$1 ");
+    const treffer = ohneKommentare.split(String.fromCharCode(10))
+      .map((z, i) => [i + 1, z.trim()])
+      .filter(([, z]) => /worker_signed_(at|ip)/.test(z));
+    assert.deepEqual(treffer, [],
+      "ausserhalb der Begruendung steht noch eine Unterschriftsspalte im Dienst: "
+      + JSON.stringify(treffer));
+    /* Gegenprobe: die Suche selbst muss greifen koennen. Ohne sie waere die
+       Zusicherung oben leer gruen, sobald das Entfernen der Kommentare zu viel
+       wegnimmt (Klasse "Probe prueft zuerst ihren Gegenstand"). */
+    const probe = "SET worker_signed_at = NOW()";
+    assert.equal(/worker_signed_(at|ip)/.test(probe), true,
+      "die Suche findet nicht einmal den Ausdruck, den sie verbieten soll");
   });
 
-  it("returns ALREADY_SIGNED when already signed", async () => {
-    const signedAt = new Date("2025-03-10T10:00:00Z");
-    const pool = mockPool({
-      "FROM timesheets ts": [{ id: "t1", status: "draft", worker_signed_at: signedAt }]
-    });
-    const result = await signTimesheet(pool, "t1", "u1");
-    assert.equal(result.error, "ALREADY_SIGNED");
-    assert.deepEqual(result.signed_at, signedAt);
-  });
-
-  it("signs draft timesheet successfully", async () => {
-    const pool = mockPool({
-      "FROM timesheets ts": [{ id: "t1", status: "draft", worker_signed_at: null }],
-      "UPDATE timesheets": [{ id: "t1", worker_signed_at: new Date(), worker_signed_ip: "1.2.3.4" }],
-      "audit_log": []
-    });
-    const result = await signTimesheet(pool, "t1", "u1", { ip: "1.2.3.4" });
-    assert.ok(!result.error);
-    assert.ok(result.timesheet);
-  });
-
-  it("signs submitted timesheet successfully", async () => {
-    const pool = mockPool({
-      "FROM timesheets ts": [{ id: "t2", status: "submitted", worker_signed_at: null }],
-      "UPDATE timesheets": [{ id: "t2", worker_signed_at: new Date() }],
-      "audit_log": []
-    });
-    const result = await signTimesheet(pool, "t2", "u1");
-    assert.ok(!result.error);
-    assert.ok(result.timesheet);
+  it("die Route POST /timesheets/:id/sign ist fort", () => {
+    const quelle = fs.readFileSync(path.join(HIER, "..", "routes", "timesheets.js"), "utf8");
+    assert.equal(/router\.post\(\s*["'`]\/timesheets\/:id\/sign/.test(quelle), false,
+      "die Route ist wieder verdrahtet — sie kann nur eine 500 liefern");
   });
 });
 
@@ -485,7 +502,7 @@ describe("getWorkerTimesheetSummary", () => {
     assert.equal(result.approved_hours_total, 0);
     assert.equal(result.approved_hours_this_month, 0);
     assert.equal(result.overtime_hours_this_month, 0);
-    assert.equal(result.signed_count, 0);
+    assert.equal(result.worker_confirmed_count, 0);
   });
 
   it("returns correct KPIs from DB rows", async () => {
@@ -499,7 +516,7 @@ describe("getWorkerTimesheetSummary", () => {
         approved_hours_total: "240.5",
         approved_hours_this_month: "80.0",
         overtime_hours_this_month: "12.0",
-        signed_count: 8
+        worker_confirmed_count: 8
       }]
     });
 
@@ -512,7 +529,23 @@ describe("getWorkerTimesheetSummary", () => {
     assert.equal(result.approved_hours_total, 240.5);
     assert.equal(result.approved_hours_this_month, 80);
     assert.equal(result.overtime_hours_this_month, 12);
-    assert.equal(result.signed_count, 8);
+    assert.equal(result.worker_confirmed_count, 8);
+  });
+
+  it("Z2: die Kennzahl steht auf source, nicht auf einer Unterschrift", async () => {
+    /* FORM-PROBE. Der Muster-Pool kann die Abfrage nicht AUSFUEHREN (genau
+       deshalb blieb der Bruch zwei Wellen unentdeckt) - also wird ihr Wortlaut
+       festgenagelt. Ausgefuehrt wird sie in
+       test/integration/stundenzettelKennzahlLaeuft.flow.test.js. */
+    const pool = mockPool({ "FROM timesheets ts": [{ worker_confirmed_count: 2 }] });
+    await getWorkerTimesheetSummary(pool, { orgId: "org1" });
+    const sql = _queryLog.map((q) => q.sql).join(String.fromCharCode(10));
+    assert.ok(sql.includes("ts.source = 'worker_submission'"),
+      "die Kennzahl zaehlt nicht mehr an der Quelle, die der Zettel wirklich fuehrt");
+    assert.ok(sql.includes("AS worker_confirmed_count"),
+      "die Spalte der Antwort heisst anders als die Antwort selbst");
+    assert.equal(sql.includes("worker_signed_at"), false,
+      "die Unterschriftsspalte ist zurueck - die Abfrage wirft dann vollstaendig, nicht nur hier");
   });
 
   it("works with supplierOrgId filter", async () => {
@@ -526,7 +559,7 @@ describe("getWorkerTimesheetSummary", () => {
         approved_hours_total: "40",
         approved_hours_this_month: "40",
         overtime_hours_this_month: "0",
-        signed_count: 1
+        worker_confirmed_count: 1
       }]
     });
 

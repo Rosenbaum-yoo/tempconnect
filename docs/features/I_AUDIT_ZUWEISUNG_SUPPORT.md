@@ -14,7 +14,7 @@
 
 | | Abschnitt | Art | Aufwand |
 |---|---|---|---|
-| **V** | Vorlauf: RLS-Backstop, Doku-Wächter | Sicherheit + Werkzeug | 1 Welle + 1 h |
+| **V** | Vorlauf: RLS-Backstop, ~~Doku-Wächter~~ (V-2 erledigt) | Sicherheit + Werkzeug | 1 Welle |
 | **1** | **8.1.1** Audit-Log hart trennen | **Sicherheitsbefund, aktiv** | 1 Welle |
 | **2** | **8.1.2** Aktive Sitzungen im Audit | Sicherheit + Produkt | 3–4 h |
 | **3** | **8.2** Ersatz-Zuweisung vereinfachen | Produkt/UX | 1 Welle |
@@ -31,33 +31,107 @@ laufenden Datenabfluss.
 Zwei Dinge aus H2, die vor den neuen Abschnitten gehören, weil sie jede
 folgende Arbeit tragen.
 
-### V-1 — Der fehlende RLS-Backstop (P1-16)
+### V-1 — Der fehlende RLS-Backstop (P1-16) — **gemessen 2026-08-21, Aktivierung owner-gated**
 
-`docs/security/TENANT_ISOLATION_MODEL.md` verweist für **28 Tabellen** auf
-Migration 117. **Diese Migration existiert nicht.** Gemessen: `rate_cards` und
-`approval_requests` stehen auf `rls=false` mit null Policies.
+`docs/security/TENANT_ISOLATION_MODEL.md` verwies für 63 Tabellen auf eine
+Migration 117. **Die gibt es nicht** — `sql/migrations/` springt von 116 auf 118.
 
-> **Die Dokumentation behauptet einen Schutz, den es nicht gibt.** Das ist
+> **Die Dokumentation behauptete einen Schutz, den es nicht gibt.** Das ist
 > schlimmer als kein Schutz — wer sie liest, hört auf zu suchen.
 
-Das zählt besonders für 8.1.1: Wenn die Anwendungsgrenze an einer Stelle
-versagt, ist RLS die zweite Linie. Beim Audit-Log gibt es sie nicht.
+**Gegen die laufende Datenbank nachgemessen war das Dokument in beide Richtungen
+falsch** (Commit `cc2be0a`):
 
-**Vorgehen:** Ist-Aufnahme gegen die **laufende** Datenbank (nicht gegen die
-Migrationen — M0-B9 hat gezeigt, dass die beiden auseinanderlaufen), je Tabelle
-die Trägerspalte aus `orgGrenzen.json` übernehmen, Migration nach dem Muster von
-126 (nicht-transaktional, `to_regclass`-geschützt, idempotent), Wächter der jede
-im Modell genannte Tabelle gegen die Wirklichkeit prüft.
-**Verify:** eine Nicht-Superuser-Verbindung ohne Org-Kontext sieht **nichts** —
-je Tabelle einzeln nachgewiesen.
+- **18 der genannten Tabellen haben die behauptete Spalte `org_id` nicht.**
+  `capacities.agency_id`, `demand_requests.requester_company_id` und
+  `offers.supplier_company_id` zeigen auf **`users`**, nicht auf `organizations`
+  (39/39 bzw. 38/38 Werte treffen `users`, null treffen `organizations`). Eine
+  aus dem Dokument geschriebene Migration wäre an genau dem Fehler gescheitert,
+  der schon `116` in den Rollback riss — und `116` wurde trotzdem als
+  „applied“ verbucht.
+- **Der Abschnitt „RLS AKTIV“ war ebenfalls falsch:** `subscriptions` stand dort
+  als geschützt, obwohl `116` sie ausdrücklich ausnimmt und die Datenbank
+  `relrowsecurity = false` zeigt; `vendor_pool_entries` existiert gar nicht. Die
+  gefährlichere Hälfte des Dokuments war die, die Schutz behauptete.
+- **Umgekehrt fehlten 60 Tabellen**, die sehr wohl einen Mandanten tragen: es
+  sind **78**, nicht 28. Nur 8 haben RLS, nur 3 davon FORCE.
 
-### V-2 — Die Doku-Wächter im Worktree (P2-W1)
+**Warum die Migration nicht einfach nachzutragen ist — und was das für die
+Reihenfolge bedeutet:**
 
-`docsConsistency` und `dokuWaechter` leiten aus einem **fehlenden** Pfad einen
-Befund ab. Zwei Sitzungen sind unabhängig hineingelaufen. Sie sollen eine
-fehlende Scan-Wurzel als **nicht geprüft** melden („2 von 3 Wurzeln geprüft,
-`.agents/` fehlt"), statt rot zu werden.
-**Aufwand:** ~1 h. Danach kostet es keine Sitzung mehr Zeit.
+Bei **10 Tabellen ist die Trägerspalte gar nicht oder kaum gefüllt** —
+`requests`, `ratings` und `listings` zu **100 %**, `notifications` zu **96 %**
+(731 von 765). RLS wäre dort **kein Schutz, sondern ein Datenausfall**: die
+Zeilen würden für *jeden* unsichtbar, auch für den Eigentümer.
+
+> Das ist **derselbe Defekt wie in 8.1.1** (`audit_log`: 1796 von 2740 Zeilen
+> ohne `org_id`). Die Schreibseite trägt den Mandanten nicht ein. **8.1.1 gehört
+> deshalb VOR die RLS-Aktivierung dieser Tabellen**, nicht danach — die im
+> Kopf dieses Plans notierte Reihenfolge dreht sich an dieser Stelle um.
+
+**Gebaut und verifiziert:**
+- `api/test/fixtures/mandantenTabellen.json` — alle 78 Tabellen mit
+  Trägerspalte, Zeilen-/`NULL`-Zählung und Einstufung samt Begründung:
+  **8 geschützt · 18 bereit · 25 bereit-ohne-Daten · 10 durch Daten blockiert ·
+  17 kein Mandantenträger.**
+- Der Zustandsteil des Modells wird **gerendert statt gepflegt**
+  (`node scripts/render-mandanten-modell.js --write`).
+- `api/test/mandantenModellWaechter.test.js` in zwei Schichten: ohne Datenbank
+  Dokument gegen Registry Zeichen für Zeichen, samt der Probe, dass das Modell
+  keine Migration und kein RLS mehr behauptet, das es nicht gibt; mit Datenbank
+  die Registry gegen die Wirklichkeit, in beide Richtungen. Host 8/8, Container
+  11/11. Rückmutation: erfundene Trägerspalte + falsche RLS-Behauptung → 3 Tests
+  rot.
+
+**Owner-Entscheidung 2026-08-21:**
+
+1. **8.1.1 zuerst, RLS danach.** Die Schreibseite wird repariert, bevor der
+   Backstop gesetzt wird — sonst sichert man leere Trägerspalten ab und macht
+   Daten unsichtbar statt sie zu schützen.
+2. **Nachweis je Tabelle einzeln an einer Wegwerf-Datenbank** mit
+   Nicht-Superuser-Rolle: zwei echte Organisationen; ohne Kontext 0 Zeilen, mit
+   Org A nur A, mit Staff-Bypass alles. Kein Sammelnachweis, keine Aktivierung
+   ohne diesen Beweis — lokal läuft die Anwendung als Superuser, RLS ist dort
+   wirkungslos und ein Fehler würde von der Testsuite **nicht** bemerkt.
+
+Die 18 bereiten und 25 leeren Tabellen stehen benannt in
+`api/test/fixtures/mandantenTabellen.json` und warten damit auf eine eigene
+Welle nach 8.1.1.
+
+### V-2 — Die Doku-Wächter im Worktree (P2-W1) — **erledigt 2026-08-21**
+
+`docsConsistency` und `dokuWaechter` leiteten aus einem **fehlenden** Pfad einen
+Befund ab. Zwei Sitzungen sind unabhängig hineingelaufen.
+
+**Es waren drei Wächter, nicht zwei.** `releaseSecretScan` verlangte
+`deploy/.env` — ebenfalls gitignored, ebenfalls nur im Haupt-Checkout. Der volle
+Lauf hat ihn gefunden, nicht das Nachdenken.
+
+**Und der Fehler wirkte in beide Richtungen.** Die ignorierte
+`docs/launch/C_HETZNER-DEPLOY-RUNBOOK.md` liess im Haupt-Checkout vier echte
+Dokumente als verlinkt erscheinen, die im Repo in keinem Index standen —
+darunter ausgerechnet `docs/security/TENANT_ISOLATION_MODEL.md`, das Dokument
+aus V-1. Falsch rot hier, falsch grün dort.
+
+**Gebaut:** Die Wächter prüfen den **git-Index** statt des Dateibaums
+(`api/test/helpers/repoBestand.js`). Was git bewusst nicht trägt, wird als
+*nicht geprüft* benannt und gezählt („1 von 2 Wurzeln geprüft (docs), 261
+getrackte Markdown-Dateien. Nicht geprüft, weil nicht Teil des Repos:
+`.agents`."), nie als Fund. Die vier Dokumente stehen jetzt in `docs/README.md`;
+die Ratsche ist dabei von 154 auf 146 geschrumpft, ohne einen einzigen neuen
+Eintrag.
+
+**Keine Hintür:** `git check-ignore` befragt den Index mit — eine getrackte
+Datei gilt nie als ignoriert. Man wird einen Befund also nicht dadurch los, dass
+man den Pfad in `.gitignore` einträgt. `api/test/repoBestand.test.js` weist das
+per Rückmutation nach, samt der git-Falle, dass ein abschliessender
+Schrägstrich (`docs/README.md/`) den Index-Abgleich aushängt und **jeden** Pfad
+als ignoriert meldet.
+
+**Verifiziert in drei Umgebungen mit identischem Urteil:** Worktree, frischer
+`git clone` (trägt keine ignorierten Dateien) und ein Baum, in dem sie liegen.
+Voller Lauf **9524/0** (13 übersprungen) — der erste grüne Gate-Lauf in diesem
+Worktree überhaupt.
 
 ---
 
@@ -152,89 +226,325 @@ in einer Datei sind der Anfang des nächsten Lecks.
 man sie nicht versehentlich trifft (Befund E-5). Das Staff Center bekommt die
 Fläche, die die Kunden-Fläche heute fälschlich bietet.
 
-### Verifikation (Pflicht)
+### Verifikation — **geführt am 2026-08-21**
 
-- **Verhaltensprobe** wie in H2: zwei Organisationen, ein Eintrag je Seite,
-  Kreuzabruf → 403 bzw. leere Menge, **gegen das echte Schema**.
-- **Bestandsprobe:** die Abfrage „Akteur nicht Mitglied der eingetragenen Org"
-  muss **0** liefern — sie liefert heute 135. Diese Zahl ist die Abnahme.
-- **Gegenprobe:** der eigene Admin sieht seine Org weiterhin vollständig.
-  Eine Trennung, die das eigene Audit leert, ist keine Reparatur.
-- Beide Register (`orgGrenzen.json`, `wachen.json`) nachziehen.
+**Bestandsprobe (die Abnahme).** Migration 187 eingespielt:
+
+| | vorher | nachher |
+|---|---|---|
+| Zeilen mit **fremder** Organisation | **139** | **0** |
+| Zeilen **ohne** Organisation | 1797 | 495 |
+| Zeilen gesamt | 2740 | 2742 (nichts gelöscht, 2 aus laufendem Verkehr) |
+| Policy `al_same_org` | `org_id = current_org_id() OR org_id IS NULL` | `org_id = current_org_id()` |
+
+Jede der 495 verbliebenen org-losen Zeilen hat einen Grund: 253 ohne Akteur
+(Systemläufe), 242 mit einem Akteur ohne Mitgliedschaft. Keine einzige ist
+eindeutig zuordenbar und trotzdem org-los — das prüft der Wächter mit.
+
+**Idempotenz:** zweiter Lauf der Migration → 0 und 0 Zeilen geändert.
+
+**Verhaltensprobe gegen das echte Schema**, mit einer Wegwerf-Rolle **ohne
+Superuser und ohne `BYPASSRLS`** (nur so greift RLS überhaupt) — die beiden
+Organisationen aus dem Screenshot:
+
+| Probe | Ergebnis |
+|---|---|
+| ohne Org-Kontext | **0 Zeilen** (Deny-by-Default) |
+| Org A (*Zeitarbeit*) | **303** — ausschließlich eigene |
+| Org A sieht Fremdes | **0** |
+| Org B (*Unternehmen*) | **140** — ausschließlich eigene |
+| Org B sieht Fremdes | **0** |
+| Staff-Bypass | **2742** (alle) |
+| org-lose Zeilen für Org A | **0** |
+
+**Gegenprobe bestanden:** Das eigene Audit ist nicht leer — Org A sieht ihre
+303 Zeilen weiterhin vollständig. Eine Trennung, die das eigene Audit leert,
+wäre keine Reparatur.
+
+**Rückmutation (dreifach), damit die Prüfung nicht leer läuft:**
+1. Alte Policy zurückgesetzt → dieselbe Abfrage sah wieder **495 fremde
+   Zeilen**; mit der neuen 0.
+2. `org_id: req.orgId` an der Schreibstelle wieder eingebaut → der Quelltext-
+   Riegel wird rot.
+3. Policy-Mutation gegen die Datenbank → die Abnahme-Schicht wird rot.
+
+**Wächter:** `api/test/auditMandantenGrenze.test.js`, zwei Schichten — ohne
+Datenbank der Quelltext-Riegel (kein Rückfall auf `req.orgId`, Demo-Login
+regeneriert **vor** dem Eintragen, Zwischenspeicher trägt seinen Nutzer), mit
+Datenbank die Abnahme selbst. Host 6/6, Container **10/10**.
+
+### (c) bis (e) — gebaut 2026-08-21
+
+**(c) Drei Sichten, hart getrennt — erledigt** (`a971979`).
+Die Hälfte stimmte schon: Zeitarbeitsfirma und Unternehmen laufen über
+denselben Code, es gibt **keinen `org_type`-Zweig** — weder in
+`organizations.js` noch in `orgControlCenter.js` noch in `services/auditLog.js`.
+Der einzige Datenselektor ist `al.org_id`. Genau wie vorgegeben.
+
+Nicht gestimmt hat die **Form** der Grenze. Sie stand als
+`if (req.orgId && req.params.id !== req.orgId)` — das schaltet sich bei `null`
+selbst ab, und `null` heißt dann: der Pfad-Parameter wählt die Organisation
+frei. Auf diesen Routen heute nicht erreichbar, weil `requireRole` davor
+fail-closed abbricht — aber die Route verlässt sich damit auf einen Nachbarn.
+Jetzt `if (!req.orgId || …)`. Neuer Wächter: `api/test/auditDreiSichten.test.js`.
+
+> **Zwei Kunden-Routen für dieselbe Sache** bleiben bestehen:
+> `GET /org/audit-log` (benutzt von `organization.html:587`) und
+> `GET /organizations/:id/audit-log` (**kein Aufrufer im ganzen Repo**). Die
+> zweite ist die schwächere Bauart — Org aus dem Pfad statt aus dem geprüften
+> Kontext. Sie zu entfernen ist eine **Owner-Entscheidung**: die Ratsche in
+> `orgGrenzen.json` fällt dabei von 256 auf 254, wie zuletzt bei P1-19.
+
+**(d) Der Admin-Bereich — zwei Lecks geschlossen, der Rest ist eine Entscheidung**
+(`5677f70`, `bcf03b9`).
+
+`requireAdmin` lässt jeden mit der **Org**-Rolle `owner` oder `admin` durch:
+**201 von 395 Konten**, davon 142 in Unternehmens- und 59 in
+Zeitarbeits-Organisationen. Kein einziges gehört TempConnect.
+
+| geschlossen | was es war |
+|---|---|
+| `GET /admin/audit-log` | plattformweite Liste — `org_id: req.query.org_id \|\| null` heißt ohne Angabe *alles* |
+| `GET /admin/audit-log/export/csv` | dieselbe Menge als Datei außer Haus |
+| `GET /admin/audit-log/recent-changes` | rief `getRecentChangesPlatformWide` für jeden Passierer |
+| `PATCH /admin/users/:id` | `role`/`plan`/`is_verified` auf **jeden** Nutzer der Plattform |
+| `POST /admin/users/:id/deactivate` | jedes Konto sperrbar, auch fremde und die von TempConnect |
+
+Die Liste `GET /admin/users` war längst org-begrenzt — die **Mutationen** nicht.
+Die Grenze lebte nur in dem, was die Oberfläche *zeigt*, nicht in dem, was der
+Endpunkt *zulässt*. Wer die Kennung kennt, braucht die Liste nicht.
+
+`role` und `plan` sind jetzt der Plattformverwaltung vorbehalten (die Org-Rolle
+steht in `org_memberships.role_key`, der wirksame Tarif in `subscriptions`), und
+`adminPanel.js` blendet die beiden Auswahlfelder aus, wenn der Umfang nicht
+plattformweit ist — sonst blieben zwei tote Knöpfe stehen.
+
+> **Nicht überzeichnet:** die Tarif-Auswahl war *kein* Freischalt-Bypass. Kein
+> Feature-Gate liest `users.plan`; die Spalte fällt nur in Analytik und
+> DSGVO-Auskunft an. Sie verfälscht Zahlen, sie kauft nichts frei.
+
+**Offen und owner-gated:** die übrigen `admin.js`-Routen sind weiterhin
+plattformweit — `/admin/organizations`, `/admin/requests`,
+`/admin/strategic-collaboration/*`, `/admin/metrics`, `/admin/revenue`,
+`/admin/system-health`, `/admin/activity-feed`, `/admin/feature-overrides`,
+`/admin/organizations/:id/pilot-policy`. Die Fläche selbst ist laut
+`frontend/public/js/hubVisibility.js` **bewusst für company UND agency
+sichtbar**. Entweder wird jede Route org-begrenzt, oder die Fläche wandert ins
+Staff Center und die Kundenseite behält einen reduzierten Bereich. Das ist eine
+Flächen-Entscheidung nach `docs/FLAECHEN.md`, kein Patch.
+
+**(e) Die Plattformsicht im Staff Center — erledigt** (`0259d94`).
+Zuerst war zu klären, ob es sie dort nicht längst gibt: `GET /staff/audit` sieht
+danach aus, liest aber `staff_control_audit_log` — was das **Team** getan hat,
+nicht was auf der **Plattform** geschehen ist. Zwei verschiedene Tabellen.
+
+Neu: `GET /staff/platform-audit`, hinter dem Flächen-Tor `requireStaff` und der
+eigenen Staff-Session. Bewusst **derselbe Dienst** wie die Kundensicht
+(`queryAuditLog`) — eine zweite Abfrage wäre eine zweite Stelle, an der die
+Mandantengrenze zu pflegen wäre. Der einzige Unterschied: hier wird kein Mandant
+vorgegeben; `?org_id=` verengt optional. Antwort trägt
+`scope: { plattformweit, org_id }`.
+
+**Befund nebenbei, nicht gefixt (außerhalb (c)–(e)):** `organizations.js` hat
+**fünf weitere Routen** mit dem selbstabschaltenden Muster (Zeilen 60, 89, 116,
+171, 230 — darunter `GET /organizations/:id/{members,locations,departments}`).
+Anders als die Audit-Route tragen sie **nur `requireAuth`**, also keinen Guard,
+der `req.orgId` fail-closed setzt. Der C-11-Kommentar in
+`middleware/orgContext.js` beschreibt genau diese neun Routen und stützt sich
+darauf, dass der Kontext auf die eigene Org zurückfällt — das gilt nur für
+Nutzer, die überhaupt eine Mitgliedschaft haben. Die Reichweite ist noch nicht
+gemessen (Docker war unten).
+
+**Register nachgezogen** (`ca17694`): kein Weg, kein Urteil geändert (415/161
+und 256 stehen). Ergänzt wurde die **Prämisse**, auf der beide Register
+stillschweigend aufbauen — dass `req.orgId` dem Anfragenden gehört. Genau das
+war bis 8.1.1 verletzt.
 
 ---
 
-## 8.1.2 — Aktive Sitzungen im Audit (Einsatzportal)
+## 8.1.2 — Aktive Sitzungen im Einsatzportal — **erledigt 2026-08-21** (`4b40675`)
 
-Das Einsatzportal zeigt heute „2 aktive Sitzungen — davon 1 auf anderen Geräten"
-mit *Andere Geräte abmelden* / *Überall abmelden* (Screenshot 2). Was fehlt: die
-**Nachverfolgbarkeit** — welches Gerät, seit wann, von wo.
+### Was gemessen wurde
 
-**Vorhanden:** eine Tabelle `session`. Zu klären ist zuerst, ob sie Gerät,
-Zeitpunkt und Herkunft überhaupt führt, oder ob das mitgebaut werden muss.
+Das Portal schrieb „2 aktive Sitzungen — davon 1 auf anderen Geräten". Die
+zweite Zahl war schlicht `offen - 1`:
 
-**Die Grenze ist hier heikler als sonst.** Owner-Vorgabe: „nur intern pro Firma".
-Ein Arbeiter im Einsatzportal ist Mitglied **einer** Zeitarbeitsfirma, arbeitet
-aber im Einsatz **eines Kunden**. Zu entscheiden ist:
+| | Stand vorher |
+|---|---|
+| `session` | die reine `connect-pg-simple`-Tabelle: `sid`, `sess`, `expire` |
+| **Gerät** | **nicht aufgezeichnet** — `bindSessionToDevice` setzt trotz seines Namens nur die Cookie-Lebensdauer |
+| **Herkunft** | **nicht aufgezeichnet** |
+| **Zeitpunkt** | vorhanden als `sess.createdAt`, nur nie ausgeliefert |
 
-- Sieht die Zeitarbeitsfirma die Sitzungen ihrer Arbeiter? *(vermutlich ja —
-  sie ist der Arbeitgeber)*
-- Sieht das **Einsatzunternehmen** sie? *(vermutlich nein — es bekommt Arbeit
-  geliefert, nicht Personalverwaltung)*
+> Der Text versprach eine Unterscheidung, die die Daten nicht hatten — und genau
+> darauf soll jemand entscheiden, ob er sein Konto nach einem Geräteverlust
+> fernabmeldet.
 
-Das ist eine Flächen-Frage nach `docs/FLAECHEN.md` und gehört **entschieden,
-nicht abgeleitet**.
+### Owner-Entscheidung 2026-08-21
 
-**Datenschutz:** Sitzungsdaten sind personenbezogen. Was aufgezeichnet wird
-(IP? Gerätekennung? Standort?), gehört in `TENANT_ISOLATION_MODEL.md` und in die
-Datenschutzerklärung, bevor es gebaut wird — nicht danach.
+**„Zeitpunkt + grober Gerätetyp".** Keine IP, kein Standort, keine
+Gerätekennung — und auch nicht der rohe User-Agent, der ein
+Wiedererkennungsmerkmal ist. Gespeichert wird nur das *Ergebnis* der Einordnung
+(Handy/Tablet/Rechner + Browserfamilie), nicht ihre Grundlage. Eine eigene Probe
+hält fest, dass weder „Mozilla" noch eine Versionsnummer in der Sitzung landet.
+
+**Die Flächen-Frage blieb offen und wurde deshalb nicht vorweggenommen.**
+`listUserSessions` nimmt **gar keine** fremde Kennung entgegen — es gibt keine
+Fremdsicht, statt sie vorsorglich zu bauen. Die Sitzungskennung wird nie
+ausgeliefert; sie ist das Anmeldegeheimnis.
+
+> **Nicht zu verwechseln mit den aktiven EINSÄTZEN.** Auf die Frage, wer die
+> Sitzungen eines Arbeiters sehen darf, kam die Antwort: der Arbeiter selbst und
+> der Zeitarbeitschef, damit er im Voraus planen und benachrichtigt werden kann.
+> Das beschreibt die **Live-Belegschaft** (`docs/features/E_LIVE_BELEGSCHAFT.md`)
+> und Abschnitt 8.2 unten — nicht die Browser-Anmeldungen. Zwei Dinge, die fast
+> gleich heissen.
+
+### Beim Bauen in die eigene Falle gelaufen
+
+`\b` wurde beim Erzeugen des Codes zum **Backspace-Zeichen** (0x08) statt zur
+Wortgrenze. Die Muster trafen fast nichts: ein iPhone galt als „rechner", jeder
+Browser als „unbekannt". Genau die Falle, die `docs/UEBERGABE.md` seit dem
+2026-08-19 beschreibt — damals traf es den Org-Grenzen-Wächter, der deshalb
+**nie** traf und vier bewachte Routen als Lücke meldete.
+
+Der Merksatz stand seither in der Übergabe. **Eine Regel in einer Doku ist aber
+keine Sperre.** Neu ist die Sperre: eine Probe prüft **jede** Quelldatei unter
+`api/` auf Steuerzeichen. Im Diff sieht man ein 0x08 nicht.
+
+Sie hat sofort einen zweiten Fund gemacht: `test/helpers/orgGrenzenSpion.js:193`
+— der Kommentar, der *vor* dem Backspace warnt, enthielt selbst einen.
 
 ---
 
-## 8.2 — Die Ersatz-Zuweisung vereinfachen
+## 8.2 — Die Ersatz-Zuweisung — **erledigt 2026-08-21** (`ae6830a`, `9faaf94`)
 
-### Was heute stört (Screenshot 3)
+### Der Plan lag falsch — und das ist der wichtigere Teil
 
-`worker-submissions-review.html` zeigt die Begründung als senkrecht umbrechende
-Textsäule („Fehlt: Rollenfit nicht sauber belegt: Maler"). Der Weg ist außerdem
-umständlich: man muss ihn kennen und aufrufen.
+Dieser Abschnitt sagte: *„Der Ersatz-Mitarbeiter muss benachrichtigt werden und
+annehmen oder ablehnen können. **Das ist der Teil, der heute fehlt.**"*
 
-### Die Frage des Owners — ja, das geht
+Am Code gemessen stimmt das nicht. Es existierte alles — und war bei Abfassung
+des Plans bereits gebaut (Welle G6):
 
-> *„Oder hier auch mit einem Button, der sofort sichtbar ist, wenn jemand
-> ausfällt, und sofort verfügbares Personal vorschlägt und automatisch
-> vorgefüllte Zuweisungen macht, aber nichts bestätigt?"*
+| Baustein | Stand vorher |
+|---|---|
+| Ausfall melden | `POST /worker/assignments/:id/report-unavailable` |
+| Knopf an der Zeile | `mitarbeiter.js:1777`, in der Live-Belegschaft |
+| Vorschläge mit Bewertung | `/suggestions?only_available=true` (Abwesende gesperrt) |
+| Ersatz einsetzen | `POST /worker-assignment-links/:id/replace` |
+| Annehmen / Ablehnen | `POST /worker/assignments/:id/{confirm,decline}` |
+| Einsatz wieder offen | `declineAssignment` → `recalcAssignmentStaffing` |
 
-Ja. Und die Teile dafür liegen bereits alle da:
+### Der echte Befund lag eine Ebene tiefer
 
-- **Der Ausfall ist schon ein Ereignis.** Wellen G1–G4b haben Abwesenheit,
-  Verspätung und die Kundenmeldung gebaut (`assignment_worker_unavailable`).
-- **Der Vorschlag existiert schon.** `assignmentStaffingService` liefert
-  Auswahlmengen samt Bewertung (Verfügbarkeit/Distanz/Zuverlässigkeit — die
-  Zahlen im Screenshot).
-- **Die Live-Belegschaft ist die richtige Fläche.** Dort sieht man, wer heute
-  arbeitet — also auch, wer heute fehlt.
+Es gab **zwei Wege, denselben Einsatz zu besetzen, und nur einer fragte den
+Menschen**, den er besetzt:
 
-**Zu bauen:** Fällt jemand aus, erscheint **in der Live-Belegschaft** an der
-betroffenen Zeile eine Handlung *„Ersatz vorschlagen"*. Sie öffnet eine
-**vorausgefüllte** Zuweisung — bester Treffer vorgewählt, Begründung lesbar
-daneben. Der Disponent klickt *Zuweisen*, sonst nichts. **Nichts wird ohne
-diesen Klick bestätigt.**
+- `quick-assign` legt `pending_confirmation` an und bittet um Zusage.
+- `replace` legte **`auto_confirmed`** an.
 
-### Was dabei nicht vergessen werden darf
+Eine Absage war damit nicht bloss unüblich, sondern **unmöglich**:
+`declineAssignment` verlangt ausdrücklich `pending_confirmation` und hätte den
+Link abgewiesen. Die Oberfläche sagte dazu ehrlich „Die Zuweisung gilt
+**sofort**" und „**Verbindlich** einsetzen".
 
-**Der Ersatz-Mitarbeiter muss benachrichtigt werden und annehmen oder ablehnen
-können — genau wie bei einer regulären Zuweisung.** Das ist der Teil, der heute
-fehlt und der die Sache erst zu Ende bringt: eine Zuweisung, die der
-Zugewiesene nicht bestätigt hat, ist eine Absichtserklärung, keine Besetzung.
+### Gebaut
 
-**Karte und Text überarbeiten:** die Begründung als Zeile statt als Säule, in
-ganzen Sätzen („Rollenfit nicht belegt — gesucht: Maler").
+- **Migration 188** (`ersetzt_link_id`): trägt den Zusammenhang in die Daten.
+  Ohne ihn lebte er nur im Ablauf der Route — beim nächsten Aufrufer wäre er weg.
+- Der Ersatz wird **gefragt** (`pending_confirmation` +
+  `notifyAssignmentPendingConfirmation`) statt gebunden.
+- Die **Kundenmeldung aus Welle G4b wandert an die Zusage**. G4bs Gate lautet
+  „erst nach echter Neubesetzung" — seit der Ersatz zusagen muss, ist die
+  Zuweisung an der alten Stelle keine Neubesetzung mehr, sondern eine Anfrage.
+- **Der zweite Anlauf nach einer Absage** (`9faaf94`): der Link des Ausgefallenen
+  bleibt liegen, die Tafel liefert ihn als `ersatz_link_id` — aber nur, solange
+  keine Anfrage läuft.
+- **Der Riegel gegen doppelte Besetzung**, innerhalb der Transaktion und **nach**
+  dem `FOR UPDATE`. Ohne ihn könnten zwei Ersatzkräfte parallel zusagen und
+  beide beim Kunden stehen: `confirmAssignment` prüft nur den eigenen Link, und
+  `recalcAssignmentStaffing` zählt nur, es sperrt nicht.
 
-**Verify:** Ausfall melden → Vorschlag erscheint in der Live-Belegschaft →
-vorausgefüllte Zuweisung → Absenden → Ersatz bekommt Benachrichtigung → er
-lehnt ab → der Einsatz ist wieder offen und der Vorschlag erscheint erneut.
-Der Ablehnungsweg ist der wichtigere Test.
+### Ein Rückschlag der eigenen Änderung, von der Erhebung gefunden
+
+`getCompanyLiveWorkforce` liess `pending_confirmation` durch — der Kunde hätte
+den Ersatz als besetzt gesehen, **bevor** die Meldung rausgeht, und die Verlegung
+wäre leer gelaufen. Angefragte Ersatzkräfte sind dort jetzt ausgenommen;
+reguläre pending-Zuweisungen bleiben sichtbar wie bisher.
+
+### Verify — die Kette des Plans, wörtlich
+
+Ausfall → Knopf in der Live-Belegschaft → vorausgefüllte Vorschläge → Anfrage
+→ Ersatz wird benachrichtigt → **er lehnt ab** → Einsatz wieder offen → Knopf
+erscheint erneut → zweite Anfrage → Zusage → **jetzt erst** Kundenmeldung.
+
+Migration eingespielt und idempotent, Momentaufnahme erneuert. Acht neue Proben,
+Rückmutation vierfach. Voller Lauf **9612/0**.
+
+### 8.2 b — Die Begründungs-Darstellung
+
+Der Owner bemängelte die **senkrechte Textsäule**. Die Erhebung hat *zwei*
+Ursachen gefunden, nicht eine — und die zweite hätte man beim Lesen des
+Quelltextes nie gesehen.
+
+**Ursache 1 — die Sprache.** Die Etiketten waren keine Sätze, sondern Fragmente:
+Substantivphrase, Doppelpunkt, roher Feldwert. `Rollenfit nicht sauber belegt:
+Maler` lässt offen, ob „Maler" das ist, was **fehlt**, oder das, was der Mensch
+**kann**. Bei einer Besetzung ist das keine Feinheit. Jetzt: `Rollenfit nicht
+belegt — gesucht: Maler`.
+
+**Ursache 2 — die Kachelbreite**, im echten Schuber gemessen (`.drw-lg`,
+`max-width:540px`):
+
+| Raster | Spalten | Kachel | Texthöhe |
+|---|---|---|---|
+| `minmax(220px,1fr)` (vorher) | 2 × 229 px | 229 px | **183 px** |
+| `minmax(min(100%,320px),1fr)` | 1 × 468 px | 468 px | **117 px** |
+
+320 px ist die Schwelle, ab der im 467 px breiten Raster keine zweite Spalte mehr
+passt (320 + 10 + 320 = 650 > 467). Auf breiteren Flächen entstehen weiterhin
+zwei Spalten; `min(100%, …)` verhindert zusätzlich den Überlauf auf schmalen
+Geräten. Die Zahl steht in einer Probe fest, damit sie ihren Grund nicht
+verliert, sobald jemand sie zurückdreht.
+
+**Zwei Funde, die erst die Proben hervorgeholt haben:**
+
+1. **Die Liste wurde ZWEIMAL still gekappt** — im Dienst auf 3 und im Frontend
+   (`staffingCriteriaText`) nochmals auf 3. Aus neun fehlenden Nachweisen wurden
+   drei, und nichts sagte, dass etwas fehlt. Eine Liste, die verschweigt, dass sie
+   unvollständig ist, liest sich wie eine vollständige — und ist damit schlimmer
+   als gar keine. Beide Stellen zählen den Rest jetzt sichtbar mit
+   (`(+3 weitere)`).
+2. **Die Skills erschienen kleingeschrieben.** Der Abgleich normalisiert alles
+   auf Kleinschreibung — zu Recht, sonst verfehlt `Gerüstbau` ein `gerüstbau`.
+   Nur wurde dieselbe normalisierte Marke auch *angezeigt*: der Disponent las
+   `gesucht: gerüstbau, a-fach` und musste annehmen, die Plattform habe den
+   Bedarf seines Kunden verstümmelt. Marke und Schreibweise sind jetzt getrennt
+   (`sammleSchreibweisen` / `zeigeMarken`); eine Probe hält fest, dass der
+   Abgleich **weiterhin** normalisiert — sonst wäre die Anzeige teuer erkauft.
+
+**Testlage:** Die Begründung — der Satz, auf den hin ein Mensch disponiert wird —
+hatte vorher **keine einzige Probe**. Jetzt 13, am Verhalten geprüft statt an
+Zeichenketten im Quelltext (`scoreWorkersForAssignment` ist synchron und
+DB-frei), inklusive Rückmutation gegen die stille Kürzung.
+
+Voller Lauf **9625/0**, 13 übersprungen (die DB-gebundenen).
+
+---
+
+## Owner-Entscheidungen 2026-08-21
+
+Vier Fragen, die sich aus den Erhebungen ergaben und **nicht** aus dem Code
+ableitbar waren. Hier festgehalten, damit sie nicht in einem Sitzungsprotokoll
+verschwinden.
+
+| Frage | Entscheidung | Folge |
+|---|---|---|
+| **Frist einer Ersatz-Anfrage** | **4 Stunden**, dann verfällt sie automatisch; Erinnerung nach 2 h | Heute gibt es für Zuweisungs-Links **keine** Frist — eine unbeantwortete Anfrage blockiert den Einsatz unbegrenzt über `reserved`, und er sieht dabei versorgt aus. Zu bauen: Verfall + Erinnerung, danach wird der Einsatz wieder offen und der Knopf erscheint erneut (der Weg dorthin steht seit `9faaf94`). |
+| **„Bester Treffer"** | **Vorbewertung in die Datenbank ziehen** | Der Kandidatenpool wird heute **alphabetisch** auf ~60 Zeilen geschnitten (`assignmentStaffingService.js`, `ORDER BY wp.last_name ASC`), *bevor* bewertet wird. Ab ~60 aktiven Kräften wäre „bester Treffer" eine Behauptung. Abwesenheit, Entfernung und Pflicht-Skills wandern in die SQL. **Achtung: die Basisabfrage hat sechs Aufrufer** — alle sind betroffen, das ist eine eigene Welle. |
+| **Kunde ↔ Kunde (10b)** | **Keine Nachrichtenfunktion.** Ansprechperson mit Telefonnummer wird Pflichtfeld | Ein Nachrichtenkanal erzeugt Erwartungen an *TempConnect*: Zustellung, Aufbewahrung, Moderation, DSGVO-Auskunft über fremde Gespräche — und die Beschwerden landen am Ende doch dort. `contact_name`/`contact_phone` stehen bereits auf `offers`. Sichtbar an der Besetzung und in der Live-Belegschaft, nicht nur in der Deal-Akte. Eskalation geht über Abschnitt 10. |
+| **Reihenfolge** | Begründungs-Darstellung, dann Abschnitt 10 | — |
 
 ---
 
@@ -263,13 +573,391 @@ Präfix (`supportAuth`), Warteschlangen, Fallarten und `data_scope`
 (`assigned_only` / `vendor_scoped`), dazu eine Mengenbremse gegen Massenabruf
 durch externe Agenten. **Was fehlt, ist die Kundenseite:** ein Weg *hinein*.
 
-### Zu bauen
+### Der Befund, der alles andere umgestellt hat
 
-- **Im Hilfe-Center** die drei Schaltflächen in der Reihenfolge oben.
-- **Am Angebot** eine Meldefunktion, die im Staff Control Center landet.
-- **Das Support Center ausbauen** — es war für die Abgabe nach Indien gedacht
-  und ist verankert, aber nicht fertig.
-- **Audit darüber im Staff Center**, und verwaltbar, wer was bearbeiten darf.
+`support_cases` hatte im **gesamten Repo kein einziges `INSERT`**. Warteschlangen,
+Fallarten, SLA-Fristen, Eskalationen, Wissensdatenbank, Qualitätskennzahlen — und
+kein Weg, einen Fall entstehen zu lassen. Das Support Center war ein **Lesesaal
+über einer Tabelle, die niemand füllen konnte**; Fälle konnten nur von Hand in der
+Datenbank entstehen. Ohne Eingang wäre Stufe 3 des Trichters ein toter Knopf
+gewesen — deshalb wurde sie zuerst gebaut.
+
+Zwei weitere Befunde derselben Art, unabhängig nachgeprüft:
+
+- **Die `reports`-Tabelle hat einen `INSERT` und null Leser.** `POST /reports`
+  nimmt Meldungen wegen Spam, Betrug und Belästigung entgegen (`reportService.js:27`)
+  — und **keine** Staff- oder Support-Route liest sie je aus. Ein Melden-Knopf,
+  der ins Leere schreibt. Gehört zur Meldefunktion unten.
+- **`tempconnect_staff.role` wird nirgends durchgesetzt.** Migration 118 legt sechs
+  Rollen an (`staff_admin`, `staff_commercial`, …); repo-weit gibt es **keinen
+  einzigen Treffer** darauf in `api/`. Jedes aktive Staff-Mitglied darf alles;
+  abgestuft wird nur über Step-up-Stufen pro Route. Auch `expires_at` prüft
+  `staffControlAccess.js` nicht, obwohl der Migrationskommentar es behauptet.
+
+### Gebaut: der Weg hinein (10 a)
+
+| Stück | Ort |
+|---|---|
+| Eingang | `api/services/supportIntakeService.js`, `api/routes/supportIntake.js` |
+| Trichter-Reihenfolge | `GET /support-channels` — **serverseitig**, damit sie zwischen Seiten nicht driftet |
+| Fall eröffnen | `POST /support-requests` (`requireAuth`, CSRF, Mengenbremse) |
+| Eigene Sicht | `GET /support-requests`, `GET /support-requests/:id` |
+| Darstellung | `frontend/public/hilfe.html` — drei Stufen, Formular, eigene Fälle |
+| Telefonnummer | `SUPPORT_PHONE` / `SUPPORT_PHONE_HOURS` (`.env.example`) |
+
+**Warum der Eingang nicht unter `/support` liegt.** `support.js:664` setzt das Tor
+am **Präfix**: `router.use("/support", supportRateLimit, requireAuth, supportAuth)`.
+Das ist die strengere Bauart — auf einer neuen Route nicht vergessbar — und die
+Owner-Vorgabe ist hart: kein Zugang für Unternehmen, kein Zugang für
+Personaldienstleister. Eine Kundenroute darunter wäre ein Loch, das ab da für
+**alle** Routen darunter gälte. Der Eingang liegt daneben; eine Zusicherung hält
+fest, dass keine Route der neuen Datei unter `/support/` rutscht — und eine
+zweite, dass das Präfix-Tor überhaupt noch steht.
+
+**Drei Entscheidungen, die je eine Zusicherung tragen:**
+
+1. **Ohne Warteschlange entsteht kein Fall.** `support.js:164-167` schneidet die
+   Agentensicht mit `queue_id::text = ANY(...)` zu — ein Fall mit `queue_id = NULL`
+   ist für **jeden** Agenten mit gesetzten `allowed_queues` unsichtbar. Der bequeme
+   Weg wäre gewesen, ihn trotzdem anzulegen. Das Gegenteil stimmt: der Kunde hält
+   dann eine Fallnummer in der Hand und glaubt, er sei gehört worden. Eine
+   angenommene Nachricht, die niemand liest, ist schlimmer als eine abgelehnte —
+   also 503 mit dem Hinweis aufs Telefon.
+2. **Die Dringlichkeit gehört nicht dem Kunden.** Dürfte er sie setzen, wäre binnen
+   Wochen jeder Fall `critical`; ein Feld, das jeder selbst setzt, misst nur noch,
+   wer es gelesen hat.
+3. **Die Sicht des Kunden ist eine Nutzer-, keine Org-Grenze.** Ein Support-Fall
+   kann persönlich sein (Zugangsprobleme, Beschwerde über einen Kollegen). Ihn
+   allen Mitgliedern derselben Organisation zu zeigen wäre eine Entscheidung, die
+   niemand getroffen hat. Nur `note_type = 'external'` geht hinaus, und die Grenze
+   steht im SQL, nicht in der Anzeige.
+
+**End-to-end nachgewiesen** (2026-08-22, Worktree-API gegen die echte Datenbank):
+Hilfeseite → „Anfrage stellen" → `POST /support-requests` **201** → **SC-2026-00001**
+in `support_cases`, Warteschlange „Allgemein", 48-h-Lösungsfrist aus der Queue,
+Melder und Organisation gesetzt, Ereignis `case_opened_by_customer` ohne Agenten
+und mit Herkunft `hilfe.html` — und der Fall erscheint in der eigenen Liste.
+Der erste Support-Fall, den dieses System je hatte.
+
+Der Wächter „kein Verweis führt ins Nichts" hat dabei einen von mir erfundenen
+Pfad (`login.html`) sofort gemeldet; richtig ist `/?auth=login`
+(`js/pages/landing.js:108`). Genau dafür steht er.
+
+Voller Lauf **9653/0**, 13 übersprungen.
+
+### Gebaut: Inhalte melden (10 b)
+
+**Der Befund zuerst — die Meldefunktion hat noch nie einen Bericht gespeichert.**
+Am 2026-08-22 gegen die *laufende* Datenbank bewiesen, in einer zurückgerollten
+Transaktion ausgeführt statt aus dem Quelltext geschlossen. Drei Fehler
+übereinander, alle drei lautlos:
+
+| # | Was | Beleg |
+|---|---|---|
+| 1 | Drei der fünf erlaubten Gründe verletzten den CHECK | `ERROR: new row … violates check constraint "…_reason_check"` |
+| 2 | `ON CONFLICT (reported_org_id, reporter_user_id)` hatte keinen passenden eindeutigen Index | `ERROR: there is no unique or exclusion constraint matching the ON CONFLICT specification` |
+| 3 | `catch { return … }` ohne Protokoll | der Nutzer las „konnte nicht gespeichert werden", niemand erfuhr warum |
+
+Dazu las der Posteingang `WHERE status = 'pending'` — ein Wert, den der CHECK
+**nie** erlaubt hat — und `resolveAbuseReport` schrieb `'resolved'`/`'dismissed'`
+statt `resolved_action_taken`/`resolved_dismissed`. Zwei Fehler, die sich
+gegenseitig verdeckt haben: die Bedingung traf nie etwas, also kam der CHECK nie
+zum Zug. **Beide Meldetabellen hatten 0 Zeilen.** Das war kein Zufall.
+
+**Warum es so lange unbemerkt blieb — und was jetzt dagegen steht.** Der
+Schema-Wächter prüft, ob *Spalten* existieren. Sie existierten. Über die
+erlaubten *Werte* wusste er nichts. Der Abzug trägt sie ab jetzt: `pruefwerte`,
+**240 Spalten in 119 Tabellen**, erzeugt aus der laufenden Datenbank. Eine Probe
+hält jeden geschriebenen Literal dagegen — gebunden an die **Anweisung**, nicht
+an die Datei: `status` heißt auf 22 Tabellen `status`, und `'pending'` ist auf 22
+davon erlaubt. Ein Wächter, der nur den Spaltennamen kennt, hätte genau diesen
+Fehler *nicht* gefunden.
+
+**Keine vierte Meldetabelle.** Es gibt bereits drei angefangene Meldewege
+(`reports` mit einem INSERT und null Lesern, `profile_abuse_reports`,
+`flagged_search_queries`). `profile_abuse_reports` ist der einzige mit fertigem
+Ausgang im Staff Control Center — also wächst dieser: Migration 189 gibt ihm
+`ziel_art`/`ziel_id`, und Angebote laufen in denselben Posteingang.
+
+| Stück | Ort |
+|---|---|
+| Migration | `sql/migrations/189_meldungen_die_ankommen.sql` |
+| Melden | `POST /offers/:id/report` (`profileVisibility.js`) |
+| Posteingang | Staff CC → Marketplace Visibility → Meldungen, jetzt mit Spalte „Was" |
+| Am Angebot | `frontend/public/offer_detail.html`, unten, klein, ohne Warnfarbe |
+
+**End-to-end nachgewiesen:** POST **200** → eine Zeile `ziel_art='angebot'`, im
+Posteingang sichtbar; dieselbe Person ein zweites Mal → weiterhin **eine** Zeile
+(`ON CONFLICT` greift endlich); unbekanntes Angebot **404**; erfundener Grund
+**400**; eigenes Angebot **400**; Anbieter ohne Organisation **409** statt einer
+Meldung, die niemand sieht. Und der Gegenbeweis für „Erledigen":
+`status='resolved_action_taken'` → `UPDATE 1`, `status='resolved'` → CHECK-Verletzung.
+
+28 neue Proben. Voller Lauf **9682**, 9668 grün, 13 übersprungen, ein bekannter
+Ausreißer (`me.route.coverage.test.js` fällt im vollen Lauf als *Datei* aus —
+`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`, libuv unter Windows;
+allein laufen ihre 68 Untertests grün, siehe `scripts/run-tests.js:148`).
+
+### Nachgezogen: „Angebot" heißt zweierlei — und melden darf nur, wer sieht
+
+Beim Nachprüfen der Oberfläche (nicht im Quelltext) fielen **zwei** Fehler in
+meiner eigenen Arbeit auf.
+
+**1. Die Sichtbarkeit wurde nicht geprüft.** Dieselbe Sitzung bekam bei
+`/marketplace/offers/:id/detail` ein **403** und konnte das Angebot trotzdem
+melden. Zwei unnötige Folgen: ein **Orakel** für Angebotskennungen (404 gegen
+200) und ein Weg, wahllos Meldungen gegen Angebote abzusetzen, die man nie
+gesehen hat — jede kostet das Team dieselbe Bearbeitung wie eine echte. Jetzt
+gilt dieselbe Bedingung wie in `marketplace.js:1414` (`canAccessAsOwner`,
+dieselbe Funktion, keine zweite Kopie), und „gibt es nicht" und „gehört nicht zu
+dir" bekommen **dieselbe** Antwort.
+
+**2. „Angebot" meint im Produkt zwei Dinge, und die wichtigere Hälfte fehlte:**
+
+| | Wer sieht es | Beleg |
+|---|---|---|
+| `offers` | nur die **zwei Parteien** | `marketplace.js:1414` antwortet allen anderen 403 |
+| `capacity_posts` | **jeder** angemeldete Nutzer mit SLA-Zugang | `marketplace.js:296-302` filtert nicht nach Anbieter |
+
+„Freche oder betrügerische Inhalte" trifft vor allem die zweite — das ist die
+Fläche, auf der Fremde die Inhalte von Fremden sehen. Statt zu raten, welche
+gemeint war, tragen jetzt **beide**: Migration 190 gibt `ziel_art` den Wert
+`kapazitaet`, `POST /capacity-posts/:id/report` nimmt sie entgegen, und der
+Melde-Knopf steht auf `capacity_exchange_detail.html` im Fremd-Zweig (den
+eigenen Eintrag weist die Route ohnehin ab — ein Knopf, der nur eine
+Fehlermeldung erzeugt, ist ein toter Knopf).
+
+Dort steht **bewusst keine** Sichtbarkeitsprüfung: der Feed zeigt jedem jeden
+Eintrag, eine Prüfung wäre eine Attrappe. Eine Zusicherung hält fest, dass der
+Unterschied *gewollt* ist — sonst „repariert" ihn jemand in die falsche Richtung
+und nimmt der Meldefunktion genau die Leute weg, für die sie da ist.
+
+**End-to-end nachgewiesen:** Kapazitätsseite → „Eintrag melden" → **200** → zwei
+Meldungen unterschiedlicher Zielart im selben Posteingang, beide sichtbar.
+
+## Erhebung 2026-08-22 — 18 Agenten, 12 riskante Befunde, 11 haben gehalten
+
+Eine Erhebung mit fünf parallelen Lesern über die drei offenen Stücke, jeder
+sicherheitskritische Befund danach von einem **Skeptiker angegriffen**, der ihn
+widerlegen sollte. Einer ist gefallen (`resolved/closed` ist keine Sackgasse —
+`POST /support/escalations` führt zurück). Elf haben gehalten.
+
+### Sofort gebaut — kein Entscheid nötig
+
+**S1 · Befristete Staff-Zugänge liefen nie ab — und die Migration behauptete
+das Gegenteil.** Migration 118:56 nennt **wörtlich** die Funktion, die prüfen
+soll:
+
+> `COMMENT ON COLUMN tempconnect_staff.expires_at IS 'Optionales Ablaufdatum —`
+> `NULL = kein Ablauf. Prüfung in createStaffControlAccessMiddleware (WAVE 11)'`
+
+Die Abfrage dieser Funktion holte die Spalte nicht einmal. Es gibt sogar einen
+**Teilindex** dafür (118:40-42) — jemand hat den Index für eine Prüfung gebaut,
+die nie geschrieben wurde. `revoked_at` war noch schwächer: die Deaktivierung
+schreibt nur `is_active = FALSE`, niemand setzt es, niemand prüft es.
+
+Jetzt stehen beide Bedingungen **im `WHERE`** — an *beiden* Toren (Wache und
+Login; zwei Tore mit verschiedenen Bedingungen sind auf Dauer das schwächere von
+beiden). Vorbild ist `requireOwnerControlAccess.js:43-49`, das nebenan schon
+genau so arbeitet. Die Notöffnung über `STAFF_USER_IDS` löst Ablauf und Widerruf
+jetzt **ausdrücklich** — sonst hätte die Reparatur dort ein Loch gerissen. Die
+Zugangsübersicht zeigt beide Spalten, denn sie *ist* die Access-Review.
+
+**Wirkung heute: keine.** Gemessen — eine Zeile, `expires_at IS NULL`,
+`revoked_at IS NULL`. Es wird niemand ausgesperrt; es kann künftig nur niemand
+mehr drinbleiben, der draußen sein soll.
+
+**S2 · Zwei Registereinträge zertifizierten eine Lücke als geprüft.**
+
+| Stelle | Stand | Wirklichkeit |
+|---|---|---|
+| `wachen.json` | `eigene-daten`, „Ein Bericht wird für die eigene Organisation erzeugt" | `POST /reports` meldet einen **fremden** Nutzer; `eigene-daten` heißt im Vokabular derselben Datei „kein fremdes Ziel erreichbar" |
+| `PLATTFORM_REGISTER.md:392` | „Auswertungen abrufen" | Missbrauchsmeldung; die Auswertungen liegen in `reporting.js` |
+| `docs/api/API_SURFACE.md:138` | `GET /api/reports/executive` | **existiert nicht** — nie existiert |
+
+`PILOT_GO_LIVE_TODOS.md:705` hält die Verwechslung längst fest; die Korrektur ist
+nur nie in die Register geflossen. Der Eintrag steht jetzt auf `BEFUND` — dem
+Wert, den das Vokabular für offene Punkte vorsieht und den bis heute **niemand
+benutzt hatte**.
+
+**S3 · `POST /reports` war ein Orakel.** Vier unterscheidbare Antworten (404
+`USER_NOT_FOUND`, 404 `REQUEST_NOT_FOUND`, 403 `NOT_PARTICIPANT`, 400
+`REPORTED_USER_NOT_IN_REQUEST`) verrieten jedem angemeldeten Nutzer, ob eine
+Nutzer- oder Anfragekennung existiert und wer daran beteiligt war. Jetzt eine
+Antwort für alle vier; das Protokoll unterscheidet weiter. Die Route hatte
+vorher **keine einzige Probe**.
+
+### Bestätigt, aber owner-gated — siehe Fragen unten
+
+| | Befund | Schwere |
+|---|---|---|
+| **R2** | `request_id` ist optional, damit ist die *gesamte* Beteiligungsprüfung bedingt — ohne das Feld bleibt nur `userExists` | Sicherheit |
+| **R3** | `change_status` kennt **keine Übergänge**: ein einfacher Agent erreicht `escalated_*` und umgeht dabei Pflichtbegründung, `occ_decisions`, `support_escalations` und Ops-Signal. Ausgeführter Beweis: HTTP 200, ein UPDATE, `is_escalated` unberührt. **CLAUDE.md Stop-Regel 5 ist formal ausgelöst.** | Sicherheit |
+| **R4** | `support_escalations` kann **nie** abgeschlossen werden — zwei INSERTs mit festem `'pending'`, repo-weit null UPDATE. Die Staff-Liste filtert nicht auf Fall-Status: jede je erzeugte Eskalation bleibt für immer stehen | defekt |
+| **R5** | `resend_verification` / `resend_invite` am Fall sind **Attrappen** — sie schreiben eine Zeitleisten-Zeile und antworten `success`, ohne zu versenden. Der einzige POST der Support-Oberfläche geht genau dorthin | defekt |
+| **R6** | Die Erstreaktionszeit misst „ein Agent hat geklickt": `add_note` stempelt **ohne** Rücksicht auf `note_type`, obwohl der Code selbst `external` als Kundenantwort definiert | defekt |
+| **R7** | Die Antwort erreicht den Kunden nie: nur die Detailroute liefert `antworten`, und die Fallliste in `hilfe.html` verlinkt sie nicht | defekt |
+| **R8** | **144 von 395 Nutzern** sind keiner Organisation zuzuordnen. Die Garantie aus Migration 041 ist ein einmaliger `DO`-Block ohne Trigger — sie ist verfallen und die Lücke wächst nach | Blocker der Vereinigung |
+| **R9** | Die Grund-Vokabulare beider Meldewege sind fast disjunkt: nur `spam` ist gemeinsam. `betrug` und `belaestigung` haben **keine** Entsprechung | Blocker der Vereinigung |
+
+### Owner-Entscheide 2026-08-23 und was daraus gebaut wurde
+
+| Frage | Entscheidung | Gebaut |
+|---|---|---|
+| Wer erreicht `escalated_*`? | **Nur über `escalate`** | ✅ Übergangstabelle in `support.js` |
+| Bleibt `POST /reports`? | **Entfernen** | ✅ Migration 191, Route + Dienst + Tabelle weg |
+| Was zählt als Erstreaktion? | **Nur eine externe Notiz** + Zahl „ohne Erstreaktion" | ✅ R6 gebaut |
+| Wo liegt der Melde-Posteingang? | **Bleibt im Staff CC** | ✅ nichts zu tun — bestätigt |
+
+**R3 gebaut.** `change_status` hat jetzt eine Übergangstabelle. Die vier
+`escalated_*` sind daraus entfernt: sie entstehen nur im `escalate`-Zweig, der
+Begründung, OCC-Vorgang, Eskalations-Zeile und Ops-Signal schreibt. Der Weg auf
+sich selbst wird beim **Bau** der Tabelle entfernt, nicht bei jeder Abfrage —
+die erste Fassung schloss ihn nur im Kommentar aus, und `open → open` wäre
+durchgegangen: keine Änderung, aber ein Ereignis in der Zeitleiste, das eine
+vorspiegelt.
+
+**Zwei Funde, die erst beim Bauen der Proben auffielen** — als BEFUND-Gruppe im
+Test festgehalten, nicht mitrepariert (Produktfrage):
+
+- **`resolved` und `closed` sind absolute Sackgassen.** `computeAllowedActions`
+  (`support.js:279`) streicht auf einem erledigten Fall *sechs* Aktionen. Ein
+  Fall in `resolved` kann nie `closed` werden — welcher der beiden Endzustände
+  gilt, entscheidet der Zufall des ersten Klicks.
+- **`reopened` ist unerreichbar** — der Zustand steht im CHECK der Migration 110
+  und wird im gesamten Repo nirgends gesetzt. Und genau darauf rechnet eine
+  veröffentlichte Qualitätskennzahl: `reopen_rate_percent` (`support.js:1696`)
+  zählt `COUNT(*) FILTER (WHERE sc.status = 'reopened')` und **kann nur 0 %
+  ergeben**. Eine Zahl, die gemessen aussieht und nur eines sagen kann.
+
+Der einzige Rückweg aus `closed` führt heute über `POST /support/escalations`,
+dessen Rechteprüfung mit einer **fest verdrahteten** Zeile `{status:"open"}`
+arbeitet (`support.js:1495`) und die Sperre damit umgeht. „Um einen Fall wieder
+zu öffnen, eskaliere ihn" ist kein Arbeitsablauf.
+
+**R6 gebaut — die Erstreaktion misst wieder eine Antwort.** Die Uhr stand an
+drei Stellen, keine davon eine Antwort: `accept` (jemand nimmt den Fall an),
+`change_status` mit `$2 <> 'new'` (also stoppte schon das Verschieben nach
+`waiting_internal` die Uhr) und `add_note` **ohne jede Unterscheidung** nach
+Notiztyp. Jetzt nur noch `note_type = 'external'` — dieselbe Grenze, die die
+Kundensicht zieht; eine Probe hält beide Stellen gegeneinander.
+
+Dazu die zweite Hälfte: `ohne_erstreaktion` und
+`ohne_erstreaktion_abgeschlossen`. `AVG()` überspringt NULL still — ein nie
+beantworteter Fall verschlechtert den Mittelwert nicht, er *verschwindet* aus
+ihm. Je schlechter der Support arbeitete, desto besser sah die Zahl aus.
+
+**R7 gebaut — die Antwort erreicht den Kunden.** Die Fallliste in `hilfe.html`
+war eine Sackgasse: kein `<a>`, kein `data-id`, kein Handler. Der Kunde sah
+Fallnummer und Status, und die Antwort des Supports lag in einer Route, die
+niemand aufrief. Die Zeile ist jetzt ein Knopf, der den Fall aufklappt.
+
+Nachgewiesen an **einem** Fall mit **zwei** Notizen — schärfer lässt sich die
+Grenze nicht prüfen:
+
+| | |
+|---|---|
+| externe Antwort | **sichtbar**, mit Berlin-Zeit (`23.08.2026, 06:55 Uhr`) |
+| interne Notiz | **nicht sichtbar** |
+| Fall ohne Antwort | „Noch keine Antwort. Wir melden uns bis: 23.08.2026, 10:…" |
+
+Der Leerzustand *sagt* etwas: „noch keine Antwort" ist eine andere Nachricht als
+ein leerer Kasten, und mit der Frist daneben weiß der Kunde, woran er ist.
+
+### Owner-Entscheide, zweite Runde (2026-08-23)
+
+| Frage | Entscheidung | Stand |
+|---|---|---|
+| Wer hakt eine Eskalation ab? | **Beides, OCC hat Vorrang** | ✅ R4 gebaut |
+| `resend_verification` / `resend_invite` | **Echten Versand anschließen** | ✅ R5 gebaut |
+| `resolved`/`closed`/`reopened` | **Wiedereröffnen bauen** | ✅ gebaut |
+| Ansprechperson als Pflichtfeld | **Pflicht mit Profil-Rückfall** | ✅ 10b gebaut |
+
+**R4.** `POST /support/escalations/:id/resolve`, Supervisor-only, Begründung ≥ 20
+Zeichen. `is_escalated` wird **neu berechnet** statt blind auf `FALSE` gesetzt —
+ein Fall mit zwei Eskalationen, von denen eine erledigt ist, ist nicht „nicht
+mehr eskaliert". Und der OCC-Entscheid schlägt durch: `related_occ_request_id`
+gab es seit jeher, aber die Verbindung wirkte nur in *eine* Richtung. Vorrang
+heißt dabei **nicht**, vorhandene Arbeit zu überschreiben.
+
+**R5.** Beide Aufrufer gehen jetzt durch *eine* Funktion. Und die Mail geht
+**nach** dem COMMIT hinaus — eine verschickte Mail holt kein Rollback zurück.
+Umgekehrt wirft ein gescheiterter Versand den Vorgang nicht um, wird aber in der
+Antwort gemeldet: `success: true` allein war genau das, was die Attrappe so
+lange unsichtbar gemacht hat.
+
+**Wiedereröffnen.** `resolved → closed | reopened`, `closed → reopened`,
+Supervisor-only. Beim Wiedereröffnen werden `sla_resolved_at` **und**
+`closed_at` gelöscht — sonst behielte der Fall den Zeitstempel der ersten Runde
+und der zweite Durchgang bliebe in der Kennzahl unsichtbar. `reopen_rate_percent`
+kann damit zum ersten Mal etwas anderes als 0 % ergeben.
+
+**10b.** Die Pflicht trifft nur den, der handeln kann: bei drei der fünf Wege
+handelt der Anbieter selbst (Pflicht, mit Rückfall aufs Profil), bei zweien der
+Käufer (nur füllen, nicht blockieren). Den Käufer abzuweisen, weil ein *anderer*
+sein Profil nicht gepflegt hat, wäre die falsche Adresse.
+
+Die Ansprechperson steht jetzt in der Live-Belegschaft, mit wählbarer Nummer.
+
+#### Die Richtung — ein Fehler in der eigenen Arbeit, und wie er auffiel
+
+Die erste Fassung zeigte die Ansprechperson aus `offers.contact_name`. Beim
+Nachprüfen der **Richtung** — nicht durch einen Test, sondern durch die Frage
+„wer sieht das eigentlich?" — fiel auf:
+
+| | |
+|---|---|
+| `assignments.supplier_org_id` | die Agentur, **deren Tafel das ist** |
+| `offers.supplier_company_id` | ein Mitglied **ebendieser** Agentur |
+
+Die Agentur bekam ihre **eigene** Kontaktperson angezeigt. Es sah richtig aus und
+war wertlos — die schlimmste Sorte Fehler, weil niemand sie bemerkt, bis jemand
+um sechs Uhr morgens die falsche Nummer wählt. Der Commit ist zurückgenommen.
+
+Besetzung und Live-Belegschaft sind **Anbieter**-Flächen; dort gehört die Nummer
+des **Kunden** hin. Es fehlte also nicht die Anzeige, sondern die Hälfte der
+Daten: `demand_requests` hatte überhaupt keine Kontaktspalten.
+
+**Migration 192** legt sie an — auf dem **Bedarf**, nicht auf dem Einsatz. Der
+Bedarf ist die Stelle, an der das Einsatzunternehmen ohnehin spricht; auf
+`assignments` wäre die Angabe eine Spalte, die jemand nachtragen müsste, wenn der
+Einsatz schon läuft — also genau dann, wenn niemand mehr Zeit dafür hat.
+
+Erfasst mit derselben Mechanik wie beim Angebot: Pflicht am ausdrücklichen
+Bedarf, Rückfall aufs Profil, **kein** Blockieren bei den zwei impliziten
+Bedarfen (mitten in einem schnellen Abschluss nach einer Telefonnummer zu fragen
+ist eine Wand an der Stelle, an der Tempo der Zweck ist).
+
+**Gegen echte Daten geprüft**, nicht gegen einen Spion: beide Abfragen direkt
+gegen die laufende Datenbank ausgeführt. Die Live-Belegschaft der Agentur zeigt
+`Frau Neumann (Disposition) +49 30 5550123` — die Nummer des Kunden. Die
+Besetzungsliste ebenso, mit ehrlichem Leerzustand in der zweiten Zeile.
+
+Zehn Proben halten jetzt die **Richtung** fest. Sie sind billig und hätten den
+Fehler gefangen.
+
+> **Offene Lücke im Datenmodell, gemessen:** **61 von 68** Einsätzen haben *weder*
+> Bedarf noch Deal noch Angebot noch Anforderung — sie stehen für sich. Für die
+> trägt auch Migration 192 nichts bei. Das ist keine Lücke der Spalten, sondern
+> eine der **Herkunft**: ein Einsatz ohne Vorgang hat keine Gegenseite, die man
+> anrufen könnte. Wer das ändert, ändert, wie Einsätze entstehen — eine eigene
+> Entscheidung, keine Nebenwirkung dieser hier.
+
+### Was die Erhebung NICHT geprüft hat
+
+Kein Laufzeit-Beweis über HTTP (außer dem ausgeführten `change_status`-Handler);
+alle DB-Zahlen sind Stichtagswerte der Entwicklungsdatenbank; fünf Wächter-Dateien
+wurden nicht gelesen (`auditCoverageCheck`, `notificationSurfaceMap`,
+`visibilityMatrix`, `openapi.spec`, `uiNoEmoji`); nginx wurde nicht gelesen.
+
+### Noch zu bauen — Stand 2026-08-24, am Code nachgeprüft
+
+| | Punkt | Stand |
+|---|---|---|
+| ~~1~~ | Die tote `reports`-Tabelle an denselben Posteingang hängen | **erledigt** — erst entfernt (`ce1068f`, Owner-Entscheid 23.08.), dann als vierte Zielart neu gebaut (`dd3dbf4`, revidierter Entscheid 24.08.) |
+| ~~2~~ | Das Support Center ausbauen | **erledigt** — Zustandsautomat `46e42c8`, Erstreaktion `572bb50`, Antwort an den Kunden `6911e32`, Eskalations-Abschluss `9254cf5`, Attrappen-Knopf `bcd54cc` |
+| ~~3~~ | Audit darüber im Staff Center, und wer was bearbeiten darf | **erledigt** — sechs Rollen durchgesetzt (`8eb9971`); Audit gemessen: **51 von 51** mutierenden Staff-CC-Routen schreiben `writeStaffAudit` |
+| 4 | Telefonnummer setzen (`SUPPORT_PHONE`) | **Owner-Handlung**, nicht baubar. Der Trichter bietet Stufe 2 bis dahin bewusst nicht an; beide Zustände sind verifiziert |
 
 ### Die Zugangsregel — hart
 
@@ -356,3 +1044,1151 @@ Draht daran, der beim Fertigstellen reißt.
   Beide Seiten sind gewollt: zusammenführen, nicht überschreiben.
 - Volle Suite 9408/0 (13 übersprungen — Integrationstests, die ohne Datenbank
   überspringen; im Container laufen sie).
+
+---
+
+## Die Ersatz-Frist — gebaut am 2026-08-24 (Migration 193)
+
+Owner-Entscheid umgesetzt: **4 Stunden, dann verfällt die Anfrage; Erinnerung
+nach 2 h; danach ist der Einsatz wieder offen und der Knopf erscheint erneut.**
+
+### Zuerst musste das Fundament repariert werden
+
+Die Erhebung vor dem Bau (15 Agenten, gegnerische Widerlegung: 4 von 10
+Befunden bestätigt, **6 gefallen**) fand einen Defekt in der eigenen
+8.2-Arbeit: die `ersatz`-LATERAL der Live-Belegschaft war **toter Code**. Sie
+verlangte `wal.is_active = FALSE` **und** Lebenszyklus `IN ('active','ends_today')`
+— aber der Lebenszyklus-Baustein liefert bei gesetztem `linkAlias` für inaktive
+Links immer `'archived'`. Die WHERE-Klausel widersprach sich selbst; gemessen:
+1 Kandidat, 0 Treffer. Der Knopf kam nach einer Absage **nie** zurück, während
+die Proben grün waren — sie prüften nur, dass Zeichenketten *vorkommen*.
+Und ein zweites Tor: der Knopf hing in der Abwesenheits-Schachtel
+(`live_status === "abwesend" && absence_id`), die nur der **Disponent** füllt —
+die Selbstmeldung aus dem Portal erreichte ihn nie. Beides repariert
+(`da5eedd`), mit ausführenden Proben statt Regex.
+
+### Was gebaut wurde
+
+| Baustein | Wo |
+|---|---|
+| Vier Uhr-Spalten (`frist_bis`, `erinnerung_faellig_am`, `erinnert_am`, `verfallen_am`) + Statuswert **`expired`** + 3 Benachrichtigungstypen + 2 Teilindizes | Migration 193, additiv nach 184er-Muster |
+| Frist wird mit der Anfrage **geboren** — in *beiden* Zweigen des INSERT (der ON-CONFLICT-Zweig recycelt die Zeile und stellt die Uhr **neu**) | `replaceAssignmentWorker` |
+| **Sweep** `verfalleneErsatzAnfragen`: Verfall *vor* Erinnerung, selbstentwertende Mengen-UPDATEs (zwei gleichzeitige Läufe unschädlich), Erinnerungsmarke + Meldung in *einer* Transaktion, Verfallsmeldungen *nach* dem Commit | `workerService.js` |
+| **Taktunabhängiger Riegel**: `frist_bis > NOW()` im WHERE von Zusage *und* Absage → `ANFRAGE_VERFALLEN` (409). Gilt auch, wenn nie ein Takt läuft | `confirmAssignment` / `declineAssignment` |
+| Zwei Aufrufer, eine Funktion: dritter Aufruf im getakteten `staffing-maintenance`-Handler **plus** BullMQ `ersatz-frist-10min` | `internal.js`, `workers/index.js`, `capacityWorker.js` |
+| Marktplatz-Rückgabe: `syncWorkerReservation` — die Anfrage hatte die `capacity_posts` des Ersatzes pausiert, der Mensch war aus dem Marktplatz verschwunden, obwohl er nur *gefragt* wurde | im Sweep, je verfallener Zeile |
+| Sichtbarkeit: Frist im Erst-Text der Benachrichtigung, in beiden Portal-Abfragen (`response_deadline_*`, Namensgleichheit mit den Staffing-Einladungen) und auf zwei Portal-Flächen (Einsätze-Karte, Dashboard-Banner) | `workerNotificationService`, `workerService`, `einsatzportal-*.html` |
+| Wächter-Ausbau: `benachrichtigungsSpiegel` hält jetzt auch `SEVERITY_MAP` gegen den CHECK — vorher fiel genau diese Quelle durchs Netz (stille `general`-Degradierung = Meldung ohne Knöpfe). Der Wächter biss beim ersten Lauf prompt auf seine eigene Parser-Lücke (die `'{a,b,c}'::text[]`-Literal-Form) | `benachrichtigungsSpiegel.test.js` |
+
+**Entscheidungen ohne Owner-Bedarf** (aus dem Bestand ableitbar, im Code begründet):
+eigener Status `expired` statt `worker_declined` (Verfall ist keine Absage —
+Zuverlässigkeitsauswertung), deutsche Spaltennamen wie `ersetzt_link_id`,
+englische API-Feldnamen wie das Portal sie schon rendert, Frist ab dem
+**Anlegen** (Zustellen ist derselbe DB-INSERT), Erinnerungszeit **absolut**
+gespeichert, Kunde erfährt vom Verfall **nichts** (für ihn hat sich seit der
+Ausfallmeldung nichts geändert — dieselbe Linie wie bei der Absage).
+
+### Offen — Owner-Entscheidungen
+
+| Frage | Sachlage |
+|---|---|
+| ~~**CSRF-Ausnahme für `/internal/`?**~~ **entschieden und gebaut (2026-08-24)** | Owner-Entscheid: bauen. Umgesetzt **eng geführt**: Ausnahme greift nur **mit** `X-Internal-Secret`-Kopf (ohne Kopf bleibt CSRF in Kraft — sonst stünde in Umgebungen ohne Secret gar nichts mehr vor 28 Endpunkten) und nur für `/internal/`, **nicht** für das session-basierte `/internal-control/`. Mitgeschlossen: `checkCronAuth` schaltete sich ohne konfiguriertes Secret selbst ab — jetzt fail-closed (**503**). Am laufenden System belegt: 200 / 403 CSRF / 403 FORBIDDEN / 403 CSRF / 503. |
+| **Erreicht die Erinnerung den Arbeiter überhaupt?** | Die Erinnerung ist eine `notifications`-Zeile; das Einsatzportal hat **kein** Polling und keinen Live-Strom — wer die Seite nicht offen hat, sieht sie erst beim nächsten Besuch, und die 4-h-Frist läuft trotzdem. Optionen: SMS (technisch vorhanden, `smsService.js`, Kosten + Einwilligung), E-Mail über `dispatch()`, Frist nur zu Geschäftszeiten, oder so lassen. Das ist eine Fairness-Frage, keine technische. |
+| ~~**Frist auch für reguläre Zuweisungen?**~~ ✅ **entschieden und gebaut (2026-08-24, Migration 195)** | Der Entscheid vom 21.08. galt nur Ersatz-Anfragen; die Datenlage zeigte denselben Schaden im Regulären. Ausgearbeitet als [`I2_FRIST_REGULAERE_ZUWEISUNG.md`](I2_FRIST_REGULAERE_ZUWEISUNG.md), dort auch die vollständige Erhebung. **Owner-Entscheid: „Option C mit 72h und Kundenmeldung."** Gebaut: 72 h gedeckelt am Einsatzbeginn (Untergrenze 4 h, weil 22 von 24 Zuweisungen einen Vorlauf ≤ 0 Tagen haben), Erinnerung bei der Hälfte, der Sweep heißt jetzt `verfalleneAnfragen` und trägt beide Arten, und beim **regulären** Verfall erfährt es auch der Kunde — anders als beim Ersatz, denn die Live-Belegschaft blendet nur den Ersatzfall aus (vier Menschen standen ohne Zusage auf Kundentafeln, der älteste seit 136 Tagen). Der Kapazitäts-Posten kommt beim Verfall zurück. **Inzwischen vollständig abgeschlossen** (Migrationen 195/197/199): Der Nachlauf fand vier Folgefehler — darunter einen HTTP 500, der älter war als die Frist (der zweite Zuweisungsversuch derselben Person scheiterte am UNIQUE, weil der INSERT kein `ON CONFLICT` hatte; die Absage stürzte identisch ab). Der Altbestand ist bereinigt: fünf eingefrorene Zeilen geschlossen, vier beantwortbare bewusst stehen gelassen. Der Rückzieh-Knopf ist gebaut, mit eigenem Zustand `withdrawn` — vier unterscheidbare Wege aus einer Anfrage heraus. Neu dazu: `statuswertSpiegel.test.js`, der Code, Datenbank und Oberfläche für `worker_confirmation_status` gegeneinander hält, wie es `benachrichtigungsSpiegel` für Meldungstypen tut. |
+
+Verify: Sweep-Proben 15/15 (inkl. DB-Smoke). Migration zweimal eingespielt
+(idempotent). **Und der Owner-Satz wörtlich, an der echten Datenbank, mit den
+echten Funktionen durchgespielt:** Anfrage gestellt (Frist 4 h ab Geburt) →
+zweiter Anlauf `REPLACEMENT_PENDING` → Uhr zurückgedreht → Zusage
+`ANFRAGE_VERFALLEN` → Sweep `{verfallen: 1}` → Zeile `expired`/inaktiv/gestempelt
+→ zweiter Anlauf **erlaubt** (ON-CONFLICT recycelt den Link und stellt die Uhr
+neu) → beide Meldungen geschrieben. Erinnerung separat: fällig gemacht → Sweep
+`{erinnert: 1}` → zweiter Sweep `{erinnert: 0}` — die Doppelversand-Bremse
+greift, genau eine Meldung.
+
+---
+
+## Staff-Rollen — gebaut am 2026-08-24 (Owner-Entscheid)
+
+Der offene Punkt aus Abschnitt 10 lautete: *„verwaltbar, wer was bearbeiten darf
+— hier ist die Vorarbeit schon da und ungenutzt."* Sie war genauer ungenutzt als
+gedacht.
+
+**Befund:** Migration 118 legt `tempconnect_staff.role` an, dokumentiert im
+Spaltenkommentar sechs Werte und baut sogar einen **Index** darauf — und niemand
+liest die Spalte. Jedes Staff-Mitglied konnte alles: Pilot verlängern, Hetzner
+neu starten, Zugänge vergeben. Ein Access-Reviewer sah sechs Rollen und durfte
+annehmen, sie trennten etwas.
+
+**Owner-Entscheid:** `staff_member` ist das **vollwertige Teammitglied** — alle
+Fachbereiche, nur die Staff-Verwaltung bleibt `staff_admin`. Die anderen Rollen
+sind damit bewusste *Einschränkungen*, die man vergibt. Wirkung heute: gemessen
+eine Staff-Zeile mit `staff_member` — sie verliert nichts.
+
+Gebaut: `api/config/staffRollen.js` (Rolle → Bereich, Pfad → Bereich), das Tor im
+**Wächter** statt an 105 Routen (eine Deklaration je Route wäre 105 Stellen, die
+man bei der 106. vergisst — genau so entstand der Befund), `staff_audit` liest
+überall und schreibt nirgends, `PATCH /staff-access/:userId/role` zum Vergeben
+mit drei Riegeln (unbekannte Rolle, eigene Rolle, letzter aktiver Admin — in
+einer Transaktion mit `FOR UPDATE`, sonst sperren zwei gleichzeitige
+Degradierungen die Verwaltung herrenlos aus).
+
+**An der echten Datenbank belegt:** `staff_member` kommt an Piloten und Betrieb
+durch, scheitert an `/staff-access` mit `NUR_ADMIN`; dieselbe Person als
+`staff_support` scheitert an Hetzner und Piloten mit `BEREICH_VERWEHRT`; ein
+unregistrierter Pfad ergibt `BEREICH_NICHT_REGISTRIERT`.
+
+### Der Nebenfund, der schwerer wiegt als die Aufgabe
+
+Beim Eintragen der neuen Route meldete der Wach-Wächter sie als **Karteileiche** —
+er kannte sie nicht. Ursache:
+
+```js
+const fabrik = Object.keys(mod).find((k) => /^create\w*Router$/.test(k));
+```
+
+Die **erste** Fabrik je Datei. `staffControlCenter.js` exportiert zwei, und
+`createStaffControlAuthRouter` (1 schreibender Weg) steht vor
+`createStaffControlCenterRouter` (**50** schreibende Wege). Der Wächter, dessen
+einzige Aufgabe es ist, jeden schreibenden Weg ins Bestandsbuch zu zwingen, war
+für die **gesamte schreibende Fläche des Staff Control Center** blind:
+Pilotverlängerung, Hetzner-Neustart, Abo-Entscheidungen, Zugangsvergabe — nichts
+davon stand je im Register.
+
+Das ist die teuerste Sorte Lücke: ein Wächter, der grün meldet, weil er nicht
+hinsieht. Er montiert jetzt **alle** Fabriken; die Grundlinie springt von 419 auf
+**468 Wege**, die 49 neuen Einträge tragen die *echte* Middleware-Kette je Route
+(Step-up-Stufe, Bestätigung, MFA-Audit), nicht eine Pauschale.
+
+Nebenbei sichtbar geworden und noch zu bewerten: `POST
+/preregistrations/:id/status` mutiert mit **nur** `requireStaff` — ohne Step-up,
+ohne Begründung.
+
+---
+
+## Personen melden — gebaut am 2026-08-24 (Owner-Entscheid, revidiert)
+
+**Die Vorgeschichte gehört dazu:** Am 23.08. fiel die Entscheidung auf
+*„ersatzlos entfernen"* — `191_ein_meldeweg_weniger.sql` hat Tabelle, Route und
+Dienst beseitigt. Am 24.08. hat der Owner sie revidiert: Personen-Meldungen
+gehören ins Produkt. Meine Frage dazu war schlecht gestellt (sie beschrieb die
+Tabelle, als gäbe es sie noch) — die Antwort ist trotzdem eindeutig, und der Weg
+ist jetzt **sauberer**, als er am 23.08. gewesen wäre: kein Datenumzug, kein
+Verschmelzen zweier fast disjunkter Vokabulare, sondern die vierte Zielart
+derselben Tabelle.
+
+Migration 191 nannte zwei Blocker. Beide sind jetzt **gelöst statt umgangen**:
+
+| Blocker (191) | Lösung (194) |
+|---|---|
+| `reported_org_id` ist NOT NULL, der Posteingang verbindet mit **INNER JOIN** — 144 von 395 Nutzern haben keine Organisation, ihre Meldung wäre unsichtbar | Die Organisation wird **Kontext statt Träger**: nullable, Posteingang auf LEFT JOIN. Ein Bericht über eine Person hat als Gegenstand die Person; `ziel_art`/`ziel_id` tragen ihn seit 189/190 selbst. `par_org_pflicht_check` hält fest, dass die drei **Organisations**-Zielarten sie weiterhin brauchen — die Lockerung ist kein Loch. |
+| `betrug` und `belaestigung` haben keine Entsprechung; in `other` einzuschmelzen löscht die Unterscheidung | Zwei **echte** Werte: `fraud` und `harassment`. Betrug ist nicht `fake_profile` (eine Firma kann echt sein und trotzdem betrügen) und nicht `misleading_info` (das ist eine Angabe, kein Vorsatz); Belästigung ist ein **Verhalten**, `inappropriate_content` ein **Inhalt**. `other` ist der Eimer, den ein Bearbeiter zuletzt öffnet. |
+
+**Wo der Knopf sitzt:** in der Dealakte. `offers.supplier_company_id` und
+`demand_requests.requester_company_id` *sind* Nutzerkennungen — das ist die
+einzige Fläche des Produkts, auf der ein Nutzer einem anderen **Nutzer**
+begegnet. Zwei Knöpfe nebeneinander, weil es zwei verschiedene Dinge sind: der
+eine meldet den **Inhalt** des Angebots, der andere das **Verhalten** der
+Gegenperson.
+
+**Melden darf nur, wer mit der Person zu tun hatte** — mindestens ein
+gemeinsamer Deal, in beide Richtungen geprüft. Ohne diese Bedingung wäre die
+Route zweierlei auf einmal: ein Orakel für Nutzerkennungen und ein Weg, wahllos
+gegen Fremde zu melden. „Gibt es nicht" und „nie miteinander zu tun gehabt"
+antworten deshalb **gleich**.
+
+**An echten Daten belegt:** beide Deal-Richtungen 200 · Selbst-Report 400 ·
+Fremder 404 · nicht existierende Kennung 404 (*dieselbe* Antwort) · erfundener
+Grund 400 vor jedem Datenbankzugriff · Meldung über eine Person **ohne
+Organisation** gespeichert **und im Posteingang sichtbar** · Gegenprobe:
+Profilmeldung ohne Organisation scheitert an `par_org_pflicht_check`.
+
+### Der Nebenfund: das Hausmuster fiel aus der Prüfung
+
+Beim Nachziehen des Schema-Abzugs biss ein Wächter mit `TypeError` statt mit
+einer Aussage. Ursache im Abzug-Generator:
+
+```sql
+AND pg_get_constraintdef(c.oid) LIKE '% = ANY %ARRAY[%'
+```
+
+Ein CHECK, der mit `format('… %L::text[]', werte)` geschrieben wird, sieht anders
+aus: `= ANY ('{a,b,c}'::text[])`. Und **genau das ist das dokumentierte
+Hausmuster** für additive CHECK-Erweiterungen (Vorlage 184, übernommen von
+189/190/193/194). Wer dem Muster folgte, ließ die betroffene Spalte lautlos aus
+`pruefwerte` fallen — und jeder Wächter, der sich darauf stützt, hörte auf zu
+prüfen, ohne rot zu werden.
+
+Betroffen waren drei sicherheitsrelevante Spalten:
+`worker_assignment_links.worker_confirmation_status`, `notifications.type`,
+`profile_abuse_reports.reason`. Der Abzug liest jetzt **beide** Darstellungen;
+alle drei sind wieder in der Prüfung.
+
+---
+
+## Prüfbericht 2026-08-24 — was aus Welle I erledigt ist
+
+Am Code und an der laufenden Datenbank nachgeprüft, nicht am Plan abgelesen.
+
+### Erledigt
+
+| Abschnitt | Stand |
+|---|---|
+| **V-2** Doku-Wächter auf den git-Index | erledigt (Vorlauf) |
+| **8.1.1** Audit-Log hart trennen | erledigt — Migration 187, `fremde_org` 139 → 0 |
+| **8.1.2** Aktive Sitzungen im Einsatzportal | erledigt (`4b40675`) |
+| **8.2** Ersatz-Zuweisung | erledigt (`ae6830a`, `9faaf94`) **+ zwei Nachträge**: die 4-Stunden-Frist (`3e79ece`) und die Reparatur der toten `ersatz`-LATERAL (`da5eedd`), die drei Tage lang den Knopf nie zurückbrachte |
+| **10** Support-Weg Kunde → TempConnect | Eingang (`9c4965f`) plus alle vier Ausbaupunkte, siehe Tabelle oben |
+| **10b** Kunde ↔ Kunde | erledigt — keine Nachrichtenfunktion, Ansprechperson mit Telefon Pflicht (`ba0acf1`), Richtung korrigiert (`c87ddf7`) |
+
+### Offen — und warum
+
+| Punkt | Art | Stand, gemessen |
+|---|---|---|
+| ~~**V-1** RLS-Backstop scharf schalten~~ | **erledigt 2026-08-24** | Migration 196: **8 → 26** Tabellen mit RLS, **3 → 21** mit FORCE. Einzelnachweis geführt (siehe unten). |
+| ~~**„Bester Treffer"** — Vorbewertung in die SQL~~ | **erledigt 2026-08-24** | Der Schnitt sortiert jetzt nach den harten Signalen statt nach dem Alphabet. An echten Daten belegt: mit `LIMIT 3` kommen Mustermann (82), nadi (78), Kraft (74) — nicht „Bauer", die alphabetisch erste. |
+| **`SUPPORT_PHONE`** setzen | **Owner-Handlung** | nicht baubar; beide Zustände des Trichters sind verifiziert |
+| **Erreicht die Erinnerung den Arbeiter?** | **abgegeben an [`I3`](I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md)** | Live-Strom seit dem 24.08.; am 26.08. kam dazu, dass die Meldung auch **irgendwohin führt** (Deep-Link, siehe unten). Der Rest ist erhoben und bewertet — und die Frage lautete nie „SMS ja/nein“: 12 von 19 Anfragen blieben ohne Antwort, **abgelehnt hat nie jemand**, und die Antwortzeiten sind zweigipflig (unter 1 Minute oder 6–11 Tage). **Owner-Entscheid 26.08.: als eigene Welle festhalten — und danach Stufe 1 freigegeben und gebaut** (E-Mail im Arbeiter-Meldeweg, `119cbb6`). Stufen 2–4 (PWA, Push, Arbeiter-Seite) bleiben offen. |
+| ~~**Frist für reguläre Zuweisungen**~~ | **erledigt** | Diese Zeile war am 26.08. veraltet: `I2_FRIST_REGULAERE_ZUWEISUNG.md` trägt seit dem 24.08. den Status *„abgeschlossen, alle fünf Entscheidungen entschieden und gebaut“* (Migrationen 195/197/199). Kette geprüft: Sweep `verfalleneAnfragen` → `POST /internal/staffing-maintenance` → BullMQ `ersatz-frist-10min` (`*/10 * * * *`). |
+
+### Abschnitte 1–7, 9, 11, 12
+
+**Nie durchgegeben.** Die Übergabe hält fest: *„Der Owner hat angekündigt, dass es
+Abschnitte bis 12 gibt; der nächste ist noch nicht durchgegeben."* Im Repo
+existieren nur 8.1.1, 8.1.2, 8.2, 10 und 10b — die Nummern 9, 11 und 12 kommen
+in keiner Datei vor. Was in 1–7 stand, ist hier nicht bekannt und kann deshalb
+auch nicht als erledigt oder offen geführt werden.
+
+Was aus den **vorangegangenen Spuren** stammt, ist dagegen dokumentiert und
+abgeschlossen: G1–G6, H1 und H2 sind gebaut und belegt (siehe `UEBERGABE.md`).
+
+---
+
+## V-1 — der RLS-Backstop steht (2026-08-24, Migration 196)
+
+Der Vorlauf ist abgeschlossen. **8 → 26** Tabellen mit RLS, **3 → 21** mit FORCE.
+
+### Der Nachweis, den der Owner verlangt hat
+
+> *„Nachweis je Tabelle einzeln an einer Wegwerf-Datenbank mit
+> Nicht-Superuser-Rolle: zwei echte Organisationen; ohne Kontext 0 Zeilen, mit
+> Org A nur A, mit Staff-Bypass alles. Kein Sammelnachweis, keine Aktivierung
+> ohne diesen Beweis."*
+
+Geführt auf `rls_probe` (Schema aus der laufenden Instanz, Rolle `rls_app` mit
+`rolsuper = false`):
+
+```
+18 von 18 Tabellen einzeln    ohne Kontext 0 · mit Org A nur A · Staff alles
+ 8 von  8 zweiseitigen        Kunde 1 · Agentur 1 · Dritter 0
+```
+
+**Der zweite Nachweis war der wichtigere** — und er fehlte zuerst. Der erste
+setzte bei den acht zweiseitigen Tabellen *beide* Org-Spalten auf dieselbe
+Organisation. Damit hätte auch eine Regel ohne `OR` bestanden. Ein Einsatz
+gehört aber dem **Kunden** (`org_id`) und wird von der **Agentur** besetzt
+(`supplier_org_id`): `org_id = current_org_id()` allein hätte jede Agentur für
+ihre eigene Arbeit blind gemacht — RLS wäre kein Schutz gewesen, sondern der
+Datenausfall, vor dem der Plan warnt. Beide Nachweise wurden anschließend
+**gegen die von der Migration selbst erzeugten** Regeln wiederholt.
+
+### Warum das lokal nichts beweist — und trotzdem nötig war
+
+Die App-Rolle `tempconnect` ist `superuser = true, bypassrls = true`. RLS ist
+hier **wirkungslos**; ein Fehler wäre von der Testsuite nie bemerkt worden.
+Genau deshalb die Wegwerf-Datenbank mit eigener Rolle. Die Anwendung setzt den
+Kontext bereits (`orgContext.js:273`, `SET LOCAL app.current_org_id`) — in
+Produktion mit einer Nicht-Superuser-Rolle greifen die Regeln damit sofort.
+
+> **Betriebs-Pflicht daraus:** In Produktion muss die Anwendungsrolle **ohne**
+> `SUPERUSER`/`BYPASSRLS` laufen. Solange sie es nicht tut, ist der Backstop
+> gesetzt, aber untätig.
+
+### Was bewusst nicht dabei ist
+
+Die **10 durch Daten blockierten** Tabellen (`requests`, `ratings`, `listings`
+zu 100 % ohne Trägerspalte, `notifications` zu 96 %) und die **25 leeren**. Bei
+ihnen wäre RLS heute ein Datenausfall, kein Schutz — erst die Schreibseite,
+dann der Backstop. Dieselbe Reihenfolge wie bei 8.1.1.
+
+Die Migration nennt jede Tabelle **einzeln** und prüft jede Spalte einzeln:
+Migration 116 ist daran gescheitert, dass sie eine Spalte voraussetzte, die es
+nicht gab — und riss dabei alles mit, wurde aber trotzdem als „applied" verbucht.
+Fehlt hier eine Spalte, wird die Tabelle übersprungen und **laut** gemeldet.
+
+---
+
+## Die Vorbewertung liegt in der SQL (2026-08-24)
+
+Owner-Entscheid vom 21.08. umgesetzt: *„Vorbewertung in die Datenbank ziehen."*
+
+**Der Befund:** `queryWorkerSuggestionBase` schnitt den Kandidatenpool mit
+`ORDER BY wp.last_name ASC … LIMIT n` **alphabetisch** ab — und zwar *bevor*
+`scoreWorkersForAssignment` überhaupt bewertete. Wer hinten im Alphabet steht,
+kam nie in die Bewertung. Das Tückische daran: es *sieht aus* wie eine
+Rangfolge. Gemessen beißt der Schnitt heute nicht (größte Agentur: 12 aktive
+Kräfte, Limit 50–250) — ab ~60 schon, und lautlos.
+
+**Was ausdrücklich *nicht* passiert ist:** Die Bewertung wurde **nicht** nach SQL
+kopiert. Zwei Fassungen derselben Rangfolge wären die nächste Drift, und die
+teure Hälfte (Rollenfit, Schichtfit, Zuverlässigkeit, Kundenfit) braucht die
+Textanalyse aus `computeNeedleCoverage`. Die Abfrage sortiert nach genau den
+**harten** Signalen, die sie ohnehin ausrechnet — dieselben vier Zähler, aus
+denen der Bewerter seine `hard_failures` baut, nur eine Ebene früher benutzt:
+
+1. wer überhaupt kann (keine Doppelbelegung, keine Reservierung, keine
+   Terminkollision, nicht abwesend)
+2. wie viele der **geforderten** Skills die Person mitbringt
+3. Nähe — aber nur, wenn *beide* Seiten Koordinaten haben (`NULLS LAST`: eine
+   fehlende Angabe darf kein Vorteil sein)
+4. Nachname als stabiler Rest, damit zwei Läufe dieselbe Liste liefern
+
+**An echten Daten belegt:** mit `LIMIT 3` liefert die Abfrage
+`Mustermann (82), nadi (78), Kraft (74)` — die drei bestbewerteten. Die
+alphabetisch erste Kraft der Organisation heißt „Bauer"; vorher hätte der
+Schnitt genau die genommen.
+
+### Die Falle beim ersten Anlauf
+
+Ich habe die drei neuen Parameter zuerst **vor** das Limit gehängt. Die
+Parameterliste ist bis Position 5 fest und trägt an **Position 6 optional die
+Arbeiterliste** — dort lag nun ein Array. Eine Probe in
+`assignmentMultiStaffingCore` hielt die Skill-Liste prompt für eine
+Kennungsliste und lud niemanden mehr ein (`invited_workers` 2 → 1). Der Test war
+nicht falsch, meine Reihenfolge war es. Die Parameter hängen jetzt **hinter**
+dem Limit, und eine eigene Probe hält das fest.
+
+---
+
+## Die Arbeiter-Meldung kommt sofort an (2026-08-24)
+
+Die 4-Stunden-Frist war bis hierher eine Falle, und zwar aus zwei Gründen, die
+beide **keine Entscheidung** brauchten:
+
+**1. Der Server schwieg.** Der SSE-Strom `GET /api/notifications/stream`
+existiert und ist montiert. Welle G4 hat ihm einen Aufrufer gegeben —
+`dispatch()`. Aber `notifyWorker` schreibt **direkt** in `notifications` und
+geht an `dispatch` vorbei: *jede* Arbeiter-Meldung — neue Zuweisung, Erinnerung,
+Verfall — landete in der Tabelle und blieb dort liegen.
+
+**2. Das Portal sah nicht nach.** Kein Polling, kein Strom. `loadUnreadCount()`
+lief genau einmal beim Laden und danach nur nach einer Nutzeraktion.
+
+Zusammen hieß das: die Erinnerung nach zwei Stunden erreichte einen Arbeiter
+faktisch erst, wenn er ohnehin hineinsah — **die Uhr lief trotzdem**.
+
+Es ist dieselbe Lücke wie in G4, eine Ebene weiter: ein Zustellweg, der gebaut
+ist, montiert ist und den niemand benutzt.
+
+**Gebaut** — nichts Neues, das Vorhandene angeschlossen:
+
+- `notifyWorker` schickt die erzeugte Zeile in den Strom. **In `notifyWorker`,
+  nicht in den zwölf Faktories**: an der Faktory wäre der Push eine Sorgfalt,
+  die man vergessen kann — dann wäre wieder nur die eine Meldung live, an die
+  jemand gedacht hat.
+- Greift die Entdopplung (dieselbe Meldung binnen einer Stunde), geht **nichts**
+  raus — sonst zählt das Portal eine Meldung hoch, die es nicht gibt.
+- Ein Fehler beim Push ist folgenlos: die Zeile in der Datenbank ist die
+  Wahrheit, der Push nur die Abkürzung.
+- Die Portal-Schale abonniert denselben Strom wie die Hauptplattform, mit
+  Rückfall auf Polling (60 s) nach drei Fehlern — ohne ihn stünde ein Browser
+  ohne SSE schlechter da als vorher.
+
+**Am laufenden System belegt:** Verbindung geöffnet → `notifyWorker` →
+`event: notification` kam sofort an.
+
+> **Beim Bauen zweimal danebengegriffen, beides von Proben gefangen:** Der
+> Startaufruf landete zuerst *im* SSE-Zuhörer — jede eingehende Meldung hätte
+> eine neue Verbindung geöffnet; der Syntax-Check sieht so etwas nie. Und die
+> erste Probe ließ die Verbindung offen: der 30-Sekunden-Heartbeat hielt den
+> Node-Prozess am Leben und der Test lief in den Timeout. Der falsche Schluss
+> wäre `--test-force-exit` gewesen; richtig ist, sich wie ein Browser zu
+> verhalten und die Verbindung zu schließen.
+
+**Offen bleibt die Frage mit Kosten:** Wer das Portal gar nicht offen hat,
+erfährt die Erinnerung weiterhin erst beim nächsten Besuch. SMS ist technisch
+vorhanden (`smsService.js`, heute nur für Einladungen) — das ist eine
+Owner-Entscheidung über Kosten und Einwilligung, keine technische.
+
+---
+
+## Die Fehlerklasse dieser Welle — systematisch gesucht (2026-08-24)
+
+Sechs der Befunde dieser Welle waren dieselbe Sache: **etwas ist gebaut,
+montiert — und niemand benutzt es.** `pushToUser` im Arbeiter-Pfad, die
+`ersatz`-LATERAL, `expires_at`, der Wach-Wächter, der Schema-Abzug, die
+Begründungstexte. Statt weiter auf Zufallsfunde zu warten, wurden zwei
+Durchläufe gefahren.
+
+### Durchlauf 1 — exportierte Funktionen ohne Aufrufer
+
+119 Kandidaten. **Sieben geprüft, zwei echt.**
+
+| Kandidat | Urteil |
+|---|---|
+| `emailHtmlTemplates` (6 von 8 Vorlagen ungenutzt) | **echt** → 24 von 40 Mails ohne Absender (`e82ad1e`) |
+| `settingsService.requiresApproval` | **echt** → „Freigabe erforderlich" war ein Etikett (`a6a2cf2`) |
+| `config.validateProductionSecrets` | *entlastet* — `runProductionValidation()` läuft aus `app.js:122` und ist strenger |
+| `usageMeteringService.requireUsageLimit` | *entlastet* — Grenzen laufen über `scanAndEnforceUsageLimits` + `checkUsageLimit` |
+| `profileVisibilityService.resumeVisibility` | *entlastet* — `paused → submitted` ist der gangbare Weg zurück |
+| `documentCenterService.findRetentionDue` | *entlastet* — `purgeRetentionDue` läuft per Cron (`internal.js:226`) |
+| `notificationStream.getActiveConnectionCount` | *entlastet* — Diagnose-Helfer, kein Regelträger |
+
+**Muster:** Die toten Exporte dieses Repos sind überwiegend **Zwillinge lebender
+Prüfungen**, keine Löcher. Wer die Liste erneut fährt, sollte zuerst nach einer
+zweiten Fassung derselben Regel suchen, bevor er einen Befund meldet.
+
+### Durchlauf 2 — Regel-Spalten, die nie gelesen werden
+
+46 von 634 untersuchten Spalten kommen im Quelltext höchstens zweimal vor.
+Dort lagen `expires_at` und `approval_required` — der schärfere Blickwinkel.
+
+| Kandidat | Urteil |
+|---|---|
+| `organizations.enforce_mfa` | **echte Lücke, owner-gebunden** — siehe unten |
+| `timesheet_templates.show_*` / `require_*` (11 Spalten) | ~~*entlastet*~~ **Urteil am 26.08. zurückgenommen** — der Ersatz existiert, greift aber nicht. Siehe Nachtrag unten. |
+| `org_settings.abwesenheit_selbstmeldung_freigabepflicht` | *entlastet* — wird gelesen (`workerAbsenceService.js:317`), mit Integrationstests |
+| übrige `*_at`-Spalten | *entlastet* — Zeitstempel ohne Regelcharakter |
+
+**Zweite Hälfte, nachgezogen am 26.08.** — diesmal mit der Regel, die im
+Nachtrag unten steht: nicht „ein Ersatz existiert", sondern „der Ersatz hat
+einen Verbraucher, und der greift". Jede Entlastung hier nennt ihn.
+
+| Kandidat | Verbraucher | Urteil |
+|---|---|---|
+| `demand_requests.overfill_allowed` | `emergencyCommitmentService.js:105` — blockt Überbuchung | *entlastet*, **durchgesetzt** |
+| `users.is_verified` | `ratings.js:25` → `403 EMAIL_NOT_VERIFIED` | *entlastet* — greift für genau eine Handlung: Bewertungen. Die missbrauchsanfällige Fläche zu sperren und den Rest offen zu lassen, ist eine bewusste Wahl, kein Loch. |
+| `users.email_verified_at` | — | *entlastet* — tot, ersetzt durch `is_verified`; und der Ersatz greift (Zeile darüber) |
+| Tabelle `email_verification_tokens` | — | *entlastet* — **Waise**: kommt im gesamten Code nur in einem Kommentar vor. Die echte Bestätigung läuft über `users.verification_token`, und `verifyEmail` setzt ihn auf `NULL` (`authService.js:50`) — also wirklich einmalig. |
+| `demand_requests.partial_fulfillment_allowed` | **keiner** | *nie gebaut* — nicht setzbar, nicht gelesen, aber über `SELECT *` **sehr wohl gemeldet**: die Bedarfs-Antwort trägt `partial_fulfillment_allowed: true` (am 26.08. in der Antwort des laufenden Systems nachgesehen). Heute harmlos, weil `true` = keine Einschränkung bedeutet und die Meldung damit zufällig stimmt — aber eine gestellte Falle: wer den Wert je auf `false` setzt, bekommt keine Wirkung und keinen Hinweis. Auffällig bleibt, dass sein Zwilling `overfill_allowed` in derselben Tabelle durchgesetzt wird: von zwei Erfüllungsregeln beißt eine. |
+| `staff_control_runbook_runs.rollback_triggered` | **keiner** | *nie gebaut* — `staffRunbookService.js` kennt überhaupt keinen Rollback-Pfad; geschrieben werden neun andere Spalten. |
+| `product_analytics_funnel_steps.is_completion` | **keiner** | *nie gebaut* — Auswertung, kein Regelträger |
+
+Damit ist der Durchlauf abgeschlossen. **Von 46 Kandidaten bleibt eine echte
+Lücke** (`enforce_mfa`, owner-gebunden), dazu zwei offene Produktfragen
+(`preferred_supplier_only`, `partial_fulfillment_allowed`) und ein Befund, der
+erst beim zweiten Hinsehen einer wurde (die Stundenzettel-Vorlagen, Nachtrag
+unten). Alles Übrige ist entlastet — jedes mit benanntem Verbraucher.
+
+**Die drei „nie gebaut"-Fälle sind ausdrücklich keine Lücken.** Sie täuschen
+niemanden: nicht setzbar, nicht gemeldet, keine Oberfläche. Das unterscheidet
+sie von `approval_required`, das sich als `approval_workflow: true` zurückmeldete
+und nichts sperrte. Wer diese Liste erneut fährt, sollte die beiden Klassen
+getrennt halten — eine lügende Einstellung ist ein Fehler, eine leere Spalte
+ist bloß Vorrat.
+
+### Durchlauf 3 — geschrieben und nie gelesen (2026-08-26)
+
+Die ersten beiden suchten tote **Funktionen** und tote **Regel-Spalten**. Der
+dritte sucht die Form, über die ich bei den Stundenzettel-Vorlagen zufällig
+gestolpert bin: **Daten, die erhoben werden und die niemand ansieht.**
+
+Gemessen über alle **186 Tabellen**: für jede gezählt, wie oft der Quelltext sie
+beschreibt (`INSERT`/`UPDATE`/`DELETE`) und wie oft er aus ihr liest
+(`FROM`/`JOIN`, ohne `DELETE FROM`). Tests und Migrationen ausgenommen.
+
+| | |
+|---|---|
+| Tabellen gesamt | 186 |
+| **geschrieben, nie gelesen** | **9** |
+| im Code gar nicht erwähnt | 12 |
+
+Die zwölf gar nicht erwähnten sind überwiegend bekannt (`email_verification_tokens`
+als Waise, die drei `timesheet_template*` seit dem Löschen am selben Tag — was
+zugleich bestätigt, dass die Messung greift).
+
+**Von den neun sind acht harmlos** — und das war jedes Mal eine Messung, keine
+Annahme:
+
+| Tabelle | Warum harmlos |
+|---|---|
+| `worker_delays` | **0 Zeilen** — es hat nie jemand eine Verspätung gemeldet |
+| `sso_sessions` | **0 Zeilen** — SSO läuft im Stub-Modus |
+| `product_analytics_*` (3) | Auswertung, kein Regelträger |
+| `match_logs`, `assignment_staffing_events`, `emergency_provider_commitment_events` | Diagnose-Spuren |
+| `capacity_post_pool_members` | Mitgliedschaft, über den Pool selbst gelesen |
+
+### Die eine, die nicht harmlos war
+
+`owner_control_access_audit` trägt **25 Zeilen** — darunter **23 abgewiesene
+Zugriffsversuche** auf das Owner Control Center zwischen dem **20.05. und dem
+21.07.**, dazu eine Rechtevergabe und eine Listenabfrage.
+
+Geschrieben von der Zugangs-Middleware und vom Verwaltungs-Werkzeug. Gelesen von
+**nirgends** — der einzige `SELECT` im ganzen Repo stand in einem Test.
+
+Das ist genau das, was ein Eigentümer wissen will: jemand hat 23-mal versucht, in
+den Owner-Bereich zu kommen, und wurde abgewiesen. Ob verirrtes Konto oder etwas
+anderes — niemand konnte es sagen, weil die Tabelle keinen Leseweg hatte.
+
+**Warum es der Audit-Feed daneben nicht auffängt:** Der liest `audit_log` und
+beantwortet *„was haben die Eigentümer getan"*. Eine Abweisung erzeugt aber gar
+keine Sitzung, die etwas tun könnte — sie steht ausschließlich in dieser Tabelle.
+Die beiden sind komplementär, nicht redundant.
+
+**Gebaut:** `GET /audit/access` im bestehenden OCC-Audit-Router, mit der Zahl der
+Abweisungen getrennt in der Antwort (muss man sie erblättern, ist sie so gut wie
+nicht da), einem Filter, der nur bekannte Werte annimmt (eine freie Zeichenkette
+wäre eine Falle: ein Tippfehler ergäbe eine leere Liste, die aussieht wie „es gab
+keine Versuche"), und Zero-State statt 500. Dazu die Ansicht im OCC-Audit-Modul —
+**der Endpunkt wird also auch benutzt**, sonst wäre er selbst ein Fall für diesen
+Durchlauf.
+
+Sieben Proben am echten Handler, darunter ausdrücklich: *die Route ist am Router
+registriert* — gebaut **und** montiert.
+
+### Was daraus offen bleibt
+
+**`organizations.enforce_mfa`** existiert seit Migration 058 und kommt im
+gesamten Repo **nur dort** vor: nicht setzbar, nicht gelesen, keine Oberfläche.
+Anders als bei `approval_required` wird also niemand getäuscht — es ist keine
+lügende Einstellung, sondern eine **nie gebaute Funktion**: org-weite
+MFA-Pflicht. Für Enterprise-Kunden ist das ein üblicher Beschaffungspunkt.
+
+> **Owner-Entscheidung, nicht autonom baubar.** Eine MFA-Pflicht sperrt jeden
+> aus, der sie nicht eingerichtet hat — es braucht eine Übergangsfrist und einen
+> Break-Glass-Weg, sonst schließt sich eine Organisation selbst aus. Dieselbe
+> Klasse wie „SSO-Enforce ohne Recovery" in den Stop-Regeln der `CLAUDE.md`.
+
+**`org_settings.preferred_supplier_only`** bleibt ebenfalls offen: einstellbar,
+als `preferred_suppliers_only` zurückgemeldet, nirgends durchgesetzt — dieselbe
+Bauart wie `approval_required`. Was „nur bevorzugte Lieferanten" sperren soll
+(Sichtbarkeit? Angebotsabgabe? Zuschlag?), ist eine Produktfrage.
+
+---
+
+### Nachtrag 2026-08-26 — die Entlastung oben war zu früh
+
+Das Urteil *„ersetzt durch die Kindtabelle"* prüfte, ob ein Ersatz **existiert**.
+Es prüfte nicht, ob der Ersatz **greift**. Er greift nicht.
+
+**Was von einer Stundenzettel-Vorlage wirklich ankommt:** vier Werte —
+`default_hours_per_day`, `default_shift_start`, `default_shift_end`,
+`default_break_minutes` (`timesheetService.js:453-460`). Sonst nichts.
+
+**Die elf Schalter** (`show_overtime`, `show_night_surcharge`, `require_break` …)
+sind `NOT NULL DEFAULT` seit Migration 033 (Z. 90-101). `createTemplate` schreibt
+sie nicht (Z. 68: fünf Spalten), `updateTemplate` lässt sie nicht zu (Z. 126-131:
+vier Felder). Gelesen werden sie im ganzen Repo **null Mal** — ausgeliefert
+werden sie trotzdem, weil `getTemplate` mit `SELECT tt.*` arbeitet (Z. 13). Jede
+Antwort trägt also `show_overtime: true` und `require_break: true`: Werte, die
+niemand gesetzt hat und niemand ändern kann.
+
+**Die Kindtabelle ist derselbe Fall, eine Etage tiefer.** Sie wird geschrieben
+(Z. 79, 146), gelöscht (Z. 142), zurückgelesen (Z. 22) — und von genau **einer**
+Stelle im System verwendet: `timesheet-templates.html:280`, die die Felder in das
+Bearbeitungsformular zurücklädt. Ein geschlossener Kreis:
+
+> Felder anlegen → speichern → Formular erneut öffnen → **die Felder sind da**.
+
+Wer das sieht, schließt daraus, es wirke. Der Stundenzettel liest sie nie. Die
+Seite selbst sagt auf Z. 175 *„Keine Felder — Standard-Stunden/Pausen-Felder
+werden immer angezeigt"* und verspricht damit, dass hinzugefügte Felder
+erscheinen.
+
+**Warum heute niemand Schaden nimmt:** die Seite ist in **keiner**
+Sichtbarkeits-Matrix (`visibilityMatrix.js` kennt 17 Seiten, diese nicht) und aus
+**keiner** Navigation verlinkt — nur per URL erreichbar. Dieselbe Klasse wie das
+Einsatzportal im nächsten Abschnitt. Die API dahinter ist dagegen vollständig
+bewacht und in `wachen.json`/`orgGrenzen.json` verbucht.
+
+> **~~Owner-Entscheidung~~ — entschieden am 26.08.: entfernen.** Die Vorschau vor
+> der Entscheidung hat die Frage selbst beantwortet, denn sie zeigte etwas
+> anderes als erwartet: **Ladefehler 500**. Der Dienst fragte
+> `timesheet_templates.is_default` ab — eine Spalte, die dort nicht existiert
+> (sie liegt auf `timesheet_template_assignments`, Migration 033, Z. 144).
+> Postgres sagt es wörtlich: *„Perhaps you meant to reference the column
+> tta.is_default“*. Acht Fundstellen.
+>
+> Damit war es nicht „eine Konfiguration ohne Wirkung", sondern ein
+> **Totalausfall**: Auflisten warf, **Anlegen warf ebenfalls** — die Tabelle hatte
+> deshalb dauerhaft **0 Zeilen**. Es konnte nie jemand eine Vorlage anlegen.
+>
+> **Und meine Angabe oben war falsch:** die vier Vorgabewerte kamen NICHT an.
+> `getTemplateForAssignment` warf im dritten Schritt, und ein blosses catch in
+> `timesheetService.js` (Vermerk: die Vorlage sei optional) verschluckte es. Ich
+> hatte den Codepfad gelesen und nicht geprüft, ob die Abfrage läuft — genau der
+> Fehler, den der Nachtrag zwei Absätze weiter oben beschreibt. Er ist mir beim
+> Schreiben dieses Nachtrags selbst unterlaufen.
+>
+> Entfernt: Seite, Route (8 Endpunkte), Dienst, zwei Mock-Testdateien, der
+> Vorlagen-Abschnitt im Cross-Tenant-Test. Die drei Tabellen bleiben. Register
+> und Sperrklinken nachgeführt (`wachen.json` 470→465, `orgGrenzen.json` 82→81),
+> jede Senkung mit Begründung. Mit der Seite verschwindet auch der im
+> Plattform-Register dokumentierte **Stored-XSS-Pfad**.
+
+**Die Lehre daraus schärft die Regel aus Durchlauf 1.** „Erst nach einer zweiten
+Fassung derselben Regel suchen" reicht nicht — genau daran bin ich hier
+gescheitert. Der Satz braucht seine zweite Hälfte: *und dann prüfen, ob diese
+zweite Fassung einen Verbraucher hat.* Ein Ersatz, der nur existiert, entlastet
+nichts; er verschiebt den toten Punkt bloß eine Ebene tiefer, wo er schwerer zu
+sehen ist.
+
+---
+
+## Die Diagnose hatte die Diagnose abgeschaltet (2026-08-26)
+
+Beim Entfernen der Vorlagen blieb in `test/security/coreFlowCrossTenant.test.js`
+ein Import auf den gelöschten Dienst stehen. Die Datei liess sich nicht mehr
+laden. Der volle Lauf druckte einen lauten `UNCAUGHT EXCEPTION`-Kasten — und
+meldete trotzdem:
+
+> **9828 Tests, 0 Fehlschläge, Rückgabewert 0.**
+
+**55 echte Sicherheits-Zusicherungen waren aus dem Lauf verschwunden**, ohne dass
+eine Zahl es verraten hätte. Eine Datei, die sich nicht laden lässt, zählt als
+null Tests und null Fehlschläge — die Suite schrumpft still.
+
+**Ursache:** `api/scripts/unhandled-rejection-probe.mjs`, die Diagnose-Sonde aus
+Audit-Backlog B-2, die `run-tests.js` **standardmäßig** anhängt. Sie registriert
+
+```js
+process.on("uncaughtException", (err) => { /* druckt nur */ });
+```
+
+Einen solchen Handler zu registrieren **ersetzt** Nodes Standardverhalten:
+drucken *und* mit 1 beenden. Seit dem 26.07. konnte das Gate an keiner
+Ladefehler-Ausnahme mehr scheitern. Die Sonde, die Fehler sichtbar machen
+sollte, hat sie unsichtbar gemacht.
+
+**Gemessen, nicht vermutet:**
+
+| Fall | Rückgabewert |
+|---|---|
+| kaputte Datei, `node --test` direkt | **1** |
+| dieselbe Datei mit angehängter Sonde | **0** |
+| `--suite=security` mit kaputter Datei, nach dem Fix | **1** (`fail 1`) |
+
+Der Fix ist eine Zeile — `process.exitCode = 1` — und lässt die Diagnose
+unangetastet: der Kasten wird weiter gedruckt, nur schluckt er den Befund nicht
+mehr. `api/test/gateFaelltDurch.test.js` hält die Eigenschaft fest, gegen
+Rückmutation geprüft. Voller Lauf danach: **9882 Tests, 9869 bestanden, 0
+Fehlschläge** — die Sonde hat sonst nichts verschluckt.
+
+**Warum das hierher gehört:** Es ist dieselbe Klasse wie alles andere in dieser
+Welle — etwas ist gebaut, montiert, und tut nicht, was sein Name verspricht.
+Nur trifft es diesmal das Werkzeug, mit dem alles übrige geprüft wird. Jede
+grüne Zahl dieser Welle stand unter dieser Einschränkung; keine davon war
+falsch, aber verlassen konnte man sich darauf erst ab heute.
+
+---
+
+## Die Erinnerung kam an — und führte nirgendwohin (2026-08-26)
+
+Der Live-Strom vom 24.08. löste die halbe Frage: die Meldung **erreicht** den
+Arbeiter jetzt sofort. Beim Nachfassen fiel die andere Hälfte auf: sie
+**führte** ihn nirgendwohin.
+
+Vier Meldungen — neue Zuweisung, Erinnerung, Verfall, Rückzug — trugen
+`link_path` auf `einsatzportal-benachrichtigungen.html`. Also auf die Liste, aus
+der der Mensch gerade gekommen war. Er las
+
+> *„Ihre Antwort auf eine Einsatz-Zuweisung steht noch aus. Die Anfrage
+> verfällt am 26.08.2026 18:00.“*
+
+… klickte, und stand wieder in seinem Posteingang. Den Einsatz musste er sich
+selbst suchen, während die Frist lief. Zirkulär obendrein: die Meldung führte in
+die Liste, in der sie selbst steht.
+
+Die Hausregel sagt das Gegenteil (*„Deep-Links statt Sackgassen"*), und **zwei
+Funktionen weiter oben in derselben Datei** macht der Stundenzettel es längst
+richtig (`?id=<submission>`). Das Muster war da; die Zuweisungen hatten es nie
+bekommen. Die Mechanik zum Öffnen war ebenfalls vollständig vorhanden —
+`selAsg(id)` lädt genau einen Einsatz. Es fehlte der Anstoß aus der Adresse.
+
+Gebaut: `?einsatz=<link-id>`, das Portal schlägt den Einsatz auf, und der Reiter
+wandert mit (ein verfallener Einsatz liegt in „Vergangen"; sonst öffnete sich das
+Detail, während die Liste daneben ihn nicht enthält).
+
+> **Ein Nachtrag zur Prüfdisziplin.** Drei der vier neuen Proben blieben unter
+> Rückmutation zunächst **grün**: das Stub-Element behält seinen Inhalt über
+> Probengrenzen hinweg, und eine frühere Probe hatte denselben Firmennamen
+> gerendert. Ohne die Rückmutation wären sie als Beleg durchgegangen. Es ist
+> dieselbe Falle wie am Morgen — und sie ist mir ein zweites Mal gestellt worden,
+> obwohl ich sie kannte.
+
+### Die SMS-Frage — jetzt mit Zahlen
+
+Sie stand als *„Fairness-Frage, keine technische"* offen. Gemessen am laufenden
+Bestand ist sie vor allem eine **Rechtsfrage**, nicht eine Kostenfrage:
+
+| Messung | Wert |
+|---|---|
+| Arbeiter mit Konto | 33 von 33 |
+| davon mit hinterlegter Telefonnummer | **17** (52 %) |
+| Erinnerungen, die je gefeuert haben | **1** |
+| echte Verfälle mit Frist | **1** (weitere 5 stammen aus der Altbestands-Bereinigung, Migration 197) |
+| Einwilligungsfeld für SMS im Schema | **keines** |
+| SMS-Dienst | verdrahtet, läuft ohne Anbieter im `console`-Modus — kein Vertrag, keine Kosten; heute nur für Einladungen benutzt |
+
+**Was daraus folgt:** Die Kostenfrage ist bei diesem Volumen gegenstandslos —
+eine Erinnerung in der gesamten Historie. Der Blocker ist die Einwilligung: Es
+gibt kein Feld, in dem sie festgehalten würde. Und SMS wäre selbst dann nur ein
+halber Kanal, weil nur die Hälfte der Arbeiter überhaupt eine Nummer hinterlegt
+hat.
+
+> **Owner-Entscheid 2026-08-26: als eigene Welle festhalten — danach wurde
+> Stufe 1 freigegeben und gebaut.** Die fristgebundenen Meldungen gehen seit
+> `119cbb6` zusätzlich per E-Mail hinaus; Stufen 2–4 (PWA, Push,
+> Arbeiter-Seite) sind unberührt.
+> Vollständig ausgearbeitet in [`I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md`](I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md):
+> die Messung, der Vergleich SMS / E-Mail / Web Push, die Machbarkeit ohne neues
+> Paket (`node:crypto` reicht für VAPID) und ein Vorschlag in vier Stufen. Kurz:
+> Push schlägt SMS in genau den zwei Punkten, an denen SMS hängen blieb — Kosten
+> (null) und Einwilligung (Browser-Dialog statt eines Feldes, das es nicht gibt).
+> Der billigste Schritt wäre aber **E-Mail**: kein neuer Kanal, keine neue
+> Einwilligung, und als einziger erreicht er heute schon alle 33 Arbeiter.
+>
+> **Die ursprüngliche Frage anders gestellt:**
+> nicht „SMS ja/nein wegen der Kosten", sondern „auf welcher Rechtsgrundlage
+> erreichen wir jemanden außerhalb des Portals, und wollen wir dafür ein
+> Einwilligungsfeld anlegen?" Der naheliegende Zwischenschritt wäre **E-Mail**:
+> jeder Arbeiter hat ein Konto, die Plattform schreibt ihm ohnehin (Einladung),
+> und es bräuchte keine neue Einwilligung. Auch das bleibt eine Entscheidung —
+> der Arbeiter-Meldeweg kennt heute überhaupt keine E-Mail.
+
+---
+
+## Das Einsatzportal ist für niemanden erreichbar (gefunden 2026-08-24)
+
+Beim Versuch, die Portal-Änderungen dieser Welle **im Browser** zu prüfen
+(Frist auf der Einsatz-Karte, Frist im Dashboard-Banner, Live-Strom), stellte
+sich heraus: es geht nicht. Nicht, weil etwas kaputt ist — sondern weil es
+keinen Weg hinein gibt.
+
+**Gemessen:**
+
+| | |
+|---|---|
+| Demo-Perspektiven auf `frontend/demo.html` | **drei**: buyer, agency, admin |
+| Vorkommen von „Arbeiter" / „Einsatzportal" dort | **0** |
+| `ROLE_ACCOUNTS` in `api/routes/demo.js` | kennt keinen `worker` |
+| Magic-Link / Invite-Login für Arbeiter | existiert nicht |
+| Demo-Arbeiter in der Datenbank | **3** (`*.worker-demo.de`, aus `db/migrations/030_demo_worker_seed.sql`) |
+| deren `is_demo`-Fahne | **false** — `loginDemoUser` verlangt `TRUE` |
+| deren Passwort-Hashes | **Attrappen**: 51 Zeichen statt 60, `bcrypt.compare` liefert für jede Eingabe `false` |
+
+Die Bausteine sind alle da und **keiner ist mit dem anderen verbunden** — dieselbe
+Klasse wie alles andere in dieser Welle, diesmal in vier Teilen.
+
+### Zwei Folgen
+
+1. **Die Demo-Geschichte ist unvollständig.** `demo.html` verkauft *„Story 2:
+   Besetzung → Zeiten … Stundenzettel digital erfassen und freigeben"* — die
+   Arbeiter-Hälfte dieser Geschichte kann niemand sehen.
+2. **Keine Änderung am Einsatzportal ist im Browser prüfbar.** Genau diese
+   Schwäche hat die tote `ersatz`-LATERAL drei Tage überleben lassen: sie war
+   nur gegen Quelltext geprüft, und ein Selbstwiderspruch in einer
+   WHERE-Klausel sieht im Quelltext richtig aus.
+
+### Warum hier nichts gebaut wurde
+
+Einen Demo-Zugang für Arbeiter zu schaffen hieße, `is_demo` zu setzen und
+`ROLE_ACCOUNTS` zu erweitern — also **einen Login-Weg für Konten zu öffnen, die
+heute konstruktionsbedingt gesperrt sind.** Genau dafür gibt es den
+Go-Live-Punkt **P0.6** („Demo-Seed-Welt wird auf jedem Fresh-Install angelegt —
+ENTERPRISE-Login-Backdoor"), der über `SEED_DEMO_WORLD` gegated wurde.
+
+> **Owner-Entscheidung.** Wenn ein Demo-Arbeiter kommen soll, dann unter
+> demselben Gate wie die übrige Demo-Welt — nicht daneben. Die unbrauchbaren
+> Hashes sind heute der einzige Grund, warum diese drei Konten keine Hintertür
+> sind; wer sie durch echte ersetzt, muss das Gate mitdenken.
+
+Bis dahin bleibt für das Einsatzportal die Zwei-Schichten-Disziplin: Proben
+gegen den Quelltext **plus** ein DB-Smoke, der die Abfrage wirklich ausführt.
+Genau diese Kombination hat die tote LATERAL am Ende gefunden.
+
+---
+
+## Die Registry log — und legte die Migrationskette still (2026-08-24)
+
+`api/test/auditMandantenGrenze.test.js` meldete neun org-lose Audit-Zeilen,
+deren Akteur genau **einer** Organisation angehört. Zwei Ursachen standen zur
+Debatte: Migration 187 Schritt 2 sei nie gelaufen, oder die Schreibseite lässt
+die Org weiterhin weg. Gemessen wurde beides.
+
+### 187 ist gelaufen — die Registry wusste es nur nicht
+
+Der Beweis steht in der Datenbank: `al_same_org` lautet `(org_id =
+current_org_id())`, ohne NULL-Zweig — genau Schritt 3. Und Schritt 2 hat
+gewirkt: die 156 org-losen `auth.login`/`auth.register`-Zeilen stammen alle vom
+2026-05-25, ihre Akteure gehören **null** Organisationen an. Keine eindeutig
+zuordenbare Bestandszeile ist übrig geblieben.
+
+Trotzdem endete `_migrations` bei `180_notdienst_antwortpfad.sql`. Für **181–196
+fehlte jeder Eintrag**, obwohl die Strukturen physisch dalagen
+(`worker_absences.quelle`, `worker_delays`, `frist_bis`, `verfallen_am`, die
+187-Policy, `'nutzer'` im `par_ziel_art_check`, ≥18 Tabellen mit aktivem RLS).
+
+Das war kein Schönheitsfehler. `sql/migrate.sh` entscheidet allein am Ledger, ob
+eine Datei laufen muss — was dort fehlt, wird **erneut** angewandt. Jede der 16
+wurde einzeln in einer zurückgerollten Transaktion gegen die echte Datenbank
+geprüft. Zwei überleben das nicht:
+
+| Migration | Fehler bei erneuter Anwendung |
+|---|---|
+| `189_meldungen_die_ankommen.sql` | `check constraint "profile_abuse_reports_reason_check" is violated` |
+| `190_melden_nur_was_man_sieht.sql` | `check constraint "par_ziel_art_check" is violated` |
+
+Eine Zeitfalle, keine Schlamperei: Migration **194** hat beide CHECKs geweitet
+(`'nutzer'` als vierte Zielart, `fraud`/`harassment` als Gründe), und es liegen
+Zeilen in `profile_abuse_reports`, die nur die geweitete Fassung erlaubt. 189
+und 190 setzen die engere wieder. Auf einer frischen Datenbank läuft das
+anstandslos durch — 189 kommt vor 194, die Daten gibt es dort noch nicht. Kaputt
+ist es ausschließlich dort, wo bereits gearbeitet wurde.
+
+Die Folge traf nicht nur die sechzehn: `migrate.sh` bricht bei 189 mit
+`ON_ERROR_STOP=1` und `exit 1` ab. 190–196 werden nie erreicht — und **jede
+künftige Migration 197+ genauso wenig, bei jedem Lauf aufs Neue.** Eine
+unvollständige Registry legt die Kette dauerhaft still. Datenverlust drohte
+nie: 189 besteht aus vier eigenständigen `DO`-Blöcken ohne umschließende
+Transaktion, der erste scheitert atomar, die übrigen laufen gar nicht erst an.
+Der Schaden war Stillstand, nicht Korruption.
+
+**Behoben** durch Nachtrag der 16 Einträge (`INSERT ... ON CONFLICT DO
+NOTHING`). Nachgetragen wurde, was ohnehin wahr war — die Migrationen selbst
+umzuschreiben wäre der falsche Eingriff gewesen: für eine frische Datenbank sind
+sie korrekt. Danach: 213 Ledger-Zeilen, **null** Dateien ohne Eintrag.
+
+### Die Schreibseite ließ die Org tatsächlich weg
+
+Alle neun beanstandeten Zeilen datieren auf den 22.–24.08., also **nach** 187.
+Keine Bestandszeilen, sondern Neuzugänge, in zwei getrennten Varianten:
+
+**Sechs `*.abuse_reported` — eine schlichte Auslassung.** Die vier Meldewege in
+`routes/profileVisibility.js` riefen `writeAudit(pool, {...})`, die req-lose
+Zwei-Argument-Form. Sie kennt `req` nicht, fragt also nie `bestimmeAuditOrg()`,
+und ein `org_id` wurde nirgends übergeben. Dabei war die Org die ganze Zeit da:
+`orgContextMiddleware` läuft global vor der Route, die Meldewege sind
+`requireAuth`, und alle sechs Melder gehören genau einer Organisation an.
+**Umgestellt auf `writeAuditEnhanced(pool, req, {...})`** — an allen fünf
+Stellen des Routers, inklusive des gemeinsamen Helfers.
+
+> Die naheliegende Abkürzung wäre falsch gewesen: `reportedOrgId` bzw.
+> `anbieter_org_id` stehen in den Handlern bereit, gehören dort aber nicht hin.
+> Damit landete die Zeile im Audit der **gemeldeten** Partei, die daran ablesen
+> könnte, dass und von wem sie gemeldet wurde. Richtig ist die Org des Melders.
+
+**Drei `demo.login` — strukturell anders.** Der Weg läuft über
+`res.locals.audit` und fragt `bestimmeAuditOrg()` korrekt. Nur ist die Antwort
+zwangsläufig NULL: `req.orgId` wurde aufgelöst, *bevor* die Route lief — also
+vor der Anmeldung; zusätzlich greift die Sperre `orgIdGiltFuerNutzer !==
+actorId` aus derselben Welle. Beides ist richtig so. Was fehlt, ist der
+Nachschlag *nach* erfolgreicher Anmeldung.
+
+Hier widersprachen sich zwei Wahrheiten aus derselben Welle: Migration 187
+schreibt im Kopf, org-lose Login-Zeilen seien richtig („beim Anmelden gibt es
+noch keine Organisation"), während ihr Schritt 2 sie ungefiltert nachgezogen hat
+und der Test genau das als Invariante erzwingt.
+
+> **Owner-Entscheid 2026-08-24: Login-Zeilen sollen zuordenbar sein.**
+
+### Umgesetzt — der eine Moment, in dem der zentrale Auflöser nichts liefern kann
+
+`bestimmeAuditOrg()` bleibt unangetastet; beide Riegel darin sind richtig und
+haben ihren Befund. Neu ist `orgNachAnmeldung()` in `services/auditLog.js` —
+bewusst daneben, nicht darin, weil es die eine Ausnahme abbildet: den Augenblick,
+in dem die Sitzung gerade erst entsteht.
+
+**Warum das kein Raten ist — der Unterschied zu Migration 187.** Dort galt: bei
+mehreren Mitgliedschaften lässt sich im Nachhinein nicht sagen, in welcher
+gehandelt wurde, also ist NULL die ehrliche Antwort. Hier wird nichts
+rekonstruiert, sondern im selben Moment gefragt, in dem die Sitzung entsteht:
+`getPrimaryOrg` ist dieselbe Funktion, mit der `middleware/orgContext.js` die Org
+dieser Sitzung bei der **nächsten** Anfrage auflöst. Gestempelt wird also exakt
+die Organisation, in der die Sitzung gleich arbeitet — dieselbe Quelle der
+Wahrheit, nur einen Wimpernschlag früher.
+
+**Die Falle, in die der naheliegende Fix gelaufen wäre.** `auth.js` hatte `me`
+bereits im Scope und benutzt `me?.org_id` schon für die Analytics — `org_id:
+me.org_id` sah nach der offensichtlichen Zeile aus. `getUserAndPlan` liest
+`org_id` aber **roh aus `users`**, und genau die beiden Demo-Konten haben dort
+NULL bei vorhandener Mitgliedschaft (gemessen: `demo-buyer@`, `demo-agency@`).
+Die drei `demo.login`-Zeilen, um die es überhaupt ging, wären org-los geblieben —
+der Fix hätte erledigt ausgesehen und wäre es nicht. Gegen die laufende Datenbank
+nachgestellt:
+
+| Konto | `users.org_id` | `orgNachAnmeldung()` |
+|---|---|---|
+| `demo-buyer@` | NULL | `d0b00000-…-001` ✓ |
+| `demo-agency@` | NULL | `d0b00000-…-002` ✓ |
+| `e2e-company@` | gesetzt | `e19d43df-…` ✓ |
+| unbekannt | — | `null` ✓ |
+
+**Drei Schreibstellen, nicht zwei.** `auth.login` und `demo.login` über
+`orgNachAnmeldung()`. Dazu `auth.register`: dort legt `createOrgWithMembership`
+die Organisation eine Zeile vorher selbst an, `orgId` steht im Scope und ist die
+direktere Quelle als ein zweiter Lookup. Das war kein Extra — seit dieser Stelle
+erzeugt **jede** Registrierung genau eine Mitgliedschaft, die nächste Anmeldung
+eines neuen Kontos hätte die Zusicherung sofort wieder gerissen.
+
+**Bestand:** Migration `198_audit_login_zeilen_zuordenbar.sql` zieht nach, was
+187 Schritt 2 für die Zeilen davor tat — dieselbe Regel, dieselbe Formulierung.
+Neun Zeilen, danach null. Gegengeprüft wurde auch die andere Richtung: **null**
+Zeilen in einer fremden Org. Eine Reparatur, die den einen Defekt schließt und
+den anderen aufreißt, wäre keine.
+
+Der Quell-Fix kam zuerst. Ohne ihn wäre die Migration ein Putzlappen unter einem
+laufenden Wasserhahn.
+
+### Was offen bleibt
+
+**Die Abnahme hängt am Ausrollen, nicht am Code.** Während der Arbeit sprang die
+Zusicherung noch einmal auf rot: eine neue org-lose `auth.login`-Zeile,
+18:31 Uhr. Sie kam nicht aus dem Zweig, sondern aus dem laufenden Container —
+`tempconnect_api` mountet `…/12_tempconnect_docker(D)/api` (das Haupt-Repo), nicht
+diesen Worktree. Die laufende Anwendung schreibt also weiter nach altem Stand.
+Migration 198 ist idempotent und hat die Zeile eingesammelt; der Zustand ist
+wieder null. Aber **bis der Zweig ausgerollt ist, erzeugt jede Anmeldung über die
+laufende Instanz erneut solche Zeilen.** Wer die Abnahme vorher rot sieht, hat
+keinen Rückfall im Code gefunden, sondern genau diesen Umstand — 198 erneut
+laufen zu lassen genügt.
+
+Nichts mehr aus dieser Welle — die verbliebenen 30 Aufrufe sind am 2026-08-25
+einzeln entschieden worden (siehe unten). Offen bleibt allein das Ausrollen.
+
+---
+
+## Der Datenbanklauf fand einen Riegel, den ich selbst eingebaut hatte (2026-08-26)
+
+Dreizehn Tests haben in **jedem** Gate-Lauf dieser Welle geschwiegen — die
+DB-gebundenen Vorgangsketten. Die Übergabe nennt dafür ein Rezept; hier ist,
+was dabei herauskam.
+
+**369 Tests, 365 bestanden, 4 Fehlschläge.** Aufgeteilt:
+
+| Fehlschlag | Urteil |
+|---|---|
+| `offer.counterpartyFirst` — Bedarf gibt 409 statt 201 | **echter Defekt**, aus dieser Welle. Siehe unten. |
+| `timesheet` — FREE-Nutzer nicht gesperrt | **Umgebung**: im Container ist `FEATURE_GATE_BYPASS=true` gesetzt und hebt die Plan-Sperre absichtlich auf |
+| `workerProfileHub` × 2 — `EACCES` beim Anlegen von `uploads/` | **Artefakt meiner Kopie**: `docker cp` schrieb Windows-Rechte in `/tmp`. Nach `chmod`: 7/7 grün. |
+
+### Der Defekt
+
+`POST /marketplace/demand-requests` wies mit 409 ab, wenn Name oder Telefon der
+Ansprechperson fehlten. Der Riegel stammt aus `3ccf075` (23.08.), der
+Richtungskorrektur zu 10b — also aus meiner eigenen Arbeit, drei Tage vorher.
+
+**Am laufenden Bestand gemessen:**
+
+| | |
+|---|---|
+| Firmen, die je einen Bedarf angelegt haben | 22, davon **18 ohne Telefon** |
+| davon in 90 Tagen aktiv | 19, davon **18 gesperrt** |
+| vorhandene Bedarfe | 39, davon **38 ohne Ansprechperson** |
+| Feld im Bedarfsformular, um sie nachzutragen | **keins** |
+
+Die letzte Zeile ist die schwerste. Die Pflicht war für den Kunden
+**unauflösbar**: Er sollte eine Nummer liefern und hatte nirgends ein Feld
+dafür. Das ist dieselbe Klasse wie ein toter Knopf — nur mit einem 409 davor.
+
+Und die Regel dagegen stand schon in diesem Dokument, im Abschnitt zu 10b:
+
+> *„Die Pflicht trifft nur den, der handeln kann … Den Käufer abzuweisen, weil
+> ein anderer sein Profil nicht gepflegt hat, wäre die falsche Adresse."*
+
+Beim Bedarf handelt der Käufer. Der Riegel gehörte dort nie hin — ich habe die
+eigene Regel beim Korrigieren des Richtungsfehlers übersehen.
+
+### Warum es drei Tage niemand sah
+
+`ansprechpersonPflicht.test.js` zählt **fünf** Angebots-Wege und prüft für jeden,
+ob er sperrt oder nur füllt. Die Bedarfs-Anlage kam mit der Richtungskorrektur
+als **sechster** dazu und stand in keiner der beiden Listen. Das Gate blieb
+grün: 9911 Proben, keine davon zuständig.
+
+Ein Mock kennt keine 22 Firmen ohne Telefonnummer. Deshalb konnte nur der Lauf
+gegen die echte Datenbank das finden — genau die Begründung, aus der die
+Übergabe darauf besteht.
+
+### Gebaut
+
+- Die Bedarfs-Anlage **füllt weiter, blockiert nicht mehr**. Am System belegt:
+  201 mit `contact_name: null`.
+- Das Formular bekommt **Ansprechperson + Telefon** (DE/EN) mit dem Hinweis,
+  warum es zählt. Leer bleibt `null`, damit der Rückfall aufs Profil greift —
+  ein leerer String würde ihn überschreiben.
+
+> **Nachtrag 2026-08-26 — eine eigene Überzeichnung.** Ich hatte diesen Umbau
+> zusätzlich „im Browser durchgespielt" genannt: Felder sichtbar, Absenden
+> **201**, Ansprechperson aus dem Profil gefüllt. Die erste Hälfte stimmt — das
+> Formular kommt aus dem Vorschau-Server und ist mein Stand. Die zweite nicht:
+> der API-Prozess lief zu dem Zeitpunkt seit **2 Tagen** und bediente einen
+> Schnappschuss, der meinen Riegel nie hatte. Der 201 belegt also **nicht**, dass
+> meine Änderung ihn entfernt hat.
+>
+> **Der Beleg dafür steht woanders und hält:** der Integrationslauf im Container
+> aus `/tmp/wt3` — eigener Code, frischer Prozess — gab
+> `DIAG 201 { … contact_name: null … }` zurück. Die Sache ist bewiesen, nur nicht
+> durch den Browser.
+>
+> Die Falle selbst ist jetzt in [`UEBERGABE.md`](../UEBERGABE.md) festgehalten,
+> weil sie jede Sitzung genauso trifft.
+- **Drei Proben** sichern den Zustand, gegen Rückmutation geprüft: Riegel
+  zurück → rot, Feld umbenannt → rot.
+- Die drei Riegel auf der **Anbieterseite bleiben**: dort handelt der Anbieter
+  selbst, und `sla_angebote.html` bietet ihm beide Felder an (Z. 121–126).
+
+**Nachlauf, derselbe Befehl:** 369 Tests, **369 bestanden, 0 Fehlschläge, 0
+übersprungen**. Die dreizehn Tests, die in jedem Gate-Lauf dieser Welle
+geschwiegen haben, sind damit einmal vollständig gegen Postgres gelaufen — und
+haben dabei genau einen echten Defekt herausgegeben.
+
+Der Plan-Sperren-Test kennt jetzt seine Umgebung und prüft **beide**
+Konfigurationen — mit Überbrückung den Durchlass, ohne sie die Sperre. Beide
+Zweige nachgewiesen (`FEATURE_GATE_BYPASS=false` → 403, rückmutiert belegt).
+Ein Test, der in der einzigen Umgebung mit echter Datenbank verlässlich rot
+ist, erzieht dazu, Rot zu ignorieren.
+
+---
+
+## Die 30 req-losen Aufrufe — je Aufruf entschieden (2026-08-25)
+
+Owner-Vorgabe: nicht pauschal umstellen, sondern jeden einzeln entscheiden.
+Ergebnis: **15 tragen die Org jetzt, 15 bleiben org-los** — begründet, nicht
+übrig geblieben.
+
+### Die Regel, nach der entschieden wurde
+
+`org_id` heißt nicht „hat irgendwie mit dieser Org zu tun", sondern **„die
+Organisation, IN DER der Handelnde gehandelt hat"** — so ist `bestimmeAuditOrg`
+gebaut, und daraus folgen beide Richtungen. Handelt ein angemeldeter Nutzer in
+seiner Org, gehört sie hin. Gibt es gar keinen Handelnden, oder handelt er als
+Plattform, wäre jeder Stempel eine Behauptung.
+
+### Umgestellt — 15
+
+| Datei | Aufrufe | Warum |
+|---|---|---|
+| `requests.js` | 9 | Anfrage annehmen/ablehnen/finalisieren, Reservierung wandeln — ein angemeldeter Nutzer handelt in seiner Org |
+| `capacities.js` | 3 | Kapazität anlegen, schalten, reservieren — dito |
+| `profileBounties.js` | 1 | die Routen prüfen `req.orgId` selbst und antworten sonst mit `403 NO_ORG`; org-los zu schreiben war schlicht widersprüchlich |
+| `auth.js` (Signup) | 2 | `pilot.activated_at_signup`, `individual.direct_signup` — `createOrgWithMembership` hat die Org eine Zeile vorher angelegt, `orgId` steht im Scope |
+
+Die ersten 13 laufen jetzt über `writeAuditEnhanced(pool, req, …)`, die beiden
+Signup-Aufrufe über das lokale `orgId` — dort wäre ein zweiter Lookup der Umweg,
+nicht die Sorgfalt.
+
+### Org-los, und das ist richtig — 15
+
+**`internal.js` (9).** Cron-Summenzeilen über *alle* Organisationen:
+`{ expired, batchSize }`, `{ invoiced, skipped, processed, failed }`. Kein
+Akteur, keine einzelne Org. Ein Stempel wäre nicht ungenau, sondern falsch. Die
+Ausnahme in derselben Datei bestätigt die Regel: `pilot.auto_expiry_batch` läuft
+je Org und trägt `org_id` bereits.
+
+**`occ/decisionsRequests.js` (2).** Hier lag die eigentliche Entscheidung. Der
+Handelnde ist der Owner, und er entscheidet **über** einen Kunden, nicht
+**innerhalb** von dessen Organisation. Die Versuchung, die Kunden-Org zu
+stempeln, ist groß — sie steht im Datensatz. Aber die Zeile trägt `reason`,
+`risk_level` und `commercial_context`, also die interne Begründung des Owners,
+und die Policy `al_same_org` (`org_id = current_org_id()`) würde sie damit an
+genau den Kunden ausliefern, über den entschieden wurde. Staff sieht sie über
+`al_staff_bypass` — die Sicht existiert also, nur nicht für den Betroffenen.
+
+**`auth.js` (4).** Fehlgeschlagene Anmeldungen (`auth.login_failed`,
+`auth.login_blocked_sso`). Dort ist `actor_id` **null** — niemand hat sich
+angemeldet. Die Org wurde *angegriffen*, sie hat nicht *gehandelt*; `org_id`
+würde das Gegenteil behaupten. Beim Fall `USER_NOT_FOUND` gibt es nicht einmal
+einen Nutzer, ein Stempel wäre dort ein Orakel.
+
+> **Als Produktidee davon getrennt:** dass ein Org-Admin Angriffe auf die eigenen
+> Konten sehen kann, ist ein sinnvolles Sicherheits-Feature. Es ist nur nicht
+> dieselbe Sache — dafür wäre der richtige Weg eine eigene Sicht auf
+> `entity_id`, nicht ein `org_id`, das eine Handlung behauptet, die nie
+> stattfand. `getUserCredentials` liest die Org heute ohnehin nicht mit.
+
+### Der Wächter hält jetzt Entscheidungen fest, keine Hochwassermarke
+
+`auditMandantenGrenze.test.js` führt zwei Listen statt einer Zahlenreihe:
+`MUSS_NULL_SEIN` (die vier umgestellten Dateien — ein Rückfall ist ein Fehler)
+und `FESTGENAGELT` mit der Begründung je Datei im Kommentar. Neue Dateien mit der
+req-losen Form fallen auf, steigende Zahlen ebenso. Gegen eine Rückmutation
+geprüft: `requests.js` auf den alten Stand zurückgesetzt ⇒ rot, mit Dateinamen.
+
+### Zwei neue Wächter
+
+- `api/test/migrationsRegistryWaechter.test.js` — beide Driftrichtungen. Schicht 1
+  (immer): `migrate.sh` behält `ON_ERROR_STOP=1` und verbucht nur im
+  Erfolgszweig. Schicht 2 (DB-gebunden): jede **unverbuchte** Migration muss
+  gegen den heutigen Bestand wiederholbar sein, keine neuen Ledger-Waisen,
+  181–196 bleiben eingetragen. Der Schema-Wächter deckte bisher nur die
+  umgekehrte Richtung ab (verbucht, aber Tabelle fehlt — 059).
+- `auditMandantenGrenze.test.js` — drei neue Proben: „keine neue Schreibstelle
+  verliert die Organisation stillschweigend" (nagelt die 34 req-losen Aufrufe je
+  Datei fest, sinken erlaubt, steigen nicht, `profileVisibility.js` muss **null**
+  haben), „die Anmeldewege geben die Organisation ausdrücklich mit" (alle drei
+  Stellen), und ein Verhaltenstest für `orgNachAnmeldung()` — inklusive des
+  Falls `users.org_id IS NULL` bei vorhandener Mitgliedschaft, der die Falle oben
+  festhält.
+
+#### Die Korrektur am eigenen Wächter
+
+Der erste Entwurf verlangte für **jede** Datei einen Ledger-Eintrag. Das ist die
+falsche Zusicherung, und eine echte Migration hat es am selben Tag bewiesen: eine
+frisch geschriebene, noch nicht ausgerollte Datei hat selbstverständlich keinen —
+der Wächter wäre bei jeder neuen Migration rot geworden, bis sie deployed ist.
+Ein Wächter, der im Normalbetrieb rot leuchtet, wird abgeschaltet, und dann
+bewacht er nichts.
+
+Gefährlich ist nicht „unverbucht", sondern „unverbucht **und** gegen den heutigen
+Datenbestand nicht wiederholbar". Geprüft wird jetzt die Eigenschaft selbst statt
+ihres Stellvertreters: jede unverbuchte Datei läuft in einer zurückgerollten
+Transaktion gegen die echte Datenbank. Kommt sie durch, ist sie harmlos — noch
+nicht angewandt oder idempotent. Scheitert sie, bricht `migrate.sh` beim nächsten
+Lauf genau dort ab.
+
+Beide Wächter wurden gegen einen echten Fehlschlag geprüft, nicht nur grün
+gesehen: eine untergeschobene, unverbuchte Migration mit einem Constraint, den
+der Bestand verletzt, ließ die Abnahme rot werden — mitsamt Dateiname und
+Postgres-Fehlertext.
+
+---
+
+## Die Naht zur Marktpräsenz — geprüft, und dann bewacht (2026-08-26)
+
+Welle J baute parallel die **Marktpräsenz** (J2c: verfügbare Kräfte, J9a: eine
+abwesende Kraft ist nicht wirklich verfügbar). Meine Abschnitte definieren, wann
+eine Zuweisung offen, bestätigt, abgelehnt, zurückgezogen oder verfallen ist.
+Ob beide Seiten dasselbe unter „verfügbar" verstehen, hatte niemand geprüft.
+
+**Sie tun es — aber die Kopplung war unbewacht.**
+
+Ob eine Kraft am Marktplatz erscheint, entscheidet
+`workerOfferReservationService` **allein** an `wal.is_active = TRUE`. Der
+Bestätigungsstatus interessiert dort nicht:
+
+```sql
+JOIN worker_assignment_links wal
+  ON wal.worker_user_id = wp2.user_id
+ AND wal.is_active = TRUE
+ AND (wal.end_date IS NULL OR wal.end_date >= CURRENT_DATE)
+```
+
+Vergisst also ein Weg aus einer Anfrage heraus das `is_active = FALSE`, gilt die
+Kraft **dauerhaft als beschäftigt**: ihr Kapazitäts-Posten bleibt pausiert, sie
+verschwindet vom Markt — und niemand merkt es, weil ihr Status ja korrekt
+„erledigt" lautet.
+
+**Nachgeprüft, nicht angenommen** — alle fünf Schreibstellen:
+
+| Zustand | Stelle | `is_active = FALSE` |
+|---|---|---|
+| `worker_declined` | `workerService.js` (Absage) | ✅ |
+| `withdrawn` | `workerService.js` (Rückzug) | ✅ |
+| `expired` | `verfalleneAnfragen` | ✅ |
+| `worker_unavailable` | `workerService.js`, zwei Stellen | ✅ ✅ |
+| `worker_confirmed` | bleibt **aktiv** | richtig so — die Person ist im Einsatz |
+
+**Bewacht war davon nichts.** Die bestehende Probe *„Sperren prüfen `is_active`"*
+schützt das **Lesen** und *setzt voraus*, dass beim Schreiben beides zusammen
+gesetzt wird. Die neue Probe schließt die andere Hälfte: sie **sucht** alle
+`UPDATE worker_assignment_links`, findet die mit einem erledigten Zustand und
+verlangt `is_active = FALSE` im selben Befehl. Ein sechster Weg macht sie rot.
+
+Dazu eine Gegenprobe: `worker_confirmed` und `pending_confirmation` dürfen
+**nicht** in `ERLEDIGT` stehen — sonst verschwände ein zugesagter Einsatz sofort
+wieder, und eine offene Anfrage gäbe den Platz frei, den sie gerade hält.
+
+Rückmutation: eine Stelle ohne `is_active = FALSE` lässt die Probe fallen, mit
+Datei und Zeile.

@@ -16,6 +16,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import * as docs from "../services/subscriptionDocumentService.js";
+import { verweigereArbeiter } from "../middleware/orgAccess.js";
 
 const costPreviewSchema = z.object({
   desired_plan: z.string().min(2).max(40),
@@ -34,7 +35,19 @@ export function createSubscriptionDocumentsRouter(deps) {
   const { pool, requireAuth, logger: _logger } = deps;
   const router = Router();
 
-  router.get("/subscription-documents/mine", requireAuth, async (req, res, next) => {
+  /*
+   * M2.5/M2.7 — gemessen am 2026-09-03: diese Route reicht einer ARBEITERSITZUNG
+   * org-geschluesselte Daten ihrer Zeitarbeitsfirma durch. Ein Arbeiter ist
+   * regulaer Mitglied in der Org seines Arbeitgebers (workerService.acceptInvite,
+   * role_key='worker'), seine Sitzung traegt also deren Kennung.
+   *
+   * Bewusst `verweigereArbeiter` und nicht `requirePermission(...)`: welche Rollen
+   * diese Daten lesen duerfen, ist eine Produktfrage und gehoert dem Owner (M2.6).
+   * Dieser Riegel schliesst genau das Gemessene und nimmt sonst niemandem etwas.
+   */
+  const keinArbeiter = verweigereArbeiter({ logger: _logger });
+
+  router.get("/subscription-documents/mine", requireAuth, keinArbeiter, async (req, res, next) => {
     try {
       if (!req.session?.userId) return res.status(401).json({ error: { code: "NOT_AUTHENTICATED" } });
       const orgId = req.orgId || null;

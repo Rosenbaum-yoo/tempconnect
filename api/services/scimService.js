@@ -115,7 +115,11 @@ export async function provisionUser(pool, orgId, { userName, displayName, enterp
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const { rows: ex } = await client.query("SELECT id FROM users WHERE LOWER(email) = $1", [email]);
+    /* M2.2: LOWER stand hier schon auf der Spalte, der Wert kam aber vom
+       Aufrufer. Jetzt beidseitig — eine Abfrage soll nicht davon
+       abhaengen, dass jemand anders vorher aufgeraeumt hat. */
+    const { rows: ex } = await client.query(
+      "SELECT id FROM users WHERE LOWER(email) = LOWER($1)", [email]);
     let userId, created = false;
     if (ex[0]) {
       userId = ex[0].id;

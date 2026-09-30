@@ -51,6 +51,26 @@ function trackingPool(routes = []) {
   };
 }
 
+/** JJJJ-MM-TT in Berliner Zeit, `tage` Tage von heute - tagesgenau gerechnet. */
+function inTagen(tage) {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit"
+  });
+  const heute = fmt.format(new Date());
+  const t = Date.UTC(+heute.slice(0, 4), +heute.slice(5, 7) - 1, +heute.slice(8, 10), 12);
+  return new Date(t + tage * 86400000).toISOString().slice(0, 10);
+}
+
+/** Morgen als JJJJ-MM-TT in Berliner Zeit - der Notdienst rechnet tagesgenau. */
+function morgen() {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit"
+  });
+  const heute = fmt.format(new Date());
+  const t = Date.UTC(+heute.slice(0, 4), +heute.slice(5, 7) - 1, +heute.slice(8, 10), 12);
+  return new Date(t + 86400000).toISOString().slice(0, 10);
+}
+
 function mockReq(overrides = {}) {
   return {
     session: { userId: "u1" },
@@ -387,14 +407,107 @@ describe("POST /marketplace/demand-requests", () => {
     assert.strictEqual(res._json.error, "COMPANY_ONLY");
   });
 
-  it("403 PLAN_REQUIRED_NOTDIENST when notdienst without entitlement", async () => {
+  /*
+   * GEAENDERT AM 2026-09-06 (Welle N2.1, Owner-Vorgabe).
+   *
+   * Diese Probe hiess "403 PLAN_REQUIRED_NOTDIENST when notdienst without
+   * entitlement" und schickte `{ urgency: "notdienst" }` im Rumpf. Sie schrieb
+   * damit zweierlei fest, das nicht mehr gilt:
+   *
+   *   1. Dass die Dringlichkeit AUS DEM RUMPF kommt. Sie wird jetzt aus
+   *      `start_date` abgeleitet - Vorlauf <= 2 Kalendertage in Europe/Berlin.
+   *      Ein Haekchen gibt es nicht mehr, also kann es auch nichts ausloesen.
+   *
+   *   2. Dass ein Kunde ohne Notdienst-Tarif ABGEWIESEN wird. Abgeleitet waere
+   *      daraus eine Sperre fuer jeden kurzfristigen Bedarf - ausgerechnet dann,
+   *      wenn er am dringendsten ist. Und sie braechte nichts ein: heute setzt
+   *      derselbe Kunde einfach "normal" und schreibt aus. Er bekommt jetzt
+   *      dasselbe, plus den Hinweis, was ihm entgeht.
+   *
+   * Der Tarif wirkt weiterhin - nur an der richtigen Stelle: die
+   * Notdienst-MASCHINERIE (30-Minuten-Uhr, Rundruf, Eskalation) laeuft ohne ihn
+   * nicht an.
+   */
+  /**
+   * Legt einen Bedarf an und gibt zurueck, mit welcher Dringlichkeit er in der
+   * Datenbank landet.
+   *
+   * Geprueft wird der INSERT-Parameter, nicht die Antwort: der weitere Weg
+   * (Matching, Benachrichtigungen, SLA-Ereignisse) laeuft gegen einen leeren
+   * Muster-Zugang ins Leere und endet mit 500. Ihn vollstaendig nachzubauen
+   * waere eine grosse Vorrichtung, die vor allem bestehenden Code nachtestet -
+   * die ENTSCHEIDUNG dagegen steht genau hier, im Wert, der gespeichert wird.
+   */
+  async function angelegteDringlichkeit(body, limits) {
     const pool = trackingPool();
-    const deps = makeDeps(pool, { role: "company", limits: { notdienst: false } });
+    const deps = makeDeps(pool, { role: "company", limits });
     const handler = getHandler(createMarketplaceRouter(deps), "post", "/marketplace/demand-requests");
     const res = mockRes();
-    await handler(mockReq({ body: { urgency: "notdienst" } }), res);
-    assert.strictEqual(res._status, 403);
-    assert.strictEqual(res._json.error, "PLAN_REQUIRED_NOTDIENST");
+    await handler(mockReq({ body }), res);
+    const insert = pool.calls.find((c) => /INSERT INTO demand_requests/i.test(c.sql));
+    return { res, insert, gespeichert: insert ? insert.params.find(
+      (p) => p === "notdienst" || p === "normal" || p === "plus") : null };
+  }
+
+  it("DAS DATUM ENTSCHEIDET, nicht das Feld im Rumpf", async () => {
+    /*
+     * Der Kern der Welle. Beide Anfragen tragen dieselbe Luege im Rumpf und
+     * unterscheiden sich nur im Einsatzbeginn.
+     */
+    const kurz = await angelegteDringlichkeit(
+      { title: "Nachtschicht", role: "Pflegekraft", location_city: "Muenster",
+        start_date: morgen(), urgency: "normal" },
+      { notdienst: true });
+    assert.strictEqual(kurz.gespeichert, "notdienst",
+      "ein Einsatz morgen wurde als `normal` angelegt, weil es im Rumpf stand");
+
+    const spaet = await angelegteDringlichkeit(
+      { title: "Nachtschicht", role: "Pflegekraft", location_city: "Muenster",
+        start_date: inTagen(30), urgency: "notdienst" },
+      { notdienst: true });
+    assert.strictEqual(spaet.gespeichert, "normal",
+      "ein Einsatz in 30 Tagen wurde als Notdienst angelegt, weil es im Rumpf stand — "
+      + "50 Anbieter waeren ohne Anlass alarmiert worden");
+  });
+
+  it("die Grenze liegt bei zwei Kalendertagen", async () => {
+    for (const [tage, erwartet] of [[0, "notdienst"], [1, "notdienst"],
+                                     [2, "notdienst"], [3, "normal"]]) {
+      const r = await angelegteDringlichkeit(
+        { title: "T", role: "R", location_city: "Muenster", start_date: inTagen(tage) },
+        { notdienst: true });
+      assert.strictEqual(r.gespeichert, erwartet,
+        `Vorlauf ${tage} Tage: erwartet ${erwartet}, gespeichert ${r.gespeichert}`);
+    }
+  });
+
+  /*
+   * GEAENDERT AM 2026-09-06 (Welle N2.1, Owner-Vorgabe).
+   *
+   * Hier stand "403 PLAN_REQUIRED_NOTDIENST when notdienst without entitlement"
+   * mit `{ urgency: "notdienst" }` im Rumpf. Die Probe schrieb zweierlei fest,
+   * das nicht mehr gilt:
+   *
+   *   1. Dass die Dringlichkeit AUS DEM RUMPF kommt. Sie wird jetzt aus
+   *      `start_date` abgeleitet - kein Haekchen, also nichts auszuloesen.
+   *
+   *   2. Dass ein Kunde ohne Notdienst-Tarif ABGEWIESEN wird. Abgeleitet waere
+   *      daraus eine Sperre fuer jeden kurzfristigen Bedarf - ausgerechnet dann,
+   *      wenn er am dringendsten ist. Und sie braechte nichts ein: heute setzt
+   *      derselbe Kunde einfach "normal" und schreibt aus.
+   *
+   * Der Tarif wirkt weiter, nur an der richtigen Stelle: die Notdienst-
+   * MASCHINERIE (30-Minuten-Uhr, Rundruf, Eskalation) laeuft ohne ihn nicht an.
+   */
+  it("ohne Notdienst-Tarif laeuft ein kurzfristiger Bedarf als normale Suche", async () => {
+    const r = await angelegteDringlichkeit(
+      { title: "Nachtschicht", role: "Pflegekraft", location_city: "Muenster",
+        start_date: morgen() },
+      { notdienst: false });
+    assert.notStrictEqual(r.res._status, 403,
+      "ein kurzfristiger Bedarf wurde abgewiesen statt als normale Suche angelegt");
+    assert.strictEqual(r.gespeichert, "normal",
+      "die Notdienst-Maschinerie lief trotz fehlendem Tarif an");
   });
 
   it("400 VALIDATION on bad body", async () => {
@@ -587,6 +700,12 @@ describe("POST /marketplace/demand-requests/:id/negotiate-deal", () => {
   it("201 creates negotiation offer for open demand", async () => {
     const pool = trackingPool([
       { match: isGetDemandById, respond: { rows: [{ id: UUID, requester_company_id: "other", status: "open", headcount: 2, remaining_open_count: 2, title: "Bedarf" }] } },
+      /* Ansprechperson aus dem PROFIL des Anbieters (Plan I, 10b, seit
+         2026-08-23 Pflicht). Ohne diese Antwort haelt `ansprechperson` sie fuer
+         fehlend und der Weg endet mit 409 CONTACT_REQUIRED — die Zusicherung
+         darunter ("ein Anbieter MIT Ansprechperson bekommt 201") ist unveraendert. */
+      { match: (s) => s.includes("FROM users") && s.includes("contact_person"),
+        respond: { rows: [{ name: "Frau Berger", telefon: "+49 30 1234567" }] } },
       { match: (s) => s.includes("INSERT INTO offers"), respond: { rows: [{ id: "OFF-1", status: "sent" }] } }
     ]);
     const handler = getHandler(createMarketplaceRouter(makeDeps(pool, { role: "agency" })), "post", "/marketplace/demand-requests/:id/negotiate-deal");
@@ -596,6 +715,44 @@ describe("POST /marketplace/demand-requests/:id/negotiate-deal", () => {
     assert.strictEqual(res._json.offer.id, "OFF-1");
     assert.strictEqual(res._json.status, "negotiating");
     assert.strictEqual(res.locals.audit.action, "demand.deal_negotiation_started");
+  });
+
+  it("409 CONTACT_REQUIRED wenn der Anbieter keine Ansprechperson hat", async () => {
+    /* Plan I, 10b (Owner-Entscheid 2026-08-23): Ansprechperson mit Telefon ist
+       Pflicht — mit Rueckfall aufs Profil. Hier gibt es weder das eine noch das
+       andere, und HIER handelt der Anbieter selbst. Gemessen am 2026-08-22:
+       nur 7 von 361 Konten haben beides, deshalb faengt die Antwort ihn auf,
+       statt ihn raten zu lassen. */
+    const pool = trackingPool([
+      { match: isGetDemandById, respond: { rows: [{ id: UUID, requester_company_id: "other", status: "open", headcount: 2, remaining_open_count: 2, title: "Bedarf" }] } },
+      { match: (s) => s.includes("FROM users") && s.includes("contact_person"), respond: { rows: [{ name: null, telefon: null }] } }
+    ]);
+    const handler = getHandler(createMarketplaceRouter(makeDeps(pool, { role: "agency" })), "post", "/marketplace/demand-requests/:id/negotiate-deal");
+    const res = mockRes();
+    await handler(mockReq({ params: { id: UUID }, body: {} }), res);
+    assert.strictEqual(res._status, 409);
+    assert.strictEqual(res._json.error, "CONTACT_REQUIRED");
+    assert.strictEqual(res._json.fehlt.contact_name, true);
+    assert.strictEqual(res._json.fehlt.contact_phone, true);
+    assert.ok(!pool.calls.some((c) => c.sql.includes("INSERT INTO offers")),
+      "es darf kein Angebot ohne Ansprechperson entstehen");
+  });
+
+  it("201 wenn die Ansprechperson am Angebot selbst mitkommt", async () => {
+    /* Der Rueckfall ist ein Rueckfall, keine Bedingung: wer sie direkt angibt,
+       braucht kein gepflegtes Profil. */
+    const pool = trackingPool([
+      { match: isGetDemandById, respond: { rows: [{ id: UUID, requester_company_id: "other", status: "open", headcount: 2, remaining_open_count: 2, title: "Bedarf" }] } },
+      { match: (s) => s.includes("FROM users") && s.includes("contact_person"), respond: { rows: [{ name: null, telefon: null }] } },
+      { match: (s) => s.includes("INSERT INTO offers"), respond: { rows: [{ id: "OFF-2", status: "sent" }] } }
+    ]);
+    const handler = getHandler(createMarketplaceRouter(makeDeps(pool, { role: "agency" })), "post", "/marketplace/demand-requests/:id/negotiate-deal");
+    const res = mockRes();
+    await handler(mockReq({ params: { id: UUID }, body: { contact_name: "Herr Adler", contact_phone: "+49 40 998877" } }), res);
+    assert.strictEqual(res._status, 201);
+    const insert = pool.calls.find((c) => c.sql.includes("INSERT INTO offers"));
+    assert.ok(insert.params.includes("Herr Adler"), "die Angabe muss in der Zeile landen");
+    assert.ok(insert.params.includes("+49 40 998877"));
   });
 });
 

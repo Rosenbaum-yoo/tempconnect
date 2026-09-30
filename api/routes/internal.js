@@ -1,27 +1,29 @@
 import { Router } from "express";
-import * as capacityService from "../services/capacityService.js";
 import * as slaService from "../services/slaService.js";
 import * as supplierMetricsService from "../services/supplierMetricsService.js";
 import * as complianceService from "../services/complianceService.js";
 import * as auditLog from "../services/auditLog.js";
-import * as stateMachine from "../services/stateMachine.js";
 import * as idempotencyService from "../services/idempotencyService.js";
 import * as marketplaceService from "../services/marketplaceService.js";
 import * as slaSearchService from "../services/slaSearchService.js";
 import * as productAnalyticsService from "../services/productAnalyticsService.js";
 import * as workerService from "../services/workerService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
-import * as invoiceService from "../services/invoiceService.js";
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
-import * as workerOfferReservationService from "../services/workerOfferReservationService.js";
-import * as subscriptionLifecycle from "../services/subscriptionLifecycleService.js";
-import * as recurringBillingService from "../services/recurringBillingService.js";
+/* M4c.3b: statt der beiden Dienste einzeln — die gemeinsame Reihenfolge. Wer
+   hier wieder direkt auf einen der beiden greift, kann den anderen vergessen;
+   genau so ist die Reservierung aus dem 15-Minuten-Takt gefallen. */
+import * as marktTaktService from "../services/marktTakt.js";
 import * as infrastructureSnapshotService from "../services/infrastructureSnapshotService.js";
 import * as documentCenterService from "../services/documentCenterService.js";
 import * as dealFeedbackService from "../services/dealFeedbackService.js";
 import * as dealReliabilityService from "../services/dealReliabilityService.js";
 import fs from "node:fs";
 import path from "node:path";
+import { taktNotieren } from "../services/betriebsTaktService.js";
+/* M1.9 — die fuenf Laeufe stehen EINMAL, nicht je einmal hier und im Takt.
+ * Siehe Kopf von services/betriebsTaktLaeufe.js. */
+import * as taktLaeufe from "../services/betriebsTaktLaeufe.js";
 
 /**
  * @param {{ pool, config, cronRateLimit, logger, sendMail }} deps
@@ -40,22 +42,75 @@ export function createInternalRouter(deps) {
       logger.warn({ path: req.path, clientIp, allowed: cronAllowedIps }, "Cron IP not allowlisted");
       return res.status(403).json({ error: "FORBIDDEN", message: "IP not allowlisted" });
     }
-    if (cronSecret && req.headers["x-internal-secret"] !== cronSecret) {
+    /*
+     * FAIL-CLOSED, AUCH OHNE KONFIGURIERTES SECRET.
+     *
+     * Vorher stand hier `if (cronSecret && …)` — eine Wache, die sich selbst
+     * abschaltet, sobald das Geheimnis fehlt. Bis zum 2026-08-24 fiel das nicht
+     * auf, weil `csrfProtect` diese Endpunkte ohnehin pauschal abwies (403
+     * CSRF_INVALID): CSRF war die eigentliche, unbeabsichtigte Sperre.
+     *
+     * Mit der CSRF-Ausnahme fuer `X-Internal-Secret` (auth.js) faellt dieser
+     * Zufall weg. Eine Umgebung ohne `INTERNAL_CRON_SECRET` haette danach 28
+     * ungeschuetzte Endpunkte — Stapel-Verfall, Loeschlaeufe, Abrechnung.
+     * In Produktion erzwingt `config/index.js` das Geheimnis per `fatal()`;
+     * hier wird der Rest geschlossen, statt sich darauf zu verlassen.
+     */
+    if (!cronSecret) {
+      logger.error({ path: req.path, clientIp },
+        "INTERNAL_CRON_SECRET nicht gesetzt — Cron-Endpunkt bleibt zu (fail-closed)");
+      return res.status(503).json({
+        error: "CRON_NOT_CONFIGURED",
+        message: "Interne Zeitplan-Endpunkte sind ohne INTERNAL_CRON_SECRET deaktiviert."
+      });
+    }
+    if (req.headers["x-internal-secret"] !== cronSecret) {
       logger.warn({ path: req.path, clientIp }, "Cron secret invalid");
       return res.status(403).json({ error: "FORBIDDEN" });
     }
     next();
   }
 
+
+  /*
+   * DER HERZSCHLAG (M1.1) — EIN TOR, DAS MAN NICHT VERGESSEN KANN.
+   *
+   * Jeder interne Endpunkt schreibt beim Abschluss eine Zeile in
+   * `betriebs_takt`. NICHT je Handler eingebaut, sondern hier davor: es sind
+   * 28 Endpunkte, und der 29. wuerde es sonst vergessen. Dieselbe Bauart wie
+   * das Praefix-Tor in `support.js:773` — ein Riegel, den eine neue Route nicht
+   * umgehen kann, weil sie ihn gar nicht kennt.
+   *
+   * Gemessen wird ueber `res.on("finish")`, nicht im Handler: so faellt auch
+   * ein Lauf auf, der mit 500 endet — und gerade der ist der interessante.
+   * Ein Handler, der vorher `return`t, kann den Herzschlag nicht umgehen.
+   *
+   * Der Schreibvorgang WIRFT NIE (siehe betriebsTaktService). Ein Herzschlag,
+   * der den Lauf zum Scheitern bringt, den er beobachtet, waere schlimmer als
+   * keiner: der Takt fiele aus, WEIL er ueberwacht wird.
+   */
+  router.use("/internal", (req, res, next) => {
+    const begonnen = Date.now();
+    res.on("finish", () => {
+      /* `req.path` ist hier schon ohne das Praefix: "/staffing-maintenance". */
+      const aufgabe = String(req.path || "").replace(/^\//, "").split("?")[0];
+      if (!aufgabe) return;
+      taktNotieren(pool, {
+        aufgabe,
+        dauerMs: Date.now() - begonnen,
+        ergebnis: res.statusCode >= 400 ? "fehler" : "ok",
+        fehler: res.statusCode >= 400 ? `HTTP ${res.statusCode}` : null,
+        quelle: "intern"
+      });
+    });
+    next();
+  });
+
   router.post("/internal/expire-reservations", cronRateLimit, checkCronAuth, async (req, res) => {
     const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
     try {
       const batchSize = Math.min(500, parseInt(req.body?.batch_size, 10) || 100);
-      const { expired } = await capacityService.expireReservationsBatch(pool, batchSize);
-      if (expired > 0) {
-        await stateMachine.logTransition(pool, { entityType: "RESERVATION", from: "active", to: "expired", details: { count: expired, batchSize } });
-        await auditLog.writeAudit(pool, { action: "reservation.expiry_batch", entity_type: "capacity_reservation", details: { expired, batchSize } });
-      }
+      const { expired } = await taktLaeufe.expireReservations(pool, { batchSize });
       logger.info({ path: "expire-reservations", clientIp, expired, batchSize }, "Cron expire-reservations completed");
       res.json({ ok: true, expired });
     } catch (e) {
@@ -94,17 +149,25 @@ export function createInternalRouter(deps) {
     }
   });
 
+  /* N3.5 — die Handkurbel zur Profil-Rangliste. Derselbe Ablauf wie der Takt
+     um 02:50 (`betriebsTaktLaeufe.profilRangliste`), damit es nicht zwei
+     Fassungen gibt: erst die Momentaufnahmen, dann die Positionen. */
+  router.post("/internal/profil-rangliste", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      const ergebnis = await taktLaeufe.profilRangliste(pool);
+      logger.info({ path: "profil-rangliste", clientIp, ...ergebnis }, "Cron profil-rangliste completed");
+      res.json({ ok: true, ...ergebnis });
+    } catch (e) {
+      logger.error({ err: e, path: "profil-rangliste", clientIp }, "Cron profil-rangliste failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
   router.post("/internal/invoice-overdue-scan", cronRateLimit, checkCronAuth, async (req, res) => {
     const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
     try {
-      const overdueMarked = await invoiceService.markOverdueInvoices(pool);
-      if (overdueMarked > 0) {
-        await auditLog.writeAudit(pool, {
-          action: "invoice.overdue_batch",
-          entity_type: "invoice",
-          details: { overdue_marked: overdueMarked }
-        });
-      }
+      const { overdue_marked: overdueMarked } = await taktLaeufe.invoiceOverdueScan(pool);
       logger.info({ path: "invoice-overdue-scan", clientIp, overdueMarked }, "Cron invoice-overdue-scan completed");
       res.json({ ok: true, overdue_marked: overdueMarked });
     } catch (e) {
@@ -146,22 +209,8 @@ export function createInternalRouter(deps) {
   router.post("/internal/recurring-billing", cronRateLimit, checkCronAuth, async (req, res) => {
     const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
     try {
-      if (!config.RECURRING_BILLING_ENABLED) {
-        return res.json({ ok: true, disabled: true, reason: "RECURRING_BILLING_ENABLED=false" });
-      }
-      const result = await recurringBillingService.generateRecurringInvoices(pool, { logger });
-      if (result.invoiced > 0 || result.skipped > 0) {
-        await auditLog.writeAudit(pool, {
-          action: "subscription.recurring_billing_batch",
-          entity_type: "subscription",
-          details: {
-            invoiced: result.invoiced,
-            skipped: result.skipped,
-            processed: result.processed,
-            failed: result.failed.length
-          }
-        });
-      }
+      const result = await taktLaeufe.recurringBilling(pool, { config, logger });
+      if (result.disabled) return res.json({ ok: true, ...result });
       logger.info({ path: "recurring-billing", clientIp, ...result, failed: result.failed.length }, "Cron recurring-billing completed");
       res.json({ ok: true, ...result });
     } catch (e) {
@@ -176,17 +225,8 @@ export function createInternalRouter(deps) {
   router.post("/internal/dunning-sweep", cronRateLimit, checkCronAuth, async (req, res) => {
     const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
     try {
-      if (!config.DUNNING_ENABLED) {
-        return res.json({ ok: true, disabled: true, reason: "DUNNING_ENABLED=false" });
-      }
-      const result = await recurringBillingService.runDunningSweep(pool, { sendMail, logger, baseUrl: config.BASE_URL || "" });
-      if (result.reminded > 0) {
-        await auditLog.writeAudit(pool, {
-          action: "invoice.dunning_batch",
-          entity_type: "invoice",
-          details: { reminded: result.reminded, processed: result.processed, failed: result.failed.length }
-        });
-      }
+      const result = await taktLaeufe.dunningSweep(pool, { config, logger, sendMail });
+      if (result.disabled) return res.json({ ok: true, ...result });
       logger.info({ path: "dunning-sweep", clientIp, ...result, failed: result.failed.length }, "Cron dunning-sweep completed");
       res.json({ ok: true, ...result });
     } catch (e) {
@@ -489,30 +529,7 @@ export function createInternalRouter(deps) {
     const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
     try {
       const batchSize = Math.min(500, Math.max(1, parseInt(req.body?.batch_size, 10) || 100));
-      const result = await subscriptionLifecycle.runLifecycleTick(pool, {
-        batchSize,
-        deps: { sendMail, logger }
-      });
-      const totalProcessed =
-        (result.expiry?.processed || 0) +
-        (result.activation?.processed || 0) +
-        (result.cancellation?.processed || 0);
-      if (totalProcessed > 0) {
-        await auditLog.writeAudit(pool, {
-          action: "subscription_request.lifecycle_tick",
-          entity_type: "subscription_request",
-          details: {
-            expired: result.expiry?.expired || 0,
-            activated: result.activation?.activated || 0,
-            cancellations_applied: result.cancellation?.revoked || 0,
-            failed_total:
-              (result.expiry?.failed?.length || 0) +
-              (result.activation?.failed?.length || 0) +
-              (result.cancellation?.failed?.length || 0),
-            batch_size: batchSize
-          }
-        });
-      }
+      const result = await taktLaeufe.subscriptionLifecycleTick(pool, { logger, sendMail, batchSize });
       logger.info({ path: "subscription-lifecycle-tick", clientIp, batchSize, ...result }, "Cron subscription-lifecycle-tick completed");
       res.json({ ok: true, ...result });
     } catch (e) {
@@ -527,11 +544,48 @@ export function createInternalRouter(deps) {
       const limit = Math.min(100, Math.max(1, parseInt(req.body?.limit, 10) || 25));
       const cooldownMinutes = Math.min(1440, Math.max(1, parseInt(req.body?.cooldown_minutes, 10) || 15));
       const result = await assignmentStaffingService.runStaffingMaintenance(pool, { limit, cooldownMinutes });
+      /* Marktpraesenz-Automatik (Welle J2b): fehlende Einzelskill-Angebote
+       * aktiver, praesenter Kraefte materialisieren — Verfuegbarkeit IST das
+       * Angebot. BEWUSST VOR dem Reservierungs-Sweep: der pausiert direkt
+       * danach die Angebote gebundener Kraefte, bevor irgendjemand den Feed
+       * liest. Vierter Aufruf im selben Handler statt eines neuen Endpunkts —
+       * derselbe Takt, kein neuer Weg im Wachen-Register. */
+      /* M4c.3b: Befuellung und Reservierung laufen ueber `runMarktTakt` — EINE
+       * Reihenfolge fuer diesen Endpunkt und den 15-Minuten-Takt. Hier standen
+       * die beiden Aufrufe einzeln, und der Takt hatte nur den ersten
+       * uebernommen; die Reservierung lief deshalb nie (Audit-Befund F3). */
+      const takt = await marktTaktService.runMarktTakt(pool);
+      const marktpraesenz = takt.marktpraesenz || {};
+      result.marktpraesenz_materialisiert = marktpraesenz.materialisiert;
+      result.marktpraesenz_zurueckgenommen = marktpraesenz.zurueckgenommen;
+      result.marktpraesenz_wiederhergestellt = marktpraesenz.wiederhergestellt;
+      result.marktpraesenz_wiederherstellung_aufgehalten = marktpraesenz.wiederherstellung_aufgehalten;
+      result.marktpraesenz_unsichtbar_ohne_skill = marktpraesenz.unsichtbar_ohne_skill;
+      result.marktpraesenz_unsichtbar_ohne_ort = marktpraesenz.unsichtbar_ohne_ort;
       // Hard-Reserve (Welle 4b): worker-spezifische Angebote im-Einsatz-Arbeiter pausieren,
       // frei gewordene reaktivieren. Set-basiert + idempotent, greift nicht in den Deal-Flow ein.
-      const offerReservation = await workerOfferReservationService.sweepReservations(pool);
+      const offerReservation = takt.reservierung || {};
       result.offers_reserved = offerReservation.reserved;
       result.offers_released = offerReservation.released;
+      /* Ein gescheiterter Schritt haelt die anderen nicht mehr auf — er faehrt
+         sichtbar in der Antwort mit, statt den ganzen Lauf zu verschlucken. */
+      if (takt.fehler?.length) result.markt_takt_fehler = takt.fehler;
+      /* M4c.3: Sammelangebote getrennt ausgewiesen, nicht in die Zahl oben gefaltet.
+       * Die beiden Mechaniken greifen unterschiedlich — personengebunden pausiert bei
+       * EINEM gebundenen Menschen, ein Sammelangebot erst, wenn KEIN Mitglied mehr frei
+       * ist. Eine gemeinsame Zahl liesse nicht mehr erkennen, welche der beiden
+       * gearbeitet hat. */
+      result.pool_offers_reserved = offerReservation.pools_reserved;
+      result.pool_offers_released = offerReservation.pools_released;
+      /* Antwortfrist (Migration 193 + 195): Verfall und Erinnerung fuer
+       * Ersatz-Anfragen (4 h / 2 h) UND regulaere Zuweisungen (72 h gedeckelt
+       * am Einsatzbeginn, Erinnerung bei der Haelfte). Dritter Aufruf im selben
+       * Handler statt eines neuen Endpunkts — derselbe Takt, kein neuer Weg im
+       * Wachen-Register. Die Frist gilt auch OHNE diesen Takt (Riegel direkt in
+       * confirm/decline); hier entsteht nur das "der Platz ist wieder offen". */
+      const anfrageFrist = await workerService.verfalleneAnfragen(pool);
+      result.anfragen_verfallen = anfrageFrist.verfallen;
+      result.anfragen_erinnert = anfrageFrist.erinnert;
       if (
         result.expired_invites > 0
         || result.expired_reservations > 0

@@ -347,11 +347,38 @@ describe("Timesheet Workflow E2E", { skip: !hasDb && "No database configured" },
   // Feature gate: FREE user blocked
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /*
+   * DIESER TEST KANNTE SEINE EIGENE UMGEBUNG NICHT.
+   *
+   * Er schlug in JEDEM Container-Lauf fehl — nicht weil die Plan-Sperre kaputt
+   * ist, sondern weil `FEATURE_GATE_BYPASS=true` im Container gesetzt ist und
+   * genau diese Sperre absichtlich aufhebt. Ein Test, der in der einzigen
+   * Umgebung mit echter Datenbank verlaesslich rot ist, erzieht dazu, Rot zu
+   * ignorieren — und dann faellt der Tag nicht auf, an dem er aus einem echten
+   * Grund rot wird.
+   *
+   * Er prueft jetzt BEIDE Konfigurationen, statt eine davon zu verschweigen:
+   * ohne Ueberbrueckung die Sperre (403 mit Grund und Feature-Namen), mit
+   * Ueberbrueckung deren dokumentierte Wirkung (Durchlass). Damit ist er in
+   * keiner Umgebung leer — die Sicherheits-Zusicherung ist unveraendert, sie
+   * gilt nur dort, wo sie ueberhaupt gelten kann.
+   */
   it("FREE user is blocked from timesheets → 403 FEATURE_NOT_AVAILABLE", async () => {
     const freeUser = await registerAndLogin({ role: "company", company_name: "Free Plan Corp" });
     createdEmails.push(freeUser.email);
 
     const res = await freeUser.agent.get("/api/timesheets");
+    const ueberbrueckt = String(process.env.FEATURE_GATE_BYPASS || "").toLowerCase() === "true";
+
+    if (ueberbrueckt) {
+      assert.notStrictEqual(res.status, 403,
+        "FEATURE_GATE_BYPASS=true hebt die Plan-Sperre auf — ein 403 hiesse, die " +
+        "Ueberbrueckung greift nicht, und das waere genauso ein Befund wie eine " +
+        "fehlende Sperre.");
+      assert.notStrictEqual(res.body?.error, "FEATURE_NOT_AVAILABLE");
+      return;
+    }
+
     assert.strictEqual(res.status, 403, `Expected 403 for FREE plan, got ${res.status}`);
     assert.strictEqual(res.body.error, "FEATURE_NOT_AVAILABLE");
     assert.strictEqual(res.body.feature, "timesheets");

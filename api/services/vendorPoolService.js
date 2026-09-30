@@ -6,6 +6,7 @@
  */
 
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
+import { reputationJoinSql, eigentuemerJoinSql } from "./reputationSql.js";
 import { swallow } from "../utils/logger.js";
 
 export const VALID_TIERS = ['PREFERRED', 'SECONDARY', 'TRIAL', 'RESTRICTED', 'BLOCKED'];
@@ -60,9 +61,13 @@ export async function changeTier(pool, entryId, newTier, actorId, reason) {
      WHERE id = $1 RETURNING *`,
     [entryId, newTier, actorId, reason || null]
   );
-  if (rows[0] && oldTier !== newTier) {
-    await _writeHistory(pool, entryId, 'tier', oldTier, newTier, actorId, reason).catch(swallow("vendorPoolService"));
-  }
+  /* Z6 (2026-09-27): hier stand ein Schreibvorgang nach `vendor_pool_history` —
+     eine Tabelle, die es nicht gibt, weshalb `swallow` bei JEDER Aenderung eine
+     Warnung geschrieben hat. Die Aenderung selbst ist damit NICHT verloren: die
+     Route auditiert sie (`vendor_pool.tier_change`, entity_type `vendor_pool`),
+     mit altem Wert, neuem Wert und Grund. Der Verlauf liest jetzt dort —
+     `getHistory` weiter unten. Eine eigene Verlaufstabelle daneben waere die
+     Parallelstruktur, die dieses Projekt verbietet. */
   return rows[0] || null;
 }
 
@@ -76,9 +81,13 @@ export async function changeStatus(pool, entryId, newStatus, actorId, reason) {
      WHERE id = $1 RETURNING *`,
     [entryId, newStatus, actorId, reason || null]
   );
-  if (rows[0] && oldStatus !== newStatus) {
-    await _writeHistory(pool, entryId, 'status', oldStatus, newStatus, actorId, reason).catch(swallow("vendorPoolService"));
-  }
+  /* Z6 (2026-09-27): hier stand ein Schreibvorgang nach `vendor_pool_history` —
+     eine Tabelle, die es nicht gibt, weshalb `swallow` bei JEDER Aenderung eine
+     Warnung geschrieben hat. Die Aenderung selbst ist damit NICHT verloren: die
+     Route auditiert sie (`vendor_pool.status_change`, entity_type `vendor_pool`),
+     mit altem Wert, neuem Wert und Grund. Der Verlauf liest jetzt dort —
+     `getHistory` weiter unten. Eine eigene Verlaufstabelle daneben waere die
+     Parallelstruktur, die dieses Projekt verbietet. */
   return rows[0] || null;
 }
 
@@ -200,26 +209,48 @@ export async function poolStats(pool, clientOrgId) {
 
 /* ── History ──────────────────────────────────────────── */
 
-/** Internal: write history record for tier/status changes */
-async function _writeHistory(pool, vendorPoolId, field, oldValue, newValue, changedBy, reason) {
-  await pool.query(
-    `INSERT INTO vendor_pool_history (vendor_pool_id, field_changed, old_value, new_value, changed_by, reason)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
-    [vendorPoolId, field, oldValue, newValue, changedBy || null, reason || null]
-  );
-}
-
 /** Get change history for a vendor_pool entry */
+/*
+ * Z6 (2026-09-27): DER VERLAUF KOMMT AUS DEM AUDIT-LOG.
+ *
+ * Hier stand eine Abfrage auf `vendor_pool_history` — eine Tabelle, die nie
+ * angelegt wurde. Sie WARF, und die Route hat den Wurf nicht gefangen: wer den
+ * Verlauf eines Lieferanten aufrief, bekam eine 500.
+ *
+ * Angelegt wird sie nicht, und der Grund ist gemessen: die Aenderungen stehen
+ * SCHON im Audit-Log. `PATCH /vendor-pool/:id/tier` und `/status` schreiben
+ * `vendor_pool.tier_change` bzw. `vendor_pool.status_change` mit
+ * `entity_type = 'vendor_pool'`, Akteur, altem und neuem Wert und Grund. Eine
+ * zweite Verlaufstabelle daneben waere genau die Parallelstruktur, die dieses
+ * Projekt verbietet — und sie koennte auseinanderlaufen, was beim Streit um eine
+ * Sperrung (Tier BLOCKED) die schlechteste aller Lagen ist.
+ *
+ * Die Form der Antwort bleibt, wie sie dokumentiert ist (`field_changed`,
+ * `old_value`, `new_value`, `reason`, `changed_by`), damit Aufrufer nichts
+ * merken ausser: es kommt jetzt etwas.
+ */
+const VERLAUFS_AKTIONEN = ["vendor_pool.tier_change", "vendor_pool.status_change"];
+
 export async function getHistory(pool, vendorPoolId, limit = 50) {
   const safeLimit = Math.min(200, Math.max(1, limit));
   const { rows } = await pool.query(
-    `SELECT h.*, u.email AS changed_by_email, u.contact_person AS changed_by_name
-     FROM vendor_pool_history h
-     LEFT JOIN users u ON u.id = h.changed_by
-     WHERE h.vendor_pool_id = $1
-     ORDER BY h.created_at DESC
-     LIMIT $2`,
-    [vendorPoolId, safeLimit]
+    `SELECT a.created_at,
+            a.action,
+            a.actor_id AS changed_by,
+            CASE WHEN a.action = $3 THEN 'tier' ELSE 'status' END AS field_changed,
+            COALESCE(a.old_values->>'tier', a.old_values->>'status') AS old_value,
+            COALESCE(a.new_values->>'tier', a.new_values->>'status') AS new_value,
+            a.details->>'reason' AS reason,
+            u.email AS changed_by_email,
+            u.contact_person AS changed_by_name
+       FROM audit_log a
+       LEFT JOIN users u ON u.id = a.actor_id
+      WHERE a.entity_type = 'vendor_pool'
+        AND a.entity_id = $1
+        AND a.action = ANY($4)
+      ORDER BY a.created_at DESC
+      LIMIT $2`,
+    [String(vendorPoolId), safeLimit, VERLAUFS_AKTIONEN[0], VERLAUFS_AKTIONEN]
   );
   return rows;
 }
@@ -332,8 +363,7 @@ export async function listForClientEnriched(pool, clientOrgId, filters = {}) {
          LEFT JOIN users u ON u.id = vp.assigned_by
          LEFT JOIN org_locations ol ON ol.id = vp.location_id
          LEFT JOIN org_departments od ON od.id = vp.department_id
-         LEFT JOIN supplier_reputation sr ON sr.supplier_id = vp.supplier_org_id
-         LEFT JOIN supplier_metrics sm ON sm.agency_id = vp.supplier_org_id AND sm.window_days = 30
+         ${reputationJoinSql('vp.supplier_org_id', { kennzahlen: { alias: 'sm', fensterTage: 30 } })}
          ${activityJoin}
          WHERE ${where.join(' AND ')}
          ORDER BY vp.supplier_org_id,
@@ -363,8 +393,7 @@ export async function listForClientEnriched(pool, clientOrgId, filters = {}) {
      LEFT JOIN users u ON u.id = vp.assigned_by
      LEFT JOIN org_locations ol ON ol.id = vp.location_id
      LEFT JOIN org_departments od ON od.id = vp.department_id
-     LEFT JOIN supplier_reputation sr ON sr.supplier_id = vp.supplier_org_id
-     LEFT JOIN supplier_metrics sm ON sm.agency_id = vp.supplier_org_id AND sm.window_days = 30
+     ${reputationJoinSql('vp.supplier_org_id', { kennzahlen: { alias: 'sm', fensterTage: 30 } })}
      WHERE ${where.join(' AND ')}
      ORDER BY CASE vp.tier
        WHEN 'PREFERRED' THEN 1 WHEN 'SECONDARY' THEN 2
@@ -402,15 +431,19 @@ export async function getPreferredVendors(pool, clientOrgId, filters = {}) {
             CASE WHEN sm.requests_received > 0
               THEN ROUND((sm.requests_accepted::numeric / sm.requests_received) * 100, 1)
               ELSE NULL END AS fill_rate_pct,
+            /* Z17: hier stand cp.supplier_company_id = vp.supplier_org_id —
+               Nutzer gegen Organisation, also dauerhaft 0. "Aktive Angebote" war
+               in der Liste der Vorzugslieferanten immer null. Die Bruecke steht
+               in derselben Abfrage schon bereit (srom.user_id), es braucht keine
+               zweite. */
             (SELECT COUNT(*)::int FROM capacity_posts cp
-             WHERE cp.supplier_company_id = vp.supplier_org_id AND cp.is_active = TRUE
+             WHERE cp.supplier_company_id = srom.user_id AND cp.is_active = TRUE
             ) AS active_capacity_count
      FROM vendor_pool vp
      LEFT JOIN organizations so ON so.id = vp.supplier_org_id
      LEFT JOIN org_locations ol ON ol.id = vp.location_id
      LEFT JOIN org_departments od ON od.id = vp.department_id
-     LEFT JOIN supplier_reputation sr ON sr.supplier_id = vp.supplier_org_id
-     LEFT JOIN supplier_metrics sm ON sm.agency_id = vp.supplier_org_id AND sm.window_days = 30
+     ${reputationJoinSql('vp.supplier_org_id', { kennzahlen: { alias: 'sm', fensterTage: 30 } })}
      WHERE ${where.join(' AND ')}
      ORDER BY sr.reputation_score DESC NULLS LAST, vp.updated_at DESC
      LIMIT $${idx}`,
@@ -435,7 +468,7 @@ export async function getPreferredSummary(pool, clientOrgId) {
        COUNT(DISTINCT vp.location_id) FILTER (WHERE vp.location_id IS NOT NULL)::int AS locations_covered,
        COUNT(DISTINCT vp.department_id) FILTER (WHERE vp.department_id IS NOT NULL)::int AS departments_covered
      FROM vendor_pool vp
-     LEFT JOIN supplier_reputation sr ON sr.supplier_id = vp.supplier_org_id
+     ${reputationJoinSql('vp.supplier_org_id')}
      WHERE vp.client_org_id = $1 AND vp.tier = 'PREFERRED' AND vp.status = 'active'`,
     [clientOrgId]
   );
@@ -447,7 +480,7 @@ export async function getPreferredSummary(pool, clientOrgId) {
             sr.reputation_score, sr.grade, sr.avg_stars
      FROM vendor_pool vp
      JOIN organizations so ON so.id = vp.supplier_org_id
-     LEFT JOIN supplier_reputation sr ON sr.supplier_id = vp.supplier_org_id
+     ${reputationJoinSql('vp.supplier_org_id')}
      WHERE vp.client_org_id = $1 AND vp.tier = 'PREFERRED' AND vp.status = 'active'
      ORDER BY sr.reputation_score DESC NULLS LAST
      LIMIT 5`,
@@ -551,8 +584,7 @@ export async function suggestForPreferred(pool, clientOrgId, limit = 10) {
               ELSE NULL END AS fill_rate_pct
      FROM vendor_pool vp
      JOIN organizations so ON so.id = vp.supplier_org_id
-     LEFT JOIN supplier_reputation sr ON sr.supplier_id = vp.supplier_org_id
-     LEFT JOIN supplier_metrics sm ON sm.agency_id = vp.supplier_org_id AND sm.window_days = 30
+     ${reputationJoinSql('vp.supplier_org_id', { kennzahlen: { alias: 'sm', fensterTage: 30 } })}
      WHERE vp.client_org_id = $1 AND vp.tier IN ('SECONDARY','TRIAL') AND vp.status = 'active'
        AND sr.reputation_score IS NOT NULL AND sr.reputation_score >= 50
      ORDER BY sr.reputation_score DESC, sr.avg_stars DESC NULLS LAST
@@ -570,11 +602,31 @@ export async function getWorkforceCapacity(pool, clientOrgId) {
   const { rows } = await pool.query(
     `SELECT vp.supplier_org_id, so.name AS supplier_name,
             COUNT(cp.id)::int AS capacity_posts,
-            COALESCE(SUM(cp.workers_count), 0)::int AS total_workers,
+            COALESCE(SUM(cp.headcount), 0)::int AS total_workers,
             ARRAY_AGG(DISTINCT cp.role) FILTER (WHERE cp.role IS NOT NULL) AS roles
      FROM vendor_pool vp
      JOIN organizations so ON so.id = vp.supplier_org_id
-     LEFT JOIN capacity_posts cp ON cp.supplier_company_id = vp.supplier_org_id AND cp.is_active = TRUE
+     /*
+      * Z17 (2026-09-28): ZWEI FEHLER, und der erste hat den zweiten VERSTECKT.
+      *
+      * (1) Die Spalte: oben stand SUM(cp.workers_count). Die gibt es in
+      *     capacity_posts nicht (gemessen) - sie heisst headcount, so wie im
+      *     ganzen uebrigen Bestand. Die Abfrage warf also IMMER, und
+      *     GET /preferred-vendors/capacity hat mit 500 geantwortet. Kein stummer
+      *     Fehler, sondern eine Route, die nie funktioniert hat.
+      * (2) Der Schluessel: darunter stand cp.supplier_company_id =
+      *     vp.supplier_org_id - ein Nutzer gegen eine Organisation. Dieser Join
+      *     trifft nie, und weil er links ist, ohne Fehler.
+      *
+      * Dass (1) warf, war der einzige Grund, warum (2) nie auffiel. Und die
+      * Reihenfolge ist die Lehre, dieselbe wie bei P1-15 im Suchindex: haette
+      * jemand NUR die Spalte richtiggestellt, waere aus einem ehrlichen 500er
+      * eine 200 mit lauter Nullen geworden - "dieser Lieferant hat keine
+      * Kapazitaet" statt "hier ist etwas kaputt". Das waere die schlechtere
+      * Auskunft gewesen. Deshalb beides zusammen.
+      */
+     ${eigentuemerJoinSql("vp.supplier_org_id", { alias: "vpe" })}
+     LEFT JOIN capacity_posts cp ON cp.supplier_company_id = vpe.user_id AND cp.is_active = TRUE
      WHERE vp.client_org_id = $1 AND vp.tier = 'PREFERRED' AND vp.status = 'active'
      GROUP BY vp.supplier_org_id, so.name
      ORDER BY total_workers DESC, capacity_posts DESC`,
@@ -616,7 +668,7 @@ export async function getVendorDashboard(pool, clientOrgId) {
        ROUND(AVG(sr.deal_success_rate)::numeric, 1) AS avg_deal_success,
        COUNT(*) FILTER (WHERE sr.grade IN ('GOLD','PLATINUM'))::int AS top_grade_count
      FROM vendor_pool vp
-     LEFT JOIN supplier_reputation sr ON sr.supplier_id = vp.supplier_org_id
+     ${reputationJoinSql('vp.supplier_org_id')}
      WHERE vp.client_org_id = $1 AND vp.status = 'active'`,
     [clientOrgId]
   );
@@ -628,7 +680,7 @@ export async function getVendorDashboard(pool, clientOrgId) {
             sr.reputation_score, sr.grade, sr.avg_stars
      FROM vendor_pool vp
      JOIN organizations so ON so.id = vp.supplier_org_id
-     LEFT JOIN supplier_reputation sr ON sr.supplier_id = vp.supplier_org_id
+     ${reputationJoinSql('vp.supplier_org_id')}
      WHERE vp.client_org_id = $1 AND vp.status = 'active'
      ORDER BY sr.reputation_score DESC NULLS LAST
      LIMIT 5`,
@@ -641,23 +693,33 @@ export async function getVendorDashboard(pool, clientOrgId) {
             sr.reputation_score, sr.grade, sr.avg_stars
      FROM vendor_pool vp
      JOIN organizations so ON so.id = vp.supplier_org_id
-     LEFT JOIN supplier_reputation sr ON sr.supplier_id = vp.supplier_org_id
+     ${reputationJoinSql('vp.supplier_org_id')}
      WHERE vp.client_org_id = $1 AND vp.status = 'active' AND sr.reputation_score IS NOT NULL
      ORDER BY sr.reputation_score ASC
      LIMIT 5`,
     [clientOrgId]
   );
 
-  // Recent changes (last 10)
+  /* Z6: aus dem Audit-Log, nicht aus `vendor_pool_history` (die Tabelle gab es
+     nie, die Abfrage warf und riss die ganze Uebersicht mit). `entity_id` ist
+     dort Text, deshalb die Umwandlung beim Verbinden. */
   const { rows: recentChanges } = await pool.query(
-    `SELECT h.*, u.contact_person AS changed_by_name, so.name AS supplier_name
-     FROM vendor_pool_history h
-     JOIN vendor_pool vp ON vp.id = h.vendor_pool_id
-     JOIN organizations so ON so.id = vp.supplier_org_id
-     LEFT JOIN users u ON u.id = h.changed_by
-     WHERE vp.client_org_id = $1
-     ORDER BY h.created_at DESC
-     LIMIT 10`,
+    `SELECT a.created_at,
+            CASE WHEN a.action = 'vendor_pool.tier_change' THEN 'tier' ELSE 'status' END AS field_changed,
+            COALESCE(a.old_values->>'tier', a.old_values->>'status') AS old_value,
+            COALESCE(a.new_values->>'tier', a.new_values->>'status') AS new_value,
+            a.details->>'reason' AS reason,
+            u.contact_person AS changed_by_name,
+            so.name AS supplier_name
+       FROM audit_log a
+       JOIN vendor_pool vp ON vp.id::text = a.entity_id
+       JOIN organizations so ON so.id = vp.supplier_org_id
+       LEFT JOIN users u ON u.id = a.actor_id
+      WHERE a.entity_type = 'vendor_pool'
+        AND a.action IN ('vendor_pool.tier_change', 'vendor_pool.status_change')
+        AND vp.client_org_id = $1
+      ORDER BY a.created_at DESC
+      LIMIT 10`,
     [clientOrgId]
   );
 

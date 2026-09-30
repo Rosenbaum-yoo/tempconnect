@@ -36,6 +36,26 @@ process.on("unhandledRejection", (err) => {
 
 process.on("uncaughtException", (err) => {
   process.stderr.write(`\n╔══ UNCAUGHT EXCEPTION in ${label}: ${err?.message}\n${err?.stack}\n`);
+  /*
+   * DAS HIER IST NICHT KOSMETIK (ergaenzt 2026-08-26).
+   *
+   * Einen `uncaughtException`-Handler zu registrieren ERSETZT Nodes
+   * Standardverhalten: drucken UND mit 1 beenden. Diese Sonde druckte nur und
+   * kehrte zurueck — der Prozess lief weiter und endete mit 0.
+   *
+   * Da `run-tests.js` die Sonde STANDARDMAESSIG anhaengt, konnte das Gate seit
+   * dem 26.07. an keiner Ladefehler-Ausnahme mehr scheitern. Belegt am
+   * 2026-08-26: eine Testdatei mit einem Import auf eine geloeschte Datei
+   * erzeugte den lauten UNCAUGHT-EXCEPTION-Kasten — und der Lauf endete mit
+   *   9828 Tests, 0 Fehlschlaege, Rueckgabewert 0.
+   * Ohne Sonde endet derselbe Fall mit 1. Die Diagnose hatte die Diagnose
+   * abgeschaltet.
+   *
+   * Eine Datei, die sich nicht laden laesst, zaehlt sonst als NULL Tests und
+   * NULL Fehlschlaege: die Suite schrumpft still, und niemand sieht es an einer
+   * Zahl, die ohnehin niemand auswendig kennt.
+   */
+  process.exitCode = 1;
 });
 
 /**
@@ -53,21 +73,41 @@ process.on("uncaughtException", (err) => {
  */
 process.on("exit", (code) => {
   if (code === 0 && !process.exitCode) return;
-  let handles = [];
-  try {
-    // Nicht öffentlich, aber genau hier das Entscheidende: was hielt den Prozess offen?
-    handles = (process._getActiveHandles?.() || [])
-      .map((h) => h?.constructor?.name || typeof h)
-      .filter(Boolean);
-  } catch { /* Diagnose darf nie selbst scheitern */ }
-  const counts = handles.reduce((acc, n) => ({ ...acc, [n]: (acc[n] || 0) + 1 }), {});
+  /*
+   * HIER STAND EINE HANDLE-AUFLISTUNG — UND SIE HAT DEN PROZESS ZUM ABSTURZ
+   * GEBRACHT (entfernt 2026-08-27).
+   *
+   * Der Aufruf war `process._getActiveHandles()`: eine undokumentierte
+   * Node-Interna, aufgerufen WAEHREND des Abraeumens. Unter Windows greift sie
+   * dabei auf Handles zu, die bereits schliessen, und libuv bricht mit einer
+   * nativen Zusicherung ab:
+   *
+   *   Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), src\win\async.c:76
+   *
+   * GEMESSEN am 2026-08-27, voller Lauf, jeweils 10.000+ Tests:
+   *   mit Sonde   → 2 Fehlschlaege, darunter der Absturz in me.route.coverage
+   *   ohne Sonde  → 1 Fehlschlag, KEIN Absturz
+   *
+   * Das `try/catch` darum half nicht und konnte nicht helfen: ein libuv-Abbruch
+   * ist keine JavaScript-Ausnahme, er beendet den Prozess sofort. Eine Diagnose,
+   * die den Prozess umbringt, den sie beobachten soll, ist keine Diagnose.
+   *
+   * Aufgefallen ist es erst, als der Handler oefter lief — seit die
+   * uncaughtException-Behandlung `process.exitCode = 1` setzt, greift die frueh
+   * Rueckkehr eine Zeile darueber seltener. Der Fehler lag also schon vorher
+   * hier, nur schlief er.
+   *
+   * Der Exit-Code allein beantwortet die Frage, fuer die dieser Handler gebaut
+   * wurde ("faellt die Datei, obwohl alle Untertests bestehen?"). Die
+   * Handle-Liste war Zusatzinformation fuer eine Untersuchung, die abgeschlossen
+   * ist.
+   */
   process.stderr.write(
     [
       "",
       "╔══ PROZESS ENDET MIT FEHLER-CODE ═══════════════════════",
       `║ Prozess    : ${label}`,
       `║ Exit-Code  : ${code} (process.exitCode = ${process.exitCode ?? "nicht gesetzt"})`,
-      `║ Offene Handles: ${Object.keys(counts).length ? JSON.stringify(counts) : "keine"}`,
       "╚════════════════════════════════════════════════════════",
       ""
     ].join("\n")

@@ -8,6 +8,47 @@
   <title data-i18n="dem.create.docTitle">Nachfrage erstellen – TempConnect Marketplace</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
+    .urgency-anzeige{display:flex;align-items:center;gap:8px;min-height:38px;padding:8px 11px;
+      border:1px solid var(--line,#2a3550);border-radius:8px;font-size:13px;line-height:1.4}
+    .urgency-anzeige--notdienst{border-color:var(--danger,#f87171);color:var(--danger,#f87171)}
+    .urgency-anzeige b{font-weight:800}
+    .urgency-anzeige small{display:block;font-weight:400;color:var(--muted,#8d9bba);font-size:12px}
+    /* N2.2 - der Preisvorschlag. Bewusst ruhig: er ist ein Vorschlag, kein
+       Aufruf. Kein Farbakzent, keine Umrandung in Signalfarbe - sonst liest
+       ihn jemand als Vorgabe. */
+    .preis-vorschlag{display:none;padding:10px 12px;border:1px solid var(--line,#2a3550);
+      border-radius:8px;font-size:13px;line-height:1.5}
+    .preis-vorschlag[data-sichtbar="ja"]{display:block}
+    .preis-vorschlag b{font-weight:800;font-size:15px}
+    .preis-vorschlag small{display:block;color:var(--muted,#8d9bba);font-size:11.5px;margin-top:4px}
+    .preis-vorschlag .pv-zeile{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+    .preis-vorschlag .pv-uebernehmen{padding:4px 10px;font-size:12px;border-radius:6px;
+      border:1px solid var(--line,#2a3550);background:transparent;color:inherit;cursor:pointer}
+    .preis-vorschlag .pv-uebernehmen:hover{border-color:var(--muted,#8d9bba)}
+    .preis-vorschlag .pv-guete{font-size:11.5px;color:var(--muted,#8d9bba)}
+    /* N2.1 - der Assistent. Ohne JavaScript greift nichts davon: dann steht
+       das Formular wie zuvor als eine Seite da. Erst `data-assistent="an"`
+       am Formular blendet ueberhaupt etwas aus. */
+    .as-leiste{display:flex;gap:6px;margin:0 0 14px;flex-wrap:wrap}
+    .as-leiste li{list-style:none;display:flex;align-items:center;gap:6px;font-size:12px;
+      color:var(--muted,#8d9bba);padding:4px 10px;border-radius:999px;
+      border:1px solid var(--line,#2a3550)}
+    .as-leiste li[data-stand="jetzt"]{color:var(--fg,#e8ecf6);border-color:var(--brand,#4a9eff)}
+    .as-leiste li[data-stand="fertig"]{color:var(--ok,#4ade80);border-color:var(--ok,#4ade80)}
+    .as-leiste .as-nr{display:inline-flex;width:18px;height:18px;border-radius:50%;
+      align-items:center;justify-content:center;font-size:11px;font-weight:700;
+      border:1px solid currentColor}
+    .as-kopf{margin:0 0 4px;font-size:16px;font-weight:800}
+    .as-hinweis{margin:0 0 12px;font-size:12.5px;color:var(--muted,#8d9bba);line-height:1.5}
+    .as-fuss{display:flex;gap:8px;align-items:center;margin-top:16px;flex-wrap:wrap}
+    .as-zaehler{margin-left:auto;font-size:12px;color:var(--muted,#8d9bba)}
+    /* N2.4 - die Trefferzahl. Ruhig gehalten: sie ist eine Auskunft, kein
+       Versprechen, und sie steht neben dem Schrittzaehler statt darueber. */
+    .as-treffer{font-size:12.5px;color:var(--muted,#8d9bba)}
+    .as-treffer b{color:var(--fg,#e8ecf6);font-weight:800}
+    .as-treffer[data-leer="ja"] b{color:var(--danger,#f87171)}
+    form[data-assistent="an"] .as-verborgen{display:none}
+    .as-fehler{color:var(--danger,#f87171);font-size:12.5px;margin-top:8px}
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .form-grid .full { grid-column: 1 / -1; }
     label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
@@ -25,7 +66,7 @@
     .sla-badge.met { background: rgba(34,197,94,.2); color: #22c55e; }
   </style>
 </head>
-<body data-sla-guard="sla_access">
+<body data-sla-guard="marketplace_demand_create">
   <div id="paywall" class="wrap" style="display:none">
     <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="dem.create.paywallHome">Startseite</a></div></nav>
     <div class="paywall-box">
@@ -42,6 +83,14 @@
     <p style="color:var(--muted);margin:0 0 16px" data-i18n="dem.create.subtitle">Beschreibe deinen Personalbedarf. TempConnect matched automatisch passendes Personal und benachrichtigt Anbieter.</p>
 
     <form id="demandForm" class="card">
+      <!-- N2.1 - der Assistent baut sich aus den vorhandenen Feldern auf.
+           Sie werden NICHT verschoben: das Skript ordnet jedes Feld einem
+           Schritt zu und blendet die anderen aus. So gibt es keinen zweiten
+           Anlagepfad, keinen zweiten Datensatz und kein zweites Formular,
+           das man vergessen kann mitzupflegen. -->
+      <ul class="as-leiste" id="asLeiste" hidden></ul>
+      <h2 class="as-kopf" id="asKopf" hidden></h2>
+      <p class="as-hinweis" id="asHinweis" hidden></p>
       <div class="form-grid">
         <div class="full">
           <label for="title" data-i18n="dem.create.label.title">Titel *</label>
@@ -52,8 +101,14 @@
           <input id="role" name="role" required placeholder="z.B. Produktionshelfer" data-i18n-ph="dem.create.ph.role"/>
         </div>
         <div>
-          <label for="skill_tags" data-i18n="dem.create.label.skills">Skills (kommagetrennt)</label>
-          <input id="skill_tags" name="skill_tags" placeholder="z.B. Schichtarbeit, Montage" data-i18n-ph="dem.create.ph.skills"/>
+          <label data-i18n="dem.create.label.skills">Faehigkeiten</label>
+          <!-- N1.1: Das Feld bleibt - es traegt weiter die Auswahl und wird vom
+               Absende-Code unveraendert gelesen. Nur TIPPEN kann man nicht mehr
+               hinein: der Wert kommt aus dem Katalog. Ohne diese Umstellung
+               entstehen Schreibvarianten, die einander nie finden. -->
+          <input type="hidden" id="skill_tags" name="skill_tags"/>
+          <div id="skillPicker"></div>
+          <div class="hint" data-i18n="dem.create.hint.skills">Aus dem Plattform-Katalog. Die Zahl daneben sagt, wie viele Kraefte diese Faehigkeit heute mitbringen.</div>
         </div>
         <div>
           <label for="headcount" data-i18n="dem.create.label.headcount">Anzahl Personen</label>
@@ -80,13 +135,23 @@
           <input id="radius_km" name="radius_km" type="number" min="1" max="500" value="25"/>
         </div>
         <div>
-          <label for="urgency" data-i18n="dem.create.label.urgency">Dringlichkeit</label>
-          <select id="urgency" name="urgency">
-            <option value="normal" data-i18n="dem.create.urgency.normal">Normal (Pulse 120 Min)</option>
-            <option value="plus" data-i18n="dem.create.urgency.plus">Plus (Pulse 120 Min)</option>
-            <option value="notdienst" data-i18n="dem.create.urgency.notdienst">Notdienst (Pulse 30 Min)</option>
-          </select>
+          <!-- N2.1: Hier stand ein Auswahlfeld "Dringlichkeit". Es liess sich in
+               beide Richtungen falsch setzen - ein Einsatz morgen als "normal"
+               (die 30-Minuten-Uhr laeuft nie an), ein Einsatz in drei Wochen als
+               "Notdienst" (50 Anbieter werden ohne Anlass alarmiert).
+
+               Die Stufe steht im Startdatum, das ohnehin ausgefuellt wird. Sie
+               wird deshalb GEZEIGT, nicht gefragt - im Feld, nicht in einem
+               Banner, damit sie beim Tippen des Datums sichtbar wird. -->
+          <label data-i18n="dem.create.label.urgency">Dringlichkeit</label>
+          <div id="urgencyAnzeige" class="urgency-anzeige" aria-live="polite"></div>
           <p class="urgency-hint" data-i18n="dem.create.urgencyHint">Notdienst erfordert PRO-Plan. Pulse = Prozessnachweis, kein Erfolgsversprechen.</p>
+        </div>
+        <!-- N2.2 - der Vorschlag steht UEBER den beiden Feldern, nicht darunter:
+             wer schon eine Zahl getippt hat, liest ihn nicht mehr. `aria-live`,
+             weil er sich beim Tippen von Rolle und Ort aendert. -->
+        <div class="full">
+          <div id="preisVorschlag" class="preis-vorschlag" aria-live="polite"></div>
         </div>
         <div>
           <label for="budget_min" data-i18n="dem.create.label.budgetMin">Budget min (EUR)</label>
@@ -96,10 +161,24 @@
           <label for="budget_max" data-i18n="dem.create.label.budgetMax">Budget max (EUR)</label>
           <input id="budget_max" name="budget_max" type="number" step="0.01" min="0"/>
         </div>
+        <div>
+          <label for="contact_name" data-i18n="dem.create.label.contact">Ansprechperson vor Ort</label>
+          <input id="contact_name" name="contact_name" maxlength="200" placeholder="Name" data-i18n-ph="dem.create.ph.contact"/>
+        </div>
+        <div>
+          <label for="contact_phone" data-i18n="dem.create.label.contactPhone">Telefon der Ansprechperson</label>
+          <input id="contact_phone" name="contact_phone" type="tel" maxlength="60" placeholder="+49…"/>
+        </div>
       </div>
-      <div style="margin-top:16px">
+      <p class="urgency-hint" data-i18n="dem.create.contactHint">Wer ist erreichbar, wenn eine Schicht wackelt? Die Nummer sieht die Zeitarbeitsfirma an der Besetzung und die eingesetzte Person im Einsatzportal. Leer lassen heisst: es wird die Nummer aus Ihrem Profil genommen — fehlt auch die, bleibt die Stelle offen, bis ein Angebot angenommen wird.</p>
+      <div class="as-fuss" id="asFuss">
+        <button type="button" class="btn" id="asZurueck" hidden data-i18n="dem.create.as.back">Zurück</button>
+        <button type="button" class="btn primary" id="asWeiter" hidden data-i18n="dem.create.as.next">Weiter</button>
         <button type="submit" class="btn primary" id="submitBtn" data-i18n="dem.create.submit">Nachfrage absenden</button>
+        <span class="as-treffer" id="asTreffer" hidden aria-live="polite"></span>
+        <span class="as-zaehler" id="asZaehler" hidden></span>
       </div>
+      <div class="as-fehler" id="asFehler" hidden aria-live="polite"></div>
       <div id="msg" style="display:none"></div>
     </form>
 
@@ -141,8 +220,31 @@
         'dem.create.ph.title': 'z.B. 10 Produktionshelfer ab sofort',
         'dem.create.label.role': 'Rolle / Beruf *',
         'dem.create.ph.role': 'z.B. Produktionshelfer',
-        'dem.create.label.skills': 'Skills (kommagetrennt)',
+        'dem.create.label.skills': 'Faehigkeiten',
+        'dem.create.hint.skills': 'Aus dem Plattform-Katalog. Die Zahl daneben sagt, wie viele Kraefte diese Faehigkeit heute mitbringen.',
         'dem.create.ph.skills': 'z.B. Schichtarbeit, Montage',
+        'dem.create.as.back': 'Zur\u00fcck',
+        'dem.create.as.next': 'Weiter',
+        'dem.create.as.step': 'Schritt {n} von {m}',
+        'dem.create.as.s0': 'An welchen Ort sollen die Arbeiter?',
+        'dem.create.as.s0h': 'Vorbelegt aus Ihrem Standort \u2014 aber \u00e4nderbar. Genauere Angaben erh\u00f6hen die Trefferqualit\u00e4t: gegen diesen Punkt rechnet der Einsatzradius. Mit Postleitzahl trifft er den Stadtteil statt der Stadtmitte.',
+        'dem.create.as.s1': 'Was suchen Sie?',
+        'dem.create.as.s1h': 'Die F\u00e4higkeiten kommen aus dem Katalog \u2014 nur so finden sich beide Marktseiten zuverl\u00e4ssig.',
+        'dem.create.as.s2': 'Wie viele Personen?',
+        'dem.create.as.s2h': 'Ab zwei Personen wird das Ergebnis geb\u00fcndelt \u2014 quer \u00fcber Zeitarbeitsfirmen.',
+        'dem.create.as.s3': 'Von wann bis wann?',
+        'dem.create.as.s3h': 'Dieses Feld entscheidet den Notdienst. Es gibt keine eigene Frage danach.',
+        'dem.create.as.s4': 'Wie teuer d\u00fcrfen sie einzeln sein?',
+        'dem.create.as.s4h': 'Der Vorschlag ist ein Vorschlag \u2014 keine Vorgabe.',
+        'dem.create.as.required': 'Bitte f\u00fcllen Sie die Pflichtfelder dieses Schritts aus.',
+        'dem.create.as.hits': 'Mit diesen Angaben: <b>{n}</b> Angebote im Umkreis',
+        'dem.create.as.hitsOne': 'Mit diesen Angaben: <b>1</b> Angebot im Umkreis',
+        'dem.create.as.hitsNone': 'Mit diesen Angaben: <b>kein Angebot</b> im Umkreis \u2014 gr\u00f6\u00dferer Radius oder weniger F\u00e4higkeiten hilft',
+        'dem.create.preis.gueteHoch': 'gut belegt',
+        'dem.create.preis.gueteMittel': 'belegt',
+        'dem.create.preis.gueteNiedrig': 'd\u00fcnne Datenlage',
+        'dem.create.preis.datenpunkte': '{n} Datenpunkte',
+        'dem.create.preis.uebernehmen': 'In die Felder \u00fcbernehmen',
         'dem.create.label.headcount': 'Anzahl Personen',
         'dem.create.label.startDate': 'Startdatum *',
         'dem.create.label.endDate': 'Enddatum',
@@ -152,12 +254,22 @@
         'dem.create.ph.postal': 'z.B. 80331',
         'dem.create.label.radius': 'Radius (km)',
         'dem.create.label.urgency': 'Dringlichkeit',
+        'dem.create.urgency.derivedNotdienst': 'Notdienst',
+        'dem.create.urgency.derivedNormal': 'Regul\u00e4re Suche',
+        'dem.create.urgency.hintNotdienst': 'Beginn in Reichweite \u2014 Anbieter werden sofort alarmiert, Teilzusagen sind m\u00f6glich.',
+        'dem.create.urgency.hintNormal': 'Genug Vorlauf f\u00fcr die regul\u00e4re Suche.',
+        'dem.create.urgency.hintEmpty': 'Ergibt sich aus dem Einsatzbeginn.',
+        'dem.create.urgency.noPlan': 'Ihr Tarif enth\u00e4lt den Notdienst nicht \u2014 die Ausschreibung l\u00e4uft als regul\u00e4re Suche.',
         'dem.create.urgency.normal': 'Normal (Pulse 120 Min)',
         'dem.create.urgency.plus': 'Plus (Pulse 120 Min)',
         'dem.create.urgency.notdienst': 'Notdienst (Pulse 30 Min)',
         'dem.create.urgencyHint': 'Notdienst erfordert PRO-Plan. Pulse = Prozessnachweis, kein Erfolgsversprechen.',
         'dem.create.label.budgetMin': 'Budget min (EUR)',
         'dem.create.label.budgetMax': 'Budget max (EUR)',
+        'dem.create.label.contact': 'Ansprechperson vor Ort',
+        'dem.create.label.contactPhone': 'Telefon der Ansprechperson',
+        'dem.create.ph.contact': 'Name',
+        'dem.create.contactHint': 'Wer ist erreichbar, wenn eine Schicht wackelt? Die Nummer sieht die Zeitarbeitsfirma an der Besetzung und die eingesetzte Person im Einsatzportal. Leer lassen heisst: es wird die Nummer aus Ihrem Profil genommen — fehlt auch die, bleibt die Stelle offen, bis ein Angebot angenommen wird.',
         'dem.create.submit': 'Nachfrage absenden',
         'dem.create.submitting': 'Wird gesendet...',
         'dem.create.msgOk': 'Nachfrage erfolgreich erstellt!',
@@ -194,8 +306,31 @@
         'dem.create.ph.title': 'e.g. 10 production assistants, starting now',
         'dem.create.label.role': 'Role / occupation *',
         'dem.create.ph.role': 'e.g. production assistant',
-        'dem.create.label.skills': 'Skills (comma-separated)',
+        'dem.create.label.skills': 'Skills',
+        'dem.create.hint.skills': 'From the platform catalogue. The number beside each one says how many people bring that skill today.',
         'dem.create.ph.skills': 'e.g. shift work, assembly',
+        'dem.create.as.back': 'Back',
+        'dem.create.as.next': 'Next',
+        'dem.create.as.step': 'Step {n} of {m}',
+        'dem.create.as.s0': 'Where should the workers go?',
+        'dem.create.as.s0h': 'Pre-filled from your location \u2014 but editable. More precise details improve match quality: the radius is measured from this point. With a postal code it hits the district instead of the city centre.',
+        'dem.create.as.s1': 'What are you looking for?',
+        'dem.create.as.s1h': 'Skills come from the catalogue \u2014 only then do both market sides reliably find each other.',
+        'dem.create.as.s2': 'How many people?',
+        'dem.create.as.s2h': 'From two people on, the result is bundled \u2014 across agencies.',
+        'dem.create.as.s3': 'From when until when?',
+        'dem.create.as.s3h': 'This field decides emergency staffing. There is no separate question for it.',
+        'dem.create.as.s4': 'What may each of them cost?',
+        'dem.create.as.s4h': 'The suggestion is a suggestion \u2014 not a requirement.',
+        'dem.create.as.required': 'Please fill in the required fields of this step.',
+        'dem.create.as.hits': 'With these details: <b>{n}</b> offers within range',
+        'dem.create.as.hitsOne': 'With these details: <b>1</b> offer within range',
+        'dem.create.as.hitsNone': 'With these details: <b>no offer</b> within range \u2014 a wider radius or fewer skills helps',
+        'dem.create.preis.gueteHoch': 'well evidenced',
+        'dem.create.preis.gueteMittel': 'evidenced',
+        'dem.create.preis.gueteNiedrig': 'thin data',
+        'dem.create.preis.datenpunkte': '{n} data points',
+        'dem.create.preis.uebernehmen': 'Copy into the fields',
         'dem.create.label.headcount': 'Number of people',
         'dem.create.label.startDate': 'Start date *',
         'dem.create.label.endDate': 'End date',
@@ -205,12 +340,22 @@
         'dem.create.ph.postal': 'e.g. 80331',
         'dem.create.label.radius': 'Radius (km)',
         'dem.create.label.urgency': 'Urgency',
+        'dem.create.urgency.derivedNotdienst': 'Emergency',
+        'dem.create.urgency.derivedNormal': 'Regular search',
+        'dem.create.urgency.hintNotdienst': 'Start is close \u2014 suppliers are alerted immediately, partial commitments are possible.',
+        'dem.create.urgency.hintNormal': 'Enough lead time for the regular search.',
+        'dem.create.urgency.hintEmpty': 'Derived from the start date.',
+        'dem.create.urgency.noPlan': 'Your plan does not include emergency staffing \u2014 this runs as a regular search.',
         'dem.create.urgency.normal': 'Normal (Pulse 120 min)',
         'dem.create.urgency.plus': 'Plus (Pulse 120 min)',
         'dem.create.urgency.notdienst': 'Emergency cover (Pulse 30 min)',
         'dem.create.urgencyHint': 'Emergency cover requires a PRO plan. Pulse = process record, not a success guarantee.',
         'dem.create.label.budgetMin': 'Budget min (EUR)',
         'dem.create.label.budgetMax': 'Budget max (EUR)',
+        'dem.create.label.contact': 'On-site contact',
+        'dem.create.label.contactPhone': 'Contact phone number',
+        'dem.create.ph.contact': 'Name',
+        'dem.create.contactHint': 'Who can be reached when a shift goes wrong? The staffing firm sees this number on the staffing view, and the deployed worker sees it in the assignment portal. Leave it empty to use the number from your profile — if that is missing too, the field stays open until an offer is accepted.',
         'dem.create.submit': 'Submit job posting',
         'dem.create.submitting': 'Sending...',
         'dem.create.msgOk': 'Job posting created successfully.',
@@ -298,11 +443,16 @@
       msg.style.display = "block";
     }
 
-    function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+    function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
 
     /** Ergebnisblock aus der Server-Antwort aufbauen (auch beim Sprachwechsel). */
     function renderResult(d) {
       lastResult = d;
+      /* N2.11 — hier stand `__tcEntwurf.loeschen()`. renderResult laeuft aber
+         auch bei jedem Sprachwechsel (unten), und `lastResult` bleibt nach dem
+         Erfolg stehen: ein Entwurf, den der Kunde DANACH fuer den naechsten
+         Bedarf begonnen hatte, verschwand beim Umschalten der Sprache. Geloescht
+         wird jetzt genau einmal — im Erfolgszweig des Absendens. */
       document.getElementById("res-id").textContent = d.id.substring(0, 8);
       var slaEl = document.getElementById("res-sla");
       if (d.sla_status) {
@@ -354,6 +504,8 @@
       btn.disabled = true;
       btn.textContent = t('dem.create.submitting', 'Wird gesendet...');
 
+      /* Der Waehler schreibt seine Auswahl in dasselbe Feld zurueck - dieser
+         Abschnitt bleibt deshalb Wort fuer Wort, wie er war. */
       var tags = (document.getElementById("skill_tags").value || "")
         .split(",").map(function(tag) { return tag.trim(); }).filter(Boolean);
 
@@ -367,9 +519,17 @@
         location_city: document.getElementById("location_city").value.trim(),
         location_postal: document.getElementById("location_postal").value.trim() || null,
         radius_km: parseInt(document.getElementById("radius_km").value, 10) || 25,
-        urgency: document.getElementById("urgency").value,
+        /* N2.1: Die Dringlichkeit wird SERVERSEITIG aus `start_date`
+           abgeleitet. Sie hier mitzuschicken waere eine zweite Wahrheit -
+           der Server ignoriert den Wert ohnehin. */
         budget_min: parseFloat(document.getElementById("budget_min").value) || null,
-        budget_max: parseFloat(document.getElementById("budget_max").value) || null
+        budget_max: parseFloat(document.getElementById("budget_max").value) || null,
+        /* Leer = weglassen, damit der Rueckfall aufs Profil im Backend greift
+         * (ansprechperson() in routes/marketplace.js). Ein leerer String wuerde
+         * den Rueckfall ueberschreiben und die Stelle faelschlich als gefuellt
+         * gelten lassen. */
+        contact_name: document.getElementById("contact_name").value.trim() || null,
+        contact_phone: document.getElementById("contact_phone").value.trim() || null
       };
 
       postDemand(body).then(function(d) {
@@ -377,7 +537,16 @@
         btn.textContent = t('dem.create.submit', 'Nachfrage absenden');
         showMsg("ok", 'dem.create.msgOk', 'Nachfrage erfolgreich erstellt!');
         form.reset();
+        /* N2.5: der Bedarf ist angelegt — ab jetzt waere der Entwurf ein
+           Wiedergaenger, der den naechsten Bedarf vorbelegt. Genau HIER, nicht
+           in renderResult: das laeuft auch beim Sprachwechsel (N2.11). */
+        if (window.__tcEntwurf) window.__tcEntwurf.loeschen();
         renderResult(d);
+        /* N2.11: `form.reset()` leert auch die Pflichtfelder der frueheren
+           Schritte. Der Assistent stand aber weiter im letzten Schritt — der
+           naechste Klick auf "Absenden" lief dann in die stumme Browser-Pruefung
+           eines AUSGEBLENDETEN leeren Pflichtfelds. Er faengt jetzt von vorn an. */
+        document.dispatchEvent(new CustomEvent("tc:bedarf-angelegt"));
       })
       .catch(function(err) {
         btn.disabled = false;
@@ -435,11 +604,908 @@
     });
   })();
   </script>
+  <script>
+  /*
+   * N2.1 — DIE STUFE STEHT IM DATUM UND WIRD DORT GEZEIGT.
+   *
+   * Dieselbe Regel wie im Backend (`notdienstAusStartdatum`): Vorlauf <= 2
+   * Kalendertage in Europe/Berlin. Sie steht hier ein zweites Mal, und das ist
+   * eine bewusste Doppelung: der Server ENTSCHEIDET, der Browser ZEIGT nur an.
+   * Eine Anzeige, die auf eine Serverantwort wartet, kaeme zu spaet — sie soll
+   * beim Tippen des Datums erscheinen, nicht nach dem Absenden.
+   *
+   * Damit die Doppelung nicht auseinanderlaeuft, haelt eine Probe beide Zahlen
+   * zusammen (`api/test/notdienstAbleitung.test.js`).
+   */
+  (function () {
+    var VORLAUF_TAGE = 2;
+
+    function heuteDE() {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit"
+      }).format(new Date());
+    }
+
+    function tageBis(iso) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(iso || "").slice(0, 10))) return null;
+      var an = (x) => Date.UTC(+x.slice(0, 4), +x.slice(5, 7) - 1, +x.slice(8, 10), 12);
+      return Math.round((an(iso.slice(0, 10)) - an(heuteDE())) / 86400000);
+    }
+
+    function t(k, ersatz) {
+      var v = (window.TCi18n && TCi18n.t) ? TCi18n.t(k) : "";
+      return v || ersatz;
+    }
+
+    function zeigeDringlichkeit() {
+      var ziel = document.getElementById("urgencyAnzeige");
+      var feld = document.getElementById("start_date");
+      if (!ziel || !feld) return;
+
+      var tage = tageBis(feld.value);
+      if (tage === null) {
+        ziel.className = "urgency-anzeige";
+        ziel.innerHTML = "<span><small>"
+          + t("dem.create.urgency.hintEmpty", "Ergibt sich aus dem Einsatzbeginn.")
+          + "</small></span>";
+        return;
+      }
+
+      var istNotdienst = tage <= VORLAUF_TAGE;
+      ziel.className = "urgency-anzeige" + (istNotdienst ? " urgency-anzeige--notdienst" : "");
+      ziel.innerHTML = "<span><b>"
+        + (istNotdienst
+            ? t("dem.create.urgency.derivedNotdienst", "Notdienst")
+            : t("dem.create.urgency.derivedNormal", "Regul\u00e4re Suche"))
+        + "</b><small>"
+        + (istNotdienst
+            ? t("dem.create.urgency.hintNotdienst", "Beginn in Reichweite \u2014 Anbieter werden sofort alarmiert.")
+            : t("dem.create.urgency.hintNormal", "Genug Vorlauf f\u00fcr die regul\u00e4re Suche."))
+        + "</small></span>";
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+     * N2.2 - DIE VIERTE FRAGE BEANTWORTET SICH SELBST
+     * ═══════════════════════════════════════════════════════════════════
+     *
+     * `/api/pricing/suggest` ist seit Langem fertig, getestet und plan-gegated
+     * - und hatte am 2026-09-06 NULL Aufrufer. Es fehlte nur die Anzeige.
+     *
+     * Warum das mehr ist als Bequemlichkeit: ein Budget, das niemand bedienen
+     * kann, ist die haeufigste Ursache fuer einen Bedarf, auf den nie jemand
+     * antwortet. Der Kunde merkt das nie - er sieht nur Stille und schliesst
+     * daraus auf den Markt statt auf seine Zahl.
+     *
+     * DIESER TEIL STEHT ABSICHTLICH IN DERSELBEN IIFE wie die
+     * Notdienst-Ableitung: der Vorschlag haengt an der Dringlichkeit, und die
+     * Vorlauf-Regel darf nicht ein drittes Mal im Code stehen (Server, Anzeige,
+     * und dann noch hier). Er benutzt `tageBis` und `VORLAUF_TAGE` mit.
+     */
+
+    var preisLauf = 0;          // Nur die JUENGSTE Antwort darf zeichnen.
+    var preisZeitgeber = null;
+    var preisGesperrt = false;  // 403 = kein Tarif. Dann nicht weiter fragen.
+
+    /* Eigene Fassung: das `esc` dieser Seite liegt in der IIFE darueber und ist
+       hier NICHT sichtbar. Es zu benutzen haette bei jedem Zeichnen geworfen -
+       lautlos, weil der Aufruf in einem `.then()` steckt. */
+    function pvEsc(x) {
+      var d = document.createElement("div");
+      d.textContent = x == null ? "" : String(x);
+      return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    /* Das `t` dieser IIFE reicht keine Werte weiter, also wird hier ersetzt.
+       Ohne das stuende "{n} Datenpunkte" woertlich auf dem Schirm. */
+    function pvText(schluessel, ersatz, werte) {
+      var roh = t(schluessel, ersatz);
+      if (!werte) return roh;
+      return String(roh).replace(/\{(\w+)\}/g, function (ganz, name) {
+        return Object.prototype.hasOwnProperty.call(werte, name) ? String(werte[name]) : ganz;
+      });
+    }
+
+    function preisFeldWert(id) {
+      var el = document.getElementById(id);
+      return el ? String(el.value || "").trim() : "";
+    }
+
+    function preisEuro(x) {
+      return (Math.round(Number(x) * 100) / 100)
+        .toLocaleString(document.documentElement.lang === "en" ? "en-GB" : "de-DE",
+          { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function zeichnePreis(daten) {
+      var ziel = document.getElementById("preisVorschlag");
+      if (!ziel) return;
+      var v = daten && daten.suggestion;
+      /* Ohne Spanne gibt es nichts zu zeigen. Eine leere Karte mit
+         Ueberschrift waere schlechter als gar keine: sie behauptet eine
+         Auskunft, die sie nicht hat. */
+      if (!v || v.min_eur == null || v.max_eur == null) { versteckePreis(); return; }
+
+      var gueteText = {
+        high: t("dem.create.preis.gueteHoch", "gut belegt"),
+        medium: t("dem.create.preis.gueteMittel", "belegt"),
+        low: t("dem.create.preis.gueteNiedrig", "d\u00fcnne Datenlage")
+      }[daten.confidence] || String(daten.confidence || "");
+
+      ziel.innerHTML =
+        '<div class="pv-zeile">'
+        + "<b>" + pvEsc(preisEuro(v.min_eur)) + "\u2013" + pvEsc(preisEuro(v.max_eur)) + " \u20ac/h</b>"
+        + '<span class="pv-guete">' + pvEsc(gueteText) + " \u00b7 "
+        + pvEsc(pvText("dem.create.preis.datenpunkte", "{n} Datenpunkte",
+            { n: daten.total_data_points }))
+        + "</span>"
+        + '<button type="button" class="pv-uebernehmen" id="preisUebernehmen">'
+        + pvEsc(t("dem.create.preis.uebernehmen", "In die Felder \u00fcbernehmen"))
+        + "</button>"
+        + "</div>"
+        + (daten.explanation ? "<small>" + pvEsc(daten.explanation) + "</small>" : "")
+        + "<small>" + pvEsc(daten.disclaimer || "") + "</small>";
+      ziel.setAttribute("data-sichtbar", "ja");
+
+      /* Der Vorschlag ist ein Vorschlag: NIE von selbst in die Felder
+         schreiben. Wer eine Zahl uebernimmt, hat sie gewaehlt. */
+      var knopf = document.getElementById("preisUebernehmen");
+      if (knopf) {
+        knopf.addEventListener("click", function () {
+          var min = document.getElementById("budget_min");
+          var max = document.getElementById("budget_max");
+          if (min) min.value = v.min_eur;
+          if (max) max.value = v.max_eur;
+        });
+      }
+    }
+
+    function versteckePreis() {
+      var ziel = document.getElementById("preisVorschlag");
+      if (!ziel) return;
+      ziel.innerHTML = "";
+      ziel.removeAttribute("data-sichtbar");
+    }
+
+    function holePreis() {
+      if (preisGesperrt) return;
+      var rolle = preisFeldWert("role");
+      var ort = preisFeldWert("location_city");
+      /* Der Motor verlangt mindestens eines von beidem. Ohne das waere die
+         Antwort ein 400 - also gar nicht erst fragen. */
+      if (!rolle && !ort) { versteckePreis(); return; }
+
+      var tage = tageBis(preisFeldWert("start_date"));
+      var dringlichkeit = (tage !== null && tage <= VORLAUF_TAGE) ? "notdienst" : "normal";
+
+      var lauf = ++preisLauf;
+      var frage = "/api/pricing/suggest?urgency=" + encodeURIComponent(dringlichkeit)
+        + "&context=demand"
+        + (rolle ? "&role=" + encodeURIComponent(rolle) : "")
+        + (ort ? "&region=" + encodeURIComponent(ort) : "");
+
+      /* Die Zusage wird ZURUECKGEGEBEN. Ohne das kann kein Aufrufer - und
+         keine Probe - abwarten, dass wirklich gezeichnet wurde; eine Pruefung
+         direkt nach dem Aufruf liefe vor der Antwort und waere gruen, ohne
+         etwas gesehen zu haben. */
+      return fetch(frage, { credentials: "include" })
+        .then(function (r) {
+          /*
+           * 403 = der Tarif traegt `smart_pricing` nicht. Owner-Vorgabe: KEIN
+           * Vorschlag, aber auch KEINE Sperre - der Bedarf laesst sich ohne ihn
+           * genauso anlegen. Und danach wird nicht weiter gefragt: ein Tarif
+           * aendert sich nicht waehrend des Tippens, und eine 403-Schleife bei
+           * jedem Tastendruck waere Laerm im Netzwerk und im Protokoll.
+           */
+          if (r.status === 403) { preisGesperrt = true; return null; }
+          if (!r.ok) return null;
+          return r.json();
+        })
+        .then(function (d) {
+          if (lauf !== preisLauf) return;   // eine juengere Antwort ist schon da
+          if (!d) { versteckePreis(); return; }
+          zeichnePreis(d);
+        })
+        .catch(function () {
+          /* Ein Netzfehler darf das Formular nie beschaedigen - der Vorschlag
+             ist Zugabe. Stillschweigend verbergen statt Fehler anzeigen. */
+          if (lauf === preisLauf) versteckePreis();
+        });
+    }
+
+    function preisAngestossen() {
+      /* Entprellt: Rolle und Ort werden GETIPPT. Ohne das liefe je Zeichen
+         eine Abfrage mit vier Aggregaten dahinter. */
+      if (preisZeitgeber) clearTimeout(preisZeitgeber);
+      preisZeitgeber = setTimeout(holePreis, 400);
+    }
+
+    function start() {
+      var feld = document.getElementById("start_date");
+      if (!feld) return;
+      feld.addEventListener("input", zeigeDringlichkeit);
+      feld.addEventListener("change", zeigeDringlichkeit);
+      document.addEventListener("tc:langchange", zeigeDringlichkeit);
+      zeigeDringlichkeit();
+
+      /* N2.2: derselbe Anlass fuer beide Anzeigen - das Startdatum aendert die
+         Dringlichkeit UND damit den Preisaufschlag. */
+      ["role", "location_city", "start_date"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener("input", preisAngestossen);
+        el.addEventListener("change", preisAngestossen);
+      });
+      holePreis();
+    }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
+  })();
+  </script>
+  <script>
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * N2.5 — ABBRECHEN VERLIERT NICHTS
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * Wer den Assistenten schliesst und wiederkommt, findet seinen Stand vor.
+   *
+   * IM BROWSER, NICHT AUF DEM SERVER — und das ist eine Entscheidung, keine
+   * Bequemlichkeit. Ein `status='draft'` in `demand_requests` braeuchte eine
+   * Migration UND einen zusaetzlichen Filter in JEDER Abfrage, die Bedarfe
+   * liest. Genau diese Fehlerklasse — ein Filter, der an einer von mehreren
+   * Stellen fehlt — hat diese Welle mehrfach behoben (N4: die Sperre fehlte in
+   * vier von fuenf Flaechen; N2.4: die Trefferzahl zaehlte die falsche
+   * Marktseite). Ein halbfertiger Bedarf, der in den Feed rutscht, waere der
+   * teuerste Ausgang: eine Zeitarbeitsfirma antwortet auf etwas, das niemand
+   * abgeschickt hat.
+   *
+   * Der Preis dieser Wahl wird benannt und nicht versteckt: der Entwurf lebt in
+   * DIESEM Browser. Wer das Geraet wechselt, faengt neu an. Fuer einen
+   * halbfertigen Bedarf ist das vertretbar — fuer einen abgeschickten waere es
+   * das nicht, und der liegt auf dem Server.
+   *
+   * WARUM DIESER BLOCK HIER STEHT UND NICHT WEITER UNTEN: der Katalogwaehler
+   * montiert im naechsten Skriptblock und liest seine Vorauswahl DABEI aus dem
+   * versteckten Feld `skill_tags`. Wuerde der Entwurf erst in der
+   * Assistenten-IIFE zurueckgeschrieben, kaeme er zu spaet — die Faehigkeiten
+   * stuenden im Feld, waeren aber nicht angeklickt.
+   */
+  (function () {
+    var SCHLUESSEL = "tc_bedarf_entwurf";
+    /* Ein Entwurf von vor zwei Wochen traegt ein Startdatum in der
+       Vergangenheit und einen Preisvorschlag von gestern. Ab hier ist ein
+       leeres Formular ehrlicher als ein alter Stand. */
+    var HOECHSTALTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+    var FELDER = ["title", "role", "skill_tags", "headcount", "start_date", "end_date",
+      "location_city", "location_postal", "radius_km", "budget_min", "budget_max",
+      "contact_name", "contact_phone"];
+
+    /* Die Markup-Standards EINMAL beim Laden festhalten — vor dem
+       Wiederherstellen und vor dem Katalogwaehler.
+       N2.12 (Befund der Nachpruefung 2026-09-16): `defaultValue` LAUFEND zu
+       lesen war falsch. Bei `<input type="hidden">` setzt `.value` das
+       value-ATTRIBUT selbst, und `defaultValue` gibt genau dieses Attribut
+       zurueck — es waechst also mit. `skill_tags` ist ein solches Feld: wer nur
+       Faehigkeiten anklickte und die Seite verliess, verlor sie, weil
+       `v !== el.defaultValue` dort nie wahr werden konnte. */
+    var STANDARD = {};
+    FELDER.forEach(function (id) {
+      var el = document.getElementById(id);
+      STANDARD[id] = el ? String(el.defaultValue || "") : "";
+    });
+
+    function lesen() {
+      try {
+        var roh = window.localStorage.getItem(SCHLUESSEL);
+        if (!roh) return null;
+        var e = JSON.parse(roh);
+        if (!e || typeof e !== "object") return null;
+        if (!e.stand || (Date.now() - Number(e.stand)) > HOECHSTALTER_MS) {
+          loeschen();
+          return null;
+        }
+        return e;
+      } catch (x) { return null; }   /* Speicher kann fehlen oder gesperrt sein */
+    }
+
+    function schreiben() {
+      try {
+        var werte = {};
+        var etwasDrin = false;
+        FELDER.forEach(function (id) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          var v = String(el.value || "");
+          werte[id] = v;
+          /* Die Vorbelegung des Ortes allein ist KEIN Entwurf — sonst meldete
+             sich das Formular beim zweiten Besuch mit einem "Stand", den
+             niemand eingegeben hat.
+             N2.11: und ebensowenig ein Feld, das nur seinen MARKUP-STANDARD
+             traegt. `headcount` steht auf value="1", zaehlte damit immer als
+             Eingabe — jeder Seitenaufruf legte einen 7-Tage-Entwurf an, der beim
+             naechsten Besuch den alten Ort zurueckholte, auch nach einem
+             Standortwechsel. `defaultValue` ist genau dieser Markup-Wert. */
+          if (v.trim() && v !== STANDARD[id]
+              && id !== "location_city" && id !== "radius_km") etwasDrin = true;
+        });
+        if (!etwasDrin) { loeschen(); return; }
+        window.localStorage.setItem(SCHLUESSEL, JSON.stringify({
+          stand: Date.now(),
+          schritt: Number(window.__tcEntwurfSchritt || 0),
+          werte: werte
+        }));
+      } catch (x) { /* ein voller oder gesperrter Speicher darf nichts brechen */ }
+    }
+
+    function loeschen() {
+      try { window.localStorage.removeItem(SCHLUESSEL); } catch (x) { /* s. o. */ }
+    }
+
+    function wiederherstellen() {
+      var e = lesen();
+      if (!e || !e.werte) return null;
+      FELDER.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var v = e.werte[id];
+        /* Nur fuellen, was leer ist: ein Feld mit Standardwert (headcount=1,
+           radius_km=25) darf der Entwurf ueberschreiben, eine Eingabe nicht —
+           und zu diesem Zeitpunkt hat noch niemand getippt. */
+        if (typeof v === "string" && v !== "") el.value = v;
+      });
+      return e;
+    }
+
+    var wieder = wiederherstellen();
+    window.__tcEntwurf = {
+      schreiben: schreiben,
+      loeschen: loeschen,
+      lesen: lesen,
+      felder: FELDER,
+      hoechstalterMs: HOECHSTALTER_MS,
+      /* Der Assistent liest das beim Start und springt dorthin zurueck. */
+      schritt: wieder && Number.isFinite(Number(wieder.schritt)) ? Number(wieder.schritt) : 0,
+      wiederhergestellt: !!wieder
+    };
+  })();
+  </script>
+  <script src="/public/js/skillPicker.js"></script>
+  <script>
+  /*
+   * N1.1 - der Katalog auf der Nachfrageseite.
+   *
+   * Der Ort wird MITGEGEBEN, sobald er im Formular steht: "23 verfuegbar" ist
+   * eine ganz andere Aussage als "23 verfuegbar in Muenster". Aendert sich die
+   * Stadt, wird der Waehler neu aufgesetzt - eine Zahl, die zum falschen Ort
+   * gehoert, ist schlimmer als keine.
+   */
+  (function () {
+    var waehler = null;
+    var letzterOrt = "";
+
+    /* N2.11 — der Waehler liest seine Vorauswahl NUR aus `opt.initial`, nie aus
+       dem versteckten Feld (skillPicker.js: `var mitgebracht = …opt.initial…`).
+       Beim ersten Aufsetzen stand hier `[]`. Ein wiederhergestellter Entwurf
+       hatte seine Faehigkeiten aber genau dorthin geschrieben: sie wurden
+       unsichtbar mitgesendet und beim ersten Klick im Waehler still verworfen.
+       Also beim ersten Aufsetzen aus dem Feld lesen — dieselbe Trennung wie beim
+       Absenden, das ebenfalls das Feld liest. */
+    function ausFeld() {
+      var feld = document.getElementById("skill_tags");
+      return String(feld && feld.value || "").split(",")
+        .map(function (x) { return x.trim(); }).filter(Boolean);
+    }
+
+    function aufsetzen() {
+      var ortFeld = document.getElementById("location_city");
+      var ort = (ortFeld && ortFeld.value || "").trim();
+      var vorher = waehler ? waehler.werte() : ausFeld();
+      waehler = TCSkillPicker.mount({
+        container: "skillPicker",
+        hiddenInput: "skill_tags",
+        initial: vorher,
+        showAvailability: true,
+        city: ort || null
+      });
+      letzterOrt = ort;
+    }
+
+    function start() {
+      if (!document.getElementById("skillPicker")) return;
+      aufsetzen();
+      var ortFeld = document.getElementById("location_city");
+      if (ortFeld) {
+        ortFeld.addEventListener("change", function () {
+          if ((ortFeld.value || "").trim() !== letzterOrt) aufsetzen();
+        });
+      }
+      document.addEventListener("tc:langchange", function () { if (waehler) waehler.neu(); });
+    }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
+  })();
+  </script>
+  <script>
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * N2.1 — FUENF SCHRITTE, DER ORT VORN
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * Owner-Vorgabe (Nachtrag 2026-09-06, Korrektur des ersten Entwurfs): der
+   * Einsatzort wird AUSDRUECKLICH gefragt und steht VORN — vorbelegt, aber
+   * aenderbar. Der Grund ist kein Bedienkomfort: der Standortkontext ist die
+   * Rechnungsadresse oder Niederlassung, NICHT der Einsatzort. Eine
+   * Pflegeeinrichtung mit vier Haeusern sucht fuer EIN Haus. Wer den Kontext
+   * ungefragt als Einsatzort nimmt, rechnet die Entfernung gegen den falschen
+   * Punkt — und seit N2.4b rechnet sie wirklich.
+   *
+   * KEIN ZWEITES FORMULAR. Die Felder werden nicht verschoben und nicht
+   * verdoppelt; dieses Skript ordnet die VORHANDENEN Felder je einem Schritt
+   * zu und blendet die uebrigen aus. Damit gibt es weiterhin einen Anlagepfad,
+   * einen Datensatz und eine Absendestelle — ein zweiter waere die Sorte
+   * Parallelstruktur, die beim ersten Regelwechsel auseinanderlaeuft.
+   *
+   * OHNE JAVASCRIPT AENDERT SICH NICHTS. Erst `data-assistent="an"` am
+   * Formular laesst die Ausblendregel greifen; faellt das Skript aus, steht
+   * das Formular wie zuvor als eine Seite da und bleibt absendbar.
+   */
+  (function () {
+    var SCHRITTE = [
+      { schluessel: "s0", felder: ["location_city", "location_postal", "radius_km"], pflicht: ["location_city"] },
+      { schluessel: "s1", felder: ["title", "role", "skill_tags"],                   pflicht: ["title", "role"] },
+      { schluessel: "s2", felder: ["headcount"],                                     pflicht: [] },
+      { schluessel: "s3", felder: ["start_date", "end_date", "urgencyAnzeige"],      pflicht: ["start_date"] },
+      { schluessel: "s4", felder: ["preisVorschlag", "budget_min", "budget_max", "contact_name", "contact_phone"], pflicht: [] }
+    ];
+
+    var jetzt = 0;
+    var form, leiste, kopf, hinweis, zurueck, weiter, absenden, zaehler, fehler;
+
+    function t(k, ersatz, werte) {
+      var v = (window.TCi18n && TCi18n.t) ? TCi18n.t(k) : "";
+      var roh = v || ersatz;
+      if (!werte) return roh;
+      return String(roh).replace(/\{(\w+)\}/g, function (ganz, name) {
+        return Object.prototype.hasOwnProperty.call(werte, name) ? String(werte[name]) : ganz;
+      });
+    }
+
+    /* Der Traeger eines Feldes ist sein umschliessendes <div> im Raster —
+       dort steht auch die Beschriftung. Ohne sie waere das Feld beschriftet
+       ausgeblendet und unbeschriftet sichtbar. */
+    function traeger(id) {
+      var el = document.getElementById(id);
+      if (!el) return null;
+      var d = el.closest ? el.closest(".form-grid > div") : null;
+      return d || el.parentElement;
+    }
+
+    function alleTraeger() {
+      var raus = [];
+      SCHRITTE.forEach(function (sch, i) {
+        sch.felder.forEach(function (id) {
+          var d = traeger(id);
+          if (d && raus.indexOf(d) < 0) { d.setAttribute("data-schritt", i); raus.push(d); }
+        });
+      });
+      return raus;
+    }
+
+    function zeige() {
+      var traegerListe = alleTraeger();
+      traegerListe.forEach(function (d) {
+        var gehoert = Number(d.getAttribute("data-schritt")) === jetzt;
+        d.classList.toggle("as-verborgen", !gehoert);
+      });
+
+      /* Der Kontakthinweis gehoert zum letzten Schritt — er erklaert die
+         beiden Kontaktfelder und stuende sonst unter einer leeren Seite. */
+      var kontaktHinweis = document.querySelector(".urgency-hint[data-i18n='dem.create.contactHint']");
+      if (kontaktHinweis) kontaktHinweis.classList.toggle("as-verborgen", jetzt !== SCHRITTE.length - 1);
+      /* Ebenso der Notdienst-Hinweis: er gehoert zum Zeitraum. */
+      var notHinweis = document.querySelector(".urgency-hint[data-i18n='dem.create.urgencyHint']");
+      if (notHinweis) notHinweis.classList.toggle("as-verborgen", jetzt !== 3);
+
+      var sch = SCHRITTE[jetzt];
+      if (kopf) kopf.textContent = t("dem.create.as." + sch.schluessel, "");
+      if (hinweis) hinweis.textContent = t("dem.create.as." + sch.schluessel + "h", "");
+      if (zaehler) zaehler.textContent = t("dem.create.as.step", "Schritt {n} von {m}",
+        { n: jetzt + 1, m: SCHRITTE.length });
+
+      if (zurueck) zurueck.hidden = jetzt === 0;
+      if (weiter) weiter.hidden = jetzt === SCHRITTE.length - 1;
+      /* Absenden gibt es NUR im letzten Schritt. Sonst schickt ein Druck auf
+         die Eingabetaste im ersten Schritt einen halben Bedarf los. */
+      if (absenden) absenden.hidden = jetzt !== SCHRITTE.length - 1;
+      if (fehler) { fehler.hidden = true; fehler.textContent = ""; }
+
+      if (leiste) {
+        leiste.innerHTML = SCHRITTE.map(function (x, i) {
+          var stand = i === jetzt ? "jetzt" : (i < jetzt ? "fertig" : "offen");
+          return '<li data-stand="' + stand + '"><span class="as-nr">' + (i + 1) + "</span>"
+            + escText(t("dem.create.as." + x.schluessel, "")) + "</li>";
+        }).join("");
+      }
+    }
+
+    function escText(x) {
+      var d = document.createElement("div");
+      d.textContent = x == null ? "" : String(x);
+      return d.innerHTML;
+    }
+
+    /* Geprueft wird nur, was DIESER Schritt verlangt — nicht das ganze
+       Formular. Wer im zweiten Schritt steht, soll nicht wegen eines Feldes
+       aus dem vierten haengenbleiben. */
+    function schrittVollstaendig() {
+      var sch = SCHRITTE[jetzt];
+      for (var i = 0; i < sch.pflicht.length; i++) {
+        var el = document.getElementById(sch.pflicht[i]);
+        if (!el) continue;
+        if (!String(el.value || "").trim()) {
+          if (fehler) {
+            fehler.textContent = t("dem.create.as.required", "Bitte fuellen Sie die Pflichtfelder dieses Schritts aus.");
+            fehler.hidden = false;
+          }
+          if (el.focus) el.focus();
+          return false;
+        }
+      }
+      return true;
+    }
+
+    function gehe(richtung) {
+      if (richtung > 0 && !schrittVollstaendig()) return;
+      jetzt = Math.min(SCHRITTE.length - 1, Math.max(0, jetzt + richtung));
+      /* N2.5: der Schritt gehoert zum Stand. Ohne ihn faende der Kunde zwar
+         seine Eingaben wieder, aber am Anfang — und muesste sich durchklicken. */
+      window.__tcEntwurfSchritt = jetzt;
+      if (window.__tcEntwurf) window.__tcEntwurf.schreiben();
+      zeige();
+      if (kopf && kopf.scrollIntoView) kopf.scrollIntoView({ block: "nearest" });
+    }
+
+    /*
+     * Der Ort kommt vorbelegt — aber nur, wenn das Feld LEER ist. Wer schon
+     * getippt hat, bekommt seine Eingabe nicht ueberschrieben.
+     */
+    function ortVorbelegen() {
+      var feld = document.getElementById("location_city");
+      if (!feld || String(feld.value || "").trim()) return;
+      /* Die Zusage wird ZURUECKGEGEBEN — sonst kann kein Aufrufer und keine
+         Probe abwarten, dass die Vorbelegung wirklich angekommen ist. */
+      return fetch("/api/me/active-location", { credentials: "include" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (!d || !Array.isArray(d.locations) || !d.locations.length) return;
+          var aktiv = d.location_id
+            ? d.locations.filter(function (x) { return String(x.id) === String(d.location_id); })[0]
+            : null;
+          var quelle = aktiv || d.locations.filter(function (x) { return x.is_hq; })[0] || d.locations[0];
+          if (quelle && quelle.city && !String(feld.value || "").trim()) {
+            feld.value = quelle.city;
+            /* Anstossen, damit Preisvorschlag und Notdienst-Anzeige die
+               Vorbelegung sofort mitbekommen — sonst rechnen sie mit leer. */
+            feld.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+        })
+        .catch(function () { /* Vorbelegung ist Zugabe, nie Bedingung */ });
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+     * N2.4 — DIE TREFFER-VORSCHAU
+     * ═══════════════════════════════════════════════════════════════════
+     *
+     * "Mit diesen Angaben: 23 Kraefte" — und die Zahl aendert sich mit jedem
+     * Schritt.
+     *
+     * SIE KOMMT AUS DEMSELBEN ENDPUNKT, DESSEN ERGEBNIS DER KUNDE SPAETER
+     * SIEHT (`/capacity-exchange/feed`, `limit=1`, nur `total` gelesen). Ein
+     * eigener Zaehler waere eine zweite Wahrheit ueber denselben Markt — und
+     * die beiden liefen beim ersten Regelwechsel auseinander. Nebenbei zaehlt
+     * der Feed damit auch die Sperrliste dieses Unternehmens richtig mit: wer
+     * hier gesperrt ist, erscheint nicht in der Zahl.
+     *
+     * DIE ZAHL WURDE ERST BELASTBAR GEMACHT. Vor Welle N2.4 addierte `total`
+     * beide Marktseiten (ein Unternehmen las 23 und sah 6), und vor N2.4b
+     * kannte sie den Umkreis nicht. Ohne diese beiden Reparaturen waere die
+     * Vorschau eine huebsche Luege gewesen.
+     *
+     * DER PUNKT WIRD GENAUSO BESTIMMT WIE SPAETER AM SERVER: Freitext
+     * "<PLZ> <Ort>", sonst der Ort allein — dieselbe Reihenfolge wie in
+     * `marktGeoService`. Sonst zaehlte die Vorschau gegen einen anderen Punkt
+     * als den, den der angelegte Bedarf bekommt.
+     */
+    var vorschauLauf = 0;
+    var vorschauZeitgeber = null;
+    var ortSpeicher = {};   // ein Ort wird EINMAL aufgeloest, nicht je Tastendruck
+
+    function vorschauWert(id) {
+      var el = document.getElementById(id);
+      return el ? String(el.value || "").trim() : "";
+    }
+
+    function punktFuer(plz, ort) {
+      if (!ort && !plz) return Promise.resolve(null);
+      var schluessel = (plz || "") + "|" + (ort || "");
+      if (Object.prototype.hasOwnProperty.call(ortSpeicher, schluessel)) {
+        return Promise.resolve(ortSpeicher[schluessel]);
+      }
+      var hole = function (pfad) {
+        return fetch("/api" + pfad, { credentials: "include" })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+      };
+      var erste = plz
+        ? hole("/geo/coordinates?q=" + encodeURIComponent(plz + (ort ? " " + ort : "")))
+        : hole("/geo/coordinates?q=" + encodeURIComponent(ort));
+      return erste.then(function (p) {
+        if (p || !plz) return p;
+        return hole("/geo/coordinates?postal_code=" + encodeURIComponent(plz)
+          + "&city=" + encodeURIComponent(ort));
+      }).then(function (p) {
+        /* Auch ein Misserfolg wird gemerkt — sonst fragt jede Tastenpause
+           denselben unbekannten Ort erneut bei einem fremden Dienst. */
+        ortSpeicher[schluessel] = p || null;
+        return p || null;
+      });
+    }
+
+    function zeigeTreffer(anzahl) {
+      var ziel = document.getElementById("asTreffer");
+      if (!ziel) return;
+      if (anzahl === null) { ziel.hidden = true; ziel.innerHTML = ""; ziel.removeAttribute("data-leer"); return; }
+      var text = anzahl === 0
+        /* Der Rueckfalltext sagt DASSELBE wie der Woerterbucheintrag. Sagte er
+           weniger, bekaeme ausgerechnet der, dessen Woerterbuch nicht geladen
+           hat, den hilfreichen Teil nicht — und niemand faende je heraus warum. */
+        ? t("dem.create.as.hitsNone", "Mit diesen Angaben: <b>kein Angebot</b> im Umkreis — größerer Radius oder weniger Fähigkeiten hilft")
+        : (anzahl === 1
+            /* "Angebote", nicht "Kraefte" (N2.7): gezaehlt werden Anzeigen, und
+               ein Sammelangebot traegt oft mehrere Personen. "3 Kraefte" bei
+               24 verfuegbaren liess den Kunden abbrechen, obwohl ein einziges
+               Angebot gereicht haette. */
+            ? t("dem.create.as.hitsOne", "Mit diesen Angaben: <b>1</b> Angebot im Umkreis")
+            : t("dem.create.as.hits", "Mit diesen Angaben: <b>{n}</b> Angebote im Umkreis"));
+      /* Nur die Zahl wird eingesetzt, und sie ist eine Zahl — der Text kommt
+         aus dem eigenen Woerterbuch, nicht von aussen. */
+      ziel.innerHTML = String(text).replace("{n}", String(Number(anzahl) || 0));
+      if (anzahl === 0) ziel.setAttribute("data-leer", "ja"); else ziel.removeAttribute("data-leer");
+      ziel.hidden = false;
+    }
+
+    function holeTreffer() {
+      var ort = vorschauWert("location_city");
+      var plz = vorschauWert("location_postal");
+      /* Ohne Ort gibt es nichts zu zaehlen — und der Ort ist der erste
+         Schritt, also ist das nur ganz am Anfang der Fall. */
+      if (!ort && !plz) { zeigeTreffer(null); return Promise.resolve(null); }
+
+      var lauf = ++vorschauLauf;
+      return punktFuer(plz, ort).then(function (punkt) {
+        /*
+         * OHNE PUNKT KEINE ZAHL. Ein Zaehlen ohne Umkreis ergaebe eine ganz
+         * andere Groesse — "alle Kraefte der Plattform" — und der Satz
+         * darueber behauptete trotzdem "im Umkreis". Lieber nichts sagen als
+         * etwas anderes zaehlen, als dasteht.
+         */
+        if (lauf !== vorschauLauf) return null;
+        if (!punkt) { zeigeTreffer(null); return null; }
+
+        var radius = vorschauWert("radius_km") || "25";
+        var rolle = vorschauWert("role");
+        var faehigkeiten = vorschauWert("skill_tags");
+        var frage = "/api/capacity-exchange/feed?limit=1"
+          + "&latitude=" + encodeURIComponent(punkt.lat)
+          + "&longitude=" + encodeURIComponent(punkt.lng)
+          + "&radius_km=" + encodeURIComponent(radius)
+          /* KEIN `&city=` (N2.7). Der Punkt steht schon fuer den Ort; ein
+             zusaetzlicher Stadtfilter machte aus "im Umkreis" "in genau dieser
+             Stadt" — Norderstedt fiel bei Hamburg 50 km heraus, und die
+             Vorschau riet zu einem groesseren Radius, der nichts aenderte. */
+          + (rolle ? "&role=" + encodeURIComponent(rolle) : "")
+          + (faehigkeiten ? "&skill_tags=" + encodeURIComponent(faehigkeiten) : "");
+
+        return fetch(frage, { credentials: "include" })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            if (lauf !== vorschauLauf) return null;   // eine juengere Antwort ist da
+            if (!d || typeof d.total !== "number") { zeigeTreffer(null); return null; }
+            zeigeTreffer(d.total);
+            return d.total;
+          })
+          .catch(function () {
+            if (lauf === vorschauLauf) zeigeTreffer(null);
+            return null;
+          });
+      });
+    }
+
+    function vorschauAngestossen() {
+      /* Entprellt und laenger als beim Preis: hier haengt ein fremder
+         Kartendienst dahinter. */
+      if (vorschauZeitgeber) clearTimeout(vorschauZeitgeber);
+      vorschauZeitgeber = setTimeout(holeTreffer, 600);
+    }
+
+    function start() {
+      form = document.getElementById("demandForm") || document.querySelector("form");
+      leiste = document.getElementById("asLeiste");
+      kopf = document.getElementById("asKopf");
+      hinweis = document.getElementById("asHinweis");
+      zurueck = document.getElementById("asZurueck");
+      weiter = document.getElementById("asWeiter");
+      absenden = document.getElementById("submitBtn");
+      zaehler = document.getElementById("asZaehler");
+      fehler = document.getElementById("asFehler");
+      if (!form || !weiter || !leiste) return;
+
+      [leiste, kopf, hinweis, zaehler].forEach(function (el) { if (el) el.hidden = false; });
+      form.setAttribute("data-assistent", "an");
+
+      /* ═══════════════════════════════════════════════════════════════════
+       * N2.11 — DAS ABSENDEN SCHEITERT NICHT MEHR LAUTLOS
+       * ═══════════════════════════════════════════════════════════════════
+       *
+       * Befund der Pruefung vom 2026-09-15, im Browser nachgestellt: der
+       * Assistent blendet Felder mit `display:none` aus. Ist eines davon
+       * ungueltig (leeres Pflichtfeld nach `form.reset()`, Radius 600 bei
+       * max=500, Anzahl 0), faengt die NATIVE Browser-Pruefung das Absenden ab —
+       * noch vor jedem submit-Handler. Sie kann das Feld aber nicht anzeigen und
+       * meldet nur in der Konsole "not focusable". Fuer den Kunden passierte:
+       * nichts. Kein Hinweis, keine Meldung, kein Bedarf.
+       *
+       * Also uebernimmt der Assistent die Pruefung: `noValidate` schaltet die
+       * stumme Browser-Pruefung ab, und diese Schicht prueft VOR dem eigentlichen
+       * Absende-Handler (capture), springt zum ersten ungueltigen Feld, macht
+       * seinen Schritt sichtbar und sagt, was fehlt.
+       */
+      form.noValidate = true;
+
+      function ersterFehler() {
+        for (var i = 0; i < SCHRITTE.length; i++) {
+          for (var k = 0; k < SCHRITTE[i].felder.length; k++) {
+            var el = document.getElementById(SCHRITTE[i].felder[k]);
+            if (el && typeof el.checkValidity === "function" && !el.checkValidity()) {
+              return { el: el, schritt: i };
+            }
+          }
+        }
+        return null;
+      }
+
+      form.addEventListener("submit", function (e) {
+        var schlecht = ersterFehler();
+        if (!schlecht) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        jetzt = schlecht.schritt;
+        window.__tcEntwurfSchritt = jetzt;
+        zeige();
+        if (fehler) {
+          fehler.textContent = schlecht.el.validationMessage
+            || t("dem.create.as.required", "Bitte fuellen Sie die Pflichtfelder dieses Schritts aus.");
+          fehler.hidden = false;
+        }
+        if (schlecht.el.focus) schlecht.el.focus();
+        if (schlecht.el.reportValidity) schlecht.el.reportValidity();
+      }, true);
+
+      /* Nach dem erfolgreichen Absenden faengt der Assistent von vorn an —
+         `form.reset()` hat die Pflichtfelder der frueheren Schritte geleert. */
+      document.addEventListener("tc:bedarf-angelegt", function () {
+        jetzt = 0;
+        window.__tcEntwurfSchritt = 0;
+        zeige();
+      });
+
+      zurueck.addEventListener("click", function () { gehe(-1); });
+      weiter.addEventListener("click", function () { gehe(1); });
+      document.addEventListener("tc:langchange", zeige);
+
+      /* Die Eingabetaste soll weiterblaettern statt abzusenden, solange noch
+         Schritte offen sind — sonst entsteht ein halber Bedarf.
+         N2.11: aber nur aus einem EINGABEFELD heraus. Vorher blaetterte sie auch
+         auf einem Knopf weiter (Enter auf "Zurueck" sprang vorwaerts, Enter auf
+         dem x eines Faehigkeits-Chips sprang in den naechsten Schritt) und
+         zusaetzlich zum Suchfeld des Katalogwaehlers, der Enter selbst behandelt
+         (skillPicker.js ruft dort `preventDefault`, aber kein `stopPropagation`
+         — "die Taste gehoert dem Waehler"). */
+      form.addEventListener("keydown", function (e) {
+        if (e.key !== "Enter") return;
+        if (e.defaultPrevented) return;
+        var ziel = e.target || {};
+        if (ziel.tagName === "TEXTAREA" || ziel.tagName === "BUTTON" || ziel.tagName === "A"
+            || ziel.tagName === "SELECT") return;
+        if (ziel.closest && ziel.closest("#skillPicker")) return;
+        if (jetzt < SCHRITTE.length - 1) { e.preventDefault(); gehe(1); }
+      });
+
+      /* N2.4: alles, was die Zahl aendert. `skill_tags` ist ein verstecktes
+         Feld — der Katalogwaehler meldet seine Auswahl seit N2.4 per
+         `change`, sonst kaeme hier nie etwas an. */
+      ["location_city", "location_postal", "radius_km", "role", "skill_tags"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener("input", vorschauAngestossen);
+        el.addEventListener("change", vorschauAngestossen);
+      });
+
+      /* N2.5: jede Aenderung sichert den Stand. Entprellt, weil hier getippt
+         wird — und `change` zusaetzlich, weil der Katalogwaehler nur das meldet. */
+      var sicherungsZeitgeber = null;
+      var sichern = function () {
+        if (sicherungsZeitgeber) clearTimeout(sicherungsZeitgeber);
+        sicherungsZeitgeber = setTimeout(function () {
+          if (window.__tcEntwurf) window.__tcEntwurf.schreiben();
+        }, 500);
+      };
+      (window.__tcEntwurf ? window.__tcEntwurf.felder : []).forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener("input", sichern);
+        el.addEventListener("change", sichern);
+      });
+
+      /* Ein wiederhergestellter Entwurf springt zu dem Schritt zurueck, an dem
+         der Kunde aufgehoert hat. */
+      if (window.__tcEntwurf && window.__tcEntwurf.wiederhergestellt) {
+        jetzt = Math.min(SCHRITTE.length - 1, Math.max(0, Number(window.__tcEntwurf.schritt) || 0));
+        window.__tcEntwurfSchritt = jetzt;
+      }
+
+      ortVorbelegen();
+      zeige();
+      /* N2.11: die Vorschau haengt nur an `input`/`change`. Nach einem
+         wiederhergestellten Entwurf ist der Ort schon gefuellt, ortVorbelegen()
+         kehrt sofort zurueck und loest nichts aus — "Mit diesen Angaben: N
+         Angebote" blieb unsichtbar, bis der Kunde irgendein Feld anfasste. */
+      if (vorschauWert("location_city") || vorschauWert("location_postal")) holeTreffer();
+    }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
+
+    /* Fuer die Probe: der Schrittzustand ist sonst von aussen unsichtbar. */
+    window.__tcAssistent = {
+      treffer: holeTreffer,
+      trefferAnstoss: vorschauAngestossen,
+      punktFuer: punktFuer,
+      schritte: SCHRITTE,
+      jetzt: function () { return jetzt; },
+      gehe: gehe,
+      zeige: zeige,
+      start: start,
+      vorbelegen: ortVorbelegen
+    };
+  })();
+  </script>
   <script src="/public/js/pageShell.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
 <script src="/public/js/demoBanner.js" defer></script>
 <script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/notifications.js" defer></script>
 <script src="/public/js/breadcrumb.js" defer></script>
+  <script src="/public/js/katalogFeld.js"></script>
+<script>
+  /* N8.1 - Katalog statt Freitext: die Rolle AM BEDARF - ohne sie trifft das Matching auf der Nachfrageseite nicht.
+     Gemessen am 2026-09-21: 19 der 44 Rollen im Markt treffen den Katalog nie.
+     Das Feld bleibt die Quelle der Wahrheit; der Waehler schreibt nur hinein. */
+  (function () {
+    function start() {
+      if (!window.TCKatalogFeld) {
+        /* Kein stiller Rueckfall: fehlt die Datei, bleibt das Feld Freitext - und das faellt sonst niemandem auf. */
+        console.error("[N8.1] js/katalogFeld.js fehlt - das Rollenfeld bleibt Freitext");
+        return;
+      }
+      TCKatalogFeld.binde({ input: "role", showAvailability: false });
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
+  })();
+</script>
 </body>
 </html>

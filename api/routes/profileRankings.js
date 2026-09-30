@@ -14,6 +14,7 @@
 import { z } from "zod";
 import { Router } from "express";
 import * as rankingSvc from "../services/profileRankingService.js";
+import { verweigereArbeiter } from "../middleware/orgAccess.js";
 
 const rankingQuerySchema = z.object({
   segment: z.enum(["BRONZE", "SILVER", "GOLD", "PLATINUM"]).optional(),
@@ -49,7 +50,18 @@ export function createProfileRankingsRouter(deps) {
 
   /* ── Eigener Rang (PRO+) ───────────────────────────────── */
 
-  router.get("/profile-rankings/me", requireAuth, rankingAccess, async (req, res) => {
+  /*
+   * M2.5/M2.7 — "me" im Pfad, gemeint ist die ORG: `getOrgRankInfo(pool, req.orgId)`
+   * liefert die Platzierung DER FIRMA im Anbietervergleich, samt Punktzahl und
+   * Segment. Dieselbe Namensfalle wie bei /profile-bounties/me und
+   * /subscription-requests/mine — die sechste in dieser Welle.
+   *
+   * `/profile-rankings` (ohne "/me") bleibt offen: die Rangliste ist die
+   * oeffentliche Seite derselben Sache und traegt bewusst kein requireAuth.
+   */
+  const keinArbeiter = verweigereArbeiter({ logger: logger });
+
+  router.get("/profile-rankings/me", requireAuth, rankingAccess, keinArbeiter, async (req, res) => {
     try {
       if (!req.orgId) return fail(res, 403, "NO_ORG", "Keine aktive Organisation.");
       const data = await rankingSvc.getOrgRankInfo(pool, req.orgId);

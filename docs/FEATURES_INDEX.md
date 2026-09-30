@@ -43,7 +43,6 @@ Stand: 2026-06-24 · Plan-Stufen: `DEMO · BASIS · PLUS · PRO · INDIVIDUELL` 
 | ✅ | Multi-Staffing Assignments (Slots, Kampagnen, Invites, Reservations, Waitlist, Choice-Sets) | alle | `services/assignmentStaffingService.js`, `routes/assignments.js` |
 | ✅ | Worker-Lifecycle + Profil-Hub + Dokumente (+ Ablauf-Steuerung) | alle | `services/workerService.js`, `routes/workers.js`, Mig 074–076 |
 | ✅ | Stundenzettel / Timesheets (Tageseinträge, Submit/Approve/Reject/Sign, Batch) | alle | `services/workerSubmissionService.js`, `routes/timesheets.js` |
-| ✅ | Timesheet-Templates + Customer-Flow + Sammelversand | PRO+ | `services/timesheetTemplateService.js` |
 | ✅ | Worker-/Einsatzportal (eigene Einsätze, Stundenzettel, Verfügbarkeit) | — | `routes/workerPortal.js` |
 | ✅ | Review-Worklist + Inline-Nächste-Aktion je Status | alle | `frontend/public/js/pages/workerSubmissionsReview.js` |
 

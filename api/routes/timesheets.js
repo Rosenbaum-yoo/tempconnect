@@ -160,6 +160,32 @@ export function createTimesheetsRouter(deps) {
     } catch (err) { next(err); }
   });
 
+  /*
+   * Bewusst VOR `/timesheets/:id` registriert. Express nimmt die ERSTE passende
+   * Schicht: standen diese beiden dahinter, fing die Detailroute den Pfad mit
+   * id="status-meta" bzw. id="worker-summary" ab — beide waren unerreichbar,
+   * obwohl `timesheets.scope.test.js` sie prueft: der Test greift den Handler
+   * direkt am Pfad, statt eine Anfrage leiten zu lassen, und war deshalb gruen.
+   * Erzwungen von test/routenSchatten.test.js.
+   */
+  /* GET /timesheets/status-meta – UI-Labels, Farben, Icons fuer alle Status */
+  router.get("/timesheets/status-meta", (_req, res) => {
+    res.json(timesheetService.getTimesheetStatusMeta());
+  });
+
+  /* GET /timesheets/worker-summary – KPIs fuer Worker-Dashboard */
+  router.get("/timesheets/worker-summary", ...base, requireScope("read:timesheets"), rperm("timesheet.view"), async (req, res, next) => {
+    try {
+      const result = await timesheetService.getWorkerTimesheetSummary(pool, {
+        workerName:    req.query.worker_name     || null,
+        orgId:         req.orgId                 || null,
+        supplierOrgId: req.query.supplier_org_id || null
+      });
+      if (result.error) return res.status(400).json(result);
+      res.json(result);
+    } catch (err) { next(err); }
+  });
+
   /* GET /timesheets/:id – Einzelner Stundenzettel mit Eintraegen */
   router.get("/timesheets/:id", ...base, requireScope("read:timesheets"), rperm("timesheet.view"), async (req, res, next) => {
     try {
@@ -385,21 +411,21 @@ export function createTimesheetsRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  /* POST /timesheets/:id/sign – Digitale Unterschrift (Worker) */
-  router.post("/timesheets/:id/sign", ...base, requireScope("write:timesheets"), rperm("timesheet.submit"), async (req, res, next) => {
-    try {
-      const ts = await timesheetService.getTimesheet(pool, req.params.id);
-      if (!ts) return res.status(404).json({ error: "NOT_FOUND" });
-      if (!checkOrgBoundary(ts, req.orgId)) return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
-
-      const result = await timesheetService.signTimesheet(pool, req.params.id, req.session.userId, {
-        ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null
-      });
-      if (result.error) return res.status(result.error === 'NOT_FOUND' ? 404 : 409).json(result);
-      res.locals.audit = { action: "timesheet.sign", entity_type: "timesheet", entity_id: req.params.id };
-      res.json(result.timesheet);
-    } catch (err) { next(err); }
-  });
+  /*
+   * POST /timesheets/:id/sign – ENTFERNT (Welle Z, Z2, 2026-09-27)
+   *
+   * Die Route schrieb `timesheets.worker_signed_at/_ip` — zwei Spalten, die es
+   * nicht gibt. Jeder Aufruf endete in einer 500; der Weg hat nie
+   * funktioniert. Die Begruendung, warum die Spalten NICHT angelegt werden,
+   * steht vollstaendig in `services/timesheetService.js` an der Stelle der
+   * entfernten `signTimesheet` — kurz: die Kraft steht ueber
+   * `worker_time_submissions` + `timesheets.source='worker_submission'` hinter
+   * ihren Stunden, und der Zettel kennt den Menschen nur als Text, haette die
+   * Unterschrift also von jemand anderem tragen koennen.
+   *
+   * Wer die Bestaetigung der Kraft braucht: `GET /timesheets/worker-summary`
+   * liefert `worker_confirmed_count`, und der Zettel selbst traegt `source`.
+   */
 
   /* POST /timesheets/batch-approve – Mehrere Timesheets genehmigen */
   router.post("/timesheets/batch-approve", ...base, requireScope("write:timesheets"), rperm("timesheet.approve"), async (req, res, next) => {
@@ -421,24 +447,6 @@ export function createTimesheetsRouter(deps) {
       const result = await timesheetService.batchReject(pool, parsed.data.ids, req.session.userId, parsed.data.reason);
       if (result.error) return res.status(400).json(result);
       res.locals.audit = { action: "timesheet.batch_reject", entity_type: "timesheet", entity_id: null, details: { count: result.rejected.length, reason: parsed.data.reason } };
-      res.json(result);
-    } catch (err) { next(err); }
-  });
-
-  /* GET /timesheets/status-meta – UI-Labels, Farben, Icons fuer alle Status */
-  router.get("/timesheets/status-meta", (_req, res) => {
-    res.json(timesheetService.getTimesheetStatusMeta());
-  });
-
-  /* GET /timesheets/worker-summary – KPIs fuer Worker-Dashboard */
-  router.get("/timesheets/worker-summary", ...base, requireScope("read:timesheets"), rperm("timesheet.view"), async (req, res, next) => {
-    try {
-      const result = await timesheetService.getWorkerTimesheetSummary(pool, {
-        workerName:    req.query.worker_name     || null,
-        orgId:         req.orgId                 || null,
-        supplierOrgId: req.query.supplier_org_id || null
-      });
-      if (result.error) return res.status(400).json(result);
       res.json(result);
     } catch (err) { next(err); }
   });

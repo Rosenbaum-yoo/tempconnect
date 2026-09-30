@@ -8,6 +8,8 @@ import { withTransaction } from "../utils/transaction.js";
 import { createServiceLogger } from "../utils/logger.js";
 import { assertTransition, TransitionError } from "./stateMachine.js";
 import * as capacityExchangeService from "./capacityExchangeService.js";
+import { cpSpaltenSql } from "./capacityPostOeffentlicheSpalten.js";
+import { zugesagtJeAngebotSql } from "./zusageFormel.js";
 /* Entscheidung D-M5 (Owner, 2026-08-20): die Grenze dieser Flaeche ist der
  * NUTZER (`supplier_company_id` / `requester_company_id` sind Fremdschluessel
  * auf `users`), und sie wurde bis hierher als blosse Namensgleichheit geprueft.
@@ -22,6 +24,7 @@ import * as capacityExchangeService from "./capacityExchangeService.js";
  * In `updateOfferStatus` laeuft die Pruefung auf dem `client` der Transaktion,
  * nicht auf dem Pool — sonst laese sie an der eigenen Transaktion vorbei. */
 import { canAccessAsOwner } from "../utils/ownerCheck.js";
+import * as companyBlocklistService from "./companyBlocklistService.js";
 
 const log = createServiceLogger("marketplace");
 
@@ -70,15 +73,12 @@ export async function getVerifiedSupplierIds(pool) {
   return new Set(rows.map((r) => r.company_id));
 }
 
+/* Die Formel kommt aus `zusageFormel.js` (N2.8) — hier stand eine eigene
+   Abschrift, eine von dreien. */
 const CAPACITY_COMMERCIAL_JOIN = `
   LEFT JOIN LATERAL (
     SELECT COALESCE(SUM(
-      CASE
-        WHEN o.status = 'accepted'
-          AND COALESCE(o.agreement_status, 'none') NOT IN ('cancelled', 'expired')
-        THEN GREATEST(COALESCE(o.offered_quantity, dr.headcount, 0), 0)
-        ELSE 0
-      END
+      ${zugesagtJeAngebotSql("o", "dr")}
     ), 0)::int AS committed_headcount
     FROM offers o
     JOIN demand_requests dr ON dr.id = o.demand_request_id
@@ -198,8 +198,10 @@ export async function createCapacityPost(pool, supplierId, payload) {
 }
 
 export async function listCapacityPosts(pool, opts = {}) {
+  /* Explizite Spaltenliste statt Alias-Stern (Welle J2): dieselbe Wahrheit wie
+   * im Kapazitaets-Feed — Personenkennungen verlassen den Marktplatz nicht. */
   let q = `
-    SELECT cp.*, ${CAPACITY_COMMERCIAL_SELECT},
+    SELECT ${cpSpaltenSql("cp")}, ${CAPACITY_COMMERCIAL_SELECT},
            u.company_name AS supplier_company_name,
            sr.grade AS reputation_grade,
            sr.reputation_score AS reputation_score,
@@ -224,7 +226,7 @@ export async function listCapacityPosts(pool, opts = {}) {
 }
 
 export async function getCapacityPostById(pool, id, supplierId = null) {
-  let q = `SELECT cp.*, ${CAPACITY_COMMERCIAL_SELECT},
+  let q = `SELECT ${cpSpaltenSql("cp")}, ${CAPACITY_COMMERCIAL_SELECT},
                   u.company_name AS supplier_company_name
            FROM capacity_posts cp
            ${CAPACITY_COMMERCIAL_JOIN}
@@ -253,8 +255,10 @@ export async function createDemandRequest(pool, requesterId, plan, payload) {
       location_city, location_postal, location_lat, location_lng, radius_km,
       shifts, requirements, urgency, budget_min, budget_max,
       sla_started_at, sla_minutes, sla_due_at, sla_status,
-      required_total_count, remaining_open_count, currently_committed_count)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+      required_total_count, remaining_open_count, currently_committed_count,
+      contact_name, contact_phone, requester_org_id,
+      partial_fulfillment_allowed, overfill_allowed)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
      RETURNING *`,
     [
       requesterId,
@@ -280,7 +284,21 @@ export async function createDemandRequest(pool, requesterId, plan, payload) {
       useSla ? "RUNNING" : null,
       payload.headcount ?? 1,
       payload.headcount ?? 1,
-      0
+      0,
+      /* Die Ansprechperson des EINSATZUNTERNEHMENS (Plan I, 10b). Sie ist die
+       * Nummer, die die Agentur spaeter in Besetzung und Live-Belegschaft sieht.
+       * Aufgeloest wird sie in der Route (mit Rueckfall aufs Profil); hier steht
+       * nur, was ankommt — der Dienst entscheidet nicht ueber Pflichten. */
+      payload.contact_name || null,
+      payload.contact_phone || null,
+      /* N2.11 (Migration 218): die Firma, fuer die angelegt wird — Traeger der
+       * Kundensperre. Kommt aus der aktiven Firma der Sitzung (`req.orgId`),
+       * nie aus dem Rumpf; die Routen setzen sie nach dem Spread. */
+      payload.requester_org_id || null,
+      /* N3.0/M5.9: ohne Angabe bleibt es beim Bisherigen — Teilerfuellung
+         erlaubt, Ueberfuellung nicht (die Standardwerte aus Migration 070). */
+      payload.partial_fulfillment_allowed !== undefined ? !!payload.partial_fulfillment_allowed : true,
+      payload.overfill_allowed !== undefined ? !!payload.overfill_allowed : false
     ]
   );
   return rows[0];
@@ -288,7 +306,15 @@ export async function createDemandRequest(pool, requesterId, plan, payload) {
 
 export async function getDemandById(pool, id) {
   const { rows } = await pool.query(
+    /* Die Firma des Bedarfs (N4.2, korrigiert N2.11): die Sperrliste haengt an
+       der FIRMA. Bis N2.11 stand hier `u.org_id` — die persoenliche Start-Firma
+       des Anlegers, fuer eingeladene Teammitglieder die falsche. Seit Migration
+       218 traegt der Bedarf die Firma selbst; `u.org_id` bleibt nur Rueckfall
+       fuer einen Bedarf ohne. Die Spalte heisst wie die aus `dr.*` und steht
+       DAHINTER — pg liefert den spaeteren Wert, also den mit Rueckfall.
+       Der ganze Datensatz geht nur an den Eigentuemer des Bedarfs. */
     `SELECT dr.*, u.company_name AS requester_company_name,
+            COALESCE(dr.requester_org_id, u.org_id) AS requester_org_id,
             EXISTS (
               SELECT 1
               FROM offers o_origin
@@ -309,27 +335,66 @@ export async function getDemandCommercialStates(pool, demandRequestIds = []) {
     return new Map();
   }
 
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * DER EINE RESTMENGEN-RECHNER (Welle N3.0/M5.1, Owner-Entscheid 2026-09-19)
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * BEFUND: DREI Dienste haben dieselben Spalten geschrieben, jeder mit seiner
+   * eigenen Rechnung — und zwei davon zaehlten nur IHRE Quelle:
+   *   * `assignmentStaffingService.syncDemandCoverage` schrieb die Besetzung
+   *     EINES Einsatzes in den Bedarf. Zwei Firmen an einem Bedarf: die zweite
+   *     Neuberechnung loeschte den Anteil der ersten — und sie lief auch beim
+   *     blossen OEFFNEN einer Dealakte.
+   *   * `emergencyCommitmentService.recalcDemandCoverage` zaehlte nur
+   *     Notdienst-Zusagen und ueberschrieb damit die Angebote.
+   *
+   * Hier steht jetzt die EINE Wahrheit. Zugesagt ist, was drei Quellen
+   * zusammen tragen — und keine davon doppelt:
+   *   1. angenommene ANGEBOTE (die Regel aus zusageFormel.js),
+   *   2. NOTDIENST-ZUSAGEN, aus denen noch kein Angebot geworden ist
+   *      (`agreement_offer_id IS NULL` — sonst zaehlte dieselbe Zusage zweimal),
+   *   3. EINSAETZE am Bedarf, die NICHT aus einem Angebot stammen
+   *      (`offer_id IS NULL` — der manuelle Weg; aus einem Angebot entstandene
+   *      Einsaetze sind ueber Punkt 1 schon gezaehlt).
+   *
+   * DIE ALIASE HEISSEN BEWUSST `ang`, `notd`, `eins` UND NICHT `o`, `c`, `a`:
+   * mehrere Muster-Pools erkennen die Angebots-Abfrage an "FROM offers o" und
+   * haetten dieser Rechnung eine Angebotszeile geantwortet — gemessen beim Bau,
+   * die Deckung kam dann als 0 zurueck. Ein Alias ist billig.
+   */
   const { rows } = await pool.query(
     `SELECT
        dr.id AS demand_request_id,
        GREATEST(COALESCE(dr.required_total_count, dr.headcount, 1), 1)::int AS required_total_count,
-       COALESCE(SUM(
-         CASE
-           WHEN o.status = 'accepted'
-             AND COALESCE(o.agreement_status, 'none') NOT IN ('cancelled', 'expired')
-           THEN GREATEST(COALESCE(o.offered_quantity, dr.headcount, 0), 0)
-           ELSE 0
-         END
-       ), 0)::int AS committed_headcount,
-       COUNT(DISTINCT o.id) FILTER (
-         WHERE o.status = 'accepted'
-           AND COALESCE(o.agreement_status, 'none') NOT IN ('cancelled', 'expired')
-       )::int AS active_offer_count,
-       COALESCE(BOOL_OR(o.capacity_post_id IS NOT NULL), FALSE) AS is_capacity_origin
+       (COALESCE(angebote.menge, 0) + COALESCE(notdienst.menge, 0) + COALESCE(einsaetze.menge, 0))::int AS committed_headcount,
+       COALESCE(angebote.anzahl, 0)::int AS active_offer_count,
+       COALESCE(angebote.aus_kapazitaet, FALSE) AS is_capacity_origin
      FROM demand_requests dr
-     LEFT JOIN offers o ON o.demand_request_id = dr.id
-     WHERE dr.id = ANY($1)
-     GROUP BY dr.id, GREATEST(COALESCE(dr.required_total_count, dr.headcount, 1), 1)`,
+     LEFT JOIN LATERAL (
+       SELECT COALESCE(SUM(GREATEST(COALESCE(ang.offered_quantity, dr.headcount, 0), 0)), 0) AS menge,
+              COUNT(*) AS anzahl,
+              BOOL_OR(ang.capacity_post_id IS NOT NULL) AS aus_kapazitaet
+         FROM offers ang
+        WHERE ang.demand_request_id = dr.id
+          AND ang.status = 'accepted'
+          AND COALESCE(ang.agreement_status, 'none') NOT IN ('cancelled', 'expired')
+     ) angebote ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT COALESCE(SUM(GREATEST(COALESCE(notd.committed_quantity, 0), 0)), 0) AS menge
+         FROM emergency_provider_commitments notd
+        WHERE notd.demand_request_id = dr.id
+          AND notd.status = 'committed'
+          AND notd.agreement_offer_id IS NULL
+     ) notdienst ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT COALESCE(SUM(GREATEST(COALESCE(eins.requested_quantity, eins.worker_count, 1), 0)), 0) AS menge
+         FROM assignments eins
+        WHERE eins.demand_request_id = dr.id
+          AND eins.offer_id IS NULL
+          AND eins.status NOT IN ('cancelled', 'completed')
+     ) einsaetze ON TRUE
+     WHERE dr.id = ANY($1)`,
     [uniqueIds]
   );
 
@@ -519,16 +584,26 @@ export async function getDemandSlaEvents(pool, demandId) {
 
 /* ── matching ───────────────────────────────────────────────── */
 
-export async function runInitialMatching(pool, demandRow, verifiedSupplierIds = new Set()) {
+export async function runInitialMatching(pool, demandRow, verifiedSupplierIds = new Set(), opts = {}) {
+  /*
+   * N4.5 — aus diesen Treffern schreibt der Anlagepfad bis zu FUENFZEHN Anbieter
+   * per Mail an. Ohne Sperrfilter bekam eine Zeitarbeitsfirma die Mail ueber
+   * den Bedarf genau des Kunden, der ihre Kraft gesperrt hat.
+   */
+  const kundeOrgId = opts.kundeOrgId || null;
   const { rows: caps } = await pool.query(
-    `SELECT cp.*, ${CAPACITY_COMMERCIAL_SELECT}
+    `SELECT ${cpSpaltenSql("cp")}, ${CAPACITY_COMMERCIAL_SELECT}
      FROM capacity_posts cp
      ${CAPACITY_COMMERCIAL_JOIN}
      WHERE cp.status = 'active'
        AND ${CAPACITY_REMAINING_HEADCOUNT_SQL} > 0
        AND availability_from <= $1
-       AND (availability_to IS NULL OR availability_to >= $2)`,
-    [demandRow.end_date || demandRow.start_date, demandRow.start_date]
+       AND (availability_to IS NULL OR availability_to >= $2)${kundeOrgId
+       ? `
+       AND ${companyBlocklistService.nichtGesperrtSql("cp", 3)}` : ""}`,
+    kundeOrgId
+      ? [demandRow.end_date || demandRow.start_date, demandRow.start_date, kundeOrgId]
+      : [demandRow.end_date || demandRow.start_date, demandRow.start_date]
   );
   const scored = [];
   for (const cap of caps) {
@@ -560,7 +635,7 @@ export async function runInitialMatching(pool, demandRow, verifiedSupplierIds = 
 export async function getDemandMatches(pool, demandId) {
   const { rows } = await pool.query(
     `SELECT m.*, cp.title AS capacity_title, cp.role AS capacity_role, cp.location_city AS capacity_city,
-            u.company_name AS supplier_company_name, u.email AS supplier_email
+            u.company_name AS supplier_company_name
      FROM matches m
      JOIN capacity_posts cp ON cp.id = m.capacity_post_id
      JOIN users u ON u.id = cp.supplier_company_id
@@ -663,6 +738,26 @@ export async function notdienstEscalationDemands(pool, batchSize) {
 /* ── offers ──────────────────────────────────────────────────── */
 
 export async function createOffer(pool, supplierCompanyId, demandRequestId, payload) {
+  /*
+   * N3.0/M5.3 + M5.8: die MENGE steht am Angebot, und wer auf seinen eigenen
+   * Bedarf bietet, bekommt hier schon eine Absage.
+   *
+   * `offered_quantity` blieb bisher NULL, und die Deckungsrechnung las ein
+   * NULL als "der ganze Bedarf" (COALESCE auf dr.headcount). Ein Angebot ueber
+   * eine einzelne Kraft galt damit als vollstaendige Deckung — der Bedarf war
+   * nach einem Angebot "erfuellt", und die uebrigen Plaetze verschwanden aus
+   * dem Markt. Ohne Angabe gilt jetzt 1; Altbestand mit NULL bleibt, wie er
+   * gelesen wurde.
+   */
+  const { rows: bedarfsZeilen } = await pool.query(
+    "SELECT requester_company_id FROM demand_requests WHERE id = $1",
+    [demandRequestId]
+  );
+  const besteller = bedarfsZeilen[0]?.requester_company_id || null;
+  if (besteller && String(besteller) === String(supplierCompanyId)) {
+    return { error: "SELF_DEAL_FORBIDDEN" };
+  }
+  const menge = Math.max(1, Number(payload.offered_quantity ?? 1) || 1);
   const { rows } = await pool.query(
     `INSERT INTO offers
      (demand_request_id, supplier_company_id, price_type, price_value, price_min, price_max,
@@ -683,7 +778,7 @@ export async function createOffer(pool, supplierCompanyId, demandRequestId, payl
       payload.notes || null,
       payload.attachments ? JSON.stringify(payload.attachments) : null,
       payload.terms || null,
-      payload.offered_quantity ?? null,
+      menge,
       payload.offered_hourly_rate ?? null,
       payload.start_confirmed || null,
       payload.end_date || null,
@@ -873,6 +968,49 @@ export async function updateOfferStatus(pool, offerId, newStatus, userId) {
           requested_headcount: requestedHeadcount,
           remaining_headcount: capacityState.remaining_headcount
         };
+      }
+    }
+
+    /*
+     * ═══════════════════════════════════════════════════════════════════════
+     * DIE DREI RIEGEL BEIM ANNEHMEN (Welle N3.0/M5, Owner-Entscheid 2026-09-19)
+     * ═══════════════════════════════════════════════════════════════════════
+     *
+     * Bis hierher hatte sie NUR der Notdienst (`emergencyCommitmentService`).
+     * Auf dem Normalweg konnte ein Bedarf ueber 30 Plaetze zweimal 30 annehmen,
+     * ein Unternehmen auf den EIGENEN Bedarf bieten und selbst annehmen, und
+     * `partial_fulfillment_allowed` stand als tote Spalte im Schema.
+     *
+     * Alle drei pruefen VOR dem Schreiben und in derselben Transaktion, in der
+     * der Bedarf gesperrt ist (`FOR UPDATE`) — sonst gewinnt bei zwei
+     * gleichzeitigen Annahmen der Zufall.
+     */
+    if (newStatus === "accepted") {
+      if (offer.supplier_company_id && offer.requester_company_id
+          && String(offer.supplier_company_id) === String(offer.requester_company_id)) {
+        return { error: "SELF_DEAL_FORBIDDEN" };
+      }
+      const { rows: bedarfsZeilen } = await client.query(
+        `SELECT id, headcount, required_total_count, overfill_allowed, partial_fulfillment_allowed
+           FROM demand_requests WHERE id = $1 FOR UPDATE`,
+        [offer.demand_request_id]
+      );
+      const bedarf = bedarfsZeilen[0];
+      if (bedarf) {
+        const stand = buildDemandCommercialState(
+          bedarf,
+          (await getDemandCommercialStates(client, [bedarf.id])).get(bedarf.id)
+        );
+        const menge = Math.max(1, Number(offer.offered_quantity ?? bedarf.headcount ?? 1) || 1);
+        const offen = stand.remaining_open_count;
+        if (bedarf.overfill_allowed !== true && menge > offen) {
+          return { error: "OVERFILL_NOT_ALLOWED", requested_headcount: menge, remaining_open_count: offen };
+        }
+        /* "Alle 30 oder keiner": wer Teilerfuellung ausschliesst, nimmt kein
+           Angebot an, das den Rest NICHT deckt. */
+        if (bedarf.partial_fulfillment_allowed === false && menge < offen) {
+          return { error: "PARTIAL_NOT_ALLOWED", requested_headcount: menge, remaining_open_count: offen };
+        }
       }
     }
 

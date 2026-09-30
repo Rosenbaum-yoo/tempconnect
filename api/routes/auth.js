@@ -6,11 +6,11 @@ import * as geoService from "../services/geoService.js";
 import * as authService from "../services/authService.js";
 import * as workerService from "../services/workerService.js";
 import * as pilotPolicyService from "../services/pilotPolicyService.js";
-import { writeAudit } from "../services/auditLog.js";
+import { writeAudit, orgNachAnmeldung } from "../services/auditLog.js";
 import { trackProductEvent, deriveCustomerSegment } from "../services/productAnalyticsService.js";
 import { catchAsync } from "../utils/routeHandler.js";
 import { domainLogger, swallow } from "../utils/logger.js";
-import { stampSession, bindSessionToDevice, destroyAllUserSessions, countUserSessions } from "../services/sessionSecurityService.js";
+import { stampSession, bindSessionToDevice, destroyAllUserSessions, countUserSessions, listUserSessions, vermerkeGeraet } from "../services/sessionSecurityService.js";
 import { isEnforceSSO } from "../services/ssoService.js";
 import * as totpService from "../services/totpService.js";
 
@@ -23,7 +23,17 @@ const SIZE_CLASS_EMPLOYEE_DEFAULTS = { I: 15, II: 100, III: 500, IV: 2000 };
 const registerSchema = z.object({
   role: z.enum(["company", "agency"]),
   org_role: z.enum(["owner", "admin", "dispatcher", "member"]).optional().default("owner"),
-  email: z.string().email().max(254),
+  /*
+   * M2.2: an der Eingangsgrenze kleingeschrieben, denn HIER entsteht die
+   * Zeile. Die Abfragen suchen seit M2.2 ohnehin beidseitig kleingeschrieben,
+   * und Migration 215 verhindert das zweite Konto strukturell — dieser Griff
+   * sorgt zusaetzlich dafuer, dass gar nicht erst neue Adressen mit
+   * Grossbuchstaben entstehen. Gemessen waren es zehn im Bestand.
+   *
+   * Die Anmeldung braucht das NICHT: ihre Abfrage schreibt beide Seiten
+   * klein, also findet sie das Konto in jeder Schreibweise.
+   */
+  email: z.string().email().max(254).transform((v) => v.trim().toLowerCase()),
   password: z.string().min(8).max(128),
   company_name: z.string().max(200).optional().nullable(),
   phone: z.string().max(50).optional().nullable(),
@@ -145,6 +155,10 @@ export function createAuthRouter(deps) {
             entity_type: "organization",
             entity_id: orgId,
             actor_id: userId,
+            /* Die Org ist hier keine Ableitung: sie wurde eine Zeile vorher fuer genau
+             * diesen Nutzer angelegt. Ohne sie liegt der wichtigste Vorgang der
+             * Registrierung — Pilot bzw. Direktvertrag — in keinem Org-Audit. */
+            org_id: orgId,
             details: { plan: "INDIVIDUELL", employee_count: effectiveEmployeeCount, company_size_class, signup_mode: "pilot" }
           }).catch(swallow("auth"));
         } else {
@@ -162,6 +176,10 @@ export function createAuthRouter(deps) {
             entity_type: "organization",
             entity_id: orgId,
             actor_id: userId,
+            /* Die Org ist hier keine Ableitung: sie wurde eine Zeile vorher fuer genau
+             * diesen Nutzer angelegt. Ohne sie liegt der wichtigste Vorgang der
+             * Registrierung — Pilot bzw. Direktvertrag — in keinem Org-Audit. */
+            org_id: orgId,
             details: { plan: "INDIVIDUELL", employee_count: effectiveEmployeeCount, company_size_class, signup_mode: "direct" }
           }).catch(swallow("auth"));
         }
@@ -178,12 +196,14 @@ export function createAuthRouter(deps) {
      <p>Bitte klicke auf den folgenden Link, um deine E-Mail-Adresse zu bestätigen:</p>
      <p><a href="${verifyUrl}">${verifyUrl}</a></p>
      <p>Falls du dich nicht registriert hast, ignoriere diese E-Mail.</p>`
-    );
+    , { zweck: "registrierung" });
 
     // SEC-001: Regenerate session to prevent session fixation
     await new Promise((resolve, reject) => req.session.regenerate((err) => err ? reject(err) : resolve()));
     req.session.userId = userId;
-    stampSession(req.session); // P5.1: Hoechstalter zaehlt ab hier — nach regenerate, sonst verworfen
+    stampSession(req.session); // P5.1: Hoechstalter zaehlt ab hier
+    vermerkeGeraet(req.session, req.headers?.["user-agent"]);  // 8.1.2: grober Typ, kein roher User-Agent — nach regenerate, sonst verworfen
+    vermerkeGeraet(req.session, req.headers?.["user-agent"]);  // 8.1.2: grober Typ, kein roher User-Agent
     const me = await getUserAndPlan(userId);
     try {
       await trackProductEvent(pool, {
@@ -201,7 +221,15 @@ export function createAuthRouter(deps) {
       });
     } catch { /* analytics non-critical */ }
     domainLogger.userRegistered({ userId, email, role });
-    res.locals.audit = { action: "auth.register", entity_type: "user", entity_id: userId, action_type: "CREATE", details: { role, email } };
+    /* Dieselbe Luecke wie beim Login, nur noch direkter: `createOrgWithMembership`
+     * oben hat die Organisation gerade erst angelegt, `orgId` steht hier im Scope.
+     * Ohne diese Zeile ist die Registrierung in keinem Org-Audit sichtbar — und
+     * da seit dieser Stelle JEDE Registrierung genau eine Mitgliedschaft erzeugt,
+     * haette die naechste Anmeldung eines neuen Kontos die Zusicherung in
+     * `auditMandantenGrenze.test.js` sofort wieder gerissen.
+     * Bleibt die Org-Erstellung aus (der Fehler wird oben nur geloggt), ist
+     * `orgId` null — dann ist org-los die richtige Antwort, nicht die falsche. */
+    res.locals.audit = { action: "auth.register", entity_type: "user", entity_id: userId, action_type: "CREATE", details: { role, email }, org_id: orgId };
     res.json({ ...me, verification_sent: true });
   }));
 
@@ -227,7 +255,7 @@ export function createAuthRouter(deps) {
       info.email,
       "TempConnect: Bitte bestätige deine E-Mail-Adresse",
       `<h2>E-Mail-Bestätigung</h2><p>Bitte klicke auf den folgenden Link, um deine E-Mail-Adresse zu bestätigen:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`
-    );
+    , { zweck: "registrierung" });
     res.locals.audit = { action: "auth.resend_verification", entity_type: "user", entity_id: req.session.userId, action_type: "SECURITY" };
     res.json({ ok: true, sent: true });
   }));
@@ -284,6 +312,7 @@ export function createAuthRouter(deps) {
     await new Promise((resolve, reject) => req.session.regenerate((err) => err ? reject(err) : resolve()));
     req.session.userId = creds.id;
     stampSession(req.session); // P5.1: Hoechstalter zaehlt ab hier
+    vermerkeGeraet(req.session, req.headers?.["user-agent"]);  // 8.1.2: grober Typ, kein roher User-Agent
     // Geteilte Rechner (Lagerbuero, Pfoertnerloge): ohne "angemeldet bleiben"
     // stirbt die Sitzung mit dem Fenster. Verkuerzt die Fristen, verlaengert nie.
     bindSessionToDevice(req.session, rememberMe !== false);
@@ -305,7 +334,15 @@ export function createAuthRouter(deps) {
       });
     } catch { /* analytics non-critical */ }
     domainLogger.userLogin({ userId: creds.id, email, ip: req.ip });
-    res.locals.audit = { action: "auth.login", entity_type: "user", entity_id: creds.id, action_type: "LOGIN", details: { email } };
+    /* Die Org ausdruecklich mitgeben — `bestimmeAuditOrg()` kann sie hier nicht
+     * kennen (Begruendung bei `orgNachAnmeldung`). Ohne sie ist die Anmeldung in
+     * keinem Org-Audit sichtbar. NICHT `me.org_id`: das liest `users.org_id` roh
+     * und ist bei vorhandener Mitgliedschaft trotzdem oft NULL. */
+    res.locals.audit = {
+      action: "auth.login", entity_type: "user", entity_id: creds.id,
+      action_type: "LOGIN", details: { email },
+      org_id: await orgNachAnmeldung(pool, creds.id)
+    };
     res.json(me);
   }));
 
@@ -330,7 +367,23 @@ export function createAuthRouter(deps) {
    */
   router.get("/auth/sessions", requireAuth, catchAsync(async (req, res) => {
     const offen = await countUserSessions(pool, req.session.userId);
-    res.json({ offen, weitere_geraete: Math.max(0, offen - 1) });
+    /*
+     * 8.1.2: bisher gab es nur zwei Zahlen. Die zweite, "weitere_geraete", war
+     * `offen - 1` — die Anwendung kannte keine Geraete, das Portal schrieb
+     * trotzdem "davon 1 auf anderen Geraeten". Wer daraufhin entscheidet, ob er
+     * sein Konto fernabmeldet, entscheidet auf einer Behauptung.
+     *
+     * Jetzt kommt die Liste dazu: je Sitzung Zeitpunkt und grober Geraetetyp
+     * (Owner-Entscheidung: keine IP, kein Standort, keine Geraetekennung).
+     * `offen`/`weitere_geraete` bleiben erhalten, damit die bestehende
+     * Oberflaeche nicht bricht.
+     *
+     * AUSSCHLIESSLICH das eigene Konto — `listUserSessions` nimmt keine fremde
+     * Kennung entgegen. Wer die Sitzungen anderer sehen darf, ist eine
+     * Flaechen-Frage und war nicht entschieden.
+     */
+    const sitzungen = await listUserSessions(pool, req.session.userId, req.sessionID);
+    res.json({ offen, weitere_geraete: Math.max(0, offen - 1), sitzungen });
   }));
 
   /**
@@ -365,7 +418,24 @@ export function createAuthRouter(deps) {
     const resetToken = crypto.randomBytes(32).toString("hex");
     const expires = new Date(Date.now() + 60 * 60 * 1000);
     await authService.setResetToken(pool, u.id, resetToken, expires);
-    const resetUrl = `${BASE_URL}?reset=${resetToken}`;
+    /*
+     * ═════════════════════════════════════════════════════════════════════
+     * M3.4 — DER LINK FUEHRT DORTHIN, WO DER MENSCH HINGEHOERT
+     * ═════════════════════════════════════════════════════════════════════
+     * Hier stand `${BASE_URL}?reset=...` fuer JEDEN. Das Zuruecksetzen selbst
+     * lebt in `js/pages/landing.js` — der Unternehmens-Landeseite. Ein
+     * Arbeiter kam also nach dem Neusetzen genau dort an, und seit F12
+     * (Arbeiter-Sichtbarkeit) sieht er dort nichts mehr: kein Hub, keine
+     * Karten, kein Weg ins Einsatzportal. Der Weg funktionierte und endete im
+     * Nichts.
+     *
+     * Das Portal traegt seinen eigenen Zuruecksetzen-Bereich (worker-login.html,
+     * Phase 4) — dieselbe Route, dieselbe Frist, andere Tuer.
+     */
+    const istArbeiter = String(u.role || "").trim().toLowerCase() === "worker";
+    const resetUrl = istArbeiter
+      ? `${BASE_URL}/worker-login.html?reset=${resetToken}`
+      : `${BASE_URL}?reset=${resetToken}`;
     await sendMail(
       u.email,
       "TempConnect: Passwort zurücksetzen",
@@ -375,7 +445,7 @@ export function createAuthRouter(deps) {
      <p><a href="${resetUrl}" style="background:#635bff;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">Neues Passwort setzen</a></p>
      <p style="margin-top:20px;color:#666">Der Link ist 1 Stunde gültig.</p>
      <p style="color:#666">Falls du keine Zurücksetzung angefordert hast, ignoriere diese E-Mail.</p>`
-    );
+    , { zweck: "passwort-zuruecksetzen" });
     res.locals.audit = { action: "auth.forgot_password", entity_type: "user", action_type: "SECURITY", details: { email } };
     res.json({ ok: true, message: "Falls ein Konto existiert, wurde eine E-Mail gesendet." });
   }));
@@ -402,7 +472,7 @@ export function createAuthRouter(deps) {
       u.email,
       "TempConnect: Passwort wurde geändert",
       `<h2>Passwort geändert</h2><p>Dein Passwort wurde erfolgreich geändert.</p><p>Falls du diese Änderung nicht durchgeführt hast, kontaktiere uns sofort!</p>`
-    );
+    , { zweck: "passwort-geaendert" });
     res.json({ ok: true, message: "Passwort wurde erfolgreich geändert." });
   }));
 
@@ -442,7 +512,14 @@ export function createAuthRouter(deps) {
       const status = result.error === "INVITE_NOT_FOUND"  ? 404
                    : result.error === "INVITE_EXPIRED"    ? 410
                    : result.error === "INVITE_REVOKED"    ? 410
-                   : result.error === "INVITE_ALREADY_USED" ? 409 : 400;
+                   : result.error === "INVITE_ALREADY_USED" ? 409
+                   /* M2.1: 409 und nicht 400 — die Anfrage war formal richtig,
+                    * die Adresse gehoert nur schon einem anderen Konto. Der
+                    * Unterschied entscheidet, ob die Oberflaeche "Eingabe
+                    * pruefen" oder "melden Sie sich mit Ihrem Konto an" sagt. */
+                   : result.error === "EMAIL_EXISTS_OTHER_ROLE" ? 409 : 400;
+      /* Die fremde Rolle NICHT mitschicken: sie verraet einem Unbefugten, dass
+       * es zu dieser Adresse ein Firmenkonto gibt. Der Code genuegt. */
       return res.status(status).json({ error: result.error });
     }
 
@@ -450,6 +527,7 @@ export function createAuthRouter(deps) {
     await new Promise((resolve, reject) => req.session.regenerate((err) => err ? reject(err) : resolve()));
     req.session.userId = result.user.id;
     stampSession(req.session); // P5.1: Hoechstalter zaehlt ab hier
+    vermerkeGeraet(req.session, req.headers?.["user-agent"]);  // 8.1.2: grober Typ, kein roher User-Agent
     req.session.userRole = result.user.role;  // needed by requireWorkerRole gate
     try {
       await trackProductEvent(pool, {
@@ -484,7 +562,7 @@ export function createAuthRouter(deps) {
          <p>Hallo ${result.profile.first_name},</p>
          <p>Ihr Worker-Konto wurde erfolgreich eingerichtet. Sie können sich jetzt im Portal anmelden.</p>
          <p><a href="${BASE_URL}/public/einsatzportal-dashboard.html">Zum Einsatzportal</a></p>`
-      );
+      , { zweck: "konto-eingerichtet" });
     } catch (mailErr) {
       logger.warn({ err: mailErr?.message }, "Worker-Welcome-Mail konnte nicht gesendet werden");
     }

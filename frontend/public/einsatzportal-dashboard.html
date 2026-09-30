@@ -327,6 +327,7 @@ TCi18n.register('de', {
   'ep.dashboard.pend.msgOneClient': 'Ihr Disponent hat Ihnen den Einsatz bei {client} zugewiesen. Bitte bestätigen Sie.',
   'ep.dashboard.pend.msgOne': 'Ihr Disponent hat Ihnen den Einsatz zugewiesen. Bitte bestätigen Sie.',
   'ep.dashboard.pend.msgMany': 'Sie haben {count} offene Einsatz-Bestätigungen.',
+      'ep.dashboard.pend.deadline': 'Antwort bis {deadline} Uhr — danach verfaellt die Anfrage.',
   'ep.dashboard.corr.title': 'Korrektur erforderlich',
   'ep.dashboard.corr.cta': 'Jetzt korrigieren →',
   'ep.dashboard.corr.fallback': 'Bitte überprüfen Sie Ihre Einreichung und korrigieren Sie die Angaben.',
@@ -406,6 +407,7 @@ TCi18n.register('en', {
   'ep.dashboard.pend.msgOneClient': 'Your dispatcher has assigned you to {client}. Please confirm.',
   'ep.dashboard.pend.msgOne': 'Your dispatcher has assigned you a new assignment. Please confirm.',
   'ep.dashboard.pend.msgMany': 'You have {count} pending assignment confirmations.',
+      'ep.dashboard.pend.deadline': 'Reply by {deadline} — after that the request expires.',
   'ep.dashboard.corr.title': 'Correction required',
   'ep.dashboard.corr.cta': 'Correct now →',
   'ep.dashboard.corr.fallback': 'Please review your submission and correct the entries.',
@@ -540,9 +542,17 @@ function render(me) {
   const pend = assignments.filter(a => isCurrentAssignment(a) && a.worker_confirmation_status === 'pending_confirmation');
   if (pend.length > 0) {
     const client = pend[0].client_display_name || pend[0].client_name || '';
-    document.getElementById('pendMsg').textContent = pend.length === 1
+    let pendText = pend.length === 1
       ? (client ? TCi18n.t('ep.dashboard.pend.msgOneClient', { client: client }) : TCi18n.t('ep.dashboard.pend.msgOne'))
       : TCi18n.t('ep.dashboard.pend.msgMany', { count: pend.length });
+    /* Ersatz-Frist (193): die naechste ablaufende Frist steht im Banner. Nur
+       Ersatz-Anfragen tragen eine — bei allen anderen bleibt der Text wie er war. */
+    const befristet = pend.filter(a => a.response_deadline_label)
+      .sort((a, b) => new Date(a.response_deadline_at) - new Date(b.response_deadline_at));
+    if (befristet.length) {
+      pendText += ' ' + TCi18n.t('ep.dashboard.pend.deadline', { deadline: befristet[0].response_deadline_label });
+    }
+    document.getElementById('pendMsg').textContent = pendText;
     document.getElementById('pendBanner').style.display = '';
   }
 

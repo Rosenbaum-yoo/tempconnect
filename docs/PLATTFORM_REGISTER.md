@@ -79,9 +79,10 @@ Grund, warum es die Plattform gibt — alles Weitere hängt daran.
 *Nutzt:* beiden Seiten. Die Zeitarbeitsfirma verkauft Leerlauf, das Unternehmen findet
 Kapazität, ohne zehn Firmen einzeln anzurufen.
 *Beleg:* `api/routes/marketplace.js` (42 Endpunkte), `api/routes/capacityExchange.js` (27),
-`api/routes/listings.js` (5), `api/routes/capacities.js` (5). Oberflächen:
+`api/routes/listings.js` (5), `api/routes/capacities.js` (5),
+`api/routes/schaufenster.js` (1 — ohne Anmeldung lesbar, verdichtet). Oberflächen:
 `capacity_exchange_feed.html`, `capacity_search.html`, `capacity_exchange_form.html`,
-`marketplace_demand_create.html`, `marketplace_demand_list.html`.
+`marketplace_demand_create.html`, `marketplace_demand_list.html`, `schaufenster.html`.
 
 ### 2. Anfragen und Angebote — der Weg zum Abschluss
 
@@ -167,8 +168,8 @@ denselben Vorgang, je nach Rolle: Zeitarbeitsfirma, Kunde, Einreichungsprüfung,
 *Nutzt:* beiden Seiten unmittelbar — ohne bestätigte Stunden gibt es keine Rechnung.
 Der Katalog nennt es „ArbZG-konforme Erfassung, Freigabe und Rechnungsbezug"
 (`api/config/planCatalog.js:321`), ab PLUS.
-*Beleg:* `api/routes/timesheets.js` (21), `api/routes/companyTimesheets.js` (10),
-`api/routes/timesheetTemplates.js` (8). Oberflächen: `timesheets.html`,
+*Beleg:* `api/routes/timesheets.js` (21), `api/routes/companyTimesheets.js` (10).
+Oberflächen: `timesheets.html`,
 `company-timesheets.html`, `worker-submissions-review.html`,
 `einsatzportal-stundenzettel.html`.
 *Hinweis:* Die Vierteilung ist gewollte Rollen-/Prozesstrennung, kein Versehen — ausdrücklich
@@ -225,7 +226,30 @@ Zusagen, Eskalationsstufen greifen, aus einer Zusage wird direkt eine Vereinbaru
 Im Katalog „Notdienst / Emergency Staffing" (`api/config/planCatalog.js:322`), ab PLUS.
 *Beleg:* `api/routes/emergency.js` (11 Endpunkte, inkl. `/emergency/:id/escalate` und
 `/emergency/:id/commitments/:cid/create-agreement`). Oberflächen:
-`capacity_exchange_notdienst.html`, Eingang in `marketplace_demand_detail.html`.
+`capacity_exchange_notdienst.html`, Eingang in `marketplace_demand_detail.html`,
+`notdienst_leitstand.html` (Eingang aus `marketplace_demand_list.html`).
+
+> **Gemessen am 2026-09-05, und die Zahl im Register war zu freundlich.** Von den elf
+> Endpunkten riefen die Oberflächen genau **zwei** auf — beide `:id/commitments`, einmal
+> lesend, einmal schreibend. Neun waren gebaut, geprüft und unerreichbar: die gesamte
+> Übersicht über die eigenen Notlagen, die Kennzahlen, der Verlauf, die Eskalation, die
+> Sofortvereinbarung — und der einzige Weg, eine Teilzusage zurückzunehmen. Eine Agentur,
+> die drei Leute zugesagt und sie verloren hatte, konnte das nirgends sagen; das
+> Unternehmen rechnete weiter mit dreien und merkte es am Einsatztag.
+>
+> Welle N7.4 hat sie verdrahtet und dabei zwei Befunde geschlossen, die nur deshalb so
+> lange stehen konnten, weil niemand die Endpunkte benutzte:
+>
+> * **`POST /emergency/:id/escalate` hatte keine Eigentumsprüfung** — weder in der Route
+>   noch im Dienst. Jeder Angemeldete mit `emergency_staffing` im Tarif konnte jede fremde
+>   Notlage dreimal hochstufen; jede Stufe löst einen E-Mail-Rundruf an bis zu 50 Anbieter
+>   aus. Geschlossen über `canAccessAsOwner`, bewacht von `api/test/notdienstLeitstand.test.js`.
+> * **`GET /emergency/active?all=1` und `/dashboard?all=1` heben die Org-Grenze auf** —
+>   **entschieden und geschlossen am 2026-09-06 (Welle N7.5).** Der Schalter bleibt, weil eine
+>   Agentur sehen muss, wo Not herrscht; er bekam die Zielgruppe, die handeln kann (nur
+>   Agenturen, Tarif bleibt), und eine **Erlaubnisliste** von 22 Feldern statt der 44 Spalten
+>   von `demand_requests`. `contact_name`/`contact_phone`, Budget, Konditionen und Koordinaten
+>   gehen nicht mehr hinaus. Die eigene Organisation sieht unverändert alles.
 
 ### 13. Auswertung und Steuerung
 
@@ -350,6 +374,13 @@ Staff Control Center (`api/routes/staffControlCenter.js`, 104 Endpunkte — grö
 Einzeldatei des Backends), Owner Control Center (`api/routes/occ/`, 31 Endpunkte in 13
 Modul-Routern), Support Center (`api/routes/support.js`, 17 Endpunkte).
 
+Der **Weg hinein** liegt bewusst außerhalb dieser Flächen: `api/routes/supportIntake.js`
+(`/support-requests`) ist die Kundenseite des Support Centers. Sie hängt **nicht** unter dem
+Präfix `/support` — dort steht das Staff-Tor `supportAuth` (`support.js:664`), und eine
+Kundenroute darunter wäre ein Loch, das ab da für alle Routen darunter gälte. Bis dahin hatte
+`support_cases` im gesamten Repo **kein einziges `INSERT`**: das Support Center war ein
+Lesesaal über einer Tabelle, die niemand füllen konnte.
+
 *Nutzt:* dem Betreiber. Für die Investorendarstellung relevant als Beleg, dass der Betrieb der
 Plattform selbst produktisiert ist und nicht per Datenbankkonsole läuft.
 
@@ -382,7 +413,6 @@ der jede Router-Datei gegen dieses Dokument hält. Genau dafür gibt es ihn.
 | `api/routes/preferredVendors.js` | `/preferred-vendors` | Vorzugslieferanten eines Unternehmens verwalten |
 | `api/routes/supplierPools.js` | `/supplier-pools/distribute` | Eine Anfrage an mehrere Zeitarbeitsfirmen gleichzeitig verteilen |
 | `api/routes/capacityDiscovery.js` | `/capacity-discovery/by-role` | Freie Kapazität nach Rolle finden |
-| `api/routes/reports.js` | `/reports` | Auswertungen abrufen |
 | `api/routes/smartPricing.js` | `/pricing/suggest` | Preisvorschlag für ein Angebot |
 
 Das ist **keine Fehlerliste.** Der Code sagt nur, dass keine Oberfläche darauf
@@ -392,7 +422,7 @@ weiß nur der Owner. Die Entscheidung steht unter *Aufräumen*, nicht hier.
 
 ## Nutzerflächen im Einzelnen
 
-89 Nutzerflächen: 77 Dateien in `frontend/public/*.html`, 6 unter `legal/`, 4 unter `trust/`,
+90 Nutzerflächen: 78 Dateien in `frontend/public/*.html`, 6 unter `legal/`, 4 unter `trust/`,
 dazu `frontend/landing.html` und `frontend/demo.html`
 (gezählt: `ls frontend/public/*.html | wc -l` → 77).
 
@@ -418,6 +448,7 @@ Weiterleitung oder für keinen Nutzer erreichbar.
 |---|---|---|---|
 | `enterprise.html` | Zeitarbeitsfirma, Unternehmen | Startseite nach dem Login; Kachelübersicht zu 15 Zielseiten, 12 davon rollenabhängig geschaltet (`data-surface`) | aktiv |
 | `capacity_exchange_feed.html` | Unternehmen, Zeitarbeitsfirma | Marktplatzliste: verfügbares Personal durchsuchen | aktiv |
+| `schaufenster.html` | die Öffentlichkeit, ohne Konto | verdichtete Marktzahlen: wie viel Personal angeboten und gesucht wird, nach Tätigkeit und Ort. Ohne Firmennamen, ohne einzelne Anzeige; Gruppen unter drei Einträgen sind zusammengefasst. Verlinkt aus dem Seitenfuß, also von jeder Seite erreichbar | aktiv |
 | `capacity_search.html` | Unternehmen | Detailsuche nach Rolle, Ort, Verfügbarkeit; plan-gesperrt (`sla_access`) | aktiv |
 | `capacity_exchange_detail.html` | Unternehmen | einzelner Personaleintrag, daraus Anfrage stellen | aktiv |
 | `capacity_exchange_form.html` | Zeitarbeitsfirma | verfügbare Mitarbeiter in den Marktplatz stellen | aktiv |
@@ -426,6 +457,7 @@ Weiterleitung oder für keinen Nutzer erreichbar.
 | `marketplace_demand_create.html` | Unternehmen | Personalbedarf ausschreiben | aktiv |
 | `marketplace_demand_list.html` | Unternehmen | eigene Ausschreibungen mit Status und Reaktionen | aktiv |
 | `marketplace_demand_detail.html` | Unternehmen, Zeitarbeitsfirma | Ausschreibung mit allen eingegangenen Angeboten; hier wird entschieden | aktiv |
+| `notdienst_leitstand.html` | Unternehmen | Leitstand der eigenen Notlagen: offene Faelle mit Alter, SLA-Zustand und Deckung, Eskalation mit Wirkungsvorschau, Verlauf der letzten 30 Tage | aktiv |
 
 ### Anfragen, Angebote, Deals
 
@@ -452,8 +484,9 @@ Weiterleitung oder für keinen Nutzer erreichbar.
 | `worker-submissions-review.html` | beide | zentrale Steuerung: Einsatzkräfte, Stundenzettel, Kundenfreigaben, Nachweise | aktiv |
 | `timesheets.html` | Zeitarbeitsfirma, Unternehmen | Arbeitszeiten eintragen, einreichen, freigeben lassen | aktiv |
 | `company-timesheets.html` | Unternehmen | Stundenzettel-Eingang prüfen, bestätigen oder zurückweisen | aktiv |
+| `company-live-workforce.html` | Unternehmen | Live-Belegschaft: wer gerade im Einsatz ist, Meldungen, Sperrliste (Welle J1, vorher Reiter in `company-timesheets.html`) | aktiv |
+| `monatsplan.html` | Unternehmen **und** Zeitarbeitsfirma | Monatsplanung, **zwei Achsen**: der Monat nach *Einsätzen* (Raster, am Rand angeschnitten statt gekürzt, fünf Konfliktarten) und der Monat nach *Mitarbeitern* (jede Person eine Zeile, die **freie Spanne** ist der Inhalt — auch wer gerade nichts hat). Dazu **Besetzung prüfen**: was bricht, *wenn* diese Person auf diesen Einsatz kommt. Die Spur wird aus `organizations.type` abgeleitet, nicht erfragt (Wellen K3.3–K3.7) | aktiv |
 | `approvals.html` | Unternehmen | alles, was auf eine Entscheidung wartet | aktiv |
-| `timesheet-templates.html` | Unternehmen | wiederverwendbare Vorlagen für die Zeiterfassung | **tot** |
 
 ### Einsatzportal (Einsatzkräfte)
 
@@ -501,7 +534,41 @@ Weiterleitung oder für keinen Nutzer erreichbar.
 | `company_profile_public.html` | öffentlich, Kunden | Visitenkarte einer Firma inkl. Bewertungen und Kooperationsanfrage | aktiv |
 | `activity.html` | beide | Posteingang der Plattform; von der Glocke jeder Seite erreichbar (`js/pageShell.js:444`) | aktiv |
 
+> **Fähigkeiten: eine Achse, zwei Listen (Stand 2026-09-06).** Beide Marktseiten wählen
+> Fähigkeiten seit Welle N1 aus `platform_skills` (162 Einträge, 14 Kategorien, mit
+> Schreibvarianten) — vorher war es auf beiden Seiten Freitext, und Freitext ist keine
+> gemeinsame Achse. Der Wähler ist ein eigenständiges Bauteil
+> (`frontend/public/js/skillPicker.js`), das seine Gestalt selbst mitbringt.
+>
+> **Erledigt in Welle N1b (2026-09-06):** die zweite, fest verdrahtete Liste in
+> `mitarbeiter.js` ist entfernt. Von ihren 142 Begriffen standen **33** im Katalog und
+> **109 nicht** — wer dort ein Profil pflegte, wählte aus einer anderen Menge als der Markt
+> und schrieb obendrein nur eine Wortliste ins Profil, so dass `worker_profile_skills` leer
+> blieb und der Angebotsgenerator den Menschen nie in den Markt brachte. Alle **fünf**
+> Flächen wählen jetzt aus `platform_skills`; erzwungen durch
+> `api/test/eineAchseFuerFaehigkeiten.test.js`, das über **alle** Seiten nach tippbaren
+> Fähigkeitsfeldern sucht.
+
 ### Hilfe, Vertrauen, Recht
+
+> **Gemessen am 2026-09-06 — eine Schreibweise, die einen Wächter blind machte.**
+> Zeilen dieser Tabellen nennen die Seite mal blank (`` `about.html` ``), mal mit
+> Pfad (`` `frontend/public/about.html` ``). Beides liest sich gleich gut. Aber
+> `api/test/erreichbarkeit.test.js` erkannte nur die blanke Form — sein Muster
+> lässt keinen Schrägstrich zu — und übersprang **17 Zeilen**, darunter fünf
+> lebende Seiten direkt unter `frontend/public/`: `pricing.html`, `about.html`,
+> `onepager.html`, `onboarding.html`, `whats-new.html`. Für die Prüfung „kein
+> Feature, das nur seine URL kennt" gab es diese fünf nicht.
+>
+> Aufgefallen beim Eintragen von `notdienst_leitstand.html` — und zwar erst im
+> zweiten Anlauf: die erste Messung suchte selbst nach der blanken Form und
+> „fand" drei fehlende Seiten, die längst eingetragen waren. Derselbe Denkfehler
+> zweimal hintereinander, einmal im Wächter und einmal in der Messung.
+>
+> Der Wächter schlüsselt jetzt nach Dateinamen auf, gleich welche Schreibweise
+> die Zeile wählt, und eine eigene Probe hält fest, dass er die Form mit Pfad
+> wirklich sieht.
+
 
 | Seite | Für wen | Wozu | Zustand |
 |---|---|---|---|
@@ -549,7 +616,7 @@ Alle neun bestehen aus 14 nicht-leeren Zeilen mit einem `<meta http-equiv="refre
 > Zustandsprotokolls 04:00).
 
 
-Hintergrundarbeit läuft über vier BullMQ-Warteschlangen mit Redis. **Ohne Redis startet die
+Hintergrundarbeit läuft über fünf BullMQ-Warteschlangen mit Redis. **Ohne Redis startet die
 Anwendung weiterhin, aber es läuft nichts von allein** — die Warteschlangen werden dann gar
 nicht erst erzeugt (`api/queue/queues.js`, `getOrCreate` gibt `null` zurück;
 `api/workers/index.js:41-44` protokolliert „Redis not configured — background workers disabled").
@@ -564,11 +631,31 @@ Abschnitts.
 | **Verfallslauf Marktplatz** (`capacity-expiry`) | täglich 03:00 | Abgelaufene Angebote und Bedarfe bleiben auf `active`. Der Marktplatz zeigt Personal an, das es nicht mehr gibt — der direkteste Weg, das Vertrauen in die Liste zu verlieren. Beleg: `api/workers/index.js:28` |
 | **Überfälligkeitsprüfung** (`capacity-stale-check`) | täglich 03:30 | Einträge, die zur Bestätigung anstehen, werden nicht gemeldet; die Liste veraltet unbemerkt. Beleg: `api/workers/index.js:29-30` |
 | **Aufbewahrung Zustandsprotokoll** (`worker-status-events-retention`) | täglich 04:00, Frist 24 Monate | Die Ereignistabelle wächst unbegrenzt. Abgesichert: die Frist steht zusätzlich als Datenbankfunktion (`SELECT worker_status_events_aufraeumen();`, Migration 179) und ist jederzeit von Hand auslösbar. Beleg: `api/workers/index.js:32-38` |
+| **Wiederkehrende Abo-Rechnungen** (`betrieb`-Queue, `recurring-billing`) | täglich 02:10 | Es entsteht keine Folgerechnung; die Einnahmenseite läuft nur, soweit jemand von Hand auslöst. **Steht zusätzlich unter `RECURRING_BILLING_ENABLED` (Vorgabe AUS)** — der Takt läuft dann, meldet `disabled` und erzeugt nichts. Beleg: `api/workers/betriebsWorker.js` → `api/services/betriebsTaktLaeufe.js` |
+| **Fälligkeit der Rechnungen** (`invoice-overdue-scan`) | täglich 02:20 | Fällige Rechnungen bleiben auf `issued`. `overdue` ist ein gültiger Zustand, den sonst nichts je setzt — und daran hängt die gesamte Mahnstrecke. Beleg: `api/workers/betriebsWorker.js` |
+| **Mahnstrecke** (`dunning-sweep`) | täglich 02:40 | Überfällige Rechnungen werden nicht angemahnt, der Hard-Lock bei Zahlungsausfall greift nie. **Steht zusätzlich unter `DUNNING_ENABLED` (Vorgabe AUS)** — die folgenreichste der fünf, jeder Lauf kann Post an einen zahlenden Kunden auslösen. Beleg: `api/workers/betriebsWorker.js` |
+| **Abo-Wirksamkeit zum Stichtag** (`subscription-lifecycle-tick`) | stündlich :05 | Ein Abo mit zukünftigem Beginn wird nie von selbst wirksam, eine Kündigung nie vollzogen — der Kunde hat bezahlt und wartet. Beleg: `api/workers/betriebsWorker.js` |
+| **Verfall von Reservierungen** (`expire-reservations`) | stündlich :35 | Abgelaufene Reservierungen bleiben `active`; Kapazität bleibt gebunden, die niemand mehr braucht. Beleg: `api/workers/betriebsWorker.js` |
+| **Wiedervorlage Einladungen** (`einladung-erinnerung`) | täglich 09:00 | Eine nicht angenommene Portal-Einladung verfällt nach sieben Tagen, ohne dass jemand davon erfährt. Erinnert wird, was in 48 h abläuft — genau einmal je Einladung. Beleg: `api/workers/betriebsWorker.js` → `workerService.sendeEinladungsErinnerungen` |
 
-**Einplanung ist neustartfest.** Die drei Tagesläufe werden über `upsertJobScheduler` mit fester
-Kennung eingeplant und verdoppeln sich bei einem Neustart nicht (`api/workers/index.js:24-38`).
-Der Kommentar an dieser Stelle hält fest, dass es den Capacity-Worker vorher schon gab, aber
-nichts die Jobs eingeplant hat — der Verfallslauf lief nie.
+**Einplanung ist neustartfest.** Alle wiederkehrenden Läufe werden über `upsertJobScheduler`
+mit fester Kennung eingeplant und verdoppeln sich bei einem Neustart nicht. Der Kommentar an
+dieser Stelle hält fest, dass es den Capacity-Worker vorher schon gab, aber nichts die Jobs
+eingeplant hat — der Verfallslauf lief nie.
+
+**Die fünf Läufe der `betrieb`-Queue sind seit dem 2026-09-04 eingeplant** (Owner-Entscheid,
+M1.9). Vorher hatten sie nur einen internen HTTP-Endpunkt, den niemand rief. Der Ablauf steht
+**einmal** in `api/services/betriebsTaktLaeufe.js` — Endpunkt und Takt teilen ihn, damit der
+Takt die beiden Kill-Switches nicht umgehen kann. Die Nachtreihenfolge ist bewusst gewählt:
+erzeugen (02:10) → fällig setzen (02:20) → mahnen (02:40); umgekehrt bräuchte jede Stufe einen
+Tag Vorlauf.
+
+**Ob ein Lauf wirklich läuft, ist ablesbar.** Jeder Arbeiter schreibt einen Herzschlag in
+`betriebs_takt` (`api/utils/metrics.js`, `instrumentWorker`), das Soll steht in
+`betriebsTaktService.TAKTE`, und die Kachel im Staff Control Center zeigt jede Aufgabe, die
+länger schweigt als das Dreifache ihres Intervalls — **auch die, die noch nie lief**, denn die
+hat keine Zeile und wird von jeder Auswertung übersehen, die von der Tabelle statt von der
+Erwartung ausgeht.
 
 **Kein zweiter Taktgeber.** Es gibt keine `setInterval`-basierte Hintergrundarbeit in
 `api/server.js`, `api/app.js` oder `api/services/*.js` (geprüft, null Treffer). Alles
@@ -630,15 +717,19 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | davon Owner Control Center | 31 | dieselbe Zählung, beschränkt auf `api/routes/occ/` (13 Modul-Router) |
 | davon Staff Control Center | 104 | `api/routes/staffControlCenter.js` — größte Einzeldatei |
 | Router-Dateien | 83 | `ls api/routes/ \| wc -l` (inkl. Verzeichnis `api/routes/occ/`) |
-| Service-Dateien | 175 | `ls api/services/ \| wc -l` |
-| Datenbanktabellen | **180** | eindeutige `CREATE TABLE`-Namen in `sql/init.sql` + `sql/migrations/*.sql`, bereinigt um einen Treffer aus einem deutschen Kommentar. Davon 4 aus dem Grundschema (`users`, `listings`, `requests`, `subscriptions`), 176 aus Migrationen |
-| Migrationsdateien | **190** | `ls sql/migrations/*.sql \| wc -l` — nummeriert `001_ratings.sql` bis `186_guthaben_nur_gegen_zahlung.sql`; neun Nummern sind doppelt belegt (`027`/`027b`, `045`/`045b`, `064`, `070`, `074`, `075`, `086`, `130`, `140`). `NUMBERING.md` ist keine Migration |
-| Nutzerflächen | **89** | 77 in `frontend/public/*.html` + 6 `legal/` + 4 `trust/` + `frontend/landing.html` + `frontend/demo.html` |
+| Service-Dateien | 200 | `ls api/services/ \| wc -l` |
+| Datenbanktabellen (deklariert) | **190** | Nachgerechnet am 2026-09-27. Die Regel steht hier, damit die Zahl reproduzierbar ist: `CREATE TABLE`-Namen am Zeilenanfang in **allen** Dateien, die `sql/migrate.sh` anwendet (`ls /migrations/*.sql \| sort`) plus `sql/init.sql`, eindeutig, in Aussage-Reihenfolge, minus die per `DROP TABLE` wieder entfernten (genau eine: `reports`, Migration 191). Zwei Fallen, in die eine erste Messung beide getappt ist und die deshalb hier stehen: (1) **nicht** `^[0-9]{3}_` als Dateimuster erfinden — `027b_timesheets.sql` und `045b_reputation_visibility.sql` tragen einen Buchstaben und fielen heraus, wodurch `timesheets` als undeklariert erschien; (2) CREATE und DROP in der Reihenfolge lesen, in der sie im Text stehen — wer erst alle CREATEs und dann alle DROPs verarbeitet, macht aus einer Neuanlage (`DROP IF EXISTS x; CREATE x`) eine Entfernung |
+| davon deklariert, aber in der Datenbank fehlend | **0** | Gemessen am 2026-09-27, nach Migration 223 (`feature_overrides`) und 224 (`vendor_pool_notes`). Genau die Richtung, die Welle Z abarbeitet — sie ist damit leer |
+| Tabellen in der laufenden Datenbank | **197** Tabellen **+ 1 Sicht** | Aus `api/test/fixtures/schema.json` (erzeugt von `api/scripts/schema-snapshot.js`). Die Aufschluesselung ist nicht Zierde: der Schnappschuss fuehrt Sichten in `tabellen` MIT (er liest `information_schema.columns`, und dort steht eine Sicht mit ihren Spalten wie eine Tabelle) und zusaetzlich in `sichten`. Wer die 198 Eintraege „Tabellen“ nennt, zaehlt etwas anderes, als der Name sagt — die eine Sicht ist `activity_feed`, deklariert in `025_enterprise_foundation.sql` als `CREATE OR REPLACE VIEW` |
+| davon von keiner Migration deklariert | **7**, alle erklaert | **Kein Befund, aber aufschreibenswert.** Drei entstehen ausserhalb des Migrationswegs und sollen es: `session` und `staff_session` legt `connect-pg-simple` mit `createTableIfMissing: true` an (`api/app.js:316/322`), `_migrations` legt `migrate.sh` selbst an, bevor die erste Migration laeuft. Vier sind Waisen aus zusammengefuehrten Alt-Migrationen, die **kein Produktionscode** anfasst und die **alle leer** sind (gemessen ueber `pg_stat_user_tables`: 0 Zeilen): `agency_api_keys`, `reviews`, `usage_counters`, `email_verification_tokens`. Eine frische Installation legt diese vier nicht an, und niemand merkt es — eine Aufraeumung ist risikofrei, aber `email_verification_tokens` erst NACH Z10: sie ist der einzige Ort im Schema, an dem die Absicht „gehasht, ausdruecklich einmalig“ aufgeschrieben ist, und Z10 setzt genau diese Absicht an `users.reset_token` um. Erzwungen von `api/test/migrationenGegenBestand.test.js` |
+| Migrationsdateien | **229** | `ls sql/migrations/*.sql \| wc -l` — nummeriert `001_ratings.sql` bis `225_frische_installation_kennt_den_disponenten.sql`; neun Nummern sind doppelt belegt (`027`/`027b`, `045`/`045b`, `064`, `070`, `074`, `075`, `086`, `130`, `140`). `NUMBERING.md` ist keine Migration |
+| Nutzerflächen | **90** | 78 in `frontend/public/*.html` + 6 `legal/` + 4 `trust/` + `frontend/landing.html` + `frontend/demo.html`. Am 26.08. nachgezählt: die vorherige **89** hinkte der eigenen Liste nach (A1 des Wächters bestand, nur die Summe war alt) — die Korrektur ist größer als der Abzug für die gelöschte Vorlagenseite |
 | davon reine Weiterleitungen | 9 | je 14 nicht-leere Zeilen, reiner Meta-Refresh |
 | davon Attrappen | 3 | `sla_nachweise.html`, `impressum.html`, `datenschutz.html` (Wurzel) |
-| davon für keinen Nutzer erreichbar | 1 | `timesheet-templates.html` — null eingehende Verweise in `frontend/`, `api/`, `nginx/`, `e2e/` |
-| Backend-Testdateien | 340 | `ls api/test/*.test.js \| wc -l` |
-| E2E-Testdateien | 17 | `ls e2e/tests/ \| wc -l` |
+| davon für keinen Nutzer erreichbar | **0** | war 1 (timesheet-templates.html); am 26.08. entfernt — siehe Liste A, A1 |
+| Backend-Testdateien | <!--zahl:backend-testdateien-->500<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
+| E2E-Testdateien | <!--zahl:e2e-testdateien-->17<!--/zahl--> | `ls e2e/tests/ \| wc -l` |
+| Ablauf-Proben (datenbankgebunden) | <!--zahl:ablaufproben-->52<!--/zahl--> | `ls api/test/integration/*.flow.test.js \| wc -l` |
 | Rollen im Rechtemodell | 12 | `ROLE_HIERARCHY` in `api/services/rbacService.js:9-22` |
 | Benannte Berechtigungen | 63 | `PERMISSIONS` in `api/services/rbacService.js:25 ff.` |
 | Benachrichtigungs-Ereignistypen | 46 | Schlüssel in `MATRIX`, `api/services/notificationMatrix.js` |
@@ -655,9 +746,18 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 >
 > **Eine Zahl, die hier bewusst fehlt:** die Gesamtzahl grüner Tests. Sie steht in mehreren
 > Projektdokumenten (3979+), wurde für dieses Register aber **nicht** nachgerechnet, weil das
-> einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die 340 Testdateien und
-> 17 E2E-Dateien. Wer die Testzahl in ein Investorendokument schreibt, muss sie vorher unter
-> `api/scripts/run-tests.js` real erzeugen.
+> einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die <!--zahl:backend-testdateien-->500<!--/zahl--> Testdateien,
+> <!--zahl:e2e-testdateien-->17<!--/zahl--> E2E-Dateien und <!--zahl:ablaufproben-->52<!--/zahl--> datenbankgebundene Ablauf-Proben. Wer die Testzahl in ein
+> Investorendokument schreibt, muss sie vorher unter `api/scripts/run-tests.js`
+> real erzeugen.
+>
+> **Warum die Ablauf-Proben seit dem 27.09. eigens gezählt werden:** sie standen
+> vorher in keiner Zahl dieses Registers, obwohl sie den Nachweis tragen, den die
+> übrigen nicht führen können. Ein Muster-Pool nimmt jede Abfrage an — sämtliche
+> Befunde der Welle Z (Code schreibt gegen Spalten, die es nicht gibt) waren an
+> ihm vorbei grün und nur an einer echten Datenbank sichtbar. Ein Register, das
+> die Proben nicht führt, die den Beweis tragen, beschreibt seinen eigenen
+> Nachweis zu klein.
 
 ---
 
@@ -669,16 +769,22 @@ steht jeweils dabei.
 
 ### Liste A — kann sofort weg (verifiziert unreferenziert)
 
-**A1 · `frontend/public/timesheet-templates.html` — löschen. Backend im selben Zug entscheiden.**
-Null eingehende Verweise im gesamten realen Baum (`frontend/`, `api/`, `nginx/`, `e2e/`;
-die Kopien unter `.claude/worktrees/` und das temporäre Stryker-Verzeichnis (nur während eines Laufs vorhanden) sind ausgenommen). Kein
-nginx-Eintrag, kein Test, keine Navigation. Die Seite funktioniert technisch, ist aber für
-keinen Nutzer erreichbar. Zusätzlich dokumentiert `docs/FRONTEND_REIFEGRAD_AUDIT.md:128` einen
-verifizierten Stored-XSS-Pfad genau dort (Ursache: `esc()` in
-`frontend/public/timesheet-templates.html:200` escapt keine Anführungszeichen).
-*Wichtig:* `api/routes/timesheetTemplates.js` (8 Endpunkte, PLUS-Gate) ist **nicht** mit tot.
-Wer nur die HTML löscht, lässt acht verwaiste Endpunkte stehen. Entweder verlinken und härten
-oder beides entfernen — der jetzige Zustand ist Risiko ohne Nutzen.
+**~~A1 · frontend/public/timesheet-templates.html~~ — ERLEDIGT am 2026-08-26 (Owner-Entscheid).**
+Beides entfernt, wie es diese Zeile verlangt hat: Seite, api/routes/timesheetTemplates.js
+(8 Endpunkte), api/services/timesheetTemplateService.js und die zwei Mock-Testdateien.
+Die drei Tabellen (`timesheet_templates`, `_fields`, `_assignments`) bleiben stehen.
+
+Bei der Vorschau vor dem Löschen kam heraus, dass die Sache schlimmer war als hier notiert:
+Die Seite *funktionierte* nicht „technisch“ — sie zeigte **Ladefehler 500**. Der Dienst fragte
+`timesheet_templates.is_default` ab, eine Spalte, die dort nicht existiert; sie liegt auf
+`timesheet_template_assignments` (Migration 033, Z. 144). Postgres sagt es wörtlich:
+*„Perhaps you meant to reference the column tta.is_default“*. Acht Fundstellen im Dienst.
+
+Folge: Auflisten warf, **Anlegen warf ebenfalls** — die Tabelle hatte deshalb dauerhaft
+**0 Zeilen**. Es konnte nie jemand eine Vorlage anlegen. In `timesheetService.js:462` verschluckte
+ein blosses catch (Vermerk: die Vorlage sei optional) den SQL-Fehler samt dieser Tatsache; die
+Mock-Tests waren grün, weil ein Mock keine Spaltennamen prüft. Der hier genannte
+Stored-XSS-Pfad (`esc()` escapte keine Anführungszeichen) ist mit der Seite verschwunden.
 
 **A2 · Acht Weiterleitungen — als Paket löschen, mit ihren Wächtern.**
 `capacity_exchange.html`, `marketplace_capacity_create.html`, `worker-timesheet.html`,
@@ -804,8 +910,10 @@ als produktiv („Company | PLUS+ | ✅") obwohl für niemanden erreichbar, und 
 als „Enterprise-Landingpage, Public" — tatsächlich ist das der eingeloggte Arbeitsbereich mit
 Plan-Sperre. Als Quelle für eine Bedienungsanleitung erst brauchbar, wenn korrigiert.
 
-**E4 · Aufwand für eine unerreichbare Seite.** `docs/design/EDITORIAL_THEME_ROLLOUT.md:197`
-und `:283` führen `timesheet-templates.html` als Reskin-Kandidaten mit Aufwandsschätzung.
+**~~E4 · Aufwand für eine unerreichbare Seite.~~ — gegenstandslos seit 26.08.**
+`docs/design/EDITORIAL_THEME_ROLLOUT.md:197` und `:283` führen timesheet-templates.html
+als Reskin-Kandidaten mit Aufwandsschätzung. Die Seite ist entfernt (Liste A, A1) — der
+veranschlagte Aufwand entfällt ersatzlos.
 
 **E5 · Grüner Test, offene Lücke — Übersetzung.** `organization.html`, `sso_config.html`,
 `system-health.html` und `timesheet-templates.html` binden `js/i18n.js` nicht ein und bleiben
@@ -854,7 +962,7 @@ Ehrlichkeit über die eigenen Grenzen gehört in ein Dokument, das später an In
    `docs-consistency`-Test existiert, der tote Verweise und verwaiste Dateien rot werden lässt,
    veraltet diese Datei still. Vorbild für die Mechanik: `api/test/flaechenZuordnung.test.js`.
 
-2. **Die Testzahl ist nicht nachgerechnet.** Belegt sind 340 Backend-Testdateien und 17
+2. **Die Testzahl ist nicht nachgerechnet.** Belegt sind <!--zahl:backend-testdateien-->500<!--/zahl--> Backend-Testdateien und <!--zahl:e2e-testdateien-->17<!--/zahl-->
    E2E-Dateien. Die in mehreren Projektdokumenten genannte Gesamtzahl grüner Tests (3979+)
    wurde für dieses Register **nicht** verifiziert — dazu wäre ein vollständiger Suite-Lauf
    unter `api/scripts/run-tests.js` nötig gewesen. Wer sie in eine Investorendarstellung
@@ -873,7 +981,7 @@ Ehrlichkeit über die eigenen Grenzen gehört in ein Dokument, das später an In
    Bedienungsanleitung des Teams braucht es einen eigenen Durchgang in derselben Tiefe wie für
    die Kundenfläche.
 
-5. **Die Datenbank ist nur gezählt, nicht beschrieben.** 180 Tabellen und 190 Migrationsdateien
+5. **Die Datenbank ist nur gezählt, nicht beschrieben.** 180 Tabellen und 207 Migrationsdateien
    sind belegt; welche Tabellen tot sind, welche redundant, welche ohne Index auf einem heißen
    Lesepfad liegen — offen. Ein Schema-Register wäre der nächste sinnvolle Schritt
    (`api/scripts/schema-snapshot.js` existiert bereits als unversionierte Arbeitsdatei).

@@ -74,9 +74,23 @@
     <hr class="ds-divider"/>
 
     <!-- ── Story-Sektionen (P7a): alternierend ½ Text / ½ Visual ──
-         Visuals sind token-basierte SVG-Illustrationen (theme-fähig, DSGVO-frei);
-         sie werden in Phase 7c durch freigegebene KI-Bilder ersetzt (data-motif
-         beschreibt das Ziel-Motiv). -->
+         Das ausgelieferte Visual ist die token-basierte SVG-Illustration
+         (theme-fähig, DSGVO-frei, kein Netzwerk-Request). Phase 7c ersetzt sie
+         durch freigegebene KI-Bilder; `data-motif` und `data-alt` sind die
+         Spezifikation dafür — Motiv, Zieldatei und Prompt stehen 1:1 in
+         docs/mockups/LANDING_KI_BILD_PROMPTS.md.
+
+         KEIN `data-img`, solange die Bilddatei nicht im Repo liegt.
+         landing.js probt jedes `data-img` beim Laden mit einem `new Image()`.
+         Zeigt es auf eine fehlende Datei, kostet das eine echte Anfrage pro
+         Figure auf der meistbesuchten Seite — und der Server liefert darauf
+         nicht etwa 404, sondern die Startseite selbst zurück (Soft-404).
+         Gemessen am 2026-08-22: 4 × HTTP 200 mit je 71 KB Landing-HTML.
+
+         Das Zurückverdrahten ist EINE Zeile pro Figure und wird nicht vergessen:
+         api/test/assetWaechter.test.js wird rot, sobald eine Bilddatei unter
+         frontend/public/img/landing/ liegt, deren `data-img` hier fehlt — und
+         ebenso, sobald ein `data-img` auf etwas zeigt, das es nicht gibt. -->
 
     <!-- A · Personaldienstleister: Multi-Skill-Fan-out (Visual rechts) -->
     <section class="story" id="story-dienstleister">
@@ -94,7 +108,6 @@
           <button onclick="selectLandingPlan('BASIS','agency')" class="ds-btn ds-btn--primary">Als Personaldienstleister starten</button>
         </div>
         <figure class="story__visual" data-motif="Eine Person, viele Rollen (Triptychon)"
-                data-img="/public/img/landing/story-multiskill.webp"
                 data-alt="Dieselbe Fachkraft in drei Einsätzen: Lagerhalle, Pflegestation, Werkbank">
           <svg viewBox="0 0 480 360" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <circle cx="240" cy="130" r="46" style="fill:var(--ds-brand-muted);stroke:var(--ds-brand);stroke-width:2.5"/>
@@ -139,7 +152,6 @@
           <button onclick="selectLandingPlan('PLUS','company')" class="ds-btn ds-btn--primary">Als Einsatzunternehmen starten</button>
         </div>
         <figure class="story__visual" data-motif="Ankunft der Fruehschicht im Morgengrauen"
-                data-img="/public/img/landing/story-notdienst.webp"
                 data-alt="Ein Team in Warnwesten betritt im Morgengrauen eine Logistikhalle">
           <svg viewBox="0 0 480 360" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <circle cx="150" cy="150" r="86" style="fill:none;stroke:var(--ds-border);stroke-width:3"/>
@@ -179,7 +191,6 @@
           <a href="/demo.html" class="ds-btn ds-btn--primary">Den Workflow in der Demo sehen</a>
         </div>
         <figure class="story__visual" data-motif="Disposition ueber die Schulter (Live-Board)"
-                data-img="/public/img/landing/story-workflow.webp"
                 data-alt="Blick über die Schulter einer Disponentin auf ein Planungs-Board">
           <svg viewBox="0 0 480 360" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <g style="stroke:var(--ds-border);stroke-width:1.6">
@@ -220,7 +231,6 @@
           <a href="/public/about.html" class="ds-btn">Mehr über TempConnect</a>
         </div>
         <figure class="story__visual" data-motif="Der Handschlag (anonym wird Team)"
-                data-img="/public/img/landing/story-vertrauen.webp"
                 data-alt="Zwei Menschen geben sich in einer Werkshalle die Hand, warmes Gegenlicht">
           <svg viewBox="0 0 480 360" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path d="M150 60l64 22v44c0 44-26 72-64 88-38-16-64-44-64-88V82z" style="fill:var(--ds-brand-muted);stroke:var(--ds-brand);stroke-width:2.5"/>

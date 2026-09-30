@@ -28,8 +28,23 @@ export async function getTierDefinitions(pool) {
   return TIER_FALLBACK;
 }
 
-/** Get user's current tier from DB. */
-export async function getUserTier(pool, userId) {
+/**
+ * Die Stufe eines Nutzers — MIT Befund, ob die Abfrage ueberhaupt durchkam.
+ *
+ * WARUM ES DIESE ZWEITE FASSUNG GIBT (Welle K1.1)
+ * `getUserTier` faengt seinen eigenen Fehler ab und liefert `null`. Fuer den
+ * Aufrufer ist "die Datenbank hat nicht geantwortet" damit nicht von "hat noch
+ * keine Stufe" zu unterscheiden — und beides fuehrt zum Deckel 8 %. Bei einem
+ * Diamant-Kunden (25 %) ist das ein Geldfehler ohne jede Spur: kein Log, kein
+ * Eintrag, nichts.
+ *
+ * Das Verhalten bleibt unveraendert (der Rueckfall ist weiterhin `null` bzw. 8) —
+ * neu ist nur, dass der Aufrufer den Unterschied ERFAHREN kann. Genau darum
+ * geht es in dieser Welle: die Zahlen bleiben, die Blindheit endet.
+ *
+ * @returns {Promise<{ tier: object|null, fehler: string|null }>}
+ */
+export async function getUserTierMitBefund(pool, userId) {
   try {
     const { rows } = await pool.query(
       `SELECT ubt.*, bt.name_de, bt.icon, bt.color, bt.bg_color, bt.max_discount_pct, bt.sort_order, bt.conditions
@@ -38,15 +53,33 @@ export async function getUserTier(pool, userId) {
        WHERE ubt.user_id = $1`,
       [userId]
     );
-    if (rows.length > 0) return rows[0];
-  } catch { /* table may not exist */ }
-  return null;
+    return { tier: rows.length > 0 ? rows[0] : null, fehler: null };
+  } catch (e) {
+    /* table may not exist — der Rueckfall bleibt, aber er ist jetzt benennbar. */
+    return { tier: null, fehler: e?.message || "TIER_LOOKUP_FAILED" };
+  }
+}
+
+/** Get user's current tier from DB. */
+export async function getUserTier(pool, userId) {
+  return (await getUserTierMitBefund(pool, userId)).tier;
+}
+
+/**
+ * Der Deckel eines Nutzers — MIT Befund. Siehe `getUserTierMitBefund`.
+ *
+ * @returns {Promise<{ maxPct: number, fehler: string|null }>}
+ */
+export async function getUserMaxDiscountMitBefund(pool, userId) {
+  const { tier, fehler } = await getUserTierMitBefund(pool, userId);
+  // `tier` kommt mit: sonst muesste jeder, der Deckel UND Stufenname braucht,
+  // dieselbe Abfrage ein zweites Mal stellen.
+  return { maxPct: tier ? Number(tier.max_discount_pct) : 8, fehler, tier };
 }
 
 /** Get user's current tier max discount (for capping). Returns 8 if no tier. */
 export async function getUserMaxDiscount(pool, userId) {
-  const tier = await getUserTier(pool, userId);
-  return tier ? Number(tier.max_discount_pct) : 8;
+  return (await getUserMaxDiscountMitBefund(pool, userId)).maxPct;
 }
 
 /**

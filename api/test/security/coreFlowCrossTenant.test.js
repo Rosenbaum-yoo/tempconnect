@@ -35,7 +35,6 @@ import { createRequisitionsRouter }  from "../../routes/requisitions.js";
 import { createWorkersRouter }       from "../../routes/workers.js";
 import { createSuppliersRouter }     from "../../routes/suppliers.js";
 import { createAgencyPortalRouter }  from "../../routes/agencyPortal.js";
-import * as templateSvc              from "../../services/timesheetTemplateService.js";
 import * as emergencyCommitmentService from "../../services/emergencyCommitmentService.js";
 import * as dealAgreementService     from "../../services/dealAgreementService.js";
 import * as capacityExchangeService  from "../../services/capacityExchangeService.js";
@@ -670,14 +669,16 @@ describe("CORE-ISO: agency submissions — mutation org-boundary (IDOR-Fix)", ()
   });
 });
 
-// ── Timesheet templates: service-layer org-scoping ──────────────────────────
+// ── Timesheet templates ── ENTFERNT am 2026-08-26 (Owner-Entscheid) ──────────
 //
-// timesheetTemplates erzwingt Isolation im SERVICE: jede by-id-Operation ist auf
-// supplier_org_id gebunden (getTemplate: WHERE id AND supplier_org_id; update
-// pre-checkt via getTemplate -> NOT_FOUND; delete: DELETE WHERE id AND
-// supplier_org_id). Wir beweisen, dass der Org-Filter real angewendet wird
-// (SQL-Parameter-Test) und eine fremde Org NOT_FOUND statt einer erfolgreichen
-// Cross-Org-Mutation bekommt.
+// Hier standen zwei Proben zur Org-Isolation von timesheetTemplateService. Der
+// Dienst ist entfernt: er fragte timesheet_templates.is_default ab, eine Spalte,
+// die dort nicht existiert — Auflisten UND Anlegen warfen, die Tabelle hatte
+// dauerhaft 0 Zeilen. Die Proben waren gruen, weil ein Mock keine Spaltennamen
+// prueft; sie belegten eine Isolation an einem Weg, den nie jemand gehen konnte.
+//
+// Es fehlt dadurch KEINE Abdeckung: es gibt nichts mehr zu isolieren. Der
+// Hilfspool `recordingPool` bleibt — zwei andere Abschnitte nutzen ihn.
 
 /** Pool, der Queries aufzeichnet und inhaltsabhängig antwortet. */
 function recordingPool(handler) {
@@ -690,35 +691,6 @@ function recordingPool(handler) {
     }
   };
 }
-
-describe("CORE-ISO: timesheet templates — service org-scoping", () => {
-  it("updateTemplate: fremde Org -> NOT_FOUND, Lookup ist org-scoped", async () => {
-    // getTemplate(ORG_B) findet Org-A-Template nicht -> rows:[] -> NOT_FOUND vor jedem UPDATE.
-    const pool = recordingPool((sql) =>
-      /FROM timesheet_templates\b/i.test(sql) ? { rows: [] } : { rows: [], rowCount: 0 }
-    );
-    const result = await templateSvc.updateTemplate(pool, "tmpl-a-001", ORG_B, { name: "tampered" });
-    assert.equal(result.error, "NOT_FOUND", "Org B darf Org-A-Template nicht aktualisieren");
-    const lookup = pool.queries.find(q => /FROM timesheet_templates\b/i.test(q.sql));
-    assert.ok(lookup, "Template-Lookup muss laufen");
-    assert.match(lookup.sql, /supplier_org_id\s*=\s*\$2/, "Lookup muss org-scoped sein");
-    assert.ok(lookup.params.includes(ORG_B), "Lookup muss die Org des Aufrufers binden");
-  });
-
-  it("deleteTemplate: fremde Org -> NOT_FOUND, DELETE auf supplier_org_id gebunden", async () => {
-    const pool = recordingPool((sql) => {
-      if (/timesheet_template_assignments/i.test(sql)) return { rows: [{ cnt: "0" }] }; // nicht in Verwendung
-      if (/DELETE FROM timesheet_templates/i.test(sql)) return { rowCount: 0 };          // Org-Mismatch -> kein Treffer
-      return { rows: [], rowCount: 0 };
-    });
-    const result = await templateSvc.deleteTemplate(pool, "tmpl-a-001", ORG_B);
-    assert.equal(result.error, "NOT_FOUND", "Org B darf Org-A-Template nicht löschen");
-    const del = pool.queries.find(q => /DELETE FROM timesheet_templates/i.test(q.sql));
-    assert.ok(del, "DELETE muss laufen");
-    assert.match(del.sql, /supplier_org_id\s*=\s*\$2/, "DELETE muss org-scoped sein");
-    assert.deepEqual(del.params, ["tmpl-a-001", ORG_B], "DELETE muss id + Aufrufer-Org binden");
-  });
-});
 
 // ── Emergency: Sub-Resource-Ownership (Commitment-Status + Notdienst-Vereinbarung)
 //

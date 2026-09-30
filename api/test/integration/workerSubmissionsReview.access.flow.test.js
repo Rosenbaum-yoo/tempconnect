@@ -74,13 +74,26 @@ describe("Worker submissions review access contract", { skip: !hasDb && "No data
     const res = await reviewOwner.agent.get("/api/me");
 
     assert.strictEqual(res.status, 200);
+    /*
+     * `org_billing` kam mit der Rechnungs-Welle dazu (userService.js:295,
+     * hasPermission(org_role, "org.billing")). Die Karte wird hier BEWUSST
+     * vollstaendig verglichen, nicht nur stichprobenartig - und genau das hat
+     * die neue Faehigkeit auffallen lassen, statt sie stillschweigend
+     * durchzulassen. Eine Berechtigungskarte, die unbemerkt waechst, ist der
+     * Anfang einer zu weiten Rolle.
+     *
+     * Die Werte sind nachgeprueft, nicht abgeschrieben:
+     * rbacService.js:70 fuehrt 'org.billing' fuer ['owner','admin','finance'].
+     * Der Inhaber hat sie also, das Mitglied nicht.
+     */
     assert.deepStrictEqual(res.body.capabilities, {
       worker_module: true,
       worker_view: true,
       worker_review: true,
       worker_create: true,
       worker_manage: true,
-      worker_edit: true
+      worker_edit: true,
+      org_billing: true
     });
   });
 
@@ -94,7 +107,8 @@ describe("Worker submissions review access contract", { skip: !hasDb && "No data
       worker_review: false,
       worker_create: false,
       worker_manage: false,
-      worker_edit: false
+      worker_edit: false,
+      org_billing: false
     });
   });
 

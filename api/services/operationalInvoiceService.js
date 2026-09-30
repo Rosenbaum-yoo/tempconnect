@@ -11,8 +11,13 @@
  * Separiert von invoiceService.js (SaaS-Subscription), gleiche DB-Tabellen.
  */
 
+import { firmaZuPartei, pruefeFirmenstammdaten } from "./eRechnungService.js";
+
 import * as auditLog from "./auditLog.js";
 import { swallow } from "../utils/logger.js";
+/* Planwerte immer ueber den Katalog normalisieren (Projektregel) — der CHECK
+ * auf `invoices.plan` kennt nur die fuenf kanonischen Schluessel. */
+import { normalizePlanKey } from "../config/planCatalog.js";
 
 const DEFAULT_TAX_RATE = 19.0;
 const DEFAULT_OVERTIME_SURCHARGE_PCT = 25.0;
@@ -42,11 +47,76 @@ function gehoertZurOrg(rechnung, orgId) {
       || String(rechnung.supplier_org_id) === String(orgId);
 }
 
-async function nextInvoiceNumber(client) {
-  const { rows } = await client.query("SELECT nextval('invoice_number_seq') AS seq");
-  const seq = String(rows[0].seq).padStart(6, "0");
-  const year = new Date().getFullYear();
-  return `TC-${year}-${seq}`;
+/**
+ * Ist diese Organisation der RECHNUNGSSTELLER — nicht nur beteiligt?
+ *
+ * DER BEFUND (2026-08-28, beim Bau der Empfangsseite an der echten Datenbank
+ * belegt): `gehoertZurOrg` fragt nur, OB eine Org an der Rechnung beteiligt
+ * ist. Damit stand dem EMPFAENGER der gesamte Beleg des Ausstellers offen. Ein
+ * Unternehmen konnte an einer Rechnung, die an es selbst gerichtet ist:
+ *
+ *   - sie ueberhaupt erst ERZEUGEN (im Namen der Zeitarbeitsfirma),
+ *   - den Entwurf KORRIGIEREN und damit den Betrag aendern,
+ *   - sie STELLEN — und dabei eine Nummer aus dem Kreis der Zeitarbeitsfirma
+ *     ziehen, also genau die Lueckenlosigkeit zerstoeren, die Mig 203 herstellt,
+ *   - sie als BEZAHLT markieren, ohne bezahlt zu haben.
+ *
+ * Die zweiseitige Grenze ist fuer das LESEN richtig — der Entleiher braucht
+ * denselben Beleg fuer seine Buchhaltung wie der Verleiher (so begruendet es
+ * auch der Eintrag der E-Rechnung im Org-Grenzen-Register). Fuers SCHREIBEN
+ * ist sie falsch: einen Beleg stellt aus, wer die Leistung erbracht hat.
+ */
+function istRechnungssteller(rechnung, orgId) {
+  if (!orgId || !rechnung) return false;
+  return String(rechnung.supplier_org_id) === String(orgId);
+}
+
+/**
+ * Die naechste Rechnungsnummer der ZEITARBEITSFIRMA (Welle J7, Mig 203).
+ *
+ * ZWEI DINGE HABEN SICH GEAENDERT, beide aus demselben Grund — der Kreis
+ * gehoert der Firma, nicht der Plattform:
+ *
+ *   1. EIGENER ZAEHLER statt der globalen `invoice_number_seq`. Die teilte sich
+ *      die operative Rechnung mit der Abo-Rechnung der Plattform; jede
+ *      Abo-Rechnung riss damit eine Luecke in den Kreis der Firma. Erklaeren
+ *      muss sie der Rechnungssteller, nicht wir — also nehmen wir ihm die
+ *      Erklaerung ab.
+ *   2. VERGABE BEIM STELLEN, nicht beim Entwurf. Vorher fiel die Nummer in
+ *      `generateFromTimesheets`; ein verworfener Entwurf hinterliess eine
+ *      Luecke, die niemand mehr zuordnen kann.
+ *
+ * Warum eine TABELLENZEILE und keine Postgres-Sequenz je Org: Sequenzen lassen
+ * sich nicht transaktional zuruecknehmen (nextval haelt auch nach ROLLBACK),
+ * waeren nicht aufzaehlbar und brauchten DDL fuer jede neue Organisation.
+ * `FOR UPDATE` auf der Zeile serialisiert die Vergabe innerhalb DERSELBEN
+ * Transaktion wie die Rechnung — bricht sie ab, ist auch die Nummer wieder
+ * frei. Genau das macht den Kreis lueckenlos.
+ *
+ * @param {import('pg').PoolClient} client — MUSS in der Transaktion der
+ *   Rechnung laufen, sonst ist die Lueckenlosigkeit nicht garantiert.
+ */
+async function nextInvoiceNumber(client, supplierOrgId, jahr) {
+  if (!supplierOrgId) {
+    const fehler = new Error("NO_SUPPLIER_ORG");
+    fehler.code = "NO_SUPPLIER_ORG";
+    throw fehler;
+  }
+  /* Anlegen und Sperren in einem Schritt: ON CONFLICT DO UPDATE gibt die Zeile
+   * auch dann gesperrt zurueck, wenn sie schon existierte — ein getrenntes
+   * INSERT/SELECT haette zwischen beiden ein Fenster fuer einen zweiten
+   * Schreiber. Das no-op-UPDATE ist der guenstigste Weg zu RETURNING. */
+  const { rows } = await client.query(
+    `INSERT INTO invoice_number_sequences (supplier_org_id, jahr, letzte_nummer)
+          VALUES ($1, $2, 1)
+     ON CONFLICT (supplier_org_id, jahr) DO UPDATE
+            SET letzte_nummer = invoice_number_sequences.letzte_nummer + 1,
+                updated_at = NOW()
+      RETURNING letzte_nummer, praefix`,
+    [supplierOrgId, jahr]
+  );
+  const { letzte_nummer: nummer, praefix } = rows[0];
+  return `${praefix}-${jahr}-${String(nummer).padStart(6, "0")}`;
 }
 
 function clampLimit(v, max = MAX_LIMIT) {
@@ -96,9 +166,24 @@ export async function generateFromTimesheets(pool, opts) {
   if (!assignment) return { error: "ASSIGNMENT_NOT_FOUND" };
   if (!assignment.hourly_rate_cents) return { error: "NO_HOURLY_RATE", message: "Assignment hat keinen Stundensatz." };
 
-  // Org-Boundary: Anfragender muss buyer oder supplier sein
+  /* ZWEI STUFEN, bewusst getrennt — die Antwort soll den Grund nennen:
+   *
+   *   1. GAR NICHT BETEILIGT -> ORG_BOUNDARY_VIOLATION. Die fremde Org hat mit
+   *      diesem Einsatz nichts zu tun.
+   *   2. BETEILIGT, ABER FALSCHE ROLLE -> NOT_INVOICE_ISSUER (Befund
+   *      2026-08-28). Vorher genuegte die Beteiligung — damit konnte das
+   *      EMPFANGENDE Unternehmen sich selbst eine Rechnung im Namen der
+   *      Zeitarbeitsfirma ausstellen. Einen Beleg stellt aus, wer die Leistung
+   *      erbracht hat.
+   */
   if (assignment.org_id !== orgId && assignment.supplier_org_id !== orgId) {
     return { error: "ORG_BOUNDARY_VIOLATION" };
+  }
+  if (String(assignment.supplier_org_id) !== String(orgId)) {
+    return {
+      error: "NOT_INVOICE_ISSUER",
+      message: "Nur die leistungserbringende Zeitarbeitsfirma stellt diese Rechnung aus."
+    };
   }
 
   // 2. Timesheets validieren (alle approved + noch nicht abgerechnet + richtiges Assignment)
@@ -182,7 +267,27 @@ export async function generateFromTimesheets(pool, opts) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const invoiceNumber = await nextInvoiceNumber(client);
+    /* KEINE Nummer im Entwurf (Welle J7, Mig 203): sie faellt erst beim
+     * Stellen. Ein verworfener Entwurf soll keine Luecke im Kreis der
+     * Zeitarbeitsfirma hinterlassen. `invoice_number` ist dafuer nullable —
+     * der UNIQUE-Index traegt beliebig viele NULLs. */
+    /* `plan` und `gross_amount_cents` sind NOT NULL — Erbe der geteilten
+     * Tabelle: beide Felder stammen aus der ABO-Rechnung (Mig 030 bzw. 170,
+     * Bounty-Rabatt) und sind fuer eine operative Rechnung ohne Bedeutung.
+     * Der INSERT setzte sie bis hierher nicht, weshalb `generateFromTimesheets`
+     * gegen eine echte Datenbank IMMER scheiterte — gefunden beim ersten
+     * DB-gebundenen Lauf (Welle J7, 2026-08-28). Genau deshalb existierte
+     * keine einzige operative Rechnung.
+     *
+     * `plan` traegt den Tarif des Rechnungsstellers (Rueckfall BASIS, damit
+     * der CHECK auf die fuenf kanonischen Plaene haelt), `gross_amount_cents`
+     * den Nettobetrag vor Rabatt — auf einer operativen Rechnung gibt es
+     * keinen, also entspricht er dem Nettobetrag. */
+    const { rows: planRows } = await client.query(
+      "SELECT plan FROM organizations WHERE id = $1",
+      [assignment.supplier_org_id]
+    );
+    const rechnungsPlan = normalizePlanKey(planRows[0]?.plan) || "BASIS";
 
     const { rows: invRows } = await client.query(
       `INSERT INTO invoices (
@@ -190,11 +295,11 @@ export async function generateFromTimesheets(pool, opts) {
          assignment_id, billing_period_start, billing_period_end,
          amount_cents, tax_rate_pct, tax_amount_cents, total_cents,
          currency, status, issued_at, due_at,
-         billing_contact_name, reference_number, overtime_surcharge_pct, notes
-       ) VALUES ($1,'operational',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'EUR','draft',NULL,$12,$13,$14,$15,$16)
+         billing_contact_name, reference_number, overtime_surcharge_pct, notes,
+         rate_cents_frozen, plan, gross_amount_cents
+       ) VALUES (NULL,'operational',$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'EUR','draft',NULL,$11,$12,$13,$14,$15,$16,$17,$18)
        RETURNING *`,
       [
-        invoiceNumber,
         assignment.org_id,         // buyer org = Rechnungsempfänger
         assignment.supplier_org_id, // supplier org = Leistungserbringer
         actorId,
@@ -205,7 +310,15 @@ export async function generateFromTimesheets(pool, opts) {
         billingContactName || null,
         referenceNumber || null,
         overtimeSurchargePct,
-        notes || null
+        notes || null,
+        /* Der Satz, mit dem gerechnet wurde — eingefroren an der Rechnung
+         * (Welle J7, Mig 203). `assignments.hourly_rate_cents` steht in der
+         * Update-Whitelist (assignmentService.js) und ist jederzeit aenderbar;
+         * ohne diese Kopie rechnete eine spaetere Aenderung rueckwirkend an
+         * einer bereits erzeugten Rechnung mit. */
+        rateCents,
+        rechnungsPlan,
+        netCents
       ]
     );
     const invoice = invRows[0];
@@ -437,6 +550,15 @@ export async function addCorrectionItem(pool, invoiceId, opts) {
   // aber nie verglichen — die Zeile darueber hat die Grenze jetzt im SQL, hier
   // steht sie zusaetzlich in JS, damit ein entfernter WHERE-Teil nicht reicht.
   if (!gehoertZurOrg(inv[0], orgId)) return { error: "ORG_BOUNDARY_VIOLATION" };
+  /* Und danach die ROLLE (Befund 2026-08-28): beteiligt zu sein genuegt nicht,
+   * um den Betrag zu aendern — sonst korrigiert der Empfaenger den Beleg des
+   * Ausstellers nach unten. */
+  if (!istRechnungssteller(inv[0], orgId)) {
+    return {
+      error: "NOT_INVOICE_ISSUER",
+      message: "Nur der Rechnungssteller kann Positionen ergaenzen."
+    };
+  }
   if (inv[0].status !== "draft") return { error: "NOT_EDITABLE", status: inv[0].status };
 
   // Item hinzufügen
@@ -476,18 +598,80 @@ export async function addCorrectionItem(pool, invoiceId, opts) {
 
 export async function transitionInvoice(pool, invoiceId, newStatus, actorId, orgId) {
   const { rows: inv } = await pool.query(
-    "SELECT id, status, org_id, supplier_org_id FROM invoices WHERE id = $1 AND invoice_type = 'operational' AND (org_id = $2 OR supplier_org_id = $2)",
+    "SELECT id, status, org_id, supplier_org_id, invoice_number FROM invoices WHERE id = $1 AND invoice_type = 'operational' AND (org_id = $2 OR supplier_org_id = $2)",
     [invoiceId, orgId]
   );
   if (!inv[0]) return { error: "NOT_FOUND" };
   // Befund E-2 (2026-08-19): siehe addCorrectionItem — die Grenze steht jetzt
   // doppelt, im SQL oben und hier.
   if (!gehoertZurOrg(inv[0], orgId)) return { error: "ORG_BOUNDARY_VIOLATION" };
+  /* Und die ROLLE (Befund 2026-08-28): Stellen, Stornieren und "bezahlt"
+   * gehoeren dem Rechnungssteller. Der Empfaenger konnte sonst eine Nummer aus
+   * dem fremden Kreis ziehen (und dessen Lueckenlosigkeit zerstoeren) oder
+   * "bezahlt" behaupten, ohne bezahlt zu haben. Den Zahlungseingang sieht
+   * ohnehin nur der Empfaenger des Geldes. */
+  if (!istRechnungssteller(inv[0], orgId)) {
+    return {
+      error: "NOT_INVOICE_ISSUER",
+      message: "Nur der Rechnungssteller kann den Status dieser Rechnung aendern."
+    };
+  }
 
   const current = inv[0].status;
   const allowed = VALID_TRANSITIONS[current] || [];
   if (!allowed.includes(newStatus)) {
     return { error: "INVALID_TRANSITION", from: current, to: newStatus, allowed };
+  }
+
+  /* NUR DAS STELLEN VERGIBT DIE NUMMER (Welle J7, Mig 203).
+   *
+   * Es laeuft in einer Transaktion, weil Nummernvergabe und Statuswechsel
+   * zusammengehoeren: bricht der Wechsel ab, muss die Nummer wieder frei sein —
+   * sonst entsteht genau die Luecke, die dieser Umbau beseitigt. Die uebrigen
+   * Uebergaenge (paid/void/overdue) brauchen keine Transaktion; sie bekommen
+   * den bisherigen, einfachen Weg.
+   *
+   * Eine bereits vergebene Nummer wird NICHT ueberschrieben: 'overdue' kann
+   * laut Zustandsautomat zurueck auf 'issued' gehen, und eine zweite Nummer
+   * fuer dieselbe Rechnung waere ein Beleg-Duplikat. */
+  const vergibtNummer = newStatus === "issued" && !inv[0].invoice_number;
+
+  if (vergibtNummer) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const jahr = new Date().getFullYear();
+      const nummer = await nextInvoiceNumber(client, inv[0].supplier_org_id, jahr);
+      const { rows } = await client.query(
+        `UPDATE invoices
+            SET status = $2, invoice_number = $3, issued_at = NOW(), updated_at = NOW()
+          WHERE id = $1 AND (org_id = $4 OR supplier_org_id = $4) AND status = $5
+          RETURNING *`,
+        [invoiceId, newStatus, nummer, orgId, current]
+      );
+      /* Kein Treffer: die Zeile gehoert nicht mehr zur Org ODER ein zweiter
+       * Schreiber war schneller (deshalb `status = $5`). Beides ist ein Grund
+       * zurueckzurollen — dann ist auch die Nummer wieder frei. */
+      if (!rows[0]) {
+        await client.query("ROLLBACK");
+        return { error: "NOT_FOUND" };
+      }
+      await client.query("COMMIT");
+      await auditLog.writeAudit(pool, {
+        action: `invoice.${newStatus}`,
+        entity_type: "invoice",
+        entity_id: invoiceId,
+        actor_id: actorId,
+        details: { from: current, to: newStatus, invoice_number: nummer }
+      });
+      return { invoice: rows[0] };
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      if (err?.code === "NO_SUPPLIER_ORG") return { error: "NO_SUPPLIER_ORG" };
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   const extra = [];
@@ -563,4 +747,141 @@ export function exportOperationalInvoiceCsv(invoice) {
   rows.push(`,,Gesamtbetrag,,,,,,${esc(((invoice.total_cents || 0) / 100).toFixed(2))}`);
 
   return [headers.join(","), ...rows].join("\n");
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ladeERechnungsdaten — Rechnung + Positionen + beide Firmen
+   ═══════════════════════════════════════════════════════════ */
+
+/**
+ * Laedt alles, was eine E-Rechnung nach EN 16931 verlangt: die Rechnung, ihre
+ * Positionen und BEIDE Firmen mit vollstaendigen Rechnungsstammdaten (Migration 187).
+ *
+ * WARUM NICHT getOperationalInvoice ALLEIN: die liefert von den Firmen nur den Namen.
+ * Die Norm verlangt fuer beide Seiten Anschrift und Laendercode und fuer den
+ * Rechnungssteller zusaetzlich eine steuerliche Kennung. Fehlt davon etwas, weist der
+ * Empfaenger das Dokument ab — deshalb werden die Stammdaten hier vollstaendig geholt.
+ *
+ * EINE Query fuer beide Firmen (ANY statt zwei Einzelabfragen): der Aufruf haengt am
+ * Download-Pfad und wird pro Rechnung ausgeloest.
+ *
+ * Mandantengrenze: `getOperationalInvoice` prueft sie bereits zweiseitig — die Rechnung
+ * gehoert Kaeufer UND Verkaeufer. Das Ergebnis wird hier unveraendert durchgereicht.
+ *
+ * @returns {null | {error: string} | {invoice: object, items: Array, verkaeufer: object, kaeufer: object}}
+ */
+export async function ladeERechnungsdaten(pool, invoiceId, orgId) {
+  const invoice = await getOperationalInvoice(pool, invoiceId, orgId);
+  if (!invoice) return null;
+  if (invoice.error) return invoice;
+
+  const ids = [invoice.supplier_org_id, invoice.org_id].filter(Boolean);
+  const { rows } = ids.length
+    ? await pool.query(
+        `SELECT id, name, legal_name, commercial_register, billing_email, billing_contact,
+                tax_id, vat_id, billing_street, billing_address_2, billing_postal_code,
+                billing_city, billing_country_code, iban, bic
+           FROM organizations
+          WHERE id = ANY($1::uuid[])`,
+        [ids]
+      )
+    : { rows: [] };
+
+  const nachId = new Map(rows.map((r) => [String(r.id), r]));
+  return {
+    invoice,
+    items: invoice.items || [],
+    // Leistungserbringer = Rechnungssteller. Faellt die Zeile aus, bleibt wenigstens
+    // der Name erhalten — die Pflichtfeldpruefung meldet den Rest im Klartext.
+    verkaeufer: nachId.get(String(invoice.supplier_org_id)) || { name: invoice.supplier_org_name },
+    kaeufer: nachId.get(String(invoice.org_id)) || { name: invoice.buyer_org_name }
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   pruefeERechnungBereitschaft — bin ich ab 2027 versandfaehig?
+   ═══════════════════════════════════════════════════════════ */
+
+/**
+ * Prueft die Stammdaten der EIGENEN Organisation gegen die Pflichtangaben der Norm.
+ *
+ * WARUM VORAB UND NICHT ERST BEIM VERSAND: Ab dem 01.01.2027 muessen Unternehmen mit
+ * mehr als 800.000 EUR Vorjahresumsatz strukturierte Rechnungen ausstellen, ab dem
+ * 01.01.2028 alle. Wer das am Tag der ersten abgewiesenen Rechnung merkt, hat ein
+ * Liquiditaetsproblem, kein Datenpflegeproblem. Diese Pruefung macht die Luecke
+ * sichtbar, solange sie noch billig zu schliessen ist.
+ *
+ * Geprueft wird die Rolle des RECHNUNGSSTELLERS — die strengere der beiden:
+ * nur sie verlangt zusaetzlich eine steuerliche Kennung.
+ *
+ * @returns {null | {error: string} | {bereit: boolean, fehlend: Array, hinweise: Array, fristen: object}}
+ */
+export async function pruefeERechnungBereitschaft(pool, orgId) {
+  if (!orgId) return { error: "ORG_REQUIRED" };
+
+  const { rows } = await pool.query(
+    `SELECT id, name, legal_name, commercial_register, billing_email, billing_contact,
+            tax_id, vat_id, billing_street, billing_address_2, billing_postal_code,
+            billing_city, billing_country_code, iban, bic, billing_phone
+       FROM organizations
+      WHERE id = $1`,
+    [orgId]
+  );
+  const org = rows[0];
+  if (!org) return null;
+
+  const partei = firmaZuPartei(org);
+  const fehlend = pruefeFirmenstammdaten(partei, "verkaeufer");
+
+  // Die Bankverbindung ist KEINE Pflichtangabe der Norm — ohne sie ist die Rechnung
+  // gueltig. Sie fehlt hier trotzdem als Hinweis: der Empfaenger muss die Kontodaten
+  // sonst woanders suchen, und das verzoegert jede Zahlung.
+  const hinweise = [];
+  if (!partei.iban) {
+    hinweise.push({
+      feld: "IBAN",
+      hinweis: "Keine Pflichtangabe. Ohne Bankverbindung im Beleg muss der Empfaenger sie woanders suchen."
+    });
+  }
+
+  return {
+    bereit: fehlend.length === 0,
+    fehlend,
+    hinweise,
+    /*
+     * Die aktuellen Werte mitgeben, nicht nur was fehlt.
+     *
+     * Ohne sie kann eine Pflegemaske nur ein leeres Formular zeigen — und ein
+     * leeres Formular ueber vorhandenen Daten ist die Einladung, sie
+     * versehentlich zu loeschen. Ein zweiter Endpunkt waere der Umweg: wer die
+     * Bereitschaft sehen darf (org.billing), darf genau diese Angaben sehen.
+     *
+     * Nur die Felder, die auch pflegbar sind: `name` steht bewusst nicht hier,
+     * er kommt aus der Organisation selbst und wird nicht ueber diese Maske
+     * geaendert.
+     */
+    werte: {
+      legal_name: org.legal_name || null,
+      billing_street: org.billing_street || null,
+      billing_address_2: org.billing_address_2 || null,
+      billing_postal_code: org.billing_postal_code || null,
+      billing_city: org.billing_city || null,
+      billing_country_code: org.billing_country_code || null,
+      vat_id: org.vat_id || null,
+      tax_id: org.tax_id || null,
+      iban: org.iban || null,
+      bic: org.bic || null,
+      /* Kontaktstelle und Telefon: fuer reines EN 16931 optional, fuer
+         XRechnung Pflicht (BR-DE-5/BR-DE-6). Gemessen am 2026-08-29 waren sie
+         der einzige verbleibende Grund, warum der KoSIT-Validator eine sonst
+         einwandfreie XRechnung abwies. */
+      billing_contact: org.billing_contact || null,
+      billing_phone: org.billing_phone || null
+    },
+    fristen: {
+      empfangspflicht_seit: "2025-01-01",
+      versandpflicht_ab_800k_umsatz: "2027-01-01",
+      versandpflicht_alle: "2028-01-01"
+    }
+  };
 }

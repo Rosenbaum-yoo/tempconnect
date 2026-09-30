@@ -247,7 +247,23 @@ TCi18n.register('en', {
 
   var state = { catalog: null, isLoggedIn: false };
 
-  function esc(s) { return tcCatalog() ? tcCatalog().esc(s) : String(s == null ? "" : s); }
+  function esc(s) {
+    /*
+     * DER RUECKFALL ESCAPTE GAR NICHTS (gefunden 2026-09-05).
+     *
+     * Hier stand `: String(s == null ? "" : s)`. Ist der Katalog nicht geladen,
+     * war `esc()` damit die IDENTITAET — keine fehlende
+     * Anfuehrungszeichen-Behandlung, sondern ueberhaupt keine. Und genau dann
+     * greift der Rueckfall: wenn ein Skript fehlt, also im Stoerfall.
+     *
+     * Ein Rueckfall darf weniger koennen als der Normalweg. Er darf nicht das
+     * Gegenteil tun.
+     */
+    if (tcCatalog()) return tcCatalog().esc(s);
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
   function t(key, params) { return TCi18n.t(key, params); }
 
   function init() {

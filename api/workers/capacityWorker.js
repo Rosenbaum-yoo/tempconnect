@@ -77,6 +77,25 @@ export function startCapacityWorker() {
         return { staleCount: stale.length };
       }
 
+      /* Antwortfrist (Migration 193 + 195). Laeuft in dieser Queue mit, weil sie
+       * den Scheduler bereits hat — dieselbe Begruendung wie bei der
+       * Aufbewahrung darueber. Dieselbe Servicefunktion wie der interne
+       * Endpunkt; wer zuerst kommt, gewinnt, der andere aendert nichts.
+       *
+       * Der Job-Name bleibt `ersatz-frist`: Der BullMQ-Scheduler ist unter
+       * diesem Schluessel registriert (`ersatz-frist-10min`), und ein
+       * umbenannter Job hinterliesse den alten Scheduler verwaist, waehrend der
+       * neue erst beim naechsten Start entsteht. Der Name ist eine Adresse,
+       * keine Beschreibung. */
+      case "ersatz-frist": {
+        const { verfalleneAnfragen } = await import("../services/workerService.js");
+        const result = await verfalleneAnfragen(pool);
+        if (result.verfallen > 0 || result.erinnert > 0) {
+          logger.info({ jobId: job.id, ...result }, "Frist-Sweep: Anfragen verfallen/erinnert");
+        }
+        return result;
+      }
+
       default:
         logger.warn({ jobName: job.name }, "Unknown capacity job type");
         return { skipped: true };

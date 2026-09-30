@@ -89,12 +89,27 @@ function buildDurationLabel(startDate, endDate) {
   return `${startLabel} – ${endLabel}${daySpan && daySpan > 1 ? ` (${daySpan} Tage)` : ""}`;
 }
 
-function uniqueStrings(values) {
-  return [...new Set(
-    (Array.isArray(values) ? values : [])
-      .map((entry) => String(entry || "").trim().toLowerCase())
-      .filter(Boolean)
-  )];
+/*
+ * `roh = true` behaelt die Schreibweise, dedupliziert aber weiterhin ueber die
+ * kleingeschriebene Marke — sonst stuenden "Gerüstbau" und "gerüstbau"
+ * nebeneinander in derselben Liste.
+ *
+ * WARUM ES DEN SCHALTER BRAUCHT: Der Abgleich MUSS normalisieren, sonst
+ * verfehlt "Gerüstbau" ein "gerüstbau" und die Kraft gilt faelschlich als
+ * ungeeignet. Die BEGRUENDUNG dagegen liest ein Mensch — und "gesucht:
+ * gerüstbau, a-fach" sieht aus, als haette die Plattform den Wunsch des Kunden
+ * verstuemmelt. Beides in einer Liste zu fuehren hiesse, eines von beiden
+ * kaputtzumachen; darum zwei Sichten auf dieselbe Quelle.
+ */
+function uniqueStrings(values, roh = false) {
+  const gesehen = new Map();
+  for (const entry of Array.isArray(values) ? values : []) {
+    const getrimmt = String(entry || "").trim();
+    if (!getrimmt) continue;
+    const marke = getrimmt.toLowerCase();
+    if (!gesehen.has(marke)) gesehen.set(marke, roh ? getrimmt : marke);
+  }
+  return [...gesehen.values()];
 }
 
 function parseJson(value) {
@@ -107,29 +122,30 @@ function parseJson(value) {
   }
 }
 
-function parseStringList(value) {
+function parseStringList(value, roh = false) {
   if (!value) return [];
-  if (Array.isArray(value)) return uniqueStrings(value);
+  if (Array.isArray(value)) return uniqueStrings(value, roh);
   if (typeof value === "string") {
     const parsed = parseJson(value);
-    if (parsed) return parseStringList(parsed);
+    if (parsed) return parseStringList(parsed, roh);
     return uniqueStrings(
       value
         .split(/[,;\n]/g)
         .map((entry) => entry.trim())
-        .filter(Boolean)
+        .filter(Boolean),
+      roh
     );
   }
   if (typeof value === "object") {
     return uniqueStrings([
       ...Object.keys(value),
-      ...Object.values(value).flatMap((entry) => parseStringList(entry))
-    ]);
+      ...Object.values(value).flatMap((entry) => parseStringList(entry, roh))
+    ], roh);
   }
   return [];
 }
 
-function parseQualificationKeywords(value) {
+function parseQualificationKeywords(value, roh = false) {
   if (!value) return [];
   if (Array.isArray(value)) {
     return uniqueStrings(value.flatMap((entry) => {
@@ -145,17 +161,17 @@ function parseQualificationKeywords(value) {
         ];
       }
       return [];
-    }));
+    }), roh);
   }
   if (typeof value === "string") {
     const parsed = parseJson(value);
-    return parsed ? parseQualificationKeywords(parsed) : parseStringList(value);
+    return parsed ? parseQualificationKeywords(parsed, roh) : parseStringList(value, roh);
   }
   if (typeof value === "object") {
     return uniqueStrings([
       ...Object.keys(value),
-      ...Object.values(value).flatMap((entry) => parseQualificationKeywords(entry))
-    ]);
+      ...Object.values(value).flatMap((entry) => parseQualificationKeywords(entry, roh))
+    ], roh);
   }
   return [];
 }
@@ -185,6 +201,28 @@ function getAssignmentRequestedQuantity(assignment) {
       1
     )
   );
+}
+
+/* Erste gesehene Schreibweise gewinnt: mehrere Quellen (Requisition, Bedarf,
+ * Anforderungsobjekt) koennen dieselbe Marke unterschiedlich schreiben, und
+ * eine Begruendung, die "Gerüstbau" und "gerüstbau" nebeneinander zeigt, wirkt
+ * wie ein Fehler der Plattform. */
+function sammleSchreibweisen(...listen) {
+  const zuordnung = new Map();
+  for (const liste of listen) {
+    for (const rohwert of Array.isArray(liste) ? liste : []) {
+      const marke = String(rohwert || "").trim().toLowerCase();
+      if (marke && !zuordnung.has(marke)) zuordnung.set(marke, String(rohwert).trim());
+    }
+  }
+  return zuordnung;
+}
+
+/* Faellt auf die Marke zurueck, wenn keine Schreibweise bekannt ist — eine
+ * Begruendung darf nie LEER sein, nur weil eine Zuordnung fehlt. */
+function zeigeMarken(marken, zuordnung) {
+  const map = zuordnung instanceof Map ? zuordnung : new Map();
+  return (Array.isArray(marken) ? marken : []).map((m) => map.get(m) || m);
 }
 
 function deriveAssignmentRequirements(assignment) {
@@ -222,7 +260,19 @@ function deriveAssignmentRequirements(assignment) {
       ...parseQualificationKeywords(requisitionQualifications),
       ...parseQualificationKeywords(demandRequirements.qualifications),
       ...parseQualificationKeywords(demandRequirements.certifications)
-    ])
+    ]),
+    /* Marke -> Schreibweise, wie der Kunde sie eingetragen hat. Der Abgleich
+     * oben laeuft weiter auf den kleingeschriebenen Marken; nur die Begruendung
+     * greift hier hinein. Ohne das las der Disponent "gesucht: gerüstbau,
+     * a-fach" — die Plattform sah aus, als haette sie den Bedarf verstuemmelt. */
+    schreibweisen: sammleSchreibweisen(
+      parseStringList(assignment?.requisition_skill_tags, true),
+      parseStringList(assignment?.demand_skill_tags, true),
+      parseStringList(demandRequirements.skills, true),
+      parseQualificationKeywords(requisitionQualifications, true),
+      parseQualificationKeywords(demandRequirements.qualifications, true),
+      parseQualificationKeywords(demandRequirements.certifications, true)
+    )
   };
 }
 
@@ -755,43 +805,24 @@ async function refreshCampaignMetrics(client, campaignId) {
   return rows[0] || null;
 }
 
-async function syncDemandCoverage(client, assignment, staffing) {
+/*
+ * N3.0/M5.1 (Owner-Entscheid 2026-09-19): EIN Rechner fuer die Restmenge.
+ *
+ * BEFUND: hier stand die gefaehrlichste der drei Rechnungen. Sie schrieb die
+ * Besetzung EINES Einsatzes in den Bedarf — bei zwei Zeitarbeitsfirmen an
+ * einem Bedarf loeschte die zweite Neuberechnung den Anteil der ersten. Und
+ * ausgeloest wurde sie auch vom blossen LESEN einer Dealakte, weil jede
+ * Staffing-Neuberechnung hier vorbeikommt.
+ *
+ * Die Besetzung eines Einsatzes mit Menschen ist etwas anderes als die
+ * kaufmaennische Deckung des Bedarfs: gedeckt ist er, sobald das Angebot
+ * angenommen ist. Deshalb rechnet jetzt `marketplaceService` ueber ALLE
+ * Quellen, und diese Stelle stoesst die Neuberechnung nur noch an.
+ */
+async function syncDemandCoverage(client, assignment, _staffing) {
   if (!assignment?.demand_request_id) return null;
-
-  const { rows } = await client.query(
-    `SELECT id, status, required_total_count, headcount, fulfilled_at
-     FROM demand_requests
-     WHERE id = $1
-     FOR UPDATE`,
-    [assignment.demand_request_id]
-  );
-  const demand = rows[0];
-  if (!demand || ["closed", "cancelled", "expired"].includes(demand.status)) return demand;
-
-  const required = Math.max(
-    1,
-    toInt(demand.required_total_count ?? demand.headcount ?? staffing.requested_quantity, staffing.requested_quantity)
-  );
-  const committed = clamp(staffing.filled_quantity + staffing.reserved_quantity, 0, required);
-  const remaining = Math.max(required - committed, 0);
-  const nextStatus = committed >= required ? "fulfilled" : "partially_covered";
-
-  const { rows: updatedRows } = await client.query(
-    `UPDATE demand_requests
-     SET currently_committed_count = $2,
-         remaining_open_count = $3,
-         status = $4,
-         fulfilled_at = CASE
-           WHEN $4 = 'fulfilled' THEN COALESCE(fulfilled_at, NOW())
-           ELSE NULL
-         END,
-         updated_at = NOW()
-     WHERE id = $1
-     RETURNING *`,
-    [demand.id, committed, remaining, nextStatus]
-  );
-
-  return updatedRows[0] || demand;
+  const { syncDemandCommercialState } = await import("./marketplaceService.js");
+  return syncDemandCommercialState(client, assignment.demand_request_id);
 }
 
 export function deriveStaffingStatus(assignment, {
@@ -968,11 +999,29 @@ async function createWorkerAssignmentLink(client, {
   workerConfirmationStatus,
   note = null
 }) {
+  /* NUR LEBENDE LINKS SPERREN — dieselbe Regel wie in `assignDealToWorker`
+   * (workerService.js), und aus demselben Grund: eine erledigte Zeile ist keine
+   * Zuordnung mehr.
+   *
+   * Vorher stand hier `WHERE assignment_id = $1 AND worker_user_id = $2` ohne
+   * jeden Filter. Damit sperrte JEDE je existierende Zeile auf ewig — und seit
+   * Anfragen von selbst verfallen (Migration 195), traf das den haeufigsten
+   * Weg ueberhaupt: Die Kraft hatte fuer diesen Einsatz eine Anfrage, die
+   * verfiel; der Disponent laedt sie ueber eine Staffing-Kampagne erneut ein;
+   * sie SAGT ZU — und bekam 409 "Der Worker ist diesem Einsatz bereits
+   * zugeordnet". Sie war ihm gerade nicht zugeordnet, und ueber den
+   * Einladungsweg kam sie nie wieder hinein.
+   *
+   * `is_active = TRUE` erledigt `expired` mit: der Verfall setzt beides
+   * zugleich. Die beiden Statuswerte bleiben trotzdem ausgeschrieben — sie
+   * koennen auch an einer aktiven Zeile stehen. */
   const { rows: existingRows } = await client.query(
     `SELECT id
      FROM worker_assignment_links
      WHERE assignment_id = $1
        AND worker_user_id = $2
+       AND is_active = TRUE
+       AND worker_confirmation_status NOT IN ('worker_declined','worker_unavailable')
      LIMIT 1`,
     [assignment.id, workerUserId]
   );
@@ -985,6 +1034,15 @@ async function createWorkerAssignmentLink(client, {
   const clientName = assignment.client_org_name || null;
   const workerConfirmedAt = workerConfirmationStatus === "worker_confirmed" ? new Date() : null;
 
+  /* ON CONFLICT, weil der Guard oben erledigte Zeilen absichtlich durchlaesst
+   * und `UNIQUE (worker_user_id, assignment_id)` (Migration 029) die zweite
+   * Zeile verbietet — ohne diesen Zweig endete die Zusage in 23505 statt in
+   * einer Besetzung. Die Zeile wird recycelt, nicht verdoppelt.
+   *
+   * `ersetzt_link_id=NULL` und die vier Uhr-Spalten muessen mit: was hier
+   * entsteht, ist eine befoerderte Reservierung, keine Ersatz-Anfrage und keine
+   * Anfrage mit Frist. Bliebe eine alte Frist stehen, liesse der Sweep eine
+   * laengst bestaetigte Besetzung verfallen. */
   const { rows } = await client.query(
     `INSERT INTO worker_assignment_links
        (worker_user_id, assignment_id, org_id, supplier_org_id,
@@ -992,6 +1050,23 @@ async function createWorkerAssignmentLink(client, {
         start_date, end_date, client_name, notes, created_by,
         worker_confirmation_status, worker_confirmed_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+     ON CONFLICT (worker_user_id, assignment_id) DO UPDATE
+       SET is_active=TRUE,
+           org_id=EXCLUDED.org_id, supplier_org_id=EXCLUDED.supplier_org_id,
+           deal_request_id=EXCLUDED.deal_request_id,
+           default_hours_per_day=EXCLUDED.default_hours_per_day,
+           default_break_minutes=EXCLUDED.default_break_minutes,
+           start_date=EXCLUDED.start_date, end_date=EXCLUDED.end_date,
+           client_name=EXCLUDED.client_name, notes=EXCLUDED.notes,
+           created_by=EXCLUDED.created_by,
+           worker_confirmation_status=EXCLUDED.worker_confirmation_status,
+           worker_confirmed_at=EXCLUDED.worker_confirmed_at,
+           ersetzt_link_id=NULL,
+           worker_declined_at=NULL, worker_declined_reason=NULL,
+           unavailable_from=NULL, unavailable_reason=NULL, unavailable_reported_at=NULL,
+           frist_bis=NULL, erinnerung_faellig_am=NULL,
+           erinnert_am=NULL, verfallen_am=NULL,
+           updated_at=NOW()
      RETURNING *`,
     [
       workerUserId,
@@ -1211,6 +1286,31 @@ function computeNeedleCoverage(needle, corpusTokens, corpusText) {
     matchedTokens,
     ratio
   };
+}
+
+/*
+ * DIE BEGRUENDUNG IST DER SATZ, AUF DEN HIN EIN MENSCH DISPONIERT WIRD.
+ *
+ * Befund (Owner-Beanstandung, Plan I / 8.2 "Begruendungs-Darstellung"): Die
+ * Etiketten waren keine Saetze, sondern Fragmente — Substantivphrase,
+ * Doppelpunkt, roher Feldwert ("Rollenfit nicht sauber belegt: Maler"). Wer das
+ * liest, weiss nicht, ob "Maler" das ist, was FEHLT, oder das, was der Mensch
+ * KANN. Genau die Verwechslung, die man sich bei einer Besetzung nicht leisten
+ * kann. Deshalb steht jetzt ueberall "— gesucht: X": das Etikett benennt den
+ * Mangel, der Zusatz die Anforderung.
+ *
+ * Und: die Aufzaehlung wurde ZWEIMAL still gekappt — hier auf 3 und im Frontend
+ * (`staffingCriteriaText`) nochmals auf 3. Aus neun fehlenden Nachweisen wurden
+ * drei, ohne dass irgendwo stand, dass etwas fehlt. Eine Liste, die verschweigt,
+ * dass sie unvollstaendig ist, liest sich wie eine vollstaendige — und ist damit
+ * schlimmer als gar keine. `nenneListe` zaehlt den Rest sichtbar mit.
+ */
+function nenneListe(werte, sichtbar = 3) {
+  const alle = (Array.isArray(werte) ? werte : []).filter(Boolean);
+  if (!alle.length) return "";
+  const gezeigt = alle.slice(0, sichtbar);
+  const rest = alle.length - gezeigt.length;
+  return rest > 0 ? `${gezeigt.join(", ")} (+${rest} weitere)` : gezeigt.join(", ");
 }
 
 function createFactorScore(factor, points, max, detail, { applicable = true } = {}) {
@@ -1480,25 +1580,25 @@ export function scoreWorkersForAssignment(_client, assignment, workerRows, filte
     if (missingRequiredQualifications.length > 0) {
       hardFailures.push({
         code: "missing_required_qualifications",
-        label: `Pflichtnachweise fehlen: ${missingRequiredQualifications.slice(0, 3).join(", ")}`
+        label: `Pflichtnachweise fehlen — gesucht: ${nenneListe(zeigeMarken(missingRequiredQualifications, requirements.schreibweisen))}`
       });
     }
     if (requirements.role && !roleCoverage.isMatch) {
       missingRequirements.push({
         code: "role",
-        label: `Rollenfit nicht sauber belegt: ${requirements.role}`
+        label: `Rollenfit nicht belegt — gesucht: ${requirements.role}`
       });
     }
     if (requirements.shift_model && !shiftCoverage.isMatch) {
       missingRequirements.push({
         code: "shift",
-        label: `Schichtfähigkeit nicht belegt: ${requirements.shift_model}`
+        label: `Schichtfähigkeit nicht belegt — gesucht: ${requirements.shift_model}`
       });
     }
     if (missingSkills.length > 0) {
       missingRequirements.push({
         code: "skills",
-        label: `Fehlende Skill-Treffer: ${missingSkills.slice(0, 3).join(", ")}`
+        label: `Skills fehlen — gesucht: ${nenneListe(zeigeMarken(missingSkills, requirements.schreibweisen))}`
       });
     }
 
@@ -1717,8 +1817,50 @@ async function queryWorkerSuggestionBase(client, assignment, limit = 50, workerI
     workerFilterSql = ` AND wp.user_id = ANY($${params.length}::uuid[])`;
   }
 
+  /*
+   * DIE VORBEWERTUNG (Owner-Entscheid 2026-08-21: "Vorbewertung in die
+   * Datenbank ziehen").
+   *
+   * BEFUND: Diese Abfrage schnitt den Kandidatenpool mit
+   * `ORDER BY wp.last_name ASC ... LIMIT n` ALPHABETISCH ab — und zwar BEVOR
+   * `scoreWorkersForAssignment` in JS ueberhaupt bewertet. Wer hinten im
+   * Alphabet steht, kam nie in die Bewertung; "bester Treffer" waere ab einer
+   * gewissen Groesse eine Behauptung gewesen. Gemessen am 2026-08-24: die
+   * groesste Agentur hat 12 aktive Kraefte, der Schnitt liegt bei 50-250 — heute
+   * beisst er also nicht. Ab ~60 Kraeften schon, und dann lautlos.
+   *
+   * WAS HIER *NICHT* PASSIERT: die Bewertung wird NICHT nach SQL kopiert. Zwei
+   * Fassungen derselben Rangfolge waeren die naechste Drift, und die teure
+   * Haelfte (Rollenfit, Schichtfit, Zuverlaessigkeit, Kundenfit) braucht die
+   * Textanalyse aus `computeNeedleCoverage`. Stattdessen sortiert die Abfrage
+   * nach genau den HARTEN Signalen, die sie ohnehin schon ausrechnet — damit
+   * der Schnitt die Richtigen behaelt und die Feinbewertung darauf aufsetzt.
+   */
+  const anforderungen = deriveAssignmentRequirements(assignment);
+
+  /*
+   * DAS LIMIT BLEIBT AN SEINEM PLATZ, die Vorbewertung haengt sich DAHINTER.
+   *
+   * Warum die Reihenfolge zaehlt: die Parameterliste ist bis hierher fest
+   * (org, id, start, ende, kundenOrg) und traegt an Position 6 OPTIONAL die
+   * Arbeiterliste. Wer die drei neuen Parameter davor einschiebt, schiebt genau
+   * an dieser Position ein ARRAY hinein — und jeder Aufrufer, der "das sechste
+   * Argument ist die Arbeiterliste, wenn es ein Array ist" annimmt, greift
+   * daneben. Genau das ist beim ersten Anlauf passiert: eine Probe hielt die
+   * Skill-Liste fuer eine Kennungsliste und lud niemanden mehr.
+   *
+   * Hinter dem Limit stoert die Erweiterung niemanden — SQL nummeriert, die
+   * Reihenfolge im Array ist frei.
+   */
   params.push(clamp(limit, 1, 250));
   const limitParam = params.length;
+
+  params.push(anforderungen.required_skills || []);
+  const skillParam = params.length;
+  params.push(anforderungen.location_lat ?? null);
+  const latParam = params.length;
+  params.push(anforderungen.location_lng ?? null);
+  const lngParam = params.length;
 
   const { rows } = await client.query(
     `SELECT wp.user_id, wp.first_name, wp.last_name, wp.personnel_number, wp.city,
@@ -1864,7 +2006,31 @@ async function queryWorkerSuggestionBase(client, assignment, limit = 50, workerI
      ) submission_stats ON TRUE
      WHERE wp.supplier_org_id = $1
        AND wp.is_active = TRUE${workerFilterSql}
-     ORDER BY wp.last_name ASC, wp.first_name ASC
+     ORDER BY
+       /* 1. Wer ueberhaupt kann. Das sind exakt die vier Zaehler, aus denen
+             scoreWorkersForAssignment seine hard_failures baut (bereits
+             zugeordnet, reserviert, Terminkollision, abwesend) — hier werden
+             sie nur EINE Ebene frueher benutzt, statt sie erst nach dem Schnitt
+             zu lesen. Keine zweite Wahrheit, dieselbe. */
+       (COALESCE(link_stats.current_assignment_count, 0) = 0
+        AND COALESCE(conflicts.conflict_count, 0) = 0
+        AND COALESCE(reservations.reservation_conflict_count, 0) = 0
+        AND COALESCE(absences.absence_conflict_count, 0) = 0) DESC,
+       /* 2. Wie viele der GEFORDERTEN Skills die Person mitbringt. Leere
+             Anforderung => alle gleich, die Ebene faellt still weg. */
+       (SELECT count(*) FROM unnest(COALESCE(wp.skill_tags, ARRAY[]::TEXT[])) AS t(s)
+         WHERE lower(s) = ANY (SELECT lower(x) FROM unnest($${skillParam}::TEXT[]) AS y(x))) DESC,
+       /* 3. Naehe, aber nur wenn BEIDE Seiten Koordinaten haben. Sonst NULL,
+             und NULLS LAST schiebt die Unbekannten nicht faelschlich nach vorn.
+             Quadrierte Differenz genuegt fuer eine Rangfolge — eine
+             Haversine-Formel waere hier Genauigkeit ohne Wirkung. */
+       (CASE WHEN $${latParam}::DOUBLE PRECISION IS NOT NULL
+                  AND u.latitude IS NOT NULL AND u.longitude IS NOT NULL
+             THEN (u.latitude - $${latParam}::DOUBLE PRECISION) ^ 2
+                + (u.longitude - $${lngParam}::DOUBLE PRECISION) ^ 2
+        END) ASC NULLS LAST,
+       /* 4. Stabiler Rest, damit zwei Laeufe dieselbe Reihenfolge liefern. */
+       wp.last_name ASC, wp.first_name ASC
      LIMIT $${limitParam}`,
     params
   );
@@ -2258,6 +2424,12 @@ export async function listOpenStaffingAssignments(pool, supplierOrgId, { limit =
             dr.role AS demand_role,
             dr.title AS demand_title,
             dr.location_city AS demand_location_city,
+            /* Die Ansprechperson des KUNDEN (Plan I, 10b). Aus dem Bedarf, nicht
+             * aus dem Angebot: das Angebot traegt die Ansprechperson des
+             * ANBIETERS, und diese Liste ist die des Anbieters. Wer besetzt,
+             * braucht die Nummer der Gegenseite, nicht die eigene. */
+            dr.contact_name AS kunde_kontakt_name,
+            dr.contact_phone AS kunde_kontakt_telefon,
             COALESCE(NULLIF(r.role, ''), NULLIF(dr.role, ''), NULLIF(dr.title, ''), a.worker_description, 'Einsatz') AS request_title
      FROM assignments a
      LEFT JOIN organizations buyer ON buyer.id = a.org_id
@@ -3010,7 +3182,13 @@ export function listWorkerStaffingRequests(pool, workerUserId, { limit = 25, mar
       `SELECT i.id, i.assignment_id, i.campaign_id, i.worker_user_id, i.status, i.score,
               i.score_reasons, i.personal_message, i.sent_at, i.viewed_at,
               i.responded_at, i.accepted_at, i.declined_at, i.response_note,
-              i.expires_at, i.created_at, i.request_snapshot,
+              -- Z18 (2026-09-28): hier stand i.created_at. Die Spalte gibt es in
+              -- assignment_staffing_invites nicht; der fachlich richtige Zeitpunkt ist
+              -- sent_at (wann wurde eingeladen) - die Abfrage sortiert unten ohnehin
+              -- danach. Der Ausgabename bleibt, damit der Aufrufer unveraendert bleibt.
+              -- Wirkung: die Abfrage warf, ein Arbeiter hat seine Einsatz-Einladungen
+              -- GAR NICHT gesehen.
+              i.expires_at, i.sent_at AS created_at, i.request_snapshot,
               i.delivery_status, i.delivery_attempt_count, i.delivery_last_attempt_at,
               i.delivery_last_success_at, i.delivery_last_error,
               i.remind_after, i.reminder_requested_at, i.last_reminder_sent_at,
@@ -3025,7 +3203,14 @@ export function listWorkerStaffingRequests(pool, workerUserId, { limit = 25, mar
               buyer.name AS client_org_name,
               COALESCE(NULLIF(r.role, ''), NULLIF(dr.role, ''), NULLIF(dr.title, ''), a.worker_description, 'Einsatz') AS request_title,
               COALESCE(NULLIF(r.role, ''), NULLIF(dr.role, ''), NULLIF(dr.title, '')) AS request_role,
-              COALESCE(r.location_city, dr.location_city) AS location_city
+              -- Z18: hier ist r = requests, und die Tabelle hat kein location_city -
+              -- dort heisst es location_text. demand_requests hat es. Geschrieben war
+              -- es, als haetten beide dieselbe Spalte.
+              -- ABSICHTLICH NICHT MITGEAENDERT: die vier Stellen weiter oben mit
+              -- r.location_city, denn dort ist r = requisitions, und DIE hat die
+              -- Spalte. Derselbe Aliasbuchstabe, zwei Tabellen - wer hier pauschal
+              -- ersetzt, bricht vier richtige Abfragen.
+              COALESCE(NULLIF(r.location_text, ''), dr.location_city) AS location_city
        FROM assignment_staffing_invites i
        JOIN assignments a ON a.id = i.assignment_id
        LEFT JOIN assignment_staffing_campaigns c ON c.id = i.campaign_id
@@ -5121,5 +5306,191 @@ export async function runStaffingMaintenance(pool, {
     ...expired,
     ...reminders,
     ...backfill
+  };
+}
+
+/* ── Datenschutz: die Einsatzplanung einer Person (Welle N2.10) ─────────
+ *
+ * Diese Datei besitzt die Tabellen der Einsatzplanung (Einladungen,
+ * Reservierungen, Auswahl-Sets, Warteliste). Deshalb stehen HIER die beiden
+ * Stuecke, die jeder DSGVO-Pfad braucht — einmal, nicht je Pfad eine Abschrift:
+ *
+ *   Art. 15  AUSKUNFT_EINLADUNGEN_SQL / AUSKUNFT_VORMERKUNGEN_SQL / EINSATZPLANUNG_HINWEIS
+ *            (genutzt von dataGovernanceService.exportUserDataFull und
+ *             workerProfileGovernanceService.exportWorkerProfileData)
+ *   Art. 17  raeumeEinsatzplanungAuf
+ *            (genutzt von anonymizeUser, deleteWorkerData, anonymizeWorkerProfile)
+ */
+
+/**
+ * Einsatzplanung in der Auskunft (Owner-Entscheid 2026-09-15).
+ *
+ * Die Warteliste laeuft im Betrieb STILL: niemand erfaehrt, dass er fuer einen
+ * Einsatz vorgemerkt ist (api/test/wartelisteBleibtStill.test.js). Eine formale
+ * Auskunft ist aber keine Oberflaeche — Rang, Punktzahl und Gruende sind Daten
+ * UEBER die Person, und Art. 15 verlangt sie auf Antrag. Also: in der Auskunft
+ * ja, neutral benannt; in der Oberflaeche nie.
+ *
+ * Genannt werden die Zeitarbeitsfirma (sie hat die Daten verarbeitet) sowie
+ * Taetigkeit und Zeitraum des Einsatzes — ohne diese waere eine Punktzahl nicht
+ * verstaendlich. NICHT genannt wird das Kundenunternehmen: bei einer blossen
+ * Vormerkung ist es eine Geschaeftsinformation Dritter (Art. 15 Abs. 4); wer
+ * eingeladen wurde, hat den Kunden ohnehin in der Einladung gesehen.
+ */
+export const EINSATZPLANUNG_HINWEIS =
+  "Vormerkungen sind ein Planungsschritt Ihrer Zeitarbeitsfirma fuer einen konkreten Einsatz: " +
+  "eine Reihenfolge moeglicher Nachruecker, falls dort ein Platz frei wird. Eine Vormerkung ist " +
+  "weder eine Anfrage noch eine Zusage, und Sie werden dazu nicht benachrichtigt. Eine " +
+  "Nachricht erhalten Sie erst, wenn Sie tatsaechlich eingeladen werden. Punktzahl und Gruende " +
+  "beschreiben, wie gut Ihr Profil zu den Anforderungen des Einsatzes passte.";
+
+export const AUSKUNFT_EINLADUNGEN_SQL =
+  `SELECT i.id, i.assignment_id, i.status, i.score, i.score_reasons, i.personal_message,
+            i.sent_at, i.viewed_at, i.interested_at, i.responded_at, i.accepted_at, i.declined_at,
+            i.cancelled_at, i.expired_at, i.expires_at, i.response_note,
+            so.name AS zeitarbeitsfirma, a.worker_description AS taetigkeit, a.start_date, a.planned_end_date
+       FROM assignment_staffing_invites i
+       JOIN assignments a ON a.id = i.assignment_id
+       LEFT JOIN organizations so ON so.id = i.supplier_org_id
+      WHERE i.worker_user_id = $1
+      ORDER BY i.sent_at DESC`;
+
+export const AUSKUNFT_VORMERKUNGEN_SQL =
+  `SELECT w.id, w.assignment_id, w.status, w.queue_rank, w.score, w.soft_score, w.hard_match,
+            w.match_reasons, w.factor_scores, w.hard_failures, w.missing_requirements,
+            w.queued_at, w.invited_at, w.reserved_at, w.assigned_at, w.removed_at, w.removal_reason,
+            w.last_evaluated_at, w.created_at, w.updated_at,
+            so.name AS zeitarbeitsfirma, a.worker_description AS taetigkeit, a.start_date, a.planned_end_date
+       FROM assignment_staffing_waitlist w
+       JOIN assignments a ON a.id = w.assignment_id
+       LEFT JOIN organizations so ON so.id = w.supplier_org_id
+      WHERE w.worker_user_id = $1
+      ORDER BY w.created_at DESC`;
+
+/** Die Tabellen, die `raeumeEinsatzplanungAuf` tatsaechlich traf — fuer das Audit jedes Loeschpfads. */
+export function aufgeraeumteTabellen(e) {
+  return [
+    [e?.reservierungen, "assignment_staffing_reservations"],
+    [e?.einladungen, "assignment_staffing_invites"],
+    [e?.auswahl, "assignment_staffing_choice_sets"],
+    [e?.anfragen, "worker_assignment_links"],
+    [e?.vormerkungen, "assignment_staffing_waitlist"],
+    [e?.marktangebote, "capacity_posts"]
+  ].filter(([n]) => n > 0).map(([, tabelle]) => tabelle);
+}
+
+/** Wie ein Disponent eine zurueckgezogene Anfrage im Portal liest — ohne den Grund der Loeschung. */
+export const GRUND_PERSON_GELOESCHT = "Person nicht mehr verfuegbar (Datenloeschung)";
+
+/**
+ * Art. 17 — die Einsatzplanung einer geloeschten Person aufraeumen.
+ *
+ * BEFUND 2026-09-15: Keiner der drei Loeschpfade fasste die Einsatzplanung an.
+ * `anonymizeUser` (DELETE /me) liess sogar das Profil AKTIV — die Person blieb
+ * im Kandidatenpool, ihre Vormerkungen standen, und das automatische Nachruecken
+ * (runAutoBackfill) konnte einen geloeschten Menschen einladen und
+ * benachrichtigen. Disponenten sahen "[Geloescht]" als Vorschlag.
+ *
+ * Owner-Entscheid 2026-09-15 ("vollstaendig aufraeumen"):
+ *   Reservierungen   freigegeben
+ *   Einladungen      offene zurueckgezogen (auch angenommene, deren
+ *                    Reservierung eben freigegeben wurde)
+ *   Auswahl-Sets     offene zurueckgezogen
+ *   Einsatzanfragen  unbeantwortete wie eine Ablehnung — derselbe Zustand, den
+ *                    workerService beim Ablehnen schreibt
+ *   Vormerkungen     GELOESCHT: Rang, Punktzahl und Gruende sind Bewertungsdaten,
+ *                    die nach der Loeschung keinem Zweck mehr dienen
+ *   Marktangebote    die offenen Angebote der Person archiviert (sonst stuende sie
+ *                    bis zum naechsten Sweep weiter im Markt)
+ * Einsaetze, Stundenzettel und Rechnungen bleiben — sie unterliegen der
+ * Aufbewahrung (HGB §257). Laufende Einsaetze verhindert bei der
+ * Selbstloeschung bereits `canDeleteUser`.
+ *
+ * Muss INNERHALB der Transaktion des Loeschpfads laufen: faellt ein Schritt,
+ * faellt die ganze Loeschung — kein halb aufgeraeumter Mensch.
+ *
+ * @returns {{reservierungen:number, einladungen:number, auswahl:number,
+ *            anfragen:number, vormerkungen:number, marktangebote:number,
+ *            einsaetze_neu_berechnet:number}}
+ */
+export async function raeumeEinsatzplanungAuf(client, workerUserId) {
+  const leer = { reservierungen: 0, einladungen: 0, auswahl: 0, anfragen: 0, vormerkungen: 0, marktangebote: 0, einsaetze_neu_berechnet: 0 };
+  if (!workerUserId) return leer;
+
+  const reservierungen = await client.query(
+    `UPDATE assignment_staffing_reservations
+        SET status = 'released', released_at = NOW(), release_reason = 'person_geloescht', updated_at = NOW()
+      WHERE worker_user_id = $1 AND status = 'reserved'
+      RETURNING id, assignment_id, invite_id`,
+    [workerUserId]
+  );
+  const freigegebeneEinladungen = reservierungen.rows.map((r) => r.invite_id).filter(Boolean);
+
+  const einladungen = await client.query(
+    `UPDATE assignment_staffing_invites
+        SET status = 'cancelled', cancelled_at = NOW(), remind_after = NULL, updated_at = NOW()
+      WHERE worker_user_id = $1
+        AND (status IN ('sent', 'viewed', 'interested')
+             OR (status = 'accepted' AND id = ANY($2::uuid[])))
+      RETURNING id, assignment_id`,
+    [workerUserId, freigegebeneEinladungen]
+  );
+
+  const auswahl = await client.query(
+    `UPDATE assignment_staffing_choice_sets
+        SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
+      WHERE worker_user_id = $1
+        AND status IN ('options_presented', 'preference_submitted', 'preference_ranked')
+      RETURNING id`,
+    [workerUserId]
+  );
+
+  const anfragen = await client.query(
+    `UPDATE worker_assignment_links
+        SET worker_confirmation_status = 'worker_declined',
+            worker_declined_reason = $2,
+            worker_declined_at = NOW(),
+            is_active = FALSE,
+            updated_at = NOW()
+      WHERE worker_user_id = $1
+        AND is_active = TRUE
+        AND worker_confirmation_status = 'pending_confirmation'
+      RETURNING id, assignment_id`,
+    [workerUserId, GRUND_PERSON_GELOESCHT]
+  );
+
+  const vormerkungen = await client.query(
+    "DELETE FROM assignment_staffing_waitlist WHERE worker_user_id = $1 RETURNING assignment_id",
+    [workerUserId]
+  );
+
+  const marktangebote = await client.query(
+    `UPDATE capacity_posts cp
+        SET status = 'archived', is_active = FALSE, updated_at = NOW()
+      WHERE cp.status IN ('draft', 'active', 'paused')
+        AND cp.worker_profile_id IN (SELECT wp.id FROM worker_profiles wp WHERE wp.user_id = $1)
+      RETURNING cp.id`,
+    [workerUserId]
+  );
+
+  // Die Zaehler der betroffenen Einsaetze stimmen erst nach einer Neuberechnung
+  // wieder: eine freigegebene Reservierung oder eine zurueckgezogene Anfrage gibt
+  // einen Platz frei, den das Nachruecken sonst nicht saehe.
+  const einsaetze = [...new Set(
+    [...reservierungen.rows, ...einladungen.rows, ...anfragen.rows, ...vormerkungen.rows]
+      .map((r) => r.assignment_id).filter(Boolean)
+  )];
+  for (const assignmentId of einsaetze) {
+    await recalcAssignmentStaffing(client, assignmentId, { lock: true, writeEvent: true });
+  }
+
+  return {
+    reservierungen: reservierungen.rowCount || 0,
+    einladungen: einladungen.rowCount || 0,
+    auswahl: auswahl.rowCount || 0,
+    anfragen: anfragen.rowCount || 0,
+    vormerkungen: vormerkungen.rowCount || 0,
+    marktangebote: marktangebote.rowCount || 0,
+    einsaetze_neu_berechnet: einsaetze.length
   };
 }

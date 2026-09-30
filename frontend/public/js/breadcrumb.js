@@ -64,6 +64,8 @@
       approvals:                 { area: 'Einsaetze & Zeiten', url: '/public/worker-submissions-review.html' },
       timesheets:                { area: 'Einsaetze & Zeiten', url: '/public/worker-submissions-review.html' },
       sla_nachweise:             { area: 'Einsaetze & Zeiten', url: '/public/worker-submissions-review.html' },
+      'company-timesheets':      { area: 'Einsaetze & Zeiten', url: '/public/worker-submissions-review.html' },
+      'company-live-workforce':  { area: 'Einsaetze & Zeiten', url: '/public/worker-submissions-review.html' },
 
       /* Trust Center */
       'legal/impressum':         { area: 'Trust Center', url: '/public/data-governance.html' },
@@ -149,6 +151,6 @@
   function esc(s) {
     var d = document.createElement('div');
     d.textContent = s;
-    return d.innerHTML;
+    return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 })();

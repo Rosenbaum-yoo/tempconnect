@@ -887,7 +887,7 @@ TCi18n.register('en', {
     });
   }
 
-  function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
 
   async function api(path) {
     try { return await TC.api.get(path); } catch(e) { return null; }

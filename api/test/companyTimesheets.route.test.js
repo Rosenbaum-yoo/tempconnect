@@ -201,7 +201,39 @@ describe("Chef-Hinweis „gesperrt bei X\" (P3.3-Abschluss)", () => {
     assert.match(q.sql, /wp\.supplier_org_id = \$1/, "über worker_profiles gescoped (supplier_org_id der Sperre kann NULL sein)");
     assert.equal(q.params[0], "sup-1");
     assert.match(q.sql, /blocked_until IS NULL OR b\.blocked_until >= CURRENT_DATE/, "nur aktive Sperren");
-    assert.match(q.sql, /company_name/, "liefert den Kundennamen für den Hinweis");
+
+    /*
+     * UMGEKEHRT SEIT DEM OWNER-ENTSCHEID VOM 2026-09-06 (Welle N4.3).
+     *
+     * Hier stand: `assert.match(q.sql, /company_name/, "liefert den Kundennamen
+     * für den Hinweis")`. Genau das darf die Abfrage jetzt NICHT mehr — und der
+     * Grund ebenso wenig.
+     *
+     * Eine Sperre ist das Urteil eines Kunden über einen MENSCHEN. Sie
+     * durchzusetzen ist etwas anderes, als sie dem Arbeitgeber dieses Menschen
+     * zu erzählen; der Grund wurde für den Kunden notiert, nicht für die
+     * Gegenseite. Die Disposition braucht davon nichts: sie braucht die Antwort
+     * auf „wen kann ich BEI DIESEM KUNDEN nicht einsetzen?" — und die gibt der
+     * Aufruf MIT `companyOrgId`.
+     *
+     * Die Zusicherung wird deshalb nicht gestrichen, sondern gedreht: was
+     * vorher gefordert war, ist jetzt verboten. Ein gelöschter Test hätte die
+     * Rückkehr des Kundennamens stillschweigend erlaubt.
+     */
+    assert.doesNotMatch(q.sql, /company_name/, "der KUNDENNAME geht wieder an die Agentur");
+    assert.doesNotMatch(q.sql, /b\.reason/, "der SPERRGRUND geht wieder an die Agentur");
+  });
+
+  it("mit Kunde: nur dessen Sperren, ohne Grund und ohne Namen (N4.3)", async () => {
+    /* Der Weg, den der Disponenten-Bildschirm seit N4.3 geht: er fragt für den
+     * Kunden, für den er gerade plant — und bekommt genau darauf die Antwort. */
+    const pool = recordingPool({ rows: [] });
+    await blocklistSvc.listBlocksForSupplier(pool, "sup-1", { companyOrgId: "kunde-1" });
+    const q = pool.calls[0];
+    assert.match(q.sql, /wp\.supplier_org_id = \$1/, "die eigene Belegschaft bleibt die Grenze");
+    assert.match(q.sql, /b\.company_org_id = \$2/, "es wird nicht auf den Kunden eingegrenzt");
+    assert.deepEqual(q.params, ["sup-1", "kunde-1"]);
+    assert.doesNotMatch(q.sql, /reason|company_name/, "Grund oder Kundenname fahren mit");
   });
 
   it("listBlocksForSupplier ohne Org → leer, ohne Query", async () => {

@@ -23,7 +23,21 @@ import {
 // ── Mock helpers ──────────────────────────────────────
 
 function mockPool(queryFn) {
-  return { query: queryFn };
+  /* `connect` gehoert seit Welle J7 dazu: `transitionInvoice` vergibt die
+   * Rechnungsnummer beim Stellen in einer Transaktion (Nummer und
+   * Statuswechsel muessen zusammen gelten, sonst reisst ein Abbruch eine
+   * Luecke in den Kreis der Firma). Der Stellvertreter reicht dieselbe
+   * Antwortfunktion durch und schluckt nur die Transaktionsbefehle — die
+   * Zusagen der Tests bleiben unveraendert. */
+  const client = {
+    query: async (sql, params) => {
+      const s = String(sql).trim().toUpperCase();
+      if (s === "BEGIN" || s === "COMMIT" || s === "ROLLBACK") return { rows: [] };
+      return queryFn(sql, params);
+    },
+    release() {}
+  };
+  return { query: queryFn, connect: async () => client };
 }
 
 function returnPool(rows = []) {
@@ -50,7 +64,7 @@ function transactionPool(clientResponses) {
     query: async (sql, params) => {
       // Assignment lookup
       if (sql.includes("FROM assignments a") && sql.includes("WHERE a.id")) {
-        return { rows: [{ id: "asg-1", org_id: "org-1", supplier_org_id: "sup-1", hourly_rate_cents: 2500, worker_description: "CNC-Operator", status: "active", buyer_org_name: "Corp A" }] };
+        return { rows: [{ id: "asg-1", org_id: "kunde-1", supplier_org_id: "org-1", hourly_rate_cents: 2500, worker_description: "CNC-Operator", status: "active", buyer_org_name: "Corp A" }] };
       }
       // Timesheets lookup
       if (sql.includes("FROM timesheets") && sql.includes("ANY")) {
@@ -87,7 +101,7 @@ describe("operationalInvoiceService — generateFromTimesheets", () => {
 
   it("rejects when assignment has no hourly rate", async () => {
     const pool = mockPool(async (sql) => {
-      if (sql.includes("FROM assignments a")) return { rows: [{ id: "asg-1", org_id: "org-1", supplier_org_id: "sup-1", hourly_rate_cents: null }] };
+      if (sql.includes("FROM assignments a")) return { rows: [{ id: "asg-1", org_id: "kunde-1", supplier_org_id: "org-1", hourly_rate_cents: null }] };
       return { rows: [] };
     });
     const result = await generateFromTimesheets(pool, { orgId: "org-1", assignmentId: "asg-1", timesheetIds: ["ts-1"], actorId: "u-1" });
@@ -105,7 +119,7 @@ describe("operationalInvoiceService — generateFromTimesheets", () => {
 
   it("rejects timesheet not approved", async () => {
     const pool = mockPool(async (sql) => {
-      if (sql.includes("FROM assignments a")) return { rows: [{ id: "asg-1", org_id: "org-1", supplier_org_id: "sup-1", hourly_rate_cents: 2500 }] };
+      if (sql.includes("FROM assignments a")) return { rows: [{ id: "asg-1", org_id: "kunde-1", supplier_org_id: "org-1", hourly_rate_cents: 2500 }] };
       if (sql.includes("FROM timesheets") && sql.includes("ANY")) return { rows: [{ id: "ts-1", assignment_id: "asg-1", status: "submitted", invoice_id: null }] };
       return { rows: [] };
     });
@@ -115,7 +129,7 @@ describe("operationalInvoiceService — generateFromTimesheets", () => {
 
   it("rejects already-invoiced timesheet", async () => {
     const pool = mockPool(async (sql) => {
-      if (sql.includes("FROM assignments a")) return { rows: [{ id: "asg-1", org_id: "org-1", supplier_org_id: "sup-1", hourly_rate_cents: 2500 }] };
+      if (sql.includes("FROM assignments a")) return { rows: [{ id: "asg-1", org_id: "kunde-1", supplier_org_id: "org-1", hourly_rate_cents: 2500 }] };
       if (sql.includes("FROM timesheets") && sql.includes("ANY")) return { rows: [{ id: "ts-1", assignment_id: "asg-1", status: "approved", invoice_id: "inv-existing" }] };
       return { rows: [] };
     });
@@ -207,7 +221,7 @@ describe("operationalInvoiceService — getOperationalInvoice", () => {
     let callIdx = 0;
     const pool = mockPool(async () => {
       callIdx++;
-      if (callIdx === 1) return { rows: [{ id: "inv-1", org_id: "org-1", supplier_org_id: "sup-1", invoice_type: "operational", total_cents: 100000 }] };
+      if (callIdx === 1) return { rows: [{ id: "inv-1", org_id: "kunde-1", supplier_org_id: "org-1", invoice_type: "operational", total_cents: 100000 }] };
       return { rows: [{ id: "item-1", item_type: "timesheet_regular", total_cents: 80000 }, { id: "item-2", item_type: "timesheet_overtime", total_cents: 20000 }] };
     });
     const result = await getOperationalInvoice(pool, "inv-1", "org-1");
@@ -350,10 +364,14 @@ describe("operationalInvoiceService — getBillableTimesheets", () => {
 describe("operationalInvoiceService — transitionInvoice", () => {
   it("transitions draft to issued", async () => {
     let callIdx = 0;
+    /* Seit Welle J7 liegt zwischen Lesen und Schreiben die Nummernvergabe
+     * (invoice_number_sequences). Die Sequenz waechst dadurch um eine Antwort —
+     * die Zusagen darunter sind unveraendert. */
     const pool = mockPool(async (sql) => {
       callIdx++;
-      if (callIdx === 1) return { rows: [{ id: "inv-1", status: "draft", org_id: "org-1" }] };
-      if (callIdx === 2) return { rows: [{ id: "inv-1", status: "issued" }] };
+      if (callIdx === 1) return { rows: [{ id: "inv-1", status: "draft", org_id: "org-1", supplier_org_id: "org-1" }] };
+      if (callIdx === 2) return { rows: [{ letzte_nummer: 1, praefix: "RE" }] };
+      if (callIdx === 3) return { rows: [{ id: "inv-1", status: "issued", invoice_number: "RE-2026-000001" }] };
       return { rows: [] };
     });
     const result = await transitionInvoice(pool, "inv-1", "issued", "u-1", "org-1");
@@ -365,7 +383,7 @@ describe("operationalInvoiceService — transitionInvoice", () => {
     let callIdx = 0;
     const pool = mockPool(async (sql) => {
       callIdx++;
-      if (callIdx === 1) return { rows: [{ id: "inv-1", status: "issued", org_id: "org-1" }] };
+      if (callIdx === 1) return { rows: [{ id: "inv-1", status: "issued", org_id: "kunde-1", supplier_org_id: "org-1" }] };
       if (callIdx === 2) return { rows: [{ id: "inv-1", status: "paid" }] };
       return { rows: [] };
     });
@@ -374,7 +392,7 @@ describe("operationalInvoiceService — transitionInvoice", () => {
   });
 
   it("rejects invalid transition (paid → draft)", async () => {
-    const pool = mockPool(async () => ({ rows: [{ id: "inv-1", status: "paid", org_id: "org-1" }] }));
+    const pool = mockPool(async () => ({ rows: [{ id: "inv-1", status: "paid", org_id: "kunde-1", supplier_org_id: "org-1" }] }));
     const result = await transitionInvoice(pool, "inv-1", "draft", "u-1", "org-1");
     assert.strictEqual(result.error, "INVALID_TRANSITION");
     assert.strictEqual(result.from, "paid");
@@ -391,7 +409,7 @@ describe("operationalInvoiceService — transitionInvoice", () => {
       let callIdx = 0;
       const pool = mockPool(async () => {
         callIdx++;
-        if (callIdx === 1) return { rows: [{ id: "inv-1", status, org_id: "org-1" }] };
+        if (callIdx === 1) return { rows: [{ id: "inv-1", status, org_id: "kunde-1", supplier_org_id: "org-1" }] };
         if (callIdx === 2) return { rows: [{ id: "inv-1", status: "void" }] };
         return { rows: [] };
       });
@@ -410,7 +428,7 @@ describe("operationalInvoiceService — addCorrectionItem", () => {
     let callIdx = 0;
     const pool = mockPool(async () => {
       callIdx++;
-      if (callIdx === 1) return { rows: [{ id: "inv-1", status: "draft", org_id: "org-1" }] };
+      if (callIdx === 1) return { rows: [{ id: "inv-1", status: "draft", org_id: "kunde-1", supplier_org_id: "org-1" }] };
       if (callIdx === 2) return { rows: [{ id: "item-new", item_type: "adjustment", total_cents: -5000 }] };
       return { rows: [] };
     });
@@ -420,7 +438,7 @@ describe("operationalInvoiceService — addCorrectionItem", () => {
   });
 
   it("rejects correction on issued invoice", async () => {
-    const pool = mockPool(async () => ({ rows: [{ id: "inv-1", status: "issued", org_id: "org-1" }] }));
+    const pool = mockPool(async () => ({ rows: [{ id: "inv-1", status: "issued", org_id: "kunde-1", supplier_org_id: "org-1" }] }));
     const result = await addCorrectionItem(pool, "inv-1", { description: "Test", amountCents: 100, actorId: "u-1", orgId: "org-1" });
     assert.strictEqual(result.error, "NOT_EDITABLE");
   });
@@ -496,7 +514,21 @@ describe("operationalInvoiceService — exportOperationalInvoiceCsv", () => {
 describe("operationalInvoiceService — Org-Grenze bei den Schreibwegen", () => {
   function spion(rows) {
     const calls = [];
-    return { calls, query: async (sql, params) => { calls.push({ sql, params }); return { rows: rows.shift() ?? [] }; } };
+    const query = async (sql, params) => { calls.push({ sql, params }); return { rows: rows.shift() ?? [] }; };
+    /* Seit Welle J7 laeuft das Stellen in einer Transaktion (Nummernvergabe und
+     * Statuswechsel gelten zusammen). Der Spion zaehlt die Aufrufe des Clients
+     * MIT — nur BEGIN/COMMIT/ROLLBACK bleiben draussen, sonst zaehlten die
+     * Proben auf `calls.length` Transaktionsrahmen statt Abfragen. Die
+     * Zusagen der Tests sind unveraendert. */
+    const client = {
+      query: async (sql, params) => {
+        const s = String(sql).trim().toUpperCase();
+        if (s === "BEGIN" || s === "COMMIT" || s === "ROLLBACK") return { rows: [] };
+        return query(sql, params);
+      },
+      release() {}
+    };
+    return { calls, query, connect: async () => client };
   }
 
   it("transitionInvoice meldet die Grenze statt zu schreiben", async () => {
@@ -514,8 +546,10 @@ describe("operationalInvoiceService — Org-Grenze bei den Schreibwegen", () => 
   });
 
   it("die Lieferantenseite gilt ebenfalls als eigene Zeile", async () => {
+    /* Antwort 2 ist seit Welle J7 die Nummernvergabe. */
     const pool = spion([
       [{ id: "inv-1", status: "draft", org_id: "org-kunde", supplier_org_id: "org-1" }],
+      [{ letzte_nummer: 1, praefix: "RE" }],
       [{ id: "inv-1", status: "issued" }],
       []
     ]);
@@ -525,13 +559,19 @@ describe("operationalInvoiceService — Org-Grenze bei den Schreibwegen", () => 
 
   it("die Org steht in der Lese- UND in der Schreibabfrage", async () => {
     const pool = spion([
-      [{ id: "inv-1", status: "draft", org_id: "org-1", supplier_org_id: null }],
+      [{ id: "inv-1", status: "draft", org_id: "org-1", supplier_org_id: "org-1" }],
+      [{ letzte_nummer: 1, praefix: "RE" }],
       [{ id: "inv-1", status: "issued" }],
       []
     ]);
     await transitionInvoice(pool, "inv-1", "issued", "u-1", "org-1");
+    /* Die Schreibabfrage ist seit Welle J7 der dritte Aufruf (dazwischen liegt
+     * die Nummernvergabe) — die Zusage selbst ist unveraendert: die Org steht
+     * beim Lesen UND beim Schreiben, zweiseitig. */
+    const schreiben = pool.calls.find((c) => /UPDATE invoices/i.test(c.sql));
     assert.ok(pool.calls[0].params.includes("org-1"), "Lesen ohne Org-Bindung");
-    assert.ok(/supplier_org_id\s*=\s*\$\d/.test(pool.calls[1].sql), "Schreiben ohne zweiseitige Org-Bindung");
-    assert.ok(pool.calls[1].params.includes("org-1"), "Schreiben ohne Org-Parameter");
+    assert.ok(schreiben, "kein UPDATE auf invoices gefunden");
+    assert.ok(/supplier_org_id\s*=\s*\$\d/.test(schreiben.sql), "Schreiben ohne zweiseitige Org-Bindung");
+    assert.ok(schreiben.params.includes("org-1"), "Schreiben ohne Org-Parameter");
   });
 });

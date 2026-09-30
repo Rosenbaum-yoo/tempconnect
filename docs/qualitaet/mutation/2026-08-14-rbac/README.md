@@ -127,3 +127,36 @@ Status von `tail`, nicht den des Laufs.
 > Auch die Zahl **28** oben zählt nach Bauart: 4 davon sitzen in einer
 > Protokoll-Nutzlast und entscheiden nichts. Nach Wirkung sind es **14** A-Fälle
 > in Verzweigungen, die Verhalten steuern.
+
+---
+
+> **Nachtrag 2026-09-01 — eine Einstufung wurde revidiert, nicht überschrieben.**
+>
+> Die Owner-Vorgabe „90 % je Bereich" hat den Lauf wiederholt. Dabei zeigte sich,
+> dass **Kategorie B („bewusst ohne Test — Text, Log, Formatierung") für
+> VERWEIGERUNGSPFADE falsch war.** Zwei Gründe:
+>
+> 1. **Ein leeres `message` im 403-Körper lässt den Nutzer ohne Erklärung
+>    zurück** — und macht vier verschiedene Ursachen (fremder Org-Kontext,
+>    fehlende Berechtigung, fehlende Mitgliedschaft, falsche Rolle)
+>    ununterscheidbar. Das ist kein Text, das ist die Antwort.
+> 2. **Bei einer Abweisung entsteht kein Datensatz und keine Audit-Zeile.** Die
+>    `logger.warn`-Nutzlast ist die einzige Spur — und damit genau der Nachweis
+>    „Wer + Was + Warum", den `CLAUDE.md` (Pfeiler 5) verlangt.
+>
+> Für **Erfolgs**-Protokolle bleibt Kategorie B richtig; die werden weiterhin
+> nicht festgehalten.
+>
+> **Die Einstufungen in `triage.json` und `TRIAGE.md` bleiben unverändert.** Sie
+> sind das Protokoll einer Messung vom 2026-08-14 und werden nicht rückwirkend
+> umgeschrieben — ein Archiv, das man an den heutigen Stand anpasst, ist keines
+> mehr. Was gilt, steht hier.
+>
+> **Stand nach der Revision** (`npm run test:mutation:rbac`): 17 der zuvor als B
+> geführten Fälle in `middleware/rbac.js` sind getötet, dazu 20 in
+> `middleware/orgContext.js`. Jeder einzeln durch Rückmutation belegt. Ein Fall
+> bleibt bewusst offen: `rbac.js:117` (`membership?.org_id`) — der
+> Fragezeichen-Zugriff kann auf keinem erreichbaren Pfad greifen, weil
+> `checkPermission` `allowed: true` erst nach der Mitgliedschaftsprüfung
+> zurückgibt. Ihn zu töten hieße, den Dienst durch eine Attrappe zu ersetzen, die
+> eine Gestalt liefert, die es in der Plattform nicht gibt.

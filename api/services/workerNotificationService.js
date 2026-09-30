@@ -4,7 +4,124 @@
  * Alle Notifications sind user-scoped (der jeweilige Arbeitnehmer) und enthalten Deep-Links.
  */
 
-import { logger } from "../config/index.js";
+import { logger, config } from "../config/index.js";
+
+/*
+ * ── STUFE 1 AUS I3: DIE MELDUNG VERLAESST DAS PORTAL ──────────────────────────
+ *
+ * Am Bestand gemessen (2026-08-26): 19 Zuweisungen warteten auf eine Antwort,
+ * ZWOELF blieben ohne jede — und abgelehnt hat nie jemand ein einziges Mal. Die
+ * Antwortzeiten sind zweigipflig: fuenf unter einer Minute, eine nach 6 Tagen,
+ * eine nach 11. Entweder jemand sitzt gerade davor, oder er sieht es tagelang
+ * nicht. In dieser Verteilung trifft eine 4-Stunden-Frist fast nie.
+ *
+ * Bis hierher hatte der Arbeiter-Meldeweg GENAU EINEN Kanal: die Zeile in der
+ * Tabelle, sichtbar im Portal (seit 2026-08-24 auch sofort ueber den
+ * Live-Strom). Wer das Portal nicht offen hat, erfaehrt nichts — die Frist
+ * laeuft trotzdem.
+ *
+ * WARUM E-MAIL UND NICHT SMS: SMS scheiterte an zwei Dingen, nicht am Geld —
+ * es gibt im ganzen Schema kein Einwilligungsfeld, und nur 17 von 33 Arbeitern
+ * haben ueberhaupt eine Nummer hinterlegt. Ein Konto samt Mailadresse haben
+ * dagegen ALLE 33, und die Plattform schreibt ihnen ohnehin (Einladung). Kein
+ * neuer Kanal, keine neue Einwilligung, volle Reichweite. Der Vergleich in
+ * `docs/features/I3_ZUSTELLUNG_ERREICHT_DEN_MENSCHEN.md`.
+ *
+ * NUR FRISTGEBUNDENE TYPEN. Jede Arbeiter-Meldung zu mailen waere der sichere
+ * Weg, dass keine mehr gelesen wird. Hier stehen die drei, bei denen Schweigen
+ * den Menschen etwas KOSTET: die Anfrage selbst, die Erinnerung, der Verfall.
+ * Absage, Rueckzug, Dokumenten-Hinweise bleiben im Portal — dort kostet
+ * Nichtstun nichts.
+ */
+const MAIL_TYPEN = new Set([
+  "worker_assignment_pending_confirmation",
+  "worker_assignment_reminder",
+  "worker_assignment_expired"
+]);
+
+/* Eigene Kategorie, damit ein Widerspruch nicht die Stundenzettel mit abschaltet.
+ * EHRLICH DAZU: Das Einsatzportal hat heute KEINE Einstellungsflaeche — es
+ * verlinkt `activity.html` nicht. Der Schalter wirkt also, aber der Arbeiter
+ * erreicht ihn noch nicht. Als Luecke in I3 festgehalten, nicht verschwiegen. */
+const MAIL_KATEGORIE = "einsatz";
+
+function escapeHtml(wert) {
+  return String(wert == null ? "" : wert)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/**
+ * Reicht eine geschriebene Meldung als E-Mail nach — fuer die Typen, bei denen
+ * eine Frist laeuft.
+ *
+ * WIRFT NIE. Wie der Live-Strom eine Zeile darueber: die Zeile in der Datenbank
+ * ist die Wahrheit, der Zustellweg nur die Abkuerzung.
+ *
+ * ZUR TRANSAKTION: Beim Erinnerungs-Sweep stehen Marke und Meldung in EINER
+ * Transaktion, und dieser Aufruf liegt darin. Rollt sie zurueck, ist die Mail
+ * trotzdem eingereiht. Der Inhalt bleibt dabei WAHR — die Anfrage wartet ja
+ * wirklich; nur die Buchhaltungsmarke fehlt, und der naechste Lauf erinnert
+ * erneut. Der schlimmste Fall ist also eine zweite Erinnerung, keine falsche
+ * Aussage. Die Mail nach dem COMMIT zu schicken haette bedeutet, den
+ * Rueckgabeweg durch drei Aufrufer zu faedeln — fuer diesen Preis nicht.
+ */
+export async function mailAuftragFuerMeldung(pool, workerUserId, zeile) {
+  if (!zeile || !MAIL_TYPEN.has(zeile.type)) return null;
+
+  const { rows } = await pool.query(
+    `SELECT u.email,
+            (SELECT np.channel_email
+               FROM notification_preferences np
+              WHERE np.user_id = u.id AND np.event_category = $2) AS erlaubt
+       FROM users u
+      WHERE u.id = $1`,
+    [workerUserId, MAIL_KATEGORIE]
+  );
+
+  const empfaenger = rows[0];
+  if (!empfaenger?.email) return null;
+  /* Nur ein AUSDRUECKLICHES Nein sperrt. Fehlt die Zeile, wird zugestellt —
+   * sonst erreichte Stufe 1 keinen einzigen der 33 Arbeiter, denn keiner von
+   * ihnen hat je eine Einstellung gesetzt. */
+  if (empfaenger.erlaubt === false) return null;
+
+  const ziel = zeile.link_path
+    ? `${config.BASE_URL}${zeile.link_path}`
+    : config.BASE_URL;
+  const text = zeile.message || zeile.title || "";
+
+  return {
+    to: empfaenger.email,
+    subject: zeile.title || "TempConnect",
+    /* `mitRahmen` im emailService setzt Firmierung und Kontakt darunter. */
+    html: `<p>${escapeHtml(text)}</p>`
+      + `<p><a href="${escapeHtml(ziel)}">Im Einsatzportal ansehen</a></p>`,
+    text: `${text}\n\n${ziel}`
+  };
+}
+
+/**
+ * Der duenne Versender. Bewusst getrennt von der Entscheidung darueber:
+ *
+ * Die riskante Logik ist die Frage WEM WAS und OB UEBERHAUPT — Typenauswahl,
+ * Widerspruch, fehlende Adresse, Link, Escaping. Die liegt jetzt in
+ * `mailAuftragFuerMeldung` und ist ohne jede Attrappe pruefbar: Pool hinein,
+ * Auftrag oder `null` heraus. Was hier bleibt, ist eine Zeile, die man ansehen
+ * kann.
+ *
+ * Der Umweg ueber die Warteschlange statt eines direkten Versands ist Absicht:
+ * er kostet den schreibenden Vorgang keine Zeit, er wiederholt bei Ausfall
+ * (BullMQ: drei Versuche), und er ist gedeckelt (20 Mails/Minute im
+ * `emailWorker`). Ohne Redis meldet `enqueue` das und tut nichts — die Meldung
+ * im Portal steht trotzdem.
+ */
+async function perMailNachreichen(pool, workerUserId, zeile) {
+  const auftrag = await mailAuftragFuerMeldung(pool, workerUserId, zeile);
+  if (!auftrag) return;
+  const { enqueue, emailQueue } = await import("../queue/queues.js");
+  await enqueue(emailQueue, "worker-notification-email", auftrag);
+}
 
 const SEVERITY_MAP = {
   worker_assignment_new:                    "info",
@@ -31,7 +148,17 @@ const SEVERITY_MAP = {
   worker_document_rejected:                 "error",
   worker_document_expiring:                 "warning",
   worker_document_expired:                  "error",
-  worker_blocked_by_company:                "warning"
+  worker_blocked_by_company:                "warning",
+  // Ersatz-Anfrage mit Frist (Plan I, 8.2 / Migration 193). Jeder Typ hier
+  // MUSS im notifications_type_check stehen — sonst degradiert notifyWorker
+  // ihn still zu 'general' und die Meldung verliert im Portal ihre
+  // Zusage-/Absage-Knoepfe. Der Waechter benachrichtigungsSpiegel haelt
+  // SEVERITY_MAP und CHECK gegeneinander.
+  worker_assignment_reminder:               "warning",
+  worker_assignment_expired:                "warning",
+  worker_replacement_expired:               "warning",
+  // Die Firma zieht eine gestellte Anfrage zurueck (Migration 198)
+  worker_assignment_withdrawn:              "info"
 };
 
 /**
@@ -50,7 +177,7 @@ export async function notifyWorker(pool, {
 }) {
   const insertWithType = async (effectiveType, effectiveTitle, effectiveMessage) => {
     const severity = SEVERITY_MAP[effectiveType] || "info";
-    await pool.query(
+    const { rows } = await pool.query(
       `INSERT INTO notifications
          (user_id, type, title, message, entity_type, entity_id, severity, link_path)
        SELECT $1, $2, $3, $4, $5, $6, $7, $8
@@ -58,10 +185,57 @@ export async function notifyWorker(pool, {
          SELECT 1 FROM notifications
          WHERE user_id = $1 AND type = $2 AND entity_type = $5 AND entity_id = $6
            AND created_at > NOW() - INTERVAL '1 hour'
-       )`,
+       )
+       RETURNING *`,
       [workerUserId, effectiveType, effectiveTitle, effectiveMessage || null,
        entityType || null, entityId || null, severity, linkPath || null]
     );
+
+    /*
+     * SOFORT ZUSTELLEN, NICHT ERST BEIM NAECHSTEN LADEN.
+     *
+     * DIESELBE LUECKE WIE IN WELLE G4 — eine Ebene weiter. Damals hatte
+     * `pushToUser` gar keinen Aufrufer; `dispatch()` (notificationMatrix.js)
+     * hat ihn bekommen. `notifyWorker` schreibt aber DIREKT in die Tabelle und
+     * ging an dispatch vorbei: JEDE Arbeiter-Meldung — neue Zuweisung,
+     * Erinnerung, Verfall — wartete darauf, dass jemand das Einsatzportal neu
+     * laedt. Bei einer 4-Stunden-Frist ist das dasselbe wie keine Erinnerung.
+     *
+     * Warum HIER und nicht bei den zwoelf Faktories darueber: `notifyWorker`
+     * ist die Stelle, durch die jede von ihnen geht. An der Faktory waere der
+     * Push eine Sorgfalt, die man vergessen kann — und dann waere wieder nur
+     * die eine Meldung live, an die jemand gedacht hat.
+     *
+     * FEHLER SIND HIER FOLGENLOS, UND ZWAR ABSICHTLICH: die Zeile in der
+     * Datenbank ist die Wahrheit, der Push nur die Abkuerzung. Haengt keine
+     * Verbindung, kehrt `pushToUser` sofort zurueck; faellt das Modul aus,
+     * bleibt die Meldung bestehen und erscheint beim naechsten Laden. Ein
+     * Zustellweg darf das Schreiben nie gefaehrden — auch nicht bei
+     * `throwOnError`, denn der Aufrufer will die geSCHRIEBENE Zeile absichern,
+     * nicht die Abkuerzung.
+     *
+     * `rows[0]` ist leer, wenn die Entdopplung gegriffen hat (dieselbe Meldung
+     * binnen einer Stunde). Dann gibt es auch nichts zu schicken.
+     */
+    if (rows[0]) {
+      try {
+        const { pushToUser } = await import("../routes/notificationStream.js");
+        pushToUser(workerUserId, rows[0]);
+      } catch (e) {
+        logger.warn({ err: e.message, workerUserId },
+          "SSE-Push fehlgeschlagen — Meldung bleibt bestehen");
+      }
+
+      /* Zweiter Zustellweg, gleiche Regel: er darf das Schreiben nie
+       * gefaehrden. Wer das Portal nicht offen hat, erfaehrt sonst nichts —
+       * und die Frist laeuft trotzdem (I3, Stufe 1). */
+      try {
+        await perMailNachreichen(pool, workerUserId, rows[0]);
+      } catch (e) {
+        logger.warn({ err: e.message, workerUserId, type: rows[0].type },
+          "Meldungs-Mail nicht eingereiht — Meldung bleibt bestehen");
+      }
+    }
   };
 
   try {
@@ -213,15 +387,84 @@ export async function notifySubmissionAccepted(pool, workerUserId, submissionId,
 }
 
 /** Neuer Einsatz: Worker muss bestätigen */
-export async function notifyAssignmentPendingConfirmation(pool, workerUserId, assignmentLinkId, clientName) {
+export async function notifyAssignmentPendingConfirmation(pool, workerUserId, assignmentLinkId, clientName, deadlineLabel = null) {
+  /* `deadlineLabel` kommt von ALLEN sechs Anfragewegen (Migration 193 fuer den
+   * Ersatz mit 4 h, Migration 195 fuer regulaere Zuweisungen mit 72 h gedeckelt
+   * am Einsatzbeginn) — eine Frist, die man dem Betroffenen nicht mitteilt, ist
+   * eine Falle. Der Parameter bleibt trotzdem optional: `fristLabelDE` gibt
+   * `null` zurueck, wenn keine Frist gesetzt ist, und dann faellt der
+   * Frist-Satz weg statt eine zu behaupten, die es nicht gibt. */
   await notifyWorker(pool, {
     workerUserId,
     type:        "worker_assignment_pending_confirmation",
     title:       "Neuer Einsatz — Bestätigung erforderlich",
-    message:     `Sie wurden einem Einsatz${clientName ? ` bei ${clientName}` : ""} zugewiesen. Bitte bestätigen oder ablehnen.`,
+    message:     `Sie wurden einem Einsatz${clientName ? ` bei ${clientName}` : ""} zugewiesen. Bitte bestätigen oder ablehnen.${deadlineLabel ? ` Die Anfrage verfaellt am ${deadlineLabel}.` : ""}`,
     entityType:  "worker_assignment_link",
     entityId:    assignmentLinkId,
-    linkPath:    `/public/einsatzportal-benachrichtigungen.html`
+    linkPath:    `/public/einsatzportal-einsaetze.html?einsatz=${assignmentLinkId}`
+  });
+}
+
+/**
+ * Erinnerung an eine unbeantwortete ZUWEISUNG (nicht Staffing-Anfrage) — die
+ * 2-Stunden-Marke einer Ersatz-Anfrage (Owner-Entscheid: Frist 4 h).
+ *
+ * `throwOnError` wird vom Sweep IMMER gesetzt: Erinnerungsmarke und Meldung
+ * stehen dort in EINER Transaktion. Scheitert der INSERT, rollt die Marke mit
+ * zurueck und der naechste Lauf versucht es erneut — eine gesetzte Marke ohne
+ * Meldung waere eine Erinnerung, die nie jemand bekommt.
+ */
+export async function notifyAssignmentReminder(pool, workerUserId, assignmentLinkId, deadlineLabel, options = {}) {
+  await notifyWorker(pool, {
+    workerUserId,
+    type:        "worker_assignment_reminder",
+    title:       "Erinnerung: Einsatz-Anfrage wartet",
+    /* "am", nicht "um": das Label traegt seit Migration 195 Datum UND Uhrzeit,
+     * weil eine regulaere Frist bis zu 72 Stunden entfernt liegen kann. */
+    message:     `Ihre Antwort auf eine Einsatz-Zuweisung steht noch aus.${deadlineLabel ? ` Die Anfrage verfaellt am ${deadlineLabel}.` : ""} Danach wird der Platz neu vergeben.`,
+    entityType:  "worker_assignment_link",
+    entityId:    assignmentLinkId,
+    linkPath:    `/public/einsatzportal-einsaetze.html?einsatz=${assignmentLinkId}`,
+    throwOnError: !!options.throwOnError
+  });
+}
+
+/**
+ * Die Anfrage ist verfallen — der Arbeiter erfaehrt es, sonst steht sie in
+ * seinem Portal ohne Erklaerung tot herum. Kein Vorwurf im Text: Verfall ist
+ * keine Absage, und die Zeile traegt bewusst 'expired' statt 'worker_declined'.
+ */
+export async function notifyAssignmentExpired(pool, workerUserId, assignmentLinkId, clientName) {
+  await notifyWorker(pool, {
+    workerUserId,
+    type:        "worker_assignment_expired",
+    title:       "Einsatz-Anfrage verfallen",
+    message:     `Die Anfrage${clientName ? ` fuer den Einsatz bei ${clientName}` : ""} wurde nicht rechtzeitig beantwortet und ist verfallen. Der Platz wird neu vergeben — es entsteht Ihnen kein Nachteil.`,
+    entityType:  "worker_assignment_link",
+    entityId:    assignmentLinkId,
+    linkPath:    `/public/einsatzportal-einsaetze.html?einsatz=${assignmentLinkId}`
+  });
+}
+
+/**
+ * Die Firma hat die Anfrage zurueckgezogen (Migration 198).
+ *
+ * `info`, nicht `warning`: Fuer den Arbeiter ist nichts schiefgegangen, und er
+ * hat nichts versaeumt — die Disposition hat sich geaendert. Der Text sagt das
+ * ausdruecklich, weil eine kommentarlos verschwundene Zeile sonst wie ein
+ * Fehler aussieht. Der GRUND steht bewusst nicht drin: er ist eine Aussage der
+ * Firma ueber ihre Planung und steht im Audit; sie mag ihn mitteilen, aber
+ * nicht automatisch ueber diesen Weg.
+ */
+export async function notifyAssignmentWithdrawn(pool, workerUserId, assignmentLinkId, clientName) {
+  await notifyWorker(pool, {
+    workerUserId,
+    type:        "worker_assignment_withdrawn",
+    title:       "Einsatz-Anfrage zurückgezogen",
+    message:     `Die Anfrage${clientName ? ` fuer den Einsatz bei ${clientName}` : ""} wurde von Ihrer Zeitarbeitsfirma zurueckgezogen. Sie muessen nichts weiter tun — es entsteht Ihnen kein Nachteil.`,
+    entityType:  "worker_assignment_link",
+    entityId:    assignmentLinkId,
+    linkPath:    `/public/einsatzportal-einsaetze.html?einsatz=${assignmentLinkId}`
   });
 }
 

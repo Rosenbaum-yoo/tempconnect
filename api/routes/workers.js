@@ -11,6 +11,7 @@ import path from "path";
 import multer from "multer";
 import { requirePermission } from "../middleware/rbac.js";
 import { requireScope } from "../middleware/apiKeyAuth.js";
+import { requireAgencyOrg } from "../middleware/orgAccess.js";
 import { hasFeature } from "../config/planFeatures.js";
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
 import * as dealStaffingFastTrackService from "../services/dealStaffingFastTrackService.js";
@@ -29,6 +30,13 @@ import * as statusEventSvc from "../services/workerStatusEventService.js";
 import * as profileGovSvc from "../services/workerProfileGovernanceService.js";
 import * as blocklistSvc from "../services/companyBlocklistService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
+import { fristLabelDE, todayDE } from "../utils/dateDE.js";
+import * as auegFrist from "../services/auegFristService.js";
+import * as marktpraesenzService from "../services/marktpraesenzService.js";
+/* M1.3 — die Masseneinladung reicht den Versand an die vorhandene
+ * Warteschlange weiter, statt 200 SMTP-Gespraeche in die Anfrage zu legen. */
+import { emailQueue } from "../queue/queues.js";
+import * as merkmalKatalog from "../services/workerMerkmalKatalog.js";
 import { swallow } from "../utils/logger.js";
 import { recordActivity } from "../services/eventTrackingService.js";
 
@@ -114,6 +122,22 @@ const updateProfileSchema = z.object({
   profile_public:   z.boolean().optional(),
   public_profile_fields: z.array(publicProfileFieldSchema).max(workerService.PUBLIC_PROFILE_FIELDS.length).optional(),
   availability_note: z.string().max(1000).optional().nullable()
+});
+
+/*
+ * N1b - dieselbe Form wie im Arbeiterportal (`routes/workerPortal.js`), und das
+ * ist Absicht: es ist DERSELBE Vorgang, nur von der anderen Seite ausgeloest.
+ * Zwei Formen fuer dieselbe Zuordnung waeren zwei Wahrheiten.
+ */
+const setzeFaehigkeitenSchema = z.object({
+  skills: z.array(z.object({
+    skill_id:         z.string().uuid(),
+    proficiency:      z.enum(["beginner", "intermediate", "advanced", "expert"]).optional(),
+    years_experience: z.number().min(0).max(60).optional().nullable(),
+    is_primary:       z.boolean().optional(),
+    certified:        z.boolean().optional(),
+    certificate_ref:  z.string().max(200).optional().nullable()
+  })).max(200)
 });
 
 const updateAssignmentLinkSchema = z.object({
@@ -262,6 +286,21 @@ function createWorkerDocumentUpload() {
     }
   });
 }
+
+/*
+ * M3.2 — der Rumpf der Sammel-Einladung.
+ *
+ * `profile_ids` ist OPTIONAL und beschraenkt den Lauf auf einen Stapel. Fehlt
+ * das Feld, bleibt es beim org-weiten Verhalten; steht es als LEERE Liste da,
+ * heisst das "keine" und nicht "alle" — sonst waere ein Import, aus dem nichts
+ * Einladbares hervorging, ploetzlich wieder die ganze Belegschaft.
+ *
+ * Die Obergrenze entspricht der des Imports: mehr Kennungen als importierbare
+ * Zeilen kann ein ehrlicher Aufrufer nicht haben.
+ */
+const bulkInviteSchema = z.object({
+  profile_ids: z.array(z.string().uuid()).max(1000).optional()
+}).strip();
 
 /* ── Feature-Gate ────────────────────────────────────────────────────────────── */
 
@@ -438,23 +477,32 @@ export function normalisiereZeile(roh) {
 
 const importItemSchema = z.object({
   /*
-   * P10/D4 — D-E1 ("Import ohne E-Mail, wenn Personalnummer vorhanden") ist vom
-   * Owner ENTSCHIEDEN, aber hier BEWUSST NOCH NICHT umgesetzt.
+   * D-E1 — "Import ohne E-Mail, wenn Personalnummer vorhanden".
    *
-   * Das Datenmodell laesst es nicht zu: `users.email` ist NOT NULL,
-   * `users.password_hash` ist NOT NULL, und `worker_profiles.user_id` ist NOT
-   * NULL — ein Mitarbeiterprofil braucht zwingend ein Benutzerkonto, und ein
-   * Benutzerkonto zwingend eine E-Mail. Zusaetzlich lehnt
-   * `workerService.bulkImportWorkers` Zeilen ohne E-Mail selbst ab.
+   * BIS ZUM 2026-09-03 STAND HIER `z.string().email()` MIT DER BEGRUENDUNG, das
+   * Datenmodell lasse es nicht zu: `worker_profiles.user_id` sei NOT NULL und
+   * `bulkImportWorkers` lehne Zeilen ohne E-Mail selbst ab. Beides stimmte
+   * einmal. Beides stimmt nicht mehr:
    *
-   * Das Schema hier zu oeffnen wuerde die Zeile annehmen und eine Ebene tiefer
-   * scheitern lassen — ein Versprechen, das die Datenbank bricht. Schlimmer als
-   * eine klare Ablehnung.
+   *   Migration 175          ALTER TABLE worker_profiles
+   *                            ALTER COLUMN user_id DROP NOT NULL
+   *   workerService.js:3244  "P10/D5 — kein E-Mail-Zwang mehr, aber auch kein
+   *                           Datensatz ohne Identitaet" — die Personalnummer
+   *                           traegt die Wiedererkennung, Zeilen ohne beides
+   *                           erhalten MISSING_IDENTITY
    *
-   * Was D-E1 wirklich kostet, steht in docs/features/P10_IMPORT_LIVE_ZEIT.md
-   * (Welle D5). Es ist eine Datenmodell-Entscheidung, keine Feldregel.
+   * Die Entscheidung war getroffen, die Datenbank war offen, der Dienst war
+   * gebaut — und der Eingang blieb zu. Ein Schema, dessen Begruendung abgelaufen
+   * ist, sieht aus wie eine Regel und ist ein Ueberbleibsel. Gefunden beim
+   * Abgleich der M0-Frage F7, die genau diesen Widerspruch benannt hat.
+   *
+   * Die Pflicht verschwindet nicht, sie wandert: `email` ODER
+   * `personnel_number`. Erzwungen wird sie dort, wo beide Felder zusammen
+   * sichtbar sind — im Dienst, je Zeile, mit einem Bericht statt eines
+   * Abbruchs (P10/D1). Ein Schema kann "eines von beiden" nicht ausdruecken,
+   * ohne die zweite Regel zu verdoppeln.
    */
-  email:            z.string().email().max(254),
+  email:            z.string().email().max(254).optional().nullable(),
   first_name:       z.string().min(1).max(100),
   last_name:        z.string().min(1).max(100),
   personnel_number: z.string().max(50).optional().nullable(),
@@ -552,7 +600,37 @@ export function createWorkersRouter(deps) {
   const router = Router();
   const rperm = (p) => requirePermission(p, { pool, logger });
   const gate  = requireWorkerFeature(getUserAndPlan);
-  const base  = [requireAuth, gate];
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * M3.7 — DAS TOR PRUEFTE DEN TARIF UND NICHT DIE SEITE
+   * ═══════════════════════════════════════════════════════════════════════
+   * `requireWorkerFeature` fragt `hasFeature(plan, "worker_module")`. Dieses
+   * Merkmal tragen PLUS, PRO, INDIVIDUELL und ENTERPRISE — unabhaengig davon,
+   * ob die Organisation eine Zeitarbeitsfirma oder ein Unternehmen ist. Ein
+   * Unternehmen auf PRO konnte damit Arbeitskraefte importieren, einladen und
+   * verwalten.
+   *
+   * GEMESSEN AM 2026-09-04: von 65 Wegen mit diesem Stapel sind 36 belegbar
+   * agenturseitig (`supplierOrgId` im Rumpf) und NULL kundenseitig.
+   * `workerService` schreibt 87-mal `supplier_org_id` und einmal
+   * `client_org_id`. Es gibt in dieser Datei keine Unternehmensseite, die der
+   * Riegel wegnehmen koennte.
+   *
+   * Der Riegel steht deshalb im gemeinsamen Stapel und nicht nur vor dem
+   * Import: eine halb geschlossene Tuer sieht aus wie eine geschlossene.
+   *
+   * BETRIEBLICHE FOLGE, ausdruecklich benannt: ein UNTERNEHMENS-Konto auf
+   * PLUS/PRO/INDIVIDUELL, das diese Wege heute benutzt, bekommt ab jetzt 403
+   * (`AGENCY_ORG_REQUIRED`). Es hat dabei allerdings Arbeitskraefte erzeugt,
+   * deren `supplier_org_id` auf ein Unternehmen zeigt — ein Widerspruch im
+   * Datenmodell. Der Riegel nimmt keine gueltige Nutzung weg; er beendet eine
+   * ungueltige.
+   *
+   * Das Einsatzportal liegt in `routes/workerPortal.js` mit eigenem Stapel und
+   * ist nicht betroffen. Ein Arbeiter sitzt ohnehin in einer Agentur-Org.
+   */
+  const nurAgentur = requireAgencyOrg({ pool, logger });
+  const base  = [requireAuth, gate, nurAgentur];
   const workerDocumentUpload = createWorkerDocumentUpload();
   const buildPublicProfileLinks = (worker) => {
     if (!worker?.public_profile_slug) {
@@ -829,7 +907,117 @@ export function createWorkersRouter(deps) {
         search: req.query.search || null,
         limit: parseInt(req.query.limit, 10) || 300
       });
+      /* AUEG-Konto (Welle J8) fuer die Monatsplanung: je Kraft das Konto beim
+       * Kunden, bei dem sie GERADE steht — die Frist gilt je Entleiher, eine
+       * Kraft kann bei drei Kunden drei verschiedene Konten haben. Kraefte
+       * ohne laufenden Einsatz haben hier keinen Entleiher und damit kein
+       * anzeigbares Konto; ihre Frist entsteht erst mit der naechsten
+       * Buchung (dort rechnet das Buchungsmodal mit).
+       * Eine Sammelabfrage JE KUNDE statt eine je Zeile (Anti-N+1). */
+      const jeKunde = new Map();
+      for (const w of board.workers || []) {
+        if (!w.kunde_org_id || !w.worker_user_id) continue;
+        if (!jeKunde.has(w.kunde_org_id)) jeKunde.set(w.kunde_org_id, []);
+        jeKunde.get(w.kunde_org_id).push(w.worker_user_id);
+      }
+      const heute = todayDE();
+      const kontenJeKunde = new Map();
+      for (const [kundeOrgId, ids] of jeKunde) {
+        kontenJeKunde.set(kundeOrgId, await auegFrist.ladeAuegKontenFuerOrg(pool, kundeOrgId, ids, heute));
+      }
+      board.workers = (board.workers || []).map((w) => ({
+        ...w,
+        aueg: (w.kunde_org_id && kontenJeKunde.get(w.kunde_org_id)?.get(w.worker_user_id)) || null
+      }));
       res.json(board);
+    } catch (err) { next(err); }
+  });
+
+  /* ── Marktpraesenz-Schalter (Welle J2c) ──────────────────────────────────────
+   * Der AUSSCHALTER der Automatik "Verfuegbarkeit ist das Angebot" (Mig 200,
+   * Plan J §3.2): TRUE = diese Kraft erscheint nicht mehr als automatisches
+   * Einzelangebot im Marktplatz. Der Dienst zieht die Folgen SOFORT nach
+   * (Ruecknahme bzw. Wiederkehr der eigenen Angebote) — wer abschaltet, wartet
+   * nicht auf den Cron-Takt. Org-gebunden im Schreibvorgang selbst
+   * (supplier_org_id in der WHERE-Klausel), fremdes Profil = 404. */
+  /**
+   * GET /workers/marktpraesenz/unsichtbar — "deine Kraefte, die niemand findet" (N7.3)
+   *
+   * Je Mensch der eigenen Organisation: welche der sechs Bedingungen fehlt.
+   * Gemessen am 2026-08-26 waren 30 von 33 Kraeften unsichtbar — die Firma sah
+   * eine leere Liste und keinen Grund.
+   *
+   * `worker.view` genuegt: die Antwort nennt ausschliesslich Menschen der
+   * EIGENEN Org (der Dienst bindet auf `wp.supplier_org_id = $1`) und enthaelt
+   * keine Marktdaten Dritter. Wer die Belegschaft sehen darf, darf auch sehen,
+   * warum jemand aus ihr nicht im Markt steht.
+   */
+  router.get("/workers/marktpraesenz/unsichtbar", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
+    try {
+      const items = await marktpraesenzService.unsichtbareKraefte(pool, req.orgId, {
+        limit: parseInt(req.query.limit, 10) || 200
+      });
+      res.json({ items, total: items.length });
+    } catch (err) { next(err); }
+  });
+
+  router.post("/workers/:profileId([0-9a-fA-F-]{36})/marktpraesenz", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
+    try {
+      const deaktiviert = req.body?.deaktiviert === true;
+      const ergebnis = await marktpraesenzService.setzeMarktpraesenz(pool, req.orgId, req.params.profileId, deaktiviert);
+      if (!ergebnis) return res.status(404).json({ error: "NOT_FOUND" });
+      res.locals.audit = {
+        action: deaktiviert ? "worker.marktpraesenz_deaktiviert" : "worker.marktpraesenz_aktiviert",
+        entity_type: "worker_profile",
+        entity_id: req.params.profileId,
+        details: {
+          responsible_actor_user_id: req.session?.userId || null,
+          zurueckgenommen: ergebnis.zurueckgenommen,
+          wiederhergestellt: ergebnis.wiederhergestellt,
+          materialisiert: ergebnis.materialisiert
+        }
+      };
+      res.json(ergebnis);
+    } catch (err) { next(err); }
+  });
+
+  /* ── Markt-Profil der Kraft (Welle J9) ───────────────────────────────────────
+   * Der Status-Vermerk des Chefs in drei sauber getrennten Klassen (Plan J §J9):
+   * Merkmale NUR aus dem festen Katalog (DB-CHECK Mig 201 + Katalog-Modul als
+   * doppelte Ratsche), Planungshorizont (wird sofort in die eigenen
+   * Auto-Angebote gespiegelt), interne Dispo-Notiz (verlaesst die
+   * Agenturflaeche nie — der Marktplatz-Feld-Waechter erzwingt das). */
+  const marktProfilSchema = z.object({
+    merkmale: z.array(z.string().min(1).max(60)).max(20).optional().default([]),
+    einsetzbar_bis: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    dispo_notiz: z.string().max(2000).nullable().optional()
+  });
+  router.post("/workers/:profileId([0-9a-fA-F-]{36})/markt-profil", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
+    try {
+      const parsed = marktProfilSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+      const geprueft = merkmalKatalog.pruefeMerkmale(parsed.data.merkmale);
+      if (geprueft.error) return res.status(400).json({ error: geprueft.error, unbekannt: geprueft.unbekannt });
+      const ergebnis = await marktpraesenzService.setzeMarktProfil(pool, req.orgId, req.params.profileId, {
+        merkmale: geprueft.ok,
+        einsetzbarBis: parsed.data.einsetzbar_bis || null,
+        dispoNotiz: (parsed.data.dispo_notiz || "").trim() || null
+      });
+      if (!ergebnis) return res.status(404).json({ error: "NOT_FOUND" });
+      res.locals.audit = {
+        action: "worker.markt_profil_gesetzt",
+        entity_type: "worker_profile",
+        entity_id: req.params.profileId,
+        details: {
+          responsible_actor_user_id: req.session?.userId || null,
+          merkmale: geprueft.ok,
+          einsetzbar_bis: parsed.data.einsetzbar_bis || null,
+          /* Die Notiz selbst gehoert NICHT ins Audit — sie ist eine interne
+           * Einschaetzung; das Audit haelt fest DASS sie geaendert wurde. */
+          dispo_notiz_gesetzt: !!((parsed.data.dispo_notiz || "").trim())
+        }
+      };
+      res.json(ergebnis);
     } catch (err) { next(err); }
   });
 
@@ -1060,14 +1248,51 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  /* ── Sperr-Hinweise für die Disposition (P3.3) ───────────────────────────────
-   * „Wer aus meiner Belegschaft ist bei welchem Kunden gesperrt?" — damit die
-   * Zuweisungs-UI die Sperre anzeigt, bevor der Guard mit 409 abweist.
-   * MUSS vor "/workers/:userId" stehen. */
+  /* ── Sperr-Hinweise für die Disposition (P3.3, eingeengt in N4.3) ────────────
+   * „Wen kann ich BEI DIESEM KUNDEN nicht einsetzen?" — damit die Zuweisungs-UI
+   * die Sperre anzeigt, bevor der Guard mit 409 abweist.
+   * MUSS vor "/workers/:userId" stehen.
+   *
+   * ══════════════════════════════════════════════════════════════════════════
+   * WAS SICH AM 2026-09-06 GEAENDERT HAT (Owner-Entscheid)
+   * ══════════════════════════════════════════════════════════════════════════
+   *
+   * Vorher gab dieser Endpunkt die GANZE Liste heraus: Kraft, Kunde, GRUND,
+   * Kundenname. Der Disponenten-Bildschirm zeigte die Gruende sogar an. Eine
+   * Sperre ist aber das Urteil eines Kunden ueber einen MENSCHEN; sie
+   * durchzusetzen ist etwas anderes, als sie dem Arbeitgeber dieses Menschen zu
+   * erzaehlen. Und der Grund wurde fuer den Kunden notiert, nicht fuer die
+   * Gegenseite.
+   *
+   * Jetzt beantwortet der Server die Frage, die gestellt wird:
+   *   mit ?company_org_id=…  die Sperren dieses einen Kunden — ohne Grund,
+   *                          ohne Namen. Genau das, was die Auswahl braucht.
+   *   ohne Parameter         welche eigenen Kraefte IRGENDWO gesperrt sind,
+   *                          ohne zu sagen wo.
+   *
+   * Kein Abfrage-Orakel: eine Antwort kommt nur fuer die EIGENE Belegschaft
+   * (`worker_profiles.supplier_org_id = req.orgId`), und ein Treffer entsteht
+   * nur dort, wo dieser Kunde eine dieser Kraefte tatsaechlich gesperrt hat —
+   * also nur bei einer bestehenden Geschaeftsbeziehung. Wer eine fremde Org
+   * einsetzt, bekommt eine leere Liste, und das ist keine Auskunft. */
   router.get("/workers/blocks", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
     try {
-      const items = await blocklistSvc.listBlocksForSupplier(pool, req.orgId);
-      res.json({ items, total: items.length });
+      const roh = typeof req.query.company_org_id === "string" ? req.query.company_org_id.trim() : "";
+      /* Nur eine echte UUID wird weitergereicht. Ein Freitext wuerde die Abfrage
+       * mit 22P02 abbrechen — und ein 500 an dieser Stelle sieht aus wie ein
+       * Serverfehler, obwohl der Aufruf falsch war. */
+      const istKennung = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(roh);
+      /* N4.5 — eine GESENDETE, aber unbrauchbare Kennung ist ein Fehler, keine
+         Bitte um die ganze Liste. Vorher fiel sie still auf die ungescopte
+         Antwort zurueck: der Disponent sah dann "gesperrt bei diesem Kunden" an
+         Kraeften, die bei einem ANDEREN Kunden gesperrt sind. Kein Parameter
+         bleibt die bewusste Frage nach der Uebersicht. */
+      if (roh && !istKennung) {
+        return res.status(400).json({ error: "INVALID_COMPANY_ORG_ID" });
+      }
+      const companyOrgId = istKennung ? roh : null;
+      const items = await blocklistSvc.listBlocksForSupplier(pool, req.orgId, { companyOrgId });
+      res.json({ items, total: items.length, scoped_to_company: !!companyOrgId });
     } catch (err) { next(err); }
   });
 
@@ -1104,6 +1329,71 @@ export function createWorkersRouter(deps) {
       res.locals.audit = { action: "worker.update_profile", entity_type: "worker_profile", entity_id: req.params.userId, details: { changed_fields: Object.keys(parsed.data) } };
       const hub = await workerService.getWorkerHub(pool, req.params.userId);
       res.json({ ...hub, ...buildPublicProfileLinks(hub) });
+    } catch (err) { next(err); }
+  });
+
+  /* ── Faehigkeiten eines Mitarbeiters: lesen und setzen ───────────────────
+   *
+   * BEFUND N1b (2026-09-06): diesen Weg gab es fuer die Agentur nicht.
+   *
+   * Der Arbeiter selbst konnte seine Faehigkeiten seit jeher katalog-gebunden
+   * setzen (`PUT /worker/me/skills` -> `setWorkerSkills`, mit `skill_id` gegen
+   * `platform_skills` geprueft). Die Zeitarbeitsfirma, die dieselben Menschen in
+   * `mitarbeiter.html` verwaltet, hatte nur `PATCH /workers/:userId` mit
+   * `skill_tags: string[]` - FREITEXT.
+   *
+   * Was daraus folgte, ist kein Schoenheitsfehler:
+   *
+   *   1. `worker_profile_skills` blieb LEER. Der Angebotsgenerator
+   *      (`capacityOfferGeneratorService`) baut seine Marktangebote aus genau
+   *      dieser Tabelle - ein so gepflegter Mensch kam nie in den Markt.
+   *   2. Der Spiegel `worker_profiles.skill_tags[]` trug Woerter aus einer
+   *      anderen Liste als der Katalog. Gemessen am 2026-09-06: von den 142
+   *      Begriffen, die die Oberflaeche anbot, standen **33** im Katalog (Namen
+   *      und Aliase zusammen) - **109 nicht**. Und `matchingEngine.scoreMatch`
+   *      vergleicht ohne Index die kleingeschriebene Rohform. Ein Unternehmen,
+   *      das seit Welle N1 "Staplerfahrer:in" aus dem Katalog waehlt, findet
+   *      einen Menschen nicht, an dem "Stapler" steht.
+   *
+   * Der Vorgang selbst ist unveraendert: derselbe Dienst, dieselbe Pruefung
+   * gegen `platform_skills`, derselbe Spiegel-Abgleich. Nur die Herkunft steht
+   * jetzt in `source` - "agency" statt "worker" -, damit spaeter nachvollziehbar
+   * bleibt, wer die Zuordnung gesetzt hat. */
+
+  router.get("/workers/:userId/skills", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
+    try {
+      const scoped = await getScopedWorker(req.params.userId, req.orgId);
+      if (scoped.error) return res.status(scoped.status).json({ error: scoped.error });
+      const items = await workerService.getWorkerSkills(pool, scoped.worker.id);
+      res.json({ items, count: items.length });
+    } catch (err) { next(err); }
+  });
+
+  router.put("/workers/:userId/skills", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
+    try {
+      const parsed = setzeFaehigkeitenSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+
+      const scoped = await getScopedWorker(req.params.userId, req.orgId);
+      if (scoped.error) return res.status(scoped.status).json({ error: scoped.error });
+
+      const result = await workerService.setWorkerSkills(pool, {
+        workerProfileId: scoped.worker.id,
+        /* Die Org-Kennung kommt aus der SITZUNG, nicht aus dem geladenen Profil:
+           `getScopedWorker` hat beide bereits gleichgesetzt, und die Sitzung ist
+           die Quelle, der die Pruefung galt. */
+        supplierOrgId: req.orgId,
+        skills: parsed.data.skills,
+        source: "agency"
+      });
+
+      res.locals.audit = {
+        action: "worker.update_skills",
+        entity_type: "worker_profile",
+        entity_id: req.params.userId,
+        details: { skill_count: result.count, source: "agency" }
+      };
+      res.json(result);
     } catch (err) { next(err); }
   });
 
@@ -1394,8 +1684,16 @@ export function createWorkersRouter(deps) {
       const { invite, token } = result;
       const BASE_URL = deps.config?.BASE_URL || "http://localhost:8080";
       const inviteUrl = `${BASE_URL}/worker-login.html?invite=${token}`;
+      /*
+       * M1.3 — die E-Mail meldet jetzt so ehrlich wie die SMS zwei Absaetze
+       * weiter unten. Vorher stand hier ein `await` ohne Pruefung in einem
+       * `catch`, der nie zuschlug: `sendMail` faengt Transportfehler selbst
+       * und gibt `false` zurueck. Die Antwort trug `sms: { sent }`, aber
+       * ueber die Mail — den verlaesslichen Kanal — sagte sie nichts.
+       */
+      let mailErgebnis = { sent: false, reason: "UNKNOWN" };
       try {
-        await deps.sendMail(
+        const ok = await deps.sendMail(
           invite.email,
           "Ihre Einladung zu TempConnect Worker-Portal",
           `<h2>Willkommen bei TempConnect!</h2>
@@ -1404,10 +1702,16 @@ export function createWorkersRouter(deps) {
            <p>Klicken Sie auf den folgenden Link, um Ihr Konto einzurichten:</p>
            <p><a href="${inviteUrl}" style="background:#0070f3;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">Konto einrichten</a></p>
            <p style="color:#666;font-size:14px">Der Link ist 7 Tage gültig.</p>
-           <p style="color:#666;font-size:12px">Falls Sie diese Einladung nicht erwartet haben, ignorieren Sie diese E-Mail.</p>`
+           <p style="color:#666;font-size:12px">Falls Sie diese Einladung nicht erwartet haben, ignorieren Sie diese E-Mail.</p>`,
+          { zweck: "worker-einladung" }
         );
+        mailErgebnis = ok ? { sent: true, reason: null } : { sent: false, reason: "MAIL_FAILED" };
       } catch (mailErr) {
-        logger.warn({ err: mailErr?.message }, "Worker-Invite E-Mail konnte nicht gesendet werden");
+        logger.warn({ err: mailErr?.message, invite_id: invite.id }, "Worker-Invite E-Mail konnte nicht gesendet werden");
+        mailErgebnis = {
+          sent: false,
+          reason: mailErr?.code === "MAIL_NO_TRANSPORT" ? "MAIL_NO_TRANSPORT" : "MAIL_FAILED"
+        };
       }
 
       // Zweiter Zustellweg: gewerbliche Einsatzkraefte lesen eine SMS zuverlaessiger
@@ -1432,7 +1736,11 @@ export function createWorkersRouter(deps) {
         action: "worker.invite_sent", entity_type: "worker_invite",
         entity_id: invite.id,
         // Kein Klartext der Nummer ins Audit (S-2) — nur ob der Zweitweg griff.
-        details: { email: invite.email, sms_sent: smsErgebnis.sent === true, sms_reason: smsErgebnis.reason }
+        details: {
+          email: invite.email,
+          mail_sent: mailErgebnis.sent === true, mail_reason: mailErgebnis.reason,
+          sms_sent: smsErgebnis.sent === true, sms_reason: smsErgebnis.reason
+        }
       };
       try {
         await trackProductEventFromRequest(pool, req, "worker_invite_sent", {
@@ -1440,7 +1748,11 @@ export function createWorkersRouter(deps) {
           metadata: { invite_id: invite.id }
         });
       } catch { /* analytics non-critical */ }
-      res.status(201).json({ invite, sms: { sent: smsErgebnis.sent, reason: smsErgebnis.reason } });
+      res.status(201).json({
+        invite,
+        mail: { sent: mailErgebnis.sent, reason: mailErgebnis.reason },
+        sms: { sent: smsErgebnis.sent, reason: smsErgebnis.reason }
+      });
     } catch (err) { next(err); }
   });
 
@@ -1451,7 +1763,31 @@ export function createWorkersRouter(deps) {
       if (limits.hard_blocked) {
         return res.status(402).json({ error: "WORKER_LIMIT_EXCEEDED", plan_limits: limits });
       }
-      const candidates = await workerService.listInvitableWorkers(pool, req.orgId);
+      /*
+       * M3.2 — DER STAPEL, NICHT DIE GANZE BELEGSCHAFT.
+       *
+       * Ohne `profile_ids` bleibt es beim bisherigen Verhalten: alle noch
+       * nicht bestaetigten Kraefte der Organisation. Genau das will der Knopf
+       * "alle noch nicht Registrierten einladen".
+       *
+       * Der Knopf NACH EINEM IMPORT reicht jetzt die Kennungen aus seinem
+       * eigenen Bericht mit (`created[].profile_id`). Vorher rief er denselben
+       * org-weiten Weg — die Oberflaeche fragte "die 3 gerade importierten
+       * einladen?", und bei 200 unbestaetigten Kraeften gingen 200 Mails
+       * hinaus. Der Dialog nannte eine Zahl, der Server tat etwas anderes.
+       *
+       * Die Kennungen werden NICHT geglaubt: der Dienst filtert sie gegen
+       * `wp.supplier_org_id = $1`, eine fremde Kennung faellt damit heraus
+       * statt zu wirken.
+       */
+      const parsedBulk = bulkInviteSchema.safeParse(req.body || {});
+      if (!parsedBulk.success) {
+        return res.status(400).json({ error: "VALIDATION", details: parsedBulk.error.issues });
+      }
+      const profileIds = parsedBulk.data.profile_ids ?? null;
+
+      const candidates = await workerService.listInvitableWorkers(pool, req.orgId,
+        profileIds ? { profileIds } : {});
       // Set-based statt N x (SELECT + INSERT): EINE Dedup-Query + EIN UNNEST-Insert
       // (bulkCreateWorkerInvites); der partielle Unique-Index aus Mig 159 macht
       // parallele Bulk-Klicks race-sicher (ON CONFLICT DO NOTHING). Die Kandidaten-
@@ -1464,34 +1800,87 @@ export function createWorkersRouter(deps) {
       const BASE_URL = deps.config?.BASE_URL || "http://localhost:8080";
       const invited = [];
       const failed = [];
-      for (const invite of bulk.invites) {
-        const inviteUrl = `${BASE_URL}/worker-login.html?invite=${invite.token}`;
-        try {
-          await deps.sendMail(
-            invite.email,
-            "Ihre Einladung zu TempConnect Worker-Portal",
-            `<h2>Willkommen bei TempConnect!</h2>
+      let queued = 0;
+
+      const mails = bulk.invites.map((invite) => ({
+        invite,
+        betreff: "Ihre Einladung zu TempConnect Worker-Portal",
+        html:
+          `<h2>Willkommen bei TempConnect!</h2>
              <p>Hallo ${invite.first_name},</p>
              <p>Sie wurden eingeladen, das Worker Self-Service Portal zu nutzen.</p>
-             <p><a href="${inviteUrl}" style="background:#0070f3;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">Konto einrichten</a></p>
+             <p><a href="${BASE_URL}/worker-login.html?invite=${invite.token}" style="background:#0070f3;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">Konto einrichten</a></p>
              <p style="color:#666;font-size:14px">Der Link ist 7 Tage gültig.</p>`
-          );
-          invited.push({ email: invite.email, invite_id: invite.id });
-        } catch (mailErr) {
-          // `invite_id` statt der Adresse: personenbezogen darf nicht ins Log (S-2),
-          // und die ID ist zum Nachverfolgen ohnehin die bessere Kennung — ueber sie
-          // findet man den Datensatz, die Adresse haette man erst suchen muessen.
-          logger.warn({ err: mailErr?.message, invite_id: invite.id }, "Bulk-Invite E-Mail fehlgeschlagen");
-          // Invite existiert (Resend moeglich) — als failed melden, damit der
-          // Disponent weiss, dass diese Mail nicht ankam.
-          failed.push({ email: invite.email, error: "MAIL_FAILED", invite_id: invite.id });
+      }));
+
+      /*
+       * ═════════════════════════════════════════════════════════════════════
+       * M1.3 — DER VERSAND VERLAESST DIE ANFRAGE
+       * ═════════════════════════════════════════════════════════════════════
+       * Vorher lief hier eine Schleife mit `await sendMail` je Einladung. Bei
+       * 200 Mitarbeitern sind das 200 SMTP-Gespraeche nacheinander, waehrend
+       * der Browser wartet — und der emailWorker drosselt bewusst auf 20
+       * Mails je Minute, was in der Anfrage gar nicht erst greifen konnte.
+       *
+       * `addBulk` reicht alle Auftraege in EINEM Redis-Gespraech ein. Faellt
+       * Redis aus, wird direkt gesendet statt still nichts zu tun: eine
+       * Einladung, die niemand einreiht und niemand sendet, waere genau der
+       * Ausfall, den diese Welle abschafft.
+       */
+      const schlange = emailQueue();
+      if (schlange && mails.length) {
+        try {
+          await schlange.addBulk(mails.map(({ invite, betreff, html }) => ({
+            name: "worker-einladung",
+            data: { to: invite.email, subject: betreff, html, zweck: "worker-einladung" },
+            opts: { attempts: 3, backoff: { type: "exponential", delay: 2000 } }
+          })));
+          queued = mails.length;
+          for (const { invite } of mails) invited.push({ email: invite.email, invite_id: invite.id });
+        } catch (qErr) {
+          logger.warn({ err: qErr?.message }, "Bulk-Invite: Warteschlange nicht erreichbar — direkter Versand");
+          queued = 0;
         }
       }
+
+      if (!queued) {
+        for (const { invite, betreff, html } of mails) {
+          try {
+            /*
+             * DIE RUECKGABE WIRD JETZT GEPRUEFT.
+             *
+             * Vorher stand hier nur `await deps.sendMail(...)` in einem
+             * try/catch. Nur wirft `sendMail` bei einem Transportfehler NICHT
+             * — es faengt selbst und gibt `false` zurueck. Der catch war
+             * toter Code, `failed` blieb IMMER leer, und der Disponent las
+             * "alle eingeladen", auch wenn keine einzige Mail hinausging.
+             * Gemessen am 2026-09-02.
+             */
+            const ok = await deps.sendMail(invite.email, betreff, html, { zweck: "worker-einladung" });
+            if (ok) invited.push({ email: invite.email, invite_id: invite.id });
+            else failed.push({ email: invite.email, error: "MAIL_FAILED", invite_id: invite.id });
+          } catch (mailErr) {
+            // `invite_id` statt der Adresse: personenbezogen darf nicht ins Log (S-2),
+            // und die ID ist zum Nachverfolgen ohnehin die bessere Kennung — ueber sie
+            // findet man den Datensatz, die Adresse haette man erst suchen muessen.
+            logger.warn({ err: mailErr?.message, invite_id: invite.id }, "Bulk-Invite E-Mail fehlgeschlagen");
+            // Invite existiert (Resend moeglich) — als failed melden, damit der
+            // Disponent weiss, dass diese Mail nicht ankam.
+            failed.push({
+              email: invite.email,
+              error: mailErr?.code === "MAIL_NO_TRANSPORT" ? "MAIL_NO_TRANSPORT" : "MAIL_FAILED",
+              invite_id: invite.id
+            });
+          }
+        }
+      }
+
       res.locals.audit = {
         action: "worker.bulk_invite_sent", entity_type: "worker_invite",
         entity_id: null,
         details: {
-          invited: invited.length, failed: failed.length,
+          invited: invited.length, failed: failed.length, queued,
+          versandweg: queued ? "queue" : "direkt",
           skipped_pending: bulk.skipped_pending, skipped_accepted: bulk.skipped_accepted,
           truncated: bulk.truncated
         }
@@ -1499,6 +1888,11 @@ export function createWorkersRouter(deps) {
       res.status(201).json({
         invited_count: invited.length,
         failed_count: failed.length,
+        queued_count: queued,
+        /* Ehrlich benannt: ueber die Warteschlange ist die Mail EINGEREIHT,
+         * nicht zugestellt. Das Versandprotokoll (mail_versand, Zweck
+         * "worker-einladung") sagt, was daraus geworden ist. */
+        versandweg: queued ? "queue" : "direkt",
         invited, failed,
         skipped_pending: bulk.skipped_pending,
         skipped_accepted: bulk.skipped_accepted,
@@ -1522,7 +1916,8 @@ export function createWorkersRouter(deps) {
            <p>Hallo ${result.invite.first_name},</p>
            <p>Ihr Einladungslink:</p>
            <p><a href="${inviteUrl}">Konto einrichten</a></p>
-           <p style="color:#666;font-size:14px">Der Link ist 7 Tage gültig.</p>`
+           <p style="color:#666;font-size:14px">Der Link ist 7 Tage gültig.</p>`,
+          { zweck: "worker-einladung" }
         );
       } catch (mailErr) {
         logger.warn({ err: mailErr?.message }, "Resend-Invite E-Mail konnte nicht gesendet werden");
@@ -1640,6 +2035,53 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
+  /* ── Eine gestellte Anfrage zurueckziehen (Owner-Entscheid 2026-08-24) ─────
+   *
+   * Bis hierher konnte eine Anfrage NUR durch die Antwort des Arbeiters oder
+   * durch Zeitablauf enden. Der Dienst dafuer existierte, hatte aber keinen
+   * Aufrufer — der einzige indirekte Weg war, den ganzen Mitarbeiter zu
+   * deaktivieren, was alle seine Einsaetze trifft.
+   *
+   * `worker.manage`, nicht `worker.edit`: Wer eine Anfrage zurueckzieht,
+   * greift in eine laufende Zusage-Erwartung ein und loest Meldungen an
+   * Arbeiter UND Kunde aus — dieselbe Schwelle wie beim Ersatz-Weg darunter.
+   *
+   * Der GRUND ist Pflicht (min. 3 Zeichen, wie beim Ersatz): Er landet im
+   * Audit, nicht im Postfach des Arbeiters. Ohne ihn liesse sich spaeter nicht
+   * mehr sagen, warum jemandem eine Anfrage genommen wurde. */
+  const zurueckziehenSchema = z.object({
+    reason: z.string().trim().min(3).max(500)
+  });
+
+  router.post("/worker-assignment-links/:id([0-9a-fA-F-]{36})/zurueckziehen",
+    ...base, requireScope("write:workers"), rperm("worker.manage"), async (req, res, next) => {
+    try {
+      const parsed = zurueckziehenSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+
+      const result = await workerService.anfrageZurueckziehen(pool, req.params.id, req.orgId, {
+        actorId: req.session.userId
+      });
+      if (result.error) {
+        const statusMap = { NOT_FOUND: 404, NICHT_MEHR_OFFEN: 409 };
+        return res.status(statusMap[result.error] || 400).json(result);
+      }
+
+      res.locals.audit = {
+        action: "worker_assignment_link.withdrawn",
+        entity_type: "worker_assignment_link",
+        entity_id: req.params.id,
+        details: {
+          assignment_id: result.link.assignment_id,
+          worker_user_id: result.link.worker_user_id,
+          reason: parsed.data.reason,
+          responsible_actor_user_id: req.session.userId
+        }
+      };
+      res.json({ link: result.link });
+    } catch (err) { next(err); }
+  });
+
   /* ── Ersatz bei Krankheit/Abbruch (Chef weist Ersatz ab Wirk-Datum zu) — P1.1 ──── */
 
   const replaceAssignmentSchema = z.object({
@@ -1662,6 +2104,8 @@ export function createWorkersRouter(deps) {
         createdBy:               req.session.userId
       });
       if (result.error) {
+        // REPLACEMENT_PENDING = es laeuft bereits eine Ersatz-Anfrage fuer
+        // diesen Ausfall (8.2). 409 wie die uebrigen Zustandskonflikte.
         const code = result.error === "NOT_FOUND" ? 404
           : result.error === "REPLACEMENT_NOT_IN_ORG" ? 403
           : 409;
@@ -1711,43 +2155,41 @@ export function createWorkersRouter(deps) {
 
       // Notifications: Ersatz über neuen Einsatz, Ausfallenden über Herausnahme.
       const clientName = result.replacement_link.client_name || null;
-      workerNotifications.notifyAssignmentNew(pool, parsed.data.replacement_worker_user_id, result.replacement_link.id, clientName);
+      /* ZUSAGE ERBITTEN, nicht Vollzug melden (8.2, 2026-08-21).
+       *
+       * Hier stand `notifyAssignmentNew` ("du hast einen neuen Einsatz") — bei
+       * einem Link, den der Arbeiter gar nicht ablehnen konnte. Jetzt ist der
+       * Link `pending_confirmation`, und er wird gefragt. Dieselbe
+       * Benachrichtigung wie beim regulaeren `quick-assign`: ein Weg, eine
+       * Erwartung. */
+      /* Die Frist steht im Erst-Text (Owner-Entscheid: 4 h). Formatiert in
+       * Europe/Berlin — nie roher UTC-Slice. Seit Migration 195 teilen sich
+       * alle fuenf Anfragewege dieselbe Formatierung (`fristLabelDE`); die
+       * Inline-Kopie, die hier stand, waere die erste von fuenf gewesen. */
+      workerNotifications.notifyAssignmentPendingConfirmation(
+        pool, parsed.data.replacement_worker_user_id, result.replacement_link.id, clientName,
+        fristLabelDE(result.replacement_link.frist_bis)
+      );
       workerNotifications.notifyAssignmentRemoved(pool, result.ailing_worker_user_id, req.params.id, {
         effectiveFrom: parsed.data.effective_date, reason: parsed.data.reason
       });
 
-      /* ── Ersatz an den Kunden (Welle G4b) ──────────────────────────────
+      /* ── Ersatz an den Kunden: WANDERT AN DIE ZUSAGE (Welle G4b + 8.2) ───
        *
-       * DAS GATE DIESER WELLE: "die Ersatz-Meldung geht erst nach echter
-       * Neubesetzung raus". Genau hier ist sie echt — `replaceAssignmentWorker`
-       * hat committet, der neue Link steht, `result.replacement_link` ist der
-       * Beleg. Eine Meldung an einer frueheren Stelle (etwa beim Einladen eines
-       * Kandidaten) waere ein Versprechen statt einer Tatsache, und der Kunde
-       * plant auf ein Versprechen hin seine Schicht.
+       * Das Gate von G4b lautete: "die Ersatz-Meldung geht erst nach echter
+       * Neubesetzung raus" — weil der Kunde auf diese Meldung hin seine Schicht
+       * plant, und ein Versprechen laesst sich nicht zurueckrollen.
        *
-       * NACH dem COMMIT, wie die beiden Worker-Benachrichtigungen darueber:
-       * innerhalb der Transaktion waere die Meldung raus, auch wenn danach
-       * zurueckgerollt wird — und eine Zusage laesst sich nicht zurueckrollen. */
-      let kundeInformiert = 0;
-      const ausgefallen = await absenceSvc.profilZuNutzer(pool, req.orgId, result.ailing_worker_user_id);
-      if (ausgefallen) {
-        const ersatz = await absenceSvc.profilZuNutzer(pool, req.orgId, parsed.data.replacement_worker_user_id);
-        const einsatz = await absenceSvc.einsatzFuerKundenmeldung(
-          pool, req.orgId, result.original_link.assignment_id
-        );
-        if (einsatz) {
-          const k = await absenceSvc.benachrichtigeKunde(pool, req.orgId, {
-            anlass: "ersatz",
-            workerProfileId: ausgefallen.id,
-            einsaetze: [einsatz],
-            ersatzName: ersatz ? ersatz.name : null,
-          });
-          kundeInformiert = k.benachrichtigt;
-        }
-      }
-      if (res.locals.audit && res.locals.audit.details) {
-        res.locals.audit.details.kunde_informiert = kundeInformiert;
-      }
+       * Seit der Ersatz ZUSAGEN muss (8.2), ist die Zuweisung an dieser Stelle
+       * keine Neubesetzung mehr, sondern erst eine Anfrage. Die Meldung hier zu
+       * senden waere genau das, was G4b abstellen wollte — nur eine Ebene
+       * frueher.
+       *
+       * Sie steht deshalb jetzt in `POST /worker/assignments/:id/confirm`
+       * (api/routes/workerPortal.js), ausgeloest ueber `ersetzt_link_id`.
+       * Lehnt der Ersatz ab, erfaehrt der Kunde nichts Neues — und das ist
+       * richtig: fuer ihn hat sich seit der Ausfallmeldung nichts geaendert. */
+      const kundeInformiert = 0;
 
       res.status(200).json({
         original_link:    result.original_link,
@@ -1951,8 +2393,12 @@ export function createWorkersRouter(deps) {
       }
 
       // Fire-and-forget: Worker über neue Zuweisung benachrichtigen
+      /* Die Frist steht im Erst-Text (Migration 195: 72 h, gedeckelt am
+       * Einsatzbeginn) — eine Frist, die man dem Betroffenen nicht mitteilt,
+       * ist eine Falle. */
       workerNotifications.notifyAssignmentPendingConfirmation(
-        pool, parsed.data.worker_user_id, result.link.id, parsed.data.client_name || null
+        pool, parsed.data.worker_user_id, result.link.id, parsed.data.client_name || null,
+        fristLabelDE(result.link.frist_bis)
       ).catch(err => logger.error("Notification error (assign-capacity):", err));
 
       res.locals.audit = {
@@ -2040,7 +2486,8 @@ export function createWorkersRouter(deps) {
           pool,
           assigned.worker_user_id,
           assigned.link_id,
-          parsed.data.client_name || null
+          parsed.data.client_name || null,
+          fristLabelDE(assigned.frist_bis)
         ).catch(err => logger.error("Notification error (staffing-quick-assign):", err));
       }
 
@@ -2280,7 +2727,8 @@ export function createWorkersRouter(deps) {
           pool,
           choiceSet.worker_user_id,
           result.link.id,
-          parsed.data.client_name || option.request_context?.client_org_name || null
+          parsed.data.client_name || option.request_context?.client_org_name || null,
+          fristLabelDE(result.link.frist_bis)
         ).catch(err => logger.error("Notification error (staffing-choice-set assign):", err));
       }
 
@@ -2381,7 +2829,8 @@ export function createWorkersRouter(deps) {
 
       // Fire-and-forget notification
       workerNotifications.notifyAssignmentPendingConfirmation(
-        pool, parsed.data.worker_user_id, result.link.id, parsed.data.client_name || null
+        pool, parsed.data.worker_user_id, result.link.id, parsed.data.client_name || null,
+        fristLabelDE(result.link.frist_bis)
       ).catch(err => logger.error("Notification error (assign-deal):", err));
 
       res.locals.audit = {

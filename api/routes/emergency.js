@@ -52,6 +52,50 @@ export function createEmergencyRouter(deps) {
   const router = Router();
   const emergencyAccess = requireFeature("emergency_staffing");
 
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   * WER DEN PLATTFORMWEITEN BLICK BEKOMMT (N7.5, 2026-09-06)
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * `?all=1` hebt den Org-Filter auf. Davor stand bis heute nur
+   * `requireFeature("emergency_staffing")` - und das prueft den TARIF, keine
+   * Rolle. Ein UNTERNEHMEN auf PLUS las damit die Notlagen seiner Wettbewerber,
+   * obwohl es sie gar nicht bedienen kann.
+   *
+   * Der Schalter selbst bleibt: eine Agentur muss sehen, wo Not herrscht, sonst
+   * gibt es keinen Markt. Nur die Zielgruppe wird die, die handeln KANN.
+   *
+   * WARUM DAS KEINE REICHWEITE KOSTET, und das ist der Punkt, der die Abwaegung
+   * aufloest: `GET /marketplace/public/demand-requests` filtert NICHT nach
+   * Dringlichkeit. Notlagen erscheinen dort schon heute - fuer jeden
+   * Angemeldeten, mit 14 kuratierten Feldern, ohne Tarifschranke. Was dieser
+   * Schalter zusaetzlich liefert, ist die Leitstand-Qualitaet: Alter, SLA-Stand,
+   * Eskalationsstufe, Sortierung nach Dringlichkeit. Das ist das Premium-
+   * Produkt, nicht der Bedarf selbst. Der Tarif bleibt deshalb stehen
+   * (Owner-Entscheidung 2026-09-06).
+   *
+   * ABGELEHNT wird ausdruecklich, statt still auf die eigene Organisation
+   * zurueckzufallen: wer plattformweit fragt und stillschweigend nur das Eigene
+   * bekommt, haelt eine leere Liste fuer eine Aussage ueber den Markt.
+   *
+   * @returns {Promise<{ok: true}|{ok: false, status: number, error: string}>}
+   */
+  async function plattformweitErlaubt(req) {
+    const me = await getUserAndPlan(req.session.userId);
+    if (me?.role !== "agency") {
+      return { ok: false, status: 403, error: "AGENCY_ONLY" };
+    }
+    return { ok: true };
+  }
+
+  /** Der Org-Ausschnitt fuer diese Anfrage - `null` heisst plattformweit. */
+  async function ausschnitt(req) {
+    if (req.query.all !== "1") return { ok: true, orgId: req.session.userId };
+    const erlaubt = await plattformweitErlaubt(req);
+    if (!erlaubt.ok) return erlaubt;
+    return { ok: true, orgId: null };
+  }
+
   async function getDemandById(demandId) {
     const { rows } = await pool.query(
       `SELECT dr.id, dr.requester_company_id, dr.urgency, dr.status, dr.required_total_count,
@@ -86,8 +130,13 @@ export function createEmergencyRouter(deps) {
       const parsed = emergencyRequestSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
 
+      /* N2.11 — der zweite Notdienst-Anlegeweg reichte keine Firma durch. Die
+         Kundensperre haengt an ihr: ohne sie lief der Abgleich ungefiltert, die
+         gesperrte Kraft stand in den Treffern, und ihre Zeitarbeitsfirma bekam
+         "NOTDIENST — sofortige Reaktion" (Befund der Pruefung vom 2026-09-15).
+         Aus der Sitzung, nach dem Spread — nie aus dem Rumpf. */
       const result = await emergencyService.createEmergencyRequest(
-        pool, req.session.userId, me?.plan ?? "FREE", parsed.data
+        pool, req.session.userId, me?.plan ?? "FREE", { ...parsed.data, requester_org_id: req.orgId || null }
       );
 
       res.locals.audit = {
@@ -107,10 +156,10 @@ export function createEmergencyRouter(deps) {
 
   router.get("/emergency/active", requireAuth, emergencyAccess, async (req, res) => {
     try {
-      const items = await emergencyService.getActiveEmergencies(
-        pool, req.query.all === "1" ? null : req.session.userId
-      );
-      res.json({ items, count: items.length });
+      const a = await ausschnitt(req);
+      if (!a.ok) return res.status(a.status).json({ error: a.error });
+      const items = await emergencyService.getActiveEmergencies(pool, a.orgId);
+      res.json({ items, count: items.length, scope: a.orgId ? "own" : "platform" });
     } catch (e) {
       logger.error({ err: e.message }, "GET /emergency/active");
       res.status(500).json({ error: "SERVER_ERROR" });
@@ -121,10 +170,10 @@ export function createEmergencyRouter(deps) {
 
   router.get("/emergency/dashboard", requireAuth, emergencyAccess, async (req, res) => {
     try {
-      const dashboard = await emergencyService.getEmergencyDashboard(
-        pool, req.query.all === "1" ? null : req.session.userId
-      );
-      res.json(dashboard);
+      const a = await ausschnitt(req);
+      if (!a.ok) return res.status(a.status).json({ error: a.error });
+      const dashboard = await emergencyService.getEmergencyDashboard(pool, a.orgId);
+      res.json({ ...dashboard, scope: a.orgId ? "own" : "platform" });
     } catch (e) {
       logger.error({ err: e.message }, "GET /emergency/dashboard");
       res.status(500).json({ error: "SERVER_ERROR" });
@@ -163,6 +212,41 @@ export function createEmergencyRouter(deps) {
 
   router.post("/emergency/:id/escalate", requireAuth, emergencyAccess, async (req, res) => {
     try {
+      /*
+       * BEFUND N7.4 (geschlossen 2026-09-05): dieser Endpunkt hatte KEINE
+       * Eigentumspruefung - weder hier noch im Dienst. `escalateEmergency`
+       * nimmt `actorId` entgegen, schreibt sie ins SLA-Ereignis und ins
+       * Protokoll, vergleicht sie aber nie mit `requester_company_id`.
+       *
+       * Wirkung: jeder Angemeldete mit `emergency_staffing` im Tarif konnte
+       * JEDE offene Notlage JEDES Unternehmens dreimal hochstufen. Jede Stufe
+       * loest einen Rundruf an bis zu 50 Anbieter aus - mit E-Mail
+       * (`emailQueue: true`) und mit Titel, Rolle und Ort der fremden Notlage
+       * im Text. Ein Schreibzugriff in einen fremden Vorgang, der zugleich ein
+       * Versandverstaerker ist.
+       *
+       * Dass es ein Versehen war und keine Absicht, sagen die Nachbarn in
+       * derselben Datei: `/respond` prueft die Rolle, `GET /:id/commitments`
+       * prueft `isRequester || isMatchedAgency`, `POST /:id/commitments` prueft
+       * die Zuordnung. `dealAgreementService.js` schreibt den Grund sogar
+       * ausdruecklich hin - "emergencyAccess ist nur ein Feature-Gate, KEIN
+       * Ownership-Check". Genau diese eine Route hat niemand nachgezogen.
+       *
+       * Zur Reihenfolge 404-dann-403, damit sie niemand fuer mehr haelt, als
+       * sie ist: sie VERRAET, ob eine Kennung existiert. Das ist hier
+       * hinnehmbar und bewusst - die Kennungen sind UUIDs, die Existenz
+       * schuetzt ihre Entropie und nicht der Statuscode -, und sie folgt dem
+       * Nachbarn `GET /:id/commitments`, der ebenso antwortet. Eine
+       * abweichende Reihenfolge nur an dieser einen Route waere eine
+       * Ungleichheit ohne Gewinn.
+       */
+      const demand = await getDemandById(req.params.id);
+      if (!demand) return res.status(404).json({ error: "NOT_FOUND" });
+      const darfEskalieren = await canAccessAsOwner(
+        pool, demand.requester_company_id, req.session.userId
+      );
+      if (!darfEskalieren) return res.status(403).json({ error: "FORBIDDEN" });
+
       const result = await emergencyService.escalateEmergency(
         pool, req.params.id, req.session.userId
       );
@@ -189,12 +273,15 @@ export function createEmergencyRouter(deps) {
 
   router.get("/emergency/history", requireAuth, emergencyAccess, async (req, res) => {
     try {
+      const a = await ausschnitt(req);
+      if (!a.ok) return res.status(a.status).json({ error: a.error });
+      /* Der Verlauf liefert seit jeher eine kuratierte Auswahl (kein `dr.*`) -
+         hier fehlte nur die Zielgruppe. */
       const items = await emergencyService.getEmergencyHistory(
-        pool,
-        req.query.all === "1" ? null : req.session.userId,
+        pool, a.orgId,
         { limit: Number(req.query.limit) || 50, offset: Number(req.query.offset) || 0 }
       );
-      res.json({ items, count: items.length });
+      res.json({ items, count: items.length, scope: a.orgId ? "own" : "platform" });
     } catch (e) {
       logger.error({ err: e.message }, "GET /emergency/history");
       res.status(500).json({ error: "SERVER_ERROR" });
@@ -231,13 +318,67 @@ export function createEmergencyRouter(deps) {
       if (!isRequester && !isMatchedAgency) return res.status(403).json({ error: "FORBIDDEN" });
 
       const commitments = await emergencyCommitmentService.listCommitments(pool, req.params.id);
+
+      /*
+       * N7.4 - WER DARF WAS, entschieden im Backend.
+       *
+       * Bis hierher lieferte diese Antwort eine reine Liste. Die Oberflaeche
+       * haette daraus selbst ableiten muessen, wer zuruecknehmen darf - also
+       * die eigene Kennung mit `supplier_company_id` vergleichen. Genau das
+       * verbietet die Hausregel ("Berechtigungsentscheidung kommt immer aus
+       * dem Backend; Frontend zeigt nur an"), und zwar aus einem praktischen
+       * Grund: eine Ableitung im Browser ist eine ZWEITE Wahrheit, die von der
+       * ersten abweichen kann, ohne dass es jemand merkt.
+       *
+       * Die Regeln spiegeln, was die Dienste wirklich zulassen:
+       *   zuruecknehmen  die zusagende Agentur nimmt ihre eigene Zusage zurueck
+       *   ablehnen       das anfragende Unternehmen weist sie zurueck
+       *   vereinbarung   beide Parteien duerfen daraus eine bindende
+       *                  Vereinbarung machen (dealAgreementService)
+       *
+       * `status === "committed"` steht ueberall dabei, weil beide Dienste eine
+       * bereits beendete Zusage mit INVALID_TRANSITION bzw.
+       * COMMITMENT_NOT_ACTIVE abweisen. Ein Knopf, der verlaesslich einen
+       * Fehler erzeugt, ist schlimmer als kein Knopf.
+       */
+      /* Je ANBIETER einmal fragen, nicht je Zusage: dieselbe Agentur kann
+         mehrfach zugesagt haben (Nachschlag, nachdem sich Kapazitaet ergeben
+         hat), und `canAccessAsOwner` schlaegt bei einer Kollegin in der
+         Datenbank nach. Die Menge ist zwar klein — sie waechst mit den
+         zugeordneten Agenturen, nicht mit der Plattform —, aber dieselbe
+         Antwort zweimal zu holen ist auch bei kleiner Menge falsch. */
+      const binAnbieterBei = new Map();
+      for (const c of commitments) {
+        const anbieter = c.supplier_company_id;
+        if (binAnbieterBei.has(anbieter)) continue;
+        binAnbieterBei.set(
+          anbieter,
+          isRequester ? false : await canAccessAsOwner(pool, anbieter, req.session.userId)
+        );
+      }
+      const mitRechten = commitments.map((c) => {
+        const offen = c.status === "committed";
+        const binAnbieter = binAnbieterBei.get(c.supplier_company_id) === true;
+        return {
+          ...c,
+          darf: {
+            zuruecknehmen: offen && binAnbieter,
+            ablehnen: offen && isRequester,
+            vereinbarung: offen && (isRequester || binAnbieter)
+          }
+        };
+      });
+
       res.json({
         demand_id: demand.id,
         status: demand.status,
         required_total_count: demand.required_total_count,
         currently_committed_count: demand.currently_committed_count,
         remaining_open_count: demand.remaining_open_count,
-        commitments
+        /* Die Sicht des Abrufenden auf DIESE Notlage - die Oberflaeche
+           braucht sie fuer die Ueberschrift, nicht fuer die Berechtigung. */
+        viewer: { is_requester: isRequester, is_matched_agency: isMatchedAgency },
+        commitments: mitRechten
       });
     } catch (e) {
       logger.error({ err: e.message }, "GET /emergency/:id/commitments");

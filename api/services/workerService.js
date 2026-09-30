@@ -8,7 +8,14 @@ import * as assignmentStaffingService from "./assignmentStaffingService.js";
 import { isWorkerBlockedForCompany } from "./companyBlocklistService.js";
 import * as submissionSvc from "./workerSubmissionService.js";
 import { withTransaction } from "../utils/transaction.js";
-import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
+/* Fuer den Frist-Sweep (Plan I, 8.2 / Migration 193). Kein Zyklus: keiner der
+ * drei importiert workerService zurueck (gemessen 2026-08-24). */
+import * as workerNotifications from "./workerNotificationService.js";
+import * as workerOfferReservations from "./workerOfferReservationService.js";
+import * as abwesenheit from "./workerAbsenceService.js";
+import { dispatch, findOrgMembersWithPermission } from "./notificationMatrix.js";
+import { logger } from "../config/index.js";
+import { todayDE, dateOnlyDE, fristLabelDE } from "../utils/dateDE.js";
 import {
   buildAssignmentActivePredicateSql,
   buildAssignmentHistoryPredicateSql,
@@ -45,6 +52,67 @@ const workerAssignmentLifecycleSelectSql = `
        ${workerAssignmentIsHistorySql} AS assignment_is_history,
        (${workerAssignmentLifecycleStateSql} = 'ends_today') AS assignment_ends_today,
        (${workerAssignmentLifecycleStateSql} = 'expired') AS assignment_is_expired`;
+
+/* ── Antwortfrist einer Zuweisungs-Anfrage (Owner-Entscheid 2026-08-24) ───────
+ *
+ * OPTION C: 72 Stunden, gedeckelt am Einsatzbeginn. Die 72 sind kein neuer
+ * Wert — Staffing-Einladung und Auswahl-Set verwenden ihn bereits
+ * (`DEFAULT_STAFFING_CHOICE_SET_HOURS = 72` und `72 * 60 * 60 * 1000` in
+ * assignmentStaffingService). Eine dritte Zahl einzufuehren, wo zwei
+ * Nachbarfaelle sich einig sind, waere eine Sonderregel ohne Anlass.
+ *
+ * DER DECKEL ist der eigentliche Zweck. Ohne ihn kann eine Anfrage den
+ * Einsatzbeginn ueberleben — und genau daraus sind die eingefrorenen Altfaelle
+ * entstanden: laeuft das effektive Ende ab, weisen `confirmAssignment` und
+ * `declineAssignment` JEDE Antwort mit ASSIGNMENT_NOT_CURRENT ab, waehrend
+ * `recalcAssignmentStaffing` die Zeile weiter als belegt zaehlt. Eine Anfrage,
+ * die niemand mehr beantworten kann, darf gar nicht erst entstehen.
+ *
+ * DIE UNTERGRENZE ist keine Bequemlichkeit, sondern Datenlage: 22 von 24
+ * Zuweisungen im Bestand haben einen Vorlauf von <= 0 Tagen (gemessen
+ * 2026-08-24) — sie entstehen am Starttag oder danach. Ein harter Deckel
+ * liesse solche Anfragen bei der Geburt verfallen, und der Arbeiter bekaeme
+ * eine Meldung ueber etwas, das schon vorbei ist. Die vier Stunden sind der
+ * Wert, den der Owner fuer den dringendsten Fall gesetzt hat (Ersatz, 193).
+ *
+ * NUR FUER NEUE ANFRAGEN: Der Altbestand traegt `frist_bis IS NULL` und bleibt
+ * unberuehrt (Linie aus 188/193). Was mit ihm geschieht, ist eine eigene
+ * Owner-Entscheidung (docs/features/I2_FRIST_REGULAERE_ZUWEISUNG.md).
+ */
+const ANFRAGE_FRIST_STUNDEN = 72;
+const ANFRAGE_MINDESTFRIST_STUNDEN = 4;
+
+/**
+ * Der Frist-Ausdruck fuer ein INSERT. `startAusdruck` ist der SQL-Ausdruck des
+ * Einsatzbeginns — ein Platzhalter (`$9`) oder eine Spalte (`a.start_date`).
+ *
+ * GREATEST aussen, LEAST innen: erst deckeln, dann die Untergrenze durchsetzen.
+ * Die umgekehrte Reihenfolge waere subtil falsch — sie liesse den Deckel
+ * gewinnen und damit jede Anfrage fuer einen laengst begonnenen Einsatz sofort
+ * verfallen.
+ *
+ * `::date::timestamptz` heisst Mitternacht des Starttags in der Zeitzone des
+ * Servers (`TZ=Europe/Berlin`, DACH-first-Direktive) — die Antwort muss vor
+ * Arbeitsbeginn da sein, nicht irgendwann am Starttag.
+ */
+function anfrageFristSql(startAusdruck) {
+  return "GREATEST("
+    + `LEAST(NOW() + INTERVAL '${ANFRAGE_FRIST_STUNDEN} hours', ${startAusdruck}::date::timestamptz), `
+    + `NOW() + INTERVAL '${ANFRAGE_MINDESTFRIST_STUNDEN} hours')`;
+}
+
+/**
+ * Die Haelfte der TATSAECHLICHEN Frist, nicht die halbe Regelfrist: bei einer
+ * auf fuenf Stunden gedeckelten Anfrage waeren 36 Stunden eine Erinnerung nach
+ * dem Verfall.
+ *
+ * Die doppelte Auswertung des Frist-Ausdrucks ist deterministisch — `NOW()` ist
+ * STABLE und liefert innerhalb einer Anweisung ueberall dieselbe
+ * Transaktionszeit.
+ */
+function anfrageErinnerungSql(startAusdruck) {
+  return `NOW() + ((${anfrageFristSql(startAusdruck)} - NOW()) / 2)`;
+}
 
 /* ── Hilfsfunktionen ────────────────────────────────────────────────────────── */
 
@@ -561,7 +629,43 @@ export async function listWorkers(pool, { supplierOrgId, isActive = null, search
  * deren Account noch nicht verifiziert ist (nie registriert) UND für die keine offene
  * Einladung existiert. Basis für "Alle einladen" ohne Kollision mit bereits Registrierten.
  */
-export async function listInvitableWorkers(pool, supplierOrgId) {
+/**
+ * Wen kann diese Organisation noch einladen?
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * M3.2 — `profileIds` BEGRENZT AUF EINEN STAPEL, UND DAS IST DER PUNKT
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Ohne Begrenzung liefert diese Abfrage JEDE noch nicht bestaetigte Kraft der
+ * Organisation. Fuer den Knopf "alle noch nicht Registrierten einladen" ist das
+ * genau richtig.
+ *
+ * Fuer den Knopf NACH EINEM IMPORT war es falsch, und zwar sichtbar falsch: die
+ * Oberflaeche fragt "die 3 gerade importierten einladen?" und rief denselben
+ * Weg — bei einer Belegschaft von 200 unbestaetigten gingen 200 Mails hinaus.
+ * Der Dialog nannte eine Zahl, der Server tat etwas anderes, und niemand konnte
+ * es an der Antwort erkennen.
+ *
+ * Die Begrenzung geht ueber die PROFIL-Kennungen aus dem Import-Bericht
+ * (`created[].profile_id`), nicht ueber E-Mail-Adressen: eine Adresse kann sich
+ * zwischen Import und Klick geaendert haben, eine Kennung nicht.
+ *
+ * Eine LEERE Liste ist keine fehlende Liste. `profileIds: []` heisst "keine" und
+ * liefert nichts — sonst waere ein Stapel, aus dem nichts Einladbares
+ * hervorging, plotzlich wieder die ganze Belegschaft.
+ *
+ * @param {import('pg').Pool} pool
+ * @param {string} supplierOrgId
+ * @param {{profileIds?: string[]|null}} [opts]
+ */
+export async function listInvitableWorkers(pool, supplierOrgId, opts = {}) {
+  const profileIds = opts.profileIds;
+  const begrenzt = Array.isArray(profileIds);
+  if (begrenzt && profileIds.length === 0) return [];
+
+  const params = [supplierOrgId];
+  if (begrenzt) params.push(profileIds);
+
   const { rows } = await pool.query(
     `SELECT u.email, wp.first_name, wp.last_name, wp.personnel_number
        FROM worker_profiles wp
@@ -569,13 +673,14 @@ export async function listInvitableWorkers(pool, supplierOrgId) {
       WHERE wp.supplier_org_id = $1
         AND wp.is_active = TRUE
         AND u.is_verified = FALSE
+        ${begrenzt ? "AND wp.id = ANY($2::uuid[])" : ""}
         AND NOT EXISTS (
           SELECT 1 FROM worker_invites wi
            WHERE wi.supplier_org_id = wp.supplier_org_id
              AND LOWER(wi.email) = LOWER(u.email)
              AND wi.status = 'pending' AND wi.expires_at > NOW())
       ORDER BY wp.last_name, wp.first_name`,
-    [supplierOrgId]
+    params
   );
   return rows;
 }
@@ -604,11 +709,24 @@ export async function createWorkerAccount(pool, {
     );
 
 
-    // Org-Membership als worker-Rolle
+    /*
+     * Org-Membership als worker-Rolle.
+     *
+     * M2.1: `DO UPDATE SET role_key = 'worker'` ist hier RAUS. Heute ist der
+     * Zweig unerreichbar — der INSERT darueber traegt kein `ON CONFLICT`, die
+     * Kennung ist also immer frisch und der Konflikt kann nicht eintreten.
+     * Genau deshalb war er eine Falle fuer spaeter: ein `ON CONFLICT (email)`
+     * eine Zeile weiter oben, und die Herabstufung waere ueber Nacht wieder
+     * lebendig. Sie stand hier wortgleich wie in `acceptInvite`, wo sie ein
+     * bestehendes Konto in beiden Welten tot gemacht hat.
+     *
+     * Die Regel gilt jetzt einheitlich: KEIN Pfad stuft eine bestehende
+     * Mitgliedschaft herab. Nachgezogen wird nur der Aktiv-Zustand.
+     */
     await client.query(
       `INSERT INTO org_memberships (user_id, org_id, role_key, is_active)
        VALUES ($1, $2, 'worker', TRUE)
-       ON CONFLICT (user_id, org_id) DO UPDATE SET role_key = 'worker', is_active = TRUE`,
+       ON CONFLICT (user_id, org_id) DO UPDATE SET is_active = TRUE`,
       [user.id, supplierOrgId]
     );
 
@@ -730,6 +848,27 @@ export async function createWorkerInvite(pool, {
   );
   if (existing.length > 0) {
     return { error: "INVITE_ALREADY_PENDING", inviteId: existing[0].id };
+  }
+
+  /*
+   * M2.1 — DERSELBE RIEGEL SCHON HIER, nicht erst beim Annehmen.
+   *
+   * `acceptInvite` lehnt eine Adresse ab, die bereits einem Konto mit anderer
+   * Rolle gehoert. Das allein genuegt nicht: ohne diese Pruefung entstuende
+   * trotzdem eine Einladung, die Mail ginge raus, und der Empfaenger erfuehre
+   * erst nach dem Setzen eines Passworts, dass es nicht geht. Eine Einladung,
+   * die nicht angenommen werden KANN, soll gar nicht erst entstehen.
+   *
+   * Der Disponent bekommt den Grund sofort — an der Stelle, an der er noch
+   * etwas daran aendern kann (andere Adresse waehlen).
+   */
+  const { rows: fremd } = await pool.query(
+    "SELECT role FROM users WHERE LOWER(email) = LOWER($1) AND role <> 'worker'",
+    [email]
+  );
+  if (fremd.length > 0) {
+    /* Dasselbe Fehlerwort wie im Import-Weg und in acceptInvite. */
+    return { error: "EMAIL_EXISTS_OTHER_ROLE", role: fremd[0].role };
   }
 
   const token = generateInviteToken();
@@ -864,25 +1003,77 @@ export async function acceptInvite(pool, { token, passwordHash }) {
     return { error: "INVITE_EXPIRED" };
   }
 
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * DER RIEGEL (M2.1)
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * Vorher stand hier ein `ON CONFLICT (email) DO UPDATE SET password_hash`.
+   * Auf ein BESTEHENDES Konto wirkte das dreifach:
+   *
+   *   1. Passwort ersetzt, is_verified gesetzt
+   *   2. Mitgliedschaft in der einladenden Org auf 'worker' HERABGESTUFT
+   *   3. users.role blieb unangetastet (z. B. 'company')
+   *
+   * Aus 2 und 3 folgt der eigentliche Schaden, und er ist groesser als
+   * "Passwort weg": `rbacService` gibt ueber `role_key='worker'` keine
+   * Berechtigung mehr, und `requireWorkerRole` (routes/workerPortal.js:217)
+   * laesst die Person wegen `session.userRole !== 'worker'` auch nicht ins
+   * Portal. **Das Konto ist danach in BEIDEN Welten tot.**
+   *
+   * Kein Angriffsweg: der Einladungs-Token verlaesst den Server nur ins
+   * Postfach des Eingeladenen (drei Austrittsstellen geprueft — `listInvites`
+   * waehlt keinen Token, `resend` antwortet `{ok:true}`, `POST
+   * /worker-invites` baut ihn nur in die Mail-URL). Es braucht also den
+   * echten Adressinhaber, der annimmt — und genau der verliert dabei sein
+   * Konto.
+   *
+   * Der Import-Weg hat diesen Riegel seit jeher (siehe
+   * EMAIL_EXISTS_OTHER_ROLE weiter unten); hier fehlte er ersatzlos.
+   */
+  const { rows: bestand } = await pool.query(
+    "SELECT id, role, password_hash FROM users WHERE LOWER(email) = LOWER($1)",
+    [invite.email]
+  );
+  const vorhanden = bestand[0] || null;
+  if (vorhanden && vorhanden.role !== "worker") {
+    /* Dasselbe Fehlerwort wie im Import-Weg — zwei Namen fuer dieselbe
+     * Ablehnung waeren der Anfang der naechsten Doppelung. */
+    return { error: "EMAIL_EXISTS_OTHER_ROLE", role: vorhanden.role };
+  }
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    // User anlegen
-    const { rows: [user] } = await client.query(
-      `INSERT INTO users (role, email, password_hash, is_verified)
-       VALUES ('worker', $1, $2, TRUE)
-       ON CONFLICT (email) DO UPDATE
-         SET password_hash = EXCLUDED.password_hash, is_verified = TRUE
-       RETURNING id, email, role`,
-      [invite.email, passwordHash]
-    );
+    /*
+     * DIE ZWEITE HAELFTE DES RIEGELS, und die subtilere.
+     *
+     * Ein Arbeiter mit Konto bei Agentur A, den Agentur B einlaedt, hat
+     * `role === 'worker'` — der Riegel oben greift bei ihm NICHT. Trotzdem
+     * wurde ihm bisher das Passwort ueberschrieben. Eine Einladung ist eine
+     * Einladung, kein Zuruecksetzen: er behaelt sein Passwort und bekommt
+     * eine Mitgliedschaft dazu.
+     */
+    const { rows: [user] } = vorhanden
+      ? { rows: [{ id: vorhanden.id, email: invite.email, role: "worker" }] }
+      : await client.query(
+        `INSERT INTO users (role, email, password_hash, is_verified)
+         VALUES ('worker', $1, $2, TRUE)
+         RETURNING id, email, role`,
+        [invite.email, passwordHash]
+      );
 
-    // Org-Membership
+    /*
+     * Org-Membership: anlegen, aber eine BESTEHENDE nicht herabstufen. Wer in
+     * dieser Org schon eine hoehere Rolle hat, behaelt sie — `DO NOTHING`
+     * statt `DO UPDATE SET role_key = 'worker'`. Nur `is_active` wird
+     * gesetzt, damit eine stillgelegte Mitgliedschaft wieder greift.
+     */
     await client.query(
       `INSERT INTO org_memberships (user_id, org_id, role_key, is_active)
        VALUES ($1, $2, 'worker', TRUE)
-       ON CONFLICT (user_id, org_id) DO UPDATE SET role_key = 'worker', is_active = TRUE`,
+       ON CONFLICT (user_id, org_id) DO UPDATE SET is_active = TRUE`,
       [user.id, invite.supplier_org_id]
     );
 
@@ -990,6 +1181,113 @@ export async function resendInvite(pool, inviteId, supplierOrgId) {
   return { invite: rows[0], token };
 }
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DIE WIEDERVORLAGE (M3.5, 2026-09-04)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Eine Einladung, die niemand annimmt, verfaellt nach sieben Tagen — still. Der
+ * Mensch hat die Mail vielleicht uebersehen, die Zeitarbeitsfirma erfaehrt es
+ * nicht, und der Einsatz beginnt ohne Portalkonto.
+ *
+ * WARUM AN DER FRIST UND NICHT AM ALTER
+ * Der naheliegende Bau waere "erinnere, was aelter als N Tage ist". Der hat zwei
+ * Fehler: er nennt dem Menschen keinen Grund, JETZT zu handeln, und er erzeugt
+ * beim ersten Lauf in einer bestehenden Installation einen Schwall — jede
+ * vergessene Einladung der letzten Monate auf einmal.
+ *
+ * Erinnert wird deshalb, was in den naechsten 48 Stunden ABLAEUFT. Das ist eine
+ * echte Information ("Ihr Link laeuft uebermorgen ab"), und es begrenzt sich von
+ * selbst: aeltere Einladungen sind bereits abgelaufen und fallen heraus.
+ *
+ * GENAU EINMAL, und das steht in `resend_count = 0`. Wer schon von Hand
+ * erinnert hat (`resendInvite` zaehlt hoch), bekommt keine zweite Erinnerung
+ * hinterhergeschickt — ein Mensch hat den Fall bereits angefasst.
+ *
+ * KEIN NEUER TOKEN, KEINE NEUE FRIST. `resendInvite` erneuert beides; das ist
+ * dort richtig, weil ein Mensch bewusst entscheidet. Hier waere es falsch: eine
+ * Automatik, die Fristen verlaengert, schafft die Frist ab.
+ *
+ * @param {import('pg').Pool} pool
+ * @param {{sendMail: Function, baseUrl?: string, logger?: object, limit?: number,
+ *          vorlaufStunden?: number}} deps
+ * @returns {Promise<{geprueft:number, erinnert:number, fehlgeschlagen:number}>}
+ */
+export const EINLADUNG_ERINNERUNG_VORLAUF_STUNDEN = 48;
+export const EINLADUNG_ERINNERUNG_MAX = 200;
+
+export async function sendeEinladungsErinnerungen(pool, deps = {}) {
+  const { sendMail, logger } = deps;
+  const baseUrl = String(deps.baseUrl || "").replace(/\/+$/, "");
+  const vorlauf = Number(deps.vorlaufStunden) > 0
+    ? Number(deps.vorlaufStunden) : EINLADUNG_ERINNERUNG_VORLAUF_STUNDEN;
+  const limit = Math.min(EINLADUNG_ERINNERUNG_MAX, Math.max(1, Number(deps.limit) || EINLADUNG_ERINNERUNG_MAX));
+
+  /*
+   * OHNE VERSANDWEG WIRD NICHTS MARKIERT UND NICHTS BEHAUPTET. Dieselbe
+   * Entscheidung wie im Mahnlauf (M1.9): eine Erinnerung, die als verschickt
+   * gilt, ohne es zu sein, waere schlimmer als keine — sie kommt nie wieder.
+   */
+  if (typeof sendMail !== "function") {
+    return { geprueft: 0, erinnert: 0, fehlgeschlagen: 0, note: "NO_MAILER" };
+  }
+
+  const { rows } = await pool.query(
+    `SELECT wi.id, wi.email, wi.first_name, wi.token, wi.expires_at,
+            o.name AS org_name
+       FROM worker_invites wi
+       JOIN organizations o ON o.id = wi.supplier_org_id
+      WHERE wi.status = 'pending'
+        AND wi.accepted_at IS NULL
+        AND wi.expires_at > NOW()
+        AND wi.expires_at <= NOW() + ($1 || ' hours')::interval
+        AND wi.resend_count = 0
+      ORDER BY wi.expires_at ASC
+      LIMIT $2`,
+    [String(vorlauf), limit]
+  );
+
+  let erinnert = 0;
+  let fehlgeschlagen = 0;
+
+  for (const einladung of rows) {
+    const url = `${baseUrl}/worker-login.html?invite=${einladung.token}`;
+    try {
+      await sendMail(
+        einladung.email,
+        "Erinnerung: Ihre Einladung laeuft bald ab",
+        `<h2>Ihre Einladung laeuft bald ab</h2>
+         <p>Hallo ${einladung.first_name},</p>
+         <p>${einladung.org_name || "Ihre Zeitarbeitsfirma"} hat Sie ins
+            TempConnect-Einsatzportal eingeladen. Der Link ist noch bis zum
+            ${fristLabelDE(einladung.expires_at)} gueltig.</p>
+         <p><a href="${url}" style="background:#0070f3;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">Konto jetzt einrichten</a></p>
+         <p style="color:#666;font-size:14px">Danach koennen Sie Ihre Einsaetze sehen und
+            Stundenzettel einreichen.</p>`,
+        { zweck: "worker-einladung-erinnerung" }
+      );
+      /*
+       * ERST NACH dem Versand markieren. Andersherum waere eine gescheiterte
+       * Mail als erinnert gezaehlt — und der Mensch bekaeme nie wieder eine.
+       * `resend_count` ist zugleich die Sperre gegen eine zweite Erinnerung.
+       */
+      await pool.query(
+        `UPDATE worker_invites
+            SET resend_count = resend_count + 1, last_sent_at = NOW()
+          WHERE id = $1 AND resend_count = 0`,
+        [einladung.id]
+      );
+      erinnert += 1;
+    } catch (e) {
+      fehlgeschlagen += 1;
+      logger?.warn?.({ err: e?.message, inviteId: einladung.id },
+        "Einladungs-Erinnerung konnte nicht gesendet werden");
+    }
+  }
+
+  return { geprueft: rows.length, erinnert, fehlgeschlagen };
+}
+
 export async function listInvites(pool, optsOrSupplierOrgId, legacyStatus = null) {
   const options = typeof optsOrSupplierOrgId === "string"
     ? { supplierOrgId: optsOrSupplierOrgId, status: legacyStatus }
@@ -1017,6 +1315,7 @@ export async function listInvites(pool, optsOrSupplierOrgId, legacyStatus = null
 async function getWorkerAssignmentActionContext(pool, linkId, workerUserId) {
   const { rows } = await pool.query(
     `SELECT wal.id, wal.assignment_id, wal.worker_confirmation_status, wal.is_active,
+            wal.frist_bis,
             ${workerAssignmentLifecycleSelectSql}
      FROM worker_assignment_links wal
      JOIN assignments a ON a.id = wal.assignment_id
@@ -1107,9 +1406,31 @@ export async function getWorkerSkills(pool, workerProfileId) {
     // ps.status (Mig 160): selbst eingetragene Faehigkeiten warten ggf. noch auf
     // Kuratierung. Der Arbeiter soll das an seinem Profil SEHEN, statt sich zu
     // wundern, warum die Faehigkeit nirgends auftaucht.
+    /*
+     * N8.1b-7 — DIE RUECKMELDUNG AN DEN MENSCHEN.
+     *
+     * `ps.status` stand hier schon: der Arbeiter soll sehen, dass seine
+     * Faehigkeit noch geprueft wird. Was fehlte, war der Ausgang DANACH.
+     *
+     * Wird ein Vorschlag ZUGEORDNET (es gab ihn schon, anders geschrieben),
+     * wandert die Zuordnung auf den Katalogeintrag — der Arbeiter saehe dann
+     * einfach einen anderen Namen und wuesste nicht, warum. `merged_von`
+     * traegt seinen urspruenglichen Begriff mit, damit die Oberflaeche sagen
+     * kann: "Ihre Angabe 'Lagerhelfer' gehoert zu 'Lagerhelfer:in'".
+     *
+     * Ohne diese Rueckmeldung schlaegt beim naechsten Mal niemand mehr etwas
+     * vor — man tippt irgendetwas, und der Katalogzwang bewirkt genau das
+     * Gegenteil dessen, wofuer er da ist.
+     */
     `SELECT wps.id, wps.skill_id, ps.name, ps.category, ps.status,
             wps.proficiency, wps.years_experience, wps.is_primary,
-            wps.certified, wps.certificate_ref, wps.source
+            wps.certified, wps.certificate_ref, wps.source,
+            (SELECT array_agg(alt.name)
+               FROM platform_skills alt
+              WHERE alt.merged_into_skill_id = ps.id
+                AND alt.proposed_by_user_id = (
+                      SELECT wp.user_id FROM worker_profiles wp WHERE wp.id = $1
+                    )) AS merged_von
        FROM worker_profile_skills wps
        JOIN platform_skills ps ON ps.id = wps.skill_id
       WHERE wps.worker_profile_id = $1
@@ -1127,7 +1448,10 @@ export async function getWorkerSkills(pool, workerProfileId) {
     is_primary: r.is_primary === true,
     certified: r.certified === true,
     certificate_ref: r.certificate_ref,
-    source: r.source
+    source: r.source,
+    /* Leer, solange nichts zugeordnet wurde — der Normalfall. Traegt es etwas,
+       ist es der Begriff, den DIESER Mensch eingetragen hat. */
+    merged_von: Array.isArray(r.merged_von) ? r.merged_von : []
   }));
 }
 
@@ -1627,13 +1951,115 @@ export async function createAssignmentLink(pool, {
   return { link: rows[0] };
 }
 
-export async function removeAssignmentLink(pool, linkId, supplierOrgId) {
-  const { rowCount } = await pool.query(
-    `UPDATE worker_assignment_links SET is_active=FALSE, updated_at=NOW()
-     WHERE id=$1 AND supplier_org_id=$2`,
+/**
+ * Eine gestellte Anfrage zurueckziehen (Owner-Entscheid 2026-08-24,
+ * Migration 198).
+ *
+ * WAS ES VORHER GAB: `removeAssignmentLink` — dieselbe Absicht, aber ohne einen
+ * einzigen Aufrufer, ohne Route, ohne Knopf. Und fachlich zu duenn: Es setzte
+ * `is_active=FALSE` und sonst nichts. Der Status waere `pending_confirmation`
+ * geblieben, also eine wartende Anfrage, die niemand mehr sieht; die
+ * Staffing-Zahlen waeren stehen geblieben, der Kapazitaets-Posten geschlossen,
+ * der Marktplatz gesperrt, und weder Arbeiter noch Kunde haetten erfahren, dass
+ * die Sache vorbei ist. Diese Funktion ersetzt sie.
+ *
+ * WARUM 'withdrawn' UND NICHT 'worker_declined': Der Mensch hat nicht
+ * abgelehnt — ihm wurde die Anfrage genommen. Eine Absage in seiner Historie
+ * waere eine Luege, die jede Zuverlaessigkeitsauswertung gegen ihn verwendet.
+ * Dieselbe Trennung, die 193 zwischen Verfall und Absage gezogen hat.
+ *
+ * NUR OFFENE ANFRAGEN: Wer schon zugesagt hat, wird nicht "zurueckgezogen" —
+ * dafuer gibt es den Ersatz-Weg mit Wirk-Datum (`replaceAssignmentWorker`).
+ * Die Bedingung steht IM UPDATE, nicht davor: zwei gleichzeitige Klicks treffen
+ * so nur einmal, und eine Zusage, die in derselben Sekunde eintrifft, gewinnt.
+ *
+ * DER GRUND gehoert ins Audit, nicht an die Zeile — er ist eine Aussage der
+ * Firma ueber ihre Disposition, keine Eigenschaft des Menschen. Der Arbeiter
+ * erfaehrt, DASS zurueckgezogen wurde; das Warum steht dem Betrieb frei
+ * mitzuteilen, aber es wird nicht automatisch in sein Postfach getragen.
+ *
+ * @returns {{link}|{error}} kein Wurf — der Aufrufer bildet auf HTTP ab.
+ */
+export async function anfrageZurueckziehen(pool, linkId, supplierOrgId, { actorId = null } = {}) {
+  const { rows } = await pool.query(
+    `UPDATE worker_assignment_links
+        SET worker_confirmation_status = 'withdrawn',
+            is_active         = FALSE,
+            zurueckgezogen_am = NOW(),
+            updated_at        = NOW()
+      WHERE id = $1
+        AND supplier_org_id = $2
+        AND worker_confirmation_status = 'pending_confirmation'
+        AND is_active = TRUE
+      RETURNING id, assignment_id, worker_user_id, supplier_org_id,
+                capacity_post_id, client_name`,
     [linkId, supplierOrgId]
   );
-  return rowCount > 0;
+
+  if (!rows[0]) {
+    /* Warum es nicht ging, ohne die Org-Grenze zu verraten: die Nachfrage ist
+     * auf dieselbe supplier_org_id eingegrenzt. Ein fremder Link sieht damit
+     * genauso aus wie ein nicht existierender. */
+    const { rows: kontext } = await pool.query(
+      `SELECT worker_confirmation_status, is_active FROM worker_assignment_links
+        WHERE id = $1 AND supplier_org_id = $2`,
+      [linkId, supplierOrgId]
+    );
+    if (!kontext[0]) return { error: "NOT_FOUND" };
+    return {
+      error: "NICHT_MEHR_OFFEN",
+      current_status: kontext[0].worker_confirmation_status,
+      is_active: kontext[0].is_active
+    };
+  }
+
+  const zeile = rows[0];
+
+  /* Nachbereitung wie beim Verfall — dieselben Wirkungen, dieselbe Reihenfolge:
+   * erst die Zahlen (davon haengt "der Platz ist wieder offen" ab), dann der
+   * Kapazitaets-Posten und der Marktplatz, dann die Meldungen. Fehler einzelner
+   * Schritte werden geloggt und stoppen die uebrigen nicht — halb aufgeraeumt
+   * ist besser als gar nicht, und der Rueckzug IST passiert. */
+  try {
+    await assignmentStaffingService.recalcAssignmentStaffing(pool, zeile.assignment_id, { writeEvent: false });
+  } catch (err) {
+    logger.error({ err: err.message, linkId }, "Rueckzug: recalc fehlgeschlagen");
+  }
+
+  if (zeile.capacity_post_id) {
+    try {
+      await kapazitaetsPostenZurueckgeben(pool, zeile.capacity_post_id);
+    } catch (err) {
+      logger.error({ err: err.message, linkId }, "Rueckzug: Kapazitaets-Rueckgabe fehlgeschlagen");
+    }
+  }
+
+  let profil = null;
+  try {
+    profil = await abwesenheit.profilZuNutzer(pool, zeile.supplier_org_id, zeile.worker_user_id);
+    if (profil?.id) await workerOfferReservations.syncWorkerReservation(pool, profil.id);
+  } catch (err) {
+    logger.error({ err: err.message, linkId }, "Rueckzug: Marktplatz-Freigabe fehlgeschlagen");
+  }
+
+  try {
+    await workerNotifications.notifyAssignmentWithdrawn(
+      pool, zeile.worker_user_id, zeile.id, zeile.client_name || null
+    );
+  } catch (err) {
+    logger.error({ err: err.message, linkId }, "Rueckzug: Arbeiter-Meldung fehlgeschlagen");
+  }
+
+  /* Der Kunde sieht eine wartende regulaere Zuweisung auf seiner Live-Tafel
+   * (workforceService blendet nur den Ersatzfall aus) — verschwaende sie
+   * kommentarlos, plante er weiter mit jemandem, den es dort nicht mehr gibt. */
+  try {
+    await benachrichtigeKundePlatzWiederOffen(pool, zeile, profil?.name || null, "rueckzug");
+  } catch (err) {
+    logger.error({ err: err.message, linkId }, "Rueckzug: Kunden-Meldung fehlgeschlagen");
+  }
+
+  return { link: zeile, actor_id: actorId };
 }
 
 export async function getWorkerAssignments(pool, workerUserId, { includeInactive = false } = {}) {
@@ -1655,6 +2081,12 @@ export async function getWorkerAssignments(pool, workerUserId, { includeInactive
        wal.dispatcher_name, wal.dispatcher_phone, wal.dispatcher_email,
        wal.worker_confirmation_status, wal.worker_confirmed_at, wal.worker_declined_at,
        wal.worker_declined_reason, wal.capacity_post_id,
+       -- Ersatz-Frist (193): dieselben Feldnamen, die das Portal fuer
+       -- Staffing-Einladungen schon rendert — Anzeige wird Einbau, nicht Neubau.
+       wal.frist_bis AS response_deadline_at,
+       to_char(wal.frist_bis AT TIME ZONE 'Europe/Berlin', 'DD.MM.YYYY HH24:MI') AS response_deadline_label,
+       (wal.frist_bis IS NOT NULL AND wal.frist_bis <= NOW()
+        AND wal.worker_confirmation_status IN ('pending_confirmation','expired')) AS is_expired,
        -- Assignment-Stammdaten
        a.status AS assignment_status, a.worker_description, a.notes AS assignment_notes,
        a.start_date AS asg_start, a.planned_end_date AS asg_end,
@@ -1690,6 +2122,12 @@ export async function getWorkerAssignmentDetail(pool, linkId, workerUserId) {
        wal.dispatcher_name, wal.dispatcher_phone, wal.dispatcher_email,
        wal.worker_confirmation_status, wal.worker_confirmed_at, wal.worker_declined_at,
        wal.worker_declined_reason, wal.capacity_post_id,
+       -- Ersatz-Frist (193): dieselben Feldnamen, die das Portal fuer
+       -- Staffing-Einladungen schon rendert — Anzeige wird Einbau, nicht Neubau.
+       wal.frist_bis AS response_deadline_at,
+       to_char(wal.frist_bis AT TIME ZONE 'Europe/Berlin', 'DD.MM.YYYY HH24:MI') AS response_deadline_label,
+       (wal.frist_bis IS NOT NULL AND wal.frist_bis <= NOW()
+        AND wal.worker_confirmation_status IN ('pending_confirmation','expired')) AS is_expired,
        a.status AS assignment_status, a.worker_description, a.notes AS assignment_notes,
        a.start_date AS asg_start, a.planned_end_date AS asg_end,
        a.actual_end_date AS asg_actual_end,
@@ -1773,6 +2211,27 @@ export async function getAssignmentLinksForSupplier(pool, supplierOrgId, { assig
  * Worker bestätigt einen zugewiesenen Einsatz.
  * Nur möglich bei worker_confirmation_status = 'pending_confirmation'.
  */
+/**
+ * Einen einzelnen Zuweisungs-Link lesen.
+ *
+ * Gebraucht seit 8.2: die Kundenmeldung haengt an der ZUSAGE des Ersatzes und
+ * muss von dort aus den Link des Ausgefallenen nachschlagen
+ * (`ersetzt_link_id`, Migration 188). Bewusst hier und nicht als Abfrage in der
+ * Route — Routen machen HTTP, Dienste machen Daten (AGENTS.md).
+ *
+ * KEINE Org-Pruefung: der Aufrufer hat den Link ueber `ersetzt_link_id` eines
+ * Links erreicht, dessen Zugehoerigkeit bereits geprueft wurde. Die Funktion
+ * ist deshalb NICHT fuer freie Kennungen aus einer Anfrage gedacht.
+ */
+export async function getAssignmentLink(pool, linkId) {
+  if (!linkId) return null;
+  const { rows } = await pool.query(
+    "SELECT * FROM worker_assignment_links WHERE id = $1",
+    [linkId]
+  );
+  return rows[0] || null;
+}
+
 export async function confirmAssignment(pool, linkId, workerUserId) {
   const context = await getWorkerAssignmentActionContext(pool, linkId, workerUserId);
   if (!context) return { error: "NOT_FOUND" };
@@ -1787,10 +2246,23 @@ export async function confirmAssignment(pool, linkId, workerUserId) {
      WHERE id = $1
        AND worker_user_id = $2
        AND worker_confirmation_status = 'pending_confirmation'
+       AND (frist_bis IS NULL OR frist_bis > NOW())
      RETURNING *`,
     [linkId, workerUserId]
   );
-  if (!rows[0]) return { error: "INVALID_STATUS", current_status: context.worker_confirmation_status };
+  if (!rows[0]) {
+    /* DER TAKTUNABHAENGIGE RIEGEL (Plan I, 8.2-Frist). Die Frist steht als
+     * Bedingung IM UPDATE, nicht als Lesen-dann-Schreiben — eine ueberfaellige
+     * Anfrage kann damit auch dann nicht mehr zusagen, wenn der Sweep 14
+     * Minuten entfernt ist oder die Betriebsumgebung ihn nie ausfuehrt
+     * (der dokumentierte Cron hat in dieser Umgebung noch nie gefeuert).
+     * Zwei Menschen beim Kunden waeren die Folge einer Zusage nach Verfall:
+     * der Disponent hat laengst den naechsten angefragt. */
+    if (context.worker_confirmation_status === "pending_confirmation") {
+      return { error: "ANFRAGE_VERFALLEN", frist_bis: context.frist_bis || null };
+    }
+    return { error: "INVALID_STATUS", current_status: context.worker_confirmation_status };
+  }
   await assignmentStaffingService.recalcAssignmentStaffing(pool, rows[0].assignment_id, { writeEvent: false });
   return { link: rows[0] };
 }
@@ -1815,13 +2287,373 @@ export async function declineAssignment(pool, linkId, workerUserId, reason) {
      WHERE id = $1
        AND worker_user_id = $2
        AND worker_confirmation_status = 'pending_confirmation'
+       AND (frist_bis IS NULL OR frist_bis > NOW())
      RETURNING *`,
     [linkId, workerUserId, reason || null]
   );
-  if (!rows[0]) return { error: "INVALID_STATUS", current_status: context.worker_confirmation_status };
+  if (!rows[0]) {
+    /* Auch die ABSAGE endet mit der Frist — nicht aus Strenge, sondern damit
+     * die Historie stimmt: nach dem Verfall traegt die Zeile 'expired', und
+     * eine Absage danach wuerde den Verfall zur Ablehnung umdeklarieren.
+     * Fuer den Arbeiter aendert sich nichts Nutzbares — die Anfrage ist so
+     * oder so vorbei. */
+    if (context.worker_confirmation_status === "pending_confirmation") {
+      return { error: "ANFRAGE_VERFALLEN", frist_bis: context.frist_bis || null };
+    }
+    return { error: "INVALID_STATUS", current_status: context.worker_confirmation_status };
+  }
   await assignmentStaffingService.recalcAssignmentStaffing(pool, rows[0].assignment_id, { writeEvent: false });
   return { link: rows[0] };
 }
+
+/**
+ * Der Sweep der Antwortfrist (Plan I, 8.2 / Migration 193 + 195).
+ *
+ * ZWEI ARTEN, EIN SWEEP. Beide Anfragearten verfallen nach derselben Mechanik;
+ * sie unterscheiden sich an `ersetzt_link_id` und danach nur noch darin, WER
+ * es erfaehrt:
+ *   Ersatz (193, Frist 4 h, Erinnerung nach 2): Meldung an Arbeiter und
+ *     Disponenten. KEIN Kundenpfad — siehe unten.
+ *   Regulaer (195, Frist 72 h gedeckelt am Einsatzbeginn, Erinnerung bei der
+ *     Haelfte): zusaetzlich eine Meldung an den KUNDEN und die Rueckgabe des
+ *     Kapazitaets-Postens.
+ *
+ * OWNER-ENTSCHEID (2026-08-21, Ersatz): "Frist 4 Stunden, dann verfaellt sie
+ * automatisch; Erinnerung nach 2 h — danach wird der Einsatz wieder offen und
+ * der Knopf erscheint erneut."
+ * OWNER-ENTSCHEID (2026-08-24, regulaer): "Option C mit 72h und Kundenmeldung."
+ * Die Frist steht in beiden Faellen seit dem Anlegen in `frist_bis`
+ * (`replaceAssignmentWorker`, `assignCapacityToWorker`, `assignDealToWorker`);
+ * hier wird sie durchgesetzt.
+ *
+ * WARUM VERFALL VOR ERINNERUNG: Nach einem Takt-Ausfall sind beide faellig.
+ * Liefe die Erinnerung zuerst, bekaeme ein bereits verfallener Link noch eine
+ * "bitte antworten"-Meldung — auf eine Anfrage, die es nicht mehr gibt.
+ *
+ * WARUM ZWEI MENGEN-UPDATES STATT LESEN-DANN-SCHREIBEN: Das WHERE entwertet
+ * sich selbst (Vorbild workerOfferReservationService). Ein zweiter
+ * gleichzeitiger Lauf — BullMQ-Takt und interner Endpunkt koennen kollidieren —
+ * trifft die Zeile nach der Zeilensperre mit bereits geaendertem Status an und
+ * aendert nichts. Kein Advisory Lock: das Repo benutzt keine, und das UPDATE
+ * braucht keins.
+ *
+ * WARUM DIE ERINNERUNG IN DER TRANSAKTION HAENGT UND DIE VERFALLSMELDUNG NICHT:
+ *   Erinnerung: Marke (`erinnert_am`) und Meldung stehen in EINER Transaktion,
+ *   `throwOnError: true`. Scheitert der INSERT, rollt die Marke mit zurueck und
+ *   der naechste Lauf versucht es erneut — eine gesetzte Marke ohne Meldung
+ *   waere eine Erinnerung, die nie jemand bekommt. Das ist bewusst STRENGER als
+ *   die Invite-Vorlage, die bei Fehlversand die Marke stehen laesst.
+ *   Verfall: die Meldungen laufen NACH dem Commit, fire-and-forget. Ein
+ *   Zustellweg, der die fachliche Wahrheit zuruecknehmen kann, waere schlimmer
+ *   als gar keiner (dieselbe Begruendung wie bei der Krankmeldung selbst,
+ *   workerAbsenceService) — der Verfall IST passiert, ob die Meldung ankommt
+ *   oder nicht.
+ *
+ * WAS DER VERFALL AUSLOEST, Zeile fuer Zeile:
+ *   `is_active = FALSE` ist die tragende Wirkung — sie oeffnet drei Riegel auf
+ *   einmal, ohne dass einer davon angefasst wird: `pending_quantity` zaehlt die
+ *   Zeile nicht mehr (recalc gibt `open_quantity` frei), REPLACEMENT_PENDING
+ *   laesst den zweiten Anlauf durch, und die ersatz-LATERAL der Live-Belegschaft
+ *   findet den liegengebliebenen Bedarf wieder — der Knopf erscheint erneut.
+ *   `worker_confirmation_status = 'expired'` (nicht 'worker_declined'): Verfall
+ *   ist keine Absage. Wer beides zusammenwirft, schreibt jedem, der eine
+ *   Anfrage schlicht nicht sah, eine Ablehnung in die Historie.
+ *   `syncWorkerReservation` gibt den Marktplatz zurueck: die Anfrage hatte die
+ *   `capacity_posts` des Ersatzes auf `paused` gestellt (BUSY_EXISTS_SQL prueft
+ *   nur `is_active`, nicht den Bestaetigungsstand) — der Mensch war aus dem
+ *   Marktplatz verschwunden, obwohl er nur GEFRAGT wurde.
+ *
+ * DER KUNDENPFAD IST DER UNTERSCHIED ZWISCHEN DEN BEIDEN ARTEN — und er ist
+ * keine Geschmacksfrage, sondern folgt der Sichtbarkeit:
+ *   Ersatz: Der Kunde hat die angefragte Ersatzkraft NIE gesehen. Die
+ *     Live-Belegschaft blendet genau diesen Fall aus (`workforceService`:
+ *     `AND NOT (ersetzt_link_id IS NOT NULL AND ... = 'pending_confirmation')`),
+ *     und die Meldung "Ersatz gestellt" haengt an der ZUSAGE. Beim Verfall gibt
+ *     es dort nichts zurueckzunehmen.
+ *   Regulaer: Der Kunde sieht die Kraft vom ersten Tag an auf seiner Tafel —
+ *     derselbe Ausschluss laesst sie bewusst durch ("eine regulaere Zuweisung,
+ *     die noch auf Bestaetigung wartet, war hier immer schon sichtbar").
+ *     Gemessen am 2026-08-24: vier Menschen standen so bei Kunden, ohne je
+ *     zugesagt zu haben, der aelteste seit 136 Tagen. Verschwaende die Zeile
+ *     beim Verfall kommentarlos, plante der Kunde weiter mit jemandem, den es
+ *     auf seinem Einsatz nicht mehr gibt.
+ *
+ * ALTBESTAND: `frist_bis IS NULL` faellt aus beiden WHERE — die pending-Zeilen
+ * aus der Zeit vor der Frist bleiben unberuehrt (Linie aus Migration 188/193:
+ * die neue Regel gilt ab der naechsten Anfrage). Was mit ihnen geschieht, ist
+ * eine eigene Owner-Entscheidung (I2, Entscheidung 3 — noch offen).
+ */
+export async function verfalleneAnfragen(pool) {
+  const client = await pool.connect();
+  let verfallen = [];
+  let erinnert = [];
+  try {
+    await client.query("BEGIN");
+
+    /* `ersetzt_link_id` und `capacity_post_id` kommen mit zurueck, weil die
+     * Nachbereitung sie braucht: das erste unterscheidet Ersatz von regulaer
+     * (Kundenpfad ja/nein), das zweite traegt den Kapazitaets-Posten, der beim
+     * regulaeren Verfall zurueckgegeben werden muss. */
+    const verfallenErgebnis = await client.query(
+      `UPDATE worker_assignment_links
+          SET worker_confirmation_status = 'expired',
+              is_active    = FALSE,
+              verfallen_am = NOW(),
+              updated_at   = NOW()
+        WHERE worker_confirmation_status = 'pending_confirmation'
+          AND is_active = TRUE
+          AND frist_bis IS NOT NULL AND frist_bis <= NOW()
+        RETURNING id, assignment_id, worker_user_id, supplier_org_id,
+                  ersetzt_link_id, capacity_post_id, client_name`
+    );
+    verfallen = verfallenErgebnis.rows;
+
+    const erinnertErgebnis = await client.query(
+      `UPDATE worker_assignment_links
+          SET erinnert_am = NOW(),
+              updated_at  = NOW()
+        WHERE worker_confirmation_status = 'pending_confirmation'
+          AND is_active = TRUE
+          AND erinnerung_faellig_am IS NOT NULL AND erinnerung_faellig_am <= NOW()
+          AND erinnert_am IS NULL
+          AND frist_bis > NOW()
+        RETURNING id, assignment_id, worker_user_id, frist_bis`
+    );
+    erinnert = erinnertErgebnis.rows;
+
+    for (const zeile of erinnert) {
+      /* Datum UND Uhrzeit, nicht nur die Uhrzeit: bei der Ersatz-Frist (4 h)
+       * lag der Verfall immer am selben Tag, bei einer regulaeren Zuweisung
+       * (bis 72 h) liegt er es nicht. "Verfaellt um 14:30 Uhr" waere dann eine
+       * Angabe, die drei Tage offen laesst. */
+      await workerNotifications.notifyAssignmentReminder(
+        client, zeile.worker_user_id, zeile.id, fristLabelDE(zeile.frist_bis),
+        { throwOnError: true }
+      );
+    }
+
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  /* Nach dem Commit, je verfallener Zeile. Reihenfolge: erst die Zahlen
+   * freigeben (davon haengt "der Einsatz ist wieder offen" ab), dann der
+   * Marktplatz, dann die Meldungen. Fehler einzelner Schritte werden geloggt
+   * und stoppen die uebrigen Zeilen nicht — halb aufgeraeumt ist besser als
+   * gar nicht, und der naechste recalc-Anlass zieht die Zahlen ohnehin nach. */
+  for (const zeile of verfallen) {
+    const istErsatz = Boolean(zeile.ersetzt_link_id);
+    const art = istErsatz ? "Ersatz-Verfall" : "Zuweisungs-Verfall";
+
+    try {
+      await assignmentStaffingService.recalcAssignmentStaffing(pool, zeile.assignment_id, { writeEvent: false });
+    } catch (err) {
+      logger.error({ err: err.message, linkId: zeile.id }, `${art}: recalc fehlgeschlagen`);
+    }
+    let profil = null;
+    try {
+      profil = await abwesenheit.profilZuNutzer(pool, zeile.supplier_org_id, zeile.worker_user_id);
+      if (profil?.id) await workerOfferReservations.syncWorkerReservation(pool, profil.id);
+    } catch (err) {
+      logger.error({ err: err.message, linkId: zeile.id }, `${art}: Marktplatz-Freigabe fehlgeschlagen`);
+    }
+
+    /* NUR REGULAER: Der Kapazitaets-Posten muss zurueck. `assignCapacityToWorker`
+     * schaltet ihn beim Zuweisen auf 'filled'/is_active=FALSE, sobald der
+     * Headcount ausgeschoepft ist — und `syncWorkerReservation` holt ihn NICHT
+     * zurueck, denn dessen Freigabe greift nur fuer 'paused' + worker_reserved.
+     * Ohne diesen Schritt bliebe das Angebot nach dem Verfall fuer immer
+     * verschwunden. (Der Ersatz-Pfad legt keinen Kapazitaets-Posten an.) */
+    if (!istErsatz && zeile.capacity_post_id) {
+      try {
+        await kapazitaetsPostenZurueckgeben(pool, zeile.capacity_post_id);
+      } catch (err) {
+        logger.error({ err: err.message, linkId: zeile.id }, `${art}: Kapazitaets-Rueckgabe fehlgeschlagen`);
+      }
+    }
+
+    try {
+      await workerNotifications.notifyAssignmentExpired(
+        pool, zeile.worker_user_id, zeile.id, zeile.client_name || null
+      );
+    } catch (err) {
+      logger.error({ err: err.message, linkId: zeile.id }, `${art}: Arbeiter-Meldung fehlgeschlagen`);
+    }
+
+    try {
+      /* An ALLE mit worker.manage, nicht nur an den, der die Anfrage stellte —
+       * der Verfall erzeugt Handlungsdruck, und der urspruengliche Disponent
+       * ist um 22 Uhr vielleicht nicht da.
+       *
+       * DER LINK FUEHRT ZUM MENSCHEN, nicht auf eine Uebersicht — aber zu
+       * verschiedenen: beim Ersatz zum AUSGEFALLENEN (dessen Zeile traegt
+       * jetzt wieder den Knopf "Ersatz suchen"), beim regulaeren Verfall zum
+       * Angefragten selbst, der ab sofort wieder als verfuegbar gefuehrt wird.
+       *
+       * `profil.name` statt `profil.first_name`: `profilZuNutzer` liefert
+       * `{ id, name }`. Der vorherige Zugriff auf first_name/last_name ergab
+       * eine leere Zeichenkette — und weil `profil` truthy ist, griff auch der
+       * Rueckfalltext nicht: die Meldung begann mit einem Leerzeichen. */
+      const empfaenger = await findOrgMembersWithPermission(pool, zeile.supplier_org_id, abwesenheit.BUERO_PERMISSION);
+      if (empfaenger.length) {
+        const name = profil?.name || (istErsatz ? "Die angefragte Ersatzkraft" : "Die angefragte Einsatzkraft");
+        const ausgefallener = istErsatz ? await profilZumAltLink(pool, zeile) : null;
+        const zielProfil = istErsatz ? ausgefallener?.id : profil?.id;
+
+        await dispatch(pool, istErsatz ? "worker.replacement_expired" : "worker.assignment_not_confirmed", {
+          recipientUserIds: empfaenger,
+          orgId: zeile.supplier_org_id,
+          entityType: "worker_assignment_link",
+          entityId: zeile.id,
+          message: istErsatz
+            ? `${name} hat eine Ersatz-Anfrage nicht rechtzeitig beantwortet — sie ist verfallen. Der Einsatz ist wieder offen, der Knopf "Ersatz suchen" steht wieder bereit.`
+            : `${name} hat die Zuweisung${zeile.client_name ? ` fuer ${zeile.client_name}` : ""} nicht innerhalb der Frist bestaetigt. Der Platz ist wieder offen und kann neu besetzt werden.`,
+          linkPath: zielProfil
+            ? abwesenheit.bueroDeepLink(zielProfil, istErsatz ? "abwesend" : "verfuegbar")
+            : (istErsatz ? "/public/mitarbeiter.html#live-abwesend" : "/public/mitarbeiter.html#live-verfuegbar"),
+          emailQueue: true,
+          emailSubject: istErsatz
+            ? "Ersatz-Anfrage verfallen — Einsatz wieder offen"
+            : "Zuweisung nicht bestaetigt — Platz wieder offen"
+        });
+      }
+    } catch (err) {
+      logger.error({ err: err.message, linkId: zeile.id }, `${art}: Disponenten-Meldung fehlgeschlagen`);
+    }
+
+    /* NUR REGULAER: der Kunde. Warum hier und nicht beim Ersatz, steht im Kopf
+     * dieser Funktion — beim Ersatz gibt es beim Kunden nichts zurueckzunehmen,
+     * hier verschwindet jemand von seiner Tafel. */
+    if (!istErsatz) {
+      try {
+        await benachrichtigeKundePlatzWiederOffen(pool, zeile, profil?.name || null, "verfall");
+      } catch (err) {
+        logger.error({ err: err.message, linkId: zeile.id }, `${art}: Kunden-Meldung fehlgeschlagen`);
+      }
+    }
+  }
+
+  return { verfallen: verfallen.length, erinnert: erinnert.length };
+}
+
+/** Das Profil des AUSGEFALLENEN — der Mensch, zu dessen Zeile der Link fuehrt. */
+async function profilZumAltLink(pool, zeile) {
+  const { rows } = await pool.query(
+    `SELECT wp.id
+       FROM worker_assignment_links alt
+       JOIN worker_profiles wp
+         ON wp.user_id = alt.worker_user_id AND wp.supplier_org_id = alt.supplier_org_id
+      WHERE alt.id = $1
+      LIMIT 1`,
+    [zeile.ersetzt_link_id]
+  );
+  return rows[0] || null;
+}
+
+/**
+ * Den Kapazitaets-Posten wieder oeffnen, den die verfallene Zuweisung
+ * geschlossen hat.
+ *
+ * DIE ZAEHLUNG SPIEGELT DIE SETZ-LOGIK aus `assignCapacityToWorker`: dort wird
+ * `filled` gesetzt, sobald die aktiven Links den Headcount erreichen; hier wird
+ * genau dann zurueckgedreht, wenn sie ihn nach dem Verfall wieder unterschreiten.
+ * Ein Posten mit drei von drei Plaetzen, von denen nur einer verfaellt, bleibt
+ * damit korrekt geschlossen — er hat ja noch zwei Zusagen.
+ *
+ * `status = 'filled'` als Bedingung ist die Grenze: geweckt wird nur, was die
+ * Zuweisung selbst geschlossen hat. Ein vom Betrieb archivierter oder beendeter
+ * Posten bleibt, wo er ist — der Verfall einer Anfrage ist kein Grund, ein
+ * zurueckgezogenes Angebot wieder auf den Marktplatz zu stellen.
+ */
+async function kapazitaetsPostenZurueckgeben(pool, capacityPostId) {
+  const { rowCount } = await pool.query(
+    `UPDATE capacity_posts cp
+        SET status = 'active', is_active = TRUE, updated_at = NOW()
+      WHERE cp.id = $1
+        AND cp.status = 'filled'
+        AND (SELECT COUNT(*)
+               FROM worker_assignment_links wal
+              WHERE wal.capacity_post_id = cp.id
+                AND wal.is_active = TRUE
+                AND wal.worker_confirmation_status NOT IN ('worker_declined','worker_unavailable')
+            ) < GREATEST(1, COALESCE(cp.headcount, 1))`,
+    [capacityPostId]
+  );
+  return rowCount > 0;
+}
+
+/**
+ * Der Kunde erfaehrt, dass der Platz wieder offen ist (Owner-Entscheid
+ * 2026-08-24). NUR beim regulaeren Verfall — die Begruendung steht im Kopf von
+ * `verfalleneAnfragen`.
+ *
+ * JEDER BAUSTEIN IST GELIEHEN, KEINER NEU: dieselbe Empfangspruefung
+ * (`kundeIstEmpfangsberechtigt` — kein Kunde, Kunde ist der Lieferant,
+ * Org-Divergenz), dieselbe Berechtigung (`assignment.edit`), derselbe
+ * Deep-Link ins Einsatzfenster wie bei Ausfall und Ersatz. Was der Kunde von
+ * uns hoert, soll ueberall dieselbe Form haben.
+ *
+ * WAS IM TEXT STEHT — und was nicht: Der Name darf mit (der Kunde sieht seine
+ * Einsatzkraefte ohnehin namentlich, Linie aus G4b), der GRUND nicht als
+ * Vorwurf. "Nicht bestaetigt" ist eine Tatsache ueber die Zuweisung; "hat nicht
+ * geantwortet" waere eine ueber den Menschen, und der Verfall ist ausdruecklich
+ * keine Absage (Migration 193).
+ */
+async function benachrichtigeKundePlatzWiederOffen(pool, zeile, name, anlass = "verfall") {
+  const einsatz = await abwesenheit.einsatzFuerKundenmeldung(
+    pool, zeile.supplier_org_id, zeile.assignment_id
+  );
+  if (!einsatz) return { benachrichtigt: 0, grund: "KEIN_EINSATZ" };
+
+  const status = String(einsatz.assignment_status || "").toLowerCase();
+  if (abwesenheit.EINSATZ_ERLEDIGT.includes(status)) {
+    return { benachrichtigt: 0, grund: "EINSATZ_ERLEDIGT" };
+  }
+
+  const pruefung = abwesenheit.kundeIstEmpfangsberechtigt(einsatz, zeile.supplier_org_id);
+  if (!pruefung.erlaubt) return { benachrichtigt: 0, grund: pruefung.grund };
+
+  const empfaenger = await findOrgMembersWithPermission(
+    pool, pruefung.kundeOrgId, abwesenheit.KUNDE_PERMISSION
+  );
+  if (!empfaenger.length) return { benachrichtigt: 0, grund: "KEIN_EMPFAENGER" };
+
+  const wer = name || "Eine vorgesehene Einsatzkraft";
+  /* Zwei Anlaesse, EIN Meldungstyp: fuer den Kunden ist das Ergebnis dasselbe —
+   * sein Platz ist wieder offen. Ein zweiter Typ fuer denselben Sachverhalt
+   * zerrisse die Zusammengehoerigkeit in Liste und Filter (Linie aus 184). Nur
+   * der Satz unterscheidet sich, und er bleibt in beiden Faellen wertfrei: der
+   * Kunde erfaehrt, was fuer SEINE Planung gilt, nicht wer was versaeumt hat. */
+  const satz = anlass === "rueckzug"
+    ? `${wer} steht fuer Ihren Einsatz nicht mehr zur Verfuegung. Der Platz ist wieder offen — Ihre Zeitarbeitsfirma besetzt ihn neu.`
+    : `${wer} ist fuer Ihren Einsatz nicht bestaetigt worden. Der Platz ist wieder offen — Ihre Zeitarbeitsfirma besetzt ihn neu.`;
+  const ergebnis = await dispatch(pool, "assignment.worker_not_confirmed", {
+    recipientUserIds: empfaenger,
+    /* Die EMPFAENGER-Org, nicht die des Absenders: das Feld steuert den
+     * Org-Filter der Benachrichtigungsliste. Stuende hier die Zeitarbeitsfirma,
+     * laege die Meldung in der Ablage einer fremden Organisation. */
+    orgId: pruefung.kundeOrgId,
+    /* Anker ist der EINSATZ: der Kunde kennt keine Link-ID und hat auf sie
+     * keinen Zugriff — genau wie bei Ausfall und Ersatz. */
+    entityType: "assignment",
+    entityId: einsatz.assignment_id,
+    message: satz,
+    linkPath: abwesenheit.kundenDeepLink(einsatz.assignment_id),
+    emailQueue: true,
+    emailSubject: "Platz auf Ihrem Einsatz wieder offen"
+  });
+  return { benachrichtigt: ergebnis.sent || 0 };
+}
+
+/* `uhrzeitDE` stand hier und lieferte nur "17:42 Uhr". Das reichte, solange die
+ * einzige Frist vier Stunden lang war; seit Migration 195 kann sie 72 Stunden
+ * entfernt liegen, und dann fehlt der Tag. Ersetzt durch `fristLabelDE`
+ * (api/utils/dateDE.js) — dieselbe Formatierung, die auch die sechs
+ * Erst-Texte verwenden. */
 
 /**
  * Worker meldet sich krank / nicht verfügbar ab einem bestimmten Datum.
@@ -1878,9 +2710,53 @@ export async function replaceAssignmentWorker(pool, {
     );
     const orig = origRows[0];
     if (!orig) { await client.query("ROLLBACK"); return { error: "NOT_FOUND" }; }
-    if (orig.is_active !== true) {
+    /*
+     * ZWEITER ANLAUF NACH EINER ABSAGE (8.2, 2026-08-21).
+     *
+     * Vorher galt schlicht `is_active !== true` -> 409. Seit der Ersatz absagen
+     * DARF, ist das die haeufigste Sackgasse: sagt er ab, bleibt der Alt-Link
+     * des Ausgefallenen auf `worker_unavailable` + `is_active = FALSE` liegen,
+     * und der Disponent kann niemand anderen mehr anfragen. Der Verify-Satz des
+     * Plans — "er lehnt ab, der Einsatz ist wieder offen und der Vorschlag
+     * erscheint erneut" — scheiterte genau hier.
+     *
+     * Geoeffnet wird deshalb GENAU EIN Fall: der Ausgefallene selbst
+     * (`worker_unavailable`). `worker_confirmed`, `auto_confirmed` oder
+     * `worker_declined` bleiben gesperrt — sonst waere ein laufender Einsatz
+     * ueberschreibbar.
+     */
+    const wiederaufnahme = orig.is_active !== true
+      && orig.worker_confirmation_status === "worker_unavailable";
+    if (orig.is_active !== true && !wiederaufnahme) {
       await client.query("ROLLBACK");
       return { error: "LINK_NOT_ACTIVE", current_status: orig.worker_confirmation_status };
+    }
+
+    /*
+     * DER RIEGEL GEGEN DOPPELTE BESETZUNG.
+     *
+     * Sobald die Zeile darueber einen zweiten Anlauf erlaubt, koennte der
+     * Disponent zwei Ersaetze parallel anfragen — beide
+     * `pending_confirmation`, beide aktiv. Sagen beide zu, stehen zwei Menschen
+     * beim Kunden: `confirmAssignment` prueft nur den eigenen Link, und
+     * `recalcAssignmentStaffing` ZAEHLT nur, es sperrt nicht.
+     *
+     * Die Pruefung steht bewusst INNERHALB der Transaktion und NACH dem
+     * `FOR UPDATE` auf dem Alt-Link. Davor gewaennen zwei gleichzeitige
+     * Anfragen beide — der Zeilenriegel auf `orig` ist es, der sie
+     * serialisiert.
+     */
+    const { rows: laufende } = await client.query(
+      `SELECT 1 FROM worker_assignment_links
+        WHERE ersetzt_link_id = $1
+          AND is_active = TRUE
+          AND worker_confirmation_status IN ('pending_confirmation','worker_confirmed','auto_confirmed')
+        LIMIT 1`,
+      [linkId]
+    );
+    if (laufende.length) {
+      await client.query("ROLLBACK");
+      return { error: "REPLACEMENT_PENDING" };
     }
     if (orig.worker_user_id === replacementWorkerUserId) {
       await client.query("ROLLBACK"); return { error: "SAME_WORKER" };
@@ -1929,12 +2805,32 @@ export async function replaceAssignmentWorker(pool, {
 
     // 4) Ersatz-Link ab X bis Original-Enddatum anlegen (Defaults/Enddatum/Rolle geerbt)
     const { rows: repLinkRows } = await client.query(
+      /*
+       * `pending_confirmation`, NICHT `auto_confirmed` (8.2, 2026-08-21).
+       *
+       * Vorher stand hier `auto_confirmed`: der Ersatz war gebunden, ohne
+       * gefragt worden zu sein. Eine Absage war damit nicht bloss unueblich,
+       * sondern UNMOEGLICH — `declineAssignment` verlangt ausdruecklich
+       * `pending_confirmation` und haette den Link abgewiesen.
+       *
+       * Damit gab es zwei Wege, denselben Einsatz zu besetzen, und nur einer
+       * fragte den Menschen: `quick-assign` legt seit jeher
+       * `pending_confirmation` an. Owner-Vorgabe: "Eine Zuweisung, die der
+       * Zugewiesene nicht bestaetigt hat, ist eine Absichtserklaerung, keine
+       * Besetzung."
+       *
+       * `ersetzt_link_id` traegt den Zusammenhang in die Daten (Migration 188).
+       * Ohne ihn lebte er nur im Ablauf der Route — und die Kundenmeldung
+       * kann erst bei der ZUSAGE rausgehen, nicht schon hier.
+       */
       `INSERT INTO worker_assignment_links
          (worker_user_id, assignment_id, org_id, supplier_org_id, role,
           default_hours_per_day, default_shift_start, default_shift_end,
           default_break_minutes, start_date, end_date, notes, created_by,
-          worker_confirmation_status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'auto_confirmed')
+          worker_confirmation_status, ersetzt_link_id,
+          frist_bis, erinnerung_faellig_am, erinnert_am, verfallen_am)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending_confirmation',$14,
+               NOW() + INTERVAL '4 hours', NOW() + INTERVAL '2 hours', NULL, NULL)
        ON CONFLICT (worker_user_id, assignment_id) DO UPDATE
          SET is_active=TRUE, role=EXCLUDED.role,
              default_hours_per_day=EXCLUDED.default_hours_per_day,
@@ -1943,13 +2839,19 @@ export async function replaceAssignmentWorker(pool, {
              default_break_minutes=EXCLUDED.default_break_minutes,
              start_date=EXCLUDED.start_date, end_date=EXCLUDED.end_date,
              notes=EXCLUDED.notes,
-             worker_confirmation_status='auto_confirmed',
+             worker_confirmation_status='pending_confirmation',
+             ersetzt_link_id=EXCLUDED.ersetzt_link_id,
+             worker_confirmed_at=NULL, worker_declined_at=NULL, worker_declined_reason=NULL,
              unavailable_from=NULL, unavailable_reason=NULL, unavailable_reported_at=NULL,
+             frist_bis=NOW() + INTERVAL '4 hours',
+             erinnerung_faellig_am=NOW() + INTERVAL '2 hours',
+             erinnert_am=NULL, verfallen_am=NULL,
              updated_at=NOW()
        RETURNING *`,
       [replacementWorkerUserId, orig.assignment_id, orig.org_id, supplierOrgId, orig.role,
        orig.default_hours_per_day, orig.default_shift_start, orig.default_shift_end,
-       orig.default_break_minutes, effectiveDate, orig.end_date, orig.notes, createdBy || null]
+       orig.default_break_minutes, effectiveDate, orig.end_date, orig.notes, createdBy || null,
+       linkId]
     );
 
     await client.query("COMMIT");
@@ -2023,15 +2925,17 @@ export async function assignCapacityToWorker(pool, {
     );
 
     // 5) Assignment-Link erstellen (pending_confirmation)
+    /* Die Frist wird MIT der Anfrage geboren — $9 ist das Startdatum
+     * (Owner-Entscheid 2026-08-24, siehe anfrageFristSql). */
     const { rows: [link] } = await client.query(
       `INSERT INTO worker_assignment_links
          (worker_user_id, assignment_id, org_id, supplier_org_id,
           default_hours_per_day, default_shift_start, default_shift_end,
           default_break_minutes, start_date, end_date, client_name,
           notes, created_by, capacity_post_id,
-          worker_confirmation_status)
+          worker_confirmation_status, frist_bis, erinnerung_faellig_am)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
-               'pending_confirmation')
+               'pending_confirmation', ${anfrageFristSql("$9")}, ${anfrageErinnerungSql("$9")})
        RETURNING *`,
       [workerUserId, assignment.id, orgId, supplierOrgId,
        defaultHoursPerDay || 8.0, defaultShiftStart || null, defaultShiftEnd || null,
@@ -2113,10 +3017,23 @@ export async function getUnassignedCapacityPosts(pool, supplierOrgId, { supplier
        ($1::uuid IS NOT NULL AND cp.org_id = $1::uuid)
        OR ($2::uuid IS NOT NULL AND cp.supplier_company_id = $2::uuid)
      )
+     /* NUR LEBENDE Links halten einen Posten belegt. Vorher stand hier eine
+      * Negativliste mit einem einzigen Wert und ohne is_active — damit hielt
+      * auch eine verfallene oder freigestellte Zeile den Posten fuer immer aus
+      * dieser Liste heraus. Beim Verfall faellt das doppelt auf: der Sweep
+      * stellt den Posten ueber kapazitaetsPostenZurueckgeben korrekt wieder
+      * auf 'active', aber im Drawer "+ Kapazitaet zuweisen" tauchte er nie
+      * wieder auf. Dieselbe Bedingung wie in listAssignableSourcesForDispatcher
+      * zwei Abfragen weiter unten, die es schon immer richtig machte.
+      *
+      * OHNE BACKTICKS: dieser Kommentar steht INNERHALB eines Template-Literals
+      * — ein Backtick fuer einen Code-Verweis beendet hier die Zeichenkette.
+      * Dieselbe Falle wie in workerAbsenceService, und sie schnappt wieder zu. */
      AND cp.id NOT IN (
        SELECT wal.capacity_post_id FROM worker_assignment_links wal
        WHERE wal.capacity_post_id IS NOT NULL
-         AND wal.worker_confirmation_status != 'worker_declined'
+         AND wal.is_active = TRUE
+         AND wal.worker_confirmation_status NOT IN ('worker_declined','worker_unavailable')
      )
      ORDER BY cp.availability_from ASC, cp.created_at DESC`,
     [supplierOrgId || null, supplierUserId || null]
@@ -2349,6 +3266,26 @@ export async function assignDealToWorker(pool, {
     }
 
     // 5) Assignment-Link erstellen
+    /* Die Frist wird MIT der Anfrage geboren — $11 ist der effektive
+     * Einsatzbeginn (Owner-Entscheid 2026-08-24, siehe anfrageFristSql).
+     *
+     * DER ON-CONFLICT-ZWEIG IST KEIN LUXUS, SONDERN DIE BEDINGUNG DAFUER, DASS
+     * DER GUARD OBEN UEBERHAUPT FUNKTIONIEREN KANN. Er laesst erledigte
+     * Alt-Links absichtlich durch ("damit der gleiche Worker nach Genesung bzw.
+     * nach neuerlicher Freigabe wieder demselben Einsatz zugeordnet werden
+     * kann") — aber `UNIQUE (worker_user_id, assignment_id)` (Migration 029)
+     * verbietet die zweite Zeile. Ohne diesen Zweig endete jeder zweite Anlauf
+     * in 23505 und damit in einem HTTP 500: an der laufenden Datenbank
+     * nachgestellt, sowohl nach Verfall als auch nach Absage. Der Defekt ist
+     * aelter als die Frist — die Absage trifft ihn genauso —, aber der
+     * automatische Verfall macht ihn vom Sonderfall zum Regelfall: die Meldung
+     * "der Platz ist wieder offen" fordert genau diese Handlung.
+     *
+     * `ersetzt_link_id = NULL` ist der Unterschied zum Zwilling in
+     * `replaceAssignmentWorker`, der ihn SETZT: recycelt dieser Pfad eine Zeile,
+     * die einmal ein Ersatz war, muss die Herkunft weg. Bliebe sie stehen,
+     * hielte der Sweep die neue, regulaere Anfrage fuer eine Ersatz-Anfrage —
+     * mit falschem Meldungstext und ohne den Kundenpfad. */
     const { rows: [link] } = await client.query(
       `INSERT INTO worker_assignment_links
          (worker_user_id, assignment_id, org_id, supplier_org_id,
@@ -2356,8 +3293,29 @@ export async function assignDealToWorker(pool, {
           default_hours_per_day, default_shift_start, default_shift_end,
           default_break_minutes, start_date, end_date,
           client_name, notes, created_by,
-          worker_confirmation_status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'pending_confirmation')
+          worker_confirmation_status, frist_bis, erinnerung_faellig_am)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'pending_confirmation',
+               ${anfrageFristSql("$11")}, ${anfrageErinnerungSql("$11")})
+       ON CONFLICT (worker_user_id, assignment_id) DO UPDATE
+         SET is_active=TRUE,
+             org_id=EXCLUDED.org_id, supplier_org_id=EXCLUDED.supplier_org_id,
+             deal_request_id=EXCLUDED.deal_request_id,
+             capacity_post_id=EXCLUDED.capacity_post_id,
+             default_hours_per_day=EXCLUDED.default_hours_per_day,
+             default_shift_start=EXCLUDED.default_shift_start,
+             default_shift_end=EXCLUDED.default_shift_end,
+             default_break_minutes=EXCLUDED.default_break_minutes,
+             start_date=EXCLUDED.start_date, end_date=EXCLUDED.end_date,
+             client_name=EXCLUDED.client_name, notes=EXCLUDED.notes,
+             created_by=EXCLUDED.created_by,
+             worker_confirmation_status='pending_confirmation',
+             ersetzt_link_id=NULL,
+             worker_confirmed_at=NULL, worker_declined_at=NULL, worker_declined_reason=NULL,
+             unavailable_from=NULL, unavailable_reason=NULL, unavailable_reported_at=NULL,
+             frist_bis=${anfrageFristSql("EXCLUDED.start_date")},
+             erinnerung_faellig_am=${anfrageErinnerungSql("EXCLUDED.start_date")},
+             erinnert_am=NULL, verfallen_am=NULL,
+             updated_at=NOW()
        RETURNING *`,
       [workerUserId, assignmentId, asg.org_id, supplierOrgId,
        asg.deal_request_id, asg.capacity_post_id || null,

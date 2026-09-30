@@ -5,6 +5,10 @@
 import dotenv from "dotenv";
 import pino from "pino";
 import { describeBilling } from "../services/billingProviderService.js";
+/* M1.3 — die Startpruefung fuer den Mailweg. Sie steht in
+ * `emailProviderService.js`, weil DIESE Datei sonst im Ring haengt: der
+ * Protokoll-Dienst braucht `logger` von hier. */
+import { startPruefung as mailStartPruefung } from "../services/emailProviderService.js";
 
 dotenv.config();
 
@@ -18,18 +22,29 @@ function looksLikePlaceholder(val) {
   return PLACEHOLDER_PATTERNS.some((p) => String(val).trim().includes(p));
 }
 
-export function validateProductionSecrets(log) {
-  if (process.env.NODE_ENV !== "production") return;
-  const logFn = log || { fatal: () => {} };
-  if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === "dev_secret_change_me" || looksLikePlaceholder(process.env.SESSION_SECRET)) {
-    logFn.fatal("In Produktion muss SESSION_SECRET gesetzt und sicher sein.");
-    process.exit(1);
-  }
-  if (!process.env.JWT_SECRET || looksLikePlaceholder(process.env.JWT_SECRET)) {
-    logFn.fatal("In Produktion muss JWT_SECRET gesetzt sein.");
-    process.exit(1);
-  }
-}
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * HIER STAND EIN ZWEITES PRODUKTIONS-TOR. ES HATTE NULL AUFRUFER. (2026-09-04)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * `validateProductionSecrets(log)` prueft SESSION_SECRET und JWT_SECRET und
+ * beendet den Prozess, wenn sie fehlen. Es war exportiert — und im ganzen Repo
+ * rief es niemand. Gemessen: ein Treffer im Quelltext (die Definition selbst),
+ * ein Treffer in der Doku, die es bereits als "entlastet" fuehrte.
+ *
+ * Warum das mehr ist als toter Code: es sah aus wie eine Absicherung. Wer die
+ * Datei liest, sieht ZWEI Tore und nimmt an, beide halten. Wer eine Pruefung
+ * ergaenzen will, ergaenzt sie womoeglich im falschen — und die neue Pruefung
+ * laeuft nie. Genau diese Verwechslung ist in dieser Welle schon zweimal
+ * aufgetreten (der Vorlagen-Waechter, der Herzschlag-Name): eine Pruefung, die
+ * einen Stellvertreter fuer die Sache haelt.
+ *
+ * Beide Zusicherungen stehen in `runProductionValidation()` weiter unten, und
+ * dort STRENGER (Platzhalter-Erkennung fuer beide, plus Cron-Geheimnis,
+ * Admin-Geheimnis, Datenbank, BASE_URL, Mailweg, Stripe, Staff-Sitzung). Das
+ * ist das Tor, das `app.js` wirklich ruft. `prodEnvTemplate.test.js` haelt fest,
+ * dass es genau EINES bleibt.
+ */
 
 export const config = {
   NODE_ENV: process.env.NODE_ENV || "development",
@@ -133,6 +148,15 @@ export const config = {
   RATE_LIMIT_WARP_EXEC_WINDOW_MS: Number(process.env.RATE_LIMIT_WARP_EXEC_WINDOW_MS) || 60 * 60 * 1000,
   RATE_LIMIT_WARP_EXEC_MAX: Number(process.env.RATE_LIMIT_WARP_EXEC_MAX) || 10,
   SUPPORT_OPS_ENABLED: process.env.SUPPORT_OPS_ENABLED || "true",
+  /* Stufe 2 des Support-Trichters (Plan I, Abschnitt 10: Hilfeseite → Telefon →
+   * Support Center). Im Repo stand bis 2026-08-22 an JEDER Stelle nur ein
+   * Platzhalter ("Telefon: [+49 ...]" in Impressum und Kontakt). Eine Nummer
+   * gehoert nicht in den Quelltext, sondern an EINE Stelle — sonst steht sie in
+   * drei Dateien und in zweien davon bald falsch. Ist sie nicht gesetzt, meldet
+   * `GET /support-channels` die Stufe als nicht verfuegbar; der Trichter zeigt
+   * sie dann gar nicht erst an, statt eine tote Nummer anzubieten. */
+  SUPPORT_PHONE: process.env.SUPPORT_PHONE || "",
+  SUPPORT_PHONE_HOURS: process.env.SUPPORT_PHONE_HOURS || "Mo–Fr 09:00–18:00 Uhr",
   WARP_SSH_ENABLED: ["true", "1", "yes", "on"].includes(String(process.env.WARP_SSH_ENABLED || "").toLowerCase().trim()),
   WARP_SSH_USER: process.env.WARP_SSH_USER || "deploy",
   WARP_SSH_PORT: Number(process.env.WARP_SSH_PORT) || 22,
@@ -215,7 +239,29 @@ export const logger = pino({
   },
 
   /* ── Dev: human-readable output via pino-pretty ────────── */
-  ...(isDev && hasPinoPretty() && {
+  /*
+   * NICHT UNTER DEM TESTLAEUFER (ergaenzt 2026-08-29).
+   *
+   * `pino-pretty` laeuft als Transport in einem WORKER-THREAD. Der Testlaeufer
+   * beendet jeden Kindprozess mit `--test-force-exit`, also ueber
+   * `process.exit()` - und pinos Exit-Haken versucht dabei, den Thread-Stream
+   * SYNCHRON zu leeren. Der Worker kommt aber nicht mehr dran, weil der Prozess
+   * bereits aussteigt. Ergebnis: der Lauf bleibt stehen und rechnet nicht.
+   *
+   * GEMESSEN am 2026-08-29 im Container: idempotencyExtended.test.js stand
+   * 21 Minuten bei 5 Sekunden CPU-Zeit. Der Stapel zeigte
+   * flushSync -> ThreadStream.flushSync -> pino transport onExit ->
+   * process.exit -> TestsStream. Die Datenbank war voellig unbeteiligt:
+   * 6 Verbindungen, 0 blockiert, 0 idle in transaction.
+   *
+   * Auf dem Host faellt es nicht auf, im Container mit NODE_ENV=development
+   * schon - deshalb blieb es liegen, bis jemand die Vorgangsketten dort fuhr.
+   *
+   * Die lesbare Ausgabe ist im Testlauf ohnehin wertlos: der Laeufer sammelt
+   * die Ausgabe selbst ein. Ohne Transport schreibt pino direkt nach stdout,
+   * ohne Worker-Thread - und ohne etwas, das beim Beenden haengen kann.
+   */
+  ...(isDev && !process.env.NODE_TEST_CONTEXT && hasPinoPretty() && {
     transport: { target: "pino-pretty", options: { colorize: true, translateTime: "HH:MM:ss.l" } }
   })
 });
@@ -260,10 +306,68 @@ export function runProductionValidation() {
     fatal("In Produktion muss DATABASE_URL oder (DB_HOST + POSTGRES_PASSWORD) gesetzt sein");
   }
 
-  // SMTP: Warnung wenn kein SMTP_HOST gesetzt (E-Mails werden nicht gesendet)
-  if (!process.env.SMTP_HOST) {
-    logger.warn("SMTP_HOST nicht gesetzt – E-Mails werden in Produktion NICHT gesendet!");
+  /*
+   * ═════════════════════════════════════════════════════════════════════════
+   * BASE_URL: DIE ADRESSE, DIE NACH AUSSEN GEHT (M0/F18, Owner 2026-09-04)
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * `BASE_URL` hatte im ganzen Modul EINE Referenz: den Rueckfall auf
+   * `http://localhost:8080` (Zeile 44). Keine Produktionspruefung — waehrend
+   * SESSION_SECRET, JWT_SECRET, INTERNAL_CRON_SECRET, ADMIN_SECRET, die
+   * Datenbank und (seit M1.3) der Mailweg alle `fatal` sind.
+   *
+   * Aus dieser Variable bauen 25 Stellen in zehn Dateien Adressen, darunter
+   * `routes/auth.js` (Passwort zuruecksetzen), die Einladungen und
+   * `routes/payment.js` (Stripe-Rueckkehradressen). Eine Rueckkehradresse auf
+   * localhost bricht den KAUF, nicht nur einen Link — und zwar still: der Kunde
+   * landet im Nichts, die Anwendung meldet nichts.
+   *
+   * Deshalb hart. Ein Deployment ohne gesetzte Variable schlaegt jetzt sofort
+   * und laut fehl, statt beim ersten Kunden. Geprueft wird nicht nur
+   * "gesetzt", sondern auch "zeigt nach aussen": ein durchgereichtes
+   * `localhost` ist derselbe Fehler wie eine leere Variable, nur schwerer zu
+   * sehen.
+   */
+  /*
+   * `process.env.BASE_URL` steht bewusst IN der Bedingung, nicht in einer
+   * Variablen davor: `prodEnvTemplate.test.js` liest die Pflichtvariablen aus
+   * den `if (...) { fatal(`-Bedingungen dieser Funktion. Ein Zwischenschritt
+   * waere fuer ihn unsichtbar — die Vorlage `.env.prod.example` muesste
+   * BASE_URL dann nicht nennen, und wer die Produktion nach der Vorlage
+   * aufsetzt, liefe genau in den Startabbruch, den diese Zeilen erzeugen.
+   */
+  if (!String(process.env.BASE_URL || "").trim() || looksLikePlaceholder(process.env.BASE_URL)) {
+    fatal("In Produktion muss BASE_URL gesetzt sein — 25 Stellen bauen daraus Adressen "
+      + "(Einladungen, Passwort zuruecksetzen, Stripe-Rueckkehradressen)");
   }
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:|\/|$)/i
+    .test(String(process.env.BASE_URL || "").trim())) {
+    fatal("In Produktion darf BASE_URL nicht auf localhost zeigen (aktuell: "
+      + String(process.env.BASE_URL || "").trim()
+      + ") — Einladungslinks und Stripe-Rueckkehradressen waeren fuer den Kunden unerreichbar");
+  }
+
+  /*
+   * ═════════════════════════════════════════════════════════════════════════
+   * E-MAIL: FEHLERSTART STATT WARNUNG (M1.3, 2026-09-02)
+   * ═════════════════════════════════════════════════════════════════════════
+   * Hier stand eine Warnung: "SMTP_HOST nicht gesetzt – E-Mails werden in
+   * Produktion NICHT gesendet!". Jede andere Pflichtangabe in dieser Funktion
+   * beendet den Prozess; ausgerechnet der Mailweg durfte fehlen.
+   *
+   * Die Warnung war folgenlos, und danach meldeten BEIDE Versandwege Erfolg:
+   * `app.js` gab `true` zurueck, `emailService.js` lieferte `accepted: [to]`.
+   * Eine Einladung an einen echten Kunden bestaetigte die Zustellung, ohne
+   * dass je etwas das Haus verliess. Eine Zeile im Log am Starttag faengt das
+   * nicht auf.
+   *
+   * Geprueft wird der WEG, nicht die Variable: SendGrid ist genauso gueltig
+   * wie SMTP. Und wer bewusst ohne Mail betreiben will, setzt
+   * EMAIL_PROVIDER=disabled — dann startet der Prozess, und jeder einzelne
+   * Versand scheitert laut. Das ist ehrlich; still Erfolg melden ist es nicht.
+   */
+  const mailFehler = mailStartPruefung(config, { produktion: true });
+  if (mailFehler) fatal(mailFehler);
 
   // Stripe: wenn PAYMENT_MODE != demo, muessen Stripe-Keys gesetzt sein
   const paymentMode = (process.env.PAYMENT_MODE || "demo").toLowerCase();
