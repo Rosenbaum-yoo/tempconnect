@@ -3511,6 +3511,15 @@ laufen, trägt der Schalter.
   nur zum Sichten, welche Prozesse dort „wichtig" sind): Plattform-Anmeldung **plus**
   Eintrag in `occ_owner_access` — `node scripts/owner-access-cli.js grant --email … --occ-role
   owner`. Die Staff-Anmeldung zählt dort nicht (eigene Sitzung, eigenes Cookie `tc.staff.sid`).
+  **Support Center, gleiches Muster** (Owner meldete am 2026-09-30, dass er in OCC **und**
+  Support nicht hineinkommt, ins Staff CC aber schon): Plattform-Anmeldung **plus** aktiver
+  Eintrag in `support_agents` — `node scripts/support-access-cli.js agent-add --email …
+  --role internal_support_lead` (Datenumfang dann `full_internal`). Staff- und
+  Plattform-Anmeldung lesen dieselbe Tabelle `users` mit demselben Passwort; getrennt sind
+  nur Sitzung und Cookie. Die Oberflächen sagen, was fehlt: „Nicht eingeloggt"/„Nicht
+  angemeldet" = keine Plattform-Sitzung, „Kein Zugriff" = nicht in `occ_owner_access`,
+  „Kein Support-Zugang" = kein aktiver Support-Agent, „Support Ops deaktiviert" =
+  `SUPPORT_OPS_ENABLED=false` (Voreinstellung ist `true`).
 - **W-E7 (neu, 2026-09-29)** — **Demo-Screen bei leerer Live-Belegschaft und bei 500/401
   (Owner-Abschnitt 25).** Widerspricht `CLAUDE.md` („Kein Fake-Data / Mock-KPIs in
   Produktions-UI, auch nicht als Platzhalter"). Wege: (a) ein als Beispiel gekennzeichneter
