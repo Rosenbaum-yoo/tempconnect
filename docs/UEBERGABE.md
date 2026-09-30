@@ -1216,9 +1216,11 @@ Doku-Waechter P2-W1).
   dieses Eintrags behauptete, die Spezifikationen laegen hinter
   Partnerprogrammen und jede Feldzuordnung waere ohne sie geraten — **falsch**,
   beide VMS dokumentieren oeffentlich. Ebenfalls korrigiert: im VMS ist die
-  **Zeitarbeitsfirma** der Lieferant, TempConnect ihre Software. Ob TempConnect
-  selbst Lieferant sein koennte, ist eine **AUeG-Rechtsfrage** (dieselbe wie in
-  Owner-Abschnitt 22). *Empfehlung:* zvoove-Anfrage sofort (Owner),
+  **Zeitarbeitsfirma** der Lieferant, TempConnect ihre Software. **Owner-
+  Entscheidung 2026-09-30:** TempConnect ist reine Vermittlungsplattform —
+  keine AUeG, keine Abos bei VMS-Anbietern, nie selbst Lieferant im VMS; die
+  Buchung vieler Mitarbeiter aus mehreren Firmen (Abschnitt 22) ist Marktplatz,
+  nicht Integration. *Empfehlung:* zvoove-Anfrage sofort (Owner),
   anbieterneutraler Bedarfs-Eingang als erster Code (nach K1), Personio bei
   Bedarf, Fieldglass/Beeline erst mit einem Grosskunden. Vollstaendig mit
   Quellen: `docs/INTEGRATIONS.md`, „Zugang je Anbieter“.

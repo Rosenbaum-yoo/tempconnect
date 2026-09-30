@@ -9,7 +9,9 @@
 > **Grenze der Messung, vorweg und für den ganzen Plan:** gemessen wurde am
 > 2026-09-29 auf `main`/`75016b6` in einem Cloud-Container (frischer Klon,
 > Node 22.22.2, Linux). Der Arbeitsstand `claude/brave-sanderson-9e9148` liegt
-> **253 Commits davor** und war dort nicht verfügbar. **Jeder Punkt ist gegen
+> **253 Commits davor** und war dort nicht verfügbar. Der Owner nennt für ihn
+> am 2026-09-30 **220 Migrationen** (hier: 186) und **12.180 Tests** (hier
+> gemessen: 9.054–9.190, siehe Welle 2). **Jeder Punkt ist gegen
 > diesen Stand gegenzuprüfen, bevor er gebaut wird** — manche sind dort
 > vielleicht längst weg. Was *nicht* wegfallen kann, ist die Methode: die
 > Zahlen stehen mit dem Befehl dabei, mit dem sie ermittelt wurden.
@@ -434,8 +436,9 @@ billig und unspektakulär:
   zvooves Schnittstellenpartner — dort lohnt die Partnerschaft, weil dort die
   eigenen Kunden sitzen. *Empfehlung:* zvoove-Anfrage sofort (Owner),
   anbieterneutraler Bedarfs-Eingang als erster Code (nach K1), Personio bei
-  Bedarf, Fieldglass/Beeline erst mit einem Großkunden — und vorher die
-  AÜG-Frage, wer im VMS der Lieferant ist. Mit Quellen:
+  Bedarf, Fieldglass/Beeline erst mit einem Großkunden. Die Lieferantenfrage
+  ist geklärt (Owner, 2026-09-30): reine Vermittlungsplattform, keine AÜG,
+  keine VMS-Abos — Lieferant im VMS ist immer die Zeitarbeitsfirma. Mit Quellen:
   `docs/INTEGRATIONS.md`, „Zugang je Anbieter“.
 
 - **W-E5** — **`requireOrgContext` als Middleware (Vereinheitlichung der

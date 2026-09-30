@@ -326,12 +326,12 @@ und wer das ist und was es kostet, unterscheidet sich stark.
 | **SAP Fieldglass** | der Besitzer der Instanz (Käufer- **oder** Lieferanteninstanz) mit Benutzer, Passwort und API-Key — **und der SAP-Fieldglass-Support muss die APIs freischalten**, sie sind standardmäßig aus | **nein** für eine Anbindung; SAP PartnerEdge nur für zertifizierte bzw. im SAP-Store gelistete Integrationen | beim Instanzbesitzer | **ja** — Connector Library auf help.sap.com |
 | **Beeline** | das **Beeline Supplier Network (BSN)**: ein Abo *des Lieferanten*, danach je Beeline-Kunde eine Verbindung, die ein Lieferanten-Admin anlegt; die API ist für alle verbundenen Kunden freigeschaltet (Regel seit 05.03.2025) | **kein** Partnerprogramm — aber ein **kostenpflichtiges Abo**; das Partner-Ökosystem (Systemintegratoren, MSPs) ist etwas anderes | laut BSN-Preisseite: **Standard 2.500 $/Jahr** (1 Kundenverbindung), **Pro 15.000 $** (10), **Max 30.000 $** (unbegrenzt); zusätzliche Verbindung 1.200 $/Jahr | ja — Lieferantendoku öffentlich |
 
-### Wer ist der Lieferant — die Frage hinter der Frage
+### Wer ist der Lieferant — entschieden
 
 In Fieldglass und Beeline ist der **Lieferant ein Personaldienstleister** — also
-die Zeitarbeitsfirma, nicht TempConnect. TempConnect ist eine Plattform und nach
-allem, was im Repo steht, **kein Verleiher mit AÜG-Erlaubnis**. Daraus folgt die
-Bauart:
+die Zeitarbeitsfirma, nicht TempConnect. TempConnect ist eine **reine
+Vermittlungsplattform** und betreibt **keine Arbeitnehmerüberlassung**
+(Owner-Entscheidung vom 2026-09-30). Daraus folgt die Bauart:
 
 - **TempConnect verbindet sich als Software der Zeitarbeitsfirma**, mit deren
   Zugangsdaten. Beeline sieht genau diese Rolle ausdrücklich vor (das BSN nennt
@@ -340,13 +340,19 @@ Bauart:
 - Das Abo zahlt damit **die Zeitarbeitsfirma**, und es lohnt sich für sie nur,
   wenn sie tatsächlich einen Beeline-Kunden bedient.
 
-**Ob TempConnect selbst als Lieferant auftreten könnte** — etwa mit *einem*
-BSN-Max-Konto für alle angeschlossenen Zeitarbeitsfirmen — ist **keine
-technische, sondern eine Rechtsfrage** (Arbeitnehmerüberlassung). Es ist
-dieselbe Frage wie in Owner-Abschnitt 22: *„30 Mitarbeiter direkt buchen, ohne
-mit 10 Firmen Verträge abschließen zu müssen … kann das von TempConnect
-übernommen werden oder ist das rechtlich heikel?“* Sie gehört vor einen Anwalt,
-nicht in den Code.
+**Owner-Entscheidung vom 2026-09-30 — damit ist die Frage geschlossen:**
+TempConnect ist reine Vermittlungsplattform, betreibt **keine
+Arbeitnehmerüberlassung** und schließt **keine Abos bei VMS-Anbietern** ab.
+TempConnect tritt in keinem VMS selbst als Lieferant auf. Eine Beeline-Anbindung
+kommt deshalb nur für Zeitarbeitsfirmen in Frage, die **selbst** Mitglied im
+Beeline Supplier Network sind — TempConnect ist dann ihr Werkzeug, nicht ihr
+Vertragspartner gegenüber Beeline.
+
+Ebenfalls klargestellt: die Buchung vieler Mitarbeiter aus mehreren
+Zeitarbeitsfirmen in einem Schritt (Owner-Abschnitt 22, „30 Mitarbeiter ohne
+10 Verträge“) ist ein **Marktplatz**-Thema, kein Integrationsthema. Eine frühere
+Fassung dieses Abschnitts hatte beides als dieselbe Rechtsfrage verknüpft; das
+war falsch und ist entfernt.
 
 ### Was das für die Reihenfolge heißt
 
@@ -368,8 +374,9 @@ Die Recherche verschiebt die Gewichte deutlich:
    Zeitarbeitsfirmen und deren Zugang.
 4. **Der anbieterneutrale Bedarfs-Eingang bleibt richtig.** Er trägt alle vier,
    ist für Kunden ohne jedes Fremdsystem sofort nutzbar und hängt an keinem
-   Vertrag. Er braucht Schema — deshalb erst, wenn die Migrationsnummern der
-   K1-Linie bekannt sind.
+   Vertrag. Er braucht Schema — deshalb erst, wenn die K1-Linie gepusht ist: dort
+   liegen laut Owner (2026-09-30) inzwischen **220 Migrationen**, hier nur 186.
+   Eine hier geschriebene Migration nähme eine Nummer, die dort schon vergeben ist.
 
 ### Offene Entscheidung
 
@@ -377,7 +384,8 @@ Die Recherche verschiebt die Gewichte deutlich:
 angepasst:* **zvoove-Anfrage sofort** (Owner, kostet nichts außer einer Mail,
 dauert am längsten), **der anbieterneutrale Eingang als erster Code** (nach K1),
 **Personio bei Bedarf** (kein Vorlauf nötig), **Fieldglass/Beeline erst mit einem
-Großkunden** — und vorher die Rechtsfrage, wer im VMS der Lieferant ist.
+Großkunden** und nur über Zeitarbeitsfirmen, die selbst Zugang haben. Die
+Lieferantenfrage ist entschieden: im VMS ist es immer die Zeitarbeitsfirma.
 
 ### Quellen (abgerufen 2026-09-30)
 
