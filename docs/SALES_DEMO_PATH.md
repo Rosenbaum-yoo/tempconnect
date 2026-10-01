@@ -5,7 +5,9 @@
 ---
 
 > Dieses Dokument beschreibt den empfohlenen Demo-Pfad für Sales-Gespräche.
-> Demo-Daten werden über `sql/seeds/demo-sales.sql` geladen.
+> Demo-Daten werden über `sql/seeds/demo-sales.sql` geladen — ausschließlich
+> mit gesetztem `SEED_DEMO_WORLD=true`. Ohne den Schalter verweigert die Saat
+> sich selbst (gleiche Sperre wie Migration 052), und zwar auf JEDEM Ladeweg.
 > **Niemals Produktionsdaten in Demo-Umgebungen!**
 
 ---
@@ -17,7 +19,7 @@
 docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
 
 # 2. Demo-Daten laden
-psql $DATABASE_URL < sql/seeds/demo-sales.sql
+SEED_DEMO_WORLD=true ./scripts/dev/seed-data.sh --file=demo-sales.sql
 
 # 3. Demo-URL
 https://demo.tempconnect.de   (oder lokal: http://localhost:3000)
@@ -131,7 +133,7 @@ https://demo.tempconnect.de   (oder lokal: http://localhost:3000)
 psql $DATABASE_URL -c "
   DELETE FROM users WHERE email LIKE '%@mustermann-gmbh.de' OR email LIKE '%@toptemp.de';
 "
-psql $DATABASE_URL < sql/seeds/demo-sales.sql
+SEED_DEMO_WORLD=true ./scripts/dev/seed-data.sh --file=demo-sales.sql
 ```
 
 ---

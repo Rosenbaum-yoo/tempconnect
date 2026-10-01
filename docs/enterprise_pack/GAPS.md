@@ -113,7 +113,7 @@
 - **Datei wenn fertig:** `docs/enterprise_pack/CI_GATES.md`
 
 ### G-QA-03 🟡 Release-Artifact-Verification-Dokument fehlt
-- **Mitigation:** `scripts/verify_release_dir.sh` (CI-Script) prüft bereits: .env, .git, node_modules, .claude, .agents, coverage, _zip_analysis, FEATURE_GATE_BYPASS
+- **Mitigation:** `scripts/release-verify.sh` (CI-Script) prüft bereits: .env, .git, node_modules, .claude, .agents, coverage, _zip_analysis, FEATURE_GATE_BYPASS
 - **Geplant:** Automatisch als CI-Artefakt
 - **Datei wenn fertig:** `docs/enterprise_pack/RELEASE_ARTIFACT_VERIFICATION.md`
 

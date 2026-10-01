@@ -27,7 +27,8 @@ Vor dem ersten Pilot-Test muss folgende Datenbasis vorhanden sein:
 | Compliance-Warnung | 1 | Abgelaufenes Dokument |
 
 **Seed-Skript:** `sql/seeds/dev-data.sql` (vorhandenes Seed-Skript)  
-**Anleitung:** `sql/seed.sh` ausführen
+**Anleitung:** `SEED_DEMO_WORLD=true ./scripts/dev/seed-data.sh --file=dev-data.sql`
+(Die frühere Angabe sql/seed.sh — ohne Backticks genannt, weil es diese Datei nicht gibt — war falsch; gemessen am 2026-10-01.)
 
 ---
 

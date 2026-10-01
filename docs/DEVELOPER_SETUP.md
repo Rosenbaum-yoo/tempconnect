@@ -137,7 +137,7 @@ Loescht alle lokalen Daten, erstellt die DB komplett neu (init.sql + alle Migrat
 ```bash
 ./scripts/dev/reset-db.sh              # Mit Bestaetigungsprompt
 ./scripts/dev/reset-db.sh --yes        # Ohne Bestaetigung
-./scripts/dev/reset-db.sh --yes --seed # Reset + Demo-Daten laden
+SEED_DEMO_WORLD=true ./scripts/dev/reset-db.sh --yes --seed # Reset + Demo-Daten laden
 ```
 
 **Wann nutzen:** Schema-Aenderungen testen, korrupte DB, sauberer Neuanfang.
@@ -147,14 +147,17 @@ Loescht alle lokalen Daten, erstellt die DB komplett neu (init.sql + alle Migrat
 Laedt Entwicklungs-/Demo-Daten aus `sql/seeds/` in die laufende DB.
 
 ```bash
-./scripts/dev/seed-data.sh                       # Alle Seeds
-./scripts/dev/seed-data.sh --file=dev-data.sql   # Nur eine Datei
-./scripts/dev/seed-data.sh --clean               # Tabellen vorher leeren
-./scripts/dev/seed-data.sh --list                # Verfuegbare Seeds anzeigen
+# Der Schalter ist Pflicht: die Saat-Dateien legen ANMELDBARE Demo-Konten an
+# und verweigern ohne ihn jede Zeile (gleiche Sperre wie Migration 052).
+SEED_DEMO_WORLD=true ./scripts/dev/seed-data.sh                     # Alle Seeds
+SEED_DEMO_WORLD=true ./scripts/dev/seed-data.sh --file=dev-data.sql # Nur eine Datei
+SEED_DEMO_WORLD=true ./scripts/dev/seed-data.sh --clean             # Tabellen vorher leeren
+./scripts/dev/seed-data.sh --list                                   # Auflisten (ohne Schalter)
 ```
 
 **Seed-Dateien:**
 - `sql/seeds/dev-data.sql` — Basis-Accounts + Listings
+- `sql/seeds/demo-sales.sql` — Vertriebs-Demo: 3 Nutzer, Subscriptions, Listings, Requests
 - `sql/seeds/demo-timesheets.sql` — Orgs, Timesheets in allen Status
 
 ### run-worker.sh — Worker-Management

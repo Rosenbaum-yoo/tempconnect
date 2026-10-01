@@ -56,8 +56,13 @@ log()  { echo "[seed-data] $(date +%H:%M:%S) $*"; }
 fail() { echo "[seed-data] FEHLER: $*" >&2; exit 1; }
 
 # SQL im DB-Container ausfuehren
+# PGOPTIONS setzt den Session-Schalter app.seed_demo_world - die Saat-Dateien
+# in sql/seeds/ verweigern ohne ihn jede Zeile (gleiche Sperre wie Mig 052).
+# ON_ERROR_STOP ist Pflicht: ohne es endet psql mit 0, auch wenn die
+# Transaktion abgebrochen ist - das Skript meldete dann Erfolg ohne Zeilen.
 run_psql() {
-  docker compose exec -T db psql -U "$PG_USER" -d "$PG_DB" "$@"
+  docker compose exec -T -e PGOPTIONS="-c app.seed_demo_world=true" db \
+    psql -v ON_ERROR_STOP=1 -U "$PG_USER" -d "$PG_DB" "$@"
 }
 
 # ── Sicherheitscheck ────────────────────────────────────────────────────────
@@ -88,6 +93,26 @@ if [ "$DO_LIST" = true ]; then
   done
   echo ""
   exit 0
+fi
+
+# Ausdrueckliche Zustimmung, nicht abgeleitete Umgebung.
+#
+# Der NODE_ENV-Check oben allein genuegt NICHT: er liest die Umgebung der
+# SHELL, geschrieben wird aber in die Datenbank des CONTAINERS. Auf einem
+# Produktions-Host hat die Shell eines Betreibers ueblicherweise kein
+# NODE_ENV gesetzt - der Riegel fiel damit auf "development" zurueck und
+# liess durch. Ein Riegel, der den falschen Gegenstand prueft, ist keiner.
+#
+# Derselbe Schalter wie fuer Migration 052 (sql/migrate.sh): wer keine
+# Demo-Welt aus 052 hat, braucht die Saaten daneben auch nicht - eine
+# Zustimmung fuer die ganze Demo-Welt, nicht zwei halbe.
+SEED_DEMO_WORLD_NORM=$(printf '%s' "${SEED_DEMO_WORLD:-false}" | tr '[:upper:]' '[:lower:]')
+case "$SEED_DEMO_WORLD_NORM" in
+  1|true|yes|on) SEED_DEMO_WORLD_NORM=true ;;
+  *)             SEED_DEMO_WORLD_NORM=false ;;
+esac
+if [ "$SEED_DEMO_WORLD_NORM" != "true" ]; then
+  fail "SEED_DEMO_WORLD ist nicht gesetzt - Saat verweigert. Die Saat-Dateien legen ANMELDBARE Demo-Konten an und sperren ohne diesen Schalter selbst (sql/seeds/*.sql). Erlaubter Aufruf: SEED_DEMO_WORLD=true $0"
 fi
 
 # ── DB-Container pruefen ────────────────────────────────────────────────────

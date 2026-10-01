@@ -52,6 +52,145 @@ Fläche das Richtige sieht — und das Falsche nicht.
 > `subscriptions.plan_key` (heißt `plan`) und `worker_skills` (heißt `worker_profile_skills`).
 > Nachgesehen statt weitergeraten; die Zahlen oben stehen auf den echten Namen.*
 
+> **Nachmessung 2026-10-01 (zweite Sitzung, unabhängig): jede Zahl oben bestätigt — und vier
+> Fakten dazu, die Y1 unmittelbar betreffen.**
+>
+> Die Zahlen der Erstmessung halten ohne Abstrich: 2940 (2136/804), DEMO 11 · BASIS 16 · PLUS 266
+> · PRO 3 · INDIVIDUELL 17, ein Kunde mit mehr als einem Standort, 15 mit mehr als einem Mitglied,
+> 33 Profile, 3 mit Fähigkeiten. Nachgerechnet, nicht übernommen.
+>
+> **(1) Die Standortgrenze hat NULL lebende Daten — nicht nur dünne.**
+> `org_memberships.location_id IS NOT NULL` ergibt **0** von 252 Mitgliedschaften. Keine einzige
+> Person im gesamten Bestand ist an einen Standort gebunden. Welle U hat die Grenze gebaut; im
+> Bestand übt sie niemand aus.
+>
+> **(2) Und sie ist nicht nur dünn, sondern NICHT VORFÜHRBAR.**
+> Organisationen mit mehr als einem Standort **und** mehr als einem Mitglied: **keine**. Der
+> Vorgang *ich melde mich als Standortleitung Hamburg an und darf Berlin nicht sehen* lässt sich
+> heute nicht einmal herstellen — es gibt keine zweite Person in derselben Firma an einem anderen
+> Standort. Das ist der eigentliche Grund, warum Y1.2 vor allem anderen in Y1 steht.
+>
+> **(3) Es gibt ZWEI Standort-Tabellen, und eine Saat könnte die falsche füllen.**
+> `org_locations` ist die Wahrheit: **alle sieben** `location_id`-Fremdschlüssel (`assignments`,
+> `capacity_posts`, `org_departments`, `org_memberships`, `rate_cards`, `requisitions`,
+> `vendor_pool`) zeigen dorthin, und zwar **zusammengesetzt mit `org_id`**. `company_locations`
+> hängt an `user_id` statt an `org_id`, trägt **eine** Zeile und ist das Modell von vor den
+> Organisationen. Eine Saat, die `company_locations` füllt, sähe richtig aus und würde nichts
+> beweisen.
+> *Nebenbei: `locations` und `departments` — die Namen, die man intuitiv schreibt — existieren
+> überhaupt nicht. Sie heißen `org_locations` und `org_departments`.*
+>
+> **(4) `vendor_pool` hat 0 Zeilen.**
+> Der Lieferantenpool ist leer. Welle U6 hat dafür eine Wirkungsvorschau vor dem Entfernen gebaut
+> (`wirkungDesEntfernens`) — gegen eine Tabelle, in der nichts steht. Das ist kein Fehler der
+> Welle, aber es heißt: der Pool gehört in Y1 besetzt, sonst bleibt auch dieser Weg unbegehbar.
+> Ebenso dünn: `contracts` 3, `rate_cards` 4, `timesheets` 10 — und in der Rollenverteilung steht
+> **`admin` bei 1** von 252.
+
+> **Y0.1 AUSGEFÜHRT — Stand 2026-10-01. Die Sperre hielt für die Migrationskette und NICHT für die
+> drei Saat-Dateien daneben.**
+>
+> Der Plan fragte: *läuft Mig 052 wirklich nur mit gesetztem Schalter, und gilt dasselbe für die
+> neue Saat?* Die erste Hälfte: ja, lückenlos — der ganze Rumpf (Zeile 29–615 von 616) liegt im
+> gegateten Block, `migrate.sh` reicht den Schalter per `PGOPTIONS` an jede Sitzung, Vorgabe
+> `false`, Produktions-compose ausdrücklich `false`. Mig 125 räumt den Altbestand auf.
+>
+> Die zweite Hälfte war das Problem — und zwar schon für die **bestehende** Saat. Unter
+> `sql/seeds/` lagen drei Dateien, die **fünf anmeldbare Konten mit echtem bcrypt-Hash** anlegen,
+> und sie hatten **keine** Sperre in der Datei. `dev-data.sql` hatte zusätzlich **keine
+> Transaktionsklammer**, ein Abbruch hätte die Anweisungen darunter also nicht gestoppt. Als
+> einziger Schutz stand ein `NODE_ENV`-Vergleich im ladenden Skript — **und der prüft die Umgebung
+> der SHELL, während in die Datenbank des CONTAINERS geschrieben wird.** Auf einem
+> Produktions-Host hat die Shell eines Betreibers üblicherweise kein `NODE_ENV`; der Riegel fiel
+> auf *development* zurück und ließ durch. Dazu dokumentierte `docs/SALES_DEMO_PATH.md`
+> **zweimal** `psql $DATABASE_URL < sql/seeds/demo-sales.sql` — ein Befehl, der am Skript und
+> damit an jeder Prüfung vorbeigeht.
+>
+> **Gebaut:** die Sperre sitzt jetzt in der Datei, die die Zeilen anlegt (`DO $sperre_saat# Welle Y — Die Probebühne: jede Rolle, jedes Abo, jede Richtung
+
+> **Status: Bauanweisung.** Erstellt 2026-09-24, Ist-Stand gegen die laufende
+> Entwicklungsdatenbank gemessen.
+> **Gebaut von der bauenden Sitzung, gegengeprüft von der planenden** — siehe
+> [`../UEBERGABE.md`](../UEBERGABE.md), Abschnitt „Wer baut, wer prüft".
+
+---
+
+## 1. Die Owner-Vorgabe
+
+> *„wir sollten sowieso mehrere Accounts anlegen, um alles in alle Richtungen durchzuspielen —
+> selbst jedes Abo usw., dann auch das Einsatzportal usw."*
+
+Vor dem Livegang im Dezember ist das keine Fleißaufgabe, sondern **die einzige Art, die Zusagen
+zu prüfen, die kein Test abdeckt**: dass ein Mensch mit einem bestimmten Abo auf einer bestimmten
+Fläche das Richtige sieht — und das Falsche nicht.
+
+---
+
+## 2. Ist-Stand, gemessen am 2026-09-24
+
+| Gemessen | Zahl | Was das bedeutet |
+|---|---|---|
+| Organisationen | **2566** (1872 Unternehmen, 694 Zeitarbeitsfirmen) | Masse ist reichlich da |
+| Abos aktiv | DEMO 10 · BASIS 16 · PLUS 266 · **PRO 3** · INDIVIDUELL 17 | alle fünf Stufen vorhanden, PRO dünn |
+| **Organisationen mit mehr als einem Standort** | **1** | Welle U ist in Daten praktisch **nicht** durchspielbar |
+| Organisationen mit mehr als einem Mitglied | 15 | Rollenverwaltung kaum belegbar |
+| Arbeiterprofile | 33, **alle mit Portalkonto** | die Zugänge gibt es |
+| Arbeiter **mit Fähigkeiten** | **3 von 33** | der Marktplatz kann gar nicht voll wirken |
+| Demo-Welt (Mig 052) | vorhanden und **gegatet** über `app.seed_demo_world` | die Schiene existiert, sie ist nur dünn besetzt |
+
+> **Y0.2 ausgeführt — Stand 2026-10-01, und die aufschlussreichste Zahl ist die, die sich NICHT
+> bewegt hat.**
+>
+> | Gemessen | 2026-09-24 | **2026-10-01** | Veränderung |
+> |---|---|---|---|
+> | Organisationen | 2566 | **2940** (2136 Unternehmen, 804 Zeitarbeitsfirmen) | **+374** |
+> | Abos aktiv | DEMO 10 · BASIS 16 · PLUS 266 · PRO 3 · INDIVIDUELL 17 | DEMO **11** · BASIS 16 · PLUS 266 · **PRO 3** · INDIVIDUELL 17 | +1 DEMO |
+> | Organisationen mit mehr als einem **Standort** | 1 | **1** | **unverändert** |
+> | Organisationen mit mehr als einem **Mitglied** | 15 | **15** | **unverändert** |
+> | Arbeiterprofile | 33 (alle mit Portalkonto) | **33** (alle mit Portalkonto) | unverändert |
+> | Arbeiter **mit Fähigkeiten** | 3 von 33 | **3 von 33** | **unverändert** |
+>
+> **In einer Woche sind 374 Organisationen dazugekommen, und keine einzige strukturelle Lücke hat
+> sich geschlossen.** Die Masse wächst durch Testläufe; die Bühne wächst nicht mit. Das ist der
+> Beleg dafür, dass Y1 keine Fleißaufgabe ist: **mehr Organisationen machen die Plattform nicht
+> durchspielbar.** PRO steht weiter bei **drei** Abos, ein multistandortiger Kunde ist weiter
+> **einer**, und der Marktplatz kann mit **3 von 33** Kräften mit Fähigkeiten nicht voll wirken.
+>
+> *Nachtrag zur Methode: zwei meiner Abfragen schlugen zuerst fehl, weil ich Namen geraten habe —
+> `subscriptions.plan_key` (heißt `plan`) und `worker_skills` (heißt `worker_profile_skills`).
+> Nachgesehen statt weitergeraten; die Zahlen oben stehen auf den echten Namen.*
+
+ mit
+> `RAISE EXCEPTION`, Bedingung `IS DISTINCT FROM 'true'`), damit sie für **jeden** Ladeweg gilt —
+> auch für einen, den es heute noch nicht gibt. `dev-data.sql` bekam `BEGIN;`/`COMMIT;`.
+> `scripts/dev/seed-data.sh` setzt den Schalter per `PGOPTIONS`, **verlangt** ihn ausdrücklich
+> statt ihn aus der Umgebung zu erraten, und nutzt `ON_ERROR_STOP=1` (ohne das endete psql mit 0,
+> auch wenn die ganze Transaktion abgebrochen war — das Skript meldete Erfolg ohne eine Zeile).
+> `--list` bleibt ohne Schalter nutzbar, `--clean` mit seinem `TRUNCATE users CASCADE` nicht.
+> Vier Dokumentationsstellen auf den erlaubten Befehl nachgezogen; zwei nannten Skripte, die es
+> nicht gibt (`sql/seed.sh`; `scripts/verify_release_dir.sh` heißt wirklich
+> `scripts/release-verify.sh`).
+>
+> **Gemessener Beweis an der laufenden Datenbank:** ohne Schalter brechen alle drei Dateien mit
+> `SEED_DEMO_WORLD nicht aktiv` ab, **6** Folge-Anweisungen werden mit `current transaction is
+> aborted` blockiert, **0** Einfügungen laufen durch, psql endet mit `ROLLBACK` — das eigene
+> `COMMIT;` der Datei wird zur Rücknahme. `users` steht vorher und nachher auf 409.
+>
+> **Wächter:** `api/test/saatSperreHaelt.test.js`, 17 Zusicherungen über alle vier Ladewege,
+> **18 Rückmutationen, alle rot und jede an der gemeinten Stelle.** Die wichtigste ist D1: den
+> `psql`-Direktaufruf zurück in die Vertriebsdoku → rot. Damit ist belegt, dass der Wächter den
+> Befund vom 2026-10-01 gefangen **hätte**.
+>
+> *A2 blieb beim ersten Lauf grün: die Zusicherung suchte den Schalternamen und fand ihn in der
+> **Begründung** über dem Block statt in der Anweisung. Zehnter Fall dieser Klasse an einem Tag.
+> Jetzt wird auf `current_setting(…)` verankert, auf kommentarfreien Zeilen.*
+>
+> **Offen und dem Owner vorgelegt, nicht entschieden:** drei Klartext-Passwörter stehen weiter im
+> Repo (`DemoPass2026!` in Mig 052, `Demo2026!` in `demo-sales.sql`, `password123` in
+> `dev-data.sql` und in der Schlusszusammenfassung von `seed-data.sh`). Die Sperre macht sie
+> außerhalb von dev wirkungslos, sie **entfernt** sie aber nicht. Das ist Y6.3 und betrifft einen
+> Anmeldeweg — die Entscheidung gehört dem Owner.
+
 **Der Befund in einem Satz: es fehlen keine Daten, es fehlt eine BENANNTE BESETZUNG.**
 2566 Organisationen nützen nichts, wenn man sich in keine davon anmelden kann und von keiner
 weiß, wofür sie steht. Durchspielen heißt: *„ich melde mich als X an, klicke Y, und muss Z
@@ -78,8 +217,8 @@ sehen."* Genau das ist heute nicht möglich.
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|
-| Y0.1 | **Zuerst die Sperre prüfen:** läuft Mig 052 wirklich nur mit gesetztem Schalter, und gilt dasselbe für die neue Saat? | Ohne Schalter entsteht keine Zeile. **Rückmutation:** Schalterprüfung entfernen → rot |
-| Y0.2 | Zahlen von heute erheben und die Tabelle oben fortschreiben | Tabelle mit Datum, damit niemand gegen einen alten Stand baut |
+| Y0.1 ✅ | **Zuerst die Sperre prüfen:** läuft Mig 052 wirklich nur mit gesetztem Schalter, und gilt dasselbe für die neue Saat? | Ohne Schalter entsteht keine Zeile. **Rückmutation:** Schalterprüfung entfernen → rot |
+| Y0.2 ✅ | Zahlen von heute erheben und die Tabelle oben fortschreiben | Tabelle mit Datum, damit niemand gegen einen alten Stand baut |
 
 ### Y1 · Die Besetzung
 
