@@ -50,6 +50,8 @@ const ACTION_LABELS = {
   "org.api_key.rotate":        "API-Schlüssel erneuert",
   "org.api_key.revoke":        "API-Schlüssel widerrufen",
   "org.audit_log.export":      "Protokoll exportiert",
+  "org.einsatzportal.export":  "Einsatzportal-Nachweis exportiert",
+  "einsatzportal.sitzungen_aufbewahrung": "Einsatzportal-Sitzungen gelöscht (nach 12 Monaten)",
 
   // Produktmitteilungen ("Was ist neu") — anlegen nur die Plattform, lesen alle
   "product_release.create":        "Produktmitteilung angelegt",
@@ -162,7 +164,61 @@ const ACTION_LABELS = {
   "worker.create":             "Mitarbeiter angelegt",
   "worker.update":             "Mitarbeiter aktualisiert",
   "worker.invite":             "Mitarbeiter eingeladen",
-  "worker.deactivate":         "Mitarbeiter deaktiviert"
+  "worker.deactivate":         "Mitarbeiter deaktiviert",
+
+  /* Einsatzportal und Mitarbeiterverwaltung (2026-10-01). Gemessen am laufenden
+   * System: von 42 Vorgaengen trugen 4 einen deutschen Namen — im Protokoll der
+   * Firma stand "Worker Update Availability". Die Vorgaenge, die der MITARBEITER
+   * selbst im Einsatzportal ausloest, beginnen mit "Einsatzportal:", damit die
+   * Firma sie von ihrer eigenen Verwaltung unterscheidet. */
+  "auth.logout_all":                        "Überall abgemeldet",
+  "auth.worker_invite_accepted":            "Einsatzportal: Einladung angenommen, Konto eingerichtet",
+  "worker.update_profile":                  "Einsatzportal: eigenes Profil geändert",
+  "worker.update_availability":             "Einsatzportal: Verfügbarkeit geändert",
+  "worker.update_skills":                   "Einsatzportal: Fähigkeiten geändert",
+  "worker.report_absence":                  "Einsatzportal: Abwesenheit gemeldet",
+  "worker.report_delay":                    "Einsatzportal: Verspätung gemeldet",
+  "worker.document_self_upload":            "Einsatzportal: Nachweis hochgeladen",
+  "worker.document_self_delete":            "Einsatzportal: Nachweis gelöscht",
+  "worker.photo_upload":                    "Einsatzportal: Profilfoto hochgeladen",
+  "worker.photo_delete":                    "Einsatzportal: Profilfoto gelöscht",
+  "worker.staffing_request.accept":         "Einsatzportal: Einsatzanfrage angenommen",
+  "worker.staffing_request.decline":        "Einsatzportal: Einsatzanfrage abgelehnt",
+  "worker.staffing_request.question":       "Einsatzportal: Rückfrage zu einer Einsatzanfrage",
+  "worker.staffing_request.remind_later":   "Einsatzportal: Einsatzanfrage zurückgestellt",
+  "worker.staffing_choice_set.submit_preferences": "Einsatzportal: Wünsche zu Einsätzen abgegeben",
+  "worker.staffing_choice_set.submit_ranking":     "Einsatzportal: Einsätze gereiht",
+  "worker.staffing_choice_set.select_option":      "Einsatzportal: Einsatz ausgewählt",
+  "worker.staffing_choice_set.decline_all":        "Einsatzportal: alle Einsatzvorschläge abgelehnt",
+  "worker_assignment.confirm":              "Einsatzportal: Einsatz bestätigt",
+  "worker_assignment.decline":              "Einsatzportal: Einsatz abgelehnt",
+  "worker_assignment.report_unavailable":   "Einsatzportal: für einen Einsatz abgemeldet",
+  "worker_submission.create":               "Einsatzportal: Stundenzettel angelegt",
+  "worker_submission.upsert_entry":         "Einsatzportal: Stunden eingetragen",
+  "worker_submission.delete_entry":         "Einsatzportal: Stundeneintrag gelöscht",
+  "worker_submission.submit":               "Einsatzportal: Stundenzettel eingereicht",
+  "worker_submission.correct":              "Einsatzportal: Stundenzettel korrigiert",
+  "worker_submission.comment":              "Einsatzportal: Kommentar zum Stundenzettel",
+  "worker_submission.start_review":         "Stundenzettel in Prüfung genommen",
+  "worker_submission.accepted":             "Stundenzettel angenommen",
+  "worker_submission.rejected":             "Stundenzettel abgelehnt",
+  "worker_submission.request_correction":   "Korrektur am Stundenzettel angefordert",
+  "worker.activate":                        "Mitarbeiter aktiviert",
+  "worker.bulk_import":                     "Mitarbeiter importiert",
+  "worker.bulk_invite_sent":                "Mitarbeiter gesammelt eingeladen",
+  "worker.invite_sent":                     "Mitarbeiter eingeladen",
+  "worker.invite_resend":                   "Einladung erneut gesendet",
+  "worker.invite_revoke":                   "Einladung an Mitarbeiter zurückgezogen",
+  "worker.document_upload":                 "Nachweis für Mitarbeiter hochgeladen",
+  "worker.document_update":                 "Nachweis eines Mitarbeiters geändert",
+  "worker.document_delete":                 "Nachweis eines Mitarbeiters gelöscht",
+  "worker.document_verify":                 "Nachweis geprüft",
+  "worker.document_reject":                 "Nachweis abgelehnt",
+  "worker.markt_profil_gesetzt":            "Marktprofil eines Mitarbeiters gesetzt",
+  "worker_assignment_link.create":          "Mitarbeiter einem Einsatz zugeordnet",
+  "worker_assignment_link.update":          "Einsatzzuordnung geändert",
+  "worker_assignment_link.replace":         "Mitarbeiter im Einsatz ersetzt",
+  "worker_assignment_link.withdrawn":       "Einsatzzuordnung zurückgezogen"
 };
 
 /* ── Icons per action category ─────────────────────────────────────── */

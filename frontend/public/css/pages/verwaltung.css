@@ -140,3 +140,11 @@
 }
 .vw-kpi-knopf:hover { border-color: var(--ds-brand); }
 .vw-kpi-knopf:focus-visible { outline: 2px solid var(--ds-brand); outline-offset: 2px; }
+
+/* ── Einsatzportal: wer war wann angemeldet (2026-10-01) ─────────── */
+.vw-ep { margin-top: var(--ds-space-4); }
+.vw-ep__titel { margin: 0 0 var(--ds-space-1); font-size: 15px; }
+.vw-ep__aktionen summary { cursor: pointer; color: var(--ds-brand); }
+.vw-ep__aktionen ul { margin: var(--ds-space-2) 0 0; padding-left: var(--ds-space-4); color: var(--ds-text-secondary); font-size: 12px; }
+.vw-ep__aktionen li { margin: 2px 0; }
+.vw-ep__zeit { font-variant-numeric: tabular-nums; color: var(--ds-text-tertiary); margin-right: var(--ds-space-2); }

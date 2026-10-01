@@ -14,6 +14,12 @@ Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-
   **Redis** für den Takt; ohne Redis stockt der Versand nach dem ersten Paket sichtbar und läuft per
   Knopf „Nächstes Paket“ weiter. Empfängerlisten werden nach **12 Monaten** gelöscht (Migration 228,
   Takt 04:15); Abbestellen mit einem Klick im Postfach bleibt **aus** (Owner-Entscheid).
+- ✅ **Einsatzportal im Protokoll** (Owner 2026-10-01): Verwaltung → Protokoll zeigt je Mitarbeiter
+  von wann bis wann angemeldet und welche Aktionen (Migration 229, 12 Monate Aufbewahrung).
+  Abmeldungen stehen jetzt mit Person und Firma im Protokoll (vorher ohne beides). **Vor dem
+  Livegang:** Datenschutzerklärung um den Punkt ergänzen; Zeitarbeitsfirmen mit Betriebsrat
+  brauchen dessen Zustimmung (§ 87 Abs. 1 Nr. 6 BetrVG), bevor sie die Karte nutzen.
+- ✅ **Protokoll- und Stundenzettel-Export in Berliner Zeit** (vorher UTC ohne Kennzeichnung).
 - ✅ **Versandprotokoll `mail_versand` (M1.3) schreibt erst seit 2026-10-01** — die Einfüge-Abfrage
   scheiterte vorher bei jedem Aufruf an PostgreSQL. Wer vor dem Livegang die Mail-Sicht im Staff CC
   prüft, sieht jetzt echte Zahlen; leere Tage davor sind kein Befund über den Versand.

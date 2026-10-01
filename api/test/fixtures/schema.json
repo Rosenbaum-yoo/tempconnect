@@ -4,8 +4,8 @@
   "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
   "migrations_fingerabdruck": {
     "init": "49a1c9ef343102f593f1267155c30cea987684bf1a93826cf237e61101238c7e",
-    "dateien": 232,
-    "hash": "97d9602842f5bd9d96d8ac578e2295727c759ac0f62b8496e9141d2ff84523ec"
+    "dateien": 233,
+    "hash": "d5ca6e6aeadbc3760a00aecc975101b239b13922144d479836356d6f4b6e1f15"
   },
   "pruefwerte": {
     "approval_requests": {
@@ -570,6 +570,12 @@
         "legal",
         "operational",
         "other"
+      ]
+    },
+    "einsatzportal_sitzungen": {
+      "ende": [
+        "abgemeldet",
+        "alle_abgemeldet"
       ]
     },
     "emergency_provider_commitment_events": {
@@ -2227,6 +2233,10 @@
       "org_id": "organizations",
       "uploaded_by": "users"
     },
+    "einsatzportal_sitzungen": {
+      "org_id": "organizations",
+      "user_id": "users"
+    },
     "email_verification_tokens": {
       "user_id": "users"
     },
@@ -2858,6 +2868,7 @@
     "decrypt",
     "decrypt_iv",
     "digest",
+    "einsatzportal_sitzungen_aufraeumen",
     "encrypt",
     "encrypt_iv",
     "f_unaccent",
@@ -4536,6 +4547,25 @@
         "status",
         "title",
         "updated_at"
+      ]
+    },
+    "einsatzportal_sitzungen": {
+      "spalten": [
+        "beendet_am",
+        "begonnen_am",
+        "ende",
+        "id",
+        "org_id",
+        "sitzung_hash",
+        "user_id",
+        "zuletzt_aktiv_am"
+      ],
+      "nicht_null": [
+        "begonnen_am",
+        "id",
+        "sitzung_hash",
+        "user_id",
+        "zuletzt_aktiv_am"
       ]
     },
     "email_verification_tokens": {

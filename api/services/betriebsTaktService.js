@@ -128,6 +128,10 @@ export const TAKTE = Object.freeze({
    * Frist steht in der Datenbank (Migration 228), nicht hier. */
   "produkt-update-aufbewahrung": { intervall_min: 1440, zweck: "Empfaengerlisten der Produkt-Mails nach 12 Monaten loeschen" },
 
+  /* Einsatzportal-Sitzungen (wer war wann angemeldet, Migration 229) nach 12
+   * Monaten loeschen. Taeglich 04:20. Die Frist steht in der Datenbank. */
+  "einsatzportal-aufbewahrung": { intervall_min: 1440, zweck: "Einsatzportal-Sitzungen nach 12 Monaten loeschen" },
+
   /* Die vier BullMQ-Takte, die es schon vor dieser Phase gab. Sie laufen — aber
    * niemand konnte es bisher nachweisen. Sie stehen als EINZIGE mit Praefix in
    * dieser Registratur, weil es fuer sie keinen internen Endpunkt gibt; die

@@ -36,7 +36,8 @@
     scopes: null,
     reiter: "team",
     geladen: {},
-    prot: { offset: 0, limit: 50, total: 0 }
+    prot: { offset: 0, limit: 50, total: 0 },
+    ep: { offset: 0, limit: 25, total: 0 }
   };
 
   var REITER = ["team", "standorte", "rollen", "sicherheit", "protokoll", "schnittstellen", "tarif"];
@@ -341,7 +342,10 @@
     standorte: ladeStandorte,
     rollen: ladeRollen,
     sicherheit: ladeSicherheit,
-    protokoll: function (neu) { if (neu || !S.geladen.protokoll) { S.prot.offset = 0; ladeProtokoll(); } },
+    protokoll: function (neu) {
+      if (neu || !S.geladen.protokoll) { S.prot.offset = 0; ladeProtokoll(); }
+      if (neu || !S.geladen.einsatzportal) { S.ep.offset = 0; ladeEinsatzportal(); }
+    },
     schnittstellen: ladeSchnittstellen,
     tarif: ladeTarif
   };
@@ -979,7 +983,8 @@
               : a.status === "DENIED" ? ["abgewiesen", "ds-badge--danger"]
               : a.status === "FAILED" ? ["fehlgeschlagen", "ds-badge--danger"] : [a.status || "–", "ds-badge--neutral"];
             return "<tr><td data-label=\"Zeitpunkt\">" + esc(zeitpunkt(a.created_at)) + "</td>" +
-              "<td data-label=\"Wer\">" + esc(a.wer || a.actor_email || "System") + "</td>" +
+              "<td data-label=\"Wer\">" + esc(a.wer || a.actor_email || "System") +
+                (a.actor_einsatzkraft ? " <span class=\"ds-badge ds-badge--neutral\">Einsatzportal</span>" : "") + "</td>" +
               "<td data-label=\"Was\">" + esc(a.label || a.action) + "</td>" +
               "<td data-label=\"Ergebnis\"><span class=\"ds-badge " + ergebnis[1] + "\">" + esc(ergebnis[0]) + "</span></td></tr>";
           }).join("") + "</tbody></table>";
@@ -1019,6 +1024,120 @@
     } finally {
       knopf.disabled = false;
     }
+  }
+
+  /* ── Einsatzportal: wer war wann angemeldet (Owner 2026-10-01) ──── */
+
+  var EP_ENDE = {
+    abgemeldet: ["abgemeldet", "ds-badge--success"],
+    alle_abgemeldet: ["überall abgemeldet", "ds-badge--success"],
+    abgelaufen: ["ohne Abmeldung", "ds-badge--neutral"],
+    offen: ["offen", "ds-badge--neutral"]
+  };
+
+  function epFilter() {
+    var p = new URLSearchParams();
+    var tage = el("vwEpZeit").value;
+    var person = el("vwEpPerson").value;
+    if (tage) p.set("von", tagVor(Number(tage) - 1));
+    if (person) p.set("user_id", person);
+    return p;
+  }
+
+  function epBis(z) {
+    if (z.status === "offen") return "zuletzt aktiv " + zeitpunkt(z.zuletzt_aktiv_am);
+    if (z.status === "abgelaufen") return "zuletzt aktiv " + zeitpunkt(z.bis);
+    return zeitpunkt(z.bis);
+  }
+
+  function epAktionen(liste) {
+    if (!liste || !liste.length) return "<span class=\"vw-muted\">keine</span>";
+    return "<details class=\"vw-ep__aktionen\"><summary>" + esc(liste.length + (liste.length === 1 ? " Aktion" : " Aktionen")) + "</summary><ul>" +
+      liste.map(function (a) {
+        return "<li><span class=\"vw-ep__zeit\">" + esc(zeitpunkt(a.zeitpunkt)) + "</span>" + esc(a.label || a.action) +
+          (a.status && a.status !== "SUCCESS" ? " <span class=\"ds-badge ds-badge--danger\">" + esc(a.status === "DENIED" ? "abgewiesen" : "fehlgeschlagen") + "</span>" : "") + "</li>";
+      }).join("") + "</ul></details>";
+  }
+
+  function epPersonen(personen) {
+    var auswahl = el("vwEpPerson");
+    var aktuell = auswahl.value;
+    auswahl.innerHTML = "<option value=\"\">Alle Mitarbeiter</option>" + (personen || []).map(function (p) {
+      return "<option value=\"" + esc(p.user_id) + "\">" + esc(p.name || "–") + "</option>";
+    }).join("");
+    auswahl.value = aktuell;
+    if (auswahl.value !== aktuell) auswahl.value = "";
+  }
+
+  async function ladeEinsatzportal() {
+    var ziel = el("vwEpListe");
+    ziel.innerHTML = leer("Lade Einsatzportal …");
+    var p = epFilter();
+    p.set("limit", String(S.ep.limit));
+    p.set("offset", String(S.ep.offset));
+    try {
+      var d = (await TC.api.get("/org/einsatzportal/sitzungen?" + p.toString())).data || {};
+      var items = d.items || [];
+      S.ep.total = Number(d.total || 0);
+      S.geladen.einsatzportal = true;
+      epPersonen(d.personen);
+      if (!items.length) {
+        ziel.innerHTML = leer(S.ep.offset ? "Keine älteren Anmeldungen." : "In diesem Zeitraum hat sich niemand im Einsatzportal angemeldet.");
+      } else {
+        ziel.innerHTML = "<table class=\"ds-table vw-table\"><thead><tr><th>Mitarbeiter</th><th>Angemeldet</th><th>Bis</th><th>Ende</th><th>Aktionen</th></tr></thead><tbody>" +
+          items.map(function (z) {
+            var ende = EP_ENDE[z.status] || [z.status || "–", "ds-badge--neutral"];
+            return "<tr><td data-label=\"Mitarbeiter\">" + esc(z.name || z.email || "–") + "</td>" +
+              "<td data-label=\"Angemeldet\">" + esc(zeitpunkt(z.begonnen_am)) + "</td>" +
+              "<td data-label=\"Bis\">" + esc(epBis(z)) + "</td>" +
+              "<td data-label=\"Ende\"><span class=\"ds-badge " + ende[1] + "\">" + esc(ende[0]) + "</span></td>" +
+              "<td data-label=\"Aktionen\">" + epAktionen(z.aktionen) + "</td></tr>";
+          }).join("") + "</tbody></table>";
+      }
+      var bis = Math.min(S.ep.offset + items.length, S.ep.total);
+      el("vwEpBlaettern").hidden = S.ep.total <= S.ep.limit;
+      el("vwEpStand").textContent = S.ep.total ? (S.ep.offset + 1) + "–" + bis + " von " + S.ep.total + " Anmeldungen" : "";
+      el("vwEpZurueck").disabled = S.ep.offset === 0;
+      el("vwEpWeiter").disabled = S.ep.offset + S.ep.limit >= S.ep.total;
+    } catch (e) {
+      ziel.innerHTML = fehlerBlock("Die Anmeldungen im Einsatzportal konnten nicht geladen werden. " + fehlerText(e, ""), "protokoll");
+    }
+  }
+
+  async function einsatzportalCsv() {
+    var knopf = el("vwEpCsv");
+    var r = el("vwEpRueckmeldung");
+    knopf.disabled = true;
+    rueckmeldung(r, "Export wird erstellt …");
+    try {
+      var antwort = await TC.api.request("/org/einsatzportal/sitzungen/export/csv?" + epFilter().toString(), { method: "GET", rawResponse: true });
+      if (!antwort.ok) {
+        var info = await antwort.json().catch(function () { return {}; });
+        throw Object.assign(new Error((info.error && info.error.message) || ""), { code: info.error && info.error.code, status: antwort.status });
+      }
+      var blob = await antwort.blob();
+      var m = /filename="?([^";]+)"?/i.exec(antwort.headers.get("content-disposition") || "");
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = m ? m[1] : "einsatzportal.csv";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+      rueckmeldung(r, "Export heruntergeladen. Er steht ab jetzt auch im Protokoll.", "gut");
+    } catch (e) {
+      rueckmeldung(r, fehlerText(e, "Der Export hat nicht geklappt."), "schlecht");
+    } finally {
+      knopf.disabled = false;
+    }
+  }
+
+  function verdrahteEinsatzportal() {
+    ["vwEpZeit", "vwEpPerson"].forEach(function (id) {
+      el(id).addEventListener("change", function () { S.ep.offset = 0; ladeEinsatzportal(); });
+    });
+    el("vwEpZurueck").addEventListener("click", function () { S.ep.offset = Math.max(0, S.ep.offset - S.ep.limit); ladeEinsatzportal(); });
+    el("vwEpWeiter").addEventListener("click", function () { S.ep.offset += S.ep.limit; ladeEinsatzportal(); });
+    el("vwEpCsv").addEventListener("click", einsatzportalCsv);
   }
 
   function verdrahteProtokoll() {
@@ -1262,6 +1381,7 @@
     verdrahteTeam();
     verdrahteStandorte();
     verdrahteProtokoll();
+    verdrahteEinsatzportal();
     verdrahteSchnittstellen();
     verdrahteTarif();
     document.addEventListener("keydown", function (e) {

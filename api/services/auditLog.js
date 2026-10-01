@@ -376,11 +376,27 @@ export async function queryAuditLog(pool, filters = {}) {
 
   params.push(limit);  const limitIdx = idx; idx++;
   params.push(offset); const offsetIdx = idx;
+  /* WER ES WAR (2026-10-01): fuer Einsatzkraefte der Name aus dem Mitarbeiter-
+   * profil statt der E-Mail — gemessen stand bei jedem Vorgang aus dem
+   * Einsatzportal nur die Adresse da, weil `contact_person` dort leer ist. Und
+   * `actor_einsatzkraft`: der Akteur ist in der Firma des Eintrags Mitarbeiter
+   * (Rolle `worker`) — so unterscheidet die Verwaltung das Einsatzportal von
+   * ihrem eigenen Buero. LATERAL … LIMIT 1, weil „ein Profil je Konto" eine
+   * Annahme ist und kein Index (UEBERGABE, eiserne Regel zum LEFT JOIN). */
   const { rows } = await pool.query(
     `SELECT al.*, u.email AS actor_email, u.company_name AS actor_company,
             o.name AS org_name,
-            u.contact_person AS actor_name
+            COALESCE(NULLIF(TRIM(CONCAT_WS(' ', wp.first_name, wp.last_name)), ''), u.contact_person) AS actor_name,
+            EXISTS (SELECT 1 FROM org_memberships om
+                     WHERE om.user_id = al.actor_id AND om.org_id = al.org_id
+                       AND om.role_key = 'worker') AS actor_einsatzkraft
      ${fromClause}
+     LEFT JOIN LATERAL (
+       SELECT w.first_name, w.last_name FROM worker_profiles w
+        WHERE w.user_id = al.actor_id
+        ORDER BY w.created_at ASC
+        LIMIT 1
+     ) wp ON TRUE
      ${whereClause}
      ORDER BY al.created_at DESC
      LIMIT $${limitIdx} OFFSET $${offsetIdx}`, params

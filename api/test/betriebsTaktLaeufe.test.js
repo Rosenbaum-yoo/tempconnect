@@ -158,12 +158,13 @@ describe("M1.9 · die Laufliste ist vollstaendig und aufrufbar", () => {
      * am 2026-09-04 von fuenf auf sechs gewachsen (M3.5, die Wiedervorlage),
      * am 2026-09-19 auf sieben (N3.5, die Profil-Rangliste) und am 2026-10-01
      * auf acht (Produkt-Mitteilungen in Paketen), am selben Tag auf neun (deren
-     * Empfaengerlisten nach 12 Monaten loeschen) — und dass dieser Test dabei
+     * Empfaengerlisten nach 12 Monaten loeschen) und auf zehn (Einsatzportal-
+     * Sitzungen nach 12 Monaten loeschen) — und dass dieser Test dabei
      * rot wurde, ist seine Aufgabe, nicht sein Fehler: ein neuer Lauf soll nicht
      * unbemerkt in die Maschinerie rutschen.
      */
     assert.deepStrictEqual(Object.keys(LAEUFE).sort(), [
-      "dunning-sweep", "einladung-erinnerung", "expire-reservations",
+      "dunning-sweep", "einladung-erinnerung", "einsatzportal-aufbewahrung", "expire-reservations",
       "invoice-overdue-scan", "produkt-update-aufbewahrung", "produkt-update-pakete",
       "profil-rangliste", "recurring-billing", "subscription-lifecycle-tick"
     ]);

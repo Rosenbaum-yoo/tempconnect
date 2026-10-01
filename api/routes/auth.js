@@ -6,7 +6,8 @@ import * as geoService from "../services/geoService.js";
 import * as authService from "../services/authService.js";
 import * as workerService from "../services/workerService.js";
 import * as pilotPolicyService from "../services/pilotPolicyService.js";
-import { writeAudit, orgNachAnmeldung } from "../services/auditLog.js";
+import { writeAudit, orgNachAnmeldung, bestimmeAuditOrg } from "../services/auditLog.js";
+import * as einsatzportalSitzungen from "../services/einsatzportalSitzungService.js";
 import { trackProductEvent, deriveCustomerSegment } from "../services/productAnalyticsService.js";
 import { catchAsync } from "../utils/routeHandler.js";
 import { domainLogger, swallow } from "../utils/logger.js";
@@ -346,11 +347,18 @@ export function createAuthRouter(deps) {
     res.json(me);
   }));
 
-  router.post("/auth/logout", (req, res) => {
+  router.post("/auth/logout", async (req, res) => {
     const userId = req.session.userId;
+    /* Person und Firma festhalten, SOLANGE die Sitzung lebt (2026-10-01): danach
+     * kennt das Protokoll beide nicht mehr, und die Abmeldung stuende ohne Person
+     * und Firma da — in keinem Firmenprotokoll sichtbar. */
+    const orgId = userId ? bestimmeAuditOrg(req, userId) : null;
+    // Den Zeitraum einer Einsatzportal-Sitzung schliessen (wirft nie; ohne Zeile ohne Wirkung).
+    await einsatzportalSitzungen.beenden(pool, req.sessionID);
     domainLogger.userLogout({ userId });
     req.session.destroy(() => {
-      res.locals.audit = { action: "auth.logout", entity_type: "user", entity_id: userId, action_type: "LOGIN" };
+      res.locals.auditAkteurNachSitzungsende = userId || null;
+      res.locals.audit = { action: "auth.logout", entity_type: "user", entity_id: userId, action_type: "LOGIN", org_id: orgId };
       res.clearCookie("tc.sid", { path: "/", httpOnly: true, sameSite: "lax" });
       // Prevent browser-back from showing cached enterprise content
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -398,9 +406,13 @@ export function createAuthRouter(deps) {
     const { beendet } = await destroyAllUserSessions(pool, userId, {
       exceptSid: auchDiese ? null : req.sessionID
     });
+    await einsatzportalSitzungen.alleBeenden(pool, userId, { ausserSessionId: auchDiese ? null : req.sessionID });
     domainLogger.userLogout({ userId });
+    // Wie beim Abmelden: Person und Firma, solange die Sitzung lebt.
+    res.locals.auditAkteurNachSitzungsende = userId;
     res.locals.audit = {
       action: "auth.logout_all", entity_type: "user", entity_id: userId, action_type: "LOGIN",
+      org_id: bestimmeAuditOrg(req, userId),
       details: { beendet, include_current: auchDiese }
     };
     if (!auchDiese) return res.json({ ok: true, beendet });

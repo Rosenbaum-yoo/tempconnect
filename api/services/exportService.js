@@ -57,9 +57,38 @@ function fmtDate(v) {
  * @param {*} v
  * @returns {string}
  */
-function fmtDateTime(v) {
+/*
+ * ZEITPUNKTE IN BERLINER ZEIT (berichtigt am 2026-10-01).
+ *
+ * Hier stand `toISOString().replace("T", " ").slice(0, 19)` — also UTC, ohne
+ * Kennzeichnung. Ein Protokolleintrag von 09:50 Uhr stand im Export als 07:50;
+ * im Sommer zwei Stunden daneben, im Winter eine. Fuer einen Export, mit dem eine
+ * Firma etwas NACHWEISEN will ("wann hat sie die Stunden eingereicht?"), ist das
+ * der falsche Wert, und die Projektregel ist eindeutig: alle Zeitwerte in
+ * Europe/Berlin (CLAUDE.md, Living-Platform-Direktiven). Das Format bleibt
+ * `JJJJ-MM-TT HH:MM:SS` — wer die Datei maschinell einliest, merkt nur, dass die
+ * Uhrzeit jetzt stimmt.
+ */
+const BERLIN_ZEITPUNKT = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit",
+  hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23"
+});
+
+export function fmtDateTime(v) {
   if (!v) return "";
-  try { return new Date(v).toISOString().replace("T", " ").slice(0, 19); } catch { return ""; }
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? "" : BERLIN_ZEITPUNKT.format(d);
+}
+
+/**
+ * Text, den Menschen eingegeben haben, darf in einer Tabellenkalkulation nicht
+ * als Formel loslaufen ("=HYPERLINK(...)" als Vorname). Eine fuehrende Formel-
+ * Marke bekommt deshalb ein Hochkomma (OWASP: CSV Injection). NUR fuer Textfelder —
+ * Zahlen wie "-5" wuerden sonst zu Text.
+ */
+export function csvText(v) {
+  const s = v == null ? "" : String(v);
+  return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
 }
 
 /* ── Timesheet CSV Export ──────────────────────────────────── */
@@ -162,4 +191,32 @@ export function exportAuditLogCsv(entries) {
     ]);
   });
   return [AUDIT_HEADERS.join(","), ...rows].join("\n");
+}
+
+/* ── Einsatzportal-Sitzungen (Owner 2026-10-01) ─────────────── */
+
+const SITZUNGEN_HEADERS = ["Mitarbeiter", "E-Mail", "Angemeldet", "Bis", "Ende", "Aktionen", "Aktionen im Einzelnen"];
+const ENDE_TEXT = {
+  abgemeldet: "abgemeldet",
+  alle_abgemeldet: "überall abgemeldet",
+  abgelaufen: "ohne Abmeldung, abgelaufen (Bis = zuletzt aktiv)",
+  offen: "ohne Abmeldung, noch offen"
+};
+
+/**
+ * Eine Zeile je Sitzung — fuer den Nachweis, wer wann im Einsatzportal war und
+ * was er dabei getan hat. Zeiten in Berliner Zeit.
+ * @param {Array<object>} sitzungen  wie `einsatzportalSitzungService.liste().items`
+ */
+export function exportEinsatzportalSitzungenCsv(sitzungen) {
+  const rows = (sitzungen || []).map((z) => toCsvRow([
+    csvText(z.name),
+    csvText(z.email),
+    fmtDateTime(z.begonnen_am),
+    fmtDateTime(z.bis),
+    ENDE_TEXT[z.status] || z.status || "",
+    (z.aktionen || []).length,
+    csvText((z.aktionen || []).map((a) => `${fmtDateTime(a.zeitpunkt).slice(11, 16)} ${a.label}`).join(" | "))
+  ]));
+  return [SITZUNGEN_HEADERS.join(","), ...rows].join("\n");
 }

@@ -20,6 +20,30 @@ K1-Spitze `94117a7` vollständig (Merge `74e2d86`, gegen K1 geprüft).
 lokal seit `94117a7` nichts Neues dazukam — sonst ein normaler `git merge` (keine
 Umschreibung von Historie). Konfliktgefahr nur in den Dateien, die unten stehen.
 
+### Neu sichtbar im Frontend — zum lokalen Ansehen *(wird bei jedem Push nachgeführt)*
+
+Owner 2026-10-01: *„und auch mergen in gewissen Abständen immer wenn etwas neues im frontend zu
+sehen wäre automatisch, damit ich lokal auch gucken kann“*.
+
+| Was | Wo ansehen | Lokal nötig |
+|---|---|---|
+| **Einsatzportal — wer war wann angemeldet** | Verwaltung → Reiter **Protokoll** → zweite Karte (unten); als Zeitarbeitsfirma, Owner/Admin | Migration **229**, API neu starten |
+| Protokoll: Mitarbeiter mit Namen + Kennzeichen „Einsatzportal“, deutsche Namen aller Portal-Aktionen | Verwaltung → Protokoll (obere Karte) | API neu starten |
+| Hinweis „Was Ihre Firma sieht“ | Einsatzportal → **Mein Profil** (unten, Sicherheit) | — |
+| „Verwaltung“ statt „Organisation“/„Admin-Panel“ | Anbieterprofil-Kachel, System-Health-Menü, Banner der Übersicht, Trust-Seiten | — |
+| Produkt-Updates mit Paketversand („312 von 1.240“, Anhalten) | Staff Control Center → Produkt-Updates | `npm run build:scc`, Migrationen **227, 228**, API neu starten |
+| Executive Dashboard: Block „Abrechnung (30 Tage)“ statt TempConnect-Zahlen | Executive Dashboard (Unternehmen) | API neu starten |
+| Verwaltung (7 Reiter, Wirkungsvorschau) | Übersicht → Kachel „Verwaltung“ oder Nutzermenü „Verwaltung →“ | — |
+
+**K1-Routine „Cloud-Stand holen“ — ab jetzt bei jedem Sitzungsbeginn und immer, wenn oben etwas
+Neues steht:** nur bei **sauberem** Arbeitsbaum (`git status` leer) `git fetch origin
+claude/zen-goldberg-w1oxw3` und `git merge --ff-only origin/claude/zen-goldberg-w1oxw3`; geht
+`--ff-only` nicht, ein normaler `git merge` (keine Umschreibung). Danach: neue Migrationen einspielen
+(`docker compose up migrate`), bei Änderungen unter `api/` die API neu bauen
+(`docker compose up -d --build api`), bei `frontend/src/staff/` `npm run build:scc`. Seiten unter
+`frontend/public/` sind sofort sichtbar (nginx liest den Ordner direkt), Browser neu laden.
+**Nie** zusammenführen, während ein Testlauf über den Baum läuft (eiserne Regel unten).
+
 ### Was gebaut und gepusht ist (in dieser Reihenfolge)
 
 | Commit | Was | Wo |
@@ -28,6 +52,8 @@ Umschreibung von Historie). Konfliktgefahr nur in den Dateien, die unten stehen.
 | `9c4af72` | **Sicherheitslücke geschlossen:** jeder Kunden-Owner/-Admin konnte Produktmitteilungen anlegen, veröffentlichen und **an alle Nutzer mailen** (`POST /admin/product-releases` → 201, am laufenden System belegt). Wache `nurPlattformverwaltung`, bewusst ohne `ADMIN_PANEL_OPEN` | `api/routes/productReleases.js`, `api/test/produktUpdatesNurPlattform.test.js` |
 | `b1e8e2e` | **W-E9 Backend:** Rollen je Seite (Unternehmen bekommt keinen Disponenten, Zeitarbeitsfirma keinen Hiring-Manager; Owner nie per Einladung) — serverseitig, `400 ROLLE_PASST_NICHT_ZUR_SEITE`. Mitglied entfernen braucht **Grund** (≥ 5 Zeichen, `400 GRUND_FEHLT`), sich selbst entfernen `409`. Neu: `GET /org/audit-log/export/csv` (eigene Firma, max. 500, Export steht selbst im Protokoll). Übersicht liefert `rollen`, `rollen_namen`, `counts.open_invitations` | **neu** `api/config/orgRollen.js` (einzige Quelle der Rollennamen), `api/routes/orgControlCenter.js`, `api/services/rbacService.js` |
 | `4123bad` | **W-E9 Oberfläche:** `organization.html` komplett neu als **„Verwaltung“** für beide Seiten, 7 Reiter (Team, Standorte, Rollen, Sicherheit, Protokoll, Schnittstellen, Tarif), jede folgenreiche Handlung mit **Wirkungsvorschau**. **Owner-Rechte vergibt/entzieht nur ein Owner** (`403 NUR_OWNER`; vorher konnte ein Admin den Owner herabstufen/entfernen und sich selbst zum Owner machen). **38 Vorgänge** im Protokoll hatten keinen deutschen Namen („Org Member Invite Revoke“) — ergänzt, ein Wächter erzwingt es | **neu** `frontend/public/js/pages/verwaltung.js`, `frontend/public/css/pages/verwaltung.css`; `api/services/activityFeedService.js`, `api/test/verwaltung.test.js` |
+| `92c29aa` | **Die Verwaltung heißt überall Verwaltung** (Owner: „umbenennen in Verwaltung“): Kachel „Organisation“ im Anbieterprofil, Menüpunkt in System-Health, Banner der Übersicht, Trust-Seiten („Admin-Panel mit Echtzeit-Filterung“ → was es gibt), api-docs. „Organisation“ als Name der eigenen Firma bleibt | `sla_profil.html`, `slaProfil.js`, `system-health.html`, `enterprise.html`, `enterpriseHub.js`, `trust/*.html`, `api-docs.html` |
+| *dieser Commit* | **Einsatzportal im Protokoll** — eigener Abschnitt unten | siehe dort |
 | `d7c239e` | **Ein Weg zur Verwaltung:** Hub-Karte `verwaltung` ersetzt `admin_panel` **und** `location_management` (Schlüssel gelöscht, nicht nur Karten); Link „Verwaltung →“ im Nutzermenü; Suche findet sie jetzt auch für Zeitarbeitsfirmen; drei tote Admin-Links im Executive Dashboard entfernt; Rollenabzeichen nennen die Rollen wie die Verwaltung | `enterprise.html`, `hubVisibility.js`, `pageShell.js`, `roleBadge.js`, `executive_dashboard.html`, `api/config/visibilityMatrix.js` |
 
 Geprüft am laufenden System (Postgres 16 + API + Chromium), beide Demo-Firmen,
@@ -217,6 +243,79 @@ Insgesamt 14 + 2 + 3 + 4 Rückmutationen, alle zeilengenau gesetzt (nicht an der
 an **fail, cancelled und Rückgabewert** abgelesen. Eine überlebte und ist ehrlich benannt: R3, der
 `::uuid`-Typ beim Einfrieren ist **nicht** nötig (PostgreSQL leitet ihn aus der Zielspalte ab) — er
 steht nur als ausdrückliche Angabe da und wird nirgends als Schutz behauptet.
+
+### Einsatzportal im Protokoll — gebaut am 2026-10-01
+
+**Owner-Vorgabe, wörtlich:** *„unten soll man dann auch nachweisen können im audit log von wann
+welcher mitarbeiter das einsatzportal nutzt bis wann welche aktion ausgeführt wurde“* — dazu: *„das
+Admin Panel ist jetzt gut wie es ist“*, *„umbenennen in Verwaltung“* (`92c29aa`) und *„die Verwaltung
+muss gut erreichbar sein wie das Admin Panel“* (geprüft, siehe unten).
+
+**Gemessen VOR dem Bau** (laufendes System, echtes Mitarbeiter-Konto über Einladung → Konto →
+Anmeldung → Aktion → Abmeldung):
+
+| | im Protokoll der Firma |
+|---|---|
+| Anmeldung (`auth.login`) | ja, mit Person und Firma |
+| Aktionen im Portal | ja — aber als „Worker Update Availability“, als Person die **E-Mail** |
+| Abmeldung (`auth.logout`) | **nein** — ohne Person und ohne Firma geschrieben (die Sitzung war zerstört, bevor das Protokoll schrieb). **Betraf alle Nutzer**, nicht nur das Portal |
+| Ende ohne Abmeldung | **gar nicht** — und das ist beim Portal der Normalfall (geteilter Rechner, kein „angemeldet bleiben“, Fenster zu) |
+| Protokoll-Export | Zeitpunkte in **UTC ohne Kennzeichnung** — 09:50 Uhr stand als 07:50 |
+
+**Was jetzt gilt:**
+- **Migration 229** `einsatzportal_sitzungen`: je Portal-Sitzung Beginn (exakter Anmeldezeitpunkt aus
+  `req.session.createdAt`), **zuletzt aktiv** (höchstens alle 5 Minuten), Ende. Nur Sitzungsrolle
+  `worker`; **keine Seitenaufrufe**; Sitzungskennung nur als SHA-256. Aufbewahrung **12 Monate**
+  (Funktion `einsatzportal_sitzungen_aufraeumen()`, Takt `einsatzportal-aufbewahrung` 04:20).
+- **Eine Stelle für alle Anmeldewege:** die Middleware `einsatzportalAktivitaet` (`api/app.js`, hinter
+  `orgContextMiddleware`) eröffnet die Sitzung bei ihrer ersten Anfrage — Login und „Einladung
+  annehmen“ (meldet auch an) sind damit beide abgedeckt, ein künftiger Weg ebenso.
+- **Abmeldung mit Person und Firma** (alle Nutzer): `auth.js` hält beides vor dem Zerstören fest,
+  `middleware/auditWrite.js` nimmt `res.locals.auditAkteurNachSitzungsende` — **nur als Ersatz**, nie
+  über eine lebende Sitzung hinweg. Gleiches für „überall abmelden“.
+- **Verwaltung → Protokoll**, zweite Karte: Mitarbeiter | Angemeldet | Bis | Ende | Aktionen
+  (aufklappbar), Filter Zeitraum + Mitarbeiter, CSV. Wege `GET /api/org/einsatzportal/sitzungen` und
+  `…/export/csv` (owner/admin/platform_admin, gebunden an `req.orgId`; Export steht im Protokoll).
+- **Protokoll oben:** Name statt E-Mail für Einsatzkräfte, Kennzeichen „Einsatzportal“, **deutsche
+  Namen für alle 42 Mitarbeiter-/Portal-Vorgänge** (vorher 4); eine Probe hält jede künftige
+  Portal-Aktion ohne deutschen Namen fest.
+- **Exporte in Berliner Zeit** (`exportService.fmtDateTime` — betrifft auch Protokoll- und
+  Stundenzettel-Export) und Formel-Schutz für Namen im neuen Export (`csvText`).
+- **Transparenz:** Einsatzportal → Mein Profil → „Was Ihre Firma sieht“ (DE/EN).
+
+**Geprüft am laufenden System:** Sitzung mit Abmeldung (2 Aktionen), Sitzung ohne Abmeldung („offen,
+zuletzt aktiv …“), Abmeldung jetzt mit Person + Firma, Einsatzkraft auf den Verwaltungsweg → 403,
+fremde Firma → 0 Einträge, CSV in Berliner Zeit, Telefonbreite ohne Querscrollen, Konsole sauber,
+Hinweis im Portal sichtbar. **Erreichbarkeit der Verwaltung:** beide Demo-Firmen sehen die Kachel
+(gleiche Stelle, gleiche Rollen wie früher das Admin Panel) und — neu, von jeder Seite — den Link im
+Nutzermenü. Kein Umbau nötig.
+
+**Nach dem Übernehmen (K1):** Migration **229** einspielen, API neu bauen, `npm run schema:snapshot`
+(mein Abzug ist der alte plus die neue Tabelle/Funktion, lokal mit derselben Abfrage erzeugt).
+
+**Woran gegengeprüft wird (K1):**
+
+| # | Prüfung | rot muss werden bei | mein Stand |
+|---|---|---|---|
+| E1 | „zuletzt aktiv“ höchstens alle 5 Min | `>=` → `<` in der Middleware | rot |
+| E2/E3 | Sitzungen und Aktionen nur der eigenen Firma | `WHERE s.org_id = $1` bzw. `a.org_id = $1` entfernen | rot |
+| E4/E5 | Abmeldung mit Person und Firma | Ersatz-Akteur in `auditWrite.js` bzw. `org_id: orgId` in `auth.js` entfernen | rot |
+| E6 | abgelaufen erst nach 8 h Stille | `>` → `<` in `bewerteSitzung` | rot |
+| E7/E8 | Formel-Schutz, Berliner Zeit im Export | Schutz bzw. Berliner Format entfernen | rot |
+| E9 | jede Portal-Aktion deutsch benannt | eine Bezeichnung löschen | rot |
+| E10 | nie die rohe Sitzungskennung | Hash durch Kennung ersetzen | rot |
+| D | jede Abfrage am echten Schema | `test/integration/einsatzportalSitzungen.flow.test.js` mit DB | 4/4 grün |
+
+**Für den Owner (Information, keine Blockade):** Anmeldezeiten von Beschäftigten sind für den
+Arbeitgeber eine technische Einrichtung im Sinn von **§ 87 Abs. 1 Nr. 6 BetrVG** — hat eine
+Zeitarbeitsfirma einen Betriebsrat, braucht sie dessen Zustimmung, bevor sie die Karte nutzt. Für
+die Transparenz (DSGVO Art. 13) steht der Hinweis im Portal; die Datenschutzerklärung sollte den
+Punkt ebenfalls nennen. Erfasst wird bewusst nur von/bis und Aktionen, keine Seitenaufrufe.
+
+**Gefunden, nicht angefasst (für Welle 1):** `exportService.escapeCsvField` hat **keinen Formel-Schutz**
+— ein Name wie `=HYPERLINK(…)` würde in Excel ausgeführt. Im neuen Export geschützt (`csvText`), in
+den alten Exporten nicht: ein pauschaler Schutz würde negative Zahlen (`-5`) zu Text machen, das
+braucht eine Unterscheidung je Spalte.
 
 ### Für Welle 1 (Testlauf): `--test-force-exit` schneidet den Bericht ab — gemessen, nicht angefasst
 

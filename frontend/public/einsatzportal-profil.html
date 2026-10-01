@@ -509,6 +509,12 @@
               <button class="ep-btn ep-btn-ghost ep-btn-sm" style="color:var(--ep-danger,#f87171)" onclick="logoutEverywhere()" data-i18n="ep.profil.logoutAllBtn">Überall abmelden</button>
             </div>
           </div>
+          <!-- Transparenz (Owner 2026-10-01): was die Firma im Protokoll sieht. Steht hier,
+               damit niemand ueberrascht wird — und weil es so ist, nicht weil es klein gedruckt waere. -->
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--ep-border,rgba(255,255,255,.08))">
+            <div class="ep-info-label" data-i18n="ep.profil.sichtTitle">Was Ihre Firma sieht</div>
+            <div class="ep-info-val" style="font-size:.8rem;color:var(--ep-text-muted)" data-i18n="ep.profil.sichtText">Ihre Zeitarbeitsfirma sieht in ihrer Verwaltung, wann Sie im Einsatzportal angemeldet waren (Anmeldung, Abmeldung oder wann Sie zuletzt aktiv waren) und welche Aktionen Sie ausgeführt haben — zum Beispiel Stunden eingereicht oder einen Einsatz bestätigt. Welche Seiten Sie nur ansehen, wird nicht erfasst. Die Anmeldezeiten werden nach 12 Monaten gelöscht.</div>
+          </div>
         </div>
       </div>
 
@@ -709,6 +715,8 @@ TCi18n.register('de', {
   'ep.profil.pwChangeHint': 'Passwort-Änderung über den „Passwort vergessen"-Link auf der Login-Seite',
   'ep.profil.toLogin': '→ Zur Login-Seite',
   'ep.profil.devicesTitle': 'Angemeldete Geräte',
+  'ep.profil.sichtTitle': 'Was Ihre Firma sieht',
+  'ep.profil.sichtText': 'Ihre Zeitarbeitsfirma sieht in ihrer Verwaltung, wann Sie im Einsatzportal angemeldet waren (Anmeldung, Abmeldung oder wann Sie zuletzt aktiv waren) und welche Aktionen Sie ausgeführt haben — zum Beispiel Stunden eingereicht oder einen Einsatz bestätigt. Welche Seiten Sie nur ansehen, wird nicht erfasst. Die Anmeldezeiten werden nach 12 Monaten gelöscht.',
   'ep.profil.sessionsOne': '1 aktive Sitzung',
   'ep.profil.sessionsMany': '{n} aktive Sitzungen',
   'ep.profil.sessionsOthers': ' — davon {n} auf anderen Geräten',
@@ -899,6 +907,8 @@ TCi18n.register('en', {
   'ep.profil.pwChangeHint': 'Change your password via the "Forgot password" link on the login page',
   'ep.profil.toLogin': '→ To the login page',
   'ep.profil.devicesTitle': 'Signed-in devices',
+  'ep.profil.sichtTitle': 'What your agency sees',
+  'ep.profil.sichtText': 'Your staffing agency can see in its administration when you were signed in to the portal (sign-in, sign-out or when you were last active) and which actions you took — for example submitting hours or confirming an assignment. Pages you only view are not recorded. Sign-in times are deleted after 12 months.',
   'ep.profil.sessionsOne': '1 active session',
   'ep.profil.sessionsMany': '{n} active sessions',
   'ep.profil.sessionsOthers': ' — {n} of them on other devices',

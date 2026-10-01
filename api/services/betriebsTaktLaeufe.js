@@ -38,6 +38,7 @@ import * as subscriptionLifecycle from "./subscriptionLifecycleService.js";
 import * as workerService from "./workerService.js";
 import * as profileRankingService from "./profileRankingService.js";
 import * as produktUpdateVersand from "./produktUpdateVersandService.js";
+import * as einsatzportalSitzungen from "./einsatzportalSitzungService.js";
 import { KeinVersandweg } from "./mailProtokollService.js";
 import * as auditLog from "./auditLog.js";
 import * as stateMachine from "./stateMachine.js";
@@ -320,6 +321,23 @@ export async function produktUpdateAufbewahrung(pool) {
 }
 
 /**
+ * Einsatzportal-Sitzungen nach 12 Monaten loeschen (Migration 229, dieselbe Frist
+ * wie die Empfaengerlisten). Die Frist steht in der Datenbank; ohne Redis von Hand:
+ * `SELECT einsatzportal_sitzungen_aufraeumen();`. Protokoll nur bei Wirkung.
+ */
+export async function einsatzportalAufbewahrung(pool) {
+  const ergebnis = await einsatzportalSitzungen.aufbewahrungDurchsetzen(pool);
+  if (ergebnis.geloescht > 0) {
+    await auditLog.writeAudit(pool, {
+      action: "einsatzportal.sitzungen_aufbewahrung",
+      entity_type: "einsatzportal_sitzung",
+      details: { geloescht: ergebnis.geloescht, regel: "einsatzportal_sitzungen_aufraeumen (12 Monate)" }
+    });
+  }
+  return ergebnis;
+}
+
+/**
  * Der Auftragsname aus `betriebsTaktService.TAKTE` auf den Lauf abbilden.
  *
  * Bewusst hier und nicht im Arbeiter: so gibt es EINEN Ort, an dem sichtbar ist,
@@ -335,5 +353,6 @@ export const LAEUFE = Object.freeze({
   "einladung-erinnerung": einladungErinnerung,
   "profil-rangliste": profilRangliste,
   "produkt-update-pakete": produktUpdatePakete,
-  "produkt-update-aufbewahrung": produktUpdateAufbewahrung
+  "produkt-update-aufbewahrung": produktUpdateAufbewahrung,
+  "einsatzportal-aufbewahrung": einsatzportalAufbewahrung
 });

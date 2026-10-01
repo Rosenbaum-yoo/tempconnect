@@ -120,6 +120,8 @@ import { createScimRouter } from "./routes/scim.js";
 import { correlationMiddleware } from "./utils/logger.js";
 import { metricsMiddleware, metricsEndpoint, registerDbPoolMetrics, wrapPoolWithMetrics } from "./utils/metrics.js";
 import { orgContextMiddleware } from "./middleware/orgContext.js";
+import { bestimmeAuditOrg } from "./services/auditLog.js";
+import { aktivitaetMiddleware as einsatzportalAktivitaet } from "./services/einsatzportalSitzungService.js";
 import { arbeiterRiegel } from "./middleware/arbeiterRiegel.js";
 import { auditWriteMiddleware } from "./middleware/auditWrite.js";
 import { demoGuard } from "./middleware/demoGuard.js";
@@ -388,6 +390,12 @@ export async function createApp() {
   app.use("/api/", demoGuard);
   app.use(idempotencyMiddleware(pool, { logger }));
   app.use(orgContextMiddleware(pool));
+  /* Einsatzportal: wer war wann angemeldet (Owner 2026-10-01, Migration 229).
+   * Eroeffnet die Sitzung bei ihrer ersten Anfrage und schreibt "zuletzt aktiv"
+   * hoechstens alle 5 Minuten fort — nur fuer Sitzungen mit Rolle `worker`. Muss
+   * hinter `orgContextMiddleware` haengen: die Firma kommt aus derselben Quelle
+   * wie beim Protokoll (`bestimmeAuditOrg`). Seitenaufrufe werden NICHT erfasst. */
+  app.use(einsatzportalAktivitaet({ pool, bestimmeOrg: bestimmeAuditOrg }));
 
   // API-Key-Auth: vor Session-Enrichment, damit req.orgId gesetzt werden kann
   app.use("/api/", apiKeyAuthMiddleware(pool, { logger, config }));

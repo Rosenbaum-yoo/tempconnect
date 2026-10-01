@@ -153,6 +153,11 @@ function scheduleBetriebsWirtschaft() {
    *   SELECT produkt_update_empfaenger_aufraeumen(); */
   q.upsertJobScheduler("produkt-update-aufbewahrung-daily", { pattern: "15 4 * * *" }, { name: "produkt-update-aufbewahrung" })
     .catch((e) => logger.warn({ err: e.message }, "Could not schedule produkt-update-aufbewahrung"));
+
+  /* Einsatzportal-Sitzungen nach 12 Monaten loeschen (Migration 229). 04:20.
+   * Ohne Redis von Hand: SELECT einsatzportal_sitzungen_aufraeumen(); */
+  q.upsertJobScheduler("einsatzportal-aufbewahrung-daily", { pattern: "20 4 * * *" }, { name: "einsatzportal-aufbewahrung" })
+    .catch((e) => logger.warn({ err: e.message }, "Could not schedule einsatzportal-aufbewahrung"));
 }
 
 export function startWorkers(deps = {}) {

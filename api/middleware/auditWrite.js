@@ -61,7 +61,14 @@ export function auditWriteMiddleware(pool, opts = {}) {
       // Akteur zentral aufloesen: Session ODER Maschine (API-Key/M2M). Frueher stand hier
       // nur `req.session?.userId` — jeder API-Key-Request lief dadurch als `null` durch und
       // war von einem Systemlauf nicht zu unterscheiden (Produktionspfeiler 5).
-      const { actor_id, machine } = resolveAuditActor(req);
+      const { actor_id: ausDerSitzung, machine } = resolveAuditActor(req);
+      /* ABMELDEN ZERSTOERT DIE SITZUNG, BEVOR DIESES 'finish' LAEUFT (gemessen am
+       * 2026-10-01: jede `auth.logout`-Zeile stand ohne Person und ohne Firma im
+       * Protokoll — in keinem Firmenprotokoll sichtbar, der Zeitpunkt des Endes
+       * damit nicht belegbar). Eine Route, die die Sitzung beendet, haelt den
+       * Akteur deshalb VORHER fest. Nur als Ersatz, wenn die Sitzung nichts mehr
+       * liefert — nie als Ueberschreibung einer lebenden Sitzung. */
+      const actor_id = ausDerSitzung ?? res.locals?.auditAkteurNachSitzungsende ?? null;
 
         /* Die Organisation kommt aus der Quelle der Wahrheit, nicht aus dem
          * Anfragekontext (8.1.1). Eine Route, die es besser weiss, uebergibt

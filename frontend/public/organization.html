@@ -163,6 +163,35 @@
           <div class="vw-feedback" id="vwProtRueckmeldung" role="status"></div>
           <p class="vw-note">Das Protokoll wird automatisch geschrieben und lässt sich nicht abschalten. Sie sehen nur Vorgänge Ihrer eigenen Firma; der Export enthält höchstens 500 Einträge und steht danach selbst im Protokoll.</p>
         </div>
+
+        <!-- Einsatzportal: wer war wann angemeldet, was wurde getan (Owner 2026-10-01) -->
+        <div class="ds-card vw-ep" id="vwEpKarte">
+          <h3 class="vw-ep__titel">Einsatzportal — wer war wann angemeldet</h3>
+          <p class="vw-muted">Anmeldung, Abmeldung und jede Aktion Ihrer Mitarbeiter im Einsatzportal. Welche Seiten jemand nur ansieht, wird nicht erfasst.</p>
+          <div class="vw-toolbar">
+            <select id="vwEpZeit" class="ds-select" aria-label="Zeitraum">
+              <option value="30">Letzte 30 Tage</option>
+              <option value="7">Letzte 7 Tage</option>
+              <option value="1">Heute</option>
+              <option value="">Alles</option>
+            </select>
+            <select id="vwEpPerson" class="ds-select" aria-label="Mitarbeiter">
+              <option value="">Alle Mitarbeiter</option>
+            </select>
+            <span class="vw-grow"></span>
+            <button class="ds-btn ds-btn--ghost" type="button" id="vwEpCsv">Als CSV exportieren</button>
+          </div>
+          <div id="vwEpListe"><p class="vw-muted">Lade Einsatzportal …</p></div>
+          <div class="vw-blaettern" id="vwEpBlaettern" hidden>
+            <span class="vw-muted" id="vwEpStand"></span>
+            <span>
+              <button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" id="vwEpZurueck">Neuere</button>
+              <button class="ds-btn ds-btn--ghost ds-btn--sm" type="button" id="vwEpWeiter">Ältere</button>
+            </span>
+          </div>
+          <div class="vw-feedback" id="vwEpRueckmeldung" role="status"></div>
+          <p class="vw-note">„Bis“ ist die Abmeldung. Wer sich nicht abmeldet (etwa das Fenster schließt), bei dem steht dort, wann er zuletzt aktiv war — auf fünf Minuten genau. Die Anmeldezeiten werden nach 12 Monaten gelöscht; die Aktionen bleiben im Protokoll darüber. Der Export steht selbst im Protokoll.</p>
+        </div>
       </section>
 
       <!-- Schnittstellen: API-Schluessel und Webhooks -->

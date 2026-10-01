@@ -23,7 +23,8 @@ import * as orgInviteService from "../services/orgInviteService.js";
 import { sendMail } from "../services/emailService.js";
 import { verweigereArbeiter } from "../middleware/orgAccess.js";
 import { formatFeedItem } from "../services/activityFeedService.js";
-import { exportAuditLogCsv } from "../services/exportService.js";
+import { exportAuditLogCsv, exportEinsatzportalSitzungenCsv } from "../services/exportService.js";
+import * as einsatzportalSitzungen from "../services/einsatzportalSitzungService.js";
 import { ROLLEN_NAMEN, rollenAngebot, rollenFuerSeite, rolleErlaubt, rollenName } from "../config/orgRollen.js";
 import { todayDE } from "../utils/dateDE.js";
 
@@ -643,6 +644,102 @@ export function createOrgControlCenterRouter(deps) {
         res.send(csv);
       } catch (err) {
         logger.error({ err: err.message }, "org/audit-log export");
+        res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+      }
+    }
+  );
+
+  /* ═══════════════════════════════════════════════════════
+   *  EINSATZPORTAL — wer war wann angemeldet, was wurde getan
+   *  (Owner-Vorgabe 2026-10-01, Migration 229)
+   * ═══════════════════════════════════════════════════════
+   * Dieselbe Wache wie das Protokoll (owner, admin, platform_admin), gebunden an
+   * die EIGENE Firma (`req.orgId`): eine `org_id` in der Anfrage wird nicht
+   * gelesen, und eine fremde `user_id` liefert schlicht nichts. Ein Mitarbeiter
+   * kommt hier nicht hin — `requireRole` laesst die Rolle `worker` nicht durch,
+   * und der Arbeiter-Riegel laesst den Pfad gar nicht erst zu.
+   */
+  const einsatzportalFilter = z.object({
+    von: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    bis: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    user_id: z.string().uuid().optional(),
+    limit: z.coerce.number().int().min(1).max(200).optional(),
+    offset: z.coerce.number().int().min(0).max(100000).optional()
+  });
+
+  function einsatzportalAnfrage(req, res) {
+    const parsed = einsatzportalFilter.safeParse(req.query || {});
+    if (!parsed.success) {
+      res.status(400).json({ success: false, error: { code: "VALIDATION", details: parsed.error.issues } });
+      return null;
+    }
+    const q = parsed.data;
+    // `bis` ist ein Kalendertag einschliesslich — abgefragt wird bis vor den Folgetag.
+    return { ...q, vonZeit: q.von || null, bisZeit: q.bis ? einsatzportalSitzungen.tagPlus(q.bis, 1) : null };
+  }
+
+  router.get("/org/einsatzportal/sitzungen", requireAuth, ensureOrg,
+    requireRole(["owner", "admin", "platform_admin"], { pool, logger }),
+    async (req, res) => {
+      const q = einsatzportalAnfrage(req, res);
+      if (!q) return;
+      try {
+        const limit = q.limit || 50;
+        const offset = q.offset || 0;
+        const [ergebnis, leute] = await Promise.all([
+          einsatzportalSitzungen.liste(pool, req.orgId, {
+            von: q.vonZeit, bis: q.bisZeit, userId: q.user_id || null, limit, offset
+          }),
+          einsatzportalSitzungen.personen(pool, req.orgId)
+        ]);
+        res.json({
+          success: true,
+          data: {
+            items: ergebnis.items, total: ergebnis.total, limit, offset,
+            personen: leute,
+            scope: { org_id: req.orgId, date_from: q.von || null, date_to: q.bis || null, user_id: q.user_id || null }
+          }
+        });
+      } catch (err) {
+        logger.error({ err: err.message }, "org/einsatzportal/sitzungen");
+        res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+      }
+    }
+  );
+
+  router.get("/org/einsatzportal/sitzungen/export/csv", requireAuth, ensureOrg,
+    requireRole(["owner", "admin", "platform_admin"], { pool, logger }),
+    exportLimiter,
+    async (req, res) => {
+      const q = einsatzportalAnfrage(req, res);
+      if (!q) return;
+      try {
+        const ergebnis = await einsatzportalSitzungen.liste(pool, req.orgId, {
+          von: q.vonZeit, bis: q.bisZeit, userId: q.user_id || null, limit: einsatzportalSitzungen.SEITE_MAX, offset: 0
+        });
+        const csv = exportEinsatzportalSitzungenCsv(ergebnis.items);
+        try {
+          // Wer den Nachweis aus dem Haus traegt, steht selbst im Protokoll.
+          await writeAuditEnhanced(pool, req, {
+            action: "org.einsatzportal.export",
+            action_type: "EXPORT",
+            entity_type: "organization",
+            entity_id: String(req.orgId),
+            org_id: req.orgId,
+            details: {
+              zeilen: ergebnis.items.length, gesamt: ergebnis.total,
+              filter: { von: q.von || null, bis: q.bis || null, user_id: q.user_id || null },
+              responsible_actor_user_id: req.session?.userId || null
+            }
+          });
+        } catch (auditErr) {
+          logger.warn({ err: auditErr.message }, "org/einsatzportal export: Protokollierung fehlgeschlagen");
+        }
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="einsatzportal-${todayDE()}.csv"`);
+        res.send(csv);
+      } catch (err) {
+        logger.error({ err: err.message }, "org/einsatzportal export");
         res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
       }
     }

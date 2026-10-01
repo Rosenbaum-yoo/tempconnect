@@ -45,7 +45,26 @@ Frontend (organization.html)
 ### Audit Log
 `GET /api/org/audit-log?action_type=&limit=50&offset=0` — Org-scoped Audit Trail  
 **Rolle:** `owner`, `admin`, `platform_admin`  
-**Filter:** `actor_id`, `entity_type`, `action`, `action_type`, `status`, `from`, `to`
+**Filter:** `actor_id`, `entity_type`, `action`, `action_type`, `status`, `from`, `to`  
+Jeder Eintrag trägt `label` (deutscher Name), `wer` (bei Einsatzkräften der Name aus dem
+Mitarbeiterprofil, sonst `contact_person`/E-Mail) und `actor_einsatzkraft` (der Akteur ist in
+dieser Firma Mitarbeiter, Rolle `worker`). `GET /api/org/audit-log/export/csv` — höchstens 500
+Zeilen, **Zeitpunkte in Berliner Zeit** (bis 2026-10-01 UTC ohne Kennzeichnung), der Export steht
+selbst im Protokoll.
+
+### Einsatzportal — wer war wann angemeldet (Owner 2026-10-01, Migration 229)
+`GET /api/org/einsatzportal/sitzungen?von=JJJJ-MM-TT&bis=JJJJ-MM-TT&user_id=&limit=&offset=`  
+`GET /api/org/einsatzportal/sitzungen/export/csv` (gleiche Filter, Export steht im Protokoll)  
+**Rolle:** `owner`, `admin`, `platform_admin` — eine Einsatzkraft bekommt 403; gebunden an
+`req.orgId`, eine fremde `user_id` liefert nichts.  
+Je Sitzung: Name, Angemeldet, Bis, Ende (`abgemeldet` | `alle_abgemeldet` | `abgelaufen` | `offen`)
+und alle Aktionen im Zeitraum (aus `audit_log`, dieselbe Firma). Ohne Abmeldung ist „Bis“ der
+Zeitpunkt „zuletzt aktiv“ (auf 5 Minuten genau); nach 8 Stunden Stille gilt die Sitzung als
+abgelaufen. **Nicht** erfasst: welche Seiten jemand ansieht. Aufbewahrung 12 Monate
+(`einsatzportal_sitzungen_aufraeumen()`, Takt `einsatzportal-aufbewahrung` 04:20). Erfasst wird
+über die Middleware `einsatzportalAktivitaet` (`api/app.js`, hinter `orgContextMiddleware`), die
+Sitzungskennung nur als SHA-256. Die Einsatzkräfte sehen im Portal unter „Mein Profil“, was ihre
+Firma sieht.
 
 ### Usage / Billing
 `GET /api/org/usage` — Dashboard-Metriken, Plan-Limits, monatliche Snapshots  
@@ -78,15 +97,19 @@ Frontend (organization.html)
 
 ## Frontend
 
-`/public/organization.html` — Single-Page mit 6 Tabs:
-1. **Mitglieder** — Tabelle mit Name, E-Mail, Rolle, Status
-2. **API Keys** — Tabelle + Modal zum Erstellen/Widerrufen
-3. **Webhooks** — Read-Only Liste, Link zu Integrations-Verwaltung
-4. **Audit Log** — Filterbar nach Aktionstyp, 50 Einträge pro Seite
-5. **Usage** — Stats-Grid, Plan-Limits, Warnungen, Monatliche Snapshots
-6. **Security** — Dot-Grid mit aktivem/inaktivem Status aller Security-Features
+`/public/organization.html` — seit W-E9 (2026-10-01) **„Verwaltung“** für Unternehmen und
+Zeitarbeitsfirmen, 7 Reiter (`js/pages/verwaltung.js`, `css/pages/verwaltung.css`):
+**Team, Standorte, Rollen, Sicherheit, Protokoll, Schnittstellen, Tarif.** Jede folgenreiche
+Handlung zeigt vorher ihre Wirkung. Der Reiter **Protokoll** hat zwei Karten: das Protokoll
+(Filter Zeitraum/Vorgang, CSV) und darunter **„Einsatzportal — wer war wann angemeldet“**
+(Filter Zeitraum/Mitarbeiter, aufklappbare Aktionen, CSV).
 
-**Patterns:** Dark-Theme (`enterprise.css`), `esc()` XSS-Schutz, CSRF-Token, 401-Redirect, Lazy-Load pro Tab.
+**Erreichbar** (geprüft 2026-10-01, beide Demo-Firmen): Kachel „Verwaltung“ auf der Übersicht
+(gleiche Stelle und gleiche Sichtbarkeit wie früher das Admin Panel: Unternehmen und
+Zeitarbeitsfirma, Rollen owner/admin/platform_admin) und — neu, von jeder Seite — „Verwaltung →“
+im Nutzermenü oben rechts. `admin_panel.html` leitet hierher um.
+
+**Patterns:** `esc()` XSS-Schutz, CSRF-Token, 401-Redirect, Lazy-Load pro Reiter.
 
 ## Sicherheit
 
