@@ -166,6 +166,7 @@ SEED_DEMO_WORLD=true SEED_PASSWORT=<mind. 12 Zeichen> \
 - `sql/seeds/y1-4-belegschaft.sql` — Belegschaft (Welle Y1.4): zwölf Kräfte, acht mit Katalog-Fähigkeit, eine krank, eine verspätet, zwei im Einsatz. **Nach** `y1-2-standorte.sql` laden — der Einsatz hängt an deren Standort. Braucht ebenfalls `SEED_PASSWORT`.
 - `sql/seeds/y3-arbeiterstadien.sql` — Arbeiterstadien (Welle Y3): eine OFFENE Einladung (Stadium 1 hatte kein Beispiel — alle sechs vorhandenen waren abgelaufen) und ein geprüfter Nachweis mit Katalogbezug (Stadium 3 — `worker_profile_documents` war LEER). **Nach** `y1-4-belegschaft.sql` laden. Der Einladungs-Token entsteht beim Laden zufällig und steht nicht im Repo.
 - `sql/seeds/y2-1-geldwege.sql` — Geldwege (Welle Y2.3/Y2.5/Y2.6): fünf Rechnungen in allen Zuständen mit RELATIVEN Fälligkeiten (die Tabelle war LEER), eine Sperre mit sichtbarer Gegenseite, ein offener Fähigkeits-Vorschlag und eine zusammengeführte Schreibvariante. **Nach** `y3-arbeiterstadien.sql` laden.
+- `sql/seeds/y2-2-dealzustaende.sql` — Deal- und Stundenzettel-Zustände (Welle Y2.1/Y2.2): sechzehn Zustände, die im Bestand kein Beispiel hatten — darunter die drei Paare DECLINED/CANCELED, rejected/withdrawn und paused/closed, die in einer Liste gleich aussehen und das Gegenteil bedeuten. **Nach** `y1-4-belegschaft.sql` laden.
 
 ### run-worker.sh — Worker-Management
 

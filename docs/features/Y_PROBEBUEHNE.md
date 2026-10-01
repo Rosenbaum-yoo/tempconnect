@@ -428,13 +428,72 @@ sehen."* Genau das ist heute nicht möglich.
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|
-| Y2.1 | **Deals in jedem Zustand**: angefragt, verhandelt, abgeschlossen, laufend, beendet, zurückgenommen | Jeder Zustand einmal sichtbar, auf **beiden** Seiten |
-| Y2.2 | **Stundenzettel in jedem Zustand**: offen, eingereicht, abgelehnt mit Korrekturbitte, genehmigt, an den Kunden gesendet, abgerechnet | Der ganze Weg des Kreislaufs K-2 ist an einem Tag durchklickbar |
+| Y2.1 ✅ | **Deals in jedem Zustand**: angefragt, verhandelt, abgeschlossen, laufend, beendet, zurückgenommen | Jeder Zustand einmal sichtbar, auf **beiden** Seiten |
+| Y2.2 ✅ | **Stundenzettel in jedem Zustand**: offen, eingereicht, abgelehnt mit Korrekturbitte, genehmigt, an den Kunden gesendet, abgerechnet | Der ganze Weg des Kreislaufs K-2 ist an einem Tag durchklickbar |
 | Y2.3 ✅ | **Rechnungen**: offen, fällig, überfällig, gemahnt, bezahlt — mit **relativen** Datumswerten | Die Mahnstrecke zeigt echte Fälligkeiten statt „vor zwei Jahren" |
 | Y2.4 | **Ein Mensch für den Betrugsriegel** (M4c.3): eine Kraft, die als Einzelangebot **und** im Sammelangebot steht | Die wichtigste Probe aus M4c lässt sich von Hand nachvollziehen |
 | Y2.5 ✅ | **Eine Sperre**: dieselbe Kraft bei Kunde A gesperrt, bei Kunde B sichtbar | Die zentrale Zusage der Sperrliste wird vorführbar |
 | Y2.6 ✅ | **Ein offener Fähigkeits-Vorschlag** und **eine katalogfremde Schreibvariante** | Die Kuratierfläche aus b-6/b-7 ist nicht leer, wenn man sie zeigt |
 | Y2.7 | **Sammelangebote mit eigenen Mitgliedern.** Gemessen am 2026-09-24: die beiden vorhandenen Sammelangebote teilen sich **dieselben zwei Menschen**, und einer davon steht zusätzlich in einem Einzelangebot. Eine Bühne, die Sammelangebote vorführen soll, braucht Mitglieder, die sonst nirgends stehen — sonst führt sie genau die Doppelbuchung vor, die sie widerlegen soll | Ein Sammelangebot mit 4 Mitgliedern, die in keinem Einzelangebot vorkommen; dazu **ein** bewusst doppelt geführter Mensch für die Probe aus M4c.3 |
+
+> **Y2.1 + Y2.2 GEBAUT — Stand 2026-10-01. Sechzehn Zustände hatten kein
+> Beispiel.**
+>
+> | Zustandsmenge | war unbesetzt | von |
+> |---|---|---|
+> | `requests.status` | CREATED · OFFER_SENT · DECLINED · CONFIRMED · ASSIGNMENT_STARTED · COMPLETED · CANCELED | **7 von 11** |
+> | `demand_requests.status` | closed · cancelled · paused | 3 von 7 |
+> | `offers.status` | rejected · withdrawn · countered | 3 von 6 |
+> | `offers.agreement_status` | none · expired | 2 von 7 |
+> | `timesheets.status` | cancelled | 1 von 5 |
+>
+> Nach `sql/seeds/y2-2-dealzustaende.sql` steht jeder der sechzehn einmal da.
+>
+> **DREI PAARE, DIE IN EINER LISTE GLEICH AUSSEHEN UND DAS GEGENTEIL BEDEUTEN** —
+> und genau deshalb stehen alle sechs Werte in der Saat:
+>
+> | | |
+> |---|---|
+> | `DECLINED` / `CANCELED` | die Gegenseite sagt nein / **der Besteller** zieht zurück |
+> | `rejected` / `withdrawn` | dieselbe Unterscheidung beim Angebot |
+> | `paused` / `closed` | der Bedarf **lebt weiter** / der Bedarf ist beendet |
+>
+> Eine Oberfläche, die nur eine Hälfte kennt, nennt dem Nutzer den falschen
+> Urheber. `countered` kommt dazu: ein Gegenangebot ist gar keine Ablehnung.
+>
+> **Alle sieben Anfragen laufen zwischen Nordlicht Logistik (Y1.2) und Hanse
+> Personal Service (Y1.4)** — „jeder Zustand einmal sichtbar, auf BEIDEN Seiten"
+> verlangt, dass man sich in beide Richtungen anmelden kann. Ein Zustand an
+> Organisationen, die niemand betreten kann, ist kein vorführbarer Zustand.
+>
+> **Drei Bedingungen, die erst das Laden gezeigt hat:**
+>
+> - `requests_capacity_listing_xor` verlangt **genau eines** von `capacity_id`
+>   oder `listing_id` — beide `NULL` ist verboten. Die Saat legt deshalb ein
+>   **eigenes** Listing an. Auf ein Listing der alten Demo-Welt (`d0c00000-…`) zu
+>   zeigen wäre eine Fremdbindung, die beim Aufräumen jener Welt mitstirbt und die
+>   Bühne stillschweigend unvollständig macht; eine Rückmutation hält das fest.
+> - `requests_priority_check` kennt nur `NORMAL` und `NOTDIENST` — der erste
+>   Entwurf schrieb `HIGH` und scheiterte.
+> - `demand_requests` hat **kein** `notes`, sondern `requirements` — und das ist
+>   `jsonb` und **in keiner der 42 vorhandenen Zeilen benutzt**. Eine Saat, die
+>   dort als Erste und Einzige Text ablegt, erfindet eine Nutzung. Die
+>   Begründungen stehen deshalb als SQL-Kommentar an jeder Zeile, und eine
+>   Zusicherung verbietet den Zugriff auf die Spalte.
+>
+> Die beendeten Bedarfe tragen ihren Zeitstempel (`closed_at`, `cancelled_at`):
+> ein Zustand ohne ihn ist halb — die Oberfläche zeigt „geschlossen" und kann
+> nicht sagen, seit wann.
+>
+> **Wächter:** `api/test/probebuehneDealzustaende.test.js`, 14 Zusicherungen,
+> **18 Rückmutationen, alle rot und jede an der gemeinten Stelle — beim ersten
+> Lauf.** Keine Lücke in der Probe diesmal: die Abgrenzung „nur die Einfügung, bis
+> zum `ON CONFLICT`" und die ASCII-sicheren Suchtexte im Harnisch waren die Lehre
+> aus Y1.3, Y1.4 und Y3.
+>
+> **Noch offen in Y2:** Y2.4 und Y2.7 (Sammelangebote mit eigenen Mitgliedern;
+> gemessen teilen sich die beiden vorhandenen dieselben zwei Menschen — genau die
+> Doppelbuchung, die eine Bühne widerlegen soll).
 
 > **Y2.3 · Y2.5 · Y2.6 GEBAUT — Stand 2026-10-01. Drei Gegenstände fehlten nicht
 > teilweise, sondern GANZ.**
