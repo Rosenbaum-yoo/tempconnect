@@ -53,8 +53,11 @@
 | Worker-Profile? | **Pseudonym bis zum Abschluss:** Skills, Erfahrung, Region, Verfügbarkeit, Zuverlässigkeitsstufe (Welle Q). **Kein** Nachname, keine Kontaktdaten, kein Geburtsdatum; Foto nur mit Einwilligung | Datenminimierung — der Käufer braucht die Identität erst für den Einsatz |
 | Identität nach Abschluss? | Nur an den **Käufer dieses Einsatzes**, nur die für den Einsatz nötigen Angaben | Zweckbindung |
 | Rechte-Übersicht? | **Aus der zentralen Rechte-Registratur erzeugt**, nie von Hand gepflegt | Eine gepflegte Tabelle lügt nach dem ersten Umbau |
+| Zusammengesetzte Fremdschlüssel `(id, org_id)` jetzt oder später? | **Jetzt** (Owner 2026-10-01) | Alle 13 Beziehungen sind auf verletzende Zeilen geprüft: überall **0**, nur eine überhaupt belegt. Es gibt nichts zu bereinigen — heute risikofrei, mit jedem Kunden teurer |
+| Darf eine Konditionskarte auf eine fremde Organisation zeigen? | **Regel offen, Zwischenstand freigegeben** (Owner 2026-10-01) | Der Zwischenstand nimmt keine Fähigkeit weg, die heute jemand nutzt, und schließt den offenen Rand. Die Regel selbst („nur aus dem eigenen Lieferantenpool"?) bleibt beim Owner |
 
 ---
+
 
 ## 4. Wellen und Phasen
 
@@ -111,11 +114,51 @@
 | U5.4 | **Teilen-Link:** Ablaufdatum, dieselbe Sichtbarkeitsbedingung wie die Liste (Befund M4.13) | Link nach Ablauf oder nach Sperre → nicht mehr lesbar |
 | U5.5 | Identität nach Abschluss nur an den Käufer dieses Einsatzes | Anderer Kunde → pseudonym |
 
+### U6 · Die Grenze **erzwingen**, nicht nur prüfen *(Owner-Freigabe 2026-10-01)*
+
+> **Owner, 2026-10-01:** *„kannst du 9 und 10 für K1 als Arbeitsaufforderung schreiben?"* — bezogen
+> auf die Punkte 9 und 10 der Sammelliste in [`../UEBERGABE.md`](../UEBERGABE.md), Abschnitt „Was
+> auf dem Owner liegt". **Das ist die Freigabe für genau das, was dort als Empfehlung stand** —
+> nicht mehr. Wo die Empfehlung einen *Zwischenstand* vorsah, ist der Zwischenstand freigegeben
+> und die Regel dahinter weiter offen (U6.2).
+
+**Warum diese Phase anders ist als U0–U5.** Alles davor prüft im **Code**: ein Dienst fragt, ob
+ein Standort zur Organisation gehört, und weist ab. Das ist richtig und bleibt — aber es ist
+**eine** Verteidigungslinie, und sie reißt genau dort, wo jemand einen Riegel vergisst. U0.2b hat
+zwei solche Stellen gefunden, U0.2 hatte sie nicht gesehen, weil ihre Liste `updateRequisition`
+nicht führte. **Die Lehre ist nicht „sorgfältiger auflisten", sondern „die Datenbank mitnehmen":**
+ein zusammengesetzter Fremdschlüssel kann nicht vergessen werden.
+
+| Phase | Inhalt | Nachweis |
+|---|---|---|
+| **U6.0** | **Die Messung wiederholen, unmittelbar vor der Migration.** Die 13 Beziehungen in 7 Tabellen erneut auf verletzende Zeilen prüfen — die Null von vorgestern ist keine Null von heute, und zwischen Messung und Migration liegen Commits und Testläufe, die Daten anlegen | Zahl mit Datum im Commit. **Bei einem einzigen Verstoß: anhalten und melden**, nicht bereinigen — eine org-fremde Verknüpfung ist ein Befund, keine Altlast |
+| **U6.1** | **Zusammengesetzte Fremdschlüssel `(id, org_id)`** statt `(id)`. Zuerst die **zwei fehlenden `UNIQUE (id, org_id)`** anlegen — ohne sie kann kein zusammengesetzter Schlüssel darauf zeigen. Dann je Tabelle einzeln umstellen, nicht in einem Block | **Die Probe muss die DATENBANK prüfen, nicht den Code** — sonst beweist sie die zweite Linie nicht: ein Einfügeversuch mit org-fremder Kennung muss von Postgres abgewiesen werden. **Rückmutation:** einen Schlüssel auf `(id)` zurückstellen → rot. Dazu eine **datenbankfreie** Form-Probe auf den Migrationstext, damit im Tor nicht alles überspringt |
+| **U6.2** | **`supplier_org_id` im Ändern-Pfad zurückweisen** — mit Auskunft (`OrgBoundaryError`), nicht als stiller Filter. Beim **Anlegen** bleibt es unverändert setzbar. **Ausdrücklich NICHT bauen:** die Pool-Regel („nur Organisationen aus dem eigenen Lieferantenpool"). Die Regelfrage bleibt beim Owner | **Zwillingszusicherung, beide Hälften:** ein Änderungsversuch **mit** `supplier_org_id` wird abgewiesen **und** ein Änderungsversuch **ohne** das Feld kommt weiterhin durch. Eine Probe, die nur die Abweisung kennt, bleibt grün, wenn der gültige Weg zerstört wird |
+| **U6.3** | **`contract_id` prüfen — in BEIDEN Pfaden.** `assertOrgOwnership(pool, "contracts", data.contract_id, orgId)`, fail-closed davor (`if (!orgId) throw`). `contracts` steht in `ALLOWED_TABLES`, das Muster existiert; **`createRateCard` ist genauso offen wie `updateRateCard`** — der dritte Fall desselben Paar-Musters in einer Datei | Rückmutation **je Pfad** (Anlegen und Ändern getrennt). Plus Zwillingszusicherung: eine gültige **eigene** Vertragskennung kommt durch |
+| **U6.4** | **Erst messen, dann entscheiden:** ein Wächter, der in jeder `allowed`-Liste eines Schreibdienstes die Felder auf `*_id` gegen einen vorhandenen Riegel hält. Dreimal dasselbe Muster in einer Datei legt nahe, dass es öfter vorkommt | **Zuerst die Zahl der nötigen Ausnahmen messen und melden — nicht bauen.** Ein Wächter, dessen Ausnahmeliste länger ist als sein Ertrag, ist eine Ausrede mit Zahlen (so entschieden bei „123 von 967" und beim Pfadverweis-Wächter) |
+
+**Reihenfolge innerhalb von U6: U6.3 → U6.0 → U6.1 → U6.2 → U6.4.**
+
+> **U6.3 zuerst**, weil es klein ist, ein vorhandenes Muster benutzt und eine offene Grenze in
+> **beiden** Pfaden schließt. **U6.0 unmittelbar vor U6.1**, nie früher. **U6.2 nach der
+> Migration**, weil es dieselbe Datei berührt wie U6.3 und zwei Eingriffe in eine Datei besser
+> hintereinander als verschränkt laufen. **U6.4 zuletzt und nur als Messung.**
+
+**Rücknahme.** Jede Migration dieser Phase trägt ihren `DROP CONSTRAINT`/`DROP INDEX` im Kopf.
+Der zusammengesetzte Schlüssel ist rücknehmbar, solange keine Daten darauf gebaut wurden — und das
+tut niemand, weil er nur verbietet. **Nach U6.1 muss der Frisch-Installationslauf grün bleiben**
+(seit 2026-09-28 möglich): eine Migration, die auf der laufenden Datenbank greift und ab null
+scheitert, ist nicht fertig.
 ---
 
 ## 5. Reihenfolge
 
-**U0 → U2.4 → U1 → U5 → U2 → U3 → U4.**
+**U0 → U2.4 → U6 → U1 → U5 → U2 → U3 → U4.**
+
+> **U6 direkt nach U2.4 (Owner-Freigabe 2026-10-01)**, weil es dieselbe Grenze betrifft und
+> U0.2b gezeigt hat, dass die Code-Prüfung allein zweimal daneben lag. Solange die Datenbank
+> die Mandantengrenze nicht mitträgt, kostet jede weitere Phase das Risiko, dass ein neuer
+> Schreibweg den Riegel wieder vergisst.
 
 > **U2.4 steht vor allem anderen**, weil U0.2 bereits eine Lücke geliefert hat: nicht in den
 > Routen, sondern **im Schreibweg** (`rbacService`). Eine Grenze, die beim Lesen gilt und beim
