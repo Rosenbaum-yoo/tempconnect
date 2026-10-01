@@ -10,6 +10,78 @@ hierher zusammengeführt — `297554c`, 13 Commits, sechs Konflikte).
 
 ---
 
+## Neu aus der Cloud-Sitzung vom 2026-10-01 — für K1 und Welle 1 zuerst lesen
+
+**Branch:** `claude/zen-goldberg-w1oxw3` · **gepushter Stand:** `d7c239e` · enthält die
+K1-Spitze `94117a7` vollständig (Merge `74e2d86`, gegen K1 geprüft).
+
+**Übernehmen (K1):** `git fetch origin claude/zen-goldberg-w1oxw3` und dann
+`git merge --ff-only origin/claude/zen-goldberg-w1oxw3`. `--ff-only` klappt nur, wenn
+lokal seit `94117a7` nichts Neues dazukam — sonst ein normaler `git merge` (keine
+Umschreibung von Historie). Konfliktgefahr nur in den Dateien, die unten stehen.
+
+### Was gebaut und gepusht ist (in dieser Reihenfolge)
+
+| Commit | Was | Wo |
+|---|---|---|
+| `4af23d6` | Admin Panel beidseitig geprüft: für Kunden eine **zweite Verwaltung** neben `organization.html`; Vorschau der neuen Verwaltung | `docs/ADMIN_CONTROL_CENTER.md`, `docs/design/vorschau-verwaltung-kunden.html`, `docs/features/SCHWACHSTELLEN_ZU_STAERKEN.md` (W-E9, W-E10) |
+| `9c4af72` | **Sicherheitslücke geschlossen:** jeder Kunden-Owner/-Admin konnte Produktmitteilungen anlegen, veröffentlichen und **an alle Nutzer mailen** (`POST /admin/product-releases` → 201, am laufenden System belegt). Wache `nurPlattformverwaltung`, bewusst ohne `ADMIN_PANEL_OPEN` | `api/routes/productReleases.js`, `api/test/produktUpdatesNurPlattform.test.js` |
+| `b1e8e2e` | **W-E9 Backend:** Rollen je Seite (Unternehmen bekommt keinen Disponenten, Zeitarbeitsfirma keinen Hiring-Manager; Owner nie per Einladung) — serverseitig, `400 ROLLE_PASST_NICHT_ZUR_SEITE`. Mitglied entfernen braucht **Grund** (≥ 5 Zeichen, `400 GRUND_FEHLT`), sich selbst entfernen `409`. Neu: `GET /org/audit-log/export/csv` (eigene Firma, max. 500, Export steht selbst im Protokoll). Übersicht liefert `rollen`, `rollen_namen`, `counts.open_invitations` | **neu** `api/config/orgRollen.js` (einzige Quelle der Rollennamen), `api/routes/orgControlCenter.js`, `api/services/rbacService.js` |
+| `4123bad` | **W-E9 Oberfläche:** `organization.html` komplett neu als **„Verwaltung“** für beide Seiten, 7 Reiter (Team, Standorte, Rollen, Sicherheit, Protokoll, Schnittstellen, Tarif), jede folgenreiche Handlung mit **Wirkungsvorschau**. **Owner-Rechte vergibt/entzieht nur ein Owner** (`403 NUR_OWNER`; vorher konnte ein Admin den Owner herabstufen/entfernen und sich selbst zum Owner machen). **38 Vorgänge** im Protokoll hatten keinen deutschen Namen („Org Member Invite Revoke“) — ergänzt, ein Wächter erzwingt es | **neu** `frontend/public/js/pages/verwaltung.js`, `frontend/public/css/pages/verwaltung.css`; `api/services/activityFeedService.js`, `api/test/verwaltung.test.js` |
+| `d7c239e` | **Ein Weg zur Verwaltung:** Hub-Karte `verwaltung` ersetzt `admin_panel` **und** `location_management` (Schlüssel gelöscht, nicht nur Karten); Link „Verwaltung →“ im Nutzermenü; Suche findet sie jetzt auch für Zeitarbeitsfirmen; drei tote Admin-Links im Executive Dashboard entfernt; Rollenabzeichen nennen die Rollen wie die Verwaltung | `enterprise.html`, `hubVisibility.js`, `pageShell.js`, `roleBadge.js`, `executive_dashboard.html`, `api/config/visibilityMatrix.js` |
+
+Geprüft am laufenden System (Postgres 16 + API + Chromium), beide Demo-Firmen,
+Desktop und Telefon (390 px): alle Reiter, Dialoge, Einladen/Zurückziehen, Standort
+anlegen/deaktivieren, CSV, API-Schlüssel; keine Antwort ≥ 400, Konsole sauber.
+
+### In Arbeit, NOCH NICHT gepusht — W-E10 (folgt als nächster Commit)
+
+Freischaltungen und Produkt-Updates ziehen aus dem Admin Panel ins **Staff Control
+Center**. Bitte **nicht parallel** daran bauen:
+
+- `/api/admin/feature-overrides`, `/api/admin/feature-keys` und `/api/admin/product-releases*`
+  **fallen weg**. Neu: `/staff/api/freischaltungen*` und `/staff/api/produkt-updates*`.
+- **Befund:** `feature_overrides` liest im ganzen Code **genau ein** Verbraucher
+  (`staffing_ready_fast_track`). Das Admin Panel bot jeden Tarifschlüssel an — alle anderen
+  waren wirkungslos. Neu: **`api/config/freischaltHebel.js`** — nur dort eingetragene Hebel
+  sind schaltbar, ein Test erzwingt *Hebel ↔ Leser im Code* in beiden Richtungen. Ausnahme je
+  Firma **nur mit Ende** (≤ 366 Tage) und nur auf der Seite, auf der der Hebel wirkt.
+- **Befund:** `app.js` hat dem Staff-Router **nie `sendMail` übergeben** — Statusmails an
+  Kunden aus dem Staff CC gingen seit jeher still verloren. Wird mitbehoben; **nach dem
+  Deploy gehen diese Mails wirklich raus.**
+- **Befund:** Produktmitteilungen „ab PLUS“ erreichten Kunden im Tarif **INDIVIDUELL nie**
+  (Rang 0). Wird über `normalizePlanKey` behoben.
+- Danach: `admin_panel.html` wird Weiterleitung auf die Verwaltung; `adminPanel.js`,
+  `adminProductReleases.js`, `admin-panel.css` entfallen.
+
+### Für Welle 1 (Lint/CI) — gefunden, bewusst NICHT angefasst (K1-Dateien)
+
+`cd frontend && npm run lint` hat **7 Fehler, alle schon im K1-Stand `94117a7`**:
+`katalogFeld.js:206` und `mitarbeiter.js:2942` (`TCSkillPicker` undefiniert),
+`marketplaceFeed.js:1022` und `schnellstart.js:296` (`TCKatalogFeld` undefiniert),
+`workerPortal/portalAbwesenheit.js:2` (`TCi18n`/`TCDate` doppelt deklariert),
+`mitarbeiter.js:2890` (`_publicFieldLabelKeys` undefiniert — in der Funktion
+`publicFieldLabel`, die **keinen Aufrufer** hat; tot, würde sonst `ReferenceError` werfen).
+Lösung: Globals in `frontend/eslint.config.*` ergänzen, tote Funktion entfernen.
+
+Zweite Beobachtung: holen mehrere Skripte gleichzeitig `/api/csrf`, bekommt der erste
+POST gelegentlich `403 CSRF_INVALID`. `TC.api` wiederholt einmal automatisch — für Nutzer
+unsichtbar, in der Konsole steht ein 403. Nicht behoben.
+
+### Offene Owner-Fragen aus dieser Sitzung
+
+1. „Owner-Rechte nur durch einen Owner“ ist als **Vorgabe gebaut** — bitte bestätigen
+   (Rückweg: eine Funktion `darfOwnerRechte` in `orgControlCenter.js`).
+2. Das Executive Dashboard zeigt Kunden **TempConnect-eigene SaaS-Kennzahlen** (MRR, Churn,
+   Pilot-Funnel, englisch) — gehören die in eine Kundenansicht?
+3. Kunden können bei strategischen Anfragen den **Status ihrer eigenen Anfrage** setzen.
+4. Die Zeile in `CLAUDE.md` „Admin Panel (`/public/admin_panel.html`, `/api/admin/*`)“ ist
+   nach W-E10 veraltet — Änderung nur mit Owner-Zusage.
+5. Produkt-Mails: höchstens **400 je Mitteilung**, Empfänger werden einzeln geladen
+   (bis 5000 Abfragen) — bei 300 Kunden zu klein und zu teuer.
+
+---
+
 ## In 30 Sekunden
 
 TempConnect ist eine B2B-Plattform für Zeitarbeit (Vermittlung zwischen
