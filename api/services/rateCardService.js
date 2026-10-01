@@ -11,6 +11,7 @@
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg,
          assertContractBelongsToOrg, OrgBoundaryError } from "../utils/orgBoundary.js";
 import { istLieferantImPool } from "./vendorPoolService.js";
+import { poolMitgliedschaftExistsSql } from "./poolMitgliedschaftSql.js";
 import { todayDE } from "../utils/dateDE.js";
 
 function appendRateCardWindowFilters(where, params, filters = {}, alias = "rc") {
@@ -309,6 +310,32 @@ export async function listRateCards(pool, orgId, filters = {}) {
 
   const countParams = params.slice();
 
+  /*
+   * U6.2a — BESTANDSSCHUTZ MIT SICHTBAREM HINWEIS.
+   *
+   * Owner 2026-10-01: die Pool-Regel aus U6.2 gilt fuer SCHREIBVORGAENGE, nicht
+   * rueckwirkend. Gemessen beim Einschalten: 4 Konditionskarten, 1 mit
+   * Lieferant, 0 Poolzeilen - diese eine Karte verletzt die Regel ab Sekunde
+   * eins. Sie wird NICHT migriert, NICHT geleert, NICHT rueckwirkend geprueft.
+   * Sie bekommt einen Hinweis, und dafuer muss die Liste die Antwort kennen.
+   *
+   * DREI WERTE, NICHT ZWEI: null, wenn die Karte gar keinen Lieferanten hat
+   * (org-weite Karte). Ein `false` waere dort eine Falschaussage - es liest sich
+   * als "der Lieferant steht nicht im Pool", wo es gar keinen gibt, und die
+   * Oberflaeche wuerde an jeder org-weiten Karte warnen.
+   *
+   * DIE BEDINGUNG WIRD NICHT NACHGEBAUT, sondern kommt aus derselben Funktion
+   * wie die Schreib-Pruefung (`poolMitgliedschaftSql`). Ein zweiter Text mit
+   * derselben Absicht driftet - gemessen ist das in dieser Welle zweimal
+   * passiert (assignmentService ohne valid_from, isInPool ohne Fenster).
+   *
+   * Das Datum kommt aus todayDE(), nicht aus einem UTC-Schnitt: ein Fenster,
+   * das nach 22 Uhr deutscher Zeit einen Tag zurueckliegt, wuerde am Randtag an
+   * einer gueltigen Karte warnen.
+   */
+  params.push(todayDE());
+  const datumIdx = params.length;
+
   const limit = Math.min(filters.limit || 100, 500);
   const offset = filters.offset || 0;
   params.push(limit, offset);
@@ -319,7 +346,13 @@ export async function listRateCards(pool, orgId, filters = {}) {
     `SELECT rc.*,
             so.name AS supplier_name,
             ol.name AS location_name,
-            od.name AS department_name
+            od.name AS department_name,
+            CASE WHEN rc.supplier_org_id IS NULL THEN NULL ELSE ${
+              poolMitgliedschaftExistsSql({
+                kunde: "rc.org_id", lieferant: "rc.supplier_org_id",
+                datum: "$" + datumIdx, alias: "vpm"
+              })
+            } END AS lieferant_im_pool
      FROM rate_cards rc
      LEFT JOIN organizations so ON so.id = rc.supplier_org_id
      LEFT JOIN org_locations ol ON ol.id = rc.location_id

@@ -62,9 +62,14 @@ describe("U6.2 · steht der Lieferant im Pool", () => {
       "eine stillgelegte oder entfernte Zugehoerigkeit wuerde zaehlen");
     assert.match(sql, /tier <> 'BLOCKED'/,
       "ein GESPERRTER Lieferant wuerde zaehlen — dann ist die Sperre ein Vermerk ohne Wirkung");
-    assert.match(sql, /valid_from IS NULL OR valid_from <= \$3/,
+    /* U6.2a: die Spalten dürfen qualifiziert sein (vp.valid_from). Der Text
+       kommt seit U6.2a aus `poolBedingungenSql` mit Tabellenalias — die alten
+       Muster schrieben die ABWESENHEIT des Alias fest, also ein
+       Implementierungsdetail statt der Regel. Geprüft bleibt, DASS das Fenster
+       in beide Richtungen geprüft wird. */
+    assert.match(sql, /(\w+\.)?valid_from IS NULL OR (\w+\.)?valid_from <= \$3/,
       "eine noch nicht gueltige Zugehoerigkeit wuerde zaehlen");
-    assert.match(sql, /valid_until IS NULL OR valid_until >= \$3/,
+    assert.match(sql, /(\w+\.)?valid_until IS NULL OR (\w+\.)?valid_until >= \$3/,
       "eine ABGELAUFENE Zugehoerigkeit wuerde zaehlen");
   });
 

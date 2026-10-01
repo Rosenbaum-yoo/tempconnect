@@ -231,6 +231,38 @@ export function createVendorPoolRouter(deps) {
     res.json(updated);
   });
 
+  /**
+   * GET /vendor-pool/:id/wirkung  (U6.2b, Owner 2026-10-01)
+   *
+   * Die Wirkungsvorschau VOR dem Entfernen. Eigene Route und nicht ein Feld in
+   * der Liste: die Liste liefert bis zu 200 Zeilen, und 200 Vorschauen zu
+   * rechnen, von denen eine gebraucht wird, ist die Verschwendung, die §0.3
+   * verbietet. Hier wird sie genau dann gerechnet, wenn jemand im Begriff ist
+   * zu handeln.
+   *
+   * DIESELBEN RIEGEL WIE DIE HANDLUNG, nicht die schwaecheren eines Lesepfads:
+   * requireAuth + supplierManagementGate + vendor_pool.manage + companyOrg +
+   * Org-Grenze auf den Eintrag. Begruendung: die Antwort nennt Zahlen zu
+   * Rahmenvertraegen und laufenden Einsaetzen dieses Kunden. Wer sie sehen darf,
+   * ist genau der, der auch entfernen darf - alles andere waere ein Lesepfad in
+   * fremde Geschaeftszahlen hinein.
+   *
+   * KEINE EIGENE ORG-ABLEITUNG: die Org kommt aus dem geprueften Eintrag
+   * (existing.client_org_id), nachdem req.orgId ihn bestanden hat. Wer hier
+   * req.query.org_id lesen wuerde, haette den Riegel umgangen.
+   */
+  router.get("/vendor-pool/:id/wirkung", requireAuth, supplierManagementGate, requirePermission("vendor_pool.manage", { pool, logger }), companyOrg, async (req, res) => {
+    const existing = await vendorPoolService.getEntry(pool, req.params.id);
+    if (!existing) return res.status(404).json({ error: "NOT_FOUND" });
+    if (req.orgId && existing.client_org_id !== req.orgId) {
+      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+    }
+    const wirkung = await vendorPoolService.wirkungDesEntfernens(
+      pool, existing.client_org_id, existing.supplier_org_id
+    );
+    res.json({ entry_id: existing.id, supplier_org_id: existing.supplier_org_id, tier: existing.tier, wirkung });
+  });
+
   /** DELETE /vendor-pool/:id */
   router.delete("/vendor-pool/:id", requireAuth, supplierManagementGate, requirePermission("vendor_pool.manage", { pool, logger }), companyOrg, async (req, res) => {
     const existing = await vendorPoolService.getEntry(pool, req.params.id);

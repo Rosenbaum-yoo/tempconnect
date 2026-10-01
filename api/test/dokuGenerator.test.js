@@ -96,6 +96,12 @@ const ERWARTET = {
   "ablaufproben": (w) =>
     fs.readdirSync(path.join(w, "api", "test", "integration"))
       .filter((f) => f.endsWith(".flow.test.js")).length,
+  /* U6.2a (2026-10-01): die Zahl stand zwischen zwei Wächtern — handgepflegt,
+     von `dokuWaechter.test.js` geprüft, aber von niemandem fortgeschrieben. Eine
+     einzige neue Dienstdatei genügte: der Generator meldete „alle 3 Zahlen
+     stimmen", während eine vierte in DERSELBEN Datei veraltet war. */
+  "servicedateien": (w) =>
+    fs.readdirSync(path.join(w, "api", "services")).filter((f) => f.endsWith(".js")).length,
 };
 
 describe("Doku-Generator (W3) — die Zahlen im Register und der Wirkungsbereich", () => {
@@ -267,6 +273,9 @@ describe("Doku-Generator (W3) — die Zahlen im Register und der Wirkungsbereich
       /* Z3: die Ablauf-Proben liegen in einem eigenen Verzeichnis - ohne es
          zaehlt der Generator gegen ein fehlendes Verzeichnis. */
       fs.mkdirSync(path.join(sandkasten, "api", "test", "integration"), { recursive: true });
+      /* U6.2a: die Dienstdateien sind der vierte fortgeschriebene Wert — ohne
+         dieses Verzeichnis zaehlt der Generator gegen ein fehlendes. */
+      fs.mkdirSync(path.join(sandkasten, "api", "services"), { recursive: true });
 
       for (const n of ["a", "b", "c"]) {
         fs.writeFileSync(path.join(sandkasten, "api", "test", `${n}.test.js`), "// leer\n");
@@ -281,12 +290,18 @@ describe("Doku-Generator (W3) — die Zahlen im Register und der Wirkungsbereich
          soll die Attrappe beweisen. */
       fs.writeFileSync(
         path.join(sandkasten, "api", "test", "integration", "nureintest.test.js"), "// leer\n");
+      for (const n of ["dienstEins", "dienstZwei", "dienstDrei", "dienstVier"]) {
+        fs.writeFileSync(path.join(sandkasten, "api", "services", `${n}.js`), "// leer\n");
+      }
+      /* Zaehlt NICHT mit: nur .js sind Dienstdateien. */
+      fs.writeFileSync(path.join(sandkasten, "api", "services", "notiz.md"), "kein Dienst\n");
 
       fs.writeFileSync(path.join(sandkasten, "docs", "PLATTFORM_REGISTER.md"),
         "# Attrappe\n\n" + "Fuellzeile.\n".repeat(600) +
         "\n| Backend-Testdateien | <!--zahl:backend-testdateien-->999<!--/zahl--> | x |\n" +
         "| E2E-Testdateien | <!--zahl:e2e-testdateien-->999<!--/zahl--> | x |\n" +
         "| Ablauf-Proben | <!--zahl:ablaufproben-->999<!--/zahl--> | x |\n" +
+        "| Service-Dateien | <!--zahl:servicedateien-->999<!--/zahl--> | x |\n" +
         "\nStand: <!--zahl:stand-->1999-01-01<!--/zahl-->\n" +
         "\nHandgeschrieben: 999 bleibt hier stehen.\n");
     });

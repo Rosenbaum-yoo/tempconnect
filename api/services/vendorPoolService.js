@@ -7,6 +7,7 @@
 
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
 import { reputationJoinSql, eigentuemerJoinSql } from "./reputationSql.js";
+import { poolBedingungenSql } from "./poolMitgliedschaftSql.js";
 import { swallow } from "../utils/logger.js";
 import { todayDE } from "../utils/dateDE.js";
 
@@ -55,18 +56,109 @@ import { todayDE } from "../utils/dateDE.js";
 export async function istLieferantImPool(pool, clientOrgId, supplierOrgId, opts = {}) {
   if (!clientOrgId || !supplierOrgId) return false;
   const heute = opts.datum || todayDE();
+  /* U6.2a: der Bedingungstext kommt aus EINER Funktion, nicht mehr von Hand.
+     Grund: die Liste der Konditionskarten braucht dieselbe Bedingung je Zeile.
+     Sie dort ein zweites Mal hinzuschreiben waere die Fehlerklasse, mit der
+     diese Woche angefangen hat - zwei Wahrheiten ueber einem Feld. Schon
+     zweimal gemessen: assignmentService prueft OHNE valid_from, isInPool ohne
+     Fenster UND ohne Sperre. */
   const { rows } = await pool.query(
-    `SELECT 1 FROM vendor_pool
-      WHERE client_org_id = $1
-        AND supplier_org_id = $2
-        AND status = 'active'
-        AND tier <> 'BLOCKED'
-        AND (valid_from IS NULL OR valid_from <= $3::date)
-        AND (valid_until IS NULL OR valid_until >= $3::date)
+    `SELECT 1 FROM vendor_pool vp
+      WHERE ${poolBedingungenSql({ kunde: "$1", lieferant: "$2", datum: "$3", alias: "vp" })}
       LIMIT 1`,
     [clientOrgId, supplierOrgId, heute]
   );
   return rows.length > 0;
+}
+
+/**
+ * WAS PASSIERT, WENN DIESER LIEFERANT DEN POOL VERLAESST? (U6.2b, Owner 2026-10-01)
+ *
+ * Hausregel: "Wirkungsvorschau vor der Handlung". Das Entfernen wird NICHT
+ * blockiert - es nennt vorher seine Folge. Diese Funktion liefert die Folge,
+ * gemessen an den Daten dieses Kunden, nicht als allgemeiner Satz.
+ *
+ * WARUM NICHT "3 KONDITIONSKARTEN" ALLEIN, wie zuerst vorgesehen: ich habe
+ * gesucht, wer die Poolzugehoerigkeit ueberhaupt als Bedingung liest, und VIER
+ * Stellen gefunden statt einer. Eine Vorschau, die nur die erste nennt, ist
+ * genauer falsch als keine.
+ *
+ *   1. rateCardService.createRateCard - eine NEUE Konditionskarte fuer diesen
+ *      Lieferanten ist nach dem Entfernen nicht mehr anlegbar.
+ *   2. rateCardService.updateRateCard - eine bestehende Karte laesst sich nicht
+ *      mehr auf ihn UMHAENGEN. Achtung, der Unterschied ist gemessen: die
+ *      Pruefung greift nur, wenn supplier_org_id im Datensatz MITGESCHICKT wird.
+ *      Den Satz einer bestehenden Karte zu aendern bleibt also moeglich - und
+ *      findApplicableRateCard fragt den Pool nie. BESTEHENDE KARTEN BLEIBEN
+ *      GUELTIG UND WERDEN WEITER ANGEWANDT. Mein erster Entwurf der Vorschau
+ *      behauptete das Gegenteil; er waere eine glaubwuerdige Luege gewesen.
+ *   3. assignmentService (Partner-Riegel) - ein neuer Einsatz braucht eine
+ *      ERKLAERTE Beziehung: Pool ODER aktiver Rahmenvertrag ODER ein Einsatz aus
+ *      einem Abschluss. Faellt der Pool weg und ist keines der beiden anderen
+ *      da, sind neue Einsaetze gesperrt. Darum traegt die Antwort
+ *      bleibt_partner - und zwar GEMESSEN, nicht vermutet.
+ *   4. supplierPoolService.getEligibleSuppliers - eine laufende Verteilstufe
+ *      auf seine Stufe erreicht ihn nicht mehr. UMGEKEHRT, und das ist der
+ *      unerwartete Teil: eine OPEN-Stufe schliesst ausdruecklich alle AUS, die
+ *      im Pool stehen - nach dem Entfernen wird er dort SICHTBAR. Entfernen
+ *      zieht also nicht nur ab.
+ *
+ * DIE KOPPLUNG IST BENANNT, WEIL SIE BRECHEN KANN: bleibt_partner bildet den
+ * Riegel in assignmentService nach, ohne ihn aufzurufen (er sitzt mitten in
+ * einem Validierungspfad und braucht einen ganzen Einsatz-Datensatz). Kommt
+ * dort ein vierter ODER-Zweig hinzu, luegt diese Vorschau. Dagegen steht eine
+ * Probe, die genau die drei Zweige festnagelt - siehe
+ * test/wirkungDesEntfernens.test.js.
+ *
+ * EINE Abfrage, und jede Teilabfrage ist durch ihre eigene WHERE-Klausel an die
+ * Org gebunden - nicht durch den Aufrufer. Deshalb steht $1 in JEDER von ihnen.
+ *
+ * @returns {Promise<object|null>} null nur bei fehlender Org/Lieferant.
+ */
+export async function wirkungDesEntfernens(pool, clientOrgId, supplierOrgId, opts = {}) {
+  if (!clientOrgId || !supplierOrgId) return null;
+  /* U6.2a: der Stichtag, damit die Stufen-Teilabfrage unten dieselbe
+     Pool-Definition benutzt wie der Schreib-Riegel - samt Gueltigkeitsfenster.
+     Vorher stand dort eine verkuerzte Fassung von Hand (nur Status und Sperre),
+     und genau das ist die Drift, die diese Welle zweimal gemessen hat. */
+  const heute = opts.datum || todayDE();
+  const { rows } = await pool.query(
+    `SELECT
+       (SELECT COUNT(*)::int FROM rate_cards rc
+         WHERE rc.org_id = $1 AND rc.supplier_org_id = $2
+           AND rc.status IN ('draft', 'active'))              AS konditionskarten,
+       (SELECT COUNT(*)::int FROM contracts c
+         WHERE c.buyer_org_id = $1 AND c.supplier_org_id = $2
+           AND c.status = 'active')                           AS rahmenvertraege,
+       (SELECT COUNT(*)::int FROM assignments a
+         WHERE a.org_id = $1 AND a.supplier_org_id = $2
+           AND a.offer_id IS NOT NULL)                        AS einsaetze_aus_abschluss,
+       (SELECT COUNT(*)::int FROM assignments a
+         WHERE a.org_id = $1 AND a.supplier_org_id = $2
+           AND a.status IN ('planned', 'active', 'extended'))  AS laufende_einsaetze,
+       (SELECT COUNT(*)::int FROM requisition_distribution_stages ds
+          JOIN requisitions r ON r.id = ds.requisition_id
+         WHERE r.org_id = $1 AND ds.status = 'active'
+           AND ds.pool_tier IN (
+                 SELECT vp2.tier FROM vendor_pool vp2
+                  WHERE ${poolBedingungenSql({ kunde: "$1", lieferant: "$2", datum: "$3", alias: "vp2" })}
+               ))                                             AS offene_verteilungen`,
+    [clientOrgId, supplierOrgId, heute]
+  );
+  const z = rows[0] || {};
+  const rahmenvertraege = Number(z.rahmenvertraege || 0);
+  const einsaetzeAusAbschluss = Number(z.einsaetze_aus_abschluss || 0);
+  return {
+    konditionskarten: Number(z.konditionskarten || 0),
+    rahmenvertraege,
+    einsaetze_aus_abschluss: einsaetzeAusAbschluss,
+    laufende_einsaetze: Number(z.laufende_einsaetze || 0),
+    offene_verteilungen: Number(z.offene_verteilungen || 0),
+    /* Der Pool-Zweig faellt weg - bleibt einer der beiden anderen? */
+    bleibt_partner: rahmenvertraege > 0 || einsaetzeAusAbschluss > 0,
+    /* Gemessen, nicht angenommen: bestehende Karten gelten weiter (2 oben). */
+    bestehende_karten_gelten_weiter: true
+  };
 }
 
 export const VALID_TIERS = ['PREFERRED', 'SECONDARY', 'TRIAL', 'RESTRICTED', 'BLOCKED'];
@@ -238,13 +330,35 @@ export async function getEntry(pool, entryId) {
   return rows[0] || null;
 }
 
-/** Ist der Supplier im Pool des Clients (aktiv, nicht blocked)? */
-export async function isInPool(pool, clientOrgId, supplierOrgId) {
+/**
+ * Ist der Supplier im Pool des Clients? Gibt die ZEILE zurueck, nicht ja/nein.
+ *
+ * U6.2a — DIESE FUNKTION WAR DIE VIERTE FASSUNG DERSELBEN REGEL, und sie war
+ * die gefaehrlichste: sie heisst wie die Frage, steht neben
+ * `istLieferantImPool` und prueft WENIGER. Sie kannte das
+ * Gueltigkeitsfenster nicht - eine abgelaufene oder noch nicht gueltige
+ * Zugehoerigkeit galt hier als Zugehoerigkeit. Wer sie findet, haelt sie fuer
+ * die Pool-Pruefung; gemessen ruft sie heute KEIN Produktionspfad, nur
+ * test/vendorManagement.test.js.
+ *
+ * Gefunden hat sie der Waechter aus derselben Welle (test/altkarteOhnePool.js),
+ * nicht ich - ich hatte sie in der Dokumentation bereits als "Stolperstein,
+ * nicht entfernt" abgehakt. Das ist der Unterschied zwischen einem Vermerk und
+ * einem Riegel.
+ *
+ * NICHT ENTFERNT, SONDERN ANGEGLICHEN: sie ist ein oeffentlicher Export in
+ * einer Haertungsphase, und ihr Vertrag (Zeile statt boolean) ist ein anderer
+ * als der von `istLieferantImPool`. Angeglichen heisst: dieselbe Bedingung,
+ * aus demselben Modul. Fuer eine reine Ja/Nein-Frage ist
+ * `istLieferantImPool` der richtige Weg.
+ */
+export async function isInPool(pool, clientOrgId, supplierOrgId, opts = {}) {
+  const heute = opts.datum || todayDE();
   const { rows } = await pool.query(
-    `SELECT id, tier, status FROM vendor_pool
-     WHERE client_org_id = $1 AND supplier_org_id = $2 AND status = 'active' AND tier != 'BLOCKED'
+    `SELECT vp.id, vp.tier, vp.status FROM vendor_pool vp
+     WHERE ${poolBedingungenSql({ kunde: "$1", lieferant: "$2", datum: "$3", alias: "vp" })}
      LIMIT 1`,
-    [clientOrgId, supplierOrgId]
+    [clientOrgId, supplierOrgId, heute]
   );
   return rows[0] || null;
 }

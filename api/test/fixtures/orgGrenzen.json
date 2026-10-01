@@ -4091,6 +4091,16 @@
           "hinweis": "Nur die Kundenorganisation pflegt IHREN Lieferantenpool."
         },
         {
+          "methode": "get",
+          "pfad": "/vendor-pool/:id/wirkung",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "client_org_id"
+          ],
+          "hinweis": "U6.2b, Wirkungsvorschau vor dem Entfernen. EINSEITIG, anders als `get /vendor-pool/:id` daneben: die Antwort nennt Zahlen zu Rahmenvertraegen, laufenden Einsaetzen und Konditionskarten DES KUNDEN. Der Lieferant darf sie nicht sehen - er wuerde daran die Geschaeftslage seines Auftraggebers ablesen. Darum nur client_org_id, und dieselben Riegel wie die Handlung (vendor_pool.manage), nicht die schwaecheren eines Lesepfads."
+        },
+        {
           "methode": "delete",
           "pfad": "/vendor-pool/:id",
           "urteil": "verhaltensgeprueft",

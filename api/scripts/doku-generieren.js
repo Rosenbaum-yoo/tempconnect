@@ -145,6 +145,27 @@ export const WERTE = [
     befehl: "ls api/test/integration/*.flow.test.js | wc -l",
     rechne: (w) => zaehle(w, "api/test/integration", (f) => f.endsWith(".flow.test.js")),
   },
+  {
+    /*
+     * U6.2a (2026-10-01): DIESE ZAHL STAND ZWISCHEN ZWEI WAECHTERN.
+     *
+     * Sie war handgepflegt und wurde von `dokuWaechter.test.js` geprueft, aber
+     * NICHT fortgeschrieben. Ergebnis beim Anlegen einer einzigen neuen
+     * Dienstdatei (`poolMitgliedschaftSql.js`): der Generator meldete "alle 3
+     * erzeugten Zahlen stimmen" — waehrend eine vierte Zahl in DERSELBEN Datei
+     * veraltet war und nur der volle Prueflauf es sah. Zwei Haltungen zu einer
+     * Zahl in einer Datei, und die eine deckte die andere zu.
+     *
+     * Es ist kein Ermessenswert: `ls api/services/ | wc -l` hat keine Ausnahme
+     * und keine Bereinigung. Damit gehoert sie hierher, nicht in die
+     * Handpflege. Die Pruefung in dokuWaechter bleibt stehen — sie ist jetzt
+     * die Gegenprobe zur Fortschreibung, nicht ihr Ersatz.
+     */
+    marke: "servicedateien",
+    titel: "Service-Dateien",
+    befehl: "ls api/services/ | wc -l",
+    rechne: (w) => zaehle(w, "api/services", (f) => f.endsWith(".js")),
+  },
 ];
 
 /** `<!--zahl:id-->WERT<!--/zahl-->` — Leerzeichen in den Marken sind erlaubt. */

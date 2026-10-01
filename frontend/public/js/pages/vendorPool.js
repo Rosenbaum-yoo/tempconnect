@@ -220,6 +220,20 @@ TCi18n.register('de', {
   'exe.vp.suspend.okText': 'Der Lieferant wurde erfolgreich auf suspendiert gesetzt.',
   'exe.vp.suspend.failTitle': 'Sperrung fehlgeschlagen',
   'exe.vp.suspend.failText': 'Der Lieferant konnte nicht gesperrt werden.',
+  'exe.vp.wirkung.title': 'Lieferant aus dem Pool nehmen',
+  'exe.vp.wirkung.lead': 'Das wird nicht blockiert. Vorher die Folge:',
+  'exe.vp.wirkung.loading': 'Die Folge wird ermittelt …',
+  'exe.vp.wirkung.failed': 'Die Folge konnte nicht ermittelt werden. Ohne diese Auskunft lieber nicht entfernen – erneut versuchen oder die Seite neu laden.',
+  'exe.vp.wirkung.keineFolge': 'Keine messbare Folge: keine Konditionskarten, keine laufenden Einsätze, keine laufende Verteilung.',
+  'exe.vp.wirkung.karten': '{n} Konditionskarten verweisen auf diesen Lieferanten. Sie bleiben gültig und werden weiter angewandt – aber eine neue Karte lässt sich für ihn nicht mehr anlegen.',
+  'exe.vp.wirkung.einsaetze': '{n} laufende Einsätze mit diesem Lieferanten. Sie laufen unverändert weiter.',
+  'exe.vp.wirkung.verteilungen': '{n} laufende Verteilungen auf seine Stufe erreichen ihn danach nicht mehr.',
+  'exe.vp.wirkung.bleibtPartner': 'Neue Einsätze bleiben möglich – ein aktiver Rahmenvertrag oder ein Einsatz aus einem Abschluss hält die Partnerschaft.',
+  'exe.vp.wirkung.keinPartner': 'Für diesen Lieferanten kann danach KEIN neuer Einsatz mehr angelegt werden: es gibt keinen aktiven Rahmenvertrag und keinen Einsatz aus einem Abschluss.',
+  'exe.vp.wirkung.offeneRunden': 'In offenen Verteilrunden wird er künftig sichtbar – diese schließen ausdrücklich alle aus, die im Pool stehen.',
+  'exe.vp.wirkung.reasonLabel': 'Grund (Pflicht, mind. 10 Zeichen)',
+  'exe.vp.wirkung.reasonShort': 'Bitte mindestens 10 Zeichen angeben – der Grund steht später im Prüfpfad.',
+  'exe.vp.wirkung.confirm': 'Jetzt aus dem Pool nehmen',
   'exe.vp.activate.okTitle': 'Lieferant aktiviert',
   'exe.vp.activate.okText': 'Der Lieferant wurde wieder aktiviert.',
   'exe.vp.activate.failTitle': 'Aktivierung fehlgeschlagen',
@@ -424,6 +438,20 @@ TCi18n.register('en', {
   'exe.vp.suspend.okText': 'The supplier was set to suspended successfully.',
   'exe.vp.suspend.failTitle': 'Blocking failed',
   'exe.vp.suspend.failText': 'The supplier could not be blocked.',
+  'exe.vp.wirkung.title': 'Remove supplier from the pool',
+  'exe.vp.wirkung.lead': 'This is not blocked. The consequence first:',
+  'exe.vp.wirkung.loading': 'Determining the consequence …',
+  'exe.vp.wirkung.failed': 'The consequence could not be determined. Better not to remove without it – try again or reload the page.',
+  'exe.vp.wirkung.keineFolge': 'No measurable consequence: no rate cards, no running assignments, no running distribution.',
+  'exe.vp.wirkung.karten': '{n} rate cards point to this supplier. They stay valid and keep being applied – but no new card can be created for them.',
+  'exe.vp.wirkung.einsaetze': '{n} running assignments with this supplier. They continue unchanged.',
+  'exe.vp.wirkung.verteilungen': '{n} running distribution stages on their tier will no longer reach them.',
+  'exe.vp.wirkung.bleibtPartner': 'New assignments remain possible – an active framework contract or an assignment from a closed deal keeps the partnership.',
+  'exe.vp.wirkung.keinPartner': 'NO new assignment can be created for this supplier afterwards: there is no active framework contract and no assignment from a closed deal.',
+  'exe.vp.wirkung.offeneRunden': 'They will become visible in open distribution rounds – those explicitly exclude everyone who is in the pool.',
+  'exe.vp.wirkung.reasonLabel': 'Reason (required, at least 10 characters)',
+  'exe.vp.wirkung.reasonShort': 'Please give at least 10 characters – the reason ends up in the audit trail.',
+  'exe.vp.wirkung.confirm': 'Remove from the pool now',
   'exe.vp.activate.okTitle': 'Supplier activated',
   'exe.vp.activate.okText': 'The supplier was activated again.',
   'exe.vp.activate.failTitle': 'Activation failed',
@@ -932,7 +960,7 @@ async function loadPool(persist){
             }).join('')
           + '</select>'
           + (v.status==='active'
-              ? '<button class="btn bad" data-feature-key="supplier_management" style="padding:4px 8px;font-size:11px" onclick="suspendEntry(\''+v.id+'\')">'+esc(vpT('exe.vp.row.block'))+'</button>'
+              ? '<button class="btn bad" data-feature-key="supplier_management" style="padding:4px 8px;font-size:11px" onclick="oeffneWirkung(\''+v.id+'\',\'suspend\')">'+esc(vpT('exe.vp.row.block'))+'</button>'
               : '<button class="btn good" data-feature-key="supplier_management" style="padding:4px 8px;font-size:11px" onclick="activateEntry(\''+v.id+'\')">'+esc(vpT('exe.vp.row.activate'))+'</button>')
       : '<span class="table-meta">'+esc(vpT('exe.vp.row.readOnly'))+'</span>';
     return '<tr class="vp-row">'+
@@ -957,6 +985,11 @@ async function loadPool(persist){
 
 async function changeTier(id,tier){
   if(!ensureVendorPoolWrite('exe.vp.action.tier'))return;
+  /* U6.2b: BLOCKED ist keine Abstufung, sondern nimmt den Lieferanten nach der
+     Pool-Definition aus U6.2 AUS dem Pool - genau wie das Suspendieren. Also
+     durch dieselbe Wirkungsvorschau. Haette der Dialog nur am Sperr-Knopf
+     gehangen, waere diese Auswahlliste der stille Weg daran vorbei gewesen. */
+  if(tier==='BLOCKED'){ oeffneWirkung(id,'blocked'); return; }
   var reason=prompt(vpT('exe.vp.tier.prompt'));
   var result=await apiMut('PATCH','/vendor-pool/'+id+'/tier',{tier:tier,reason:reason||null});
   if(result&&!result.error){
@@ -966,16 +999,148 @@ async function changeTier(id,tier){
     showPoolState('bad',vpT('exe.vp.tier.failTitle'),parseApiError(result,vpT('exe.vp.tier.failText')));
   }
 }
-async function suspendEntry(id){
-  if(!ensureVendorPoolWrite('exe.vp.action.suspend'))return;
-  var result=await apiMut('PATCH','/vendor-pool/'+id+'/status',{status:'suspended',reason:vpT('exe.vp.suspend.reason')});
-  if(result&&!result.error){
-    showPoolState('good',vpT('exe.vp.suspend.okTitle'),vpT('exe.vp.suspend.okText'));
-    loadPool();
-  }else{
-    showPoolState('bad',vpT('exe.vp.suspend.failTitle'),parseApiError(result,vpT('exe.vp.suspend.failText')));
+/* U6.2b: `suspendEntry` ist ENTFERNT, nicht nur ungenutzt. Es feuerte sofort,
+   ohne Rueckfrage, mit einem fest eingebauten Grund ("Manuell gesperrt") - und
+   es hing auf `window`. Haette ich es liegen gelassen, waere der Weg an der
+   Wirkungsvorschau vorbei weiter da gewesen: aus der Konsole sofort, und beim
+   naechsten Umbau einen Knopf-Umzug entfernt. Ein zweiter Weg zur selben
+   Handlung ist kein toter Code, sondern eine offene Tuer.
+   Der Weg laeuft jetzt ausschliesslich ueber oeffneWirkung -> bestaetigeWirkung,
+   und der Grund kommt vom Menschen, nicht aus dem Katalog. */
+/* ── U6.2b: Wirkungsvorschau vor dem Entfernen ──────────────────────────────
+ * Owner 2026-10-01. Das Entfernen wird NICHT blockiert - es nennt vorher seine
+ * Folge, gemessen an den Daten dieses Kunden.
+ *
+ * WARUM HIER EIN GANZER DIALOG STEHT UND NICHT EIN SATZ MEHR: vorher feuerte
+ * `suspendEntry` sofort, ohne jede Rueckfrage, mit einem fest eingebauten
+ * Grund ("Manuell gesperrt"). Es gab also kein "vorher", in das eine Vorschau
+ * gepasst haette - der Moment musste erst entstehen. Und weil in diesem Haus
+ * EINE Person handelt, ist das eigentliche Risiko das Versehen: ein Klick, der
+ * nichts fragt, ist genau die Form, in der ein Versehen durchkommt.
+ *
+ * BEIDE WEGE FUEHREN HIER DURCH. Nach der Pool-Definition aus U6.2 nimmt nicht
+ * nur das Suspendieren einen Lieferanten aus dem Pool, sondern auch eine
+ * Abstufung auf BLOCKED - gemessen, nicht vermutet. Ein Dialog nur am ersten
+ * waere eine halbe Absicherung mit ganzem Anschein.
+ */
+var wirkungZiel = null;
+
+function closeWirkung(){
+  document.getElementById('wirkungModal').classList.remove('show');
+  wirkungZiel = null;
+}
+
+/** Baut die Folge-Saetze aus den gemessenen Zahlen. Keine Zahl, kein Satz. */
+function wirkungSaetze(w){
+  var zeilen = [];
+  if(!w) return zeilen;
+  if(w.konditionskarten > 0){
+    zeilen.push({
+      ton: 'warn',
+      text: vpT('exe.vp.wirkung.karten', { n: w.konditionskarten })
+    });
+  }
+  if(w.laufende_einsaetze > 0){
+    zeilen.push({
+      ton: 'info',
+      text: vpT('exe.vp.wirkung.einsaetze', { n: w.laufende_einsaetze })
+    });
+  }
+  if(w.offene_verteilungen > 0){
+    zeilen.push({
+      ton: 'warn',
+      text: vpT('exe.vp.wirkung.verteilungen', { n: w.offene_verteilungen })
+    });
+  }
+  /* Der schwerste Satz zuletzt, weil er als einziger etwas SPERRT. */
+  zeilen.push(w.bleibt_partner
+    ? { ton: 'info', text: vpT('exe.vp.wirkung.bleibtPartner') }
+    : { ton: 'bad',  text: vpT('exe.vp.wirkung.keinPartner') });
+  /* Unbedingt, weil der Mechanismus unbedingt gilt: eine OPEN-Verteilrunde
+     schliesst ausdruecklich alle AUS, die im Pool stehen. Entfernen zieht also
+     nicht nur ab - es macht ihn dort erst sichtbar. Der unerwartete Teil, und
+     genau darum gehoert er in eine Vorschau. */
+  zeilen.push({ ton: 'info', text: vpT('exe.vp.wirkung.offeneRunden') });
+  return zeilen;
+}
+
+function renderWirkung(w){
+  var koerper = document.getElementById('wirkungBody');
+  var zeilen = wirkungSaetze(w);
+  var messbar = w && (w.konditionskarten > 0 || w.laufende_einsaetze > 0 || w.offene_verteilungen > 0);
+  var html = '';
+  if(!messbar){
+    /* Ehrlicher Leerzustand: keine Folge ist auch eine Auskunft - und eine,
+       die das Handeln erleichtert, statt es nur zu bremsen. */
+    html += '<div class="section-note">' + esc(vpT('exe.vp.wirkung.keineFolge')) + '</div>';
+  }
+  html += '<ul style="margin:8px 0 0;padding-left:18px">';
+  for(var i = 0; i < zeilen.length; i++){
+    var farbe = zeilen[i].ton === 'bad' ? 'var(--ds-danger, #b42318)'
+              : zeilen[i].ton === 'warn' ? 'var(--ds-warning, #b54708)'
+              : 'var(--ds-text)';
+    html += '<li style="margin:4px 0;color:' + farbe + '">' + esc(zeilen[i].text) + '</li>';
+  }
+  html += '</ul>';
+  koerper.innerHTML = html;
+}
+
+/**
+ * Oeffnet die Vorschau. `aktion` ist 'suspend' oder 'blocked' - beides nimmt
+ * den Lieferanten nach der Pool-Definition aus U6.2 aus dem Pool.
+ */
+async function oeffneWirkung(id, aktion){
+  if(!ensureVendorPoolWrite('exe.vp.action.suspend')) return;
+  wirkungZiel = { id: id, aktion: aktion };
+  var koerper = document.getElementById('wirkungBody');
+  koerper.textContent = vpT('exe.vp.wirkung.loading');
+  document.getElementById('wirkungReason').value = '';
+  document.getElementById('wirkungReasonHint').textContent = '';
+  document.getElementById('wirkungModal').classList.add('show');
+
+  var antwort = await apiGet('/vendor-pool/' + encodeURIComponent(id) + '/wirkung');
+  /* Zielwechsel waehrend des Ladens: die Antwort gehoert dann nicht mehr hierher. */
+  if(!wirkungZiel || wirkungZiel.id !== id) return;
+  if(!antwort || !antwort.wirkung){
+    /* KEINE STILLE VORSCHAU. Ist die Folge nicht messbar, wird das gesagt -
+       ein leerer Kasten liest sich wie "keine Folge" und waere damit die
+       gefaehrlichste Anzeige von allen. */
+    koerper.innerHTML = '<div class="section-note">' + esc(vpT('exe.vp.wirkung.failed')) + '</div>';
+    return;
+  }
+  renderWirkung(antwort.wirkung);
+}
+
+/** Fuehrt die Handlung aus, nachdem die Folge gezeigt und bestaetigt wurde. */
+async function bestaetigeWirkung(){
+  if(!wirkungZiel) return;
+  var grund = (document.getElementById('wirkungReason').value || '').trim();
+  if(grund.length < 10){
+    /* Vorpruefung am Geraet, damit der Server nicht fuer eine Formfrage
+       bemueht wird - die verbindliche Pruefung bleibt serverseitig. */
+    document.getElementById('wirkungReasonHint').textContent = vpT('exe.vp.wirkung.reasonShort');
+    document.getElementById('wirkungReason').focus();
+    return;
+  }
+  var ziel = wirkungZiel;
+  var knopf = document.getElementById('wirkungConfirm');
+  knopf.disabled = true;
+  try{
+    var result = ziel.aktion === 'blocked'
+      ? await apiMut('PATCH', '/vendor-pool/' + encodeURIComponent(ziel.id) + '/tier', { tier: 'BLOCKED', reason: grund })
+      : await apiMut('PATCH', '/vendor-pool/' + encodeURIComponent(ziel.id) + '/status', { status: 'suspended', reason: grund });
+    if(result && !result.error){
+      closeWirkung();
+      showPoolState('good', vpT('exe.vp.suspend.okTitle'), vpT('exe.vp.suspend.okText'));
+      loadPool();
+    }else{
+      showPoolState('bad', vpT('exe.vp.suspend.failTitle'), parseApiError(result, vpT('exe.vp.suspend.failText')));
+    }
+  }finally{
+    knopf.disabled = false;
   }
 }
+
 async function activateEntry(id){
   if(!ensureVendorPoolWrite('exe.vp.action.activate'))return;
   var result=await apiMut('PATCH','/vendor-pool/'+id+'/status',{status:'active'});
@@ -1043,7 +1208,11 @@ async function submitAdd(e){
 }
 window.loadPool = loadPool;
 window.changeTier = changeTier;
-window.suspendEntry = suspendEntry;
+/* U6.2b: window.suspendEntry ist weg - es war der Weg an der Wirkungsvorschau
+   vorbei. An seine Stelle treten die drei Funktionen des Dialogs. */
+window.oeffneWirkung = oeffneWirkung;
+window.bestaetigeWirkung = bestaetigeWirkung;
+window.closeWirkung = closeWirkung;
 window.activateEntry = activateEntry;
 window.showAdd = showAdd;
 window.closeAdd = closeAdd;

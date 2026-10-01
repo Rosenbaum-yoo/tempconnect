@@ -157,6 +157,31 @@
     </div>
   </div>
 
+  <!-- U6.2b: Wirkungsvorschau VOR dem Entfernen aus dem Pool. Vorher feuerte
+       der Knopf ohne jede Rueckfrage und mit einem fest eingebauten Grund -
+       es gab also kein "vorher", in das eine Vorschau haette passen koennen.
+       Die Zahlen kommen aus GET /vendor-pool/:id/wirkung, gemessen an den
+       Daten dieses Kunden, nicht aus einem allgemeinen Satz. -->
+  <div class="modal" id="wirkungModal">
+    <div class="panel" style="max-width:560px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 style="margin:0" id="wirkungTitel" data-i18n="exe.vp.wirkung.title">Lieferant aus dem Pool nehmen</h2>
+        <button class="btn" onclick="closeWirkung()" data-i18n="exe.vp.modal.cancel">Abbrechen</button>
+      </div>
+      <p class="muted" style="margin:12px 0 0" data-i18n="exe.vp.wirkung.lead">Das wird nicht blockiert. Vorher die Folge:</p>
+      <div id="wirkungBody" style="margin-top:12px" aria-live="polite"></div>
+      <div style="margin-top:16px">
+        <label for="wirkungReason" data-i18n="exe.vp.wirkung.reasonLabel">Grund (Pflicht, mind. 10 Zeichen)</label>
+        <textarea id="wirkungReason" rows="2" maxlength="2000" required></textarea>
+        <div id="wirkungReasonHint" class="muted" style="font-size:12px"></div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button type="button" class="btn bad" id="wirkungConfirm" data-feature-key="supplier_management" onclick="bestaetigeWirkung()" data-i18n="exe.vp.wirkung.confirm">Jetzt aus dem Pool nehmen</button>
+        <button type="button" class="btn" onclick="closeWirkung()" data-i18n="exe.vp.modal.cancel">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/public/js/surfaceAccess.js"></script>
   <script src="/public/js/entitlements.js"></script>
   <script src="/public/js/pages/vendorPool.js"></script>

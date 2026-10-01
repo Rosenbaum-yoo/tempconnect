@@ -25,6 +25,13 @@
     .badge-active { background: var(--ds-success-muted); color: var(--good); }
     .badge-expired { background: var(--ds-danger-muted); color: var(--bad); }
     .badge-archived { background: var(--ds-warning-muted); color: var(--warn); }
+    /* U6.2a: der Hinweis an einer Altkarte, deren Lieferant nicht im Pool steht.
+       Eigene Klasse und nicht `badge-archived` mitbenutzt: die Statusabzeichen
+       stehen fuer den Status DER KARTE, dieses fuer eine Eigenschaft ihres
+       LIEFERANTEN. Zwei Bedeutungen auf einer Klasse heisst, dass die naechste
+       Aenderung an der einen die andere mitnimmt. Farben aus dem Design-System,
+       nie hart - Pflicht auf Enterprise-Flaechen. */
+    .badge-pool-warn { background: var(--ds-warning-muted); color: var(--warn); text-transform: none; cursor: help; }
     .rate-display { font-variant-numeric: tabular-nums; font-weight: 600; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 1000; display: flex; align-items: center; justify-content: center; }
     .modal { background: var(--ds-bg-surface); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); padding: var(--ds-space-6); width: 560px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
@@ -206,6 +213,8 @@
     'sc.b.col.actions': 'Aktionen',
     'sc.b.cell.allSuppliers': 'Alle',
     'sc.b.cell.global': 'Global',
+    'sc.b.cell.notInPool': 'nicht im Pool',
+    'sc.b.cell.notInPoolHint': 'Diese Firma steht heute nicht in Ihrem Lieferantenpool. Die Karte bleibt gueltig und wird weiter angewandt — aber der Lieferant dieser Karte laesst sich nicht mehr aendern, und eine neue Karte fuer ihn nicht anlegen, solange er nicht im Pool steht.',
     'sc.b.cell.scorecardTitle': 'Lieferantenbewertung oeffnen',
     'sc.b.row.activate': 'Aktivieren',
     'sc.b.row.archive': 'Archivieren',
@@ -388,6 +397,8 @@
     'sc.b.col.actions': 'Actions',
     'sc.b.cell.allSuppliers': 'All',
     'sc.b.cell.global': 'Global',
+    'sc.b.cell.notInPool': 'not in the pool',
+    'sc.b.cell.notInPoolHint': 'This company is not in your supplier pool today. The card stays valid and keeps being applied — but this card\'s supplier can no longer be changed, and no new card can be created for them while they are outside the pool.',
     'sc.b.cell.scorecardTitle': 'Open supplier scorecard',
     'sc.b.row.activate': 'Activate',
     'sc.b.row.archive': 'Archive',
@@ -1228,6 +1239,27 @@
         var vendor = rc.supplier_name && rc.supplier_org_id
           ? '<a href="' + buildScorecardUrl(rc.supplier_org_id, rc.supplier_name) + '" style="color:inherit;text-decoration:underline;text-decoration-color:rgba(255,255,255,.2)" title="' + esc(t('sc.b.cell.scorecardTitle')) + '">' + esc(rc.supplier_name) + '</a>'
           : (rc.supplier_name || '<span style="color:var(--ds-text-secondary)">' + esc(t('sc.b.cell.allSuppliers')) + '</span>');
+        /*
+         * U6.2a — der sichtbare Hinweis an einer Altkarte.
+         *
+         * Die Pool-Regel aus U6.2 gilt fuer Schreibvorgaenge, nicht rueckwirkend
+         * (Owner 2026-10-01). Eine Karte, die vor der Regel entstanden ist, zeigt
+         * weiter auf eine Firma, die nicht im Pool steht — sie bleibt gueltig und
+         * wird weiter angewandt. Verschwiegen wird das trotzdem nicht: beim
+         * naechsten Aendern dieses Feldes weist der Server ab, und ein Hinweis,
+         * der erst im Fehlerfall erscheint, ist eine Falle statt einer Auskunft.
+         *
+         * STRENG AUF === false. Das Feld hat DREI Werte: true, false und null
+         * (Karte ohne Lieferant, also org-weit). Ein `!rc.lieferant_im_pool`
+         * wuerde auch bei null und bei einer alten API-Antwort ohne das Feld
+         * warnen — und damit an jeder org-weiten Karte. Ein Hinweis, der falsch
+         * oft erscheint, wird weggesehen; dann nuetzt er auch da nichts, wo er
+         * stimmt.
+         */
+        if (rc.lieferant_im_pool === false) {
+          vendor += ' <span class="badge badge-pool-warn" title="' + esc(t('sc.b.cell.notInPoolHint')) + '">'
+                 + esc(t('sc.b.cell.notInPool')) + '</span>';
+        }
         var regionLabel = rc.region || (rc.location_name || '<span style="color:var(--ds-text-secondary)">' + esc(t('sc.b.cell.global')) + '</span>');
         var validFrom = rc.valid_from ? rc.valid_from.slice(0,10) : '–';
         var actions = '';

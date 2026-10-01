@@ -173,6 +173,229 @@ tut niemand, weil er nur verbietet. **Nach U6.1 muss der Frisch-Installationslau
 scheitert, ist nicht fertig.
 ---
 
+
+### U6.2b · gebaut 2026-10-01 — und die Vorschau sagt mehr, als der Plan verlangt hat
+
+Der Plan nannte als Beispielsatz *„3 Konditionskarten verweisen auf diesen Lieferanten."* Vor dem
+Bauen habe ich gemessen, **wer die Poolzugehörigkeit überhaupt als Bedingung liest** — und **vier**
+Stellen gefunden statt einer. Eine Vorschau, die nur die erste nennt, ist nicht unvollständig: sie
+ist **genauer falsch als keine**, weil sie den Handelnden glauben lässt, er kenne die Folge.
+
+| Stelle | Was das Entfernen dort bewirkt |
+|---|---|
+| `rateCardService.createRateCard` | eine **neue** Konditionskarte für ihn ist nicht mehr anlegbar |
+| `rateCardService.updateRateCard` | eine bestehende Karte lässt sich nicht mehr **auf ihn umhängen** |
+| `assignmentService` (Partner-Riegel) | **nur wenn** kein aktiver Rahmenvertrag und kein Einsatz aus einem Abschluss da ist: **keine neuen Einsätze** mehr |
+| `supplierPoolService.getEligibleSuppliers` | laufende Verteilstufen auf seine Stufe erreichen ihn nicht mehr — **und umgekehrt** wird er in **offenen** Runden erst dadurch **sichtbar** |
+
+**Der erste Entwurf meiner Vorschau war eine glaubwürdige Lüge.** Er lautete: „die Karten lassen
+sich nach dem Entfernen nicht mehr ändern." Gemessen ist das falsch — `updateRateCard` prüft den
+Pool **nur**, wenn `supplier_org_id` mitgeschickt wird, und `findApplicableRateCard` fragt ihn
+**nie**. Bestehende Karten gelten weiter und werden weiter angewandt. Der Satz war plausibel, in
+sich stimmig und falsch; genau die Sorte Aussage, die eine Wirkungsvorschau wertlos macht. Er steht
+jetzt als Zusicherung fest (`bestehende_karten_gelten_weiter`).
+
+**Es gab kein „vorher", in das eine Vorschau gepasst hätte.** `suspendEntry` in
+`frontend/public/js/pages/vendorPool.js` feuerte **sofort**, ohne jede Rückfrage, mit einem **fest
+eingebauten Grund** („Manuell gesperrt") — und hing auf `window`. Der Moment musste erst entstehen:
+Dialog, gemessene Folge, Grund vom Menschen (≥ 10 Zeichen, landet im Prüfpfad). `suspendEntry` ist
+**entfernt**, nicht nur ungenutzt — ein zweiter Weg zur selben Handlung ist kein toter Code,
+sondern eine offene Tür.
+
+**Beide Wege gehen durch die Vorschau.** Nach der Pool-Definition aus U6.2 nimmt nicht nur das
+Suspendieren einen Lieferanten aus dem Pool, sondern auch eine **Abstufung auf `BLOCKED`** — und die
+steht in derselben Auswahlliste. Ein Dialog nur am Sperr-Knopf wäre eine halbe Absicherung mit
+ganzem Anschein gewesen.
+
+**Eigene Route, nicht ein Feld in der Liste.** `GET /vendor-pool/:id/wirkung`. Die Liste liefert bis
+zu 200 Zeilen; 200 Vorschauen zu rechnen, von denen eine gebraucht wird, ist die Verschwendung, die
+§0.3 verbietet. Die Route trägt **dieselben** Riegel wie die Handlung (`vendor_pool.manage`), nicht
+die schwächeren eines Lesepfads — und ist **einseitig**: der Lieferant darf sie **nicht** lesen,
+anders als `GET /vendor-pool/:id` daneben. Aus `bleibt_partner: false` liest er sonst ab, dass er
+bei seinem Auftraggeber ohne Vertrag dasteht.
+
+**Nachweis: 33 Rückmutationen, 33 rot.** Zwei sind beim ersten Durchgang **entwischt**, und beide
+waren echte Probenlücken:
+
+1. **Die Route las die Org aus der Anfrage** (`req.query.org_id || existing.client_org_id`). Der
+   Org-Grenzen-Wächter blieb **grün**, weil er ohne `?org_id=` fährt — der Fallback greift, die
+   403 kommt weiterhin. Die Lücke öffnet sich erst, wenn jemand den Parameter **setzt**: Prüfung
+   auf dem eigenen Eintrag bestanden, Zahlen einer **fremden** Org geliefert. Das Muster „Prüfung
+   auf A, Ausführung mit B". Dagegen steht jetzt `test/wirkungsvorschauRoute.test.js`, das nicht
+   die Antwort prüft, sondern die **Bindung** der Abfrage.
+2. **`esc()` entfernt blieb grün** — weil meine Probe `konditionskarten: "3<script>…"` übergab und
+   der Satz nur bei `w.konditionskarten > 0` gebaut wird. `"3<script>…" > 0` ist `NaN > 0`, also
+   **false**: der gefährliche Text erreichte die Ausgabe nie. **Dritter Fall dieser Art in dieser
+   Woche** — eine Probe, die ihren Gegenstand nicht herstellt. Der Text sitzt jetzt im
+   Wörterbuch-Eintrag des **unbedingten** Satzes, und die Probe belegt zuerst, **dass** er
+   angekommen ist.
+
+**Zwei Befunde, die dem Owner gehören — gemessen, nicht gebaut:**
+
+- **Zwei Definitionen von „im Pool" über demselben Feld.** `istLieferantImPool` (U6.2) prüft
+  `valid_from <= heute` **und** `valid_until >= heute`. Der Partner-Riegel in `assignmentService`
+  prüft **nur** `valid_until` — ein **vordatierter** Pooleintrag gilt dort schon heute als
+  Partnerschaft. Das ist genau die Fehlerklasse, mit der diese Woche angefangen hat. **Nicht
+  angeglichen:** der Riegel entscheidet, wem ein Einsatz gegeben werden darf; ihn zu verengen ist
+  die sichere Richtung, kostet aber eine 403 für jede Firma, die vordatiert hat — eine spürbare
+  Verhaltensänderung an einem Sicherheitsriegel. Der IST-Zustand ist als Probe festgehalten, damit
+  er nicht unbemerkt wandert.
+- **`bleibt_partner` ist eine Nachbildung.** Es bildet den Partner-Riegel nach, **ohne ihn
+  aufzurufen** (er sitzt mitten in einem Validierungspfad und bräuchte einen ganzen
+  Einsatz-Datensatz). Kommt dort ein **vierter** ODER-Zweig hinzu, lügt die Vorschau. Dagegen steht
+  eine Probe, die die **Anzahl** der Zweige und jede gelesene Tabelle festnagelt — eine
+  Teilzeichenketten-Suche hätte einen **hinzugefügten** Zweig nie melden können.
+- **`isInPool` ist tot.** Gemessen: nur noch von `test/vendorManagement.test.js` gerufen, von keinem
+  Produktionspfad. Es steht neben `istLieferantImPool` und prüft **weniger** (kein Fenster, keine
+  Sperre). **Nicht entfernt** in dieser Welle — aber als Stolperstein benannt: wer es findet, hält
+  es für die Pool-Prüfung.
+
+**Proben:** `test/wirkungDesEntfernens.test.js` (11, datenbankfrei: Form, Bindung je Teilabfrage,
+Ableitung, Kopplung) · `test/integration/wirkungDesEntfernens.flow.test.js` (8, DB-gebunden: die
+Zahlen an echtem SQL, Org-Grenze in **beide** Richtungen, Status-Filter) ·
+`test/wirkungsvorschauRoute.test.js` (6, Bindung und Riegel der Route) ·
+`test/wirkungsvorschauOberflaeche.test.js` (14, vm-Sandbox: kein Weg vorbei, Sätze aus Zahlen,
+ehrlicher Leerzustand, beide Sprachen).
+
+Gruppe C der DB-Probe **legt ihre Verteilstufe selbst an**: `requisition_distribution_stages` hat
+**0 Zeilen**, und „nach dem Entfernen erreicht ihn keine Stufe mehr" wäre dort leer grün gewesen.
+Der erste Aufbau war dabei **unmöglich** — eine Stufe mit `pool_tier = 'BLOCKED'` weist Postgres ab
+(`requisition_distribution_stages_pool_tier_check`). Eine Verteilstufe **kann** gar nicht auf
+Gesperrte zielen; die Probe baut jetzt den Fall, der wirklich vorkommt.
+
+
+### U6.2a · gebaut 2026-10-01 — und der Hinweis hat eine vierte Fassung der Regel aufgedeckt
+
+Der Plan verlangte: die eine Altkarte wird **nicht** migriert, **nicht** geleert, **nicht**
+rückwirkend geprüft — sie bekommt einen **sichtbaren Hinweis**. Gebaut ist genau das: die Liste der
+Konditionskarten liefert je Zeile `lieferant_im_pool`, und `frontend/public/rate-cards.html` setzt
+daneben ein Abzeichen *„nicht im Pool"* mit einer Erklärung, die auch sagt, **dass die Karte
+gültig bleibt**.
+
+**Warum der Hinweis nicht optional ist.** Beim nächsten Ändern des Lieferanten weist der Server ab.
+Ein Hinweis, der erst im Fehlerfall erscheint, ist eine **Falle** statt einer Auskunft: der Mensch
+erfährt die Regel in dem Moment, in dem sie ihm im Weg steht, und hält sie für einen Defekt.
+
+**Drei Werte, nicht zwei.** `lieferant_im_pool` ist `true`, `false` oder **`null`** — null bei einer
+Karte ohne Lieferanten (org-weit). Ein `false` wäre dort eine Falschaussage, und die Oberfläche
+würde an **jeder** org-weiten Karte warnen. Darum prüft sie streng auf `=== false`: ein
+`!rc.lieferant_im_pool` hätte auch bei `null` und bei einer alten API-Antwort ohne das Feld
+gewarnt. Ein Hinweis, der falsch oft erscheint, wird weggesehen — dann nützt er auch da nichts, wo
+er stimmt.
+
+#### Die eigentliche Erkenntnis: die Regel stand vierfach im Baum
+
+U6.2a brauchte die Pool-Bedingung an einer **zweiten** Stelle. Sie dort von Hand hinzuschreiben wäre
+die Fehlerklasse gewesen, mit der diese Woche angefangen hat. Also gibt es jetzt
+`api/services/poolMitgliedschaftSql.js` — **ein** Modul, nach dem Muster der vorhandenen
+Wahrheitsmodule (`zusageFormel.js`, `bindungSql.js`, `koepfeFormel.js`, `reputationSql.js`), mit
+Bezeichnerprüfung wie dort.
+
+Und dann hat ein Wächter über diesem Modul **vier** Fassungen gefunden, davon **zwei von mir, aus
+derselben Welle**:
+
+| Fassung | Zustand | Was fehlte |
+|---|---|---|
+| `istLieferantImPool` (U6.2) | **benutzt jetzt das Modul** | — (war die vollständige) |
+| `wirkungDesEntfernens`, Stufen-Teilabfrage (U6.2b, **drei Stunden alt**) | **benutzt jetzt das Modul** | das **Gültigkeitsfenster** |
+| `isInPool` (Altbestand, **tot**) | **benutzt jetzt das Modul** | das **Gültigkeitsfenster** |
+| `assignmentService`, Partner-Riegel | **unverändert — Owner-Befund** | `valid_from` |
+
+Die dritte ist die lehrreichste: **`isInPool` hatte ich in der Dokumentation zu U6.2b schon als
+„Stolperstein, nicht entfernt" abgehakt.** Ein Vermerk hat sie nicht angefasst; der Wächter hat sie
+angeglichen. Das ist der Unterschied zwischen einem Vermerk und einem Riegel — und derselbe
+Unterschied, der in dieser Woche schon einmal sechs falsche Leser hinter einem ungemessenen
+„nicht anfassen" geschützt hat.
+
+Die zweite ist die unangenehmste: sie war **drei Stunden alt**. Ich hatte in U6.2b eine verkürzte
+Fassung geschrieben (Status und Sperre, kein Fenster) und **im selben Atemzug** dokumentiert, dass
+genau das die Fehlerklasse dieser Woche ist.
+
+#### Das Suchmuster des Wächters ist zweimal korrigiert worden — das gehört zum Befund
+
+**Erster Versuch:** „`vendor_pool` **und** `tier` **und** `status` im selben Abfragetext." Das
+meldete `instantMatchService` und `reportingService` — **beide Fehlalarme.** Gemessen: der eine baut
+eine **Stufen-Karte** (`SELECT vp.tier`, der Wert ist das Ergebnis), der andere zählt Lieferanten
+für Kennzahlen (`GROUP BY vp.tier`). Keiner fragt „steht er im Pool". Hätte ich sie in die
+Ausnahmeliste geschrieben, wäre aus einer Messung eine **Ausrede mit Zahlen** geworden — genau das,
+was bei „123 von 967" und beim Pfadverweis-Wächter zum Nichtbauen geführt hat.
+
+**Zweiter Versuch, der Fingerabdruck der Regel:** ein Abfragetext, der `vendor_pool` liest **und
+die Sperre selbst hinschreibt** (`tier <> 'BLOCKED'`). Die Sperre ist der unterscheidende Teil. Das
+schärfere Muster hat die Ausnahmeliste von **vier auf eine** Stelle verkürzt und dabei die zwei
+eigenen Fassungen gefunden.
+
+**Was der Wächter nicht kann, offen gesagt:** eine **verkürzte** Nachbildung (nur
+`status = 'active'`, Sperre vergessen) sieht im Text wie eine gewöhnliche Pool-Abfrage aus und ist
+nicht unterscheidbar. Deshalb gibt es das Modul: der Wächter fängt die auffällige Hälfte, das Modul
+verhindert beide. Gescannt wird der **ganze** Korpus mit dem Haus-Scanner (`test/lib/sqlScanner.mjs`
+— Kommentare entfernt, Interpolationen maskiert), nicht nur `services/`: ein Riegel in einer Route
+wäre derselbe Fehler. Eine **Notbremse** daneben sichert zu, dass der Scan überhaupt greift — fände
+er nichts, wäre die Ausnahmeliste leer und der Wächter grün, ohne eine Datei gelesen zu haben.
+
+**Nachweis:** `test/altkarteOhnePool.test.js` (20: das Modul samt Einspritzversuchen, die Liste samt
+Platzhalter-Verschiebung, der Hinweis samt Farben und beiden Sprachen, der Wächter samt Notbremse).
+**24 Rückmutationen, 24 rot** — darunter „Sperre aus dem Modul", „Fenster aus dem Modul",
+„Bezeichnerprüfung abgeschaltet", „Stichtag aus rohem UTC-Schnitt", „Stichtag nach LIMIT geschoben"
+(der Index verschiebt sich und die Liste würde nach dem **Datum** begrenzt), „harte Farbe im
+Abzeichen", „Klassendefinition weg" (ein unsichtbarer Hinweis ist keiner) und je eine pro
+zurückfallender Fassung.
+
+
+#### Nachtrag am selben Tag: zwei Einwände der gegenprüfenden Sitzung, einer davon mit falscher Zahl
+
+**Einwand 1 — „dreh den Wächter um: beobachte die Tabelle, nicht die Bedingung."** Begründung: eine
+**verkürzte** Nachbildung (nur `status = 'active'`, Sperre vergessen) trägt den Fingerabdruck
+`tier <> 'BLOCKED'` nicht, *„und genau die wird der Fünfte schreiben, weil er die Regel aus dem Kopf
+tippt statt sie zu importieren."* Die Ausnahmeliste sei **zwei Einträge**.
+
+**Nachgerechnet, und die Zahl war anders: 19 Dateien** lesen `vendor_pool` — `services/` (14),
+`routes/` (3), `config/visibilityMatrix.js`, `utils/orgBoundary.js`. Die genannten zwei
+(`instantMatchService`, `reportingService`) waren die **Fehlalarme meines ersten Musters**, nicht die
+Gesamtmenge. Eine 19-zeilige Ausnahmeliste ist nach unserem eigenen Maßstab („eine Liste, die man
+Zeile für Zeile verteidigen kann") eine Ausrede mit Zahlen.
+
+**Der Einwand stimmt trotzdem** — also die richtige Invariante gesucht statt die falsche Liste
+gepflegt. Die Regel ist eine Frage nach einem **Paar**: „steht **dieser** Lieferant im Pool
+**dieses** Kunden" heißt, **beide** Seiten in Vergleichsstellung zu binden. Eine Kennzahl bindet nur
+eine Seite; eine Stufen-Karte bindet die Gegenseite über eine Brücke. Gemessen:
+
+| Zuschnitt | Getroffene Dateien |
+|---|---|
+| jeder Zugriff auf `vendor_pool` (Vorschlag) | **19** |
+| `vendor_pool` + `tier <> 'BLOCKED'` (erster Wächter) | **1** |
+| `vendor_pool` + **beide** Seiten in Vergleichsstellung (zweiter Wächter) | **4** |
+
+Beide Wächter stehen nebeneinander, weil sie verschiedene Hälften fangen: der erste eine Kopie, die
+die Sperre über eine Brücke bindet; der zweite eine **verkürzte**, die sie weglässt. Die
+Rückmutation dazu ist die aussagekräftigste der Welle: eine neue Funktion mit
+`WHERE client_org_id = $1 AND supplier_org_id = $2 AND status = 'active'` — **genau die Kopie, die
+die Gegensitzung vorhergesagt hat** — wird vom zweiten Wächter rot, vom ersten nicht.
+
+**Einwand 2 — „nagle die Regel an die `CHECK`-Mengen."** Angenommen, unverändert. `vendor_pool`
+erlaubt `status ∈ {active, suspended, removed}` und
+`tier ∈ {PREFERRED, SECONDARY, TRIAL, RESTRICTED, BLOCKED}`. Die Regel nennt zwei Werte daraus;
+käme ein dritter Status hinzu (etwa `paused`), fiele er **stillschweigend** in „nicht im Pool" — in
+beide Richtungen eine Entscheidung, die niemand getroffen hat: ein pausierter Lieferant bekäme keine
+neue Konditionskarte mehr, ohne dass jemand das so wollte. Die Probe vergleicht jetzt die Mengen und
+verlangt, dass **jeder** erlaubte Wert benannt ist — wer einen Status hinzufügt, muss sagen, auf
+welcher Seite er steht. Drei Rückmutationen (Wert aus der Liste entfernt · Stufe entfernt · Wert
+erfunden, den die Datenbank nicht kennt), alle rot.
+
+**DB-gebunden, mit benanntem Grund:** die Momentaufnahme `test/fixtures/schema.json` führt Spalten,
+NOT-NULL, Fremdschlüssel, Sichten, Funktionen und Enums — **keine `CHECK`-Listen**. Sie dort
+aufzunehmen wäre der bessere Weg (dann liefe die Probe auch ohne Datenbank) und bleibt als Posten
+offen. Bis dahin fragt sie die laufende Datenbank und läuft damit im Abbild-Tor.
+
+**Was ich beim Nachrechnen sonst noch geschlossen habe:** die Zahl „Service-Dateien" im
+`PLATTFORM_REGISTER.md` stand **zwischen zwei Wächtern** — handgepflegt, von `dokuWaechter.test.js`
+geprüft, von niemandem fortgeschrieben. Eine einzige neue Dienstdatei genügte: der Generator meldete
+*„alle 3 erzeugten Zahlen stimmen"*, während eine vierte Zahl in **derselben Datei** veraltet war und
+nur der volle Prüflauf es sah. Die Zahl hat keine Ermessensentscheidung in sich
+(`ls api/services/ | wc -l`), gehört also in die Fortschreibung — jetzt mit Marke, Gegenrechnung und
+angepasster Attrappe. Die Prüfung in `dokuWaechter` bleibt stehen: sie ist die Gegenprobe zur
+Fortschreibung, nicht ihr Ersatz.
+
 ## 5. Reihenfolge
 
 **U0 → U2.4 → U6 → U1 → U5 → U2 → U3 → U4.**
