@@ -26,6 +26,8 @@ export type AreaKey =
   | "support-vendors"
   | "bounty-catalog"
   | "rabatt-faelle"
+  | "freischaltungen"
+  | "produkt-updates"
   | "marketplace-visibility"
   | "search-moderation"
   | "markt-sichtbarkeit"
@@ -58,6 +60,9 @@ export const AREAS: NavItem[] = [
   // die Ermittlung ausgefallen. Steht direkt beim Katalog, weil man von der
   // Regel fast immer zum Fall will.
   { key: "rabatt-faelle",         label: "Rabatt-Faelle",        group: "Strategie" },
+  // W-E10: aus dem Admin Panel umgezogen. Freischaltungen sind ein Hebel je
+  // Kunde (wer bekommt was) und stehen deshalb bei Rabatt und Revenue.
+  { key: "freischaltungen",       label: "Freischaltungen",      group: "Strategie" },
   { key: "support",               label: "Support",              group: "Operations" },
   { key: "mail",                  label: "Mail & Notifications", group: "Operations" },
   { key: "operations",            label: "Operations",           group: "Operations" },
@@ -76,6 +81,8 @@ export const AREAS: NavItem[] = [
   // Marktplatz-Bestand betrifft — nicht bei Operations, wo es um den Betrieb
   // der Plattform geht.
   { key: "markt-sichtbarkeit",    label: "Markt-Sichtbarkeit",     group: "Marketplace" },
+  // W-E10: Mitteilungen an die ganze Plattform ("Was ist neu").
+  { key: "produkt-updates",       label: "Produkt-Updates",        group: "Operations" },
   { key: "data-governance",       label: "DSGVO / Datenschutz",    group: "Governance" },
   { key: "document-vault",        label: "Dokumenten-Tresor",      group: "Governance" },
 ];

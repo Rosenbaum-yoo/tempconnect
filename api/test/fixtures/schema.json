@@ -4,8 +4,8 @@
   "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
   "migrations_fingerabdruck": {
     "init": "49a1c9ef343102f593f1267155c30cea987684bf1a93826cf237e61101238c7e",
-    "dateien": 229,
-    "hash": "24674f0b7aeec034d457a746a62ced5859a7c9285fe18b194c9e1a0e33b567cf"
+    "dateien": 230,
+    "hash": "457cce56c43ddee6662af5389ec8ec0f6a2f22b3299f4209016fa5cc4c39a1ac"
   },
   "pruefwerte": {
     "approval_requests": {

@@ -118,8 +118,11 @@ function istAusgenommen(rel) {
  * korrekten Stand zurueck.
  *
  * Wer sie ANHEBT, muss das im Commit begruenden. Wer Stellen behebt, senkt sie.
+ *
+ * 2026-10-01: 36 -> 30. W-E10 hat `frontend/public/js/pages/adminPanel.js` mit
+ * dem Admin Panel stillgelegt; sechs rohe UTC-Schnitte gingen mit.
  */
-const GRUNDLINIE = 36;
+const GRUNDLINIE = 30;
 
 /** Sammelt Quelldateien, ohne node_modules und Build-Ausgaben. */
 function dateien(unter, endungen) {

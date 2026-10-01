@@ -151,7 +151,12 @@ Naechster Schritt:
 - **OCC ist ein eigener Bereich unter `/owner-control/`**.
 - OCC darf **nie** als Redirect auf Admin-/Staff-/Legacy-Seiten gebaut werden.
 - OCC-Frontend und OCC-APIs (`/api/owner-control/*`) sind strikt getrennt von:
-  - Admin Panel (`/public/admin_panel.html`, `/api/admin/*`)
+  - Kunden-Verwaltung (`/public/organization.html`, `/api/org/*`) — seit W-E9/W-E10
+    (Owner-Freigabe 2026-10-01) ist `admin_panel.html` nur noch eine Weiterleitung
+    dorthin; Freischaltungen und Produkt-Updates liegen im Staff Control Center.
+    Die verbliebenen `/api/admin/*`-Wege (u. a. `control-center` fuer `sso_config.html`,
+    `system-health`) stehen weiter hinter `requireAdmin`, plattformweite zusaetzlich
+    hinter `nurPlattform` (`api/routes/admin.js`)
   - Staff Control Center (`/staff/*`, `/staff/api/*`)
   - Support-Ops (`/support-ops/`)
 - Keine Vermischung von Session-/Berechtigungswelten.

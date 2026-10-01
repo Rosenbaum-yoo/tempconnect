@@ -2,6 +2,28 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-10-01 — Livegang-Blocker behoben: Staff-Login auf frischer Datenbank (Migration 226)
+
+**Gefunden** beim Prüfen von W-E10 am laufenden System: auf einer frischen Datenbank endet
+**jeder** Staff-Login mit 500, sobald sich vorher ein Kunde angemeldet hat. Beide
+Sitzungsspeicher (`connect-pg-simple`, `api/app.js`) legen ihre Tabelle selbst an; die
+Bibliothek benennt Primärschlüssel und Index aber fest `session_pkey` / `IDX_session_expire`.
+Die zweite Tabelle (`staff_session`) ließ sich danach nie mehr anlegen. Bestehende
+Installationen merken nichts — der Fehler hätte genau den Livegang auf Hetzner getroffen.
+
+**Behoben:** `sql/migrations/226_staff_sitzung_eigene_namen.sql` legt beide Tabellen mit
+eigenen Namen an und benennt einen schon falsch belegten Zustand um (Rettungsweg geprüft in
+einer Wegwerf-Datenbank). Idempotent, auf Bestandsdatenbanken ohne Wirkung. Probe:
+`api/test/staffMailVerdrahtung.test.js`. **Nächste freie Migrationsnummer: 227.**
+
+### 2026-10-01 — W-E9 und W-E10 gebaut: eine Verwaltung für Kunden, das Admin Panel ist stillgelegt
+
+Kunden (beide Seiten) verwalten ihre Firma in `organization.html` („Verwaltung“, sieben
+Reiter, Wirkungsvorschau). `admin_panel.html` leitet dorthin. Freischaltungen und
+Produkt-Updates pflegt TempConnect im Staff Control Center. Nebenbei behoben: das Staff CC
+bekam nie `sendMail` (Statusmails an Kunden gingen still verloren), Produktmitteilungen „ab
+PLUS“ erreichten Kunden im Tarif INDIVIDUELL nie. Einzelheiten: `docs/UEBERGABE.md` oben.
+
 ### 2026-10-01 — Sicherheitslücke geschlossen: Kunden konnten Produktmitteilungen an alle Nutzer schicken
 
 **Status:** ✅ geschlossen · **Kategorie:** Security (Rollen-Logik) · **Quelle:** gefunden

@@ -45,6 +45,8 @@ const SupportVendors       = lazy(() => import("@scc/modules/support-vendors"));
 const MarketplaceVisibility = lazy(() => import("@scc/modules/marketplace-visibility"));
 const BountyCatalog        = lazy(() => import("@scc/modules/bounty-catalog"));
 const RabattFaelle         = lazy(() => import("@scc/modules/rabatt-faelle"));
+const Freischaltungen      = lazy(() => import("@scc/modules/freischaltungen"));
+const ProduktUpdates       = lazy(() => import("@scc/modules/produkt-updates"));
 const SearchModeration      = lazy(() => import("@scc/modules/search-moderation"));
 const MarktSichtbarkeit     = lazy(() => import("@scc/modules/markt-sichtbarkeit"));
 const DataGovernance        = lazy(() => import("@scc/modules/data-governance"));
@@ -112,6 +114,8 @@ function ActiveModule({ active }: { active: AreaKey }) {
       {active === "marketplace-visibility" && <MarketplaceVisibility />}
       {active === "bounty-catalog"       && <BountyCatalog />}
       {active === "rabatt-faelle"        && <RabattFaelle />}
+      {active === "freischaltungen"      && <Freischaltungen />}
+      {active === "produkt-updates"      && <ProduktUpdates />}
       {active === "search-moderation"      && <SearchModeration />}
       {active === "markt-sichtbarkeit"     && <MarktSichtbarkeit />}
       {active === "data-governance"        && <DataGovernance />}

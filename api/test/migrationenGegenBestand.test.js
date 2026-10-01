@@ -84,11 +84,11 @@ const ABBILD = path.join(HIER, "fixtures", "schema.json");
    koennen, verschiebt einen Befund in eine Liste. */
 const OHNE_MIGRATION = {
   /* ── Entstehen ausserhalb des Migrationswegs und sollen es ─────────────── */
-  session: "Legt `connect-pg-simple` selbst an (api/app.js: tableName 'session', "
-         + "createTableIfMissing: true). Der Sitzungsspeicher besitzt seine Tabelle.",
-  staff_session: "Wie `session`, zweiter Speicher fuer die Staff-Sitzung "
-               + "(api/app.js, tableName 'staff_session') — die Trennung der Sitzungswelten "
-               + "ist gewollt.",
+  /* `session` und `staff_session` standen hier bis 2026-10-01 ("legt
+     connect-pg-simple selbst an"). Seit Migration 226 kommen beide aus dem
+     Migrationsweg: die Bibliothek benennt Schluessel und Index fest nach
+     "session", die zweite Tabelle liess sich auf einer frischen Datenbank nie
+     anlegen — Staff-Login 500. */
   _migrations: "Die Buchhaltung selbst. `sql/migrate.sh` legt sie an, bevor die erste "
              + "Migration laeuft — sie kann nicht von einer Migration kommen.",
 
@@ -123,12 +123,6 @@ const DARF_FEHLEN = {};
    Eintraege hier sind Spalten, die absichtlich nicht aus einer Migration
    kommen. Schluessel ist `tabelle.spalte`. */
 const SPALTEN_OHNE_MIGRATION = {
-  "session.sess": "Gehoert `connect-pg-simple`: der Sitzungsspeicher legt Tabelle UND Spalten "
-                + "selbst an (api/app.js, createTableIfMissing: true).",
-  "session.sid": "Wie `session.sess` — Spalte des Sitzungsspeichers.",
-  "staff_session.sess": "Wie `session.sess`, zweiter Speicher fuer die Staff-Sitzung.",
-  "staff_session.sid": "Wie `session.sid`, zweiter Speicher fuer die Staff-Sitzung.",
-
   "reviews.reviewee_id": "Spalte einer WAISEN-Tabelle: 0 Zeilen, 0 Fundstellen im Produktionscode "
                        + "(gemessen 2026-09-27). Verschwindet mit der Tabelle.",
   "reviews.reviewer_id": "Spalte derselben Waise `reviews` — 0 Zeilen, kein Code.",
@@ -153,9 +147,6 @@ const SPALTEN_OHNE_MIGRATION = {
   /* Diese sieben kamen erst zum Vorschein, als der Erkenner aufhoerte,
      KOMMENTARE mitzulesen (Messfalle 4). Sie sind aus demselben Grund geduldet
      wie ihre Nachbarn oben: Sitzungsspeicher oder Waisen-Tabelle. */
-  "session.expire": "Gehoert `connect-pg-simple` — Verfallsspalte des Sitzungsspeichers "
-                  + "(api/app.js, createTableIfMissing: true).",
-  "staff_session.expire": "Wie `session.expire`, zweiter Speicher fuer die Staff-Sitzung.",
   "usage_counters.period": "Spalte der Waise `usage_counters` — 0 Zeilen, 0 Fundstellen im "
                          + "Produktionscode (die Treffer auf `period` betreffen andere Namen wie "
                          + "current_period_start).",

@@ -529,7 +529,6 @@ Weiterleitung oder für keinen Nutzer erreichbar.
 | `org-invite.html` | neue Mitglieder | Einladung aus der E-Mail annehmen; bewusst ohne Navigation | aktiv |
 | `integrations.html` | beide | Slack/Teams, DATEV, SAP, zvoove anbinden | aktiv |
 | `sso_config.html` | Unternehmen (Admin) | Anmeldung über das Firmen-Login einrichten | aktiv |
-| `admin_panel.html` | Admin | Benutzer, Organisationen, Prüfprotokoll, Plattformkennzahlen | aktiv |
 | `system-health.html` | Admin | Echtzeit-Diagnose der Plattformkomponenten | aktiv |
 | `company_profile_public.html` | öffentlich, Kunden | Visitenkarte einer Firma inkl. Bewertungen und Kooperationsanfrage | aktiv |
 | `activity.html` | beide | Posteingang der Plattform; von der Glocke jeder Seite erreichbar (`js/pageShell.js:444`) | aktiv |
@@ -600,7 +599,8 @@ Alle neun bestehen aus 14 nicht-leeren Zeilen mit einem `<meta http-equiv="refre
 | `marketplace_capacity_create.html` | `capacity_exchange_form.html` | tot |
 | `worker-portal.html` | `einsatzportal-dashboard.html` | tot |
 | `worker-timesheet.html` | `einsatzportal-stundenzettel.html` | tot |
-| `internal_control_center.html` | `admin_panel.html` | tot |
+| `internal_control_center.html` | `organization.html` | tot |
+| `admin_panel.html` | `organization.html` (W-E9/W-E10, 2026-10-01: Kunden-Verwaltung; Freischaltungen und Produkt-Updates im Staff CC) | tot |
 | `api_docs.html` | `api-docs.html` | tot |
 | `app_notdienst.html` | `/` | tot |
 | `legal/meine-agb.html` | `legal/agb.html` | tot |
@@ -722,7 +722,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | davon deklariert, aber in der Datenbank fehlend | **0** | Gemessen am 2026-09-27, nach Migration 223 (`feature_overrides`) und 224 (`vendor_pool_notes`). Genau die Richtung, die Welle Z abarbeitet — sie ist damit leer |
 | Tabellen in der laufenden Datenbank | **197** Tabellen **+ 1 Sicht** | Aus `api/test/fixtures/schema.json` (erzeugt von `api/scripts/schema-snapshot.js`). Die Aufschluesselung ist nicht Zierde: der Schnappschuss fuehrt Sichten in `tabellen` MIT (er liest `information_schema.columns`, und dort steht eine Sicht mit ihren Spalten wie eine Tabelle) und zusaetzlich in `sichten`. Wer die 198 Eintraege „Tabellen“ nennt, zaehlt etwas anderes, als der Name sagt — die eine Sicht ist `activity_feed`, deklariert in `025_enterprise_foundation.sql` als `CREATE OR REPLACE VIEW` |
 | davon von keiner Migration deklariert | **7**, alle erklaert | **Kein Befund, aber aufschreibenswert.** Drei entstehen ausserhalb des Migrationswegs und sollen es: `session` und `staff_session` legt `connect-pg-simple` mit `createTableIfMissing: true` an (`api/app.js:316/322`), `_migrations` legt `migrate.sh` selbst an, bevor die erste Migration laeuft. Vier sind Waisen aus zusammengefuehrten Alt-Migrationen, die **kein Produktionscode** anfasst und die **alle leer** sind (gemessen ueber `pg_stat_user_tables`: 0 Zeilen): `agency_api_keys`, `reviews`, `usage_counters`, `email_verification_tokens`. Eine frische Installation legt diese vier nicht an, und niemand merkt es — eine Aufraeumung ist risikofrei, aber `email_verification_tokens` erst NACH Z10: sie ist der einzige Ort im Schema, an dem die Absicht „gehasht, ausdruecklich einmalig“ aufgeschrieben ist, und Z10 setzt genau diese Absicht an `users.reset_token` um. Erzwungen von `api/test/migrationenGegenBestand.test.js` |
-| Migrationsdateien | **229** | `ls sql/migrations/*.sql \| wc -l` — nummeriert `001_ratings.sql` bis `225_frische_installation_kennt_den_disponenten.sql`; neun Nummern sind doppelt belegt (`027`/`027b`, `045`/`045b`, `064`, `070`, `074`, `075`, `086`, `130`, `140`). `NUMBERING.md` ist keine Migration |
+| Migrationsdateien | **230** | `ls sql/migrations/*.sql \| wc -l` — nummeriert `001_ratings.sql` bis `226_staff_sitzung_eigene_namen.sql`; neun Nummern sind doppelt belegt (`027`/`027b`, `045`/`045b`, `064`, `070`, `074`, `075`, `086`, `130`, `140`). `NUMBERING.md` ist keine Migration |
 | Nutzerflächen | **90** | 78 in `frontend/public/*.html` + 6 `legal/` + 4 `trust/` + `frontend/landing.html` + `frontend/demo.html`. Am 26.08. nachgezählt: die vorherige **89** hinkte der eigenen Liste nach (A1 des Wächters bestand, nur die Summe war alt) — die Korrektur ist größer als der Abzug für die gelöschte Vorlagenseite |
 | davon reine Weiterleitungen | 9 | je 14 nicht-leere Zeilen, reiner Meta-Refresh |
 | davon Attrappen | 3 | `sla_nachweise.html`, `impressum.html`, `datenschutz.html` (Wurzel) |

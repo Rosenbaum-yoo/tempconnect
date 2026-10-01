@@ -40,7 +40,9 @@ frontendSuite("frontend canonical page aliases", () => {
     ["frontend/public/demand_create.html", "/public/marketplace_demand_create.html"],
     ["frontend/public/worker-timesheet.html", "/public/einsatzportal-stundenzettel.html"],
     ["frontend/public/worker-portal.html", "/public/einsatzportal-dashboard.html"],
-    ["frontend/public/internal_control_center.html", "/public/admin_panel.html"],
+    // W-E9/W-E10: beide frueheren Admin-Einstiege fuehren direkt in die Verwaltung.
+    ["frontend/public/internal_control_center.html", "/public/organization.html"],
+    ["frontend/public/admin_panel.html", "/public/organization.html"],
     ["frontend/public/api_docs.html", "/public/api-docs.html"],
     ["frontend/public/app_notdienst.html", "/"],
     ["frontend/public/legal/meine-agb.html", "/public/legal/agb.html"]

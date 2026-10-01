@@ -1,6 +1,13 @@
 # Admin Control Center
 Die Admin-Zentrale in `frontend/public/admin_panel.html` verwendet `GET /api/admin/control-center` als kanonischen Bootstrap. Der Endpunkt liefert den aktuellen Benutzerkontext, Card-States, Rollout-Reihenfolge und die ersten zusammengefassten Kennzahlen für die Hub-Ansicht. Dadurch ersetzt die Seite den früheren globalen Deny-Block durch kontrollierte per-Card-Zugriffslogik.
 
+> **Stand 2026-10-01 — STILLGELEGT.** `admin_panel.html` ist eine Weiterleitung auf die
+> Verwaltung (`organization.html`, W-E9). Freischaltungen und Produkt-Updates liegen im Staff
+> Control Center (`/staff/api/freischaltungen`, `/staff/api/produkt-updates`, W-E10);
+> `adminPanel.js`, `adminProductReleases.js` und `admin-panel.css` sind entfernt. Der Endpunkt
+> `GET /api/admin/control-center` bleibt — `sso_config.html` liest ihn. Alles darunter ist
+> Geschichte und erklärt, warum.
+>
 > **Stand 2026-09-30 — zuerst den Abschnitt „Prüfung beidseitig" unten lesen.** Für Kunden
 > (Unternehmen **und** Zeitarbeitsfirma) ist diese Seite eine zweite, schlechtere Fassung des
 > Organization Control Center; ein Knopf ist kaputt, zwei sind tot. Empfehlung: für Kunden

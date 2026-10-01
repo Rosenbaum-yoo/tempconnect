@@ -12,7 +12,7 @@ hierher zusammengeführt — `297554c`, 13 Commits, sechs Konflikte).
 
 ## Neu aus der Cloud-Sitzung vom 2026-10-01 — für K1 und Welle 1 zuerst lesen
 
-**Branch:** `claude/zen-goldberg-w1oxw3` · **gepushter Stand:** `d7c239e` · enthält die
+**Branch:** `claude/zen-goldberg-w1oxw3` · **gepushter Stand:** siehe `git log -1 origin/claude/zen-goldberg-w1oxw3` (dieser Abschnitt wird bei jedem Push mitgezogen) · enthält die
 K1-Spitze `94117a7` vollständig (Merge `74e2d86`, gegen K1 geprüft).
 
 **Übernehmen (K1):** `git fetch origin claude/zen-goldberg-w1oxw3` und dann
@@ -34,7 +34,7 @@ Geprüft am laufenden System (Postgres 16 + API + Chromium), beide Demo-Firmen,
 Desktop und Telefon (390 px): alle Reiter, Dialoge, Einladen/Zurückziehen, Standort
 anlegen/deaktivieren, CSV, API-Schlüssel; keine Antwort ≥ 400, Konsole sauber.
 
-### W-E10 — Backend gepusht, Oberfläche in Arbeit
+### W-E10 — fertig (Backend `894c867`, Oberfläche + Migration 226 im folgenden Commit)
 
 **Gepusht (Backend):** Freischaltungen und Produkt-Updates sind ins **Staff Control
 Center** umgezogen. Bitte **nicht parallel** daran bauen:
@@ -64,9 +64,27 @@ Center** umgezogen. Bitte **nicht parallel** daran bauen:
 - Register: `wachen.json` bleibt bei 470/164 (7 Wege raus, 7 rein), `orgGrenzen.json`
   nachgezogen, Wach-Name `nurPlattformverwaltung` entfernt.
 
-**Noch offen (Oberfläche):** zwei React-Module im Staff CC (`freischaltungen`,
-`produkt-updates`), danach wird `admin_panel.html` eine Weiterleitung auf die Verwaltung,
-`adminPanel.js`, `adminProductReleases.js`, `admin-panel.css` entfallen.
+**Oberfläche:** zwei neue Staff-CC-Module `frontend/src/staff/modules/freischaltungen` und
+`…/produkt-updates` (Sidebar: Strategie → Freischaltungen, Operations → Produkt-Updates).
+`admin_panel.html` und `internal_control_center.html` leiten auf `organization.html`;
+`adminPanel.js`, `adminProductReleases.js`, `admin-panel.css` sind **gelöscht**. E2E
+`admin-control-center.spec.js` (4 Tests) lokal grün.
+
+**Livegang-Blocker gefunden und behoben — Migration `226_staff_sitzung_eigene_namen.sql`:**
+auf einer frischen Datenbank endete jeder Staff-Login mit 500, sobald vorher ein Kunde
+eingeloggt war (`connect-pg-simple` benennt `session_pkey`/`IDX_session_expire` fest; die
+zweite Tabelle `staff_session` ließ sich nie anlegen). Die Migration legt beide Tabellen mit
+eigenen Namen an und repariert einen falsch belegten Zustand. **K1: die nächste freie
+Migrationsnummer ist 227** — falls K1 lokal schon eine 226 hat, bitte umnummerieren.
+
+**Live geprüft (Staff + Kundin):** Staff-Login, Ausnahme für ElektroStaff setzen (Wirkung
+vorher „Standard an“ → nachher „Firma aus bis 31.12.2026“), ohne Ende → 400, unbekannter
+Hebel → 400, Unternehmen erscheint nicht in der Firmenauswahl, Produkt-Update anlegen →
+veröffentlichen → die Kundin im Tarif INDIVIDUELL sieht die Mitteilung „ab PLUS“, alter
+Admin-Weg → 404, beide Module rendern, Konsole sauber.
+
+**`CLAUDE.md` geändert** (Owner-Freigabe): die Zeile „Admin Panel (`/public/admin_panel.html`,
+`/api/admin/*`)“ unter „Kritische Produkt-Abgrenzung“ beschreibt jetzt die Verwaltung.
 
 ### Für Welle 1 (Lint/CI) — gefunden, bewusst NICHT angefasst (K1-Dateien)
 

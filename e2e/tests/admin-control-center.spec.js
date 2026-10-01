@@ -17,39 +17,35 @@ async function dismissOnboardingModal(page) {
   }
 }
 
-test.describe("Admin-Zentrale und Org-Steuerungsseiten", () => {
-  test("zeigt fuer eingeschraenkte Nutzer den Hub ohne globalen Zugriff-Blocker", async ({ page }) => {
+test.describe("Verwaltung und fruehere Admin-Einstiege", () => {
+  test("das fruehere Admin Panel leitet eingeschraenkte Nutzer in die Verwaltung — dort steht, wem sie vorbehalten ist", async ({ page }) => {
+    // W-E9/W-E10: admin_panel.html ist eine Weiterleitung. Ein Mitglied ohne
+    // Verwaltungsrecht sieht keine leere Seite, sondern den Grund.
     await apiLogin(page, USERS.companyMember);
     const pageErrors = collectPageErrors(page);
 
     await page.goto("/public/admin_panel.html");
+    await page.waitForURL(/\/public\/organization\.html/);
     await dismissOnboardingModal(page);
 
-    await expect(page).toHaveURL(/\/public\/admin_panel\.html/);
-    await expect(page.locator("#adminContextPanel")).toBeVisible();
-    await expect(page.locator("#adminHubGrid .admin-hub-card")).toHaveCount(6);
-    await expect(page.locator("#adminStateBanner")).toBeVisible();
-    await expect(page.locator("#adminStateBanner")).toContainText("Per-Card-Zugriff aktiv");
-    await expect(page.locator("#admin-content")).toBeHidden();
-    await expect(page.locator("#adminHubGrid")).toContainText("Benutzer & Organisationen");
-    await expect(page.locator("#adminHubGrid")).toContainText("Plattform-Metriken");
+    await expect(page.locator(".ds-page-title")).toHaveText("Verwaltung");
+    await expect(page.locator("#vwZustand")).toContainText("Owner und Admins vorbehalten");
+    await expect(page.locator("#vwInhalt")).toBeHidden();
 
     expect(pageErrors).toEqual([]);
   });
 
-  test("oeffnet fuer Owner den Admin-Arbeitsbereich und respektiert Tab-Deep-Links", async ({ page }) => {
+  test("das fruehere Admin Panel fuehrt den Owner in die Verwaltung", async ({ page }) => {
     await apiLogin(page, USERS.company);
     const pageErrors = collectPageErrors(page);
 
     await page.goto("/public/admin_panel.html?tab=audit");
+    await page.waitForURL(/\/public\/organization\.html/);
     await dismissOnboardingModal(page);
 
-    await expect(page.locator("#adminContextPanel")).toBeVisible();
-    await expect(page.locator("#admin-content")).toBeVisible();
-    await expect(page.locator("#tab-audit")).toHaveClass(/active/);
-    await expect(page.locator("#auditActor")).toBeVisible();
-    await expect(page.locator("#auditExportLink")).toBeVisible();
-    await expect(page.locator("#adminHubGrid")).toContainText("SSO / SAML");
+    await expect(page.locator(".ds-page-title")).toHaveText("Verwaltung");
+    await expect(page.locator("#vwInhalt")).toBeVisible();
+    await expect(page.locator("#tab-team")).toHaveAttribute("aria-selected", "true");
 
     expect(pageErrors).toEqual([]);
   });

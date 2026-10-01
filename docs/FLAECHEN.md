@@ -189,6 +189,8 @@ Verwaltung der Plattform durch das TempConnect-Team.
 | `billing` | Abrechnung |
 | `bounty-catalog` | **Rabatt-Katalog** — plattformweite Treue-/Leistungsbounties (P9 A2) |
 | `rabatt-faelle` | **Rabatt-Fälle** — der Einzelfall zum Katalog: welchen Rabatt bekommt ein Kunde, warum, wo ist die Ermittlung ausgefallen, und der Eingriffspunkt (K1). Steht im Staff CC und nicht im OCC, weil die Rabatt-Automatik die Plattform als Ganzes betrifft — sie ist eine Regel für alle Kunden, kein kundenspezifischer Vertrag. Der Einzelfall ist ihre *Ansicht*, nicht ihr Gegenstand. |
+| `freischaltungen` | **Freischaltungen** — Schalter je Kunde oder plattformweit (`feature_overrides`), aus dem Admin Panel umgezogen (W-E10, Owner-Entscheid 2026-09-30/10-01). Nur Hebel aus `api/config/freischaltHebel.js`, die ein Verbraucher im Code liest; Ausnahme je Firma mit Ende. **Entscheidungsfrage:** die Ausnahme betrifft EINEN Kunden (Antwort 2) — sie liegt trotzdem hier, weil die OCC-Module seit dem 2026-08-27 ins Staff CC überführt werden und keine neuen OCC-Module entstehen; der plattformweite Schalter ist ohnehin Antwort 3 |
+| `produkt-updates` | **Produkt-Updates** („Was ist neu“) — Mitteilungen an die ganze Plattform, aus dem Admin Panel umgezogen (W-E10). Antwort 3: betrifft alle Kunden. Bis zum Fix `9c4af72` konnte jeder Kunden-Admin sie anlegen und an alle mailen |
 | `support` | Support-Arbeitsplatz |
 | `support-vendors` | Support-Dienstleister |
 | `mail` | Mail und Benachrichtigungen |
