@@ -29,6 +29,10 @@ Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-
   dieser Liste — stehen nach Wichtigkeit A/B/C in `docs/WICHTIGKEIT.md`; der Owner bekommt jeden
   Montag eine Erinnerung (Push und E-Mail). **Wer hier einen P0-Blocker einträgt oder erledigt,
   zieht die Zeile dort mit** — `api/test/wichtigkeit.test.js` prüft die Kopplung.
+- ✅ **CSV-Exporte vor dem ersten Kunden bereinigt:** Formel-Schutz in jedem Export an jedem Feld,
+  das ein Mensch füllt (OP-28, OP-54), DATEV ausgenommen. Dabei behoben: Rechnungsliste,
+  Einzelrechnung, Agenturportal-Bündel und Datenschutz-Anfragen schrieben Datumsspalten als
+  „Thu Jan 01 2026 00:00:00 GMT+0100 (…)“ — die Rechnungsliste geht in die Buchhaltung (OP-56).
 
 ### 2026-10-01 — Livegang-Blocker behoben: Staff-Login auf frischer Datenbank (Migration 226)
 

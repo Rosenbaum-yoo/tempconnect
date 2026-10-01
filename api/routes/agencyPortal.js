@@ -5,6 +5,7 @@
  */
 import { Router } from "express";
 import * as submissionSvc from "../services/workerSubmissionService.js";
+import { exportEinreichungsBuendelCsv } from "../services/exportService.js";
 import { requirePermission } from "../middleware/rbac.js";
 
 /* ── Agency-only Auth-Middleware ─────────────────────────────────────────── */
@@ -25,14 +26,6 @@ function transitionStatus(result) {
   if (result.error === "INVALID_TRANSITION") return 409;
   if (result.error === "FORBIDDEN")          return 403;
   return 400;
-}
-
-function csvEscape(value) {
-  const s = value == null ? "" : String(value);
-  if (s.includes('"') || s.includes(",") || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
 }
 
 /* ── Router ──────────────────────────────────────────────────────────────── */
@@ -318,31 +311,9 @@ export function createAgencyPortalRouter(deps) {
         bundleKey: req.params.bundleKey
       });
       if (!items.length) return res.status(404).json({ error: "NOT_FOUND" });
-      const header = [
-        "submission_id", "client_name", "worker_name", "worker_email", "week_start", "week_end",
-        "total_hours", "overtime_hours", "status", "timesheet_id", "bundle_key", "bundle_ref"
-      ];
-      const lines = [header.join(",")];
-      for (const it of items) {
-        const workerName = `${it.first_name || ""} ${it.last_name || ""}`.trim();
-        lines.push([
-          it.id,
-          it.client_name,
-          workerName,
-          it.worker_email,
-          it.week_start,
-          it.week_end,
-          it.total_hours,
-          it.overtime_hours,
-          it.status,
-          it.timesheet_id,
-          it.customer_bundle_key,
-          it.customer_bundle_ref
-        ].map(csvEscape).join(","));
-      }
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="submission-bundle-${req.params.bundleKey}.csv"`);
-      res.send(lines.join("\n"));
+      res.send(exportEinreichungsBuendelCsv(items));
     } catch (err) { next(err); }
   });
 

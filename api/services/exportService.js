@@ -86,11 +86,12 @@ export function fmtDateTime(v) {
  * Marke bekommt deshalb ein Hochkomma (OWASP: CSV Injection). NUR fuer Textfelder —
  * Zahlen wie "-5" wuerden sonst zu Text.
  *
- * Seit 2026-10-01 in ALLEN Exporten dieses Dienstes (Stundenzettel, Anfragen,
- * Protokoll, Einsatzportal) an jedem Feld, das ein Mensch fuellt: Namen, Firmen,
- * Titel, E-Mail, Kennung, Detailtext. Nicht an Status, Zahlen und Zeitpunkten —
- * die erzeugt das System. Die anderen CSV-Wege (Rechnungen, Berichte,
- * Agenturportal, Staff CC) haben eigene Escaper: docs/WICHTIGKEIT.md, OP-54.
+ * Seit 2026-10-01 in JEDEM CSV-Export an jedem Feld, das ein Mensch fuellt:
+ * Namen, Firmen, Titel, E-Mail, Kennung, Detailtext, Rechnungsposition. Nicht an
+ * Status, Zahlen und Zeitpunkten — die erzeugt das System (OP-28, OP-54; Owner:
+ * „so soll es gemacht werden“). Ausgenommen bleibt der DATEV-Buchungsstapel: ein
+ * Maschinenformat, das ein Hochkomma als Teil des Buchungstexts uebernaehme.
+ * Wer einen neuen CSV-Weg baut, faellt in api/test/csvFormelSchutz.test.js auf.
  */
 export function csvText(v) {
   const s = v == null ? "" : String(v);
@@ -197,6 +198,60 @@ export function exportAuditLogCsv(entries) {
     ]);
   });
   return [AUDIT_HEADERS.join(","), ...rows].join("\n");
+}
+
+/* ── Einreichungs-Buendel der Zeitarbeitsfirma (Agenturportal) ── */
+
+const BUENDEL_HEADERS = [
+  "submission_id", "client_name", "worker_name", "worker_email", "week_start", "week_end",
+  "total_hours", "overtime_hours", "status", "timesheet_id", "bundle_key", "bundle_ref"
+];
+
+/**
+ * Ein Einreichungs-Buendel als CSV (vorher inline in routes/agencyPortal.js).
+ * Die Wochen sind DATE-Spalten: node-postgres liefert sie als Date — ohne
+ * Formatierung stand dort „Mon Oct 05 2026 00:00:00 GMT+0200 (…)“.
+ * @param {Array<object>} items  wie `workerSubmissionService.getBundleDetails()`
+ */
+export function exportEinreichungsBuendelCsv(items) {
+  const rows = (items || []).map((it) => toCsvRow([
+    it.id,
+    csvText(it.client_name),
+    csvText(`${it.first_name || ""} ${it.last_name || ""}`.trim()),
+    csvText(it.worker_email),
+    fmtDate(it.week_start),
+    fmtDate(it.week_end),
+    it.total_hours ?? "",
+    it.overtime_hours ?? "",
+    it.status,
+    it.timesheet_id,
+    csvText(it.customer_bundle_key),
+    csvText(it.customer_bundle_ref)
+  ]));
+  return [BUENDEL_HEADERS.join(","), ...rows].join("\n");
+}
+
+/* ── Datenschutz-Anfragen (Staff Control Center) ─────────────── */
+
+const DSGVO_HEADERS = ["id", "org", "typ", "subjekt", "status", "anforderer", "erstellt", "abgeschlossen"];
+
+/**
+ * Alle Datenschutz-Anfragen als CSV (vorher inline in routes/staffControlCenter.js).
+ * Zeitpunkte in Berliner Zeit — vorher stand dort der rohe Date-Text.
+ * @param {Array<object>} rows  wie `staffDataGovernanceService.listGovernanceRequestsForCsv()`
+ */
+export function exportDsgvoAnfragenCsv(rows) {
+  const zeilen = (rows || []).map((r) => toCsvRow([
+    r.id,
+    csvText(r.org_name),
+    r.request_type,
+    r.subject_type,
+    r.status,
+    csvText(r.requester_email),
+    fmtDateTime(r.created_at),
+    fmtDateTime(r.completed_at)
+  ]));
+  return [DSGVO_HEADERS.join(","), ...zeilen].join("\n");
 }
 
 /* ── Einsatzportal-Sitzungen (Owner 2026-10-01) ─────────────── */

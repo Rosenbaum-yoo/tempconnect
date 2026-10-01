@@ -2254,14 +2254,10 @@ export function createStaffControlCenterRouter(deps) {
     try {
       const svc = await import("../services/staffDataGovernanceService.js");
       const rows = await svc.listGovernanceRequestsForCsv(pool, { limit: 5000 });
-      const esc = (v) => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-      const out = [["id", "org", "typ", "subjekt", "status", "anforderer", "erstellt", "abgeschlossen"].join(",")];
-      for (const r of rows) {
-        out.push([r.id, r.org_name, r.request_type, r.subject_type, r.status, r.requester_email, r.created_at, r.completed_at].map(esc).join(","));
-      }
+      const { exportDsgvoAnfragenCsv } = await import("../services/exportService.js");
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", 'attachment; filename="dsgvo-anfragen.csv"');
-      res.send(out.join("\n"));
+      res.send(exportDsgvoAnfragenCsv(rows));
       logger?.info({ actor: req.sccActorId, rows: rows.length }, "SCC DSGVO CSV export");
     } catch (err) {
       logger?.error({ err }, "SCC data-governance csv");

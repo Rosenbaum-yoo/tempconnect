@@ -120,6 +120,7 @@ per `git merge --ff-only 89ca180` zurückgeholt, verloren war nur eine eigene un
 | `89ca180` | **Einsatzportal im Protokoll** — eigener Abschnitt unten | siehe dort |
 | `git log -1 -- scripts/dev/cloud-stand-holen.sh` | **Cloud-Stand automatisch holen** (Owner: „mergen in gewissen Abständen … automatisch, damit ich lokal auch gucken kann“): Skript + Windows-Doppelklick, holt nur über einen sauberen Baum, nie während eines Testlaufs, bei Konflikt Abbruch, pusht nie; baut nach, was sich geändert hat, und holt liegengebliebene Bau-Schritte nach. **Der Testlauf legt dafür selbst eine Marke**; ist die Prüfung selbst gestört, fasst das Skript nichts an — 8 Rückmutationen, alle gefangen, volles Tor 12.198/0 | **neu** `scripts/dev/cloud-stand-holen.sh`, `scripts/dev/cloud-stand-holen.cmd`, `api/scripts/lib/torMarke.mjs`, `api/test/torMarke.test.js`; **geändert** `api/scripts/run-tests.js` (Marke setzen/räumen, sonst unverändert), `docs/DEVELOPER_SETUP.md` |
 | `git log -1 -- docs/WICHTIGKEIT.md` | **Wichtigkeits-Wächter** (Owner: „nach Wichtigkeit … regelmäßig prüft und eine Erinnerung an mich schickt … Wichtigkeitsklassen A, B und C“): Register aller offenen Punkte, gekoppelt an vier Listen, Erinnerung montags per Routine. Nebenbei **W-E9 und W-E10 als entschieden markiert** — sie standen nach dem Bau noch als offen in „Offene Owner-Entscheidungen“ | **neu** `docs/WICHTIGKEIT.md`, `api/scripts/wichtigkeit.mjs`, `api/test/wichtigkeit.test.js`; `docs/UEBERGABE.md`, `docs/PILOT_GO_LIVE_TODOS.md` |
+| `git log -1 -- api/test/csvFormelSchutz.test.js` | **Formel-Schutz in jedem CSV-Export** (OP-28 `c031c4c`, OP-54 auf Owner-Wort) und **Datumsspalten repariert** (OP-56: Rechnungszeitraum stand als Date-Text in der Buchhaltungs-CSV). Wächter verbucht jeden CSV-Weg. CLAUDE.md: Eintrag zum Wichtigkeits-Register (Owner-Freigabe) | `exportService.js`, `invoiceService.js`, `operationalInvoiceService.js`, `routes/agencyPortal.js`, `routes/staffControlCenter.js`, **neu** `api/test/csvFormelSchutz.test.js`, `CLAUDE.md` |
 | `d7c239e` | **Ein Weg zur Verwaltung:** Hub-Karte `verwaltung` ersetzt `admin_panel` **und** `location_management` (Schlüssel gelöscht, nicht nur Karten); Link „Verwaltung →“ im Nutzermenü; Suche findet sie jetzt auch für Zeitarbeitsfirmen; drei tote Admin-Links im Executive Dashboard entfernt; Rollenabzeichen nennen die Rollen wie die Verwaltung | `enterprise.html`, `hubVisibility.js`, `pageShell.js`, `roleBadge.js`, `executive_dashboard.html`, `api/config/visibilityMatrix.js` |
 
 Geprüft am laufenden System (Postgres 16 + API + Chromium), beide Demo-Firmen,
@@ -382,11 +383,18 @@ Punkt ebenfalls nennen. Erfasst wird bewusst nur von/bis und Aktionen, keine Sei
 Formel-Schutz** — ein Name wie `=HYPERLINK(…)` wäre in Excel ausgeführt worden. Jetzt tragen **alle vier
 Exporte des Dienstes** (Stundenzettel, Anfragen, Protokoll, Einsatzportal) `csvText` an jedem Feld, das
 ein Mensch füllt — Spalte für Spalte, nicht pauschal, damit eine Überstunde von `-5` eine Zahl bleibt
-(Test „Formel-Schutz in den alten Exporten (OP-28)“, 10 Rückmutationen gefangen). **Offen:** die
-anderen CSV-Wege haben **eigene** Escaper ohne Schutz — Rechnungsliste, Einzelrechnung,
-Executive-Bericht, Agenturportal, Datenschutz-Anfragen im Staff CC. Bei Rechnungen ist es eine
-Owner-Frage (eine Position „- Abzug“ erschiene als „'- Abzug“); der DATEV-Buchungsstapel bleibt als
-Maschinenformat ausgenommen. Eingestuft als **OP-54 (B)** in [WICHTIGKEIT.md](WICHTIGKEIT.md).
+(Test „Formel-Schutz in den alten Exporten (OP-28)“, 10 Rückmutationen gefangen). **Danach auch der
+Rest (OP-54, Owner: „so soll es gemacht werden“):** Rechnungsliste, Einzelrechnung (eine Position
+„- Abzug“ erscheint jetzt als „'- Abzug“ — so entschieden), Agenturportal-Bündel und
+Datenschutz-Anfragen im Staff CC. Die beiden Routen-Exporte sind dafür als reine Funktionen in den
+Export-Dienst gezogen (`exportEinreichungsBuendelCsv`, `exportDsgvoAnfragenCsv`); Routen bauen keine
+CSV mehr selbst. **Ausgenommen mit Grund:** DATEV-Lohn und DATEV-Buchungsstapel (Maschinenformat) und
+der Abrechnungsauszug (nur Systemwerte). **Beim Umbau gefunden (OP-56):** vier Exporte schrieben
+DATE-/Zeitspalten roh — in der Rechnungsliste stand der Abrechnungszeitraum als „Thu Jan 01 2026
+00:00:00 GMT+0100 (Central European Standard Time)“ (am laufenden Postgres belegt); jetzt Datum bzw.
+Berliner Zeit. **Der Wächter** `api/test/csvFormelSchutz.test.js` verbucht jeden CSV-Weg mit Zahl
+und Art: ein neuer Export wird rot, bis er den Schutz trägt oder einen Grund hat (11 Proben,
+16 Rückmutationen gefangen).
 
 ### Für Welle 1 (Testlauf): `--test-force-exit` schneidet den Bericht ab — gemessen, nicht angefasst
 

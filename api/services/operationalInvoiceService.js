@@ -15,6 +15,8 @@ import { firmaZuPartei, pruefeFirmenstammdaten } from "./eRechnungService.js";
 
 import * as auditLog from "./auditLog.js";
 import { swallow } from "../utils/logger.js";
+import { dateOnlyDE } from "../utils/dateDE.js";
+import { csvText } from "./exportService.js";
 /* Planwerte immer ueber den Katalog normalisieren (Projektregel) — der CHECK
  * auf `invoices.plan` kennt nur die fuenf kanonischen Schluessel. */
 import { normalizePlanKey } from "../config/planCatalog.js";
@@ -731,10 +733,10 @@ export function exportOperationalInvoiceCsv(invoice) {
   const rows = items.map((it, i) => [
     esc(i + 1),
     esc(it.item_type),
-    esc(it.description),
-    esc(it.worker_name || ""),
-    esc(it.week_start || ""),
-    esc(it.week_end || ""),
+    esc(csvText(it.description)),
+    esc(csvText(it.worker_name || "")),
+    esc(it.week_start ? dateOnlyDE(it.week_start) : ""),
+    esc(it.week_end ? dateOnlyDE(it.week_end) : ""),
     esc(it.quantity),
     esc(((it.unit_amount_cents || 0) / 100).toFixed(2)),
     esc(((it.total_cents || 0) / 100).toFixed(2))

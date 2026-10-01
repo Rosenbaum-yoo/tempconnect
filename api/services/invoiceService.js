@@ -11,6 +11,7 @@
 import { withTransaction } from "../utils/transaction.js";
 import { swallow } from "../utils/logger.js";
 import { dateOnlyDE } from "../utils/dateDE.js";
+import { csvText } from "./exportService.js";
 
 const TAX_RATE_PCT = 19.0;
 
@@ -300,10 +301,11 @@ export function exportInvoicesCsv(invoices) {
 
   const rows = invoices.map(inv => [
     esc(inv.invoice_number),
-    esc(inv.billing_name),
+    esc(csvText(inv.billing_name)),
     esc(inv.plan),
-    esc(inv.billing_period_start),
-    esc(inv.billing_period_end),
+    // DATE-Spalten: ohne Formatierung stand hier „Thu Jan 01 2026 00:00:00 GMT+0100 (…)“
+    esc(inv.billing_period_start ? dateOnlyDE(inv.billing_period_start) : ""),
+    esc(inv.billing_period_end ? dateOnlyDE(inv.billing_period_end) : ""),
     esc(((inv.amount_cents || 0) / 100).toFixed(2)),
     esc(((inv.tax_amount_cents || 0) / 100).toFixed(2)),
     esc(((inv.total_cents || 0) / 100).toFixed(2)),
