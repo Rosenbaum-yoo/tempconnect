@@ -192,7 +192,7 @@ describe("Marktpraesenz · Teil A — Form", () => {
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 describe("Marktpraesenz · Teil B — echte Datenbank", { skip: !hasDb }, () => {
-  it("der Sweep laeuft, ist idempotent, und der Schalter-Zyklus traegt", async () => {
+  it("der Sweep laeuft, ist idempotent, und der Schalter-Zyklus traegt", async (t) => {
     const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 2 });
     try {
       /* Lauf 1 raeumt auf, Lauf 2 muss leer sein — sonst erzeugt der Cron
@@ -256,13 +256,41 @@ describe("Marktpraesenz · Teil B — echte Datenbank", { skip: !hasDb }, () => 
       }
 
       /* Der volle Zyklus an einer echten Kraft mit Auto-Angeboten — falls es
-       * eine gibt. Zustand wird in jedem Fall wiederhergestellt. */
+       * eine gibt. Zustand wird in jedem Fall wiederhergestellt.
+       *
+       * DER STATUS-FILTER IST PFLICHT, und sein Fehlen hat diese Probe am
+       * 2026-10-01 rot gemacht. Ohne ihn waehlte `LIMIT 1` eine Kraft, deren
+       * zwoelf `live_belegschaft`-Angebote ALLE `archived` sind. Abschalten
+       * nimmt dann nichts zurueck, `zurueckgenommen` bleibt 0 — und die
+       * Zusicherung faellt, obwohl der Dienst richtig gerechnet hat. Der
+       * Aufbau war unmoeglich, nicht das Verhalten falsch.
+       *
+       * Die Schwesterabfrage 30 Zeilen hoeher (Abwesenheits-Zyklus) hatte den
+       * Filter von Anfang an. Zwei Abfragen fuer dieselbe Frage, eine davon
+       * ohne Vorbedingung: genau die Naht, an der so etwas liegen bleibt.
+       *
+       * Gemessen am 2026-10-01: Kandidaten MIT offenem Angebot: 0, ohne: 1.
+       * Der Zyklus laeuft also derzeit gar nicht — und das steht jetzt als
+       * Diagnose im Protokoll, statt lautlos zu verschwinden. Welle Y1.4
+       * (Zeitarbeitsfirma mit vollstaendiger Belegschaft) stellt den Gegenstand
+       * her; danach laeuft diese Haelfte zum ersten Mal wirklich. */
       const { rows: kandidaten } = await pool.query(
         `SELECT DISTINCT cp.worker_profile_id, wp.supplier_org_id
            FROM capacity_posts cp
            JOIN worker_profiles wp ON wp.id = cp.worker_profile_id
-          WHERE cp.quelle = 'live_belegschaft' AND wp.marktpraesenz_deaktiviert = FALSE
+          WHERE cp.quelle = 'live_belegschaft'
+            AND wp.marktpraesenz_deaktiviert = FALSE
+            AND cp.status IN ('draft','active','paused')
           LIMIT 1`);
+      if (!kandidaten[0]) {
+        /* Kein stiller Sprung: was nicht geprueft wurde, wird benannt — hier als
+           Diagnose, und zusaetzlich als eigene, ROTE Zusicherung unten. Eine
+           Haelfte, die nicht ausfuehrt, darf nicht als gruen zaehlen (§0.9). */
+        t.diagnostic(
+          "Schalter-Zyklus NICHT geprueft: keine Kraft mit OFFENEM "
+          + "live_belegschaft-Angebot. Siehe die Zusicherung "
+          + "\"es gibt eine vorfuehrbare Live-Belegschaft\" darunter.");
+      }
       if (kandidaten[0]) {
         const { worker_profile_id: wpId, supplier_org_id: orgId } = kandidaten[0];
         try {
@@ -278,6 +306,55 @@ describe("Marktpraesenz · Teil B — echte Datenbank", { skip: !hasDb }, () => 
           assert.ok(an, "der Ausgangszustand ist wiederhergestellt");
         }
       }
+    } finally {
+      await pool.end();
+    }
+  });
+
+  it("es gibt eine vorfuehrbare Live-Belegschaft — sonst ist der Schalter-Zyklus nicht pruefbar", async () => {
+    /*
+     * ERGAENZT 2026-10-01, und diese Zusicherung ist ABSICHTLICH rot, solange
+     * der Gegenstand fehlt.
+     *
+     * Die Zusicherung darueber ("der Schalter-Zyklus traegt") hat zwei Haelften.
+     * Die erste — Sweep, Idempotenz, nicht existente Kraft — laeuft immer. Die
+     * zweite braucht eine Kraft mit einem OFFENEN `live_belegschaft`-Angebot.
+     * Gemessen: es gibt KEINE. Die eine Kraft, die solche Angebote ueberhaupt
+     * hat, hat zwoelf — alle `archived`.
+     *
+     * Vorher fiel die Probe deshalb mit "Abschalten nimmt die eigenen Angebote
+     * zurueck" — also an ihrem eigenen Aufbau, nicht am Verhalten: die
+     * Kandidatenabfrage filterte nicht nach offenem Status (die Schwesterabfrage
+     * fuer den Abwesenheits-Zyklus tat es von Anfang an). Der Filter ist jetzt
+     * da. Damit faellt die Haelfte nicht mehr falsch — sie laeuft aber auch
+     * nicht, und das darf nicht als gruen zaehlen.
+     *
+     * NICHT per Statusaenderung herstellbar, gemessen: ein `archived`-Angebot
+     * auf `active` zu setzen genuegt nicht. `sweepMarktpraesenz()` laeuft am
+     * Anfang der Probe und archiviert es sofort wieder, weil die Kraft gar nicht
+     * qualifiziert. Es braucht eine echte Belegschaft — genau Welle Y1.4
+     * ("Zeitarbeitsfirma mit vollstaendiger Belegschaft: 12 Kraefte, davon 8 mit
+     * Katalog-Faehigkeiten, 2 im Einsatz, 1 krank, 1 verspaetet",
+     * docs/features/Y_PROBEBUEHNE.md). Danach wird diese Zusicherung von selbst
+     * gruen UND die Haelfte darueber laeuft zum ersten Mal wirklich.
+     */
+    const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 2 });
+    try {
+      const { rows: [z] } = await pool.query(
+        `SELECT
+           count(DISTINCT cp.worker_profile_id) FILTER (
+             WHERE cp.status IN ('draft','active','paused'))::int AS vorfuehrbar,
+           count(DISTINCT cp.worker_profile_id)::int AS ueberhaupt
+         FROM capacity_posts cp
+         JOIN worker_profiles wp ON wp.id = cp.worker_profile_id
+        WHERE cp.quelle = 'live_belegschaft' AND wp.marktpraesenz_deaktiviert = FALSE`);
+      assert.ok(z.vorfuehrbar >= 1,
+        `Keine Kraft mit OFFENEM live_belegschaft-Angebot (${z.ueberhaupt} haben ueberhaupt `
+        + "solche Angebote, aber nur geschlossene). Der Schalter-Zyklus der Zusicherung "
+        + "darueber laeuft damit NICHT — und eine Haelfte, die nicht ausfuehrt, zaehlt nicht "
+        + "als gruen. Herstellbar nur mit echter Belegschaft: Welle Y1.4 in "
+        + "docs/features/Y_PROBEBUEHNE.md. Ein archiviertes Angebot auf 'active' zu setzen "
+        + "genuegt nachweislich nicht — der Sweep archiviert es sofort wieder.");
     } finally {
       await pool.end();
     }
