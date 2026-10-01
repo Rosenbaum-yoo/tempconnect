@@ -2,6 +2,28 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-10-01 — Sicherheitslücke geschlossen: Kunden konnten Produktmitteilungen an alle Nutzer schicken
+
+**Status:** ✅ geschlossen · **Kategorie:** Security (Rollen-Logik) · **Quelle:** gefunden
+beim Umsetzen von W-E10, am laufenden System belegt (frische Datenbank, alle Migrationen)
+
+Die Pflege der Produktmitteilungen (`/api/admin/product-releases*` — anlegen, ändern,
+veröffentlichen, per E-Mail versenden, löschen) hing an einer Wache, die **jede Org-Rolle
+`owner` oder `admin` durchließ**, also die Admins aller Kundenfirmen. Angemeldet als Owner eines
+Unternehmens kam `POST /api/admin/product-releases` mit **201** durch. Eine veröffentlichte
+Mitteilung erscheint bei **jedem** Nutzer in der App, auf Wunsch als Modal und per E-Mail aus dem
+Versand von TempConnect — ein Kunde konnte damit allen anderen Kunden im Namen der Plattform
+schreiben. Der Pfad `/admin/` und der Name `requireAdmin` sahen aus wie eine Plattformprüfung;
+dieselbe Verwechslung hatte Befund 8.1.1 (d) in `routes/admin.js` schon aufgelöst, hier war sie
+nie nachgezogen. Das Wächter-Register führte die Wege sogar als „die eigene Lesebestätigung".
+
+**Fix:** benannte Wache `nurPlattformverwaltung` (nur `platform_admin`), bewusst ohne den lokalen
+Öffnungsschalter `ADMIN_PANEL_OPEN`. Nach dem Fix live: beide Kunden-Owner (Unternehmen und
+Zeitarbeitsfirma) bekommen **403 `NUR_PLATTFORMVERWALTUNG`**. Probe:
+`api/test/produktUpdatesNurPlattform.test.js` (17 Prüfungen; mit der alten Wache 16 davon rot).
+Mit W-E10 zieht die Pflege anschließend ganz ins Staff Control Center. **Für Produktion:** dieser
+Commit ist eigenständig und kann vorgezogen werden.
+
 ### 2026-09-30 — Admin Panel beidseitig geprüft: für Kunden eine zweite Verwaltung, ein Knopf kaputt, zwei tot
 
 **Status:** offen, wartet auf Owner-Entscheidung **W-E9** (Kunden) und **W-E10** (Plattform)

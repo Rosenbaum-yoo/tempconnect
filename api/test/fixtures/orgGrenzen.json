@@ -2673,28 +2673,28 @@
           "methode": "patch",
           "pfad": "/admin/product-releases/:id",
           "urteil": "bewusste-ausnahme",
-          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung: die Pflege liegt unter /admin/ hinter der Administrationsrolle, die Lesebestaetigung bindet den Nutzer ueber die Sitzung. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt."
+          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung. Die Pflege haengt seit 2026-10-01 an `nurPlattformverwaltung` (nur platform_admin) — vorher an einer Wache, die jeden Kunden-Owner/-Admin durchliess, obwohl dieser Eintrag 'hinter der Administrationsrolle' sagte. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt; die Grenze ist die zur Plattformverwaltung."
         },
         {
           "methode": "post",
           "pfad": "/admin/product-releases/:id/publish",
           "urteil": "bewusste-ausnahme",
-          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung: die Pflege liegt unter /admin/ hinter der Administrationsrolle, die Lesebestaetigung bindet den Nutzer ueber die Sitzung. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt."
+          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung. Die Pflege haengt seit 2026-10-01 an `nurPlattformverwaltung` (nur platform_admin) — vorher an einer Wache, die jeden Kunden-Owner/-Admin durchliess, obwohl dieser Eintrag 'hinter der Administrationsrolle' sagte. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt; die Grenze ist die zur Plattformverwaltung."
         },
         {
           "methode": "post",
           "pfad": "/admin/product-releases/:id/send-email",
           "urteil": "bewusste-ausnahme",
-          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung: die Pflege liegt unter /admin/ hinter der Administrationsrolle, die Lesebestaetigung bindet den Nutzer ueber die Sitzung. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt."
+          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung. Die Pflege haengt seit 2026-10-01 an `nurPlattformverwaltung` (nur platform_admin) — vorher an einer Wache, die jeden Kunden-Owner/-Admin durchliess, obwohl dieser Eintrag 'hinter der Administrationsrolle' sagte. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt; die Grenze ist die zur Plattformverwaltung."
         },
         {
           "methode": "delete",
           "pfad": "/admin/product-releases/:id",
           "urteil": "bewusste-ausnahme",
-          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung: die Pflege liegt unter /admin/ hinter der Administrationsrolle, die Lesebestaetigung bindet den Nutzer ueber die Sitzung. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt."
+          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung. Die Pflege haengt seit 2026-10-01 an `nurPlattformverwaltung` (nur platform_admin) — vorher an einer Wache, die jeden Kunden-Owner/-Admin durchliess, obwohl dieser Eintrag 'hinter der Administrationsrolle' sagte. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt; die Grenze ist die zur Plattformverwaltung."
         }
       ],
-      "hinweis": "Produktmitteilungen sind PLATTFORMWEIT — sie gehoeren keiner Org. Die Pflege-Routen liegen unter /admin/ und haengen an der Administrationsrolle; die Bestaetigung (/ack) bindet den Leser ueber die Sitzung."
+      "hinweis": "Produktmitteilungen sind PLATTFORMWEIT — sie gehoeren keiner Org. Die Pflege-Routen haengen an `nurPlattformverwaltung` (platform_admin, Befund 2026-10-01); die Bestaetigung (/ack) bindet den Leser ueber die Sitzung."
     },
     {
       "datei": "profileAnalytics.js",

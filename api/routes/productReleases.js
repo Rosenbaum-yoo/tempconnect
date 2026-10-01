@@ -27,24 +27,40 @@ const releaseCreateSchema = z.object({
 
 const releasePatchSchema = releaseCreateSchema.partial();
 
-function requireAdmin(logger, config) {
-  return (req, res, next) => {
-    if (config?.ADMIN_PANEL_OPEN && req.session?.userId) {
-      logger.warn({ userId: req.session.userId, path: req.path }, "ADMIN_PANEL_OPEN: product-releases admin route allowed");
-      return next();
-    }
-    const role = req.orgRole || req.orgMembership?.role_key;
-    if (role && ["platform_admin", "owner", "admin"].includes(role)) return next();
-    if (req.session?.userRole === "admin") return next();
-    logger.warn({ userId: req.session?.userId, path: req.path }, "admin required (product releases)");
-    res.status(403).json({ success: false, error: { code: "ADMIN_REQUIRED", message: "Administratorrechte erforderlich." } });
+/**
+ * Die Pflege der Produktmitteilungen gehoert der PLATTFORMVERWALTUNG.
+ *
+ * BEFUND (2026-10-01, am laufenden System belegt): hier stand eine Wache, die
+ * jede Org-Rolle `owner` oder `admin` durchliess — also jeden Kunden-Admin.
+ * Angemeldet als Owner eines Unternehmens kam `POST /admin/product-releases`
+ * mit 201 durch. Eine Mitteilung ist plattformweit: veroeffentlicht erscheint
+ * sie bei JEDEM Nutzer in der App, auf Wunsch als Modal und per E-Mail aus dem
+ * Versand von TempConnect. Ein Kunde konnte damit allen anderen Kunden im Namen
+ * der Plattform schreiben. Der Pfad `/admin/` und der Name `requireAdmin` haben
+ * die Wache aussehen lassen wie eine Plattformpruefung — derselbe Irrtum, den
+ * Befund 8.1.1 (d) in `routes/admin.js` schon einmal aufgeloest hat, nur hier
+ * nie nachgezogen.
+ *
+ * Bewusst OHNE den Schalter `ADMIN_PANEL_OPEN`: der oeffnet eine lokale
+ * Umgebung zum Ausprobieren, er darf keinen Weg oeffnen, auf dem man alle
+ * Nutzer anschreibt.
+ */
+function nurPlattformverwaltung(logger) {
+  return function nurPlattformverwaltung(req, res, next) {
+    const rolle = req.orgRole || req.orgMembership?.role_key || null;
+    if (rolle === "platform_admin" || req.session?.userRole === "platform_admin") return next();
+    logger.warn({ userId: req.session?.userId, path: req.path }, "Produktmitteilungen: nur Plattformverwaltung");
+    res.status(403).json({
+      success: false,
+      error: { code: "NUR_PLATTFORMVERWALTUNG", message: "Dieser Bereich gehoert zur Plattformverwaltung." }
+    });
   };
 }
 
 export function createProductReleasesRouter(deps) {
   const { pool, requireAuth, getUserAndPlan, sendMail, logger, config } = deps;
   const router = Router();
-  const admin = requireAdmin(logger, config);
+  const admin = nurPlattformverwaltung(logger);
   const baseUrl = config?.BASE_URL || process.env.BASE_URL || "http://localhost:8080";
 
   /* ── Authenticated users ─────────────────────────────────── */

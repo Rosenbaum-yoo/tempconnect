@@ -1720,36 +1720,36 @@
       "datei": "productReleases.js",
       "methode": "post",
       "pfad": "/admin/product-releases",
-      "wachart": "inline-rolle",
-      "begruendung": "Pflege der Mitteilungen, unter /admin/ mit eigener Pruefung."
+      "wachart": "flaechentor",
+      "begruendung": "Nur die Plattformverwaltung: benannte Wache `nurPlattformverwaltung` (Org-Rolle oder Nutzerrolle `platform_admin`), bewusst ohne `ADMIN_PANEL_OPEN`. BEFUND 2026-10-01: bis dahin liess die Wache jede Org-Rolle owner/admin durch — ein Kunden-Admin konnte Mitteilungen an ALLE Nutzer anlegen, veroeffentlichen, mailen und loeschen. Der fruehere Eintrag hier ('die eigene Lesebestaetigung') war eine Abschrift der Nachbarzeile und hat die Luecke verdeckt. Probe: test/produktUpdatesNurPlattform.test.js."
     },
     {
       "datei": "productReleases.js",
       "methode": "delete",
       "pfad": "/admin/product-releases/:id",
-      "wachart": "eigene-daten",
-      "begruendung": "Die eigene Lesebestaetigung. Ausnahme: die Pflege liegt unter /admin/."
+      "wachart": "flaechentor",
+      "begruendung": "Nur die Plattformverwaltung: benannte Wache `nurPlattformverwaltung` (Org-Rolle oder Nutzerrolle `platform_admin`), bewusst ohne `ADMIN_PANEL_OPEN`. BEFUND 2026-10-01: bis dahin liess die Wache jede Org-Rolle owner/admin durch — ein Kunden-Admin konnte Mitteilungen an ALLE Nutzer anlegen, veroeffentlichen, mailen und loeschen. Der fruehere Eintrag hier ('die eigene Lesebestaetigung') war eine Abschrift der Nachbarzeile und hat die Luecke verdeckt. Probe: test/produktUpdatesNurPlattform.test.js."
     },
     {
       "datei": "productReleases.js",
       "methode": "patch",
       "pfad": "/admin/product-releases/:id",
-      "wachart": "eigene-daten",
-      "begruendung": "Die eigene Lesebestaetigung. Ausnahme: die Pflege liegt unter /admin/."
+      "wachart": "flaechentor",
+      "begruendung": "Nur die Plattformverwaltung: benannte Wache `nurPlattformverwaltung` (Org-Rolle oder Nutzerrolle `platform_admin`), bewusst ohne `ADMIN_PANEL_OPEN`. BEFUND 2026-10-01: bis dahin liess die Wache jede Org-Rolle owner/admin durch — ein Kunden-Admin konnte Mitteilungen an ALLE Nutzer anlegen, veroeffentlichen, mailen und loeschen. Der fruehere Eintrag hier ('die eigene Lesebestaetigung') war eine Abschrift der Nachbarzeile und hat die Luecke verdeckt. Probe: test/produktUpdatesNurPlattform.test.js."
     },
     {
       "datei": "productReleases.js",
       "methode": "post",
       "pfad": "/admin/product-releases/:id/publish",
-      "wachart": "eigene-daten",
-      "begruendung": "Die eigene Lesebestaetigung. Ausnahme: die Pflege liegt unter /admin/."
+      "wachart": "flaechentor",
+      "begruendung": "Nur die Plattformverwaltung: benannte Wache `nurPlattformverwaltung` (Org-Rolle oder Nutzerrolle `platform_admin`), bewusst ohne `ADMIN_PANEL_OPEN`. BEFUND 2026-10-01: bis dahin liess die Wache jede Org-Rolle owner/admin durch — ein Kunden-Admin konnte Mitteilungen an ALLE Nutzer anlegen, veroeffentlichen, mailen und loeschen. Der fruehere Eintrag hier ('die eigene Lesebestaetigung') war eine Abschrift der Nachbarzeile und hat die Luecke verdeckt. Probe: test/produktUpdatesNurPlattform.test.js."
     },
     {
       "datei": "productReleases.js",
       "methode": "post",
       "pfad": "/admin/product-releases/:id/send-email",
-      "wachart": "eigene-daten",
-      "begruendung": "Die eigene Lesebestaetigung. Ausnahme: die Pflege liegt unter /admin/."
+      "wachart": "flaechentor",
+      "begruendung": "Nur die Plattformverwaltung: benannte Wache `nurPlattformverwaltung` (Org-Rolle oder Nutzerrolle `platform_admin`), bewusst ohne `ADMIN_PANEL_OPEN`. BEFUND 2026-10-01: bis dahin liess die Wache jede Org-Rolle owner/admin durch — ein Kunden-Admin konnte Mitteilungen an ALLE Nutzer anlegen, veroeffentlichen, mailen und loeschen. Der fruehere Eintrag hier ('die eigene Lesebestaetigung') war eine Abschrift der Nachbarzeile und hat die Luecke verdeckt. Probe: test/produktUpdatesNurPlattform.test.js."
     },
     {
       "datei": "productReleases.js",
@@ -3331,6 +3331,7 @@
       "requireAgencyOrgMiddleware": "flaechentor",
       "verweigereArbeiterMiddleware": "flaechentor",
       "requireAdmin": "flaechentor",
+      "nurPlattformverwaltung": "flaechentor",
       "requireWorkerRole": "flaechentor",
       "requireAgencyRole": "flaechentor",
       "requireRoleMiddleware": "flaechentor",
