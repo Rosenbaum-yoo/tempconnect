@@ -316,9 +316,48 @@ Jede Aenderung muss diesen Standard einhalten. Kein Feature ist "fertig" wenn ei
 - FEATURE_GATE_BYPASS=true Docker-Verhalten in Assertion korrekt abgebildet
 - 3754 Tests, 0 Failures
 
-P1-C: Docker-Verifikation (Pflicht vor jedem Release)
-- `docker exec tempconnect_api sh -c "cd /app && npm run test:image"`
-- **Korrigiert 2026-08-25.** Vorher stand hier `test:unit` — und das konnte
+P1-C: Abbild-Verifikation (Pflicht vor jedem Release)
+- `cd api && node scripts/run-tests.js --suite=image`
+- **Korrigiert 2026-10-01, Owner-Freigabe (Punkt 13): der Befehl lief NICHT im
+  Container, er WARF.** Hier stand
+  `docker exec tempconnect_api sh -c "cd /app && npm run test:image"`. Gemessen:
+
+      Error: Cannot find module '/app/scripts/run-tests.js'
+      code: 'MODULE_NOT_FOUND'
+
+  Grund: `api/.dockerignore` schliesst `test/` (Zeile 17) **und** `scripts/`
+  (Zeile 24) aus — im Abbild liegt also weder der Laeufer noch die Tests. Das ist
+  so gewollt: ein Produktionsabbild soll keinen Testcode tragen.
+  **Die Suite gehoert deshalb auf den HOST.** `--suite=image` ist genau dafuer
+  gebaut: es waehlt die Tests, deren Gegenstand mitgeliefert wird. Gemessen am
+  2026-10-01: 402 Dateien, 124 mit Begruendung ausgelassen, **9827 Proben, 9813
+  gruen** (das eine Rote ist der bekannte libuv-Dateiausfall auf Windows).
+  **WAS DABEI VERLOREN GEHT, benannt:** der Lauf findet nicht mehr IN der
+  Containerumgebung statt. Dass das Abbild selbst traegt, was es braucht, beweist
+  stattdessen `sh api/test-fresh-image.sh` (baut frisch, prueft in einer frischen
+  Schicht) — siehe die Zeile darunter.
+- **Diese Zeile war zweimal falsch, und das ist die eigentliche Lehre.** Am
+  2026-08-25 wurde die TESTAUSWAHL korrigiert (`test:unit` -> `test:image`), mit
+  der Begruendung "ein Gate, das nie gruen wird, wird uebersprungen". Niemand hat
+  gefragt, ob der Befehl ueberhaupt STARTET. **Ein Gate, das nie gruen wird, ist
+  schlimm; eines, das gar nicht anlaeuft, ist dasselbe eine Stufe weiter.**
+  Dagegen steht jetzt ein Waechter: `api/test/dokumentierteBefehleLaufen.test.js`
+  prueft jeden hier dokumentierten Befehl darauf, dass die genannten Dateien
+  existieren — und bei `docker exec ... /app/X`, dass `X` nicht von
+  `.dockerignore` ausgeschlossen ist. Eine dritte Fassung dieses Fehlers wird rot,
+  nicht erst beim Release.
+- **Das Abbild selbst (vor jedem Release, braucht Docker):**
+- `sh api/test-fresh-image.sh`
+  Baut unter Wegwerf-Marke frisch und prueft in einer frischen Schicht, dass die
+  Pakete laden und `server.js` alle Importe aufloest. Dauert hier ueber zehn
+  Minuten (npm ci) und laeuft deshalb NICHT im Tor; die Eigenschaften des
+  Dockerfiles prueft `api/test/abbildIstSelbstgenuegsam.test.js` bei jedem Commit
+  in Millisekunden.
+  *(Eigener Listenpunkt, damit der Befehl auf einer Zeile kopierbar ist — und
+  damit `api/test/dokumentierteBefehleLaufen.test.js` ihn als Befehl erkennt und
+  nicht nur als Erwaehnung im Fliesstext. Eine Ruecknahme dieser Form hat die
+  Probe bereits einmal gruen gelassen.)*
+- **Historie 2026-08-25.** Vorher stand hier `test:unit` — und das konnte
   strukturell nie gruen werden: gemessen 124 rote Tests von 9261, weil das
   Abbild nur `api/`, `sql/migrations` und `frontend/public/js` enthaelt. Alles,
   was `frontend/public/*.html`, `docs/`, `nginx/` oder die compose-Dateien
