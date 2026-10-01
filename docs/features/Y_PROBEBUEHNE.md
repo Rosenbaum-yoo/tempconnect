@@ -224,9 +224,9 @@ sehen."* Genau das ist heute nicht möglich.
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|
-| Y1.1 | **Je Abo eine Zeitarbeitsfirma und ein Unternehmen** — DEMO, BASIS, PLUS, PRO, INDIVIDUELL; bei INDIVIDUELL zusätzlich die Größenstufen S und Enterprise, weil sie andere Grenzen tragen | 12 Konten, jedes anmeldbar, jedes mit Zweck im Regiebuch |
+| Y1.1 ✅ | **Je Abo eine Zeitarbeitsfirma und ein Unternehmen** — DEMO, BASIS, PLUS, PRO, INDIVIDUELL; bei INDIVIDUELL zusätzlich die Größenstufen S und Enterprise, weil sie andere Grenzen tragen | **Gemessen 2026-10-01: alle zehn Kombinationen Plan × Art existierten schon** (dünnste: 2 Orgs). Was fehlte, waren die Größenstufen `individuell_s`/`individuell_l` — sie stehen in `y1-3-sonderzustaende.sql`, zusammen mit 18 anmeldbaren Konten mit Zweck im Namen |
 | Y1.2 ✅ | **Eine Firma mit drei Standorten und drei Menschen** (Verwaltung, Disposition, Standortleitung) — heute gibt es **eine** solche Organisation unter 2566 | Welle U wird damit überhaupt erst durchspielbar |
-| Y1.3 | **Je ein Konto im Sonderzustand:** Pilotkunde, gekündigt, wegen Zahlungsausfall gesperrt, Abo läuft in drei Tagen ab | Jeder Zustand ist anmeldbar und zeigt genau seine Oberfläche |
+| Y1.3 ✅ | **Je ein Konto im Sonderzustand:** Pilotkunde, gekündigt, wegen Zahlungsausfall gesperrt, Abo läuft in drei Tagen ab | Jeder Zustand ist anmeldbar und zeigt genau seine Oberfläche |
 | Y1.4 ✅ | **Eine Zeitarbeitsfirma mit vollständiger Belegschaft:** 12 Kräfte, davon 8 mit Katalog-Fähigkeiten, 2 im Einsatz, 1 krank, 1 verspätet | Erst damit kann der Marktplatz voll wirken (heute: 3 von 33 mit Fähigkeiten) |
 
 > **Y1.2 GEBAUT — Stand 2026-10-01. Beide Nullen stehen jetzt auf 1.**
@@ -362,6 +362,67 @@ sehen."* Genau das ist heute nicht möglich.
 > den Text stehen und die Zusicherung grün. Und ein Muster war ein Präfix:
 > `'krank', CURRENT_DATE` passte auch auf `CURRENT_DATE + 1`, also auf eine
 > Abwesenheit, die erst morgen beginnt. Alle drei korrigiert und nachgewiesen.
+
+> **Y1.3 GEBAUT — Stand 2026-10-01. Der Plan verlangte vier Zustände; gemessen
+> waren es ZWÖLF, und alle zwölf stehen jetzt.**
+>
+> So viele legale Zustände hatten in **2940 Organisationen und 344 Abonnements**
+> kein einziges Beispiel:
+>
+> | Feld | war unbesetzt | jetzt |
+> |---|---|---|
+> | `organizations.pilot_status` | `ended` · `converted` · `blocked` · `exception` | je 1 |
+> | `organizations.access_suspended_kind` | `non_payment` · `manual` · `security` | je 1 |
+> | `subscriptions.status` | `past_due` · `canceling` | je 1 |
+> | `organizations.individual_tier_auto` | `individuell_s` · `individuell_l` | je 1 |
+> | `organizations.customer_stage` | `demo` · **`live`** | 2 · 8 |
+> | Abo läuft in ≤ 7 Tagen ab | **0** | 2 |
+>
+> **`customer_stage = 'live'` ist der auffälligste Eintrag: keine einzige
+> Organisation stand im Zustand „live".** Der Zustand, in dem ein zahlender
+> Kunde die meiste Zeit verbringt, hatte kein Beispiel. Jeder unbesetzte Zustand
+> ist eine Oberfläche, die niemand je gesehen hat, und ein Codepfad, den kein
+> Mensch je ausgelöst hat.
+>
+> `sql/seeds/y1-3-sonderzustaende.sql` legt **zwölf Organisationen** an, jede mit
+> genau einem Zweck — und **der Zweck steht im Namen**: „Pilot beendet GmbH",
+> „Zahlungsausfall GmbH", „Sicherheitssperre GmbH", „Ablauf in drei Tagen GmbH".
+> Wer die Liste in der Verwaltung sieht, weiß ohne Nachschlagen, wofür jede Zeile
+> da ist.
+>
+> **Zwei Organisationen tragen bewusst zwei Zustände**, weil die Kombination die
+> realistische ist: „wegen Zahlungsausfall gesperrt" geht mit einem Abonnement in
+> `past_due` einher, und „Pilot übernommen" ist genau der Übergang nach
+> `customer_stage = 'live'`. Ein `past_due` ohne Sperre und eine Sperre ohne
+> offenes Abo wären beide Zustände, die es so nie gibt.
+>
+> **Alle Datumswerte sind RELATIV** (`CURRENT_DATE ± n`, `now() - interval`). Ein
+> festes Datum ist in drei Wochen „vor zwei Jahren" und die Mahnstrecke zeigt
+> wieder nichts — Y2.3 verlangt dasselbe ausdrücklich, hier ist es vorweggenommen.
+>
+> **Y1.1 ist damit mit erledigt, und der Grund ist eine Messung:** dessen
+> wörtliche Forderung — je Abo eine Zeitarbeitsfirma und ein Unternehmen — war
+> durch die Masse schon erfüllt. Alle **zehn** Kombinationen aus Plan und Art
+> (DEMO/BASIS/PLUS/PRO/INDIVIDUELL × company/agency) existierten bereits, die
+> dünnste mit 2 Organisationen. Was fehlte, waren die INDIVIDUELL-Größenstufen;
+> `individuell_s` und `individuell_l` stehen in dieser Saat.
+>
+> **18 von 18 Bühnen-Konten sind anmeldbar** (Y1.2 + Y1.3 + Y1.4), gemessen über
+> `crypt()`-Verifikation gegen den Hash. Zweiter Lauf idempotent: `users`,
+> `organizations`, `subscriptions` unverändert bei 427 / 2954 / 350.
+>
+> **Wächter:** `api/test/probebuehneSonderzustaende.test.js`, 8 Zusicherungen,
+> **13 Rückmutationen, alle rot und jede an der gemeinten Stelle.** Fünf davon
+> waren zuerst GRÜN und haben echte Lücken in meiner eigenen Probe gezeigt — alle
+> fünf dieselbe Familie: **die Zusicherung suchte in einem zu weiten Text.**
+>
+>   - Zwei fanden den Zustand in meiner **eigenen Notbremse** am Dateiende, die
+>     jeden der zwölf Werte ja nennt. Geprüft wird jetzt nur der Teil der Datei,
+>     der Zeilen anlegt.
+>   - Eine traf das falsche Datum in einem 200-Zeichen-Fenster.
+>   - Eine zählte ein **dupliziertes** Konto doppelt und kam auf zwölf, während
+>     eine Organisation ohne Konto zurückblieb.
+>   - Eine zählte **auskommentierte** `ON CONFLICT`-Klauseln mit.
 
 ### Y2 · Die Zustände, die sonst niemand herstellt
 

@@ -162,6 +162,7 @@ SEED_DEMO_WORLD=true SEED_PASSWORT=<mind. 12 Zeichen> \
 - `sql/seeds/demo-sales.sql` — Vertriebs-Demo: 3 Nutzer, Subscriptions, Listings, Requests
 - `sql/seeds/demo-timesheets.sql` — Orgs, Timesheets in allen Status
 - `sql/seeds/y1-2-standorte.sql` — Probebühne (Welle Y1): eine Firma mit drei Standorten und drei Menschen in drei Rollen. **Braucht zusätzlich `SEED_PASSWORT`** — diese Saat trägt absichtlich kein Passwort im Repo und hasht beim Laden (pgcrypto).
+- `sql/seeds/y1-3-sonderzustaende.sql` — Sonderzustände (Welle Y1.3): zwölf Organisationen, jede in genau einem Zustand, der im Bestand kein Beispiel hatte (Pilot beendet/übernommen/gesperrt/Ausnahme, Zahlungsausfall, manuell gesperrt, Sicherheitssperre, Kündigung läuft, INDIVIDUELL S und L, Demo-Phase, Abo läuft in drei Tagen ab). Braucht `SEED_PASSWORT`.
 - `sql/seeds/y1-4-belegschaft.sql` — Belegschaft (Welle Y1.4): zwölf Kräfte, acht mit Katalog-Fähigkeit, eine krank, eine verspätet, zwei im Einsatz. **Nach** `y1-2-standorte.sql` laden — der Einsatz hängt an deren Standort. Braucht ebenfalls `SEED_PASSWORT`.
 
 ### run-worker.sh — Worker-Management
