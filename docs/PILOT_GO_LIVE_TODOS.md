@@ -25,6 +25,10 @@ Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-
   prüft, sieht jetzt echte Zahlen; leere Tage davor sind kein Befund über den Versand.
 - **Rechte:** Kunden ziehen strategische Anfragen nur noch zurück; Owner-Rechte vergibt nur ein Owner
   (vom Owner bestätigt).
+- ✅ **Wichtigkeits-Wächter** (Owner 2026-10-01): alle offenen Punkte — auch die offenen P0-Blocker
+  dieser Liste — stehen nach Wichtigkeit A/B/C in `docs/WICHTIGKEIT.md`; der Owner bekommt jeden
+  Montag eine Erinnerung (Push und E-Mail). **Wer hier einen P0-Blocker einträgt oder erledigt,
+  zieht die Zeile dort mit** — `api/test/wichtigkeit.test.js` prüft die Kopplung.
 
 ### 2026-10-01 — Livegang-Blocker behoben: Staff-Login auf frischer Datenbank (Migration 226)
 

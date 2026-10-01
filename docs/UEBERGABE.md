@@ -20,6 +20,40 @@ K1-Spitze `94117a7` vollständig (Merge `74e2d86`, gegen K1 geprüft).
 lokal seit `94117a7` nichts Neues dazukam — sonst ein normaler `git merge` (keine
 Umschreibung von Historie). Konfliktgefahr nur in den Dateien, die unten stehen.
 
+### Wichtigkeits-Wächter — alle offenen Punkte nach A, B, C *(Owner 2026-10-01)*
+
+> Owner: *„wollen wir so ein Wichtigkeits-Wächter bauen, der nach Wichtigkeit noch nicht erledigte
+> Sachen regelmäßig prüft und eine Erinnerung an mich schickt durch dich — hierarchisch
+> strukturiert eben nach Wichtigkeitsklassen A, B und C“*
+
+**[WICHTIGKEIT.md](WICHTIGKEIT.md) ist der Index über alle offenen Listen** — Reihenfolge,
+Owner-Liste und Owner-Entscheidungen hier in der Übergabe, dazu die P0-Blocker der Go-Live-Liste.
+Jeder offene Posten steht dort **einmal**: Klasse (**A** muss vor dem Livegang stehen · **B**
+wichtig, bald · **C** später), wer als Nächstes handelt, nächster Schritt, seit wann, Quelle.
+Stand beim Anlegen: **10 × A, 18 × B, 20 × C**, davon beim Owner 8 · 10 · 11. Die Einstufung ist
+ein Vorschlag der Cloud-Sitzung; **herunterstufen nur auf Owner-Wort**.
+
+**Für jede Sitzung, verbindlich:** wer hier eine offene Owner-Entscheidung, einen Posten der
+Reihenfolge oder einen P0-Blocker der Go-Live-Liste einträgt **oder erledigt**, zieht die Zeile in
+`WICHTIGKEIT.md` im selben Commit mit. Sonst wird `api/test/wichtigkeit.test.js` rot — die
+Kopplung gilt in beide Richtungen: nichts Offenes ohne Einstufung, keine offene Zeile, die auf
+Erledigtes zeigt (25 Proben, 14 Rückmutationen gefangen).
+
+**Die Erinnerung „durch Claude“:** jeden **Montag 07:55** (Berlin) startet die Routine
+**„Wichtigkeits-Wächter“** (`trig_013dTpQ4vaMMgH9ABtmUZ4NF`) eine frische Claude-Sitzung. Sie
+holt den Stand von GitHub, ruft `node api/scripts/wichtigkeit.mjs
+--zweige=claude/zen-goldberg-w1oxw3,claude/brave-sanderson-9e9148` (das Register vom Zweig mit dem
+jüngsten Commit daran — K1 und die Cloud-Sitzung pflegen es beide), setzt zwei, drei Sätze „Diese
+Woche zuerst“ darüber und schickt alles per **Push und E-Mail** an den Owner: A ausführlich, B je
+eine Zeile, C in der ersten Woche des Monats als Liste. Sie ändert nichts am Repository. Sie kennt
+nur, was **gepusht** ist — wer etwas erledigt, pusht die Zeile, sonst erinnert sie weiter daran.
+Ändern oder abstellen: in claude.ai unter Routinen, oder einer Sitzung sagen.
+
+Selbst ansehen: `node api/scripts/wichtigkeit.mjs` (die Erinnerung für heute) · `… --alle` (mit
+der C-Liste) · `… --pruefen` (Form und Kopplung). **Für K1:** im lokalen Skill
+(`.agents/skills/tempconnect-project/SKILL.md`, nicht im Repository) einen Eintrag „Offene Punkte:
+docs/WICHTIGKEIT.md, Klassen A/B/C, Wächter-Test, Montags-Erinnerung“ ergänzen.
+
 ### Neu sichtbar im Frontend — zum lokalen Ansehen *(wird bei jedem Push nachgeführt)*
 
 Owner 2026-10-01: *„und auch mergen in gewissen Abständen immer wenn etwas neues im frontend zu
@@ -85,6 +119,7 @@ per `git merge --ff-only 89ca180` zurückgeholt, verloren war nur eine eigene un
 | `92c29aa` | **Die Verwaltung heißt überall Verwaltung** (Owner: „umbenennen in Verwaltung“): Kachel „Organisation“ im Anbieterprofil, Menüpunkt in System-Health, Banner der Übersicht, Trust-Seiten („Admin-Panel mit Echtzeit-Filterung“ → was es gibt), api-docs. „Organisation“ als Name der eigenen Firma bleibt | `sla_profil.html`, `slaProfil.js`, `system-health.html`, `enterprise.html`, `enterpriseHub.js`, `trust/*.html`, `api-docs.html` |
 | `89ca180` | **Einsatzportal im Protokoll** — eigener Abschnitt unten | siehe dort |
 | `git log -1 -- scripts/dev/cloud-stand-holen.sh` | **Cloud-Stand automatisch holen** (Owner: „mergen in gewissen Abständen … automatisch, damit ich lokal auch gucken kann“): Skript + Windows-Doppelklick, holt nur über einen sauberen Baum, nie während eines Testlaufs, bei Konflikt Abbruch, pusht nie; baut nach, was sich geändert hat, und holt liegengebliebene Bau-Schritte nach. **Der Testlauf legt dafür selbst eine Marke**; ist die Prüfung selbst gestört, fasst das Skript nichts an — 8 Rückmutationen, alle gefangen, volles Tor 12.198/0 | **neu** `scripts/dev/cloud-stand-holen.sh`, `scripts/dev/cloud-stand-holen.cmd`, `api/scripts/lib/torMarke.mjs`, `api/test/torMarke.test.js`; **geändert** `api/scripts/run-tests.js` (Marke setzen/räumen, sonst unverändert), `docs/DEVELOPER_SETUP.md` |
+| `git log -1 -- docs/WICHTIGKEIT.md` | **Wichtigkeits-Wächter** (Owner: „nach Wichtigkeit … regelmäßig prüft und eine Erinnerung an mich schickt … Wichtigkeitsklassen A, B und C“): Register aller offenen Punkte, gekoppelt an vier Listen, Erinnerung montags per Routine. Nebenbei **W-E9 und W-E10 als entschieden markiert** — sie standen nach dem Bau noch als offen in „Offene Owner-Entscheidungen“ | **neu** `docs/WICHTIGKEIT.md`, `api/scripts/wichtigkeit.mjs`, `api/test/wichtigkeit.test.js`; `docs/UEBERGABE.md`, `docs/PILOT_GO_LIVE_TODOS.md` |
 | `d7c239e` | **Ein Weg zur Verwaltung:** Hub-Karte `verwaltung` ersetzt `admin_panel` **und** `location_management` (Schlüssel gelöscht, nicht nur Karten); Link „Verwaltung →“ im Nutzermenü; Suche findet sie jetzt auch für Zeitarbeitsfirmen; drei tote Admin-Links im Executive Dashboard entfernt; Rollenabzeichen nennen die Rollen wie die Verwaltung | `enterprise.html`, `hubVisibility.js`, `pageShell.js`, `roleBadge.js`, `executive_dashboard.html`, `api/config/visibilityMatrix.js` |
 
 Geprüft am laufenden System (Postgres 16 + API + Chromium), beide Demo-Firmen,
@@ -3896,7 +3931,7 @@ laufen, trägt der Schalter.
   Reihenfolge:* zvoove-Anfrage sofort (Owner), anbieterneutraler Bedarfs-Eingang als erster
   Code, Personio bei Bedarf, Fieldglass/Beeline erst mit einem Großkunden. Mit Quellen:
   `docs/INTEGRATIONS.md`, „Zugang je Anbieter".
-- **W-E9 (neu, 2026-09-30)** — **Admin Panel für Kunden abschaffen und auf die Verwaltung
+- ~~**W-E9**~~ ✅ **entschieden und gebaut am 2026-10-01** (Owner-Freigabe; `4123bad`, `d7c239e`, `92c29aa`) — ursprünglich *(neu, 2026-09-30)*: **Admin Panel für Kunden abschaffen und auf die Verwaltung
   (`organization.html`) umleiten, statt es zu reparieren?** Geprüft am laufenden System
   (frische Datenbank mit allen 229 Migrationen und der Demo-Welt, Browser, angemeldet als
   Owner eines Unternehmens und einer Zeitarbeitsfirma): beide Seiten sehen dieselbe
@@ -3911,7 +3946,7 @@ laufen, trägt der Schalter.
   der Mitgliedschaft, **nicht** das Erlauben von `inactive` (sonst sperrt ein früherer
   Arbeitgeber ein fremdes Konto). Befund mit Belegen: `docs/ADMIN_CONTROL_CENTER.md`,
   Vorschau: `docs/design/vorschau-verwaltung-kunden.html`.
-- **W-E10 (neu, 2026-09-30)** — **Plattform-Teil des Admin Panels ins Staff Control Center,
+- ~~**W-E10**~~ ✅ **entschieden und gebaut am 2026-10-01** (Owner-Freigabe; `894c867`, Migration 226) — ursprünglich *(neu, 2026-09-30)*: **Plattform-Teil des Admin Panels ins Staff Control Center,
   danach `admin_panel.html` stilllegen?** Die fünf Plattform-Reiter verlangen
   `platform_admin`; kein Skript, keine Einladung und kein Rollenwechsel vergibt diese Rolle
   — erreichbar sind sie für niemanden. Nur hier gibt es **Feature-Flags** (Freischaltung für
