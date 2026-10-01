@@ -3200,6 +3200,73 @@ durch sind** (Owner-Vorgabe). Bis dahin bleibt dieser Eintrag der Merkzettel.
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
 
+### Welche Organisation trägt eine Audit-Zeile, die ein Dienst schreibt? *(2026-10-01, gemessen)*
+
+**Gefunden durch den neuen Pflichtlauf mit Datenbank** (P1-C in `CLAUDE.md`).
+`api/test/auditMandantenGrenze.test.js` ist rot:
+
+> 9 org-lose Zeile(n), deren Akteur genau EINER Organisation angehoert. Sie wären
+> eindeutig zuordenbar und sind in keinem Org-Audit sichtbar.
+
+Die letzte dieser Zeilen ist vom **2026-10-01, 14:42** — keine Altlast, die
+Schreibseite lässt es laufend wieder entstehen. Insgesamt tragen 1228 von 3650
+Audit-Zeilen keine Org; die 9 sind die Teilmenge, bei der die Zuordnung
+**eindeutig** wäre.
+
+**Die Ursache ist benannt: dieselbe Aktion wird auf ZWEI Wegen geschrieben.**
+
+| Aktion | mit Org | ohne Org |
+|---|---|---|
+| `state_machine.transition` | 56 | 26 |
+| `deal.agreement_created` | 23 | 13 |
+| `deal.agreement_activated` | 11 | **19** |
+| `deal.agreement_confirmed` | 45 | 1 |
+| `assignment.created` | 56 | 1 |
+
+- `api/routes/marketplace.js` setzt `res.locals.audit = {…}` — die Middleware
+  kennt `req` und stempelt die Org.
+- `api/services/dealAgreementService.js` (Zeilen 157, 232, 397) und
+  `api/services/stateMachine.js` (`logTransition`) schreiben dieselbe Aktion
+  **aus dem Dienst heraus**: `writeAudit(client, {…})` ohne `req` und ohne
+  `org_id`.
+
+`bestimmeAuditOrg(req, actorId, explizit)` in `api/services/auditLog.js` hat dafür
+ausdrücklich einen Weg — das Argument `explizit` gewinnt vor allem anderen. Die
+Dienste nutzen ihn nur nicht.
+
+**Warum Claude das nicht selbst entscheidet.** Eine org-lose Zeile sieht
+*niemand* — das ist kein Leck, nur eine Lücke in der Nachvollziehbarkeit. Eine
+Zeile mit der **falschen** Org zu stempeln IST ein Leck, und zwar über eine
+Mandantengrenze hinweg. Bei einem Abschluss zwischen Unternehmen und
+Zeitarbeitsfirma sind **zwei** Organisationen beteiligt.
+
+**Empfehlung: die Organisation des HANDELNDEN, nicht die des Gegenübers.**
+
+1. Eine Audit-Zeile hält fest, **wer was getan hat**. Sehen muss sie die
+   Organisation, die für diesen Menschen einsteht.
+2. Sie kann damit nie zur Gegenseite lecken: gestempelt wird nur die eigene Seite.
+3. Sie ist ohne Raten bestimmbar, solange der Akteur genau **eine**
+   Mitgliedschaft hat. Bei mehreren bleibt die Regel aus Migration 187 gültig:
+   **NULL statt falsch** — im Nachhinein lässt sich nicht sagen, in welcher Rolle
+   gehandelt wurde.
+4. Die Gegenseite verliert nichts: die Abschluss-Historie liest
+   `api/services/dealDossierService.js` ohnehin aus denselben Aktionen,
+   unabhängig von `org_id`.
+
+**Umsetzung, wenn freigegeben** (drei Stellen, klein):
+`logTransition(pool, opts)` nimmt `opts.org_id` und reicht es als `explizit`
+weiter; `dealAgreementService` übergibt die Seite des Akteurs bei allen drei
+`writeAudit`-Aufrufen; eine Probe nagelt die Richtung fest (Käuferseite →
+Käufer-Org, Lieferantenseite → Lieferanten-Org, zwei Mitgliedschaften → NULL).
+Der **Altbestand** der 9 Zeilen wird dabei nicht angefasst — ein Nachtrag wäre
+eine zweite Entscheidung, und Migration 187 hat genau das bewusst unterlassen.
+
+**Abzuwägende Alternative:** beide Seiten stempeln, also zwei Zeilen je Vorgang.
+Macht die Historie für beide sichtbar, verdoppelt das Audit-Volumen und erzeugt
+die Frage, welche der zwei Zeilen die Wahrheit ist. Claude hält das für schlechter.
+
+
+
 ### Aus dem Owner-Dokument *(2026-09-14)*
 
 - ~~**V-E1**~~ ✅ entschieden 2026-09-15 — Andockung **getrennt nach Ziel** bepreist: zvoove als

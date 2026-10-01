@@ -370,6 +370,34 @@ P1-C: Abbild-Verifikation (Pflicht vor jedem Release)
 - Der VOLLE Lauf bleibt Pflicht auf dem Host: `cd api && node scripts/run-tests.js`.
   Oberflaechen-, Doku- und Infrastruktur-Tests laufen nur dort — und dort sind
   sie nicht optional.
+- **UND MIT DATENBANK — sonst beweist auch der volle Lauf weniger, als er scheint
+  (ergaenzt 2026-10-01):**
+- `cd api && node scripts/run-tests.js --verlange-datenbank`
+  Der Schalter macht uebersprungene DATENBANKTESTS zum Fehler. Er braucht
+  `DATABASE_URL` (oder `DB_HOST` + `DB_*`) in der Umgebung; ohne das ist der Lauf
+  ROT, und genau das ist der Zweck.
+- **Warum das eine eigene Pflichtzeile ist, gemessen am 2026-10-01.** Derselbe
+  Baum, zwei Laeufe:
+
+      ohne Datenbank: 12354 Proben, 14 uebersprungen, 3 rot
+      mit  Datenbank: 12409 Proben,  1 uebersprungen, 7 rot
+
+  Die 55 zusaetzlichen Proben sind absichtlich datenbankgebunden: Zeilensperren,
+  Transaktionen, echte Eindeutigkeit — ein Muster-Pool kann das nicht zeigen. Vier
+  Dateien waren rot, die der uebliche Lauf NIE zeigt, und keine davon war neu:
+
+    - `auditMandantenGrenze`: 9 org-lose Audit-Zeilen, deren Akteur genau EINER
+      Organisation angehoert
+    - `mandantenModellWaechter`: Register und Datenbank auseinandergelaufen — und
+      der genannte Behebungsweg hatte fuer seine erste Haelfte ("neu erheben")
+      keinen Befehl
+    - `bountyZeitfenster` (P9/A3): `werbe_cashback` nennt im Text 30 Tage, die
+      Bedingung kennt keinen Zeitraum
+    - `marktpraesenz.service` Teil B: Sweep/Idempotenz/Schalter-Zyklus
+
+  Der Laeufer sagt es selbst: *"DIESER LAUF BEWEIST WENIGER, ALS ER SCHEINT"*. Er
+  sagt es seit Monaten in jedem Lauf — nur stand nirgends, dass man den Schalter
+  setzen MUSS. Ein Hinweis ohne Pflicht wird gelesen und nicht befolgt.
 - Aufwand: 0.5 Stunden | Nutzen: Hoch — Produktions-Konfidenz
 
 **PRIO 2 — Enterprise-Qualitaet (diese Woche)**

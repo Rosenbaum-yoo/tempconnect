@@ -396,7 +396,7 @@ async function laufe(wurzel) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const wurzel = process.argv[2];
   if (!wurzel) {
-    console.error("Aufruf: node secretScan.mjs <verzeichnis>");
+    console.error("Aufruf: node scripts/lib/secretScan.mjs <verzeichnis>  (aus dem Wurzelverzeichnis)");
     process.exit(2);
   }
   const funde = await laufe(wurzel);

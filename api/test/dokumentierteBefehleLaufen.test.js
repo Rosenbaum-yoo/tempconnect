@@ -221,6 +221,35 @@ suite("Punkt 13 · jeder dokumentierte Pflicht-Befehl ist ausführbar", () => {
       "weil api/.dockerignore scripts/ ausschliesst");
   });
 
+  it("die Pflicht nennt den Lauf MIT Datenbank — sonst beweist das Tor weniger, als es scheint", () => {
+    /*
+     * Ergänzt 2026-10-01. Der volle Host-Lauf allein genügt nicht: ohne
+     * `DATABASE_URL` überspringt er die datenbankgebundenen Proben und zählt als
+     * grün. Gemessen am selben Baum:
+     *
+     *     ohne Datenbank: 12354 Proben, 14 uebersprungen, 3 rot
+     *     mit  Datenbank: 12409 Proben,  1 uebersprungen, 7 rot
+     *
+     * Vier rote Dateien, die der übliche Lauf nie zeigt, und keine davon neu —
+     * eine seit dem 2026-08-28 (`mandantenModellWaechter`, dessen
+     * Behebungsweg für seine erste Hälfte gar keinen Befehl hatte).
+     *
+     * Der Läufer warnt in JEDEM Lauf („DIESER LAUF BEWEIST WENIGER, ALS ER
+     * SCHEINT") und nennt den Schalter. Er wurde trotzdem nicht gesetzt, weil
+     * nirgends stand, dass er PFLICHT ist. Ein Hinweis ohne Pflicht wird
+     * gelesen und nicht befolgt — deshalb steht er jetzt hier.
+     */
+    const block = p1c();
+    assert.match(block, /`cd api && node scripts\/run-tests\.js --verlange-datenbank`/,
+      "P1-C nennt den Lauf mit Datenbank nicht mehr als Befehl. Ohne ihn zaehlen "
+      + "uebersprungene Datenbanktests als gruen, und ein Befund kann Monate liegen.");
+    assert.match(block, /DATENBANKTESTS zum Fehler|uebersprungene DATENBANKTESTS/,
+      "Es steht nicht mehr da, WAS der Schalter tut — dann wirkt er wie eine Zierde");
+    assert.match(block, /12409|mit\s+Datenbank/,
+      "Die Messung, die diese Pflicht begruendet, ist verschwunden. Eine Pflicht ohne "
+      + "Begruendung wird beim naechsten Aufraeumen gestrichen.");
+  });
+
   it("der Verlust ist benannt, nicht verschwiegen", () => {
     /*
      * Der Host-Lauf prüft nicht IN der Containerumgebung. Das ist ein echter

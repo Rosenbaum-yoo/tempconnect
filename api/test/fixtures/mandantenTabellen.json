@@ -1,6 +1,6 @@
 {
   "zweck": "Welche Tabellen tragen einen Mandanten, und wo steht der Datenbank-Backstop (RLS) wirklich? Gemessen gegen die LAUFENDE Datenbank, nicht gegen die Migrationen — die beiden laufen auseinander (Erkenntnis M0-B9). Grundlage fuer docs/security/TENANT_ISOLATION_MODEL.md; api/test/mandantenModellWaechter.test.js haelt Dokument und Wirklichkeit zusammen.",
-  "stand": "2026-08-21",
+  "stand": "2026-10-01",
   "erhebung": "FK-Ziel organizations (pg_constraint.confrelid), plus Zeilen- und NULL-Zaehlung je Traegerspalte.",
   "einstufungen": {
     "geschuetzt": "RLS + FORCE aktiv — der Backstop steht. Fuer die 18 Tabellen aus Migration 196 einzeln nachgewiesen (Wegwerf-Datenbank, Nicht-Superuser-Rolle, 2026-08-24).",
@@ -10,9 +10,10 @@
     "kein_mandantentraeger": "Die org-FK ist Selbstbezug, globaler Katalog, Gegenseite eines zweiseitigen Vorgangs oder eine Staff-/Owner-Flaeche â€” org-RLS waere hier das falsche Modell (dieselbe Begruendung wie fuer subscriptions in Migration 116)."
   },
   "zusammenfassung": {
-    "bereit_ohne_daten": 25,
+    "bereit": 1,
+    "bereit_ohne_daten": 28,
+    "blockiert_daten": 12,
     "geschuetzt": 26,
-    "blockiert_daten": 10,
     "kein_mandantentraeger": 17
   },
   "tabellen": [
@@ -139,7 +140,7 @@
         "org_id",
         "supplier_org_id"
       ],
-      "zeilen": 68,
+      "zeilen": 69,
       "ohneOrg": 0,
       "rls": true,
       "force": true,
@@ -155,8 +156,8 @@
       "orgSpalten": [
         "org_id"
       ],
-      "zeilen": 2740,
-      "ohneOrg": 1796,
+      "zeilen": 3650,
+      "ohneOrg": 1228,
       "rls": true,
       "force": false,
       "policies": [
@@ -165,6 +166,19 @@
       ],
       "einstufung": "geschuetzt",
       "begruendung": "RLS aktiv (Migration 116/126)."
+    },
+    {
+      "tabelle": "aueg_konfiguration",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "NOCH NICHT BEURTEILT — vorlaeufig aus der Messung eingestuft am 2026-10-01. Traeger: org_id; 0 Zeilen, davon 0 ohne Traeger; RLS aus. Ob diese Tabelle mandantenprivat ist, ist ein Urteil und steht noch aus."
     },
     {
       "tabelle": "billing_usage_metrics",
@@ -184,7 +198,7 @@
       "orgSpalten": [
         "org_id"
       ],
-      "zeilen": 33,
+      "zeilen": 45,
       "ohneOrg": 3,
       "rls": false,
       "force": false,
@@ -296,11 +310,24 @@
       "begruendung": "rated_org_id/rater_org_id sind zwei Mandanten an einem Vorgang."
     },
     {
+      "tabelle": "demand_requests",
+      "orgSpalten": [
+        "requester_org_id"
+      ],
+      "zeilen": 42,
+      "ohneOrg": 10,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "blockiert_daten",
+      "begruendung": "NOCH NICHT BEURTEILT — vorlaeufig aus der Messung eingestuft am 2026-10-01. Traeger: requester_org_id; 42 Zeilen, davon 10 ohne Traeger; RLS aus. Ob diese Tabelle mandantenprivat ist, ist ein Urteil und steht noch aus."
+    },
+    {
       "tabelle": "document_center",
       "orgSpalten": [
         "org_id"
       ],
-      "zeilen": 158,
+      "zeilen": 223,
       "ohneOrg": 0,
       "rls": true,
       "force": true,
@@ -310,6 +337,19 @@
       ],
       "einstufung": "geschuetzt",
       "begruendung": "RLS + FORCE aktiv seit Migration 196 (V-1). Einzelnachweis am 2026-08-24 auf einer Wegwerf-Datenbank mit Nicht-Superuser-Rolle: ohne Kontext 0 Zeilen, mit Org A nur A, mit Staff-Bypass alles."
+    },
+    {
+      "tabelle": "feature_overrides",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "NOCH NICHT BEURTEILT — vorlaeufig aus der Messung eingestuft am 2026-10-01. Traeger: org_id; 0 Zeilen, davon 0 ohne Traeger; RLS aus. Ob diese Tabelle mandantenprivat ist, ist ein Urteil und steht noch aus."
     },
     {
       "tabelle": "flagged_search_queries",
@@ -372,21 +412,21 @@
       "orgSpalten": [
         "org_id"
       ],
-      "zeilen": 0,
-      "ohneOrg": 0,
+      "zeilen": 8,
+      "ohneOrg": 8,
       "rls": false,
       "force": false,
       "policies": [],
-      "einstufung": "bereit_ohne_daten",
-      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+      "einstufung": "blockiert_daten",
+      "begruendung": "8 von 8 Zeilen ohne Traeger — RLS wuerde genau diese Zeilen unsichtbar machen."
     },
     {
       "tabelle": "notifications",
       "orgSpalten": [
         "org_id"
       ],
-      "zeilen": 765,
-      "ohneOrg": 731,
+      "zeilen": 1172,
+      "ohneOrg": 1130,
       "rls": false,
       "force": false,
       "policies": [],
@@ -514,7 +554,7 @@
       "orgSpalten": [
         "org_id"
       ],
-      "zeilen": 251,
+      "zeilen": 252,
       "ohneOrg": 0,
       "rls": true,
       "force": false,
@@ -530,7 +570,7 @@
       "orgSpalten": [
         "org_id"
       ],
-      "zeilen": 18,
+      "zeilen": 46,
       "ohneOrg": 0,
       "rls": true,
       "force": true,
@@ -559,8 +599,8 @@
       "orgSpalten": [
         "parent_org_id"
       ],
-      "zeilen": 1804,
-      "ohneOrg": 1804,
+      "zeilen": 2940,
+      "ohneOrg": 2940,
       "rls": false,
       "force": false,
       "policies": [],
@@ -625,8 +665,8 @@
       "orgSpalten": [
         "org_id"
       ],
-      "zeilen": 6024,
-      "ohneOrg": 2132,
+      "zeilen": 8649,
+      "ohneOrg": 2462,
       "rls": false,
       "force": false,
       "policies": [],
@@ -638,8 +678,8 @@
       "orgSpalten": [
         "org_id"
       ],
-      "zeilen": 4504,
-      "ohneOrg": 612,
+      "zeilen": 6682,
+      "ohneOrg": 712,
       "rls": false,
       "force": false,
       "policies": [],
@@ -652,8 +692,8 @@
         "reported_org_id",
         "reporter_org_id"
       ],
-      "zeilen": 0,
-      "ohneOrg": 0,
+      "zeilen": 6,
+      "ohneOrg": 1,
       "rls": false,
       "force": false,
       "policies": [],
@@ -739,6 +779,32 @@
       "policies": [],
       "einstufung": "bereit_ohne_daten",
       "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "rabatt_ausfaelle",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "NOCH NICHT BEURTEILT — vorlaeufig aus der Messung eingestuft am 2026-10-01. Traeger: org_id; 0 Zeilen, davon 0 ohne Traeger; RLS aus. Ob diese Tabelle mandantenprivat ist, ist ein Urteil und steht noch aus."
+    },
+    {
+      "tabelle": "rabatt_eingriffe",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "NOCH NICHT BEURTEILT — vorlaeufig aus der Messung eingestuft am 2026-10-01. Traeger: org_id; 0 Zeilen, davon 0 ohne Traeger; RLS aus. Ob diese Tabelle mandantenprivat ist, ist ein Urteil und steht noch aus."
     },
     {
       "tabelle": "rate_card_checks",
@@ -831,7 +897,7 @@
       "orgSpalten": [
         "org_id"
       ],
-      "zeilen": 36,
+      "zeilen": 40,
       "ohneOrg": 0,
       "rls": true,
       "force": true,
@@ -916,7 +982,7 @@
       "orgSpalten": [
         "reporter_org_id"
       ],
-      "zeilen": 0,
+      "zeilen": 2,
       "ohneOrg": 0,
       "rls": false,
       "force": false,
@@ -986,7 +1052,7 @@
       "orgSpalten": [
         "org_id"
       ],
-      "zeilen": 195,
+      "zeilen": 196,
       "ohneOrg": 29,
       "rls": false,
       "force": false,
@@ -999,7 +1065,7 @@
       "orgSpalten": [
         "org_id"
       ],
-      "zeilen": 395,
+      "zeilen": 409,
       "ohneOrg": 158,
       "rls": false,
       "force": false,
@@ -1073,13 +1139,13 @@
       "orgSpalten": [
         "supplier_org_id"
       ],
-      "zeilen": 0,
+      "zeilen": 2,
       "ohneOrg": 0,
       "rls": false,
       "force": false,
       "policies": [],
-      "einstufung": "bereit_ohne_daten",
-      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 2 Zeilen gefuellt — RLS ohne Datenausfall aktivierbar."
     },
     {
       "tabelle": "worker_invites",
@@ -1132,7 +1198,7 @@
         "org_id",
         "supplier_org_id"
       ],
-      "zeilen": 19,
+      "zeilen": 21,
       "ohneOrg": 0,
       "rls": true,
       "force": true,

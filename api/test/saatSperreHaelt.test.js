@@ -119,6 +119,51 @@ function zeilenOhneKommentar(sql) {
 /* Die AUSFÜHRBARE Schalterprüfung, nicht irgendeine Erwähnung des Namens. */
 const ANWEISUNG = /current_setting\(\s*'app\.seed_demo_world'/;
 
+/* ── Anleitung oder Fundbeschreibung? ──────────────────────────────────────
+   D1 und D2 unten suchen nach etwas Verbotenem im Text. Beide waren beim
+   ersten Lauf an MEINEM EIGENEN Befundbericht rot: wer einen toten Pfad
+   dokumentiert, muss ihn nennen. Der erste Entwurf prüfte deshalb, ob in
+   DERSELBEN ZEILE eine Verneinung steht — und das reicht nicht, weil Sätze
+   umbrechen: „…nannten Skripte, die es" / „nicht gibt (`sql/seed.sh`…)".
+   Geprüft wird jetzt der ABSATZ. Ein Codeblock dagegen hat keinen Satz, der
+   ihn relativieren könnte, und zählt immer — genau dort stand der Befund vom
+   2026-10-01 (ein ```bash-Block in docs/SALES_DEMO_PATH.md). */
+const VERNEINUNG = /fruehere|frühere|vorbei|nicht gibt|nicht mehr|niemals|verweigert|umgeht|umging|existiert nicht|gab es nie|war falsch/i;
+
+/* Eine ANLEITUNG wird von Prosa NIE entschuldigt — auch nicht von einer
+   Verneinung im selben Absatz. Denn eine Verneinung über Pfad A entschuldigt
+   Pfad B nicht, und genau daran ist eine Rückmutation einmal entwischt: sie
+   setzte „**Anleitung:** `sql/seed.sh` ausfuehren" neben meinen eigenen Satz
+   „…weil es diese Datei nicht gibt". Zwei Pfade, eine Verneinung, falsches Grün. */
+const ANLEITUNG = /\b(Anleitung|Aufruf|Nutzung|Usage|Befehl|ausf(ü|ue)hren|starten|Ladebefehl)\b/i;
+
+/** Absätze einer Datei: zusammenhängende nicht-leere Zeilen, je Zeilennummer. */
+function absatzKarte(text) {
+  const z = text.split(/\r?\n/);
+  const karte = new Array(z.length).fill("");
+  let ab = 0;
+  const schreibe = (von, bis) => {
+    const stueck = z.slice(von, bis).join(" ");
+    for (let i = von; i < bis; i++) karte[i] = stueck;
+  };
+  for (let i = 0; i <= z.length; i++) {
+    if (i === z.length || z[i].replace(/^>\s?/, "").trim() === "") { schreibe(ab, i); ab = i + 1; }
+  }
+  return karte;
+}
+
+/** Für jede Zeile: liegt sie in einem ```-Codeblock? */
+function zaunKarte(text) {
+  const z = text.split(/\r?\n/);
+  const karte = new Array(z.length).fill(false);
+  let drin = false;
+  for (let i = 0; i < z.length; i++) {
+    if (/^\s*```/.test(z[i])) { drin = !drin; karte[i] = true; continue; }
+    karte[i] = drin;
+  }
+  return karte;
+}
+
 function ohneKommentar(sql) {
   return sql.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ");
 }
@@ -360,13 +405,18 @@ suite("Y0.1 — die Saat sperrt sich selbst, auf jedem Ladeweg", () => {
         if (e.isDirectory()) geh(p, tiefe + 1);
         else if (/\.(md|sh|sql|ya?ml)$/.test(e.name)) {
           const t = fs.readFileSync(p, "utf8");
-          for (const z of t.split(/\r?\n/)) {
-            /* Direktaufruf: psql … < sql/seeds/… — umgeht jedes Skript.
-               Eigene Erwähnungen in Begründungen tragen "frühere" oder
-               "ging … vorbei" und sind erkennbar Prosa, keine Anleitung. */
-            if (/psql[^\n]*<\s*(?:\$?\{?\w*\}?\/)?sql\/seeds\//.test(z)
-                && !/fruehere|frühere|vorbei|NICHT|niemals/i.test(z)) {
-              treffer.push(path.relative(ROOT, p).replace(/\\/g, "/") + ": " + z.trim().slice(0, 80));
+          const zeilen = t.split(/\r?\n/);
+          const absatz = absatzKarte(t);
+          const zaun = zaunKarte(t);
+          for (let i = 0; i < zeilen.length; i++) {
+            /* Direktaufruf: psql … < sql/seeds/… — umgeht jedes Skript. */
+            if (!/psql[^\n]*<\s*(?:\$?\{?\w*\}?\/)?sql\/seeds\//.test(zeilen[i])) continue;
+            /* In einem Codeblock ist es eine ANLEITUNG — dort steht kein Satz,
+               der ihn relativieren könnte. Genau dort stand der Befund. */
+            const istAnleitung = zaun[i] || !VERNEINUNG.test(absatz[i]);
+            if (istAnleitung) {
+              treffer.push(path.relative(ROOT, p).replace(/\\/g, "/")
+                + ":" + (i + 1) + ": " + zeilen[i].trim().slice(0, 80));
             }
           }
         }
@@ -390,9 +440,29 @@ suite("Y0.1 — die Saat sperrt sich selbst, auf jedem Ladeweg", () => {
         if (e.isDirectory()) { geh(p, tiefe + 1); continue; }
         if (!e.name.endsWith(".md")) continue;
         const t = fs.readFileSync(p, "utf8");
+        const absatz = absatzKarte(t);
+        /* Zeilenanfänge aus dem ROHTEXT: bei CRLF ist ein Zeilenumbruch zwei
+           Zeichen, und eine aus `split()` gerechnete Zuordnung driftet dann
+           Zeile um Zeile weiter nach vorn. */
+        const anfaenge = [0];
+        for (let k = 0; k < t.length; k++) if (t[k] === "\n") anfaenge.push(k + 1);
+        const zeileVon = (offset) => {
+          let lo = 0, hi = anfaenge.length - 1;
+          while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (anfaenge[mid] <= offset) lo = mid; else hi = mid - 1; }
+          return lo;
+        };
         for (const m of t.matchAll(/`\.?\/?((?:sql|scripts|api|e2e|frontend|nginx)\/[\w./-]*\.sh)`/g)) {
           gesehen++;
           if (fs.existsSync(path.join(ROOT, m[1]))) continue;
+          /* Ein Pfad, dessen ABSATZ sagt, dass es ihn nicht gibt, ist eine
+             Fundbeschreibung — keine Anleitung. Zeilenlokal zu prüfen reicht
+             nicht: „…nannten Skripte, die es" / „nicht gibt (`sql/seed.sh`…)".
+             Steht die Zeile aber in ANLEITUNGSFORM, sticht das die Entschuldigung
+             aus: der historische Befund war genau „**Anleitung:** `sql/seed.sh`
+             ausführen" in docs/pilot/PILOT_CORE_FLOW.md. */
+          const zeileNr = zeileVon(m.index);
+          const zeilentext = (t.split(/\r?\n/)[zeileNr] || "");
+          if (!ANLEITUNG.test(zeilentext) && VERNEINUNG.test(absatz[zeileNr] || "")) continue;
           const wo = path.relative(ROOT, p).replace(/\\/g, "/");
           if (!fehlend.has(m[1])) fehlend.set(m[1], new Set());
           fehlend.get(m[1]).add(wo);

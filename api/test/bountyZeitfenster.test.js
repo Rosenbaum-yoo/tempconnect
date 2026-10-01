@@ -54,8 +54,23 @@ const MESSUNG = Object.freeze({
   /* Welle K2: die einzige Kachel, die NICHTS vergibt. Ihr Geld laeuft nicht
    * ueber `user_bounties`, sondern ueber `referral_rewards`, gelesen vom
    * Abrechnungslauf im Moment der Rechnung (Begruendung in Migration 209).
-   * Sie liest `referralCount` nur, um den Fortschritt zu zeigen. */
-  referral_cashback:   { fenster: null,     liest: "referralCount" },
+   * Sie liest `referralCount` nur, um den Fortschritt zu zeigen.
+   *
+   * `fenster: null` ist richtig — die KACHEL misst kein Fenster. Ihr TEXT nennt
+   * aber einen Zeitraum ("das 30 Tage bleibt"), und der steht im
+   * `threshold_value` unter `karenz_tage` und wird in
+   * `bountyService.js` ausgewertet (`Number(tv.karenz_tage) || 30`).
+   *
+   * Gemessen 2026-10-01: die Probe unten war deshalb rot und meldete "die
+   * Bedingung kennt aber keinen Zeitraum". Das war FALSCH — Text,
+   * Schwellenwert und Code sagen dasselbe. Die Probe prueefte, unter welchem
+   * SCHLUESSEL das Fenster steht, statt ob die ZUSAGE gedeckt ist; ein
+   * Implementierungsdetail also. `textfenster` schliesst die Luecke, ohne der
+   * Probe die Zaehne zu ziehen: die ZAHL muss weiterhin uebereinstimmen, nur
+   * wird sie am richtigen Schluessel gesucht. Wer den Text auf 60 Tage aendert
+   * und `karenz_tage` auf 30 laesst, wird weiter rot. */
+  referral_cashback:   { fenster: null,     liest: "referralCount",
+                         textfenster: { schluessel: "karenz_tage", einheit: "days" } },
   ratings_given:       { fenster: null,     liest: "ratingsGiven" },
   mentoring:           { fenster: null,     liest: "mentoringCount" },
   top_percentile_12m:  { fenster: null,     liest: "percentileRank" }
@@ -128,6 +143,20 @@ describe("P9/A3 · Jede Bedingung liest die Quelle, die sie laut Registry liest"
           + "Genau so entsteht ein Katalogwert, den niemand auswertet — er suggeriert dann "
           + "Konfigurierbarkeit, die es nicht gibt.");
       }
+
+      /* Ergaenzt 2026-10-01: ein `textfenster` sagt "der Zeitraum im Text steht
+         im threshold_value unter DIESEM Schluessel". Wird er nirgends
+         ausgewertet, ist das eine behauptete Deckung — dieselbe Klasse wie ein
+         Katalogwert, den niemand liest, nur eine Ebene subtiler: hier wuerde
+         die Behauptung sogar eine Probe gruen machen. Deshalb muss der
+         Schluessel im case-Zweig vorkommen. */
+      if (m.textfenster) {
+        assert.ok(new RegExp(`tv\\.${m.textfenster.schluessel}`).test(block),
+          `'${typ}' vermerkt textfenster '${m.textfenster.schluessel}', der case-Zweig liest `
+          + `tv.${m.textfenster.schluessel} aber nicht. Dann deckt der Schwellenwert die Zusage `
+          + "im Text nur auf dem Papier. Gemessen 2026-10-01: bountyService liest "
+          + "`Number(tv.karenz_tage) || 30` — genau darum darf der Vermerk stehen.");
+      }
     });
   }
 
@@ -195,13 +224,20 @@ describe("P9/A3 · Beschreibung und Schwellenwert sagen dasselbe",
 
         for (const z of zeitangaben(b.description_de)) {
           if (z.einheit === "years") continue; // "1 Jahr TempConnect" ist ein Name, keine Messregel
-          if (!m.fenster) {
+          /* Der Zeitraum im Text muss im threshold_value stehen — entweder als
+             Messfenster der Kachel (`fenster`) oder, wenn die Kachel selbst
+             kein Fenster misst, unter dem dafuer vermerkten Schluessel
+             (`textfenster`, siehe referral_cashback oben). Beides traegt
+             dieselbe Zusicherung: die ZAHL muss uebereinstimmen. */
+          const schluessel = m.fenster
+            ?? (m.textfenster?.einheit === z.einheit ? m.textfenster.schluessel : null);
+          if (!schluessel) {
             fehler.push(`${b.key}: Text nennt ${z.zahl} ${z.einheit}, die Bedingung kennt aber keinen Zeitraum`);
             continue;
           }
-          const wert = Number(b.threshold_value?.[m.fenster]);
+          const wert = Number(b.threshold_value?.[schluessel]);
           if (wert !== z.zahl) {
-            fehler.push(`${b.key}: Text sagt ${z.zahl} ${z.einheit}, threshold_value.${m.fenster} ist ${wert}`);
+            fehler.push(`${b.key}: Text sagt ${z.zahl} ${z.einheit}, threshold_value.${schluessel} ist ${wert}`);
           }
         }
 
