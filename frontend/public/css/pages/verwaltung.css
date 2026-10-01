@@ -1,0 +1,142 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Verwaltung (organization.html) — W-E9, 2026-10-01
+   Nur Token aus design-system.css: kein Hex-Wert, kein rgba mit Festfarbe.
+   Vorlage: docs/design/vorschau-verwaltung-kunden.html (vom Owner abgenommen).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.vw-head {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+  gap: var(--ds-space-4); margin: var(--ds-space-4) 0 var(--ds-space-2);
+}
+.vw-head__badges { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
+.vw-scope { display: flex; align-items: center; gap: var(--ds-space-2); margin: var(--ds-space-2) 0 0; font-size: 13px; color: var(--ds-text-secondary); }
+.vw-scope::before { content: ""; flex: 0 0 auto; width: 8px; height: 8px; border-radius: var(--ds-radius-full); background: var(--ds-success); }
+
+.vw-state { margin: var(--ds-space-6) 0; }
+.vw-state__title { margin: 0 0 var(--ds-space-2); font-size: 18px; }
+.vw-state__text { margin: 0 0 var(--ds-space-4); color: var(--ds-text-secondary); max-width: 60ch; }
+
+.vw-kpis { margin: var(--ds-space-5) 0; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.vw-kpis .ds-kpi { text-align: left; }
+.vw-kpi__sub { display: block; margin-top: var(--ds-space-1); font-size: 12px; color: var(--ds-text-tertiary); }
+
+.vw-tabs {
+  display: flex; gap: var(--ds-space-1); overflow-x: auto; scrollbar-width: thin;
+  border-bottom: 1px solid var(--ds-border); margin-bottom: var(--ds-space-5);
+}
+.vw-tab {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: var(--ds-space-2);
+  padding: var(--ds-space-3) var(--ds-space-4); border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 14px; font-weight: 600; color: var(--ds-text-secondary);
+  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
+}
+.vw-tab:hover { color: var(--ds-text); }
+.vw-tab:focus-visible { outline: 2px solid var(--ds-border-focus); outline-offset: -2px; }
+.vw-tab[aria-selected="true"] { color: var(--ds-text); border-bottom-color: var(--ds-brand); }
+.vw-tab__n {
+  min-width: 20px; padding: 0 var(--ds-space-2); border-radius: var(--ds-radius-full);
+  background: var(--ds-bg-surface); border: 1px solid var(--ds-border); font-size: 12px; text-align: center;
+}
+.vw-tab__n:empty { display: none; }
+
+.vw-panel[hidden] { display: none; }
+.vw-stack { display: grid; gap: var(--ds-space-4); }
+.vw-section-title { display: flex; align-items: baseline; justify-content: space-between; gap: var(--ds-space-3); margin: 0 0 var(--ds-space-3); flex-wrap: wrap; }
+.vw-section-title h2 { margin: 0; font-size: 16px; }
+.vw-muted { color: var(--ds-text-secondary); font-size: 12px; }
+.vw-note { margin: var(--ds-space-3) 0 0; font-size: 12px; color: var(--ds-text-tertiary); }
+.vw-feedback { min-height: 18px; margin-top: var(--ds-space-2); font-size: 13px; }
+.vw-feedback[data-ton="gut"] { color: var(--ds-success); }
+.vw-feedback[data-ton="schlecht"] { color: var(--ds-danger); }
+.vw-feedback a { overflow-wrap: anywhere; }
+
+/* Einladen: eine Zeile ueber der Liste */
+.vw-invitebar { display: grid; grid-template-columns: minmax(0, 1fr) 220px auto; gap: var(--ds-space-2); margin-top: var(--ds-space-2); }
+.vw-invitebar .ds-input, .vw-invitebar .ds-select { width: 100%; }
+
+/* Personen */
+.vw-table { width: 100%; margin-top: var(--ds-space-4); }
+.vw-table .ds-select { min-width: 160px; }
+.vw-person { display: flex; align-items: center; gap: var(--ds-space-3); }
+.vw-avatar {
+  flex: 0 0 auto; width: 36px; height: 36px; border-radius: var(--ds-radius-full);
+  display: grid; place-items: center; font-size: 13px; font-weight: 700;
+  background: var(--ds-brand-muted); color: var(--ds-brand);
+}
+.vw-avatar--offen { background: var(--ds-bg-surface); color: var(--ds-text-tertiary); border: 1px dashed var(--ds-border); }
+.vw-person__name { font-weight: 700; }
+.vw-person__mail { font-size: 12px; color: var(--ds-text-secondary); overflow-wrap: anywhere; }
+.vw-zeile--offen .vw-person__name { font-weight: 600; color: var(--ds-text-secondary); }
+.vw-du { font-size: 12px; color: var(--ds-text-tertiary); font-weight: 600; }
+.vw-aktionen { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--ds-space-2); }
+.vw-aktionen--links { justify-content: flex-start; }
+.vw-rollenwahl { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); }
+.vw-linkknopf {
+  border: 0; background: none; padding: 0; font: inherit; font-size: 12px; font-weight: 600;
+  color: var(--ds-brand); cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+}
+.vw-zugriff { margin-top: var(--ds-space-1); }
+.vw-editor { padding: var(--ds-space-3) var(--ds-space-4); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-md); background: var(--ds-bg-surface); }
+.vw-editor__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ds-space-3); }
+.vw-editor__grid .ds-select, .vw-editor__grid .ds-input { width: 100%; }
+.vw-editor__fuss { display: flex; justify-content: flex-end; align-items: center; gap: var(--ds-space-2); margin-top: var(--ds-space-3); flex-wrap: wrap; }
+
+/* Standorte und Abteilungen */
+.vw-formgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ds-space-3); }
+.vw-formgrid .ds-input, .vw-formgrid .ds-select { width: 100%; }
+.vw-check { display: flex; align-items: center; gap: var(--ds-space-2); font-size: 13px; }
+.vw-formfuss { display: flex; justify-content: flex-end; align-items: center; gap: var(--ds-space-3); margin-top: var(--ds-space-3); flex-wrap: wrap; }
+.vw-eintrag { display: flex; align-items: center; gap: var(--ds-space-3); padding: var(--ds-space-3) 0; border-top: 1px solid var(--ds-border); }
+.vw-eintrag:first-child { border-top: 0; }
+.vw-eintrag__info { flex: 1; min-width: 0; }
+.vw-eintrag__name { font-weight: 700; }
+.vw-eintrag__meta { font-size: 12px; color: var(--ds-text-secondary); }
+
+/* Protokoll */
+.vw-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); margin-bottom: var(--ds-space-4); }
+.vw-toolbar .ds-select { width: auto; min-width: 180px; }
+.vw-toolbar .vw-grow { flex: 1 1 200px; width: auto; }
+.vw-blaettern { display: flex; justify-content: space-between; align-items: center; gap: var(--ds-space-3); margin-top: var(--ds-space-3); flex-wrap: wrap; }
+
+/* Rechte-Matrix */
+.vw-matrix-wrap { overflow-x: auto; }
+.vw-matrix th, .vw-matrix td { text-align: center; white-space: nowrap; }
+.vw-matrix th:first-child, .vw-matrix td:first-child { text-align: left; white-space: normal; }
+.vw-matrix .vw-matrix__bereich td { font-weight: 700; background: var(--ds-bg-surface); text-align: left; }
+.vw-ja { color: var(--ds-success); font-weight: 700; }
+.vw-nein { color: var(--ds-text-tertiary); }
+
+/* Sicherheit */
+.vw-liste { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ds-space-2) var(--ds-space-4); }
+.vw-liste li { display: flex; align-items: center; gap: var(--ds-space-2); font-size: 13px; }
+.vw-punkt { flex: 0 0 auto; width: 8px; height: 8px; border-radius: var(--ds-radius-full); background: var(--ds-border); }
+.vw-punkt--an { background: var(--ds-success); }
+
+/* Dialoge: Wirkungsvorschau */
+.vw-wirkung { margin: 0 0 var(--ds-space-4); padding-left: var(--ds-space-5); display: grid; gap: var(--ds-space-2); font-size: 14px; }
+.vw-dialog__fehler { min-height: 18px; margin-top: var(--ds-space-2); font-size: 13px; color: var(--ds-danger); }
+.vw-schluessel { font-family: var(--ds-font-mono); font-size: 12px; padding: var(--ds-space-3); border-radius: var(--ds-radius-md); background: var(--ds-bg-surface); border: 1px solid var(--ds-border); overflow-wrap: anywhere; }
+.vw-scopes { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); margin: var(--ds-space-2) 0 var(--ds-space-3); }
+.vw-scopes label { display: inline-flex; align-items: center; gap: var(--ds-space-1); font-size: 12px; padding: var(--ds-space-1) var(--ds-space-2); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-sm); }
+
+@media (max-width: 760px) {
+  .vw-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vw-invitebar, .vw-formgrid, .vw-editor__grid, .vw-liste { grid-template-columns: minmax(0, 1fr); }
+  .vw-table thead { display: none; }
+  .vw-table, .vw-table tbody, .vw-table tr, .vw-table td { display: block; width: 100%; }
+  .vw-table tr { padding: var(--ds-space-3) 0; border-bottom: 1px solid var(--ds-border); }
+  .vw-table td { border: 0; padding: var(--ds-space-1) 0; }
+  .vw-table td[data-label]::before {
+    content: attr(data-label); display: block; font-size: 11px; font-weight: 700;
+    letter-spacing: .04em; text-transform: uppercase; color: var(--ds-text-tertiary);
+  }
+  .vw-aktionen { justify-content: flex-start; }
+  .vw-toolbar .ds-select, .vw-toolbar .vw-grow { flex: 1 1 100%; }
+}
+
+/* Kennzahlen sind Sprungmarken in den passenden Reiter */
+.vw-kpi-knopf {
+  font: inherit; color: inherit; text-align: left; width: 100%; cursor: pointer;
+}
+.vw-kpi-knopf:hover { border-color: var(--ds-brand); }
+.vw-kpi-knopf:focus-visible { outline: 2px solid var(--ds-brand); outline-offset: 2px; }

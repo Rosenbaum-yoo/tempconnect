@@ -22,7 +22,7 @@
  *
  * ES SIND HEUTE ZWEI KUNDEN-ROUTEN, NICHT EINE
  *   `GET /org/audit-log`                (orgControlCenter.js) — benutzt von
- *                                        organization.html:587
+ *                                        js/pages/verwaltung.js (Reiter Protokoll)
  *   `GET /organizations/:id/audit-log`  (organizations.js)    — ohne Aufrufer
  * Die zweite ist die strukturell schwaechere (Org aus dem Pfad statt aus dem
  * gepruefen Kontext) und hat im ganzen Repo keinen Aufrufer. Ihr Entfernen ist

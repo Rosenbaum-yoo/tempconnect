@@ -192,6 +192,70 @@ describe("Rollen je Seite — Einladung und Rollenwechsel pruefen sie serverseit
   }
 });
 
+/* ── (1b) Owner-Rechte nur durch einen Owner ─────────────────────────── */
+
+describe("Owner-Rechte vergibt oder entzieht nur ein Owner", () => {
+  const ZIEL_IST_OWNER = { match: (s) => s.includes("SELECT role_key FROM org_memberships"), respond: { rows: [{ role_key: "owner" }] } };
+  const ZIEL_IST_MITGLIED = { match: (s) => s.includes("SELECT role_key FROM org_memberships"), respond: { rows: [{ role_key: "member" }] } };
+  const SCHREIBEN_KLAPPT = { match: (s) => s.includes("UPDATE"), respond: { rows: [{ id: "m9", role_key: "finance" }] } };
+
+  for (const pfad of ["/org/members/:userId", "/org/members/:membershipId/role"]) {
+    const params = { userId: "u9", membershipId: "m9" };
+
+    it(`${pfad}: ein Admin macht niemanden zum Owner — 403, nichts geschrieben`, async () => {
+      const p = pool("company", [ZIEL_IST_MITGLIED, SCHREIBEN_KLAPPT]);
+      const r = res();
+      await handler(router(p), "patch", pfad)(req({ orgRole: "admin", params, body: { role_key: "owner" } }), r);
+      assert.equal(r._status, 403);
+      assert.equal(r._json.error.code, "NUR_OWNER");
+      assert.equal(p.find("UPDATE").length, 0);
+    });
+
+    it(`${pfad}: ein Admin stuft keinen Owner herab — 403, nichts geschrieben`, async () => {
+      const p = pool("company", [ZIEL_IST_OWNER, SCHREIBEN_KLAPPT]);
+      const r = res();
+      await handler(router(p), "patch", pfad)(req({ orgRole: "admin", params, body: { role_key: "member" } }), r);
+      assert.equal(r._status, 403);
+      assert.equal(p.find("UPDATE").length, 0);
+      // Die Rolle des Ziels wurde an der EIGENEN Firma gelesen.
+      const lesen = p.find("SELECT role_key FROM org_memberships")[0];
+      assert.ok(lesen.params.includes("org-eigen"));
+    });
+
+    it(`${pfad}: ein Admin aendert die Rolle eines gewoehnlichen Mitglieds`, async () => {
+      const p = pool("company", [ZIEL_IST_MITGLIED, SCHREIBEN_KLAPPT]);
+      const r = res();
+      await handler(router(p), "patch", pfad)(req({ orgRole: "admin", params, body: { role_key: "finance" } }), r);
+      assert.equal(r._status, 200);
+    });
+
+    it(`${pfad}: ein Owner darf Owner-Rechte vergeben`, async () => {
+      const p = pool("agency", [ZIEL_IST_MITGLIED, SCHREIBEN_KLAPPT]);
+      const r = res();
+      await handler(router(p), "patch", pfad)(req({ orgRole: "owner", params, body: { role_key: "owner" } }), r);
+      assert.equal(r._status, 200);
+    });
+  }
+
+  it("Entfernen: ein Admin entfernt keinen Owner — 403, nichts geschrieben", async () => {
+    const p = pool("company", [ZIEL_IST_OWNER, SCHREIBEN_KLAPPT]);
+    const r = res();
+    await handler(router(p), "delete", "/org/members/:userId")(req({ orgRole: "admin", params: { userId: "u9" }, body: { reason: "Probe des Riegels" } }), r);
+    assert.equal(r._status, 403);
+    assert.equal(r._json.error.code, "NUR_OWNER");
+    assert.equal(p.find("UPDATE").length, 0);
+  });
+
+  it("Entfernen: ein Owner entfernt einen anderen Owner (der letzte bleibt durch den Dienst geschuetzt)", async () => {
+    const p = pool("company", [ZIEL_IST_OWNER, { match: (s) => s.includes("UPDATE"), respond: { rows: [{ id: "m9" }], rowCount: 1 } }]);
+    const r = res();
+    await handler(router(p), "delete", "/org/members/:userId")(req({ orgRole: "owner", params: { userId: "u9" }, body: { reason: "Uebergabe abgeschlossen" } }), r);
+    // countActiveOwners liefert im Mock keine Zeile -> der Dienst meldet LAST_OWNER (409).
+    // Entscheidend hier: der Riegel NUR_OWNER greift fuer einen Owner nicht.
+    assert.notEqual(r._json?.error?.code, "NUR_OWNER");
+  });
+});
+
 /* ── (2) Protokoll als CSV ─────────────────────────────────────────────── */
 
 describe("Protokoll als CSV (/org/audit-log/export/csv)", () => {
@@ -310,5 +374,29 @@ describe("Uebersicht und Protokoll liefern, was die Verwaltung rendert", () => {
     await handler(router(p), "get", "/org/roles-permissions")(req(), r);
     assert.equal(r._status, 200);
     assert.ok(r._json.data.roles.includes("dispatcher") && r._json.data.roles.includes("hiring_manager"));
+  });
+});
+
+describe("Protokoll spricht Deutsch — jeder Vorgang der eigenen Firma hat einen Namen", () => {
+  // Die Verwaltung zeigt das Protokoll der Firma ihren eigenen Leuten. Ohne Eintrag
+  // in ACTION_LABELS faellt die Anzeige auf "Org Member Invite Revoke" zurueck — so
+  // gesehen 2026-10-01 im Browser. Diese Probe liest jede Vorgangskennung, die der
+  // Code fuer Firma, Firmen-Login und Kontenabgleich schreibt, und verlangt einen Namen.
+  it("jede geschriebene org.*-, sso.*-, scim.*- und product_release.*-Kennung steht in ACTION_LABELS", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const { getActionLabels } = await import("../services/activityFeedService.js");
+    const namen = getActionLabels();
+    const wurzel = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+    const gefunden = new Set();
+    for (const ordner of ["routes", "services"]) {
+      for (const datei of fs.readdirSync(path.join(wurzel, ordner)).filter((d) => d.endsWith(".js"))) {
+        const text = fs.readFileSync(path.join(wurzel, ordner, datei), "utf8");
+        for (const m of text.matchAll(/action:\s*["'`]((?:org|sso|scim|product_release)\.[a-z_]+\.?[a-z_]*)["'`]/g)) gefunden.add(m[1]);
+      }
+    }
+    assert.ok(gefunden.size >= 20, `zu wenige Kennungen gefunden (${gefunden.size}) — Suchmuster pruefen`);
+    const ohne = [...gefunden].filter((k) => !namen[k]);
+    assert.deepEqual(ohne, [], `ohne deutschen Namen: ${ohne.join(", ")}`);
   });
 });

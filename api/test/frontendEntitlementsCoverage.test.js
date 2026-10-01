@@ -79,6 +79,7 @@ const TARGETS = [
   {
     name: "organization",
     html: "frontend/public/organization.html",
+    js: ["frontend/public/js/pages/verwaltung.js"],
     applyFn: "applyOrgDomLocks",
     keys: ["integrations", "org_settings", "basic_analytics"]
   },

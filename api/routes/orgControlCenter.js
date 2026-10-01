@@ -120,6 +120,41 @@ export function createOrgControlCenterRouter(deps) {
     return rows[0]?.type || null;
   }
 
+  /*
+   * Owner-Rechte vergibt oder entzieht nur ein Owner (W-E9, 2026-10-01).
+   *
+   * BEFUND: `org.members` haben owner UND admin. Ein Admin konnte damit einen
+   * Owner herabstufen oder entfernen (nur der LETZTE Owner war geschuetzt) und
+   * sich selbst zum Owner machen — eine Rolle ueber die eigene hinaus vergeben.
+   * Die Einladung sagt laengst "Owner-Rechte werden nie per Einladung
+   * vergeben"; dieselbe Absicht gilt fuer Wechsel und Entfernen. Wenn nur eine
+   * Person handelt, schuetzt keine Kontrolle, sondern die Struktur: die Aktion
+   * kann nicht mehr vergeben, als die eigene Rolle hergibt (CLAUDE.md, "Das
+   * Team ist eine Person").
+   */
+  function darfOwnerRechte(req) {
+    return req.orgRole === "owner" || req.orgRole === "platform_admin";
+  }
+
+  function nurOwner(res) {
+    return res.status(403).json({
+      success: false,
+      error: { code: "NUR_OWNER", message: "Owner-Rechte vergibt oder entzieht nur ein Owner." }
+    });
+  }
+
+  /** Die heutige Rolle des Ziels — an die eigene Firma gebunden. */
+  async function heutigeRolle(orgId, { userId = null, membershipId = null }) {
+    const { rows } = membershipId
+      ? await pool.query(
+          "SELECT role_key FROM org_memberships WHERE id = $1 AND org_id = $2 AND is_active = TRUE LIMIT 1",
+          [membershipId, orgId])
+      : await pool.query(
+          "SELECT role_key FROM org_memberships WHERE org_id = $1 AND user_id = $2 AND is_active = TRUE LIMIT 1",
+          [orgId, userId]);
+    return rows[0]?.role_key || null;
+  }
+
   /** Die Rolle passt nicht zur Seite: verstaendlich ablehnen, nicht still. */
   function rolleFalschFuerSeite(res, seite, rolle) {
     const wer = seite === "agency" ? "Zeitarbeitsfirmen" : seite === "company" ? "Unternehmen" : "diese Firma";
@@ -211,6 +246,11 @@ export function createOrgControlCenterRouter(deps) {
           return rolleFalschFuerSeite(res, seite, parsed.data.role_key);
         }
 
+        if (!darfOwnerRechte(req)) {
+          const vorher = await heutigeRolle(req.orgId, { userId: req.params.userId });
+          if (parsed.data.role_key === "owner" || vorher === "owner") return nurOwner(res);
+        }
+
         const updated = await orgService.updateMemberRole(pool, req.orgId, req.params.userId, parsed.data.role_key);
         if (!updated) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
 
@@ -259,6 +299,7 @@ export function createOrgControlCenterRouter(deps) {
           [req.orgId, req.params.userId]
         );
         if (!vorher.length) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+        if (vorher[0].role_key === "owner" && !darfOwnerRechte(req)) return nurOwner(res);
 
         const deactivated = await orgService.deactivateMember(pool, req.orgId, req.params.userId);
         if (!deactivated) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
@@ -874,6 +915,11 @@ export function createOrgControlCenterRouter(deps) {
         const seite = await seiteDerFirma(req.orgId);
         if (!rolleErlaubt(seite, parsed.data.role_key, { ownerErlaubt: true })) {
           return rolleFalschFuerSeite(res, seite, parsed.data.role_key);
+        }
+
+        if (!darfOwnerRechte(req)) {
+          const vorher = await heutigeRolle(req.orgId, { membershipId: req.params.membershipId });
+          if (parsed.data.role_key === "owner" || vorher === "owner") return nurOwner(res);
         }
 
         const updated = await orgService.updateMemberRoleByMembershipId(pool, req.orgId, req.params.membershipId, parsed.data.role_key);

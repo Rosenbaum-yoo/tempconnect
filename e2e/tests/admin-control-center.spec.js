@@ -54,17 +54,20 @@ test.describe("Admin-Zentrale und Org-Steuerungsseiten", () => {
     expect(pageErrors).toEqual([]);
   });
 
-  test("oeffnet den Organisationsbereich ueber Security-Deep-Link", async ({ page }) => {
+  test("oeffnet die Verwaltung ueber den alten Security-Deep-Link im Reiter Sicherheit", async ({ page }) => {
+    // W-E9: alte Reiternamen (security, members, audit …) bleiben gueltig und
+    // werden in der Adresszeile auf den neuen Namen umgeschrieben.
     await apiLogin(page, USERS.company);
     const pageErrors = collectPageErrors(page);
 
     await page.goto("/public/organization.html?tab=security");
     await dismissOnboardingModal(page);
 
-    await expect(page).toHaveURL(/\/public\/organization\.html\?tab=security/);
-    await expect(page.locator(".ds-page-title")).toContainText("Organisation");
-    await expect(page.locator("#panel-security")).toHaveClass(/occ-panel--active/);
-    await expect(page.locator("#security-content .occ-card__title").first()).toHaveText("Sicherheitsübersicht");
+    await expect(page.locator(".ds-page-title")).toHaveText("Verwaltung");
+    await expect(page.locator("#tab-sicherheit")).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("#panel-sicherheit")).toBeVisible();
+    await expect(page.locator("#vwSicherheit")).toContainText("Schutz, der immer aktiv ist");
+    await expect(page).toHaveURL(/\/public\/organization\.html\?tab=sicherheit/);
 
     expect(pageErrors).toEqual([]);
   });
