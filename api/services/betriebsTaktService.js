@@ -123,6 +123,11 @@ export const TAKTE = Object.freeze({
    * Normalfall und meldet ok; geschwiegen werden darf hoechstens drei Minuten. */
   "produkt-update-pakete": { intervall_min: 1, zweck: "Produkt-Mitteilungen in Paketen zu 20 je Minute versenden" },
 
+  /* Aufbewahrung der Empfaengerlisten (Owner-Entscheid 2026-10-01: nach 12 Monaten
+   * loeschen). Taeglich 04:15, nach der Aufbewahrung des Zustandsprotokolls. Die
+   * Frist steht in der Datenbank (Migration 228), nicht hier. */
+  "produkt-update-aufbewahrung": { intervall_min: 1440, zweck: "Empfaengerlisten der Produkt-Mails nach 12 Monaten loeschen" },
+
   /* Die vier BullMQ-Takte, die es schon vor dieser Phase gab. Sie laufen — aber
    * niemand konnte es bisher nachweisen. Sie stehen als EINZIGE mit Praefix in
    * dieser Registratur, weil es fuer sie keinen internen Endpunkt gibt; die

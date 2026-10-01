@@ -31,7 +31,7 @@ import * as svc from "../services/productReleaseService.js";
 import * as versand from "../services/produktUpdateVersandService.js";
 import { effektiverPlan, kuendigungFaellig } from "../services/userService.js";
 import { mailKoepfe } from "../services/emailService.js";
-import { LAEUFE, produktUpdatePakete } from "../services/betriebsTaktLaeufe.js";
+import { LAEUFE, produktUpdatePakete, produktUpdateAufbewahrung } from "../services/betriebsTaktLaeufe.js";
 import { TAKTE } from "../services/betriebsTaktService.js";
 import { createStaffControlCenterRouter } from "../routes/staffControlCenter.js";
 import { darfStaffBereich } from "../config/staffRollen.js";
@@ -409,6 +409,49 @@ describe("Takt: Lauf, Registratur, Einplanung", () => {
   });
 });
 
+/* ── 5b. Aufbewahrung: 12 Monate (Owner-Entscheid 2026-10-01) ─────────────── */
+
+describe("Aufbewahrung: Empfaengerlisten nach 12 Monaten loeschen", () => {
+  const mig = fs.readFileSync(path.join(API, "..", "sql", "migrations", "228_produkt_update_empfaenger_aufbewahrung.sql"), "utf8");
+
+  it("die Regel steht in der Datenbank: Listen, die vor mehr als 12 Monaten eingefroren wurden", () => {
+    assert.ok(/DELETE FROM product_release_mail_empfaenger\s+WHERE angelegt_am < NOW\(\) - INTERVAL '12 months';/.test(mig), mig);
+    assert.ok(mig.includes("RETURNS INTEGER"));
+    assert.ok(mig.includes("ROLLBACK") && mig.includes("DROP FUNCTION IF EXISTS produkt_update_empfaenger_aufraeumen();"));
+  });
+
+  it("der Code kennt die Frist nicht — sonst gaebe es zwei Zahlen", () => {
+    for (const datei of ["services/produktUpdateVersandService.js", "services/betriebsTaktLaeufe.js", "workers/index.js"]) {
+      assert.ok(!/INTERVAL\s+'\d+\s*months?'/i.test(lies(datei)), `${datei} rechnet die Frist selbst`);
+    }
+  });
+
+  it("der Aufruf: genau die Funktion, die Zahl kommt zurueck", async () => {
+    const p = pool([{ match: "produkt_update_empfaenger_aufraeumen()", rows: [{ geloescht: "44" }] }]);
+    assert.deepEqual(await versand.aufbewahrungDurchsetzen(p), { geloescht: 44 });
+    assert.equal(p.calls[0].sql, "SELECT produkt_update_empfaenger_aufraeumen() AS geloescht");
+  });
+
+  it("der Takt protokolliert nur, wenn er etwas geloescht hat", async () => {
+    const leer = pool([{ match: "produkt_update_empfaenger_aufraeumen()", rows: [{ geloescht: 0 }] }]);
+    assert.deepEqual(await produktUpdateAufbewahrung(leer), { geloescht: 0 });
+    assert.equal(leer.calls.filter((c) => /audit/i.test(c.sql)).length, 0, "eine Nacht ohne Loeschung ist kein Protokolleintrag");
+
+    const voll = pool([{ match: "produkt_update_empfaenger_aufraeumen()", rows: [{ geloescht: 44 }] }]);
+    assert.deepEqual(await produktUpdateAufbewahrung(voll), { geloescht: 44 });
+    const audit = voll.calls.filter((c) => /audit/i.test(c.sql));
+    assert.equal(audit.length, 1, "eine Loeschung personenbezogener Zuordnungen bleibt nachvollziehbar");
+    assert.ok(JSON.stringify(audit[0].params).includes("product_release.recipients_retention"));
+    assert.ok(JSON.stringify(audit[0].params).includes('\\"geloescht\\":44') || JSON.stringify(audit[0].params).includes('"geloescht":44'));
+  });
+
+  it("Lauf, Soll und Einplanung: taeglich 04:15", () => {
+    assert.equal(LAEUFE["produkt-update-aufbewahrung"], produktUpdateAufbewahrung);
+    assert.equal(TAKTE["produkt-update-aufbewahrung"]?.intervall_min, 1440);
+    assert.ok(/upsertJobScheduler\("produkt-update-aufbewahrung-daily", \{ pattern: "15 4 \* \* \*" \}, \{ name: "produkt-update-aufbewahrung" \}\)/.test(lies("workers/index.js")));
+  });
+});
+
 /* ── 6. Der Stand ────────────────────────────────────────────────────────── */
 
 describe("Stand: was das Staff Control Center zeigt", () => {
@@ -486,6 +529,17 @@ describe("Kopfzeilen: nur List-Unsubscribe, nur einzeilig", () => {
     assert.deepEqual(mailKoepfe({ "List-Unsubscribe": "<https://x.de/a>", "Bcc": "x@y.de", "X-Priority": "1" }),
       { "List-Unsubscribe": "<https://x.de/a>" });
     assert.deepEqual(mailKoepfe({ "list-unsubscribe": "<https://x.de/a>" }), { "list-unsubscribe": "<https://x.de/a>" });
+  });
+
+  it("Owner-Entscheid 2026-10-01: Ein-Klick bleibt aus — List-Unsubscribe-Post kommt nicht durch", () => {
+    /* Abbestellen mit einem Klick direkt im Postfach (RFC 8058) braeuchte einen
+     * Endpunkt ohne CSRF-Schutz. Der Owner hat entschieden: bleibt aus. Wer den Kopf
+     * freischaltet, macht diese Probe rot und muss die Entscheidung neu einholen. */
+    assert.equal(mailKoepfe({ "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }), null);
+    assert.deepEqual(
+      mailKoepfe({ "List-Unsubscribe": "<https://x.de/a>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }),
+      { "List-Unsubscribe": "<https://x.de/a>" });
+    assert.ok(!lies("services/produktUpdateVersandService.js").includes("List-Unsubscribe-Post"));
   });
 
   it("ein Zeilenumbruch im Wert ist eine Einschleusung — der Kopf faellt weg", () => {

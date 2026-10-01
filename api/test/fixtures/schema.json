@@ -4,8 +4,8 @@
   "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
   "migrations_fingerabdruck": {
     "init": "49a1c9ef343102f593f1267155c30cea987684bf1a93826cf237e61101238c7e",
-    "dateien": 231,
-    "hash": "82dfe03ed7db336993e9c98aec29b8ac99b25e56da395eea798e4c9234650583"
+    "dateien": 232,
+    "hash": "97d9602842f5bd9d96d8ac578e2295727c759ac0f62b8496e9141d2ff84523ec"
   },
   "pruefwerte": {
     "approval_requests": {
@@ -3074,6 +3074,7 @@
     "pgp_sym_decrypt_bytea",
     "pgp_sym_encrypt",
     "pgp_sym_encrypt_bytea",
+    "produkt_update_empfaenger_aufraeumen",
     "rechnung_bruttobetrag_pflegen",
     "set_limit",
     "show_limit",

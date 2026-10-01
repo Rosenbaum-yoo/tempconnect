@@ -273,6 +273,29 @@ describe("Produkt-Mails: der Versandzyklus am echten Schema",
     assert.deepEqual(z, [{ status: "entfallen", n: 2 }, { status: "gesendet", n: 2 }]);
   });
 
+  it("Aufbewahrung: nur Listen aelter als 12 Monate verschwinden (Migration 228)", async () => {
+    const alt = (await client.query(
+      `INSERT INTO product_release_entries (title, visibility, status, published_at, email_sent_at)
+       VALUES ('Probe alt', 'public', 'published', NOW() - INTERVAL '13 months', NOW() - INTERVAL '13 months') RETURNING id`
+    )).rows[0].id;
+    await client.query(
+      `INSERT INTO product_release_mail_empfaenger (release_id, user_id, status, angelegt_am)
+       SELECT $1, u, 'gesendet', NOW() - INTERVAL '12 months 1 day' FROM unnest($2::uuid[]) AS u`,
+      [alt, nutzer]
+    );
+    const vorher = (await client.query(
+      "SELECT COUNT(*)::int AS n FROM product_release_mail_empfaenger WHERE release_id = $1", [rel])).rows[0].n;
+    const r = await versand.aufbewahrungDurchsetzen(client);
+    assert.ok(r.geloescht >= 4, `geloescht: ${r.geloescht}`);
+    const rest = (await client.query(
+      "SELECT release_id, COUNT(*)::int AS n FROM product_release_mail_empfaenger WHERE release_id = ANY($1::uuid[]) GROUP BY 1",
+      [[alt, rel]])).rows;
+    assert.deepEqual(rest.map((z) => [String(z.release_id), z.n]), [[String(rel), vorher]],
+      "die alte Liste ist weg, die frische vollstaendig da");
+    const stempel = (await client.query("SELECT email_sent_at FROM product_release_entries WHERE id = $1", [alt])).rows[0];
+    assert.ok(stempel.email_sent_at, "die Mitteilung behaelt ihr 'gesendet am'");
+  });
+
   it("das Versandprotokoll schreibt wirklich (M1.3) — mit und ohne Fehlertext", async () => {
     assert.equal(await mailNotieren(client, { zweck: "produkt-update", ergebnis: "zugestellt", weg: "smtp" }), true);
     assert.equal(await mailNotieren(client, { zweck: "produkt-update", ergebnis: "fehlgeschlagen", weg: "smtp", fehler: "550 nein" }), true);

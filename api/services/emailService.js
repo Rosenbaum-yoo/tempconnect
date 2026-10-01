@@ -80,8 +80,9 @@ function getTransporter() {
  *
  * `List-Unsubscribe-Post` (RFC 8058, Abbestellen mit EINEM Klick direkt aus dem
  * Postfach) steht bewusst NICHT hier: der Postfach-Anbieter schickt dabei einen
- * POST ohne CSRF-Marke, und eine Ausnahme vom CSRF-Schutz entscheidet der Owner
- * (docs/PRODUCT_RELEASES.md, Abschnitt E-Mail).
+ * POST ohne CSRF-Marke, und eine Ausnahme vom CSRF-Schutz ist eine
+ * Sicherheitsentscheidung. Owner-Entscheid 2026-10-01: „Ein-Klick bleibt aus."
+ * Eine Probe haelt das fest (test/produktUpdateVersand.test.js).
  */
 const ERLAUBTE_KOEPFE = new Set(["list-unsubscribe"]);
 

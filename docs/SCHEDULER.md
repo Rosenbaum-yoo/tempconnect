@@ -32,7 +32,11 @@ Endpunkte auf dieser Seite haben weiterhin **nur** den externen Weg.
 > Kennung in Redis ab, und **ein** Arbeiter greift ihn — egal wie viele App-Server
 > laufen. Der Grund, der den externen Weg nötig machte, entfällt damit für diese fünf.
 
-### Ein Takt ganz ohne internen Endpunkt (seit 2026-10-01)
+### Zwei Takte ganz ohne internen Endpunkt (seit 2026-10-01)
+
+**`produkt-update-aufbewahrung`** — täglich 04:15: Empfängerlisten der Produkt-Mails 12 Monate nach dem
+Einfrieren löschen (Owner-Entscheid). Handkurbel ist die Datenbank-Funktion selbst:
+`SELECT produkt_update_empfaenger_aufraeumen();` (Migration 228) — wie beim Zustandsprotokoll.
 
 **`produkt-update-pakete`** — jede Minute ein Paket Produkt-Mitteilungen (20 Mails, gleich der
 Drosselung im Mail-Arbeiter). Er läuft **nur** in der Anwendung (BullMQ, `scheduleBetriebsWirtschaft`),

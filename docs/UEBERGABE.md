@@ -181,11 +181,14 @@ echt aus; vergleicht außerdem für jeden Nutzer den Kontext der neuen Abfrage m
 `npm run schema:snapshot` und `api/test/fixtures/schema.json` committen. Mein Abzug ist der alte
 plus **nur** die neue Tabelle (lokal mit derselben Abfrage erzeugt) — der Container hat das letzte Wort.
 
-**Offen für den Owner (nichts davon blockiert):** Abbestellen mit **einem Klick direkt im
-Postfach** (RFC 8058, `List-Unsubscribe-Post`) bräuchte einen Endpunkt **ohne CSRF-Schutz** — das
-ist eine Sicherheitsentscheidung und wurde deshalb nicht gebaut; Pflicht wird es erst ab 5.000
-Mails am Tag an Gmail/Yahoo. Und: die Empfängerlisten bleiben stehen, bis die Mitteilung gelöscht
-wird (sie belegen, wer was bekam) — eine Frist gibt es nicht.
+**Owner-Antworten (2026-10-01): „Listen nach 12 Monaten löschen, Ein-Klick bleibt aus“** — beides gebaut:
+- **12 Monate:** Migration **228** legt `produkt_update_empfaenger_aufraeumen()` an (die Frist steht
+  **nur** dort, wie bei `worker_status_events_aufraeumen`, Migration 179); der Betriebstakt
+  `produkt-update-aufbewahrung` ruft sie täglich 04:15 und protokolliert nur bei Wirkung
+  (`product_release.recipients_retention`). Die Mitteilung behält „gesendet am …“.
+- **Ein-Klick bleibt aus:** `List-Unsubscribe-Post` (RFC 8058) wird nicht gebaut; eine Probe in
+  `produktUpdateVersand.test.js` wird rot, sobald jemand den Kopf freischaltet.
+- **Nach dem Übernehmen (K1):** auch Migration 228 einspielen, dann wie oben `npm run schema:snapshot`.
 
 ### Wer prüft, was die Cloud-Sitzung gebaut hat
 
@@ -206,8 +209,11 @@ Liste. Was ich selbst schon geprüft habe, steht dabei; **nachmessen, nicht glau
 | 9 | Neue Abfrage = getUserAndPlan | `ORDER BY om.created_at ASC` → `DESC` in `EMPFAENGER_SQL`, Datenbank-Probe → rot | rot (D1, D2) |
 | 10 | Typen in den SQL-Texten | `::text` aus `abschliessen` bzw. `mailNotieren` entfernen → rot **mit und ohne** Datenbank | rot (R1, R2) |
 | 11 | Am laufenden System | Staff CC → Produkt-Updates: Mitteilung anlegen, veröffentlichen, mailen; Zahl im Dialog = Zahl in der Liste; „Anhalten“ mit Grund | 44 Empfänger, 20 sofort, Handkurbel, Takt, Anhalten, Konsole sauber |
+| 12 | 12 Monate, nicht mehr, nicht weniger | in Migration 228 `'12 months'` → `'24 months'` bzw. `<` → `>` → rot **mit und ohne** Datenbank | rot (H1, H2) |
+| 13 | Löschen bleibt nachvollziehbar | `geloescht > 0` → `>= 0` im Takt → rot | rot (H3) |
+| 14 | Ein-Klick bleibt aus | `list-unsubscribe-post` in `ERLAUBTE_KOEPFE` aufnehmen → rot | rot (H4) |
 
-Insgesamt 14 + 2 + 3 Rückmutationen, alle zeilengenau gesetzt (nicht an der ersten Fundstelle) und
+Insgesamt 14 + 2 + 3 + 4 Rückmutationen, alle zeilengenau gesetzt (nicht an der ersten Fundstelle) und
 an **fail, cancelled und Rückgabewert** abgelesen. Eine überlebte und ist ehrlich benannt: R3, der
 `::uuid`-Typ beim Einfrieren ist **nicht** nötig (PostgreSQL leitet ihn aus der Zielspalte ab) — er
 steht nur als ausdrückliche Angabe da und wird nirgends als Schutz behauptet.

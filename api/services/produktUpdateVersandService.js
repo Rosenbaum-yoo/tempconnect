@@ -294,6 +294,22 @@ export async function naechstesPaket(pool, deps = {}) {
   return { release_id: rows[0].release_id, ...ergebnis };
 }
 
+/**
+ * Aufbewahrung durchsetzen: Empfaengerlisten 12 Monate nach dem Einfrieren loeschen
+ * (Owner-Entscheid 2026-10-01).
+ *
+ * Die Frist selbst steht in der Datenbank (`produkt_update_empfaenger_aufraeumen`,
+ * Migration 228), nicht hier — sonst gaebe es zwei Zahlen, und die zweite waere
+ * irgendwann die falsche. Dieser Aufruf ist nur der Ausloeser aus dem Takt; dieselbe
+ * Bauart wie `workerStatusEventService.aufbewahrungDurchsetzen`.
+ *
+ * @returns {Promise<{geloescht: number}>}
+ */
+export async function aufbewahrungDurchsetzen(pool) {
+  const { rows } = await pool.query(`SELECT produkt_update_empfaenger_aufraeumen() AS geloescht`);
+  return { geloescht: Number(rows[0]?.geloescht) || 0 };
+}
+
 /** Den Rest anhalten: alle noch offenen Empfaenger entfallen. Im `client` des Aufrufers. */
 export async function versandAnhalten(client, releaseId) {
   const { rowCount } = await client.query(
@@ -331,9 +347,12 @@ function minutenHer(zeitpunkt, jetzt) {
 /**
  * Der Stand eines Versands, wie das Staff Control Center ihn zeigt. REINE FUNKTION.
  *
- * `null`, wenn nie gestartet. `alter_versand`, wenn vor dem Paketversand gemailt
- * wurde (Stempel gesetzt, aber keine Liste) — wer damals was bekam, weiss heute
- * niemand mehr, und das wird auch nicht behauptet.
+ * `null`, wenn nie gestartet. `alter_versand`, wenn der Stempel steht, aber keine
+ * Liste (mehr) da ist: vor dem Paketversand gemailt, oder die Liste ist nach 12
+ * Monaten geloescht (Migration 228). Wer damals was bekam, weiss dann niemand mehr,
+ * und das wird auch nicht behauptet. Welcher der beiden Faelle vorliegt, rechnet
+ * diese Stelle bewusst NICHT nach — sie muesste dazu die Frist kennen, und die
+ * steht nur in der Datenbank.
  */
 export function bewerteStand(zeile, { gestartetAm = null, veroeffentlicht = true, jetzt = Date.now() } = {}) {
   if (!gestartetAm) return null;

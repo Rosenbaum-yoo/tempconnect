@@ -299,6 +299,27 @@ export async function produktUpdatePakete(pool, { config, logger, sendMail } = {
 }
 
 /**
+ * Empfaengerlisten der Produkt-Mails nach 12 Monaten loeschen (Owner-Entscheid
+ * 2026-10-01). Die Frist steht in der Datenbank (Migration 228); ohne Redis von
+ * Hand: `SELECT produkt_update_empfaenger_aufraeumen();`.
+ *
+ * Ein Protokolleintrag nur bei Wirkung — wie bei den anderen Laeufen: eine
+ * Zeile je Nacht ohne Loeschung waere Rauschen, eine Loeschung ohne Zeile waere
+ * ein Eingriff in personenbezogene Daten, den niemand nachvollziehen kann.
+ */
+export async function produktUpdateAufbewahrung(pool) {
+  const ergebnis = await produktUpdateVersand.aufbewahrungDurchsetzen(pool);
+  if (ergebnis.geloescht > 0) {
+    await auditLog.writeAudit(pool, {
+      action: "product_release.recipients_retention",
+      entity_type: "product_release",
+      details: { geloescht: ergebnis.geloescht, regel: "produkt_update_empfaenger_aufraeumen (12 Monate)" }
+    });
+  }
+  return ergebnis;
+}
+
+/**
  * Der Auftragsname aus `betriebsTaktService.TAKTE` auf den Lauf abbilden.
  *
  * Bewusst hier und nicht im Arbeiter: so gibt es EINEN Ort, an dem sichtbar ist,
@@ -313,5 +334,6 @@ export const LAEUFE = Object.freeze({
   "subscription-lifecycle-tick": subscriptionLifecycleTick,
   "einladung-erinnerung": einladungErinnerung,
   "profil-rangliste": profilRangliste,
-  "produkt-update-pakete": produktUpdatePakete
+  "produkt-update-pakete": produktUpdatePakete,
+  "produkt-update-aufbewahrung": produktUpdateAufbewahrung
 });

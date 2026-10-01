@@ -77,9 +77,10 @@ Leeres Array = **alle Rollen**. Sonst **ODER**-Semantik über Tokens:
 - **`List-Unsubscribe`-Kopf** (RFC 2369) in jeder Mail, mit demselben Link — die Mailprogramme zeigen
   dafür einen eigenen „Abbestellen“-Knopf. `sendMail` lässt genau diese eine Kopfzeile durch
   (`mailKoepfe`, einzeilig). **Nicht** gebaut: `List-Unsubscribe-Post` (RFC 8058, Abbestellen mit
-  einem Klick direkt im Postfach) — der Postfach-Anbieter schickt dabei einen POST ohne CSRF-Marke,
-  und eine CSRF-Ausnahme ist eine **Owner-Entscheidung**. Pflicht wird das erst bei Massenversand an
-  Gmail/Yahoo (über 5.000 Mails am Tag).
+  einem Klick direkt im Postfach) — der Postfach-Anbieter schickt dabei einen POST ohne CSRF-Marke.
+  **Owner-Entscheid 2026-10-01: „Ein-Klick bleibt aus.“** Eine Probe hält das fest
+  (`produktUpdateVersand.test.js`); wer den Kopf freischaltet, braucht eine neue Entscheidung.
+  Pflicht würde es erst bei Massenversand an Gmail/Yahoo (über 5.000 Mails am Tag).
 
 **Wer bekommt sie.** `productReleaseService.ermittleEmpfaenger` — dieselbe Ermittlung für die Zahl vor
 dem Klick und für den Versand. **Eine Abfrage je 1.000 Nutzer** (`EMPFAENGER_SQL`, seitenweise über
@@ -103,8 +104,15 @@ Demo-Konten, anonymisierte Konten (`ANONYM_DOMAIN`), inaktive und Konten ohne Ad
 | Anhalten | der Rest entfällt endgültig, mit Grund im Protokoll | wirkt nur auf `offen` |
 | Zurückziehen | ein laufender Versand ruht, solange die Mitteilung Entwurf ist | Takt sendet nur Veröffentlichtes |
 
-Gespeichert wird **keine** E-Mail-Adresse — die Adresse wird beim Versand aus `users` gelesen. Alte
-Mitteilungen, die vor dem Paketversand gemailt wurden, zeigen „gesendet am …“ ohne erfundene Zahlen.
+Gespeichert wird **keine** E-Mail-Adresse — die Adresse wird beim Versand aus `users` gelesen.
+
+**Aufbewahrung: 12 Monate (Owner-Entscheid 2026-10-01).** Eine Empfängerliste wird 12 Monate nach dem
+Einfrieren gelöscht — als Ganzes, täglich 04:15 (Takt `produkt-update-aufbewahrung`, Protokolleintrag
+`product_release.recipients_retention` nur bei Wirkung). Die Frist steht **nur** in der Datenbank
+(`produkt_update_empfaenger_aufraeumen()`, Migration 228), der Code kennt sie nicht; ohne Redis von Hand:
+`SELECT produkt_update_empfaenger_aufraeumen();`. Die Mitteilung behält „gesendet am …“; das Staff CC
+zeigt dann „Empfängerliste nicht (mehr) gespeichert“ — dieselbe Anzeige wie für Mitteilungen, die vor
+dem Paketversand gemailt wurden, und ohne erfundene Zahlen.
 
 **Versandprotokoll (`mail_versand`, M1.3) — am 2026-10-01 erst wirksam geworden.** Die Einfüge-Abfrage
 scheiterte bis dahin bei JEDEM Aufruf an PostgreSQL (`$5 IS NULL` ohne Typ) und der Fehler wurde als

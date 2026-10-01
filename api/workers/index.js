@@ -146,6 +146,13 @@ function scheduleBetriebsWirtschaft() {
    * Arbeit ist ein Lauf eine einzige Abfrage. */
   q.upsertJobScheduler("produkt-update-pakete-1min", { pattern: "* * * * *" }, { name: "produkt-update-pakete" })
     .catch((e) => logger.warn({ err: e.message }, "Could not schedule produkt-update-pakete"));
+
+  /* Die Empfaengerlisten nach 12 Monaten loeschen (Owner-Entscheid 2026-10-01).
+   * 04:15 — nach der Aufbewahrung des Zustandsprotokolls (04:00). Die Frist steht
+   * in der Datenbank (Migration 228); ohne Redis von Hand:
+   *   SELECT produkt_update_empfaenger_aufraeumen(); */
+  q.upsertJobScheduler("produkt-update-aufbewahrung-daily", { pattern: "15 4 * * *" }, { name: "produkt-update-aufbewahrung" })
+    .catch((e) => logger.warn({ err: e.message }, "Could not schedule produkt-update-aufbewahrung"));
 }
 
 export function startWorkers(deps = {}) {

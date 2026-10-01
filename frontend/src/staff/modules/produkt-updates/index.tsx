@@ -91,7 +91,8 @@ function startSatz(r: Start | null | undefined): string {
 function versandText(m: Zeile): string {
   const v = m.versand;
   if (!v) return m.send_email_on_publish ? "beim Veröffentlichen" : "–";
-  if (v.alter_versand) return `gesendet ${datum(v.gestartet_am)}`;
+  // Keine Liste (mehr): vor dem Paketversand gemailt oder nach 12 Monaten geloescht (Migration 228).
+  if (v.alter_versand) return `gesendet ${datum(v.gestartet_am)} · Empfängerliste nicht (mehr) gespeichert`;
   const kern = `${zahl(v.gesendet)} von ${zahl(v.gesamt)} gesendet`;
   const rest: string[] = [];
   if (v.fehlgeschlagen) rest.push(`${zahl(v.fehlgeschlagen)} fehlgeschlagen`);
