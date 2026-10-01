@@ -61,7 +61,7 @@ fail() { echo "[seed-data] FEHLER: $*" >&2; exit 1; }
 # ON_ERROR_STOP ist Pflicht: ohne es endet psql mit 0, auch wenn die
 # Transaktion abgebrochen ist - das Skript meldete dann Erfolg ohne Zeilen.
 #
-# Dazu app.seed_passwort aus SEED_PASSWORT: sql/seeds/y1-probebuehne.sql hasht
+# Dazu app.seed_passwort aus SEED_PASSWORT: sql/seeds/y1-2-standorte.sql hasht
 # daraus beim Laden (pgcrypto) und traegt deshalb KEIN Passwort im Repo.
 # Der Kompromiss, benannt: der Wert steht fuer die Dauer des Ladens in den
 # Session-Einstellungen der ENTWICKLUNGS-Datenbank. Ein psql-Variable waere
@@ -129,8 +129,8 @@ fi
 # Saaten tragen ihre Hashes noch selbst. Kein Vorgabewert - eine Vorgabe waere
 # genau das Passwort im Repo, das vermieden werden soll.
 SEED_PASSWORT_WERT="${SEED_PASSWORT:-}"
-if [ -z "$SEED_PASSWORT_WERT" ] && { [ -z "$TARGET_FILE" ] || [ "$TARGET_FILE" = "y1-probebuehne.sql" ]; }; then
-  fail "SEED_PASSWORT ist nicht gesetzt. sql/seeds/y1-probebuehne.sql legt anmeldbare Konten an und hasht das Passwort beim Laden (pgcrypto) - es steht ABSICHTLICH nicht im Repo. Erlaubter Aufruf: SEED_DEMO_WORLD=true SEED_PASSWORT=<mindestens 12 Zeichen> $0"
+if [ -z "$SEED_PASSWORT_WERT" ] && { [ -z "$TARGET_FILE" ] || [ "$TARGET_FILE" = "y1-2-standorte.sql" ]; }; then
+  fail "SEED_PASSWORT ist nicht gesetzt. sql/seeds/y1-2-standorte.sql legt anmeldbare Konten an und hasht das Passwort beim Laden (pgcrypto) - es steht ABSICHTLICH nicht im Repo. Erlaubter Aufruf: SEED_DEMO_WORLD=true SEED_PASSWORT=<mindestens 12 Zeichen> $0"
 fi
 case "$SEED_PASSWORT_WERT" in
   *[[:space:]]*|*\"*|*\'*)

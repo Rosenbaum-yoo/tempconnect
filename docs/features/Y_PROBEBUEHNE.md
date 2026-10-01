@@ -227,11 +227,11 @@ sehen."* Genau das ist heute nicht möglich.
 | Y1.1 | **Je Abo eine Zeitarbeitsfirma und ein Unternehmen** — DEMO, BASIS, PLUS, PRO, INDIVIDUELL; bei INDIVIDUELL zusätzlich die Größenstufen S und Enterprise, weil sie andere Grenzen tragen | 12 Konten, jedes anmeldbar, jedes mit Zweck im Regiebuch |
 | Y1.2 ✅ | **Eine Firma mit drei Standorten und drei Menschen** (Verwaltung, Disposition, Standortleitung) — heute gibt es **eine** solche Organisation unter 2566 | Welle U wird damit überhaupt erst durchspielbar |
 | Y1.3 | **Je ein Konto im Sonderzustand:** Pilotkunde, gekündigt, wegen Zahlungsausfall gesperrt, Abo läuft in drei Tagen ab | Jeder Zustand ist anmeldbar und zeigt genau seine Oberfläche |
-| Y1.4 | **Eine Zeitarbeitsfirma mit vollständiger Belegschaft:** 12 Kräfte, davon 8 mit Katalog-Fähigkeiten, 2 im Einsatz, 1 krank, 1 verspätet | Erst damit kann der Marktplatz voll wirken (heute: 3 von 33 mit Fähigkeiten) |
+| Y1.4 ✅ | **Eine Zeitarbeitsfirma mit vollständiger Belegschaft:** 12 Kräfte, davon 8 mit Katalog-Fähigkeiten, 2 im Einsatz, 1 krank, 1 verspätet | Erst damit kann der Marktplatz voll wirken (heute: 3 von 33 mit Fähigkeiten) |
 
 > **Y1.2 GEBAUT — Stand 2026-10-01. Beide Nullen stehen jetzt auf 1.**
 >
-> `sql/seeds/y1-probebuehne.sql` legt **Nordlicht Logistik GmbH** an (PLUS) mit
+> `sql/seeds/y1-2-standorte.sql` legt **Nordlicht Logistik GmbH** an (PLUS) mit
 > drei Standorten (Hamburg Hafen als Hauptsitz, Berlin Schoenefeld, Muenchen
 > Nord), drei standortgebundenen Abteilungen und **drei Menschen mit drei
 > Sichtweiten**:
@@ -274,7 +274,7 @@ sehen."* Genau das ist heute nicht möglich.
 >
 > ```bash
 > SEED_DEMO_WORLD=true SEED_PASSWORT=<mindestens 12 Zeichen> \
->   ./scripts/dev/seed-data.sh --file=y1-probebuehne.sql
+>   ./scripts/dev/seed-data.sh --file=y1-2-standorte.sql
 > ```
 >
 > **Gemessen in fünf Richtungen:** Skript ohne Schalter → verweigert; Skript mit
@@ -292,6 +292,76 @@ sehen."* Genau das ist heute nicht möglich.
 > Datei. Geprüft wird die **Form**, nicht die Datenbank: das Tor lädt keine Saat,
 > und eine DB-gebundene Zusicherung wäre auf jedem Rechner rot, auf dem die Bühne
 > nicht geladen ist.
+
+> **Y1.4 GEBAUT — Stand 2026-10-01. Der Marktplatz wirkt zum ersten Mal, und die
+> rote Zusicherung hat sich selbst geschlossen.**
+>
+> `sql/seeds/y1-4-belegschaft.sql` legt **Hanse Personal Service GmbH** an (PRO —
+> von diesem Plan gab es im Bestand nur drei) mit einem Disponenten und **zwölf
+> Kräften**. Gemessen nach dem Laden:
+>
+> | | Zahl |
+> |---|---|
+> | Kräfte | 12 |
+> | davon mit freigegebener Katalog-Fähigkeit | **8** |
+> | heute krank | 1 |
+> | heute verspätet | 1 |
+> | im Einsatz (gebunden) | 2 |
+> | **automatische Angebote im Markt** | **5, aktiv** |
+>
+> Die fünf sind genau die vorhergesagten — Jonas Harms, Leyla Demir, Piotr
+> Lewandow, Sanna Virtanen, Mehmet Kaya. Nicht im Markt: die Kranke (Bedingung
+> 4), die zwei Gebundenen, die vier ohne Fähigkeit (Bedingung 6). **Jede
+> Abwesenheit hat einen Grund mit Namen** — das ist der Gegenstand, den „Deine
+> Kräfte, die niemand findet" (N7.3) braucht und bisher nicht hatte.
+>
+> **Die absichtlich rote Zusicherung in `api/test/marktpraesenz.service.test.js`
+> ist damit grün** (10/10 statt 9/10). Der Schalter-Zyklus dort — Marktpräsenz
+> abschalten, Angebote müssen verschwinden, wieder einschalten, sie müssen
+> zurückkommen — ist zum ersten Mal **wirklich gelaufen**.
+>
+> **Die sechs Bedingungen, gemessen aus `PRAESENZ_BEDINGUNGEN`:** aktiv,
+> Marktpräsenz an, Wohnort gesetzt, heute nicht abwesend, **die Organisation hat
+> ein aktives Mitglied mit `role_key <> 'worker'`**, mindestens eine Fähigkeit mit
+> `is_active AND status = 'approved'`.
+>
+> Die fünfte errät man nicht: **eine Agentur ohne Disponenten erzeugt KEIN
+> einziges Angebot**, auch wenn jede Kraft vollständig ist — es gäbe niemanden,
+> der antwortet. Eine Rückmutation hält das fest.
+>
+> **Die Bühne hängt zusammen.** Der Einsatz der beiden gebundenen Kräfte läuft
+> bei **Nordlicht Logistik am Standort Hamburg Hafen** — der Organisation aus
+> Y1.2. Damit trägt die Standortgrenze aus Welle U zum ersten Mal einen echten
+> Geschäftsvorgang: die Standortleitung Hamburg sieht diesen Einsatz, eine
+> Standortleitung Berlin würde ihn nicht sehen.
+>
+> **Zwei Dinge, die erst das Laden gezeigt hat:**
+> `worker_profiles_identitaet_chk` verlangt `user_id` **oder** eine
+> `personnel_number` — zehn der zwölf haben kein Portalkonto, und das ist der
+> häufigere echte Fall (alle 33 bestehenden Profile haben eines). Und
+> `assignments` hat kein `end_date`, sondern `planned_end_date`.
+>
+> **Ladereihenfolge ausdrücklich nummeriert.** `y1-belegschaft.sql` sortierte
+> **vor** `y1-probebuehne.sql`, brauchte sie aber — der Läufer führt
+> `sql/seeds/*.sql` sortiert aus. Jetzt: `y1-2-standorte.sql` und
+> `y1-4-belegschaft.sql`, mit Platz für Y1.1 und Y1.3. Zusätzlich prüft die Saat
+> selbst, ob die Kundenorganisation da ist, und sagt es — statt an einem
+> Fremdschlüssel zu scheitern.
+>
+> **Aufruf:**
+>
+> ```bash
+> SEED_DEMO_WORLD=true SEED_PASSWORT=<mindestens 12 Zeichen> \
+>   ./scripts/dev/seed-data.sh
+> ```
+>
+> **Wächter:** `api/test/probebuehneBelegschaft.test.js`, 9 Zusicherungen,
+> **18 Rückmutationen, alle rot und jede an der gemeinten Stelle.** Drei davon
+> deckten echte Lücken in meiner eigenen Probe auf: ich hatte dreimal die
+> **Meldung** einer Notbremse geprüft statt ihre **Bedingung** — `IF false` ließ
+> den Text stehen und die Zusicherung grün. Und ein Muster war ein Präfix:
+> `'krank', CURRENT_DATE` passte auch auf `CURRENT_DATE + 1`, also auf eine
+> Abwesenheit, die erst morgen beginnt. Alle drei korrigiert und nachgewiesen.
 
 ### Y2 · Die Zustände, die sonst niemand herstellt
 

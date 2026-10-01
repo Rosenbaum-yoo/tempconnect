@@ -49,7 +49,7 @@ DO $sperre_saat$
 BEGIN
   IF current_setting('app.seed_demo_world', true) IS DISTINCT FROM 'true' THEN
     RAISE EXCEPTION
-      'y1-probebuehne.sql: SEED_DEMO_WORLD nicht aktiv - Saat verweigert. Anmeldbare Demo-Konten entstehen nur mit ausdruecklich gesetztem Schalter (prod-sicher).';
+      'y1-2-standorte.sql: SEED_DEMO_WORLD nicht aktiv - Saat verweigert. Anmeldbare Demo-Konten entstehen nur mit ausdruecklich gesetztem Schalter (prod-sicher).';
   END IF;
 END $sperre_saat$;
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -59,15 +59,15 @@ DO $passwort$
 BEGIN
   IF coalesce(current_setting('app.seed_passwort', true), '') = '' THEN
     RAISE EXCEPTION
-      'y1-probebuehne.sql: app.seed_passwort ist nicht gesetzt. Diese Saat traegt ABSICHTLICH kein Passwort im Repo (Y6.3) und kennt keine Vorgabe. Aufruf: SEED_DEMO_WORLD=true SEED_PASSWORT=<geheim> ./scripts/dev/seed-data.sh --file=y1-probebuehne.sql';
+      'y1-2-standorte.sql: app.seed_passwort ist nicht gesetzt. Diese Saat traegt ABSICHTLICH kein Passwort im Repo (Y6.3) und kennt keine Vorgabe. Aufruf: SEED_DEMO_WORLD=true SEED_PASSWORT=<geheim> ./scripts/dev/seed-data.sh --file=y1-2-standorte.sql';
   END IF;
   IF length(current_setting('app.seed_passwort', true)) < 12 THEN
     RAISE EXCEPTION
-      'y1-probebuehne.sql: app.seed_passwort ist kuerzer als 12 Zeichen. Diese Konten sind anmeldbar; ein kurzes Passwort macht die Buehne zur Tuer.';
+      'y1-2-standorte.sql: app.seed_passwort ist kuerzer als 12 Zeichen. Diese Konten sind anmeldbar; ein kurzes Passwort macht die Buehne zur Tuer.';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto') THEN
     RAISE EXCEPTION
-      'y1-probebuehne.sql: pgcrypto fehlt - ohne crypt() muesste der Hash in der Datei stehen, und genau das soll nicht sein.';
+      'y1-2-standorte.sql: pgcrypto fehlt - ohne crypt() muesste der Hash in der Datei stehen, und genau das soll nicht sein.';
   END IF;
 END $passwort$;
 

@@ -16,7 +16,7 @@
  * derselben Firma an einem anderen Standort gab. Nicht dünn belegt — nicht
  * vorführbar.
  *
- * Nach dem Laden von `sql/seeds/y1-probebuehne.sql`: beide Nullen stehen auf 1.
+ * Nach dem Laden von `sql/seeds/y1-2-standorte.sql`: beide Nullen stehen auf 1.
  *
  * WARUM DIESE PROBE DIE DATEI PRÜFT UND NICHT DIE DATENBANK. Das Tor lädt keine
  * Saat — eine DB-gebundene Zusicherung wäre auf jedem Rechner rot, auf dem die
@@ -45,7 +45,7 @@ function findeWurzel() {
   for (const start of [__dirname, process.cwd()]) {
     let dir = path.resolve(start);
     for (let i = 0; i < 8; i++) {
-      const saat = path.join(dir, "sql", "seeds", "y1-probebuehne.sql");
+      const saat = path.join(dir, "sql", "seeds", "y1-2-standorte.sql");
       if (fs.existsSync(saat) && fs.statSync(saat).size > 2000) return dir;
       const eltern = path.dirname(dir);
       if (eltern === dir) break;
@@ -57,7 +57,7 @@ function findeWurzel() {
 
 const ROOT = findeWurzel();
 const suite = ROOT ? describe : describe.skip;
-const SAAT = ROOT ? fs.readFileSync(path.join(ROOT, "sql", "seeds", "y1-probebuehne.sql"), "utf8") : "";
+const SAAT = ROOT ? fs.readFileSync(path.join(ROOT, "sql", "seeds", "y1-2-standorte.sql"), "utf8") : "";
 
 /** Der Rumpf einer Einfügung in eine bestimmte Tabelle, Kommentare entfernt. */
 function einfuegung(tabelle) {

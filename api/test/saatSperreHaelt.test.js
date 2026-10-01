@@ -362,7 +362,7 @@ suite("Y0.1 — die Saat sperrt sich selbst, auf jedem Ladeweg", () => {
     assert.match(sh, new RegExp("PGOPTIONS=\"[^\"]*-c " + SCHALTER.replace(/\./g, "\\.") + "=true"),
       "seed-data.sh setzt den Schalter nicht per PGOPTIONS — dann verweigern die Saat-Dateien "
       + "auch den erlaubten Entwickler-Pfad, und der Riegel wird umgangen statt benutzt");
-    /* Und der zweite Schalter: ohne ihn kann sql/seeds/y1-probebuehne.sql nicht
+    /* Und der zweite Schalter: ohne ihn kann sql/seeds/y1-2-standorte.sql nicht
        laden, denn sie trägt ABSICHTLICH kein Passwort im Repo (Y6.3) und hasht
        beim Laden aus `app.seed_passwort`. */
     assert.match(sh, /PGOPTIONS="[^"]*-c app\.seed_passwort=/,
