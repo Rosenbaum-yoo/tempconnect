@@ -11,19 +11,21 @@
     admin:   "Admin"
   };
 
+  // Dieselben Namen wie in der Verwaltung — Quelle ist api/config/orgRollen.js
+  // (ROLLEN_NAMEN); api/test/verwaltung.test.js haelt beide gleich.
   var ORG_ROLE_LABELS = {
     platform_admin: "Plattform-Admin",
     owner: "Owner",
     admin: "Admin",
-    program_manager: "Programm-Manager",
-    hiring_manager: "Hiring-Manager",
-    supplier_manager: "Supplier-Manager",
+    program_manager: "Programm-Manager/in",
+    hiring_manager: "Hiring-Manager/in",
+    supplier_manager: "Supplier-Manager/in",
     finance: "Finanzen",
-    recruiter: "Recruiter",
-    dispatcher: "Dispatcher",
+    recruiter: "Recruiter/in",
+    dispatcher: "Disponent/in",
     member: "Mitglied",
-    supplier_user: "Supplier",
-    viewer: "Viewer"
+    supplier_user: "Lieferant (extern)",
+    viewer: "Betrachter/in"
   };
 
   var PLAN_COLORS = {

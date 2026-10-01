@@ -186,7 +186,7 @@ describe("listMatrixSurfaces / listMatrixFeatureKeys", () => {
     const set = new Set(out);
     assert.equal(out.length, set.size);
     // Erwartete Mindest-Surfaces
-    for (const s of ["marketplace", "requisitions", "deals", "bounties", "vendor_pool", "executive_dashboard", "admin_panel"]) {
+    for (const s of ["marketplace", "requisitions", "deals", "bounties", "vendor_pool", "executive_dashboard", "verwaltung"]) {
       assert.ok(set.has(s), `Surface fehlt: ${s}`);
     }
   });
@@ -319,14 +319,14 @@ if (HUB_VISIBILITY_AVAILABLE) {
     });
   });
 
-  describe("hubVisibility.resolve() — admin_panel (orgRoles-Whitelist, unveraendert)", () => {
-    it("8: company/admin sieht admin_panel", () => {
-      const r = hv.resolve(hubMe("company", "admin"), "admin_panel");
+  describe("hubVisibility.resolve() — verwaltung (orgRoles-Whitelist; bis W-E9 admin_panel)", () => {
+    it("8: company/admin sieht verwaltung", () => {
+      const r = hv.resolve(hubMe("company", "admin"), "verwaltung");
       assert.equal(r.visible, true, `Erwartet visible=true, state=${r.state}`);
     });
 
-    it("9: company/hiring_manager sieht admin_panel NICHT (hidden_role)", () => {
-      const r = hv.resolve(hubMe("company", "hiring_manager"), "admin_panel");
+    it("9: company/hiring_manager sieht verwaltung NICHT (hidden_role)", () => {
+      const r = hv.resolve(hubMe("company", "hiring_manager"), "verwaltung");
       assert.equal(r.visible, false, `Erwartet visible=false, state=${r.state}`);
       assert.equal(r.state, "hidden_role");
     });

@@ -119,15 +119,32 @@ describe("hubVisibility.resolve - hub card visibility per role",
     }
   });
 
-  it("hides the admin card for non-admin roles and shows it for owner", () => {
+  it("hides the Verwaltung card for non-admin roles and shows it for owner", () => {
     const nonAdmin = companyOwner({ org_role: "program_manager" });
     const admin = companyOwner({ org_role: "owner" });
     const platformAdmin = companyOwner({ org_role: "platform_admin" });
 
-    assert.equal(hv.resolve(nonAdmin, "admin_panel").visible, false);
-    assert.equal(hv.resolve(nonAdmin, "admin_panel").state, "hidden_role");
-    assert.equal(hv.resolve(admin, "admin_panel").visible, true);
-    assert.equal(hv.resolve(platformAdmin, "admin_panel").visible, true);
+    assert.equal(hv.resolve(nonAdmin, "verwaltung").visible, false);
+    assert.equal(hv.resolve(nonAdmin, "verwaltung").state, "hidden_role");
+    assert.equal(hv.resolve(admin, "verwaltung").visible, true);
+    assert.equal(hv.resolve(platformAdmin, "verwaltung").visible, true);
+  });
+
+  it("W-E9: die Verwaltung gibt es auf BEIDEN Seiten — Owner und Admin der Zeitarbeitsfirma sehen sie, der Disponent nicht", () => {
+    const agency = (org_role) => companyOwner({ role: "agency", org_type: "agency", org_role });
+    assert.equal(hv.resolve(agency("owner"), "verwaltung").visible, true);
+    assert.equal(hv.resolve(agency("admin"), "verwaltung").visible, true);
+    assert.equal(hv.resolve(agency("dispatcher"), "verwaltung").state, "hidden_role");
+    assert.equal(hv.resolve(agency("recruiter"), "verwaltung").state, "hidden_role");
+  });
+
+  it("W-E9: die alten Kartenschluessel admin_panel und location_management gibt es nicht mehr", () => {
+    // resolve() laesst unbekannte Schluessel durch (visible: true). Eine Karte, die
+    // noch einen alten Schluessel traegt, waere deshalb fuer JEDEN sichtbar — darum
+    // muss der Schluessel weg sein, nicht nur die Karte.
+    assert.ok(!hv.listSurfaces().includes("admin_panel"));
+    assert.ok(!hv.listSurfaces().includes("location_management"));
+    assert.ok(hv.listSurfaces().includes("verwaltung"));
   });
 
   it("respects surface_access org_locked for vendor_pool (buyer-only)", () => {
@@ -394,7 +411,7 @@ describe("Worker-Portal Abgrenzung — vollständige hidden_worker-Suite",
       surface_access: {
         marketplace:         { mode: "full",      canRead: true,  canWrite: true  },
         executive_dashboard: { mode: "full",      canRead: true,  canWrite: true  },
-        admin_panel:         { mode: "read_only", canRead: true,  canWrite: false },
+        verwaltung:          { mode: "read_only", canRead: true,  canWrite: false },
         vendor_pool:         { mode: "full",      canRead: true,  canWrite: true  },
       }
     });
@@ -453,9 +470,9 @@ describe("Worker-Portal Abgrenzung — vollständige hidden_worker-Suite",
 
   // ── Kombinierter Schnelltest ─────────────────────────────────────────────────
 
-  it("Worker-Boundary-Schnelltest: marketplace + executive_dashboard + admin_panel = hidden_worker", () => {
+  it("Worker-Boundary-Schnelltest: marketplace + executive_dashboard + verwaltung = hidden_worker", () => {
     const me = workerUser();
-    for (const key of ["marketplace", "executive_dashboard", "admin_panel"]) {
+    for (const key of ["marketplace", "executive_dashboard", "verwaltung"]) {
       assert.equal(hv.resolve(me, key).state, "hidden_worker",
         `${key} muss hidden_worker sein`);
     }

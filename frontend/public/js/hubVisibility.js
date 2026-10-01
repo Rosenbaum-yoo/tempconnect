@@ -20,14 +20,13 @@
  *   trust_center        company ✓  agency ✓   worker ✗
  *   vendor_pool         company ✓  agency ✗   worker ✗
  *   executive_dashboard company ✓  agency ✗   worker ✗
- *   admin_panel         company ✓  agency ✓   worker ✗  (+ orgRoles-Whitelist)
- *   location_management company ✓  agency ✓   worker ✗  (+ orgRoles-Whitelist)
+ *   verwaltung          company ✓  agency ✓   worker ✗  (+ orgRoles-Whitelist)
  *
  * Rollen × Surface (company-intern):
  *   Surface             owner admin prog_mgr hire_mgr supp_mgr finance disp recr member supp_user viewer
  *   vendor_pool           ✓    ✓      ✓        ✗        ✓       ✓      ✗    ✗    ✗      ✗        ✗
  *   executive_dashboard   ✓    ✓      ✓        ✗        ✗       ✓      ✗    ✗    ✗      ✗        ✗
- *   admin_panel           ✓    ✓      ✗        ✗        ✗       ✗      ✗    ✗    ✗      ✗        ✗
+ *   verwaltung            ✓    ✓      ✗        ✗        ✗       ✗      ✗    ✗    ✗      ✗        ✗
  *   marketplace           ✓    ✓      ✓        ✓        ✓       ✓      ✓    ✓    ✓      ✓        ✓
  *   requisitions          ✓    ✓      ✓        ✓        ✓       ✓      ✓    ✓    ✓      ✓        ✓
  *   assignments           ✓    ✓      ✓        ✓        ✓       ✓      ✓    ✓    ✓      ✓        ✓
@@ -86,19 +85,16 @@
       orgWideOnly: true,
       hiddenRoles: ["hiring_manager", "supplier_manager", "dispatcher", "recruiter", "member", "supplier_user", "viewer"]
     },
-    admin_panel: {
+    // Verwaltung (organization.html, W-E9): die EINE Seite, auf der eine Firma
+    // sich selbst verwaltet — Team, Standorte, Rollen, Sicherheit, Protokoll,
+    // Schnittstellen, Tarif. Owner und Admin, beide Seiten. Ersetzt die frueheren
+    // Karten "Admin" und "Standorte & Struktur": beide fuehrten in dieselbe
+    // Arbeit. Planabhaengige Teile (Standorte, Schnittstellen) sperrt die Seite
+    // selbst ueber data-feature-key.
+    verwaltung: {
       orgTypes: ["company", "agency"],
       orgRoles: ["platform_admin", "owner", "admin"],
       legacyRoles: ["platform_admin", "admin"]
-    },
-    // Multi-Location: Standorte-Tab / Standortverwaltung. Sichtbar, wenn die
-    // Org die org_settings-Flaeche hat (Teil des multitenant Add-on-Bundles,
-    // welches multi_location einschließt). Wird ausgeblendet, wenn plan_locked.
-    location_management: {
-      orgTypes: ["company", "agency"],
-      orgRoles: ["platform_admin", "owner", "admin"],
-      legacyRoles: ["platform_admin", "admin"],
-      surfaceKey: "org_settings"
     }
   };
 

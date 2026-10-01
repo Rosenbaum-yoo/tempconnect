@@ -400,3 +400,22 @@ describe("Protokoll spricht Deutsch — jeder Vorgang der eigenen Firma hat eine
     assert.deepEqual(ohne, [], `ohne deutschen Namen: ${ohne.join(", ")}`);
   });
 });
+
+describe("Rollennamen sind ueberall dieselben", () => {
+  // Das Abzeichen oben in der Leiste (roleBadge.js) und die Verwaltung muessen
+  // dieselbe Rolle gleich nennen — sonst heisst sie oben "Dispatcher" und in der
+  // Verwaltung "Disponent/in". Quelle ist config/orgRollen.js.
+  it("roleBadge.js nennt jede Rolle so wie ROLLEN_NAMEN", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const datei = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "..", "frontend", "public", "js", "roleBadge.js");
+    if (!fs.existsSync(datei)) return; // Abbild ohne Frontend
+    const text = fs.readFileSync(datei, "utf8");
+    const block = text.slice(text.indexOf("var ORG_ROLE_LABELS"), text.indexOf("};", text.indexOf("var ORG_ROLE_LABELS")));
+    const paare = [...block.matchAll(/^\s*([a-z_]+):\s*"([^"]+)"/gm)].map((m) => [m[1], m[2]]);
+    assert.ok(paare.length >= 12, `zu wenige Eintraege gelesen (${paare.length})`);
+    for (const [rolle, name] of paare) {
+      assert.equal(name, ROLLEN_NAMEN[rolle], `roleBadge.js nennt ${rolle} "${name}", die Verwaltung "${ROLLEN_NAMEN[rolle]}"`);
+    }
+  });
+});

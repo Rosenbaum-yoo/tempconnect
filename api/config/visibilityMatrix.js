@@ -123,11 +123,12 @@ export const VISIBILITY_MATRIX = [
     has_upgrade_cta: false,
     requires_staff_approval: true
   },
-  // Admin Panel
+  // Admin Panel — fuer Kunden abgeloest durch die Verwaltung (W-E9). Die Seite
+  // leitet weiter; keine Hub-Karte fuehrt mehr hierher.
   {
     page: "admin_panel.html",
     gating_strategy: "role_gated",
-    surfaces: ["admin_panel"],
+    surfaces: [],
     allowed_roles: ["company", "agency"],
     allowed_user_roles: ["owner", "admin"],
     allowed_org_types: ["company", "agency"],
@@ -137,13 +138,17 @@ export const VISIBILITY_MATRIX = [
     has_upgrade_cta: false,
     requires_staff_approval: false
   },
-  // Organisation
+  // Verwaltung (W-E9) — Team, Standorte, Rollen, Sicherheit, Protokoll,
+  // Schnittstellen, Tarif. Nur Owner und Admin; das Backend prueft org.members /
+  // org.settings, die Seite zeigt sonst "Owner und Admins vorbehalten".
+  // Frueher stand hier surfaces ["my_company"] — die Karte my_company zeigt aber
+  // auf sla_profil.html, nicht hierher.
   {
     page: "organization.html",
-    gating_strategy: "always_open",
-    surfaces: ["my_company"],
+    gating_strategy: "role_gated",
+    surfaces: ["verwaltung"],
     allowed_roles: ["company", "agency"],
-    allowed_user_roles: [],
+    allowed_user_roles: ["owner", "admin"],
     allowed_org_types: ["company", "agency"],
     requires_pilot: false,
     requires_individuell: false,

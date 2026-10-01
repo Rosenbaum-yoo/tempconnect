@@ -125,14 +125,10 @@
     'ent.card.executive.desc': 'KPIs, Besetzungsdruck, Spend, Plattformzustand und Managementsicht.',
     'ent.card.executive.note': 'Nachgelagerte Managementsicht — erst operative Signale, dann KPI-Aggregation.',
 
-    'ent.card.admin.eyebrow': 'Ausbau nach Pilot',
-    'ent.card.admin.title': 'Admin',
-    'ent.card.admin.desc': 'Benutzer, Organisationen, Audit-Log, Metriken und Plattform-Workflows.',
-    'ent.card.admin.note': 'Wichtig fuer Kontrolle und Governance, aber bewusst nicht der aktuelle Kernhebel fuer Pilotabschluss.',
-
-    'ent.card.locations.eyebrow': 'Org-Einstellungen',
-    'ent.card.locations.title': 'Standorte & Struktur',
-    'ent.card.locations.desc': 'Standorte verwalten, Abteilungen anlegen und Org-Struktur pflegen.',
+    'ent.card.verwaltung.eyebrow': 'Ihre Firma',
+    'ent.card.verwaltung.title': 'Verwaltung',
+    'ent.card.verwaltung.desc': 'Team einladen, Rollen vergeben, Standorte pflegen, Protokoll und Schnittstellen.',
+    'ent.card.verwaltung.note': 'Für Owner und Admins. Jede Änderung zeigt vorher, was sie bewirkt, und steht danach im Protokoll.',
 
     'ent.supplier.desc.rates': 'Lieferantenpool, Bewertung, Preisrahmen und Spend auf Erfuellung ausrichten.',
     'ent.supplier.note.base': 'Staerkt Abschlussquote und Steuerbarkeit, bleibt aber hinter Bedarf, Deal und Zeiten nachgelagert.',
@@ -256,14 +252,10 @@
     'ent.card.executive.desc': 'KPIs, staffing pressure, spend, platform health and management view.',
     'ent.card.executive.note': 'Downstream management view — operational signals first, then KPI aggregation.',
 
-    'ent.card.admin.eyebrow': 'Post-pilot expansion',
-    'ent.card.admin.title': 'Admin',
-    'ent.card.admin.desc': 'Users, organisations, audit log, metrics and platform workflows.',
-    'ent.card.admin.note': 'Important for control and governance, but deliberately not the current lever for closing the pilot.',
-
-    'ent.card.locations.eyebrow': 'Org settings',
-    'ent.card.locations.title': 'Locations & structure',
-    'ent.card.locations.desc': 'Manage locations, create departments and maintain the org structure.',
+    'ent.card.verwaltung.eyebrow': 'Your company',
+    'ent.card.verwaltung.title': 'Administration',
+    'ent.card.verwaltung.desc': 'Invite your team, assign roles, maintain locations, audit log and integrations.',
+    'ent.card.verwaltung.note': 'For owners and admins. Every change shows its effect first and is recorded in the audit log.',
 
     'ent.supplier.desc.rates': 'Align supplier pool, scoring, rate cards and spend with fulfilment.',
     'ent.supplier.note.base': 'Strengthens close rate and control, but ranks behind demand, deal and hours.',

@@ -628,6 +628,8 @@
 
     h += '<div class="tc-shell-user__footer">';
     h += '<a href="/public/sla_profil.html" class="tc-shell-user__profile-link">Profil bearbeiten \u2192</a>';
+    // Verwaltung (W-E9) nur fuer Owner und Admin — dieselbe Regel wie die Hub-Karte.
+    h += '<a href="/public/organization.html" class="tc-shell-user__profile-link" id="tc-shell-verwaltung-link" hidden>Verwaltung \u2192</a>';
     h += '</div>';
 
     // Logout im Dropdown
@@ -636,6 +638,11 @@
     h += '</div>';
 
     container.innerHTML = h;
+    ensureHubVisibilityLoaded(function () {
+      var link = document.getElementById("tc-shell-verwaltung-link");
+      var hvr = window.TC && window.TC.hubVisibility && window.TC.hubVisibility.resolve;
+      if (link && typeof hvr === "function" && hvr(me, "verwaltung").visible) link.hidden = false;
+    });
 
     /* P6: Die Topbar entsteht ERST nach dem /me-Abruf — die i18n-Schicht ist
        da laengst durchgelaufen. Ohne diesen Aufruf bliebe der Umschalter ein
@@ -910,6 +917,9 @@
       ".tc-shell-user__footer{margin-top:14px;padding-top:10px;border-top:1px solid var(--ds-border,rgba(255,255,255,.07));text-align:center}",
       ".tc-shell-user__profile-link{font-size:12px;color:var(--ds-brand,#4a9eff);font-weight:600;text-decoration:none}",
       ".tc-shell-user__profile-link:hover{text-decoration:underline}",
+      ".tc-shell-user__footer{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 16px}",
+      ".tc-shell-user__footer .tc-shell-user__profile-link{white-space:nowrap}",
+      ".tc-shell-user__footer .tc-shell-user__profile-link[hidden]{display:none}",
 
       /* Logout button */
       ".tc-shell-logout{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;font-size:11px;font-weight:700;letter-spacing:.03em;border-radius:8px;border:1px solid rgba(255,92,122,.3);background:rgba(255,92,122,.07);color:rgba(255,160,140,.9);cursor:pointer;font-family:inherit;transition:background .15s,border-color .15s;white-space:nowrap;flex-shrink:0;line-height:1.4}",
@@ -1245,8 +1255,10 @@
         t: ["ausgaben","spend","kosten","budget","auswertung","analyse","reporting","statistik","zahlen","kennzahlen","kpi"] },
       { label: "Lieferanten / Pool", sub: "Vendor-Verzeichnis", href: "/public/vendor_pool.html", key: "steuerung",
         t: ["firma","firmen","verzeichnis","lieferanten","anbieter","vendor","partner","pool","dienstleister"] },
-      { label: "Organisation & Team", sub: "Stammdaten, Nutzer, Standorte", href: "/public/organization.html", key: "steuerung",
-        t: ["einstellungen","konto","profil","organisation","team","nutzer verwalten","stammdaten","benutzer","standorte","mitarbeiter einladen"] },
+      // W-E9: eigener Sichtbarkeitsschluessel statt "steuerung" — die Steuerung ist
+      // buyer-seitig, die Verwaltung gibt es auf beiden Seiten (Owner und Admin).
+      { label: "Verwaltung", sub: "Team, Rollen, Standorte, Protokoll", href: "/public/organization.html", surface: "verwaltung",
+        t: ["verwaltung","einstellungen","organisation","team","nutzer verwalten","benutzer","rollen","rechte","berechtigungen","standorte","abteilungen","mitarbeiter einladen","kollegen einladen","einladen","protokoll","audit","api schluessel","api key","admin"] },
       { label: "Integrationen", sub: "SAP, DATEV, API, Webhooks", href: "/public/integrations.html", key: "steuerung",
         t: ["integration","schnittstelle","sap","datev","api","webhook","export","anbindung","lohn","buchhaltung anbinden"] },
       { label: "Single Sign-On", sub: "SSO / SAML einrichten", href: "/public/sso_config.html", key: "steuerung",
@@ -1274,6 +1286,12 @@
       INTENTS.forEach(function (it) {
         if (it.org && ot && it.org !== ot) return;                 // org-spezifischer Intent
         if (it.key && hv) { try { var d = hv(me, it.key); if (d && d.visible === false) return; } catch (e) { /* fail-open */ } }
+        // Ziele mit eigener Hub-Flaeche (surface) folgen deren Regel, nicht der Nav-Regel.
+        if (it.surface) {
+          var hvs = window.TC && TC.hubVisibility && typeof TC.hubVisibility.resolve === "function" ? TC.hubVisibility.resolve : null;
+          if (!hvs) return; // fail-closed: ohne Regel kein Hinweis auf eine Seite, die 403 antworten koennte
+          try { if (hvs(me, it.surface).visible === false) return; } catch (e) { return; }
+        }
         var best = 0;
         for (var i = 0; i < it.t.length; i++) {
           var nt = normSearch(it.t[i]);
