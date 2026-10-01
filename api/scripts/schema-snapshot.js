@@ -206,7 +206,68 @@ SELECT json_build_object(
     SELECT json_agg(DISTINCT t.typname)
     FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
     WHERE n.nspname = 'public' AND t.typtype = 'e'
-  ), '[]'::json)
+  ), '[]'::json),
+  /*
+   * U6.6 (2026-10-01): DIE WERTELISTEN DER CHECK-REGELN.
+   *
+   * WARUM SIE HIERHER GEHOEREN. Der Code kodiert diese Werte als Zeichenketten
+   * ('active', 'BLOCKED', 'draft'). Kommt in der Datenbank ein Wert hinzu,
+   * faellt er STILLSCHWEIGEND auf die Seite, die der Code gerade nicht nennt —
+   * eine Entscheidung, die niemand getroffen hat. Gemessen an U6.2: ein neuer
+   * vendor_pool.status wuerde ohne weiteres als "nicht im Pool" gelten, und ein
+   * pausierter Lieferant bekaeme keine neue Konditionskarte mehr, ohne dass das
+   * jemand so wollte.
+   *
+   * Die Probe dazu lag bis hierher in einer datenbankgebundenen Datei und war
+   * damit im Host-Tor KEINE Zusicherung — sie laeuft nur im Abbild-Lauf. Mit der
+   * Momentaufnahme laeuft sie ueberall. Genau dort entscheidet sich aber, ob
+   * jemand einen Status hinzufuegen kann, ohne zu sagen, auf welche Seite er
+   * gehoert.
+   *
+   * NUR EINSPALTIGE CHECKs MIT = ANY (ARRAY[...]): das ist die Form, die eine
+   * Werteliste IST. Mehrspaltige Regeln ("entweder A oder B gesetzt") und
+   * Bereichsregeln (> 0) sind keine Listen; sie hier aufzunehmen hiesse, eine
+   * Zahl zu fuehren, die niemand vergleichen kann. Gemessen: 231 Spalten in 117
+   * Tabellen tragen eine echte Werteliste.
+   *
+   * SORTIERT auf beiden Ebenen und in den Werten selbst: ohne das erzeugt jede
+   * Neugenerierung einen Diff ohne Inhalt, und ein Diff ohne Inhalt trainiert
+   * dem Leser das Wegschauen an.
+   */
+  'wertelisten', COALESCE((
+    SELECT json_object_agg(f.tab, f.spalten)
+    FROM (
+      SELECT tab, json_object_agg(spalte, werte ORDER BY spalte) AS spalten
+      FROM (
+        SELECT t.relname AS tab,
+               a.attname AS spalte,
+               /*
+                * TEXT- UND ZAHLENLISTEN. Die erste Fassung las nur
+                * '...'::text und lieferte fuer CHECK ((id = ANY (ARRAY[1, 2])))
+                * eine LEERE Liste - gefunden hat das die Form-Zusicherung in
+                * test/wertelistenSindBenannt.test.js, Minuten nachdem sie
+                * entstand. Eine Werteliste, die die Momentaufnahme nicht lesen
+                * kann, ist genau die stille Luecke, die U6.6 schliessen soll;
+                * die Zeile auszunehmen waere die falsche Antwort gewesen.
+                * Der Cast ist optional, weil er je nach Typ fehlt.
+                */
+               (SELECT json_agg(x.w ORDER BY x.w) FROM (
+                  SELECT DISTINCT COALESCE(m[1], m[2]) AS w
+                    FROM regexp_matches(pg_get_constraintdef(c.oid),
+                         '''([^'']*)''(?:::[a-zA-Z0-9_ ]+)?|\\m(\\d+)\\M', 'g') m
+                ) x) AS werte
+          FROM pg_constraint c
+          JOIN pg_class t ON t.oid = c.conrelid
+          JOIN pg_namespace n ON n.oid = t.relnamespace
+          JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+         WHERE c.contype = 'c'
+           AND n.nspname = 'public'
+           AND array_length(c.conkey, 1) = 1
+           AND pg_get_constraintdef(c.oid) LIKE '%= ANY (ARRAY[%'
+      ) roh
+      GROUP BY tab
+    ) f
+  ), '{}'::json)
 )::text
 `.replace(/\s+/g, " ").trim();
 
@@ -307,6 +368,22 @@ const ausgabe = {
   sichten: (daten.sichten || []).sort(),
   funktionen: (daten.funktionen || []).sort(),
   enums: (daten.enums || []).sort(),
+  /* U6.6: beide Ebenen UND die Werte sortiert. Postgres sortiert schon in der
+     Abfrage, aber json_object_agg gibt keine Reihenfolgegarantie ueber die
+     Tabellen — ohne diese Zeile erzeugt jede Neugenerierung einen Diff ohne
+     Inhalt, und so einer trainiert das Wegschauen an. */
+  wertelisten: Object.fromEntries(
+    Object.entries(daten.wertelisten || {})
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([tab, spalten]) => [
+        tab,
+        Object.fromEntries(
+          Object.entries(spalten || {})
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([spalte, werte]) => [spalte, [...(werte || [])].sort()])
+        )
+      ])
+  ),
   tabellen: Object.fromEntries(Object.entries(tabellen).sort(([a], [b]) => a.localeCompare(b)))
 };
 

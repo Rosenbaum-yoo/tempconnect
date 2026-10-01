@@ -398,6 +398,74 @@ nur der volle Prüflauf es sah. Die Zahl hat keine Ermessensentscheidung in sich
 angepasster Attrappe. Die Prüfung in `dokuWaechter` bleibt stehen: sie ist die Gegenprobe zur
 Fortschreibung, nicht ihr Ersatz.
 
+
+### U6.6 · gebaut 2026-10-01 — die Wertelisten stehen in der Momentaufnahme
+
+`api/test/fixtures/schema.json` führt einen neuen Abschnitt **`wertelisten`**: je Tabelle und
+Spalte die erlaubten Werte aus den `CHECK`-Regeln. Gemessen: **231 Spalten in 117 Tabellen**.
+`api/test/wertelistenSindBenannt.test.js` (9 Proben) hält die Regeln dagegen — **datenbankfrei**,
+also auch im Host-Tor.
+
+**Warum das der Unterschied zwischen einer Probe und einer Zusicherung ist.** Dieselbe Prüfung stand
+zuerst DB-gebunden in `test/integration/wirkungDesEntfernens.flow.test.js` und war damit im Host-Tor
+**keine** Zusicherung — sie läuft nur im Abbild-Lauf. Genau dort entscheidet sich aber, ob jemand
+einen Wert hinzufügen kann, ohne zu sagen, auf welche Seite er gehört. Die DB-gebundene Probe bleibt
+stehen, mit anderer Aufgabe: sie belegt, dass die Momentaufnahme die **Wirklichkeit** trifft. Eine
+Zusicherung über einer veralteten Momentaufnahme ist grün und wertlos.
+
+**Was die Regel verlangt.** Für jede Spalte, auf der eine Regel steht, nennt die Probe **beide**
+Seiten vollständig. Fünf Regeln heute: `vendor_pool.status`, `vendor_pool.tier` (U6.2),
+`rate_cards.status`, `assignments.status`, `contracts.status` (U6.2b). Ein erlaubter Wert, den keine
+Seite nennt, wird rot — mit der Folge im Fehlertext. Und die Gegenrichtung: ein Wert, den die Regel
+nennt und die Datenbank nicht erlaubt, ist **toter Code mit dem Anschein von Sorgfalt**.
+
+**Zwei Abgrenzungen, damit die Zahl nachrechenbar bleibt:**
+
+- **Nur einspaltige `CHECK`s mit `= ANY (ARRAY[...])`.** Mehrspaltige Regeln („entweder A oder B
+  gesetzt") und Bereichsregeln (`>= 0`) sind keine Listen; sie aufzunehmen hieße, eine Zahl zu
+  führen, die niemand vergleichen kann.
+- **Keine Zahlengrenze als Wächter.** Eine Obergrenze auf die Tabellenzahl (117 heute, **140** beim
+  geweiteten Filter — gemessen) schlüge bei jeder legitimen Migration an, und eine Zahl, die bei
+  normaler Arbeit Alarm schlägt, trainiert dem Leser das Wegschauen an. Stattdessen eine
+  **Form**-Zusicherung: jeder Eintrag muss eine nicht-leere Liste von Zeichenketten sein.
+
+**Die Form-Zusicherung hat innerhalb von Minuten einen echten Fehler in meinem eigenen Erzeuger
+gefunden.** Sie wurde rot auf der **echten** Momentaufnahme: `marktplatz_feed_kopie.id` kam als
+leere Liste. Ursache — `CHECK ((id = ANY (ARRAY[1, 2])))` ist eine **Zahlen**liste, und mein
+Auszug las nur `'...'::text`. Eine Werteliste, die die Momentaufnahme nicht lesen kann, ist genau
+die stille Lücke, die U6.6 schließen soll; die Zeile auszunehmen wäre die falsche Antwort gewesen.
+Der Auszug liest jetzt Text **und** Zahlen, die Zählung bleibt bei 231/117 — der Filter wurde also
+nicht geweitet, nur das Lesen repariert.
+
+**Was die Form-Zusicherung nicht leistet, offen gesagt:** von den 125 einspaltigen `CHECK`s, die
+keine Werteliste sind, tragen **117 null Zeichenketten-Literale** (`CHECK (accepted_count >= 0)` und
+Verwandte) — die fängt sie. Die restlichen **8** (sieben mit einem Literal, eine mit sechs) sehen der
+Form einer Werteliste zum Verwechseln ähnlich: `col <> 'x'` ist von einer Liste mit einem Wert nicht
+unterscheidbar. Der primäre Riegel bleibt deshalb der Filter im Erzeuger; die Form-Zusicherung ist
+der Rückhalt, der einen Bruch grob sichtbar macht, nicht die vollständige Trennung.
+
+**Beide Vorgaben aus der Gegenprüfung sind eingehalten:** sortiert auf **drei** Ebenen (Tabellen,
+Spalten, Werte) — zwei Neugenerierungen hintereinander ergeben außer `erzeugt_am` **keinen**
+Unterschied, gemessen. Und erzeugt wird **vor** dem Tor, nicht danach: der Fingerabdruck der
+Momentaufnahme hängt an den Migrationen, und in U6.1 hat genau diese Reihenfolge einen roten Test
+gekostet.
+
+**Nachweis: 14 Rückmutationen, 14 rot** — neun an der Momentaufnahme (Abschnitt weg · auf drei
+Tabellen gekürzt · neuer Wert ohne Regel in beide Richtungen · Wert aus der Datenbank verschwunden ·
+Werteliste ganz weg · unsortiert auf zwei Ebenen), zwei am Wahrheitsmodul (ein Wert, den die
+Datenbank nicht kennt — die Pool-Regel träfe dann **nie** zu, und das sähe aus wie ein leerer Pool
+statt wie ein Fehler), drei am **Erzeuger** mit echter Neugenerierung. Die letzten drei waren nötig,
+weil eine Mutation am Erzeuger, die man nicht laufen lässt, nichts belegt — und die dritte
+(`C3`, Filter geweitet) ist beim ersten Anlauf **entwischt** und hat die Form-Zusicherung überhaupt
+erst erzwungen.
+
+**Nebenfund, als Nachtrag an Z11 vermerkt:** `vendor_pool` trägt eine **dritte** Werteliste, die in
+U6.2 niemand betrachtet hat — `invitation_status ∈ {accepted, expired, none, sent}`. Gemessen: der
+Name kommt im ganzen `api/`-Baum **nur** in der Momentaufnahme vor, kein Produktionspfad liest oder
+schreibt ihn. Die Spalte ist tot; sie aus der Pool-Regel auszulassen ist damit begründet und nicht
+nachlässig. Genau diesen Fall macht U6.6 künftig sichtbar, statt ihn dem Zufall zu überlassen — die
+Waisen-Familie aus Z11 reicht bis auf die **Spalten**ebene.
+
 ## 5. Reihenfolge
 
 **U0 → U2.4 → U6 → U1 → U5 → U2 → U3 → U4.**

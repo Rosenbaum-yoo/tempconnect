@@ -302,11 +302,19 @@ describe("U6.2b — die Vorschau an echten Zeilen", { skip: !hasDb && "keine Dat
      * Seite er steht. Das ist der Unterschied zwischen einer Regel und einem
      * Zufall.
      *
-     * DB-GEBUNDEN, weil die Momentaufnahme (`test/fixtures/schema.json`) die
-     * CHECK-Listen heute nicht führt — sie trägt Spalten, NOT-NULL, Fremd-
-     * schlüssel, Sichten, Funktionen und Enums. Die Listen dort aufzunehmen
-     * wäre der bessere Weg und ist als Posten benannt; bis dahin fragt diese
-     * Probe die laufende Datenbank, und sie läuft damit im Abbild-Tor.
+     * SEIT U6.6 IST DAS NICHT MEHR DIE EINZIGE SCHICHT — und die Aufteilung ist
+     * der Punkt. Die Momentaufnahme (`test/fixtures/schema.json`) führt jetzt
+     * einen Abschnitt `wertelisten`, und `test/wertelistenSindBenannt.test.js`
+     * prüft die Regel darüber **datenbankfrei**, also auch im Host-Tor. Vorher
+     * stand sie nur hier und war damit im Host-Tor keine Zusicherung — sie läuft
+     * dort nicht, und genau dort entscheidet sich, ob jemand einen Wert
+     * hinzufügen kann, ohne zu sagen, wohin er gehört.
+     *
+     * DIESE PROBE BLEIBT TROTZDEM STEHEN, und zwar mit einer anderen Aufgabe:
+     * sie belegt, dass die Momentaufnahme die WIRKLICHKEIT trifft. Eine
+     * Momentaufnahme kann veralten; eine Zusicherung über einer veralteten
+     * Momentaufnahme ist grün und wertlos. Hier wird dieselbe Frage an die
+     * laufende Datenbank gestellt.
      */
     const { rows } = await client.query(
       `SELECT conname, pg_get_constraintdef(oid) AS regel
