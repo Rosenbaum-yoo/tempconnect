@@ -593,6 +593,119 @@ schrieb. Deshalb beschreiben sieben Befunde einen Stand, der beim Prüfen schon 
 oben stehenden fünf gilt das nicht — sie liegen in Dateien, die in dieser Welle nicht angefasst
 wurden.
 
+
+### U6.8 · gebaut 2026-10-01 — Punkt 12, und der Fensterbegriff wurde dabei zur eigenen Wahrheit
+
+**Owner-Freigabe am 2026-10-01**, direkt in die bauende Sitzung („punkt 10 11 und 12 auch bauen";
+10 und 11 waren zu diesem Zeitpunkt schon gebaut, `8621caf` und `83c59aa`).
+
+Der **Vertrags**-Zweig des Partner-Riegels prüfte nur `status = 'active'`, obwohl `contracts`
+**beide** Fenstergrenzen trägt (`valid_from`, `valid_until`, beide nullbar — gemessen). Ein
+abgelaufener Vertrag, dessen Status niemand nachgezogen hat, galt also weiter als Partnerschaft —
+direkter Nachbar dessen, was U6.7 eine Zeile höher geschlossen hat.
+
+Gemessen vor der Freigabe, von beiden Sitzungen unabhängig: **3** Verträge, **1** aktiv, **0**
+vordatiert, **1** abgelaufen — und die abgelaufene Zeile trägt auch `status='expired'`. Status und
+Fenster stimmen heute also überein, die Verengung kostet **null** abgewiesene Fälle. Das Argument für
+*jetzt*: je länger gewartet wird, desto wahrscheinlicher laufen sie auseinander — und dann
+entscheidet ein Riegel über Einsätze auf einer veralteten Zusage.
+
+#### Der Fensterbegriff steht jetzt an EINER Stelle
+
+Es wäre ein Zweizeiler gewesen. Damit hätte die Bedingung „heute liegt im Fenster" zum **zweiten**
+Mal von Hand im Baum gestanden — und diese Phase hat dreimal gezeigt, wohin das führt: die
+Pool-Regel stand am Ende **vierfach** da, zwei Fassungen davon aus einer einzigen Welle.
+
+Neu: `api/services/gueltigkeitsfensterSql.js`. `poolBedingungenSql` (U6.2) **und** der Vertrags-Zweig
+beziehen ihr Fenster daraus; eine Probe sichert zu, dass die Pool-Bedingung den Text des Moduls
+**wörtlich** enthält — nicht, dass der Name irgendwo im Quelltext steht.
+
+Und es ist nicht bei zwei Stellen zu Ende: dieselbe Breitenmessung, die U6.8 gefunden hat, nennt
+**vier weitere** (`supplierPoolService` ohne jedes Fenster, `marketplaceService` mit zwei Wahrheiten
+über `availability_to`, `assignmentStaffingService`, `workerService`). Sie sind owner-gebunden und
+nicht gebaut — aber das Modul nimmt andere Spaltennamen an, damit die nächste Welle nicht wieder von
+Hand schreibt.
+
+**Beide Zweige benutzen denselben Stichtag (`$3`).** Zwei Stichtage in einem Riegel wären an der
+Tagesgrenze zwei verschiedene Antworten auf dieselbe Frage. Eine Probe zählt deshalb vier
+Fenstergrenzen gegen **ein** `$3::date` und weist ein `$4` ab.
+
+**Die Gegenprobe der planenden Sitzung hält:** die Ausnahmeliste des Paar-Wächters bleibt bei
+**drei** — sie wird nicht länger. Der Vertrags-Zweig bindet `buyer_org_id`, nicht `client_org_id`,
+fragt also nicht nach Pool-Zugehörigkeit; der Wächter sieht ihn zu Recht nicht.
+
+#### Alle bestehenden Proben waren für die Änderung blind
+
+Nach dem Umbau liefen **73 von 73** Proben grün — ohne die neue Bedingung ein einziges Mal zu
+berühren. Genau das hatte die gegenprüfende Sitzung vorhergesagt: *„die Verengung landet ungetestet,
+jede bestehende Probe ist für sie blind."* Die DB-gebundene Nachbarprobe setzte an Verträgen nie
+`valid_from`/`valid_until`, die Form-Probe listete den Vertrags-Zweig ohne Fenster.
+
+**Nachweis: 15 Rückmutationen, 15 rot.** Die drei vorgeschriebenen (`valid_from` weg · `valid_until`
+weg · **verengt**) plus zwölf weitere, darunter die Verengung **an echten Zeilen** und beide
+NULL-Seiten („unbegrenzt"). Die Verengungs-Mutation ist die, die ohne Zwillingszusicherung überlebt
+hätte: *„wird abgewiesen"* besteht auch, wenn der Riegel **alles** abweist — dann fällt der gültige
+Fall unauffällig mit heraus. Jede Prüfung hat deshalb ihren Zwilling: am Tag des Beginns **gilt** er,
+am letzten Tag **gilt** er, ohne Fenster **gilt** er.
+
+### U6.9 · gebaut 2026-10-01 — und zwei Sitzungen hatten je eine halbe Antwort
+
+Ein laufender API-Container brach mit `Cannot find package '/app/node_modules/express'` ab, als er
+**gegen das vorhandene Abbild** neu erzeugt wurde (ohne `--build`). Daraus wurde zuerst ein
+Livegang-Blocker geschlossen. Die Gegenmessung am **Repo** sprach dagegen: `api/Dockerfile`
+installiert beim Bauen (`RUN npm ci --omit=dev`), kein Install beim Start, **kein** Mount über `/app`
+oder `node_modules`.
+
+**Beide hatten recht, und beide hätten ihre Hälfte für das Ganze genommen.** Der Container war aus
+einer älteren Fassung erzeugt und seitdem nie neu — **lokale Abdrift**, kein Repo-Defekt; auf einem
+frischen Host **baut** compose und das Abbild ist vollständig. Und die Gegenmessung („242 Pakete im
+Abbild") entstand an einem Abbild, das kurz davor **neu gebaut** worden war: derselbe Kreis, nur
+andersherum.
+
+**Was bleibt, ist ein Satz, der sich bauen lässt:** es gab keine Prüfung, die sagt, ob das benutzte
+Abbild seinem Dockerfile entspricht. `sql/test-fresh-install.sh` beweist den **Datenbank**weg ab
+null; für das **Abbild** gab es nichts.
+
+Zwei Prüfungen, mit klarer Arbeitsteilung:
+
+| | was sie beweist | braucht Docker | läuft |
+|---|---|---|---|
+| `api/test-fresh-image.sh` | das Abbild **frisch gebaut** trägt seine Pakete, `server.js` löst alle Importe auf | ja | vor einem Release |
+| `api/test/abbildIstSelbstgenuegsam.test.js` | die **Eigenschaften** des Dockerfiles (Bau-Install, kein Laufzeit-Install, `.dockerignore`) | nein | in **jedem** Tor |
+
+Die zweite ersetzt die erste nicht: ein Dockerfile kann richtig sein und das Abbild veraltet — das
+sieht nur ein Bau. Und die erste läuft nicht bei jedem Commit — das sieht nur die zweite.
+
+**Beim ersten Lauf scheiterte das Skript an der Git-Bash-Pfadumschreibung** (`/c/Users/…` ist für
+Docker kein Pfad). `MSYS_NO_PATHCONV=1` hilft dort **nicht**: es verhindert das Umschreiben von
+Argumenten, erzeugt aber keinen Windows-Pfad. `pwd -W` tut es. Dieselbe Klasse, die am 2026-09-28
+schon einen der vier Werkzeugfehler im Frisch-Installations-Tor ausmachte.
+
+**Nachweis: 14 Rückmutationen, 14 rot** — vier davon erst im zweiten Anlauf, und **alle vier
+dieselbe Klasse**: die Zusicherung wurde von einem *anderen* Vorkommen erfüllt.
+
+| Mutation | Was die Zusicherung stattdessen traf |
+|---|---|
+| `CMD` installiert zur Laufzeit | die **`CMD`-Zeile des `HEALTHCHECK`** — sie steht im Dockerfile davor |
+| `.env` aus `.dockerignore` entfernt | die Geschwisterzeile `.env.*` |
+| Skript baut nicht mehr | `docker build` im **Kommentar** des Skripts |
+| `pwd -W` entfernt | `pwd -W` in der **Begründung** desselben Skripts |
+
+Vierter bis siebter Fall dieser Klasse an **einem** Tag — und jedes Mal in einer Probe, die wenige
+Minuten alt war. Die Lehre steht im Register: **erst den Gegenstand herausschneiden** (Zeile ohne
+HEALTHCHECK, exakte Zeile statt Präfix, Befehle ohne Kommentare), **dann darin prüfen** — mit einer
+Notbremse für den Schnitt selbst.
+
+**Ein benannter Nicht-Treffer, damit niemand ihn „repariert":** `test/` und `scripts/` liegen
+**absichtlich** nicht im Abbild — ein Produktionsabbild soll keinen Testcode tragen. Die Folge gehört
+danebengeschrieben, weil sie eine Pflichtzeile betrifft: **weil `scripts/` fehlt, kann
+`docker exec … npm run test:image` nicht laufen** (`MODULE_NOT_FOUND`, gemessen). Die Abbild-Suite
+gehört auf den Host: `cd api && node scripts/run-tests.js --suite=image` — gemessen 402 Dateien, 124
+mit Begründung ausgelassen, **9827 Proben, 9813 grün** (das eine Rote ist der bekannte
+libuv-Dateiausfall). **Welche Zeile am Ende in `CLAUDE.md` steht, ist eine Release-Entscheidung und
+liegt beim Owner** (Punkt 13 seiner Liste); diese Proben halten nur den Zustand fest, auf dem sie
+beruht.
+
 ## 5. Reihenfolge
 
 **U0 → U2.4 → U6 → U1 → U5 → U2 → U3 → U4.**

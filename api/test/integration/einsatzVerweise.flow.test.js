@@ -167,6 +167,52 @@ describe("N2.9 — die Verweis-Pruefung am realen Schema",
     await client.query("UPDATE contracts SET status = 'active' WHERE id = $1", [vertragId]);
     assert.equal(await partner(kunde, zaf), null, "aktiver Rahmenvertrag wird nicht erkannt");
 
+    /*
+     * U6.8 (Owner-Freigabe 2026-10-01, Punkt 12): DAS FENSTER DES VERTRAGS,
+     * durch den ECHTEN Riegel geprueft.
+     *
+     * Vorher prueefte der Vertrags-Zweig nur `status = 'active'`, obwohl
+     * `contracts` beide Grenzen traegt. Ein abgelaufener Vertrag, dessen Status
+     * niemand nachgezogen hat, galt also weiter als Partnerschaft.
+     *
+     * BEIM BAUEN BLIEBEN ALLE BESTEHENDEN PROBEN GRUEN - auch diese Datei, weil
+     * sie `valid_from`/`valid_until` an Vertraegen nie gesetzt hat. Die
+     * gegenpruefende Sitzung hatte genau das vorhergesagt: "die Verengung landet
+     * ungetestet, jede bestehende Probe ist fuer sie blind."
+     *
+     * VIER FAELLE, und die letzten zwei sind die Zwillingszusicherung: eine
+     * Probe, die nur "wird abgewiesen" prueft, besteht auch, wenn der Riegel
+     * ALLES abweist - dann faellt der gueltige Fall unauffaellig mit heraus.
+     */
+    await client.query(
+      "UPDATE contracts SET valid_until = CURRENT_DATE - 1, valid_from = NULL WHERE id = $1",
+      [vertragId]);
+    assert.equal((await partner(kunde, zaf))?.error, "SUPPLIER_NOT_PARTNER",
+      "ein ABGELAUFENER Vertrag macht weiter zum Partner - genau die Luecke, die " +
+      "U6.8 geschlossen hat");
+
+    await client.query(
+      "UPDATE contracts SET valid_from = CURRENT_DATE + 1, valid_until = NULL WHERE id = $1",
+      [vertragId]);
+    assert.equal((await partner(kunde, zaf))?.error, "SUPPLIER_NOT_PARTNER",
+      "ein VORDATIERTER Vertrag (Beginn morgen) macht schon heute zum Partner");
+
+    /* Zwilling 1: am Rand GILT er - sonst waere die Pruefung zu eng. */
+    await client.query(
+      "UPDATE contracts SET valid_from = CURRENT_DATE, valid_until = CURRENT_DATE WHERE id = $1",
+      [vertragId]);
+    assert.equal(await partner(kunde, zaf), null,
+      "ein Vertrag, dessen Fenster GENAU heute beginnt und endet, muss gelten - " +
+      "beide Grenzen schliessen ein");
+
+    /* Zwilling 2: ohne Fenster unbegrenzt - der Normalfall im Bestand. */
+    await client.query(
+      "UPDATE contracts SET valid_from = NULL, valid_until = NULL WHERE id = $1",
+      [vertragId]);
+    assert.equal(await partner(kunde, zaf), null,
+      "ein Vertrag ohne Fenster ist unbegrenzt und muss gelten - gemessen tragen " +
+      "die Vertraege im Bestand genau das");
+
     assert.equal(await pruefeAnlageVerweise(client, kunde, { contract_id: vertragId, supplier_org_id: zaf }), null);
     assert.deepEqual(await pruefeAnlageVerweise(client, kunde, { contract_id: vertragId, supplier_org_id: randomUUID() }),
       { status: 400, error: "SUPPLIER_CONTRACT_MISMATCH", field: "supplier_org_id" });

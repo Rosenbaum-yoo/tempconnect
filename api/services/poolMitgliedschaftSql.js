@@ -50,6 +50,8 @@ const BEZEICHNER = /^[a-z_][a-z0-9_]*$/i;
    und CURRENT_DATE ist der einzige erlaubte Ausdruck ohne Bindung. */
 const AUSDRUCK = /^(\$\d+(::\w+)?|[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)?|CURRENT_DATE)$/i;
 
+import { gueltigkeitsfensterSql } from "./gueltigkeitsfensterSql.js";
+
 export const POOL_AKTIVER_STATUS = "active";
 export const POOL_GESPERRTE_STUFE = "BLOCKED";
 
@@ -73,13 +75,17 @@ export function poolBedingungenSql(opts = {}) {
   const kunde = pruefe("kunde", opts.kunde, AUSDRUCK);
   const lieferant = pruefe("lieferant", opts.lieferant, AUSDRUCK);
   const datum = pruefe("datum", opts.datum, AUSDRUCK);
-  const tag = /^\$\d+$/.test(datum) ? datum + "::date" : datum;
+  /* U6.8: das FENSTER kommt aus `gueltigkeitsfensterSql`, weil dieselbe Frage
+     seit dem Vertrags-Zweig an zwei Stellen gestellt wird - und laut Messung an
+     vier weiteren gestellt werden muesste. Eine zweite Handschrift ueber "heute
+     liegt im Fenster" waere dieselbe Drift, die die Pool-Regel vierfach gemacht
+     hat. Der Rest der Bedingung (Status, Sperre) bleibt hier: er ist
+     poolspezifisch. */
   return `${alias}.client_org_id = ${kunde}
         AND ${alias}.supplier_org_id = ${lieferant}
         AND ${alias}.status = '${POOL_AKTIVER_STATUS}'
         AND ${alias}.tier <> '${POOL_GESPERRTE_STUFE}'
-        AND (${alias}.valid_from IS NULL OR ${alias}.valid_from <= ${tag})
-        AND (${alias}.valid_until IS NULL OR ${alias}.valid_until >= ${tag})`;
+        AND ${gueltigkeitsfensterSql({ alias, datum })}`;
 }
 
 /**

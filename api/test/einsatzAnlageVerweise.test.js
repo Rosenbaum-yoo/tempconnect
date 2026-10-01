@@ -258,11 +258,29 @@ describe("N2.9 — Vertrag und Zeitarbeitsfirma", () => {
       "vp.tier <> 'BLOCKED'",
       "(vp.valid_from IS NULL OR vp.valid_from <= $3::date)",
       "(vp.valid_until IS NULL OR vp.valid_until >= $3::date)",
-      "c.buyer_org_id = $1 AND c.supplier_org_id = $2 AND c.status = 'active'",
+      "c.buyer_org_id = $1 AND c.supplier_org_id = $2",
+      "c.status = 'active'",
+      /*
+       * U6.8 (Owner-Freigabe 2026-10-01, Punkt 12): DER VERTRAGS-ZWEIG PRUEFT
+       * JETZT AUCH DAS FENSTER. Er prueefte vorher nur den Status, obwohl
+       * `contracts` beide Grenzen traegt - ein abgelaufener Vertrag, dessen
+       * Status niemand nachgezogen hat, galt weiter als Partnerschaft.
+       *
+       * Diese zwei Zeilen sind der Grund, warum diese Probe ueberhaupt
+       * angefasst wurde: beim Bauen von U6.8 blieben ALLE bestehenden Proben
+       * gruen - sie waren fuer die Aenderung blind, genau wie die
+       * gegenpruefende Sitzung vorhergesagt hat.
+       */
+      "(c.valid_from IS NULL OR c.valid_from <= $3::date)",
+      "(c.valid_until IS NULL OR c.valid_until >= $3::date)",
       "a.org_id = $1 AND a.supplier_org_id = $2 AND a.offer_id IS NOT NULL"
     ]) {
       assert.ok(sql.includes(teil), `Partner-Abfrage ohne: ${teil}`);
     }
+    /* BEIDE Zweige am DEMSELBEN Stichtag: zwei Stichtage in einem Riegel waeren
+       an der Tagesgrenze zwei verschiedene Antworten auf dieselbe Frage. */
+    assert.equal((sql.match(/\$3::date/g) || []).length, 4,
+      "erwartet vier Fenstergrenzen gegen denselben Stichtag $3 (Pool: 2, Vertrag: 2)");
     assert.ok(!/CURRENT_DATE/i.test(sql),
       "der Riegel rechnet wieder mit CURRENT_DATE - das ist die Zeitzone des SERVERS");
     // Die drei Wege sind ODER-verknuepft — ein UND verlangte alle drei zugleich.

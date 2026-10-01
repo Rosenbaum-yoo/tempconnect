@@ -12,6 +12,10 @@ import { swallow } from "../utils/logger.js";
    und sein Stichtag aus todayDE() statt aus CURRENT_DATE - Begruendung an der
    Fundstelle. */
 import { poolBedingungenSql } from "./poolMitgliedschaftSql.js";
+/* U6.8 (Owner-Freigabe 2026-10-01, Punkt 12): der VERTRAGS-Zweig desselben
+   Riegels prueft jetzt auch das Gueltigkeitsfenster - Begruendung an der
+   Fundstelle. */
+import { gueltigkeitsfensterSql } from "./gueltigkeitsfensterSql.js";
 import { todayDE } from "../utils/dateDE.js";
 import {
   buildAssignmentActivePredicateSql,
@@ -154,13 +158,33 @@ export async function pruefeAnlageVerweise(db, orgId, data) {
      * werden darf, soll nicht an einer Einstellung haengen, die jemand
      * zuruecksetzen kann. Dieselbe Haltung wie bei der Org-Grenze, die zweimal
      * steht - in der Route und im SQL.
+     *
+     * U6.8 (Owner-Freigabe 2026-10-01, Punkt 12): DER VERTRAGS-ZWEIG HAT
+     * DIESELBE LUECKE GEHABT, eine Zeile weiter. Er prueefte nur
+     * status = 'active', obwohl `contracts` BEIDE Fenstergrenzen traegt
+     * (valid_from, valid_until, beide nullbar - gemessen). Ein abgelaufener
+     * Vertrag, dessen Status niemand nachgezogen hat, galt also weiter als
+     * Partnerschaft.
+     *
+     * Gemessen vor der Freigabe: 3 Vertraege, 1 aktiv, 0 vordatiert, 1
+     * abgelaufen - und die abgelaufene Zeile traegt auch status='expired'.
+     * Status und Fenster stimmen heute also ueberein, die Verengung kostet NULL
+     * abgewiesene Faelle. Das Argument fuer JETZT: je laenger gewartet wird,
+     * desto wahrscheinlicher laufen Status und Fenster auseinander - und dann
+     * entscheidet ein Riegel ueber Einsaetze auf einer veralteten Zusage.
+     *
+     * BEIDE ZWEIGE BENUTZEN DENSELBEN STICHTAG ($3). Zwei Stichtage in einem
+     * Riegel waeren an der Tagesgrenze zwei verschiedene Antworten auf dieselbe
+     * Frage.
      */
     const { rows } = await db.query(
       `SELECT (
          EXISTS (SELECT 1 FROM vendor_pool vp
                   WHERE ${poolBedingungenSql({ kunde: "$1", lieferant: "$2", datum: "$3", alias: "vp" })})
          OR EXISTS (SELECT 1 FROM contracts c
-                     WHERE c.buyer_org_id = $1 AND c.supplier_org_id = $2 AND c.status = 'active')
+                     WHERE c.buyer_org_id = $1 AND c.supplier_org_id = $2
+                       AND c.status = 'active'
+                       AND ${gueltigkeitsfensterSql({ alias: "c", datum: "$3" })})
          OR EXISTS (SELECT 1 FROM assignments a
                      WHERE a.org_id = $1 AND a.supplier_org_id = $2 AND a.offer_id IS NOT NULL)
        ) AS partner`,
