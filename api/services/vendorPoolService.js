@@ -8,6 +8,66 @@
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
 import { reputationJoinSql, eigentuemerJoinSql } from "./reputationSql.js";
 import { swallow } from "../utils/logger.js";
+import { todayDE } from "../utils/dateDE.js";
+
+/**
+ * STEHT DIESER LIEFERANT IM POOL DIESES KUNDEN? (U6.2, Owner-Entscheid 2026-10-01)
+ *
+ * Die Frage gehoert hierher und nicht zu rate_cards: sie wird an vendor_pool
+ * gestellt, und wer sie anderswo beantwortet, liest fremde Tabellen und baut
+ * eine zweite Wahrheit.
+ *
+ * WARUM NICHT IN DER DATENBANK, obwohl U6.1 gerade das Gegenteil getan hat:
+ * ein zusammengesetzter Fremdschluessel
+ * rate_cards(supplier_org_id, org_id) -> vendor_pool(supplier_org_id, client_org_id)
+ * braucht dort ein passendes UNIQUE - und es gibt keines. Der vorhandene lautet
+ * UNIQUE (client_org_id, supplier_org_id, category, location_id, department_id):
+ * fuenf Spalten, zwei davon nullbar. Ein Lieferant DARF mehrfach im Pool einer
+ * Firma stehen, je Kategorie, Standort und Abteilung. Ein zweispaltiges UNIQUE
+ * nachzuruesten waere also kein Fortschritt, sondern ein Fehler - es verboete
+ * genau diese legitime Mehrfachzugehoerigkeit. Deshalb im Code, mit Probe.
+ *
+ * WAS "IM POOL" HEISST - gemessen, nicht am Namen geraten:
+ *
+ *   status  darf nur 'active' sein. Die Tabelle erlaubt auch 'suspended' und
+ *           'removed' (CHECK); eine stillgelegte oder entfernte Zugehoerigkeit
+ *           ist keine.
+ *   tier    darf NICHT 'BLOCKED' sein. Das ist mein Zusatz zur Festlegung der
+ *           gegenpruefenden Sitzung, und er ist kein Detail: ein gesperrter
+ *           Lieferant STEHT im Pool, ausdruecklich gesperrt. Mit ihm Konditionen
+ *           zu vereinbaren waere widersinnig - die Sperre waere ein Vermerk ohne
+ *           Wirkung. Die uebrigen Stufen (PREFERRED, SECONDARY, TRIAL,
+ *           RESTRICTED) sind Abstufungen, keine Sperren, und gelten.
+ *   Fenster valid_from/valid_until sind nullbar und bedeuten dann "unbegrenzt".
+ *           Gilt ein Fenster, muss HEUTE darin liegen.
+ *
+ * DAS DATUM KOMMT AUS todayDE(), nicht aus einem UTC-Schnitt: die Direktive
+ * "DACH-first Zeit" gilt, und rateCardService macht es eine Zeile weiter
+ * genauso. Ein Fenster, das um Mitternacht einen Tag falsch liegt, weist am
+ * Randtag das Richtige ab.
+ *
+ * KEIN WURF, SONDERN EIN BOOLEAN: der Aufrufer entscheidet, wie er antwortet.
+ * rateCardService wirft OrgBoundaryError (seine Konvention), andere Flaechen
+ * wollen vielleicht nur eine Warnung zeigen.
+ *
+ * @returns {Promise<boolean>} true, wenn der Lieferant heute im Pool des Kunden steht.
+ */
+export async function istLieferantImPool(pool, clientOrgId, supplierOrgId, opts = {}) {
+  if (!clientOrgId || !supplierOrgId) return false;
+  const heute = opts.datum || todayDE();
+  const { rows } = await pool.query(
+    `SELECT 1 FROM vendor_pool
+      WHERE client_org_id = $1
+        AND supplier_org_id = $2
+        AND status = 'active'
+        AND tier <> 'BLOCKED'
+        AND (valid_from IS NULL OR valid_from <= $3::date)
+        AND (valid_until IS NULL OR valid_until >= $3::date)
+      LIMIT 1`,
+    [clientOrgId, supplierOrgId, heute]
+  );
+  return rows.length > 0;
+}
 
 export const VALID_TIERS = ['PREFERRED', 'SECONDARY', 'TRIAL', 'RESTRICTED', 'BLOCKED'];
 export const VALID_STATUSES = ['active', 'suspended', 'removed'];

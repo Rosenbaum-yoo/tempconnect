@@ -2,6 +2,175 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-10-01 — Eine Konditionskarte zeigt nur auf Firmen aus dem eigenen Pool (U6.2)
+
+**Status:** erledigt · **Kategorie:** Rollen-/Sichtbarkeitslogik mit Sicherheitswirkung ·
+**Quelle:** Owner-Entscheid 2026-10-01 (`docs/features/U_STANDORTE_ROLLEN_SICHTBARKEIT.md`,
+Zeile 57): *„nur auf Firmen aus dem EIGENEN Lieferantenpool"*
+
+**Der frühere Zwischenstand ist damit überholt** — und er wurde **ersetzt, nicht ergänzt.** Zwei
+Regeln über einem Feld sind genau die Fehlerklasse, mit der diese Woche angefangen hat. Der
+Zwischenstand (das Feld im Ändern-Pfad einfach zurückweisen) war nach dem Entscheid **zu wenig
+beim Anlegen und zu viel beim Ändern**.
+
+**Beide Pfade**, denn `createRateCard` war genauso offen wie `updateRateCard` — der fünfte Fall
+des Paar-Musters in dieser Woche.
+
+#### Warum im Code und nicht im Schema — obwohl U6.1 gerade das Gegenteil tat
+
+Naheliegend wäre nach Migration 226 ein zusammengesetzter Fremdschlüssel
+`rate_cards(supplier_org_id, org_id)` → `vendor_pool(supplier_org_id, client_org_id)`. **Gemessen
+gibt es dort kein passendes `UNIQUE`:** der vorhandene lautet
+`UNIQUE (client_org_id, supplier_org_id, category, location_id, department_id)` — fünf Spalten,
+zwei davon nullbar. **Ein Lieferant darf mehrfach im Pool einer Firma stehen**, je Kategorie,
+Standort und Abteilung. Ein zweispaltiges `UNIQUE` nachzurüsten wäre deshalb **kein Fortschritt,
+sondern ein Fehler**: es verböte genau diese legitime Mehrfachzugehörigkeit.
+
+#### Was „im Pool" heißt — gemessen, nicht am Namen geraten
+
+| Bedingung | Begründung |
+|---|---|
+| `status = 'active'` | Die Tabelle erlaubt auch `suspended` und `removed`. Eine stillgelegte oder entfernte Zugehörigkeit ist keine |
+| **`tier <> 'BLOCKED'`** | **Mein Zusatz zur Festlegung der gegenprüfenden Sitzung, und kein Detail:** ein gesperrter Lieferant *steht* im Pool, ausdrücklich gesperrt. Mit ihm Konditionen zu vereinbaren wäre widersinnig — die Sperre wäre ein Vermerk ohne Wirkung. Die übrigen Stufen (`PREFERRED`, `SECONDARY`, `TRIAL`, `RESTRICTED`) sind Abstufungen, keine Sperren, und gelten |
+| Gültigkeitsfenster | `valid_from`/`valid_until` sind nullbar und heißen dann „unbegrenzt". Gilt ein Fenster, muss **heute** darin liegen |
+| Datum aus `todayDE()` | Die DACH-Direktive. Ein UTC-Schnitt liegt nach 22 Uhr deutscher Zeit einen Tag zurück — ein Fenster weist dann am Randtag das Richtige ab, und niemand kann es nachstellen, weil es tagsüber stimmt |
+
+**Die Prüfung liegt in `vendorPoolService`**, nicht in `rateCardService`: die Frage wird an
+`vendor_pool` gestellt, und wer sie anderswo beantwortet, liest fremde Tabellen und baut eine
+zweite Wahrheit. Sie gibt einen **Boolean** zurück, keinen Fehler — der Aufrufer entscheidet,
+wie er antwortet.
+
+**Kein Bestandsschutz-Eingriff:** die Regel gilt für **Schreibvorgänge**. Gemessen gibt es 4
+Konditionskarten, davon 1 mit Lieferant, und **0 Poolzeilen** — diese eine Karte verletzt die
+Regel ab Sekunde eins. Sie wird **nicht** geändert, nicht migriert, nicht geleert. Eine Regel,
+die beim Einschalten bestehende Daten entwertet, ist derselbe Tausch, vor dem die Spaltenauswahl
+in Migration 226 bewahrt hat.
+
+#### Drei Proben-Lücken, alle meine, alle aus bekannten Klassen
+
+Die gegenprüfende Sitzung hatte gewarnt: *bei 0 Poolzeilen ist „wird abgewiesen, weil nicht im
+Pool" leer grün.* Genau deshalb legt die DB-Probe ihre Zeilen **selbst** an, in einer
+Transaktion, die zurückgerollt wird. Drei weitere Lücken zeigte erst der Rückmutationslauf:
+
+1. **Ich suchte `toISOString` in den String-Literalen** — und `toISOString` ist **Code**, kein
+   Literal. Die Rückmutation „Datum aus rohem UTC-Schnitt" blieb grün: die Probe sah an der
+   falschen Stelle hin. Eine Suche über die ganze Datei wäre ebenso falsch gewesen, weil die
+   Kommentare `toISOString` absichtlich als Gegenbeispiel nennen. Geprüft wird jetzt **die
+   Zeile, die das Datum bestimmt**.
+2. **Eine Probe zählte Vorkommen statt Erreichbarkeit.** Sie prüfte, wie oft
+   `istLieferantImPool` im Quelltext steht — eine Mutation, die den Aufruf **unerreichbar**
+   macht, ließ sie grün. Der Aufruf stand ja noch da. Dazu gibt es jetzt eine
+   **Verhaltensprobe** über beide Schreibwege.
+3. **Das Ergebnis zeigte den Unterschied nicht:** `todayDE()` und der UTC-Schnitt liefern an den
+   meisten Tagen denselben Wert, also war die Zusicherung darüber tautologisch — dieselbe Klasse
+   wie `EIGENTUEMER_ROLLE` in `reputationSql`.
+
+**Nachweis:** `api/test/lieferantImPool.test.js` (8, datenbankfrei: Form, Bindung, Datumsquelle,
+Verhalten beider Schreibwege) und `api/test/integration/lieferantImPool.flow.test.js` (11,
+DB-gebunden, legt seine Poolzeilen selbst an — darunter `BLOCKED`, beide Status-Abweichungen,
+abgelaufenes und noch nicht begonnenes Fenster, und die **Gegenproben**: aktiv ohne Fenster
+kommt durch, die vier übrigen Stufen kommen durch, ein gültiges Fenster kommt durch, und mit
+vertauschten Rollen findet die Prüfung **nichts**).
+
+**8 Rückmutationen, alle rot** — darunter die drei, die die gegenprüfende Sitzung ausdrücklich
+verlangt hat (Status, Gültigkeitsfenster, Kunde/Lieferant vertauscht), plus `BLOCKED`, beide
+Pfade einzeln, fail-closed und die Datumsquelle.
+
+**Zwei Anschlussphasen sind freigegeben und noch NICHT gebaut** — sie stehen hier, damit
+niemand diesen Eintrag für vollständig hält:
+
+- **U6.2a — der sichtbare Hinweis an der Altkarte.** Der Bestandsschutz ist umgesetzt (die Regel
+  greift nur bei Schreibvorgängen), aber die eine Karte, die einen Lieferanten ausserhalb des
+  Pools nennt, **sagt es noch nicht.** Eine Regel, die eine Altkarte stillschweigend durchlässt,
+  ist richtig; eine, die dem Menschen nicht zeigt **warum**, ist unfertig.
+- **U6.2b — Wirkungsvorschau beim Entfernen aus dem Pool** (vom Owner am 2026-10-01 bestätigt):
+  nicht blockieren, aber vorher die Folge zeigen („3 Konditionskarten verweisen auf diesen
+  Lieferanten"). Blockieren macht Pool-Pflege unmöglich, stilles Zulassen erzeugt genau die
+  hängenden Verweise, die U6 schliesst.
+
+### 2026-10-01 — Die Standortgrenze steht jetzt in der Datenbank (U6.0 / U6.1)
+
+**Status:** erledigt · **Kategorie:** Rollen-/Sichtbarkeitslogik mit Sicherheitswirkung
+(DB-Migration) · **Quelle:** Owner-Freigabe 2026-10-01, Phase U6.0 und U6.1
+
+**Migration 226** stellt **dreizehn** Fremdschlüssel in sieben Tabellen von `(id)` auf
+`(id, org_id)` um. Damit weist die **Datenbank** einen org-fremden Standort ab — unabhängig
+davon, welcher Weg ihn schickt. Das ist die zweite Verteidigungslinie hinter den Prüfungen im
+Dienst, kein Ersatz für sie: ein Nutzer soll den 403 mit Begründung sehen, nicht den
+Datenbankfehler.
+
+**Warum jetzt:** Seit U0.2 am 20.09. sind **fünf** weitere Stellen derselben Klasse gefunden
+worden (`updateDepartment`, `updateRequisition`, `updateRateCard`, `contract_id` in beiden
+Hälften, `timesheets.assignment_id`). Jede war ein vergessener Riegel im Dienst. Diese Migration
+beendet die Abhängigkeit davon, dass kein weiterer vergessen wird.
+
+**U6.0 — zweimal gemessen, mit Abstand.** Alle 13 Beziehungen auf verletzende Zeilen geprüft:
+am **28.09. überall 0**, und am **01.10. unmittelbar vor der Migration erneut überall 0**. Die
+zweite Messung ist keine Formalie — dazwischen liegen drei Tage, mehrere volle Testläufe und
+sechs Commits, und jeder davon kann Daten anlegen. Hätte sie einen einzigen Verstoß gezeigt,
+wäre die Migration **nicht** geschrieben worden: eine org-fremde Verknüpfung ist ein Befund,
+keine Altlast.
+
+#### Der wichtigste Teil war nicht der Schlüssel, sondern die Spaltenauswahl
+
+Ein zusammengesetzter Fremdschlüssel mit `ON DELETE SET NULL` nullt in PostgreSQL **alle**
+referenzierenden Spalten — also auch die Organisation. Das wäre hier kein Schönheitsfehler:
+
+- In **vier** der sieben Tabellen ist die Org-Spalte `NOT NULL` (`org_departments`,
+  `org_memberships`, `rate_cards`, `vendor_pool.client_org_id`). Dort bricht das Löschen eines
+  Standorts mit einem Fehler ab.
+- In den **drei** anderen ist sie nullbar (`assignments`, `capacity_posts`, `requisitions`).
+  Dort geht es **still** durch, und die Zeile verliert ihre Organisation. **Das ist der
+  schlimmere Fall, weil ihn niemand merkt.**
+
+Deshalb trägt jedes `ON DELETE SET NULL` eine ausdrückliche Spaltenauswahl. Die Syntax gibt es
+seit PostgreSQL 15; hier läuft **16.12** (gemessen), und sie ist vor dem Schreiben in
+Wegwerf-Tabellen gegen die laufende Datenbank geprüft worden — samt Gegenprobe, dass ein
+org-fremder Verweis wirklich abgewiesen wird.
+
+**Eine Tabelle weicht ab:** `vendor_pool` hat kein `org_id`, sondern `client_org_id`. Wer dort
+`org_id` einsetzt, bekommt einen Fehler — wer `supplier_org_id` einsetzt, bekommt eine Grenze,
+**die das Falsche bewacht**. Eine Rückmutation sichert genau das ab.
+
+#### Nachweis in zwei Schichten, weil eine nicht genügt
+
+- **`api/test/grenzeInDerDatenbank.test.js`** (8 Proben, **datenbankfrei**) prüft den
+  Migrationstext: alle dreizehn umgestellt, jeder alte Schlüssel gefällt, jedes `SET NULL` mit
+  Spaltenauswahl, `vendor_pool` an `client_org_id`, die beiden `UNIQUE` **vor** den
+  Schlüsseln, eine Transaktion, Rücknahme im Kopf.
+- **`api/test/integration/standortGrenzeDatenbank.flow.test.js`** (6 Proben, **DB-gebunden**)
+  prüft die Wirkung: ein org-fremder Standort wird von PostgreSQL abgewiesen, der eigene kommt
+  durch, und ein Standort-Löschen nullt **nur** `location_id` — die Organisation bleibt stehen.
+
+**Warum beide:** Eine Probe gegen den Dienst beweist die zweite Linie nicht. Eine Probe, die nur
+mit Datenbank läuft, ist im täglichen Tor keine — sie liefert `tests 0`, und das sieht aus wie
+Erfolg. Die DB-Datei trägt deshalb **eine Zusicherung, die immer läuft** („Migration 226 liegt
+im Baum"), damit sie im Tor eine Zahl hat und der übersprungene Teil als Lücke sichtbar bleibt.
+
+**Rückmutationen: 6 am Migrationstext und eine an der Datenbank selbst, alle rot.** Die
+DB-Rückmutation ist die aussagekräftigste: ein Schlüssel wurde auf `(id)` zurückgestellt, die
+Probe lief, drei Zusicherungen wurden rot — darunter *„ein org-fremder Standort wird
+abgewiesen"* —, danach wurde der Schlüssel wiederhergestellt und erneut geprüft.
+
+**Frisch-Installationslauf: PASS.** Die Migration läuft auch ab null durch; geprüft **bevor**
+sie auf die laufende Datenbank gebucht wurde.
+
+**Zwei Proben waren zuerst falsch rot, und beide Gründe gehören notiert:**
+
+1. Zwei Anläufe am DB-Nachweis scheiterten an **Pflichtfeldern** (`organizations.slug`,
+   `requisitions.created_by`) — also **vor** dem Riegel. Ein `UPDATE` auf eine bestehende Zeile
+   braucht keine und ist außerdem genau der Angriff: den Standort nachträglich umhängen.
+2. Zwei Form-Proben lasen das **Beispiel-SQL im Kopfkommentar** als Anweisung (die Rücknahme
+   nennt dort `DROP CONSTRAINT` und `ALTER TABLE`, in umgekehrter Reihenfolge). Sie prüfen jetzt
+   nur den Teil nach `BEGIN;`. **Dieselbe Falle ist diese Woche viermal zugeschnappt** — wer
+   ausführlich begründet, muss beim Prüfen zwischen Begründung und Anweisung trennen, sonst wird
+   Gründlichkeit zur Last.
+
+**Und die Gegenproben mussten ihren Gegenstand selbst herstellen.** Eine erste Fassung suchte in
+den Daten nach einer Anforderung, deren Organisation einen aktiven Standort hat — und fand
+keine. Sie war damit dauerhaft rot, und eine dauerhaft rote Probe wird abgeschaltet. Sie legt
+den Standort jetzt in der Transaktion an, die danach zurückgerollt wird.
+
 ### 2026-10-01 — Der Stundenzettel durfte auf einen fremden Einsatz zeigen (U6.4 / U6.5)
 
 **Status:** erledigt · **Kategorie:** Rollen-/Sichtbarkeitslogik mit Sicherheitswirkung ·

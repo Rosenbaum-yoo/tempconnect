@@ -10,6 +10,7 @@
 
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg,
          assertContractBelongsToOrg, OrgBoundaryError } from "../utils/orgBoundary.js";
+import { istLieferantImPool } from "./vendorPoolService.js";
 import { todayDE } from "../utils/dateDE.js";
 
 function appendRateCardWindowFilters(where, params, filters = {}, alias = "rc") {
@@ -114,6 +115,30 @@ export async function createRateCard(pool, data) {
      Vertrag auf einer eigenen Konditionskarte verknuepft zwei Mandanten ueber ein
      Feld, das niemand ansieht. */
   await assertContractBelongsToOrg(pool, contractId, orgId);
+  /*
+   * U6.2 (2026-10-01, Owner-Entscheid): DER LIEFERANT MUSS IM POOL STEHEN -
+   * und zwar in BEIDEN Pfaden. Hier war der Anlegen-Pfad genauso offen wie der
+   * Aendern-Pfad; es ist der fuenfte Fall desselben Paar-Musters.
+   *
+   * Ein frueherer Zwischenstand wies das Feld im Aendern-Pfad nur ZURUECK, weil
+   * die Regel fehlte. Sie ist jetzt entschieden ("nur Firmen aus dem eigenen
+   * Lieferantenpool"), und damit ist Zurueckweisen zu wenig UND zu viel: zu
+   * wenig beim Anlegen, zu viel beim Aendern.
+   *
+   * KEIN BESTANDSSCHUTZ-EINGRIFF: die Regel gilt fuer SCHREIBVORGAENGE. Gemessen
+   * gibt es 4 Konditionskarten, davon 1 mit Lieferant, und 0 Poolzeilen - diese
+   * eine Karte verletzt die Regel ab Sekunde eins. Sie wird NICHT geaendert,
+   * nicht migriert, nicht geleert. Eine Regel, die beim Einschalten bestehende
+   * Daten entwertet, ist derselbe Tausch, vor dem die Spaltenauswahl in
+   * Migration 226 bewahrt hat.
+   */
+  if (supplierOrgId) {
+    if (!await istLieferantImPool(pool, orgId, supplierOrgId)) {
+      throw new OrgBoundaryError(
+        "Dieser Lieferant steht nicht in Ihrem Lieferantenpool. "
+        + "Nehmen Sie ihn zuerst auf, dann koennen Sie Konditionen vereinbaren.");
+    }
+  }
 
   const { rows: [row] } = await pool.query(
     `INSERT INTO rate_cards (
@@ -175,6 +200,46 @@ export async function updateRateCard(pool, id, data, actorId, orgId = null) {
   if (data.contract_id !== undefined && data.contract_id !== null) {
     if (!orgId) throw new OrgBoundaryError("Organisation fehlt - Vertrag nicht pruefbar.");
     await assertContractBelongsToOrg(pool, data.contract_id, orgId);
+  }
+  /*
+   * U6.2 (2026-10-01): DER LIEFERANT WIRD IM AENDERN-PFAD ZURUECKGEWIESEN.
+   *
+   * Owner-Freigabe vom 2026-10-01: der ZWISCHENSTAND ist frei, die REGEL bleibt
+   * offen. Das ist keine halbe Sache, sondern die genaue Abgrenzung:
+   *
+   *   Bei Standort, Abteilung und Vertrag heisst die Frage "gehoert das MIR" und
+   *   hat eine Antwort - die Zeile traegt eine Org-Kennung, und man vergleicht.
+   *
+   *   Bei supplier_org_id heisst sie "darf ich mit DIESEM Lieferanten Konditionen
+   *   vereinbaren", und darauf gibt es im Code keine Antwort. "Gehoert mir" ist
+   *   die falsche Pruefung: eine fremde Organisation gehoert niemandem. Richtig
+   *   waere eine BEZIEHUNG ("steht in meinem Lieferantenpool") - und diese Regel
+   *   existiert nicht. Deshalb fehlt auch zu Recht ein Muster in orgBoundary.js.
+   *
+   * WAS DAS FELD HEUTE ERLAUBT, und darum geht es: supplier_org_id laesst sich
+   * auf JEDE beliebige Organisationskennung setzen. Eine Konditionskarte zeigt
+   * dann auf eine Firma, die davon nichts weiss. Dass vendor_pool leer ist und im
+   * Protokoll null Aenderungen stehen, macht das UNAUFFAELLIG, nicht harmlos.
+   *
+   * DER ZWISCHENSTAND: beim ANLEGEN bleibt das Feld unveraendert setzbar - wer
+   * eine Karte anlegt, entscheidet bewusst, fuer wen. Nur das nachtraegliche
+   * UMHAENGEN wird abgewiesen, denn dafuer gibt es keinen Grund, der nicht auch
+   * eine neue Karte waere. Das nimmt keine Faehigkeit weg (gemessen: null
+   * Anlagen und null Aenderungen im Protokoll) und schliesst den offenen Rand.
+   *
+   * MIT AUSKUNFT, nicht als stiller Filter: ein Feld, das man schickt und das
+   * ohne Wort verschwindet, ist schlimmer als eine Ablehnung - der Aufrufer
+   * glaubt, es sei gesetzt.
+   *
+   * AUSDRUECKLICH NICHT GEBAUT: die Pool-Regel. Sie gehoert dem Owner.
+   */
+  if (data.supplier_org_id !== undefined && data.supplier_org_id !== null) {
+    if (!orgId) throw new OrgBoundaryError("Organisation fehlt - Lieferant nicht pruefbar.");
+    if (!await istLieferantImPool(pool, orgId, data.supplier_org_id)) {
+      throw new OrgBoundaryError(
+        "Dieser Lieferant steht nicht in Ihrem Lieferantenpool. "
+        + "Nehmen Sie ihn zuerst auf, dann koennen Sie Konditionen vereinbaren.");
+    }
   }
   const allowed = [
     "role_category", "region", "location_id", "department_id",

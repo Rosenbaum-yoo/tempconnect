@@ -157,6 +157,19 @@ SELECT json_build_object(
    * Frage "ist das eine Nutzer- oder eine Org-Kennung" nicht, und dieselbe
    * Hausregel wie bei pruefwerte gilt — lieber eine Teilmenge, die STIMMT, als
    * eine vollstaendige, die raet.
+   *
+   * NACHTRAG 2026-10-01 (U6.1): seit Migration 226 gibt es DREIZEHN zweispaltige
+   * Beziehungen — die Standort- und Abteilungsschluessel zeigen jetzt auf
+   * (id, org_id). Sie fallen damit aus dieser Liste, und das ist richtig: die
+   * Frage, die sie beantwortet, ist "Nutzer oder Organisation", und
+   * org_locations ist keines von beiden.
+   *
+   * Dass dadurch keine Abdeckung verloren geht, ist gemessen und nicht
+   * angenommen: location_id und department_id standen NIE in den Mengen des
+   * Identitaets-Waechters. Vor und nach der Migration dieselben Zahlen — 86
+   * Nutzer- und 18 Org-Spaltennamen. Wer die zweispaltigen Beziehungen braucht,
+   * findet sie in test/grenzeInDerDatenbank.test.js und in der
+   * datenbankgebundenen Probe daneben.
    */
   'fremdschluessel', COALESCE((
     SELECT json_object_agg(f.tab, f.spalten)

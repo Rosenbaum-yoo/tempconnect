@@ -516,6 +516,12 @@ describe("U6.5 · der Stundenzettel zeigt nicht auf einen fremden Einsatz", () =
    * STUNDENZETTEL der eigenen Org gehoert, und die Abfrage hat kein org_id. Ein
    * eigener Zettel liess sich auf einen fremden Einsatz umhaengen - und
    * Stundenzettel sind Abrechnungsgrundlage.
+   *
+   * DIE EINZIGE BREMSE WAR "nur Entwuerfe sind aenderbar", UND DAS IST KEINE
+   * ENTWARNUNG - es ist die Beschreibung des Angriffszeitpunkts. Ein Entwurf ist
+   * genau der Zustand, in dem man umhaengt, BEVOR man einreicht. Wer die
+   * Vorbedingung als "halb so wild" liest, hat sie falsch gelesen. (Hinweis der
+   * gegenpruefenden Sitzung, 2026-10-01.)
    */
   const EINSATZ = "99999999-9999-4999-a999-999999999999";
 

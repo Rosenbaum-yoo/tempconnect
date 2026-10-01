@@ -1,11 +1,11 @@
 {
   "_hinweis": "GENERIERT — nicht von Hand bearbeiten. Neu erzeugen mit: npm run schema:snapshot (liest die laufende Datenbank im Container tempconnect_db).",
-  "erzeugt_am": "2026-09-28T10:04:44.479Z",
+  "erzeugt_am": "2026-10-01T08:24:18.521Z",
   "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
   "migrations_fingerabdruck": {
     "init": "49a1c9ef343102f593f1267155c30cea987684bf1a93826cf237e61101238c7e",
-    "dateien": 229,
-    "hash": "24674f0b7aeec034d457a746a62ced5859a7c9285fe18b194c9e1a0e33b567cf"
+    "dateien": 230,
+    "hash": "74466f615473ea93871622fff7b91a52a101806229b64ca145e7c3825a01a5ef"
   },
   "pruefwerte": {
     "approval_requests": {
@@ -2084,8 +2084,6 @@
       "created_by": "users",
       "deal_request_id": "requests",
       "demand_request_id": "demand_requests",
-      "department_id": "org_departments",
-      "location_id": "org_locations",
       "offer_id": "offers",
       "org_id": "organizations",
       "requisition_id": "requisitions",
@@ -2123,8 +2121,6 @@
     },
     "capacity_posts": {
       "created_by": "users",
-      "department_id": "org_departments",
-      "location_id": "org_locations",
       "org_id": "organizations",
       "primary_skill_id": "platform_skills",
       "supplier_company_id": "users",
@@ -2335,7 +2331,6 @@
       "org_id": "organizations"
     },
     "org_departments": {
-      "location_id": "org_locations",
       "org_id": "organizations"
     },
     "org_erp_mappings": {
@@ -2355,8 +2350,6 @@
       "org_id": "organizations"
     },
     "org_memberships": {
-      "department_id": "org_departments",
-      "location_id": "org_locations",
       "org_id": "organizations",
       "user_id": "users"
     },
@@ -2475,8 +2468,6 @@
     "rate_cards": {
       "contract_id": "contracts",
       "created_by": "users",
-      "department_id": "org_departments",
-      "location_id": "org_locations",
       "org_id": "organizations",
       "supplier_org_id": "organizations",
       "updated_by": "users"
@@ -2532,8 +2523,6 @@
       "assigned_to": "users",
       "created_by": "users",
       "demand_request_id": "demand_requests",
-      "department_id": "org_departments",
-      "location_id": "org_locations",
       "org_id": "organizations",
       "search_job_id": "sla_search_jobs"
     },
@@ -2738,8 +2727,6 @@
     "vendor_pool": {
       "assigned_by": "users",
       "client_org_id": "organizations",
-      "department_id": "org_departments",
-      "location_id": "org_locations",
       "supplier_org_id": "organizations"
     },
     "vendor_pool_notes": {
