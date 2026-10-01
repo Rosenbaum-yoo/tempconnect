@@ -462,6 +462,83 @@ Gewerk. Der Ausnahmefall ist also selten; er ist nur heute ausweglos.
 
 ---
 
+
+#### M4b.2 · gebaut 2026-10-01 — und der Befund lag in der Naht zwischen zwei grünen Hälften
+
+Die Fläche steht: `frontend/src/staff/modules/markt-sichtbarkeit/index.tsx` zeigt jetzt die offenen
+Fähigkeits-Vorschläge **und** die katalogfremden Rollen. **Damit ist M4b.3 keine Sackgasse mehr** —
+wer nur einen Vorschlag hat, kann sein Profil abschließen, und es gibt einen Ort, an dem der
+Vorschlag auch entschieden wird.
+
+**Der Befund war nicht „fehlt", sondern „unerreichbar".** `GET /markt-sichtbarkeit` liefert
+`faehigkeits_vorschlaege` und `katalogfremde_rollen` seit N8.1b-6/-7. Gemessen am 2026-10-01: im
+**ganzen** Frontend kein einziger Treffer auf die beiden Namen. Die Ursache war der TypeScript-Typ —
+er deklarierte vier Felder, also war der Inhalt der anderen zwei nicht lesbar. Der Server rechnete,
+die Fläche konnte nicht hinsehen.
+
+**Beide Hälften waren gebaut, beide Hälften bewacht, und niemand hat die Naht geprüft.**
+`api/test/vorschlagWirdEntschieden.test.js` prüft die Serverseite und ist dabei die ganze Zeit grün
+geblieben — zu Recht, sie hat nie behauptet, die Fläche zu prüfen. Genau in dieser Lücke lag der
+Verlust. Dieselbe Mechanik wie bei der Zahl, die diese Seite überhaupt erst entstehen ließ
+(M0-Bericht, Punkt 29: `sweepMarktpraesenz` misst die unsichtbaren Kräfte, die Zahl landete in einer
+Log-Zeile und war weg) — nur eine Schicht weiter oben. `api/test/kuratierAnzeige.test.js` bewacht
+jetzt die Naht.
+
+**Was die Fläche ausdrücklich so macht, wie die gegenprüfende Sitzung es verlangt hat:**
+
+- **Der Hebel steht AN der Zeile**, nicht in einer Leiste darüber. Wer entscheidet, sieht Name,
+  Trägerzahl und Zuordnungsvorschlag in derselben Augenhöhe. Eine Sammelaktion über Vorschläge
+  verschiedener Gewerke wäre genau die Flüchtigkeit, die den Katalog verwässert.
+- **Die katalogfremden Rollen stehen im Wortlaut**, nicht als Zahl. Eine Zahl „17 katalogfremde
+  Rollen" ist nicht bearbeitbar: „Lagerhelfer" neben „Lagerhelfer:in" erkennt man nur im Wortlaut.
+  Die Zahl steht im Kopf, die Bezeichnungen in der Liste, dazu je Zeile die Zahl der Einträge und
+  die Seite (Angebot / Bedarf).
+- **Ehrlicher Leerzustand**, und zwar von drei anderen Zuständen unterschieden: Feld fehlt in der
+  Antwort · nicht lesbar (`verfuegbar: false`) · gelesen und leer („Derzeit keine offenen
+  Vorschläge."). Die drei sehen sonst gleich aus, und „nicht lesbar" ist ein Befund, keine
+  Entwarnung.
+
+**Wirkungsvorschau vor der Handlung, wie im Lieferantenpool.** Beim Zuordnen hängen die Träger dieser
+Fähigkeit auf den Katalogeintrag um — eine Änderung an fremden Profilen. Die Zahl steht **vor** der
+Bestätigung im Dialog: *„3 Zuordnungen werden auf den Katalogeintrag umgehängt."* Beim Ablehnen
+nennt der Dialog die andere Folge: *„2 Kräfte tragen diese Angabe bereits — sie bleibt dann ohne
+Katalogbezug und damit am Markt unauffindbar"* — der Zusammenhang zur Zahl ganz oben auf derselben
+Seite.
+
+**Kein toter Knopf.** Ohne `ziel_skill_id` antwortet der Dienst `ZIEL_FEHLT`. Hat ein Vorschlag
+keinen naheliegenden Katalogeintrag, erscheint deshalb **kein** Zuordnen-Knopf, sondern der Satz
+*„kein naheliegender Katalogeintrag"*. Ein sichtbarer Knopf, der garantiert scheitert, ist schlimmer
+als keiner.
+
+**Keine Hürde, die der Server nicht verlangt.** Gemessen: `POST /faehigkeits-vorschlaege/:id/entscheiden`
+trägt `requireStaff` und `requireConfirmAndReason`, aber **kein** `requireStepUp`. Ein `await stepUp()`
+wie in den Modulen `automation` und `platform` wäre hier eine Zweitbestätigung ohne Grundlage — der
+Mensch müsste sich erneut ausweisen, um eine Schreibvariante zuzuordnen. Sicherheit, die nicht
+schützt, kostet nur Benutzung. Eine Probe hält das fest.
+
+**Serverkennungen werden übersetzt, bevor sie jemand liest.** Gemessen am Verhalten des globalen
+Dialogs: wirft `onConfirm`, bleibt er **offen** und zeigt `e.message` inline. Ohne Übersetzung stünde
+dort `ZIEL_IST_VORSCHLAG` — für den Lesenden keine Auskunft. Alle acht Kennungen des Dienstes haben
+einen Satz, und der Fehler wird **weitergeworfen** statt in einen Toast gelegt: so bleibt der Dialog
+offen und die eingegebene Begründung erhalten.
+
+**Nachweis: 28 Rückmutationen.** Vier sind beim ersten Anlauf entwischt, und alle vier waren
+**dieselbe Probenschwäche in vier Kleidern** — meine Zusicherung traf eine *andere* Stelle als die
+gemeinte:
+
+| Mutation | Warum sie durchkam |
+|---|---|
+| Zelleninhalt durch festen Text ersetzt | `/\{r\.rolle\}/` traf weiter `key={r.rolle}` am `<tr>` |
+| Server-Hinweis unerreichbar gemacht (`{false ? (`) | der Name stand im toten Zweig weiter da — **Anwesenheit statt Erreichbarkeit** |
+| Trägerzahl aus dem Zuordnen-Zweig entfernt | `${v.traeger}` kommt auch im **Ablehnen**-Zweig vor |
+| Zweitbestätigung eingebaut | mein Muster suchte den **Aufruf** `stepUp()`, die Mutation setzte nur eine Definition |
+
+Alle vier Zusicherungen hängen jetzt an ihrem Gegenstand: an der Zelle, an der Bedingung, am
+herausgeschnittenen Zweig, am Namen statt am Aufruf. Danach sind alle vier rot — plus vier weitere
+Mutationen auf Zweigebene, die ich daraufhin ergänzt habe. Die vierte ist dabei die lehrreichste in
+der anderen Richtung: **eine Mutation, die nichts tut (Definition ohne Aufruf), belegt auch nichts.**
+Sie wurde durch eine realistische ersetzt (ein echter Import von `useStepUp`), und die ist rot.
+
 ### M5 · Der Korb — ein Akt, N Verträge
 
 **Kein Gate mehr — M-E1 ist entschieden: schaltbar bauen** (siehe 8.1). Die Rechtsauskunft
