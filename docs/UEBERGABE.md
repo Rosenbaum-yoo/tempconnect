@@ -133,7 +133,7 @@ unsichtbar, in der Konsole steht ein 403. Nicht behoben.
    Der **Versand in Paketen** (Owner: „mach weiter mit dem Versand in Paketen“) ist gebaut —
    eigener Abschnitt direkt hierunter.
 
-### Paketversand der Produkt-Mails — gebaut am 2026-10-01 (Commit nach `e8c34f1`)
+### Paketversand der Produkt-Mails — gebaut am 2026-10-01 (`3633b1d`)
 
 **Was es tut.** „Mailen“ friert die Empfängerliste **einmal** ein (neue Tabelle
 `product_release_mail_empfaenger`, **Migration 227**), schickt das erste Paket sofort und den
