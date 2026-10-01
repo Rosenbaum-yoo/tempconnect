@@ -53,7 +53,7 @@ import { fileURLToPath } from "node:url";
 
 import { baseDeps, mockReq, mockRes, USER_A, ORG_A } from "./helpers/security-mocks.js";
 import { spionPool, istSchreibend } from "./helpers/orgGrenzenSpion.js";
-import { OrgBoundaryError } from "../utils/orgBoundary.js";
+import { OrgBoundaryError, assertContractBelongsToOrg } from "../utils/orgBoundary.js";
 import * as rbacService from "../services/rbacService.js";
 import * as organizationService from "../services/organizationService.js";
 import * as requisitionService from "../services/requisitionService.js";
@@ -241,7 +241,12 @@ function poolOhneStandort() {
     calls: [],
     async query(sql, params) {
       this.calls.push({ sql, params });
-      if (/FROM\s+org_locations/i.test(sql) || /FROM\s+org_departments/i.test(sql)) {
+      /* U0.2c: `contracts` kam dazu. Ohne diese Zeile liefert der Pool fuer die
+         Vertragspruefung einen Treffer, der Riegel loest NIE aus, und eine
+         Rueckmutation, die ihn entfernt, bleibt gruen. Genau so blieb die
+         Abteilungspruefung einen Tag lang unbelegt. */
+      if (/FROM\s+org_locations/i.test(sql) || /FROM\s+org_departments/i.test(sql)
+          || /FROM\s+contracts/i.test(sql)) {
         return { rows: [] };
       }
       return { rows: [{ id: "neu" }] };
@@ -329,6 +334,23 @@ const SCHREIBWEGE = [
       { name: "Lager", location_id: FREMD_LOC })
   },
   {
+    /* U0.2c (2026-09-28): `rate_cards.contract_id` war in BEIDEN Pfaden
+       ungeprueft - Hinweis der gegenpruefenden Sitzung. Standort und Abteilung
+       wurden beim Anlegen seit je geprueft, der Vertrag nie: das Paar-Muster
+       diesmal nicht zwischen create und update, sondern zwischen den FELDERN. */
+    name: "rateCardService.createRateCard (Vertrag)",
+    lauf: (pool) => rateCardService.createRateCard(pool, {
+      orgId: ORG_A, roleCategory: "Lager", targetRateCents: 2000, maxRateCents: 3000,
+      validFrom: "2026-01-01", contractId: FREMD_LOC
+    })
+  },
+  {
+    name: "rateCardService.updateRateCard (Vertrag)",
+    lauf: (pool) => rateCardService.updateRateCard(pool,
+      "77777777-7777-4777-a777-777777777777",
+      { contract_id: FREMD_LOC }, USER_A, ORG_A)
+  },
+  {
     name: "vendorPoolService.addToPool",
     lauf: (pool) => vendorPoolService.addToPool(pool, {
       client_org_id: ORG_A, supplier_org_id: "33333333-3333-4333-a333-333333333333",
@@ -377,11 +399,62 @@ describe("U0.2 · jeder Schreibweg weist einen fremden Standort ab", () => {
       (err) => err instanceof OrgBoundaryError,
       "ohne orgId wird die Abteilungspruefung stillschweigend uebersprungen");
 
+    await assert.rejects(
+      () => rateCardService.updateRateCard(poolMitStandort(),
+        "77777777-7777-4777-a777-777777777777", { contract_id: FREMD_LOC }, USER_A),
+      (err) => err instanceof OrgBoundaryError,
+      "ohne orgId wird die Vertragspruefung stillschweigend uebersprungen");
+
     /* Ohne Standort und ohne Abteilung: kein Grund zu werfen. */
     const pool = poolMitStandort();
     await rateCardService.updateRateCard(pool,
       "77777777-7777-4777-a777-777777777777", { notes: "nur ein Hinweis" }, USER_A);
     assert.ok(pool.calls.length > 0, "der reine Preis-Weg wurde blockiert");
+  });
+
+  it("der Vertragsriegel nimmt BEIDE Seiten — und bindet die Org zweimal", async () => {
+    /*
+     * U0.2c: Form- und Bindungsprobe, weil ein Mock-Pool kein SQL ausfuehrt.
+     *
+     * Eine Rueckmutation, die `OR supplier_org_id = $2` entfernte, blieb zuerst
+     * GRUEN: alle Schreibwege oben pruefen nur, DASS abgewiesen wird, nicht
+     * WARUM. Eine Verengung auf den Kaeufer weist auch ab — sie weist nur zu
+     * viel ab, und das faellt erst auf, wenn eine Zeitarbeitsfirma eine
+     * Konditionskarte zu einem Vertrag anlegen will, in dem sie Lieferant ist.
+     *
+     * Ein Vertrag hat zwei Seiten. Das ist der ganze Grund, warum diese Funktion
+     * nicht die generische `assertOrgOwnership` benutzen kann.
+     */
+    const pool = {
+      calls: [],
+      async query(sql, params) { this.calls.push({ sql, params }); return { rows: [{ ok: 1 }] }; }
+    };
+    await assertContractBelongsToOrg(pool, "88888888-8888-4888-a888-888888888888", ORG_A);
+    assert.equal(pool.calls.length, 1, "die Pruefung hat nicht abgefragt");
+    const { sql, params } = pool.calls[0];
+
+    /* Form: beide Seiten, mit ODER verknuepft. */
+    assert.match(sql, /FROM\s+contracts/i);
+    assert.match(sql, /buyer_org_id\s*=\s*\$2/, "die Kaeufer-Seite fehlt");
+    assert.match(sql, /supplier_org_id\s*=\s*\$2/, "die LIEFERANTEN-Seite fehlt — die Pruefung weist zu viel ab");
+    assert.match(sql, /OR\s+supplier_org_id/i, "die Seiten sind nicht mit ODER verknuepft");
+
+    /* Bindung: die Org steht genau einmal in der Liste und wird zweimal gelesen. */
+    assert.deepEqual(params, ["88888888-8888-4888-a888-888888888888", ORG_A]);
+  });
+
+  it("der Vertragsriegel scheitert geschlossen, wenn die Org fehlt", async () => {
+    /* Ohne Org ist nichts pruefbar. Ein stilles `return` waere hier schlimmer als
+       ein Fehler: der Vertrag ginge ungeprueft in die Karte. */
+    await assert.rejects(
+      () => assertContractBelongsToOrg({ async query() { return { rows: [{ ok: 1 }] }; } },
+        "88888888-8888-4888-a888-888888888888", null),
+      (err) => err instanceof OrgBoundaryError);
+
+    /* Und ohne Vertrag gibt es nichts zu pruefen — kein Wurf, keine Abfrage. */
+    const leer = { calls: [], async query(s, p) { this.calls.push({ s, p }); return { rows: [] }; } };
+    await assertContractBelongsToOrg(leer, null, ORG_A);
+    assert.deepEqual(leer.calls, [], "ohne Vertrag wurde trotzdem abgefragt");
   });
 
   it("GEGENPROBE: mit einem EIGENEN Standort wirft keiner der Wege", async () => {

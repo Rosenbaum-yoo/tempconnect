@@ -2,6 +2,72 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-10-01 — Der Vertrag war in beiden Pfaden ungeprüft (U6.3)
+
+**Status:** erledigt · **Kategorie:** Rollen-/Sichtbarkeitslogik mit Sicherheitswirkung ·
+**Quelle:** Owner-Freigabe 2026-10-01 (U6 im Standort-Plan), Phase U6.3 · Hinweis der
+gegenprüfenden Sitzung
+
+**Der Befund:** `rate_cards.contract_id` wurde nirgends gegen die eigene Organisation
+geprüft — **in beiden Pfaden**. `createRateCard` prüfte Standort und Abteilung seit je, den
+Vertrag nie; `updateRateCard` führt ihn in seiner `allowed`-Liste. Das ist das Paar-Muster zum
+dritten Mal in derselben Datei, diesmal nicht zwischen *anlegen* und *ändern*, sondern
+**zwischen den Feldern**.
+
+**Die vorgeschlagene Abkürzung hätte geworfen statt geprüft** — und das ist der eigentliche
+Fund dieser Phase. Der naheliegende Weg war
+`assertOrgOwnership(pool, "contracts", id, orgId)`: `contracts` steht in `ALLOWED_TABLES`, das
+Muster existiert. **Aber `contracts` hat kein `org_id`.** Ein Vertrag hat zwei Seiten,
+`buyer_org_id` und `supplier_org_id`. Die generische Prüfung liest mit ihrer Vorgabespalte
+`SELECT org_id FROM contracts` — eine Spalte, die es nicht gibt. **Aus einem 403 wäre ein 500
+geworden, aus einer Grenze ein Ausfall.**
+
+> **Merksatz:** *Dass eine Tabelle in `ALLOWED_TABLES` steht, ist eine Erlaubnis — keine Zusage
+> über ihren Aufbau.*
+
+**Gebaut** ist deshalb eine eigene Prüfung, `assertContractBelongsToOrg`, die **beide Seiten**
+akzeptiert. Das Muster stand bereits in `routes/contracts.js` (~Zeile 61) für das Lesen. Die
+weitere Fassung ist Absicht: sie weist nur echte Fremdverträge ab. Ob eine Konditionskarte nur
+Verträge nennen darf, in denen die Organisation **Käufer** ist, ist eine Produktfrage und wird
+hier nicht nebenbei entschieden — der Riegel braucht sie nicht, um zu wirken.
+
+**Gemessen vorher:** 4 Konditionskarten, **0 mit Vertragsbezug**, 3 Verträge mit je beiden
+Seiten besetzt. Der Riegel ist also **vorbeugend**, nicht korrigierend — derselbe Fall wie
+`is_active` in der Eigentümer-Brücke: heute ändert er kein Ergebnis, und genau deshalb ist jetzt
+der richtige Zeitpunkt.
+
+**Zwei Lücken zeigte erst der Rückmutationslauf, beide aus bekannten Klassen:**
+
+1. **Der Probe-Pool lieferte für `FROM contracts` einen Treffer** — der Riegel löste also nie
+   aus, und eine Mutation, die ihn entfernt, wäre grün geblieben. Genau so blieb die
+   Abteilungsprüfung in U0.2b einen Tag lang unbelegt. Der Pool verweigert jetzt auch Verträge.
+2. **Eine Verengung auf den Käufer blieb grün.** Alle Schreibwege prüfen nur, **dass**
+   abgewiesen wird, nicht **warum** — und eine zu enge Prüfung weist auch ab. Sie weist nur zu
+   viel ab, und das fällt erst auf, wenn eine Zeitarbeitsfirma eine Konditionskarte zu einem
+   Vertrag anlegen will, in dem sie Lieferant ist. Dagegen hilft nur die **Form- und
+   Bindungsprobe** auf die erzeugte Abfrage: beide Spalten, mit `OR`, und die Org genau zweimal
+   gelesen.
+
+**Mitgenommen, aus derselben Familie wie der Backtick-Fehler:** zwei echte **Backspace-Bytes**
+(0x08) in einer neuen Zusicherung. Die Wortgrenze eines regulären Ausdrucks ist in Python ein
+**gültiges** Escape — sie wird zum Steuerzeichen 0x08, nicht zum Regex-Anker. Aus der
+Wortgrenze um *OR* wurden damit zwei unsichtbare Bytes. Die Probe war dadurch **falsch rot**,
+nicht falsch grün; gefunden und entfernt, Datei nachgemessen auf 0 Steuerzeichen.
+
+**Und dann noch einmal, beim Beschreiben:** dieser Absatz selbst trug drei davon, weil er den
+Regex zitierte — der Wächter `keine getrackte Textdatei traegt ein Steuerzeichen` hat sie im
+vollen Lauf gefangen, nicht ich. **Genau dafür steht er da.** Deshalb nennt dieser Text die
+Wortgrenze jetzt in Worten statt in Zeichen: wer den Fehler dokumentiert, macht ihn beim
+Dokumentieren.
+
+**Nachweis:** `api/test/standortGrenze.test.js` — von 19 auf **23 Proben**, darunter beide
+Vertrags-Schreibwege, die Form-/Bindungsprobe und die `fail-closed`-Zusage.
+**5 Rückmutationen, alle rot.**
+
+**Nicht gebaut, weil es dem Owner gehört:** `supplier_org_id` bleibt unverändert (U6.2 ist
+freigegeben, aber danach dran), und die Pool-Regel („nur Organisationen aus dem eigenen
+Lieferantenpool") ausdrücklich nicht.
+
 ### 2026-09-28 — Die Grenze galt beim Anlegen und beim Ändern nicht, an zwei weiteren Stellen (U0.2b)
 
 **Status:** erledigt · **Kategorie:** Rollen-/Sichtbarkeitslogik mit Sicherheitswirkung ·

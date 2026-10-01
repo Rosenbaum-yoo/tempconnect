@@ -8,7 +8,8 @@
  *   - Batch-Expiry für abgelaufene Cards
  */
 
-import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg, OrgBoundaryError } from "../utils/orgBoundary.js";
+import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg,
+         assertContractBelongsToOrg, OrgBoundaryError } from "../utils/orgBoundary.js";
 import { todayDE } from "../utils/dateDE.js";
 
 function appendRateCardWindowFilters(where, params, filters = {}, alias = "rc") {
@@ -107,6 +108,12 @@ export async function createRateCard(pool, data) {
   // Org-Boundary: Standort und Abteilung muessen zur eigenen Org gehoeren.
   await assertLocationBelongsToOrg(pool, locationId, orgId);
   await assertDepartmentBelongsToOrg(pool, departmentId, orgId);
+  /* U0.2c (2026-09-28): der Vertrag fehlte hier, und das ist der dritte Fall des
+     Paar-Musters in dieser Datei - diesmal in BEIDEN Haelften. Standort und
+     Abteilung wurden beim Anlegen seit je geprueft, der Vertrag nie. Ein fremder
+     Vertrag auf einer eigenen Konditionskarte verknuepft zwei Mandanten ueber ein
+     Feld, das niemand ansieht. */
+  await assertContractBelongsToOrg(pool, contractId, orgId);
 
   const { rows: [row] } = await pool.query(
     `INSERT INTO rate_cards (
@@ -164,6 +171,10 @@ export async function updateRateCard(pool, id, data, actorId, orgId = null) {
   if (data.department_id !== undefined && data.department_id !== null) {
     if (!orgId) throw new OrgBoundaryError("Organisation fehlt - Abteilung nicht pruefbar.");
     await assertDepartmentBelongsToOrg(pool, data.department_id, orgId);
+  }
+  if (data.contract_id !== undefined && data.contract_id !== null) {
+    if (!orgId) throw new OrgBoundaryError("Organisation fehlt - Vertrag nicht pruefbar.");
+    await assertContractBelongsToOrg(pool, data.contract_id, orgId);
   }
   const allowed = [
     "role_category", "region", "location_id", "department_id",

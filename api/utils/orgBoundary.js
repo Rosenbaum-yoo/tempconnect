@@ -142,6 +142,41 @@ export async function assertDepartmentBelongsToOrg(pool, departmentId, orgId) {
 }
 
 /**
+ * Wirft OrgBoundaryError, wenn der Vertrag zu KEINER Seite der Organisation gehoert.
+ * Skip bei contractId=null.
+ *
+ * WARUM NICHT assertOrgOwnership(pool, "contracts", ...) — U0.2c (2026-09-28):
+ *
+ * Das war der naheliegende Weg, und er haette GEWORFEN statt geprueft.
+ * contracts hat kein org_id: ein Vertrag hat ZWEI Seiten, buyer_org_id und
+ * supplier_org_id. Die generische Pruefung liest mit ihrer Vorgabespalte
+ * SELECT org_id FROM contracts — eine Spalte, die es nicht gibt. Aus einem
+ * 403 waere ein 500 geworden, und aus einer Grenze ein Ausfall.
+ *
+ * Dass contracts in ALLOWED_TABLES steht, sagt nur, dass der Tabellenname
+ * erlaubt ist. Es sagt NICHT, dass die Tabelle eine Org-Spalte dieses Namens
+ * hat. Die Liste ist eine Erlaubnis, keine Zusage ueber den Aufbau.
+ *
+ * BEIDE SEITEN GELTEN, und das ist bewusst die weitere Fassung: sie weist nur
+ * echte Fremdvertraege ab. Das Muster steht schon in routes/contracts.js
+ * (Zeile ~61) fuer das Lesen. Ob eine Konditionskarte nur Vertraege nennen darf,
+ * in denen die Organisation der KAEUFER ist, ist eine Produktfrage und wird hier
+ * nicht nebenbei entschieden — der Riegel braucht sie nicht, um zu wirken.
+ */
+export async function assertContractBelongsToOrg(pool, contractId, orgId) {
+  if (!contractId) return;
+  if (!orgId) throw new OrgBoundaryError("Keine Organisation zugewiesen.");
+  const { rows } = await pool.query(
+    `SELECT 1 FROM contracts
+      WHERE id = $1 AND (buyer_org_id = $2 OR supplier_org_id = $2)`,
+    [contractId, orgId]
+  );
+  if (!rows.length) {
+    throw new OrgBoundaryError("Vertrag gehoert nicht zu Ihrer Organisation.");
+  }
+}
+
+/**
  * Kombinierte Scope-Boundary-Pruefung fuer Member-Zuweisungen.
  * Wirft OrgBoundaryError wenn location_id ODER department_id nicht zur Org gehoert.
  * Null-Werte werden uebersprungen.
