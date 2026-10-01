@@ -18,6 +18,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import * as svc from "../services/productReleaseService.js";
+import * as versand from "../services/produktUpdateVersandService.js";
 import { createProductReleasesRouter } from "../routes/productReleases.js";
 import { createStaffControlCenterRouter } from "../routes/staffControlCenter.js";
 
@@ -50,15 +51,27 @@ const MITTEILUNG = {
   priority: 0, show_as_modal: false, created_at: "2026-09-30", updated_at: "2026-09-30"
 };
 
-/** Drei Nutzer, B hat abbestellt; alle sind Kunden (Rolle company, Plan PLUS). */
+/** Eine Zeile, wie `EMPFAENGER_SQL` sie liefert: ein Kunde im Tarif PLUS. */
+const fakten = (id, extra = {}) => ({
+  id, role: "company", is_demo: false, org_role: "owner", org_plan: "PLUS", pilot_status: null,
+  abo_plan: "PLUS", abo_status: "active", abo_cancel_at: null, intern: false, abgemeldet: false, ...extra
+});
+const ADRESSE = { [A]: "a@kunde.de", [B]: "b@kunde.de", [C]: "c@kunde.de" };
+
+/**
+ * Drei Kunden, B hat abbestellt. Seit dem Versand in Paketen liest EINE Abfrage
+ * die Fakten aller Nutzer (`EMPFAENGER_SQL`), und der Versand arbeitet eine
+ * eingefrorene Liste ab — die Welt beantwortet beide Wege.
+ */
 function welt({ eintrag = MITTEILUNG } = {}) {
   return pool([
     { match: "SELECT * FROM product_release_entries WHERE id", rows: [eintrag] },
-    { match: /SELECT id, email FROM users/, rows: [{ id: A, email: "a@kunde.de" }, { id: B, email: "b@kunde.de" }, { id: C, email: "c@kunde.de" }] },
-    { match: /FROM notification_preferences\s+WHERE event_category = \$1 AND channel_email = FALSE/, rows: [{ user_id: B }] },
-    { match: "SELECT id, role FROM users WHERE id", rows: ({ params }) => [{ id: params[0], role: "company" }] },
-    { match: "AS internal", rows: [{ internal: false }] },
-    { match: "UPDATE product_release_entries SET email_sent_at", rowCount: 1 }
+    { match: "SELECT id, title, summary, status FROM product_release_entries", rows: [eintrag] },
+    { match: "LEFT JOIN LATERAL", rows: ({ params }) => (params[2] ? [] : [fakten(A), fakten(B, { abgemeldet: true }), fakten(C)]) },
+    { match: "SELECT user_id FROM product_release_mail_empfaenger", rows: [{ user_id: A }, { user_id: B }, { user_id: C }] },
+    { match: "SET status = 'in_arbeit'", rows: ({ params }) => [{ email: ADRESSE[params[1]], role: "company", versuche: 1, abgemeldet: params[1] === B }] },
+    { match: "UPDATE product_release_mail_empfaenger", rowCount: 1 },
+    { match: "UPDATE product_release_entries", rowCount: 1 }
   ]);
 }
 const getUserAndPlan = async () => ({ plan: "PLUS", org_role: "owner" });
@@ -121,20 +134,23 @@ describe("Abmelden", () => {
 
 describe("Empfaenger ermitteln", () => {
   it("wer abbestellt hat, faellt heraus und wird gezaehlt", async () => {
-    const r = await svc.ermittleEmpfaenger(welt(), MITTEILUNG, getUserAndPlan);
-    assert.deepEqual(r.empfaenger.map((e) => e.id), [A, C]);
+    const r = await svc.ermittleEmpfaenger(welt(), MITTEILUNG);
+    assert.deepEqual(r.empfaenger, [A, C]);
     assert.equal(r.abgemeldet, 1);
     assert.equal(r.nicht_in_zielgruppe, 0);
   });
 
   it("ein Entwurf wird bewertet, als waere er veroeffentlicht (sonst saehe ihn nur das Team)", async () => {
-    const r = await svc.ermittleEmpfaenger(welt(), { ...MITTEILUNG, status: "draft", published_at: null }, getUserAndPlan);
+    const r = await svc.ermittleEmpfaenger(welt(), { ...MITTEILUNG, status: "draft", published_at: null });
     assert.equal(r.empfaenger.length, 2);
   });
 
-  it("die Vorschau nennt Zielgruppe, Abbesteller und was rausginge", async () => {
-    const v = await svc.empfaengerVorschau(welt(), REL, getUserAndPlan);
-    assert.deepEqual(v, { zielgruppe: 3, abgemeldet: 1, wuerden_gesendet: 2, obergrenze: 400, ueber_obergrenze: 0, schon_gemailt: false });
+  it("die Vorschau nennt Zielgruppe, Abbesteller, was rausginge und wie lange", async () => {
+    const v = await versand.empfaengerVorschau(welt(), REL);
+    assert.deepEqual(v, {
+      zielgruppe: 3, abgemeldet: 1, wuerden_gesendet: 2,
+      paket_groesse: 20, pakete: 1, dauer_minuten: 0, schon_gestartet: false
+    });
   });
 });
 
@@ -143,21 +159,23 @@ describe("Empfaenger ermitteln", () => {
 describe("Versand mit Abmeldelink", () => {
   it("ohne Schluessel wird nicht gemailt", async () => {
     const gesendet = [];
+    const p = welt();
     await assert.rejects(
-      svc.dispatchReleaseEmails(welt(), REL, getUserAndPlan, async (...a) => { gesendet.push(a); return true; }, leise, "https://x.de"),
+      versand.paketSenden(p, REL, { sendMail: async (...a) => { gesendet.push(a); return true; }, logger: leise, baseUrl: "https://x.de" }),
       /ohne Abmelde-Schluessel/
     );
     assert.equal(gesendet.length, 0);
+    assert.equal(p.calls.length, 0, "ohne Schluessel wird nicht einmal die Liste gelesen");
   });
 
-  it("jede Mail traegt den eigenen, gueltigen Abmeldelink; Abbesteller bekommen nichts", async () => {
+  it("jede Mail traegt den eigenen, gueltigen Abmeldelink; wer inzwischen abbestellt hat, bekommt nichts", async () => {
     const gesendet = [];
     const sendMail = async (to, subject, html, opts) => { gesendet.push({ to, subject, html, opts }); return true; };
     const p = welt();
-    const r = await svc.dispatchReleaseEmails(p, REL, getUserAndPlan, sendMail, leise, "https://tempconnect.de", KEY);
+    const r = await versand.paketSenden(p, REL, { sendMail, logger: leise, baseUrl: "https://tempconnect.de", schluessel: KEY });
     assert.deepEqual(gesendet.map((g) => g.to), ["a@kunde.de", "c@kunde.de"]);
-    assert.equal(r.sent, 2);
-    assert.equal(r.abgemeldet, 1);
+    assert.equal(r.gesendet, 2);
+    assert.equal(r.entfallen, 1, "B stand auf der Liste, hat aber vor seinem Paket abbestellt");
     for (const [g, id] of [[gesendet[0], A], [gesendet[1], C]]) {
       const m = /href="https:\/\/tempconnect\.de\/public\/abmelden\.html\?u=([^&"]+)&amp;t=([^"]+)"/.exec(g.html);
       assert.ok(m, "kein Abmeldelink in der Mail");
@@ -167,8 +185,11 @@ describe("Versand mit Abmeldelink", () => {
       assert.equal(g.opts?.zweck, "produkt-update", "Versand erscheint im Mailprotokoll unter seinem Zweck");
       assert.ok(!g.html.includes("<Verwaltung>"), "Titel wird maskiert");
       assert.ok(g.html.includes("&lt;Verwaltung&gt; &amp; mehr"));
+      // Der „Abbestellen"-Knopf des Mailprogramms zeigt auf denselben Link (RFC 2369).
+      const kopf = g.opts?.headers?.["List-Unsubscribe"] || "";
+      assert.match(kopf, /^<https:\/\/tempconnect\.de\/public\/abmelden\.html\?u=[^>]+>$/);
+      assert.ok(kopf.includes(`u=${encodeURIComponent(id)}&`), "der Kopf gehoert zum Empfaenger");
     }
-    assert.ok(p.calls.some((c) => c.sql.includes("UPDATE product_release_entries SET email_sent_at")));
   });
 });
 
@@ -229,7 +250,7 @@ describe("POST /product-releases/abmelden (oeffentlich, signiert)", () => {
 
 describe("GET /staff/api/produkt-updates/:id/empfaenger", () => {
   it("Staff-Tor plus Handler, und dieselben Zahlen wie die Vorschau", async () => {
-    const router = createStaffControlCenterRouter({ pool: welt(), logger: leise, sendMail: async () => true, getUserAndPlan });
+    const router = createStaffControlCenterRouter({ pool: welt(), logger: leise, sendMail: async () => true });
     const kette = handler(router, "get", "/produkt-updates/:id/empfaenger");
     assert.equal(kette.length, 2);
     const r = res();

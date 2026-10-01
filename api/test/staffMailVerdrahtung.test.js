@@ -27,7 +27,10 @@ describe("Staff Control Center: die echte Verdrahtung in app.js", () => {
     assert.ok(zeile, "die Zeile `const sccDeps = { … }` fehlt — Probe anpassen, nicht loeschen");
   });
 
-  for (const dep of ["pool", "logger", "sendMail", "getUserAndPlan"]) {
+  /* `getUserAndPlan` stand hier bis zum Versand in Paketen (2026-10-01) mit drin —
+   * die Empfaengerermittlung braucht es nicht mehr (EINE Abfrage statt sieben je
+   * Nutzer, die zudem faellige Kuendigungen schrieben). */
+  for (const dep of ["pool", "logger", "sendMail"]) {
     it(`sccDeps reicht ${dep} weiter`, () => {
       assert.match(zeile, new RegExp(`\\b${dep}\\b`), `${dep} fehlt in sccDeps: {${zeile}}`);
     });

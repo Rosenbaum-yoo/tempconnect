@@ -117,6 +117,12 @@ export const TAKTE = Object.freeze({
    * obwohl die Faehigkeit ab PRO verkauft wird. */
   "profil-rangliste": { intervall_min: 1440, zweck: "Momentaufnahme und Position der oeffentlichen Profil-Rangliste" },
 
+  /* Produkt-Mitteilungen per E-Mail (Owner-Entscheid 2026-10-01). Jede Minute ein
+   * Paket zu 20 Mails — ohne diesen Takt bleibt ein gestarteter Versand nach dem
+   * ersten Paket stehen, und das Staff CC zeigt "stockt". Leerlauf ist der
+   * Normalfall und meldet ok; geschwiegen werden darf hoechstens drei Minuten. */
+  "produkt-update-pakete": { intervall_min: 1, zweck: "Produkt-Mitteilungen in Paketen zu 20 je Minute versenden" },
+
   /* Die vier BullMQ-Takte, die es schon vor dieser Phase gab. Sie laufen — aber
    * niemand konnte es bisher nachweisen. Sie stehen als EINZIGE mit Praefix in
    * dieser Registratur, weil es fuer sie keinen internen Endpunkt gibt; die

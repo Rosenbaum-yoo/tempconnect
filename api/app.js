@@ -21,7 +21,7 @@ import { versandwegPflicht } from "./services/emailProviderService.js";
 import {
   mailNotieren, KeinVersandweg, ZWECK_UNBENANNT
 } from "./services/mailProtokollService.js";
-import { sendMail as emailServiceSendMail } from "./services/emailService.js";
+import { sendMail as emailServiceSendMail, mailKoepfe } from "./services/emailService.js";
 import Stripe from "stripe";
 import { config, logger, runProductionValidation } from "./config/index.js";
 import { captureException, setupSentryErrorHandler, sentryContextMiddleware } from "./utils/monitoring.js";
@@ -141,12 +141,14 @@ export async function createApp() {
    * @param {string} to
    * @param {string} subject
    * @param {string} html
-   * @param {{zweck?: string}} [opts] Wofuer die Mail geht — landet im
-   *   Versandprotokoll (M1.3). Ohne Angabe zaehlt sie unter "unbenannt", und
-   *   das ist im Staff CC sichtbar, nicht still.
+   * @param {{zweck?: string, headers?: Record<string, string>}} [opts] Wofuer die
+   *   Mail geht — landet im Versandprotokoll (M1.3). Ohne Angabe zaehlt sie unter
+   *   "unbenannt", und das ist im Staff CC sichtbar, nicht still. `headers`: nur
+   *   die Kopfzeilen, die `mailKoepfe` durchlaesst (heute `List-Unsubscribe`).
    */
   async function sendMail(to, subject, html, opts = {}) {
     const zweck = opts?.zweck || ZWECK_UNBENANNT;
+    const koepfe = mailKoepfe(opts?.headers);
 
     // Demo-Mail-Adressen unterdrücken (kein Versand an Demo-Accounts)
     if (to && (/^demo[-.].*@tempconnect\.de$/i.test(to) || /@demo\.tempconnect\.de$/i.test(to))) {
@@ -192,7 +194,7 @@ export async function createApp() {
          * `mitRahmen` packt NUR ein, was noch kein vollstaendiges Dokument ist;
          * die Vorlagen bleiben unberuehrt.
          */
-        await mailTransport.sendMail({ from: SMTP_FROM, to, subject, html: mitRahmen(html, subject) });
+        await mailTransport.sendMail({ from: SMTP_FROM, to, subject, html: mitRahmen(html, subject), ...(koepfe ? { headers: koepfe } : {}) });
         await mailNotieren(pool, { zweck, ergebnis: "zugestellt", weg: pflicht.weg });
         return true;
       } catch (e) {
@@ -212,7 +214,7 @@ export async function createApp() {
      * wirklich kennt, statt Erfolg zu behaupten.
      */
     try {
-      await emailServiceSendMail({ to, subject, html, from: SMTP_FROM, zweck });
+      await emailServiceSendMail({ to, subject, html, from: SMTP_FROM, zweck, headers: koepfe });
       return true;
     } catch (e) {
       logger.error({ err: e.message, zweck, weg: pflicht.weg }, "E-Mail-Fehler (Provider-Weg)");
@@ -580,13 +582,15 @@ export async function createApp() {
   app.use("/staff/api", limiters.staffMutationLimiter);
   // SCC WAVE 01: staffLoginLimiter aus createRateLimiters injizieren
   /*
-   * `sendMail` und `getUserAndPlan` fehlten hier bis 2026-10-01 — der Router hat
-   * `sendMail` immer erwartet (Benachrichtigungen bei Statuswechseln, Umwandlung
-   * strategischer Anfragen), bekam aber `undefined`. Jede dieser Mails endete still
-   * als "kein Versandweg". Seit W-E10 versendet das Staff CC auch Produkt-Updates.
-   * Probe: test/staffMailVerdrahtung.test.js.
+   * `sendMail` fehlte hier bis 2026-10-01 — der Router hat es immer erwartet
+   * (Benachrichtigungen bei Statuswechseln, Umwandlung strategischer Anfragen),
+   * bekam aber `undefined`. Jede dieser Mails endete still als "kein Versandweg".
+   * Seit W-E10 versendet das Staff CC auch Produkt-Updates. `getUserAndPlan`
+   * brauchte nur deren alte Empfaengerermittlung (Nutzer fuer Nutzer); seit dem
+   * Versand in Paketen liest sie die Fakten in einer Abfrage und braucht es nicht
+   * mehr. Probe: test/staffMailVerdrahtung.test.js.
    */
-  const sccDeps = { pool, logger, sendMail, getUserAndPlan, staffLoginLimiter: limiters.staffLoginLimiter };
+  const sccDeps = { pool, logger, sendMail, staffLoginLimiter: limiters.staffLoginLimiter };
   app.use("/staff/api", createStaffControlAuthRouter(sccDeps));
   app.use("/staff/api", createStaffControlCenterRouter(sccDeps));
   app.use("/staff/api", (req, res) => {

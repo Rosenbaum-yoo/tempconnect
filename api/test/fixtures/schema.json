@@ -4,8 +4,8 @@
   "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
   "migrations_fingerabdruck": {
     "init": "49a1c9ef343102f593f1267155c30cea987684bf1a93826cf237e61101238c7e",
-    "dateien": 230,
-    "hash": "457cce56c43ddee6662af5389ec8ec0f6a2f22b3299f4209016fa5cc4c39a1ac"
+    "dateien": 231,
+    "hash": "82dfe03ed7db336993e9c98aec29b8ac99b25e56da395eea798e4c9234650583"
   },
   "pruefwerte": {
     "approval_requests": {
@@ -1196,6 +1196,15 @@
       "status": [
         "draft",
         "published"
+      ]
+    },
+    "product_release_mail_empfaenger": {
+      "status": [
+        "entfallen",
+        "fehlgeschlagen",
+        "gesendet",
+        "in_arbeit",
+        "offen"
       ]
     },
     "profile_abuse_reports": {
@@ -2414,6 +2423,10 @@
     },
     "product_release_entries": {
       "created_by": "users"
+    },
+    "product_release_mail_empfaenger": {
+      "release_id": "product_release_entries",
+      "user_id": "users"
     },
     "profile_abuse_reports": {
       "reported_org_id": "organizations",
@@ -5985,6 +5998,25 @@
         "title",
         "updated_at",
         "visibility"
+      ]
+    },
+    "product_release_mail_empfaenger": {
+      "spalten": [
+        "angelegt_am",
+        "beansprucht_am",
+        "fehler",
+        "gesendet_am",
+        "release_id",
+        "status",
+        "user_id",
+        "versuche"
+      ],
+      "nicht_null": [
+        "angelegt_am",
+        "release_id",
+        "status",
+        "user_id",
+        "versuche"
       ]
     },
     "profile_abuse_reports": {

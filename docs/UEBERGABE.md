@@ -126,13 +126,105 @@ unsichtbar, in der Konsole steht ein 403. Nicht behoben.
    403 (angefragte Firma), 409 (schon aktiviert), 404 (fremd). Dienst `zurueckziehen` ersetzt
    `updateStatus`. Kein Oberflächen-Aufrufer betroffen.
 4. **`CLAUDE.md`-Zeile zum Admin Panel:** ✅ freigegeben und geändert (`f7db106`).
-5. **Produkt-Mails** — ✅ **entschieden (ja), erster Teil gebaut:** jede Mail trägt einen
+5. **Produkt-Mails** — ✅ **entschieden (ja) und vollständig gebaut:** jede Mail trägt einen
    **Abmeldelink** (signiert, zweckgebunden, Schlüssel `JWT_SECRET`; ohne Schlüssel kein Versand),
    die öffentliche Seite `abmelden.html` bestellt nach Klick ab (`notification_preferences`,
-   Kategorie `product_updates`), und das Staff CC zeigt **vor dem Klick die Empfängerzahl**
-   (Zielgruppe, abbestellt, gingen raus). Vorschau und Versand nutzen dieselbe Ermittlung.
-   **Offen, vor etwa 50 Kunden:** Versand in Paketen über die Warteschlange, Empfänger in einer
-   Abfrage, Versandprotokoll je Empfänger, `List-Unsubscribe`-Kopf.
+   Kategorie `product_updates`), und das Staff CC zeigt **vor dem Klick die Empfängerzahl**.
+   Der **Versand in Paketen** (Owner: „mach weiter mit dem Versand in Paketen“) ist gebaut —
+   eigener Abschnitt direkt hierunter.
+
+### Paketversand der Produkt-Mails — gebaut am 2026-10-01 (Commit nach `e8c34f1`)
+
+**Was es tut.** „Mailen“ friert die Empfängerliste **einmal** ein (neue Tabelle
+`product_release_mail_empfaenger`, **Migration 227**), schickt das erste Paket sofort und den
+Rest **20 je Minute** über den neuen Betriebstakt `produkt-update-pakete`. Das Staff CC zeigt
+„312 von 1.240 gesendet — noch etwa 47 Min.“, aktualisiert sich selbst, zeigt **„stockt“** samt
+Knopf **„Nächstes Paket“**, wenn kein Takt läuft (ohne Redis), und hat **„Anhalten“** (mit Grund):
+wer nach dem dritten Paket einen Tippfehler sieht, stoppt den Rest — die Sicherung gegen das
+Versehen in einem Team aus einer Person. Jede Mail trägt zusätzlich den Kopf `List-Unsubscribe`.
+Obergrenze 400 und Nutzerlimit 5000 sind weg. Vollständig: `docs/PRODUCT_RELEASES.md`, Abschnitt E-Mail.
+
+**Die Zusagen und worauf sie stehen** (nicht auf Absprache, sondern auf Struktur):
+kein Doppelversand (Primärschlüssel `(release_id, user_id)`; der zweite Klick scheitert am
+bedingten `UPDATE … email_sent_at IS NULL`; beansprucht wird nur aus `offen`) · fortsetzbar nach
+Absturz/Neustart/Redis-Ausfall · höchstens einmal (wer `in_arbeit` hängen bleibt, wird nicht erneut
+beschickt) · der Widerspruch gilt sofort (Abmeldung wird beim Versand geprüft, nicht nur beim
+Einfrieren) · keine E-Mail-Adresse in der neuen Tabelle.
+
+**Was K1 an fremden Stellen wissen muss** (Konfliktgefahr beim Zusammenführen):
+
+| Datei | Änderung | Verhalten |
+|---|---|---|
+| `api/services/userService.js` | Tarifregel als reine Funktionen herausgezogen: `effektiverPlan`, `kuendigungFaellig`; `getUserAndPlan` und `finalizeCancellationIfDue` rufen sie | **unverändert** (328/328 Proben um `userService`) |
+| `api/services/productReleaseService.js` | `ermittleEmpfaenger` liest die Fakten aller Nutzer in **einer** Abfrage je 1.000 (`EMPFAENGER_SQL`) statt ~7 je Nutzer über `getUserAndPlan` — das dabei fällige Kündigungen **schrieb**. `dispatchReleaseEmails`, `mailObergrenze`, `EMAIL_BATCH_CAP` entfernt | Demo- und anonymisierte Konten sind keine Empfänger mehr (Demo-Mails unterdrückte `sendMail` ohnehin, sie zählten nur mit) |
+| `api/services/emailService.js`, `api/app.js` | `sendMail` kennt `headers`, lässt aber nur `List-Unsubscribe` durch (`mailKoepfe`, einzeilig) | alle anderen Aufrufer unberührt |
+| `api/services/dataGovernanceService.js` | Konstante `ANONYM_DOMAIN` exportiert (dieselbe Domain wie bisher) | unverändert |
+| `api/services/mailProtokollService.js` | **Altfehler behoben** (siehe unten) | das Protokoll schreibt jetzt |
+| `api/app.js` `sccDeps` | `getUserAndPlan` raus — das Staff CC braucht es nicht mehr | — |
+| neu | `api/services/produktUpdateVersandService.js`, Takt in `betriebsTaktLaeufe.js`/`betriebsTaktService.js`/`workers/index.js`, Routen `GET /produkt-updates/:id/versand`, `POST …/paket`, `POST …/versand-anhalten` | — |
+
+**Zwei Fehler, die erst die Prüfung am laufenden System gezeigt hat** (Postgres 16, echte
+SMTP-Senke, 45 Konten, 3 Pakete) — kein Muster-Pool hätte sie je bemerkt:
+1. *Meiner, vor dem Commit behoben:* die Abschluss-Abfrage je Empfänger scheiterte an
+   PostgreSQL (`inconsistent types deduced for parameter $3`). Nach der ersten Mail warf das Paket;
+   die Sicherung „höchstens einmal“ hat dabei richtig gegriffen — nichts ging doppelt raus.
+2. **Altfehler aus M1.3, behoben:** `mailNotieren` scheiterte bei **jedem** Aufruf
+   (`could not determine data type of parameter $5`), der catch machte eine Warnung daraus —
+   **`mail_versand` war leer, seit es die Tabelle gibt**; die Mail-Sicht im Staff CC zeigte nie
+   etwas. Nach dem Fix live: `produkt-update` 63 versucht, 63 zugestellt.
+Beides hält jetzt eine Form-Probe ohne Datenbank **und** die neue Datenbank-Probe
+`api/test/integration/produktUpdateEmpfaenger.flow.test.js` (führt jede Abfrage des Versands
+echt aus; vergleicht außerdem für jeden Nutzer den Kontext der neuen Abfrage mit `getUserAndPlan`
+— an sechs angelegten Grenzfällen, alles in einer zurückgerollten Transaktion).
+
+**Nach dem Übernehmen (K1):** Migration 227 einspielen, dann im Container
+`npm run schema:snapshot` und `api/test/fixtures/schema.json` committen. Mein Abzug ist der alte
+plus **nur** die neue Tabelle (lokal mit derselben Abfrage erzeugt) — der Container hat das letzte Wort.
+
+**Offen für den Owner (nichts davon blockiert):** Abbestellen mit **einem Klick direkt im
+Postfach** (RFC 8058, `List-Unsubscribe-Post`) bräuchte einen Endpunkt **ohne CSRF-Schutz** — das
+ist eine Sicherheitsentscheidung und wurde deshalb nicht gebaut; Pflicht wird es erst ab 5.000
+Mails am Tag an Gmail/Yahoo. Und: die Empfängerlisten bleiben stehen, bis die Mitteilung gelöscht
+wird (sie belegen, wer was bekam) — eine Frist gibt es nicht.
+
+### Wer prüft, was die Cloud-Sitzung gebaut hat
+
+Die Teilung steht unten („Wer baut, wer prüft“, Owner-Vorgabe 2026-09-05): **eine Sitzung baut,
+die andere prüft gegen.** Diesmal hat die Cloud-Sitzung gebaut — **K1 prüft gegen**, nach dieser
+Liste. Was ich selbst schon geprüft habe, steht dabei; **nachmessen, nicht glauben**.
+
+| # | Woran gegengeprüft wird | Wie | mein Stand |
+|---|---|---|---|
+| 1 | Der zweite Klick sendet nichts | in `produktUpdateVersandService.js` `AND email_sent_at IS NULL` entfernen → `produktUpdateVersand.test.js` muss rot werden | rot (M1) |
+| 2 | Kein Empfänger doppelt | `AND e.status = 'offen'` im Beanspruchen entfernen → rot | rot (M2) |
+| 3 | Abmeldung wirkt sofort | `abgemeldet ? "abgemeldet"` → `false ? …` → rot | rot (M3) |
+| 4 | Zurückgezogenes sendet nicht | `AND r.status = 'published'` im Takt entfernen → rot | rot (M7) |
+| 5 | Anhalten trifft nur Offenes | `AND status = 'offen'` in `versandAnhalten` entfernen → rot | rot (M8) |
+| 6 | Kein Einschleusen von Kopfzeilen | Zeilenumbruch-Prüfung in `mailKoepfe` entfernen → rot | rot (M9) |
+| 7 | Tarifregel ist eine | `!istDemo &&` in `effektiverPlan` entfernen → rot | rot (M10) |
+| 8 | Takt schweigt nicht ohne Versandweg | den Wurf bei `kein_versandweg` in `betriebsTaktLaeufe.js` entfernen → rot | rot (M13) |
+| 9 | Neue Abfrage = getUserAndPlan | `ORDER BY om.created_at ASC` → `DESC` in `EMPFAENGER_SQL`, Datenbank-Probe → rot | rot (D1, D2) |
+| 10 | Typen in den SQL-Texten | `::text` aus `abschliessen` bzw. `mailNotieren` entfernen → rot **mit und ohne** Datenbank | rot (R1, R2) |
+| 11 | Am laufenden System | Staff CC → Produkt-Updates: Mitteilung anlegen, veröffentlichen, mailen; Zahl im Dialog = Zahl in der Liste; „Anhalten“ mit Grund | 44 Empfänger, 20 sofort, Handkurbel, Takt, Anhalten, Konsole sauber |
+
+Insgesamt 14 + 2 + 3 Rückmutationen, alle zeilengenau gesetzt (nicht an der ersten Fundstelle) und
+an **fail, cancelled und Rückgabewert** abgelesen. Eine überlebte und ist ehrlich benannt: R3, der
+`::uuid`-Typ beim Einfrieren ist **nicht** nötig (PostgreSQL leitet ihn aus der Zielspalte ab) — er
+steht nur als ausdrückliche Angabe da und wird nirgends als Schutz behauptet.
+
+### Für Welle 1 (Testlauf): `--test-force-exit` schneidet den Bericht ab — gemessen, nicht angefasst
+
+Gemessen am 2026-10-01: unter `--test-force-exit` (so ruft `api/scripts/run-tests.js` jede Datei)
+**meldet** der Testlauf zufällig zu wenige Proben — die Datei endet, bevor ihr Bericht beim
+Elternprozess ankommt (beim Abbruch hängen `WriteWrap`/`FSReqCallback`). Laufen tun alle: eine
+Marker-Probe am Dateiende schrieb in 4 von 4 Läufen, gemeldet wurden 29–37 von 51. Betroffen sind
+mindestens `admin.route.coverage` (78–91 statt 93), `staffControlCenter.route.coverage` (96–120 statt
+120), `workerService.coverage` (73–95 statt 118), `gesperrtHeisstUnsichtbar` (27–38 statt 53).
+**Ein Fehler geht dabei nicht verloren:** eine absichtlich rote Probe ganz am Ende wurde in 6 von 6
+Läufen als `fail 1`, Rückgabewert 1 gemeldet — der Rückgabewert des Kindprozesses trägt sie.
+Die Gesamtzahl „12.167 Tests“ ist deshalb eine **Untergrenze und schwankt**. Vorschlag: offene
+Handles der Dateien schließen oder die Zahl ohne `--test-force-exit` erheben — Entscheidung für
+Welle 1/den Owner, nicht in dieser Sitzung geändert.
 
 ---
 

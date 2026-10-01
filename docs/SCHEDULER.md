@@ -32,6 +32,15 @@ Endpunkte auf dieser Seite haben weiterhin **nur** den externen Weg.
 > Kennung in Redis ab, und **ein** Arbeiter greift ihn — egal wie viele App-Server
 > laufen. Der Grund, der den externen Weg nötig machte, entfällt damit für diese fünf.
 
+### Ein Takt ganz ohne internen Endpunkt (seit 2026-10-01)
+
+**`produkt-update-pakete`** — jede Minute ein Paket Produkt-Mitteilungen (20 Mails, gleich der
+Drosselung im Mail-Arbeiter). Er läuft **nur** in der Anwendung (BullMQ, `scheduleBetriebsWirtschaft`),
+einen internen Endpunkt und damit eine Crontab-Zeile gibt es dafür bewusst nicht: die Handkurbel
+ist der Knopf **„Nächstes Paket“** im Staff Control Center, und der erscheint genau dann, wenn ein
+Versand stockt — also auch in einem Deployment ohne Redis. Nichts zu tun ist dort der Normalfall
+(eine Abfrage je Minute); Arbeit zu haben und keinen Versandweg färbt den Herzschlag auf `fehler`.
+
 ## Warum extern?
 
 Bei 2+ App-Servern hinter einem Load Balancer dürfen Cron-Jobs nicht auf jedem Server laufen – sonst werden SLA-Scans, Expirations etc. doppelt ausgeführt. Lösung: **ein externer Scheduler** ruft die internen API-Endpoints auf.

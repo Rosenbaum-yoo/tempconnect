@@ -95,12 +95,47 @@ export async function cancelPlanImmediately(pool, { userId, actorUserId = null, 
   });
 }
 
+/**
+ * Ist eine Kuendigung faellig? REINE FUNKTION — die eine Regel fuer alle Leser.
+ *
+ * `finalizeCancellationIfDue` schliesst eine faellige Kuendigung ab (schreibt).
+ * Wer nur LESEN will, welcher Tarif gilt — etwa der Versand der
+ * Produkt-Mitteilungen, der alle Nutzer in einer Abfrage bewertet —, fragt
+ * hier, statt die Bedingung ein zweites Mal hinzuschreiben.
+ *
+ * @param {{status?: string, cancel_at?: string|Date|null}|null} abo
+ * @param {Date} [jetzt]
+ */
+export function kuendigungFaellig(abo, jetzt = new Date()) {
+  if (!abo || abo.status !== "canceling" || !abo.cancel_at) return false;
+  const cancelAt = new Date(abo.cancel_at);
+  return !Number.isNaN(cancelAt.getTime()) && cancelAt <= jetzt;
+}
+
+/**
+ * Der wirksame Tarif aus den Fakten. REINE FUNKTION, und die EINZIGE Fassung
+ * dieser Regel (2026-10-01 aus `getUserAndPlan` herausgezogen, Verhalten
+ * unveraendert):
+ *
+ *   1. aktiver Pilot (Org `pilot_status = 'active'`, kein Demo-Konto) -> INDIVIDUELL
+ *   2. sonst der Tarif der Organisation, ersatzweise der des Abos, sonst DEMO
+ *   3. Altnamen: ENTERPRISE/INDIVIDUAL -> INDIVIDUELL, FREE -> DEMO
+ *
+ * @param {{orgPlan?: string|null, aboPlan?: string|null, istDemo?: boolean|null, pilotStatus?: string|null}} fakten
+ * @returns {{plan: string, istAktiverPilot: boolean}}
+ */
+export function effektiverPlan({ orgPlan = null, aboPlan = null, istDemo = false, pilotStatus = null } = {}) {
+  const istAktiverPilot = !istDemo && pilotStatus === "active";
+  let plan = orgPlan || aboPlan || "DEMO";
+  if (plan === "ENTERPRISE" || plan === "INDIVIDUAL") plan = "INDIVIDUELL";
+  if (plan === "FREE") plan = "DEMO";
+  return { plan: istAktiverPilot ? "INDIVIDUELL" : plan, istAktiverPilot };
+}
+
 export async function finalizeCancellationIfDue(pool, userId, opts = {}) {
   return await withTransaction(pool, async (client) => {
     const subscription = await loadLatestSubscription(client, userId, { forUpdate: true });
-    if (!subscription || subscription.status !== "canceling" || !subscription.cancel_at) return subscription;
-    const cancelAt = new Date(subscription.cancel_at);
-    if (Number.isNaN(cancelAt.getTime()) || cancelAt > new Date()) return subscription;
+    if (!kuendigungFaellig(subscription)) return subscription;
 
     await client.query(
       `UPDATE subscriptions
@@ -189,11 +224,8 @@ export async function getUserAndPlan(pool, userId, opts = {}) {
   const activeOrgId = requestedOrgId || u.rows[0].org_id || null;
 
   let subscription = await loadLatestSubscription(pool, userId);
-  if (subscription?.status === "canceling" && subscription.cancel_at) {
-    const cancelAt = new Date(subscription.cancel_at);
-    if (!Number.isNaN(cancelAt.getTime()) && cancelAt <= new Date()) {
-      subscription = await finalizeCancellationIfDue(pool, userId, { orgId: activeOrgId });
-    }
+  if (kuendigungFaellig(subscription)) {
+    subscription = await finalizeCancellationIfDue(pool, userId, { orgId: activeOrgId });
   }
   const r = await pool.query(
     "SELECT ROUND(AVG(stars)::numeric, 1) AS avg_rating, COUNT(*) AS rating_count FROM ratings WHERE rated_id=$1",
@@ -260,16 +292,15 @@ export async function getUserAndPlan(pool, userId, opts = {}) {
   // Plattform: keine Paywalls, keine locked Cards, volle Limits.
   // Entscheidend ist der ORG-Level pilot_status (wird bei Registrierung automatisch
   // durch activatePilotForOrganization() gesetzt), nicht der User-Level customer_stage.
-  const isActivePilot = !u.rows[0].is_demo
-    && pilot?.pilot_status === "active";
-
-  // Pilot-Override: Pilotkunden erhalten INDIVIDUELL (= volles Enterprise-Niveau)
-  // Normalize: ENTERPRISE/INDIVIDUAL -> INDIVIDUELL
-  const basePlan = org_plan || dbPlan || "DEMO";
-  let normalizedPlan = basePlan;
-  if (normalizedPlan === "ENTERPRISE" || normalizedPlan === "INDIVIDUAL") normalizedPlan = "INDIVIDUELL";
-  if (normalizedPlan === "FREE") normalizedPlan = "DEMO";
-  const plan = isActivePilot ? "INDIVIDUELL" : normalizedPlan;
+  //
+  // Die Regel selbst steht in `effektiverPlan` (unten) — dieselbe Funktion nutzt
+  // der Versand der Produkt-Mitteilungen fuer alle Nutzer in EINER Abfrage.
+  const { plan, istAktiverPilot: isActivePilot } = effektiverPlan({
+    orgPlan: org_plan,
+    aboPlan: dbPlan,
+    istDemo: u.rows[0].is_demo,
+    pilotStatus: pilot?.pilot_status ?? null
+  });
   const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.DEMO;
 
   // Feature-Bundle: Pilotkunden erhalten enterprise_full auch wenn Org noch nicht aktualisiert

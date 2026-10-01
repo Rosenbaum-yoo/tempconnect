@@ -138,6 +138,14 @@ function scheduleBetriebsWirtschaft() {
    * war vollstaendig, hatte aber keinen Ausloeser. */
   q.upsertJobScheduler("profil-rangliste-daily", { pattern: "50 2 * * *" }, { name: "profil-rangliste" })
     .catch((e) => logger.warn({ err: e.message }, "Could not schedule profil-rangliste"));
+
+  /* Produkt-Mitteilungen in Paketen (2026-10-01). Jede Minute — 20 Mails je
+   * Paket ist dieselbe Drosselung wie im Mail-Arbeiter. Hier und nicht in der
+   * "email"-Warteschlange: der Lauf braucht die Empfaengerliste und schreibt je
+   * Mail ihren Ausgang; ein Auftrag je Mail in Redis wuesste davon nichts. Ohne
+   * Arbeit ist ein Lauf eine einzige Abfrage. */
+  q.upsertJobScheduler("produkt-update-pakete-1min", { pattern: "* * * * *" }, { name: "produkt-update-pakete" })
+    .catch((e) => logger.warn({ err: e.message }, "Could not schedule produkt-update-pakete"));
 }
 
 export function startWorkers(deps = {}) {

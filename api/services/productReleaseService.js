@@ -6,6 +6,8 @@
 import crypto from "node:crypto";
 import { hasFeature } from "../config/planFeatures.js";
 import { normalizePlanKey } from "../config/planCatalog.js";
+import { effektiverPlan, kuendigungFaellig } from "./userService.js";
+import { ANONYM_DOMAIN } from "./dataGovernanceService.js";
 
 /*
  * Rang je KANONISCHEM Plan. Bis 2026-10-01 stand hier ENTERPRISE als oberste
@@ -22,9 +24,6 @@ const PLAN_RANK = {
   INDIVIDUELL: 4
 };
 
-/** Hoechstzahl Mails je Mitteilung — siehe dispatchReleaseEmails. */
-const EMAIL_BATCH_CAP = 400;
-
 const AUDIENCE_KEYS = new Set(["worker", "agency", "company", "admin", "supplier_user"]);
 
 /**
@@ -33,11 +32,6 @@ const AUDIENCE_KEYS = new Set(["worker", "agency", "company", "admin", "supplier
  */
 export function planTier(plan) {
   return PLAN_RANK[normalizePlanKey(plan)] ?? 0;
-}
-
-/** Wie viele Mails eine Mitteilung hoechstens verschickt (siehe dispatchReleaseEmails). */
-export function mailObergrenze() {
-  return EMAIL_BATCH_CAP;
 }
 
 /**
@@ -404,8 +398,92 @@ export async function abmelden(pool, userId) {
   return rowCount > 0;
 }
 
-function escHtml(text) {
-  return String(text ?? "").replace(/[&<>"']/g, (z) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[z]));
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WER BEKOMMT DIE MAIL — EINE ABFRAGE JE 1000 NUTZER, NICHT SIEBEN JE NUTZER
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Bis 2026-10-01 lud diese Stelle den Kontext Nutzer fuer Nutzer ueber
+ * `getUserAndPlan` — gemessen etwa sieben Abfragen je Nutzer, darunter drei
+ * Zaehlungen ueber `requests`, die fuer die Zielgruppe gar keine Rolle spielen,
+ * und hoechstens 5000 Nutzer. Schlimmer: `getUserAndPlan` SCHREIBT (es schliesst
+ * faellige Kuendigungen ab). Ein Blick auf die Empfaengerzahl veraenderte damit
+ * Abos.
+ *
+ * Jetzt liest EINE Abfrage die Fakten fuer bis zu 1000 Nutzer, und dieselben
+ * reinen Funktionen wie ueberall entscheiden:
+ *   - `effektiverPlan`    — die Tarifregel aus `getUserAndPlan` (userService.js)
+ *   - `kuendigungFaellig` — dieselbe Faelligkeit, nur ohne zu schreiben
+ *   - `entryVisibleForUser` — dieselbe Zielgruppenregel wie in der App
+ * Die Abfrage spiegelt die Lesewege von `getUserAndPlan` (Mitgliedschaft der
+ * aktiven Organisation, sonst die aelteste; juengstes Abo). Gepinnt von
+ * `api/test/produktUpdateVersand.test.js`, gegen die echte Datenbank verglichen
+ * in `api/test/integration/produktUpdateEmpfaenger.flow.test.js`.
+ *
+ * NICHT angeschrieben wird, wer nichts empfangen kann oder soll: Demo-Konten
+ * (ihre Mails unterdrueckt `sendMail` ohnehin — sie zaehlten bisher trotzdem als
+ * Empfaenger), anonymisierte Konten (Platzhalter-Adresse unter
+ * `ANONYM_DOMAIN`), inaktive Konten und Konten ohne Adresse.
+ */
+const EMPFAENGER_SEITE = 1000;
+
+export const EMPFAENGER_SQL = `
+  SELECT u.id, u.role, u.is_demo,
+         m.role_key AS org_role, m.org_plan, m.pilot_status,
+         s.plan AS abo_plan, s.status AS abo_status, s.cancel_at AS abo_cancel_at,
+         (u.role = 'admin' OR EXISTS (
+            SELECT 1 FROM org_memberships pa
+             WHERE pa.user_id = u.id AND pa.is_active = TRUE AND pa.role_key = 'platform_admin'
+         )) AS intern,
+         (np.user_id IS NOT NULL) AS abgemeldet
+    FROM users u
+    LEFT JOIN LATERAL (
+      SELECT om.role_key, o.plan AS org_plan, o.pilot_status
+        FROM org_memberships om
+        JOIN organizations o ON o.id = om.org_id
+       WHERE om.user_id = u.id AND om.is_active = TRUE
+         AND (u.org_id IS NULL OR om.org_id = u.org_id)
+       ORDER BY om.created_at ASC
+       LIMIT 1
+    ) m ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT sub.plan, sub.status, sub.cancel_at
+        FROM subscriptions sub
+       WHERE sub.user_id = u.id
+       ORDER BY sub.created_at DESC
+       LIMIT 1
+    ) s ON TRUE
+    LEFT JOIN notification_preferences np
+      ON np.user_id = u.id AND np.event_category = $1 AND np.channel_email = FALSE
+   WHERE u.email IS NOT NULL AND TRIM(u.email) <> ''
+     AND u.email NOT ILIKE $2
+     AND u.role NOT IN ('inactive')
+     AND COALESCE(u.is_demo, FALSE) = FALSE
+     AND ($3::uuid IS NULL OR u.id > $3::uuid)
+   ORDER BY u.id
+   LIMIT $4`;
+
+/**
+ * Der Kontext eines Nutzers aus einer Zeile von `EMPFAENGER_SQL` — dieselbe
+ * Form, die `loadReleaseContext` liefert. REINE FUNKTION.
+ */
+export function kontextAusZeile(z, jetzt = new Date()) {
+  const aboPlan = kuendigungFaellig({ status: z.abo_status, cancel_at: z.abo_cancel_at }, jetzt)
+    ? "DEMO"
+    : (z.abo_plan || "DEMO");
+  const { plan } = effektiverPlan({
+    orgPlan: z.org_plan || null,
+    aboPlan,
+    istDemo: z.is_demo,
+    pilotStatus: z.pilot_status || null
+  });
+  return {
+    userId: z.id,
+    userRole: z.role || "company",
+    orgRole: z.org_role || null,
+    plan,
+    isInternalViewer: z.intern === true
+  };
 }
 
 /**
@@ -413,93 +491,31 @@ function escHtml(text) {
  * den Versand, damit beide dieselbe Zahl meinen. Ein Entwurf wird bewertet, als
  * waere er veroeffentlicht (sonst saehe ihn nur das Team).
  *
- * Laedt den Kontext je Nutzer (bis zu 5000 Abfragen) — bewusst so belassen, bis
- * der Versand in Paketen kommt (Owner-Entscheid 2026-10-01: vor etwa 50 Kunden).
+ * Seitenweise ueber die Nutzerkennung (keyset), ohne Obergrenze: eine Seite
+ * kostet EINE Abfrage, egal wie viele Nutzer darauf stehen.
+ *
+ * @returns {Promise<{empfaenger: string[], abgemeldet: number, nicht_in_zielgruppe: number}>}
+ *   `empfaenger` sind Nutzerkennungen — die Adresse wird erst beim Versand gelesen.
  */
-export async function ermittleEmpfaenger(pool, entry, getUserAndPlan) {
+export async function ermittleEmpfaenger(pool, entry, { seite = EMPFAENGER_SEITE, jetzt = new Date() } = {}) {
   const alsVeroeffentlicht = {
     ...entry,
     status: "published",
-    published_at: entry.status === "published" && entry.published_at ? entry.published_at : new Date(Date.now() - 1000)
+    published_at: entry.status === "published" && entry.published_at ? entry.published_at : new Date(jetzt.getTime() - 1000)
   };
-  const { rows: users } = await pool.query(
-    `SELECT id, email FROM users
-     WHERE email IS NOT NULL AND TRIM(email) <> ''
-       AND role NOT IN ('inactive')
-     LIMIT 5000`
-  );
-  const { rows: ab } = await pool.query(
-    `SELECT user_id FROM notification_preferences
-      WHERE event_category = $1 AND channel_email = FALSE`,
-    [ABMELDE_KATEGORIE]
-  );
-  const abgemeldet = new Set(ab.map((r) => String(r.user_id)));
-
   const empfaenger = [];
-  let abgemeldetInZielgruppe = 0;
+  let abgemeldet = 0;
   let nichtInZielgruppe = 0;
-  for (const u of users) {
-    const ctx = await loadReleaseContext(pool, u.id, getUserAndPlan);
-    if (!ctx || !entryVisibleForUser(alsVeroeffentlicht, ctx)) { nichtInZielgruppe++; continue; }
-    if (abgemeldet.has(String(u.id))) { abgemeldetInZielgruppe++; continue; }
-    empfaenger.push({ id: u.id, email: u.email });
+  let nach = null;
+  for (;;) {
+    const { rows } = await pool.query(EMPFAENGER_SQL, [ABMELDE_KATEGORIE, `%@${ANONYM_DOMAIN}`, nach, seite]);
+    for (const z of rows) {
+      if (!entryVisibleForUser(alsVeroeffentlicht, kontextAusZeile(z, jetzt))) { nichtInZielgruppe++; continue; }
+      if (z.abgemeldet) { abgemeldet++; continue; }
+      empfaenger.push(String(z.id));
+    }
+    if (rows.length < seite) break;
+    nach = rows[rows.length - 1].id;
   }
-  return { empfaenger, abgemeldet: abgemeldetInZielgruppe, nicht_in_zielgruppe: nichtInZielgruppe };
-}
-
-/** Die Zahl vor dem Klick: wie viele Menschen, wie viele abgemeldet, wie viele gehen raus. */
-export async function empfaengerVorschau(pool, releaseId, getUserAndPlan) {
-  const entry = await getById(pool, releaseId);
-  if (!entry) return null;
-  const r = await ermittleEmpfaenger(pool, entry, getUserAndPlan);
-  return {
-    zielgruppe: r.empfaenger.length + r.abgemeldet,
-    abgemeldet: r.abgemeldet,
-    wuerden_gesendet: Math.min(r.empfaenger.length, EMAIL_BATCH_CAP),
-    obergrenze: EMAIL_BATCH_CAP,
-    ueber_obergrenze: Math.max(0, r.empfaenger.length - EMAIL_BATCH_CAP),
-    schon_gemailt: Boolean(entry.email_sent_at)
-  };
-}
-
-export async function dispatchReleaseEmails(pool, releaseId, getUserAndPlan, sendMail, logger, baseUrl = "", abmeldeSchluessel = null) {
-  if (!abmeldeSchluessel) {
-    // Keine Werbemail ohne funktionierenden Widerspruch (§ 7 Abs. 3 UWG).
-    throw new Error("dispatchReleaseEmails: ohne Abmelde-Schluessel wird nicht gemailt");
-  }
-  const { rows: erows } = await pool.query(`SELECT * FROM product_release_entries WHERE id = $1`, [releaseId]);
-  const entry = erows[0];
-  if (!entry) return { sent: 0, skipped: 0, abgemeldet: 0 };
-  if (entry.status !== "published") return { sent: 0, skipped: 0, abgemeldet: 0 };
-  if (entry.email_sent_at) return { sent: 0, skipped: 0, abgemeldet: 0 };
-
-  const { empfaenger, abgemeldet, nicht_in_zielgruppe } = await ermittleEmpfaenger(pool, entry, getUserAndPlan);
-  const basis = String(baseUrl || "").replace(/\/$/, "");
-  const subject = `TempConnect: ${entry.title}`;
-  const titel = escHtml(entry.title);
-  const kurz = escHtml(entry.summary).replace(/\n/g, "<br/>");
-
-  let sent = 0;
-  for (const u of empfaenger) {
-    if (sent >= EMAIL_BATCH_CAP) break;
-    const link = escHtml(abmeldeLink(basis, u.id, abmeldeSchluessel));
-    const html = `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;line-height:1.5;color:#111">
-      <h2 style="margin:0 0 12px">${titel}</h2>
-      <p style="margin:0 0 16px;color:#444">${kurz}</p>
-      <p style="margin:0 0 24px"><a href="${basis}/public/whats-new.html" style="color:#2563eb">Im Produkt ansehen</a></p>
-      <p style="margin:0;font-size:12px;color:#666">Sie erhalten diese Nachricht als Nutzer von TempConnect.
-      Keine Produktneuheiten mehr per E-Mail? <a href="${link}" style="color:#666">Hier abbestellen</a> —
-      in der App sehen Sie sie weiterhin.</p>
-      </body></html>`;
-    const ok = await sendMail(u.email, subject, html, { zweck: "produkt-update" });
-    if (ok) sent++;
-  }
-
-  await pool.query(
-    `UPDATE product_release_entries SET email_sent_at = NOW(), updated_at = NOW() WHERE id = $1`,
-    [releaseId]
-  );
-
-  logger.info({ releaseId, sent, abgemeldet, nicht_in_zielgruppe }, "product_release_email_dispatch");
-  return { sent, skipped: nicht_in_zielgruppe, abgemeldet };
+  return { empfaenger, abgemeldet, nicht_in_zielgruppe: nichtInZielgruppe };
 }

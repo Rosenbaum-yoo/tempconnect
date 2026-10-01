@@ -70,6 +70,39 @@ function getTransporter() {
   return _transporter;
 }
 
+/*
+ * KOPFZEILEN, DIE EIN AUFRUFER SETZEN DARF — und sonst keine (2026-10-01).
+ *
+ * Gebraucht fuer `List-Unsubscribe` (RFC 2369): die Mailprogramme zeigen damit
+ * einen eigenen „Abbestellen"-Knopf neben dem Absender. Eine offene Durchreiche
+ * waere eine Einladung zur Kopfzeilen-Einschleusung — deshalb eine Liste mit
+ * genau den Namen, die es braucht, und kein Wert mit Zeilenumbruch.
+ *
+ * `List-Unsubscribe-Post` (RFC 8058, Abbestellen mit EINEM Klick direkt aus dem
+ * Postfach) steht bewusst NICHT hier: der Postfach-Anbieter schickt dabei einen
+ * POST ohne CSRF-Marke, und eine Ausnahme vom CSRF-Schutz entscheidet der Owner
+ * (docs/PRODUCT_RELEASES.md, Abschnitt E-Mail).
+ */
+const ERLAUBTE_KOEPFE = new Set(["list-unsubscribe"]);
+
+/**
+ * Nur die erlaubten Kopfzeilen, nur einzeilige Werte. Gibt `null` zurueck, wenn
+ * nichts uebrig bleibt — dann bekommt der Transport gar kein `headers`-Feld.
+ * @param {Record<string, unknown>|null|undefined} roh
+ * @returns {Record<string, string>|null}
+ */
+export function mailKoepfe(roh) {
+  if (!roh || typeof roh !== "object") return null;
+  const aus = {};
+  for (const [name, wert] of Object.entries(roh)) {
+    if (!ERLAUBTE_KOEPFE.has(String(name).toLowerCase())) continue;
+    const text = String(wert ?? "");
+    if (!text || /[\r\n]/.test(text) || text.length > 2000) continue;
+    aus[name] = text;
+  }
+  return Object.keys(aus).length ? aus : null;
+}
+
 /** Ehrliche Provider-Selbstauskunft (Provider/Capabilities/Warnings) für Health-/SCC-Sicht. */
 export function describe() {
   return describeEmail(config);
@@ -83,9 +116,10 @@ export function describe() {
  * @param {string} [opts.html] - HTML-Body
  * @param {string} [opts.text] - Text-Body
  * @param {string} [opts.from] - Absender (default: SMTP_FROM)
+ * @param {Record<string, string>} [opts.headers] - nur die Namen aus `ERLAUBTE_KOEPFE`
  * @returns {Promise<Object>} Nodemailer-Info oder Log-Dummy
  */
-export async function sendMail({ to, subject, html, text, from, zweck } = {}) {
+export async function sendMail({ to, subject, html, text, from, zweck, headers } = {}) {
   const fromAddr = from || config.SMTP_FROM;
   const transporter = getTransporter();
 
@@ -134,6 +168,7 @@ export async function sendMail({ to, subject, html, text, from, zweck } = {}) {
    * NUR wenn es HTML gibt — eine reine Textmail in einen HTML-Rahmen zu packen
    * ergaebe ein leeres Dokument mit Fuss und ohne Inhalt.
    */
+  const koepfe = mailKoepfe(headers);
   let info;
   try {
     info = await transporter.sendMail({
@@ -142,6 +177,7 @@ export async function sendMail({ to, subject, html, text, from, zweck } = {}) {
       subject,
       html: html ? mitRahmen(html, subject) : undefined,
       text: text || undefined,
+      ...(koepfe ? { headers: koepfe } : {}),
     });
   } catch (e) {
     /* Der Wurf bleibt — der BullMQ-Arbeiter braucht ihn fuer seinen

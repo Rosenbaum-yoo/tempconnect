@@ -275,6 +275,15 @@ async function gehoertZurOrg(pool, userId, orgId) {
 }
 
 /**
+ * Die Domain, unter der ein anonymisiertes Konto seine Platzhalter-Adresse
+ * traegt (`deleted_<8 Zeichen>@anonymized.local`). Exportiert, damit Leser —
+ * etwa der Versand der Produkt-Mitteilungen — ein anonymisiertes Konto an
+ * DERSELBEN Stelle erkennen, an der es entsteht, statt die Adresse abzuschreiben.
+ * An diese Domain kann nichts zugestellt werden (`.local` ist nicht oeffentlich).
+ */
+export const ANONYM_DOMAIN = "anonymized.local";
+
+/**
  * @param {string} orgId — Organisation des Aufrufers. PFLICHT: ohne sie wird
  *   nichts anonymisiert. Braucht die Plattform je einen org-uebergreifenden Weg
  *   (Support, Rechtsabteilung), gehoert er hinter das Staff-Tor, nicht hinter
@@ -294,7 +303,7 @@ export async function anonymizeUser(pool, userId, actorId, orgId) {
     return { success: false, reason: "BLOCKERS", blockers: check.blockers };
   }
 
-  const anonEmail = `deleted_${userId.slice(0, 8)}@anonymized.local`;
+  const anonEmail = `deleted_${userId.slice(0, 8)}@${ANONYM_DOMAIN}`;
   const DELETED = "[Gelöscht]";
   const ANON = "[Anonymisiert]";
 

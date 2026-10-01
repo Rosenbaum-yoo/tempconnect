@@ -3519,7 +3519,25 @@
         },
         {
           "methode": "post",
+          "pfad": "/produkt-updates/:id/paket",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen. W-E10: Freischaltungen und Produkt-Updates sind plattformweit (feature_overrides / product_release_entries); `:id` adressiert eine Plattform-Zeile, keinen Mandanten-Inhalt."
+        },
+        {
+          "methode": "post",
           "pfad": "/produkt-updates/:id/veroeffentlichen",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen. W-E10: Freischaltungen und Produkt-Updates sind plattformweit (feature_overrides / product_release_entries); `:id` adressiert eine Plattform-Zeile, keinen Mandanten-Inhalt."
+        },
+        {
+          "methode": "get",
+          "pfad": "/produkt-updates/:id/versand",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen. W-E10: Freischaltungen und Produkt-Updates sind plattformweit (feature_overrides / product_release_entries); `:id` adressiert eine Plattform-Zeile, keinen Mandanten-Inhalt."
+        },
+        {
+          "methode": "post",
+          "pfad": "/produkt-updates/:id/versand-anhalten",
           "urteil": "bewusste-ausnahme",
           "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen. W-E10: Freischaltungen und Produkt-Updates sind plattformweit (feature_overrides / product_release_entries); `:id` adressiert eine Plattform-Zeile, keinen Mandanten-Inhalt."
         },

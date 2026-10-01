@@ -9,7 +9,13 @@ Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-
   der Kunde sieht „Abrechnung (30 Tage)“ — freigegeben-noch-nicht-abgerechnet und Ausgaben ohne
   Rechnung.
 - **Produkt-Mails:** Abmeldelink in jeder Mail (§ 7 Abs. 3 UWG), öffentliche Seite `abmelden.html`,
-  Empfängerzahl vor dem Klick im Staff CC. **Vor etwa 50 Kunden offen:** Versand in Paketen.
+  Empfängerzahl vor dem Klick im Staff CC. ✅ **Versand in Paketen gebaut** (Migration 227, Takt
+  `produkt-update-pakete`, 20 je Minute, Anhalten, `List-Unsubscribe`-Kopf) — Livegang braucht
+  **Redis** für den Takt; ohne Redis stockt der Versand nach dem ersten Paket sichtbar und läuft per
+  Knopf „Nächstes Paket“ weiter.
+- ✅ **Versandprotokoll `mail_versand` (M1.3) schreibt erst seit 2026-10-01** — die Einfüge-Abfrage
+  scheiterte vorher bei jedem Aufruf an PostgreSQL. Wer vor dem Livegang die Mail-Sicht im Staff CC
+  prüft, sieht jetzt echte Zahlen; leere Tage davor sind kein Befund über den Versand.
 - **Rechte:** Kunden ziehen strategische Anfragen nur noch zurück; Owner-Rechte vergibt nur ein Owner
   (vom Owner bestätigt).
 

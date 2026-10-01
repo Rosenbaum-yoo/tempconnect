@@ -37,6 +37,8 @@ import * as recurringBillingService from "./recurringBillingService.js";
 import * as subscriptionLifecycle from "./subscriptionLifecycleService.js";
 import * as workerService from "./workerService.js";
 import * as profileRankingService from "./profileRankingService.js";
+import * as produktUpdateVersand from "./produktUpdateVersandService.js";
+import { KeinVersandweg } from "./mailProtokollService.js";
 import * as auditLog from "./auditLog.js";
 import * as stateMachine from "./stateMachine.js";
 
@@ -263,6 +265,40 @@ export async function profilRangliste(pool) {
 }
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * PRODUKT-MITTEILUNGEN IN PAKETEN (Owner-Entscheid 2026-10-01)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Jede Minute EIN Paket der aeltesten Mitteilung, die noch offene Empfaenger
+ * hat. Der Ablauf steht in `produktUpdateVersandService` — die Handkurbel im
+ * Staff Control Center (`POST /staff/api/produkt-updates/:id/paket`) dreht
+ * dieselbe Welle.
+ *
+ * Nichts zu tun ist der Normalfall und kein Fehler (`{ leer: true }`). Ein
+ * Fehler ist dagegen, Arbeit zu HABEN und sie nicht tun zu koennen: ohne
+ * Versandweg wirft der Lauf, statt still gruen zu melden — sonst stuende im
+ * Staff CC „laeuft", waehrend 1.240 Mails liegen bleiben.
+ */
+export async function produktUpdatePakete(pool, { config, logger, sendMail } = {}) {
+  if (typeof sendMail !== "function") {
+    throw new Error(
+      "Der Paketversand hat keinen Versandweg bekommen. Er wuerde ohne Wirkung "
+      + "als gelungen gelten. Siehe startWorkers({ sendMail }) in api/server.js."
+    );
+  }
+  const ergebnis = await produktUpdateVersand.naechstesPaket(pool, {
+    sendMail, logger,
+    baseUrl: config?.BASE_URL || "",
+    // Schluessel fuer den Abmeldelink (§ 7 Abs. 3 UWG) — aus der Umgebung, wie in der Staff-Route.
+    schluessel: config?.JWT_SECRET || config?.SESSION_SECRET || null
+  });
+  if (ergebnis.kein_versandweg) {
+    throw new KeinVersandweg("Produkt-Mitteilungen warten auf Versand, aber es ist kein E-Mail-Versandweg eingerichtet.");
+  }
+  return ergebnis;
+}
+
+/**
  * Der Auftragsname aus `betriebsTaktService.TAKTE` auf den Lauf abbilden.
  *
  * Bewusst hier und nicht im Arbeiter: so gibt es EINEN Ort, an dem sichtbar ist,
@@ -276,5 +312,6 @@ export const LAEUFE = Object.freeze({
   "dunning-sweep": dunningSweep,
   "subscription-lifecycle-tick": subscriptionLifecycleTick,
   "einladung-erinnerung": einladungErinnerung,
-  "profil-rangliste": profilRangliste
+  "profil-rangliste": profilRangliste,
+  "produkt-update-pakete": produktUpdatePakete
 });

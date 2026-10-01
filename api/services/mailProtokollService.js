@@ -92,17 +92,29 @@ export async function mailNotieren(pool, versuch = {}) {
     ? null
     : String(versuch.fehler).slice(0, 500);
 
+  /*
+   * DIE TYPEN STEHEN AUSDRUECKLICH DA (berichtigt am 2026-10-01).
+   *
+   * Vorher stand hier `$4, $5, CASE WHEN $5 IS NULL ...` ohne Typangabe. Der
+   * Treiber schickt jeden Parameter als „unbekannt", und PostgreSQL kann aus
+   * `$5 IS NULL` keinen Typ ableiten: JEDER Aufruf scheiterte mit
+   * `could not determine data type of parameter $5` — und der catch unten
+   * schluckte es als Warnung. Gemessen am laufenden System: `mail_versand` war
+   * leer, die Sicht aus M1.3 hat nie eine Zeile gesehen. Kein Muster-Pool kann
+   * das bemerken; deshalb fuehrt `test/integration/produktUpdateEmpfaenger.flow.test.js`
+   * diese Abfrage gegen die echte Datenbank aus.
+   */
   try {
     await pool.query(
       `INSERT INTO mail_versand
          (zweck, tag, versucht, zugestellt, fehlgeschlagen, ohne_versandweg,
           letzter_weg, letzter_fehler, letzter_fehler_um, letzte_um)
        VALUES ($1, $2::date, 1,
-               CASE WHEN $3 = 'zugestellt'      THEN 1 ELSE 0 END,
-               CASE WHEN $3 = 'fehlgeschlagen'  THEN 1 ELSE 0 END,
-               CASE WHEN $3 = 'ohne_versandweg' THEN 1 ELSE 0 END,
-               $4, $5,
-               CASE WHEN $5 IS NULL THEN NULL ELSE NOW() END, NOW())
+               CASE WHEN $3::text = 'zugestellt'      THEN 1 ELSE 0 END,
+               CASE WHEN $3::text = 'fehlgeschlagen'  THEN 1 ELSE 0 END,
+               CASE WHEN $3::text = 'ohne_versandweg' THEN 1 ELSE 0 END,
+               $4::text, $5::text,
+               CASE WHEN $5::text IS NULL THEN NULL ELSE NOW() END, NOW())
        ON CONFLICT (zweck, tag) DO UPDATE
          SET versucht        = mail_versand.versucht + 1,
              zugestellt      = mail_versand.zugestellt      + EXCLUDED.zugestellt,

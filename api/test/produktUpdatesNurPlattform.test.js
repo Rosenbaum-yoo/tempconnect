@@ -81,7 +81,7 @@ function trackingPool(routes = []) {
 }
 
 function staffRouter(pool, extra = {}) {
-  return createStaffControlCenterRouter({ pool, logger: leise, sendMail: async () => true, getUserAndPlan: async () => ({ plan: "PLUS" }), ...extra });
+  return createStaffControlCenterRouter({ pool, logger: leise, sendMail: async () => true, ...extra });
 }
 
 function kette(router, methode, pfad) {
@@ -146,6 +146,15 @@ describe("Produktmitteilungen im Staff Control Center: gestufte Wachen", () => {
 
   it("Loeschen verlangt Bestaetigung mit Grund", () => {
     assert.ok(namen(r, "post", "/produkt-updates/:id/loeschen").includes("requireConfirmAndReason"));
+  });
+
+  it("Versand anhalten verlangt Bestaetigung mit Grund — Paket von Hand nur Step-up", () => {
+    const halt = namen(r, "post", "/produkt-updates/:id/versand-anhalten");
+    assert.ok(halt.includes("requireConfirmAndReason"), halt.join(" > "));
+    assert.ok(halt.length >= 5, halt.join(" > "));
+    const paket = namen(r, "post", "/produkt-updates/:id/paket");
+    assert.ok(paket.length >= 4, `Staff, MFA, Step-up, Handler: ${paket.join(" > ")}`);
+    assert.ok(!paket.includes("requireConfirmAndReason"), "die Entscheidung fiel mit Grund beim Start");
   });
 
   it("Entwurf anlegen/aendern: Staff + Step-up, ohne Grund", () => {
@@ -262,22 +271,25 @@ describe("Produktmitteilungen: Veroeffentlichen und Mailen", () => {
     assert.equal(b._json.error.code, "SCHON_GEMAILT");
   });
 
-  it("ohne Versandweg wird nichts gezaehlt — und das steht in der Antwort", async () => {
+  it("ohne Versandweg wird nichts eingefroren — und das steht in der Antwort", async () => {
     const pool = trackingPool([
       { match: "SELECT * FROM product_release_entries WHERE id", rows: [{ ...ENTWURF, status: "published" }] }
     ]);
     const res = mockRes();
     await handler(staffRouter(pool, { sendMail: undefined }), "post", "/produkt-updates/:id/mailen")(req({ params: { id: ID } }), res);
     assert.equal(res._status, 200);
-    assert.equal(res._json.data.gesendet, 0);
+    assert.equal(res._json.data.gestartet, false);
+    assert.equal(res._json.data.eingereiht, 0);
     assert.match(res._json.data.hinweis, /Kein Versandweg/);
+    assert.equal(pool.calls.find((c) => /UPDATE product_release_entries|INSERT INTO product_release_mail_empfaenger/.test(c.sql)), undefined);
   });
 
-  it("die Liste sagt, ob ein Versandweg verbunden ist", async () => {
+  it("die Liste sagt, ob ein Versandweg verbunden ist, und nennt die Paketgroesse statt einer Obergrenze", async () => {
     const mit = mockRes();
     await handler(staffRouter(trackingPool()), "get", "/produkt-updates")(req(), mit);
     assert.equal(mit._json.data.mail_versand_bereit, true);
-    assert.equal(mit._json.data.mail_obergrenze, 400);
+    assert.equal(mit._json.data.paket_groesse, 20);
+    assert.equal("mail_obergrenze" in mit._json.data, false, "es gibt keine Obergrenze mehr");
     const ohne = mockRes();
     await handler(staffRouter(trackingPool(), { sendMail: undefined }), "get", "/produkt-updates")(req(), ohne);
     assert.equal(ohne._json.data.mail_versand_bereit, false);

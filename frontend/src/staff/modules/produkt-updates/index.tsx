@@ -9,9 +9,14 @@
  *     Step-up HOCH und Begruendung
  *   - eine veroeffentlichte Mitteilung aendert sich nur mit Begruendung
  *   - gemailt wird hoechstens einmal; ohne Versandweg steht es VOR dem Klick da
+ *   - gemailt wird in Paketen (Owner-Entscheid 2026-10-01): 20 je Minute, das erste
+ *     sofort. Die Liste zeigt den Stand ("312 von 1.240"), aktualisiert sich selbst,
+ *     solange ein Versand laeuft, und bietet "Anhalten" — wer nach dem dritten
+ *     Paket einen Fehler im Text bemerkt, stoppt den Rest. Stockt der Versand
+ *     (kein Takt, etwa ohne Redis), gibt es "Naechstes Paket" von Hand.
  *
  * Endpunkte: GET/POST /produkt-updates · PATCH /produkt-updates/:id
- *            POST /produkt-updates/:id/veroeffentlichen | /mailen | /loeschen
+ *            POST /produkt-updates/:id/veroeffentlichen | /mailen | /paket | /versand-anhalten | /loeschen
  */
 import { useState, useEffect, useCallback, type ChangeEvent } from "react";
 import { sccApi } from "@scc/api/client";
@@ -29,25 +34,78 @@ interface Mitteilung {
   show_in_app: boolean; send_email_on_publish: boolean; email_sent_at: string | null;
   show_as_modal: boolean; created_at: string; updated_at: string;
 }
-interface Liste { items: Mitteilung[]; mail_obergrenze: number; mail_versand_bereit: boolean }
-interface Vorschau {
-  verfuegbar: boolean; zielgruppe?: number; abgemeldet?: number;
-  wuerden_gesendet?: number; obergrenze?: number; ueber_obergrenze?: number;
+/** Der Stand eines Versands, wie der Server ihn bewertet (`bewerteStand`). */
+interface Versand {
+  alter_versand?: boolean; gestartet_am: string | null;
+  gesamt?: number; gesendet?: number; offen?: number; in_arbeit?: number; unklar?: number;
+  fehlgeschlagen?: number; entfallen?: number; fertig?: boolean; pausiert?: boolean; stockt?: boolean;
+  rest_minuten?: number;
 }
+type Zeile = Mitteilung & { versand: Versand | null };
+interface Liste { items: Zeile[]; paket_groesse: number; mail_versand_bereit: boolean }
+interface Vorschau {
+  verfuegbar: boolean; zielgruppe?: number; abgemeldet?: number; wuerden_gesendet?: number;
+  paket_groesse?: number; pakete?: number; dauer_minuten?: number;
+}
+interface Start {
+  gestartet: boolean; eingereiht: number; abgemeldet?: number; hinweis?: string; fehler?: string;
+  erstes_paket?: { gesendet: number; kein_versandweg?: boolean } | null;
+}
+
+const zahl = (n: number | undefined) => new Intl.NumberFormat("de-DE").format(n ?? 0);
 
 /** Die Zahl vor dem Klick (Owner-Entscheid 2026-10-01) — dieselbe Ermittlung wie der Versand. */
 async function empfaengerSatz(id: string): Promise<string> {
   try {
     const v = await sccApi.get<Vorschau>(`/produkt-updates/${id}/empfaenger`);
     if (!v?.verfuegbar) return "";
-    let satz = ` Die E-Mail geht an ${v.wuerden_gesendet ?? 0} ${v.wuerden_gesendet === 1 ? "Person" : "Personen"}`;
-    if (v.abgemeldet) satz += ` (${v.abgemeldet} ${v.abgemeldet === 1 ? "hat" : "haben"} Produkt-Mails abbestellt)`;
-    if (v.ueber_obergrenze) satz += `; ${v.ueber_obergrenze} bekämen wegen der Obergrenze von ${v.obergrenze} keine`;
-    return satz + ". Jede Mail enthält einen Abmeldelink.";
+    const n = v.wuerden_gesendet ?? 0;
+    let satz = ` Die E-Mail geht an ${zahl(n)} ${n === 1 ? "Person" : "Personen"}`;
+    if (v.abgemeldet) satz += ` (${zahl(v.abgemeldet)} ${v.abgemeldet === 1 ? "hat" : "haben"} Produkt-Mails abbestellt)`;
+    satz += ".";
+    if ((v.pakete ?? 0) > 1) {
+      satz += ` Sie geht in ${zahl(v.pakete)} Paketen zu ${v.paket_groesse} raus — das erste sofort, fertig in etwa ${zahl(v.dauer_minuten)} Minuten. Anhalten geht jederzeit.`;
+    } else if (n > 0) {
+      satz += " Sie geht sofort raus.";
+    }
+    return satz + " Jede Mail enthält einen Abmeldelink.";
   } catch {
     return " Die Empfängerzahl ließ sich gerade nicht ermitteln.";
   }
 }
+
+/** Die Rueckmeldung nach dem Start — ehrlich: eingereiht ist nicht zugestellt. */
+function startSatz(r: Start | null | undefined): string {
+  if (!r) return "";
+  if (r.hinweis) return r.hinweis;
+  if (r.fehler) return "Der E-Mail-Versand ließ sich nicht starten.";
+  if (!r.gestartet) return "Es wurde nichts gesendet.";
+  const sofort = r.erstes_paket?.gesendet ?? 0;
+  if (r.erstes_paket?.kein_versandweg) return `${zahl(r.eingereiht)} Empfänger eingereiht — aber es ist kein Versandweg eingerichtet, nichts ist raus.`;
+  return sofort >= r.eingereiht
+    ? `${zahl(sofort)} E-Mails gesendet.`
+    : `${zahl(r.eingereiht)} Empfänger eingereiht, ${zahl(sofort)} sofort gesendet — der Rest folgt in Paketen.`;
+}
+
+/** Der Versand in einer Zeile der Liste. */
+function versandText(m: Zeile): string {
+  const v = m.versand;
+  if (!v) return m.send_email_on_publish ? "beim Veröffentlichen" : "–";
+  if (v.alter_versand) return `gesendet ${datum(v.gestartet_am)}`;
+  const kern = `${zahl(v.gesendet)} von ${zahl(v.gesamt)} gesendet`;
+  const rest: string[] = [];
+  if (v.fehlgeschlagen) rest.push(`${zahl(v.fehlgeschlagen)} fehlgeschlagen`);
+  if (v.entfallen) rest.push(`${zahl(v.entfallen)} entfallen`);
+  if (v.unklar) rest.push(`${zahl(v.unklar)} unklar`);
+  const zusatz = rest.length ? ` (${rest.join(", ")})` : "";
+  if (v.fertig) return `fertig: ${kern}${zusatz}`;
+  if (v.pausiert) return `${kern} — ruht, solange die Mitteilung zurückgezogen ist${zusatz}`;
+  if (v.stockt) return `${kern} — stockt: kein Takt seit einigen Minuten${zusatz}`;
+  return `${kern} — noch etwa ${zahl(v.rest_minuten)} Min.${zusatz}`;
+}
+
+/** Laeuft ein Versand, der sich noch bewegen kann? Dann aktualisiert sich die Liste selbst. */
+const laeuft = (m: Zeile) => Boolean(m.versand && !m.versand.alter_versand && !m.versand.fertig);
 
 const ZIELGRUPPEN: [string, string][] = [
   ["company", "Unternehmen"],
@@ -107,6 +165,15 @@ export default function ProduktUpdates() {
 
   useEffect(() => { void load(); }, [load]);
 
+  /* Live-Stand: solange ein Versand laeuft, alle 15 Sekunden neu laden — ein Paket
+   * geht je Minute, schneller zu fragen bringt nichts. Steht nichts mehr aus, ruht es. */
+  const aktiv = Boolean(liste?.items.some(laeuft));
+  useEffect(() => {
+    if (!aktiv) return undefined;
+    const t = window.setInterval(() => { void load(); }, 15000);
+    return () => window.clearInterval(t);
+  }, [aktiv, load]);
+
   function oeffne(m: Mitteilung | null) {
     setOffen(m ? m.id : "neu");
     setEntwurf(m ? {
@@ -159,7 +226,7 @@ export default function ProduktUpdates() {
 
   async function veroeffentliche(m: Mitteilung) {
     const mail = m.send_email_on_publish && m.visibility === "public";
-    const zahl = mail && liste?.mail_versand_bereit ? await empfaengerSatz(m.id) : "";
+    const satz = mail && liste?.mail_versand_bereit ? await empfaengerSatz(m.id) : "";
     confirm({
       title: `Veröffentlichen: ${m.title}`,
       hint:
@@ -167,41 +234,71 @@ export default function ProduktUpdates() {
         (m.show_as_modal ? " Als Hinweisfenster beim nächsten Öffnen." : "") +
         (mail
           ? (liste?.mail_versand_bereit
-            ? ` Danach geht einmalig eine E-Mail raus.${zahl}`
+            ? ` Danach geht einmalig eine E-Mail raus.${satz}`
             : " Eine E-Mail ist vorgesehen, aber es ist kein Versandweg verbunden — es wird nichts gesendet.")
           : ""),
       onConfirm: async (reason: string) => {
         await stepUp();
-        const r = await sccApi.post<{ mail: { gesendet: number; hinweis?: string } | null }>(
+        const r = await sccApi.post<{ mail: Start | null }>(
           `/produkt-updates/${m.id}/veroeffentlichen`, { confirmed: true, reason });
-        toast.success(r?.mail ? `Veröffentlicht — ${r.mail.gesendet} E-Mails gesendet.` : "Veröffentlicht.");
+        toast.success(r?.mail ? `Veröffentlicht — ${startSatz(r.mail)}` : "Veröffentlicht.");
         await load();
       },
     });
   }
 
   async function maile(m: Mitteilung) {
-    const zahl = liste?.mail_versand_bereit ? await empfaengerSatz(m.id) : "";
+    const satz = liste?.mail_versand_bereit ? await empfaengerSatz(m.id) : "";
     confirm({
       title: `Per E-Mail senden: ${m.title}`,
       hint: liste?.mail_versand_bereit
-        ? `Zielgruppe: ${empfaenger(m)}.${zahl} Nur einmal — ein zweiter Versand ist danach gesperrt.`
+        ? `Zielgruppe: ${empfaenger(m)}.${satz} Nur einmal — ein zweiter Versand ist danach gesperrt.`
         : "Es ist kein Versandweg verbunden — es würde nichts gesendet.",
       dangerLabel: "E-Mails senden",
       onConfirm: async (reason: string) => {
         await stepUp();
-        const r = await sccApi.post<{ gesendet: number; uebersprungen: number; abgemeldet?: number; hinweis?: string }>(
-          `/produkt-updates/${m.id}/mailen`, { confirmed: true, reason });
-        toast.success(r?.hinweis ?? `${r.gesendet} E-Mails gesendet${r.abgemeldet ? `, ${r.abgemeldet} abbestellt` : ""}.`);
+        const r = await sccApi.post<Start>(`/produkt-updates/${m.id}/mailen`, { confirmed: true, reason });
+        toast.success(startSatz(r));
         await load();
       },
     });
   }
 
-  function zurueckziehen(m: Mitteilung) {
+  /** Die Handkurbel — fuer einen Versand, der stockt (kein Takt, etwa ohne Redis). */
+  async function naechstesPaket(m: Zeile) {
+    try {
+      await stepUp();
+      const r = await sccApi.post<{ paket: { gesendet: number; erneut: number; entfallen: number; kein_versandweg: boolean } }>(
+        `/produkt-updates/${m.id}/paket`, {});
+      toast.success(r.paket.kein_versandweg
+        ? "Kein Versandweg eingerichtet — nichts ist raus."
+        : `${zahl(r.paket.gesendet)} E-Mails gesendet${r.paket.erneut ? `, ${zahl(r.paket.erneut)} folgen im nächsten Paket erneut` : ""}.`);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Das Paket ließ sich nicht senden.");
+    }
+  }
+
+  function halteAn(m: Zeile) {
+    confirm({
+      title: `Versand anhalten: ${m.title}`,
+      hint: `Gesendet sind ${zahl(m.versand?.gesendet)} von ${zahl(m.versand?.gesamt)}. Die übrigen ${zahl(m.versand?.offen)} bekommen diese Mail nicht mehr — das lässt sich nicht fortsetzen.`,
+      dangerLabel: "Anhalten",
+      onConfirm: async (reason: string) => {
+        await stepUp();
+        const r = await sccApi.post<{ angehalten: number }>(`/produkt-updates/${m.id}/versand-anhalten`, { confirmed: true, reason });
+        toast.success(`Angehalten — ${zahl(r.angehalten)} Mails gehen nicht mehr raus.`);
+        await load();
+      },
+    });
+  }
+
+  function zurueckziehen(m: Zeile) {
     confirm({
       title: `Zurückziehen: ${m.title}`,
-      hint: "Die Mitteilung verschwindet bei allen und wird wieder ein Entwurf. Bereits gesendete E-Mails bleiben gesendet.",
+      hint: m.versand && (m.versand.offen ?? 0) > 0
+        ? `Die Mitteilung verschwindet bei allen und wird wieder ein Entwurf. Der laufende E-Mail-Versand ruht (${zahl(m.versand.offen)} offen) und geht weiter, wenn sie erneut veröffentlicht wird — mit dem dann gültigen Text. Ganz stoppen: „Anhalten“.`
+        : "Die Mitteilung verschwindet bei allen und wird wieder ein Entwurf. Bereits gesendete E-Mails bleiben gesendet.",
       dangerLabel: "Zurückziehen",
       onConfirm: async (reason: string) => {
         await stepUp();
@@ -336,14 +433,29 @@ export default function ProduktUpdates() {
                           ? <span className="scc-pill scc-pill--live">veröffentlicht {datum(m.published_at)}</span>
                           : <span className="scc-pill scc-pill--stub">Entwurf</span>}
                       </td>
-                      <td style={{ fontSize: 12 }}>
-                        {m.email_sent_at ? `gesendet ${datum(m.email_sent_at)}` : m.send_email_on_publish ? "beim Veröffentlichen" : "–"}
+                      <td style={{ fontSize: 12, minWidth: 180 }}>
+                        <div style={m.versand?.stockt ? { color: "var(--scc-warn)" } : undefined}>{versandText(m)}</div>
+                        {m.versand && !m.versand.alter_versand && (m.versand.gesamt ?? 0) > 0 && (
+                          <div aria-hidden="true" style={{ marginTop: 4, height: 4, borderRadius: 2, background: "var(--scc-line)", overflow: "hidden" }}>
+                            <div style={{
+                              height: "100%",
+                              width: `${Math.round(100 * (m.versand.gesendet ?? 0) / (m.versand.gesamt || 1))}%`,
+                              background: m.versand.fertig ? "var(--scc-ok)" : "var(--scc-accent)",
+                            }} />
+                          </div>
+                        )}
                       </td>
                       <td style={{ whiteSpace: "nowrap" }}>
                         <button className="scc-btn" onClick={() => oeffne(m)}>Bearbeiten</button>{" "}
                         {m.status === "draft" && <button className="scc-btn scc-btn--primary" onClick={() => void veroeffentliche(m)}>Veröffentlichen</button>}
                         {m.status === "published" && !m.email_sent_at && m.visibility === "public" && (
                           <><button className="scc-btn" onClick={() => void maile(m)}>Mailen</button>{" "}</>
+                        )}
+                        {m.versand?.stockt && (
+                          <><button className="scc-btn" onClick={() => void naechstesPaket(m)}>Nächstes Paket</button>{" "}</>
+                        )}
+                        {(m.versand?.offen ?? 0) > 0 && (
+                          <><button className="scc-btn" onClick={() => halteAn(m)}>Anhalten</button>{" "}</>
                         )}
                         {m.status === "published" && <><button className="scc-btn" onClick={() => zurueckziehen(m)}>Zurückziehen</button>{" "}</>}
                         <button className="scc-btn" onClick={() => loesche(m)}>Löschen</button>

@@ -37,6 +37,8 @@ import { z } from "zod";
 // W-E10: Freischaltungen und Produkt-Updates — aus dem Admin Panel hierher umgezogen.
 import * as freischaltung from "../services/freischaltungService.js";
 import * as produktUpdates from "../services/productReleaseService.js";
+// Versand in Paketen (Owner-Entscheid 2026-10-01) — Empfaengerliste, Takt, Handkurbel.
+import * as produktUpdateVersand from "../services/produktUpdateVersandService.js";
 import {
   notifyRequestStatusChanged,
   notifyActivationFailed
@@ -126,7 +128,7 @@ function computeFeatureFlagConfirmation(flagKey, enabled) {
 }
 
 export function createStaffControlCenterRouter(deps) {
-  const { pool, logger, sendMail, getUserAndPlan } = deps;
+  const { pool, logger, sendMail } = deps;
   const router = Router();
   const notifyDeps = { sendMail, logger };
   const requireStaff = createStaffControlAccessMiddleware({ pool, logger });
@@ -2760,6 +2762,8 @@ export function createStaffControlCenterRouter(deps) {
    *   - Entwurf anlegen/aendern: Step-up, kein Grund (es sieht ihn niemand)
    *   - eine VEROEFFENTLICHTE Mitteilung aendern: Grund Pflicht (alle sehen es)
    *   - veroeffentlichen, mailen: Step-up HOCH, Bestaetigung mit Grund
+   *   - naechstes Paket von Hand: Step-up (die Entscheidung fiel beim Start)
+   *   - Versand anhalten: Step-up, Bestaetigung mit Grund
    *   - Veroeffentlichen geht NUR ueber den eigenen Weg — Speichern kann nichts
    *     versehentlich veroeffentlichen (status 'published' wird beim Anlegen und
    *     Aendern abgelehnt).
@@ -2803,11 +2807,13 @@ export function createStaffControlCenterRouter(deps) {
   router.get("/produkt-updates", requireStaff, async (_req, res) => {
     try {
       const items = await produktUpdates.listAllAdmin(pool);
+      // Der Stand jedes Versands in EINER Abfrage — "312 von 1.240", "stockt", "fertig".
+      const staende = await produktUpdateVersand.versandStaende(pool, items);
       res.json({
         success: true,
         data: {
-          items,
-          mail_obergrenze: produktUpdates.mailObergrenze(),
+          items: items.map((m) => ({ ...m, versand: staende.get(String(m.id)) ?? null })),
+          paket_groesse: produktUpdateVersand.PAKET_GROESSE,
           // Ohne Versandweg zaehlt der Versand nichts — das muss VOR dem Klick sichtbar sein.
           mail_versand_bereit: typeof sendMail === "function"
         }
@@ -2916,7 +2922,8 @@ export function createStaffControlCenterRouter(deps) {
         // Veroeffentlichen nicht zuruecknehmen, wenn ein Mailserver hakt.
         let mail = null;
         if (eintrag.send_email_on_publish) {
-          mail = await mitteilungMailen(req, eintrag.id);
+          const m = await mitteilungMailen(req, eintrag.id);
+          mail = m.status === 200 ? m.body : { gestartet: false, fehler: m.body?.error?.code || "MAIL_FEHLER" };
         }
         res.json({ success: true, data: { eintrag, mail } });
       } catch (err) {
@@ -2926,36 +2933,76 @@ export function createStaffControlCenterRouter(deps) {
     }
   );
 
+  /** Der Schluessel fuer den Abmeldelink in jeder Mail (§ 7 Abs. 3 UWG) — aus der Umgebung. */
+  const abmeldeSchluessel = () => config?.JWT_SECRET || config?.SESSION_SECRET || null;
+  const versandDeps = () => ({
+    sendMail, logger,
+    baseUrl: config?.BASE_URL || process.env.BASE_URL || "",
+    schluessel: abmeldeSchluessel()
+  });
+
+  /**
+   * Den Versand starten (Owner-Entscheid 2026-10-01: in Paketen).
+   *
+   * 1. Empfaenger ermitteln — dieselbe Ermittlung wie die Zahl vor dem Klick.
+   * 2. In EINER Transaktion: die Liste einfrieren UND protokollieren. Das
+   *    Einfrieren ist zugleich der Riegel gegen den zweiten Klick.
+   * 3. Danach das erste Paket — ausserhalb der Transaktion, ein haengender
+   *    Mailserver darf den Start nicht zuruecknehmen. Den Rest traegt der Takt.
+   *
+   * @returns {Promise<{status: number, body: object}>}
+   */
   async function mitteilungMailen(req, id) {
-    if (typeof sendMail !== "function" || typeof getUserAndPlan !== "function") {
-      return { gesendet: 0, uebersprungen: 0, hinweis: "Kein Versandweg verbunden — es wurde nichts gesendet." };
+    if (typeof sendMail !== "function") {
+      return { status: 200, body: { gestartet: false, eingereiht: 0, hinweis: "Kein Versandweg verbunden — es wurde nichts gesendet." } };
     }
-    let ergebnis = { sent: 0, skipped: 0 };
-    let status = "ok";
-    try {
-      ergebnis = await produktUpdates.dispatchReleaseEmails(
-        pool, id, getUserAndPlan, sendMail, logger, config?.BASE_URL || process.env.BASE_URL || "",
-        // Schluessel fuer den Abmeldelink in jeder Mail (§ 7 Abs. 3 UWG) — aus der Umgebung.
-        config?.JWT_SECRET || config?.SESSION_SECRET || null
-      );
-    } catch (err) {
-      status = "error";
-      logger?.error({ err, id }, "SCC produkt-updates mail");
+    if (!abmeldeSchluessel()) {
+      // Keine Werbemail ohne funktionierenden Widerspruch — das ist ein Betriebsfehler, kein Achselzucken.
+      logger?.error({ id }, "SCC produkt-updates: kein Abmelde-Schluessel in der Umgebung");
+      return { status: 503, body: { success: false, error: { code: "KEIN_ABMELDE_SCHLUESSEL", message: "Ohne Abmeldelink wird nicht gemailt — JWT_SECRET/SESSION_SECRET fehlt in der Umgebung." } } };
     }
-    await writeStaffAudit(pool, {
-      actorId: req.sccActorId, area: "platform",
-      action: "staff.produkt_update.gemailt",
-      entityType: "product_release", entityId: id,
-      status, reason: req.sccReason, confirmed: true, riskLevel: "high",
-      ...auditContextFromReq(req),
-      details: {
-        gesendet: ergebnis.sent, uebersprungen: ergebnis.skipped, abgemeldet: ergebnis.abgemeldet ?? 0,
-        obergrenze: produktUpdates.mailObergrenze()
+    const eintrag = await produktUpdates.getById(pool, id);
+    if (!eintrag) return { status: 404, body: { success: false, error: { code: "NICHT_GEFUNDEN", message: "Diese Mitteilung gibt es nicht mehr." } } };
+    const { empfaenger, abgemeldet, nicht_in_zielgruppe } = await produktUpdates.ermittleEmpfaenger(pool, eintrag);
+
+    const start = await withTransaction(pool, async (client) => {
+      const r = await produktUpdateVersand.versandEinfrieren(client, id, empfaenger);
+      if (r.gestartet) {
+        await writeStaffAudit(client, {
+          actorId: req.sccActorId, area: "platform",
+          action: "staff.produkt_update.gemailt",
+          entityType: "product_release", entityId: id,
+          status: "ok", reason: req.sccReason, confirmed: true, riskLevel: "high",
+          ...auditContextFromReq(req),
+          details: {
+            title: eintrag.title, eingereiht: r.eingereiht, abgemeldet, nicht_in_zielgruppe,
+            paket_groesse: produktUpdateVersand.PAKET_GROESSE, versand: "pakete"
+          }
+        });
       }
+      return r;
     });
+    if (!start.gestartet && start.grund === "SCHON_GESTARTET") {
+      return { status: 409, body: { success: false, error: { code: "SCHON_GEMAILT", message: "Der Versand dieser Mitteilung läuft bereits oder ist abgeschlossen — ein zweiter ginge an dieselben Menschen." } } };
+    }
+    if (!start.gestartet) {
+      return { status: 200, body: { gestartet: false, eingereiht: 0, abgemeldet, hinweis: "Niemand in der Zielgruppe hat Produkt-Mails abonniert — es wurde nichts gesendet." } };
+    }
+
+    let erstesPaket = null;
+    try {
+      erstesPaket = await produktUpdateVersand.paketSenden(pool, id, versandDeps());
+    } catch (err) {
+      // Der Versand ist eingefroren und laeuft im Takt weiter — das erste Paket holt er nach.
+      logger?.error({ err, id }, "SCC produkt-updates erstes Paket");
+    }
     return {
-      gesendet: ergebnis.sent, uebersprungen: ergebnis.skipped, abgemeldet: ergebnis.abgemeldet ?? 0,
-      fehler: status === "error"
+      status: 200,
+      body: {
+        gestartet: true, eingereiht: start.eingereiht, abgemeldet,
+        erstes_paket: erstesPaket,
+        stand: await produktUpdateVersand.versandStand(pool, id)
+      }
     };
   }
 
@@ -2968,11 +3015,8 @@ export function createStaffControlCenterRouter(deps) {
     if (!UUID_RE_PU.test(String(req.params.id))) {
       return res.status(400).json({ success: false, error: { code: "ID_UNGUELTIG", message: "Die Kennung ist ungültig." } });
     }
-    if (typeof getUserAndPlan !== "function") {
-      return res.json({ success: true, data: { verfuegbar: false } });
-    }
     try {
-      const v = await produktUpdates.empfaengerVorschau(pool, req.params.id, getUserAndPlan);
+      const v = await produktUpdateVersand.empfaengerVorschau(pool, req.params.id);
       if (!v) return res.status(404).json({ success: false, error: { code: "NICHT_GEFUNDEN", message: "Diese Mitteilung gibt es nicht mehr." } });
       res.json({ success: true, data: { verfuegbar: true, ...v } });
     } catch (err) {
@@ -2994,11 +3038,100 @@ export function createStaffControlCenterRouter(deps) {
           return res.status(409).json({ success: false, error: { code: "NICHT_VEROEFFENTLICHT", message: "Gemailt wird nur, was veröffentlicht ist." } });
         }
         if (eintrag.email_sent_at) {
-          return res.status(409).json({ success: false, error: { code: "SCHON_GEMAILT", message: "Diese Mitteilung wurde bereits per E-Mail versendet — ein zweiter Versand ginge an dieselben Menschen." } });
+          return res.status(409).json({ success: false, error: { code: "SCHON_GEMAILT", message: "Der Versand dieser Mitteilung läuft bereits oder ist abgeschlossen — ein zweiter ginge an dieselben Menschen." } });
         }
-        res.json({ success: true, data: await mitteilungMailen(req, eintrag.id) });
+        const m = await mitteilungMailen(req, eintrag.id);
+        if (m.status !== 200) return res.status(m.status).json(m.body);
+        res.json({ success: true, data: m.body });
       } catch (err) {
         logger?.error({ err }, "SCC produkt-updates mailen");
+        res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+      }
+    }
+  );
+
+  /** Der Stand eines Versands — fuer die Anzeige "312 von 1.240" ohne die ganze Liste. */
+  router.get("/produkt-updates/:id/versand", requireStaff, async (req, res) => {
+    if (!UUID_RE_PU.test(String(req.params.id))) {
+      return res.status(400).json({ success: false, error: { code: "ID_UNGUELTIG", message: "Die Kennung ist ungültig." } });
+    }
+    try {
+      const stand = await produktUpdateVersand.versandStand(pool, req.params.id);
+      if (stand === undefined) return res.status(404).json({ success: false, error: { code: "NICHT_GEFUNDEN", message: "Diese Mitteilung gibt es nicht mehr." } });
+      res.json({ success: true, data: { stand } });
+    } catch (err) {
+      logger?.error({ err }, "SCC produkt-updates versand");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  /**
+   * Die Handkurbel: das naechste Paket JETZT senden. Gebraucht, wenn kein Takt
+   * laeuft (ohne Redis) — dann zeigt die Liste "stockt". Derselbe Ablauf wie der
+   * Takt; laufen beide zugleich, beansprucht jeder Empfaenger nur einer.
+   * Kein Grund noetig: die Entscheidung, zu senden, fiel mit Grund beim Start.
+   */
+  router.post("/produkt-updates/:id/paket", requireStaff, mfaGuard, requireStepUp, async (req, res) => {
+    if (!UUID_RE_PU.test(String(req.params.id))) {
+      return res.status(400).json({ success: false, error: { code: "ID_UNGUELTIG", message: "Die Kennung ist ungültig." } });
+    }
+    if (typeof sendMail !== "function") {
+      return res.status(409).json({ success: false, error: { code: "KEIN_VERSANDWEG", message: "Kein Versandweg verbunden — es wird nichts gesendet." } });
+    }
+    if (!abmeldeSchluessel()) {
+      return res.status(503).json({ success: false, error: { code: "KEIN_ABMELDE_SCHLUESSEL", message: "Ohne Abmeldelink wird nicht gemailt — JWT_SECRET/SESSION_SECRET fehlt in der Umgebung." } });
+    }
+    try {
+      const eintrag = await produktUpdates.getById(pool, req.params.id);
+      if (!eintrag) return res.status(404).json({ success: false, error: { code: "NICHT_GEFUNDEN", message: "Diese Mitteilung gibt es nicht mehr." } });
+      if (!eintrag.email_sent_at) {
+        return res.status(409).json({ success: false, error: { code: "NICHT_GESTARTET", message: "Für diese Mitteilung läuft kein Versand." } });
+      }
+      const paket = await produktUpdateVersand.paketSenden(pool, req.params.id, versandDeps());
+      await writeStaffAudit(pool, {
+        actorId: req.sccActorId, area: "platform",
+        action: "staff.produkt_update.paket",
+        entityType: "product_release", entityId: req.params.id,
+        status: paket.kein_versandweg ? "error" : "ok", confirmed: true, riskLevel: "medium",
+        ...auditContextFromReq(req),
+        details: { ...paket, ausloeser: "handkurbel" }
+      });
+      res.json({ success: true, data: { paket, stand: await produktUpdateVersand.versandStand(pool, req.params.id) } });
+    } catch (err) {
+      logger?.error({ err }, "SCC produkt-updates paket");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  /**
+   * Den Rest anhalten. Die Sicherung gegen das Versehen in einem Team aus einer
+   * Person: wer nach dem dritten Paket einen Fehler im Text bemerkt, stoppt hier.
+   * Gesendetes bleibt gesendet; offene Empfaenger entfallen endgueltig.
+   */
+  router.post("/produkt-updates/:id/versand-anhalten",
+    requireStaff, mfaGuard, requireStepUp, requireConfirmAndReason,
+    async (req, res) => {
+      if (!UUID_RE_PU.test(String(req.params.id))) {
+        return res.status(400).json({ success: false, error: { code: "ID_UNGUELTIG", message: "Die Kennung ist ungültig." } });
+      }
+      try {
+        const eintrag = await produktUpdates.getById(pool, req.params.id);
+        if (!eintrag) return res.status(404).json({ success: false, error: { code: "NICHT_GEFUNDEN", message: "Diese Mitteilung gibt es nicht mehr." } });
+        const angehalten = await withTransaction(pool, async (client) => {
+          const n = await produktUpdateVersand.versandAnhalten(client, req.params.id);
+          await writeStaffAudit(client, {
+            actorId: req.sccActorId, area: "platform",
+            action: "staff.produkt_update.versand_angehalten",
+            entityType: "product_release", entityId: req.params.id,
+            status: "ok", reason: req.sccReason, confirmed: true, riskLevel: "medium",
+            ...auditContextFromReq(req),
+            details: { title: eintrag.title, angehalten: n }
+          });
+          return n;
+        });
+        res.json({ success: true, data: { angehalten, stand: await produktUpdateVersand.versandStand(pool, req.params.id) } });
+      } catch (err) {
+        logger?.error({ err }, "SCC produkt-updates versand-anhalten");
         res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
       }
     }
