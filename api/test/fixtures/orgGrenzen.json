@@ -2288,11 +2288,14 @@
           "erwartung": "sql-grenze",
           "orgImSql": true,
           "schreibenGrenztSelbst": true,
-          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst: UPDATE org_memberships ... WHERE org_id = $1 AND user_id = $2. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst: UPDATE org_memberships ... WHERE org_id = $1 AND user_id = $2. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck. Seit W-E9 (2026-10-01) fragt die Route vorher die Seite der Firma ab (Rollen je Seite, config/orgRollen.js); die Probezeile traegt deshalb `type: company`, sonst endete jeder Aufruf schon an der Rollenpruefung mit 400 und die Grenze im SQL wuerde nie erreicht.",
           "anfrage": {
             "body": {
               "role_key": "member"
             }
+          },
+          "zeile": {
+            "type": "company"
           }
         },
         {
@@ -2303,10 +2306,10 @@
           "erwartung": "sql-grenze",
           "orgImSql": true,
           "schreibenGrenztSelbst": true,
-          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst: UPDATE org_memberships ... WHERE org_id = $1 AND user_id = $2. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "hinweis": "Seit W-E9 (2026-10-01) liest die Route die Mitgliedschaft vorher mit 'SELECT role_key FROM org_memberships WHERE org_id = $1 AND user_id = $2 AND is_active = TRUE' — eigene Org und Adressat in EINER Anweisung — und verlangt einen Grund; der Schreibvorgang traegt seine Grenze ausserdem selbst (UPDATE org_memberships ... WHERE org_id = $1 AND user_id = $2).",
           "anfrage": {
             "body": {
-              "role_key": "member"
+              "reason": "Probe der Mandantengrenze"
             }
           }
         },
@@ -2415,7 +2418,10 @@
             }
           },
           "schreibenGrenztSelbst": true,
-          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst: 'UPDATE org_memberships SET role_key = ... WHERE id = $1 AND org_id = $2 AND is_active = TRUE' (rbacService.js:347)."
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst: 'UPDATE org_memberships SET role_key = ... WHERE id = $1 AND org_id = $2 AND is_active = TRUE' (rbacService.js:347). Seit W-E9 (2026-10-01) fragt die Route vorher die Seite der Firma ab (Rollen je Seite, config/orgRollen.js); die Probezeile traegt deshalb `type: company`, sonst endete jeder Aufruf schon an der Rollenpruefung mit 400 und die Grenze im SQL wuerde nie erreicht.",
+          "zeile": {
+            "type": "company"
+          }
         },
         {
           "methode": "patch",

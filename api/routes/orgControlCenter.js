@@ -17,11 +17,15 @@ import * as apiKeyService from "../services/apiKeyService.js";
 import * as integrationService from "../services/integrationService.js";
 import * as settingsService from "../services/settingsService.js";
 import * as billingMetrics from "../services/billingMetricsService.js";
-import { queryOrgAuditLog } from "../services/auditLog.js";
+import { queryOrgAuditLog, writeAuditEnhanced } from "../services/auditLog.js";
 import { PERMISSIONS, ROLE_HIERARCHY } from "../services/rbacService.js";
 import * as orgInviteService from "../services/orgInviteService.js";
 import { sendMail } from "../services/emailService.js";
 import { verweigereArbeiter } from "../middleware/orgAccess.js";
+import { formatFeedItem } from "../services/activityFeedService.js";
+import { exportAuditLogCsv } from "../services/exportService.js";
+import { ROLLEN_NAMEN, rollenAngebot, rollenFuerSeite, rolleErlaubt, rollenName } from "../config/orgRollen.js";
+import { todayDE } from "../utils/dateDE.js";
 
 /* ── Zod Schemas ───────────────────────────────────────── */
 
@@ -63,6 +67,16 @@ const departmentUpdateSchema = departmentCreateSchema.partial().extend({
   is_active: z.boolean().optional()
 });
 
+/*
+ * Entfernen nur mit Grund (W-E9, 2026-10-01). Ein Mitglied zu entfernen nimmt
+ * einem Menschen den Zugang zu seiner Firma; ohne Grund ist der Vorgang im
+ * Protokoll in drei Monaten nicht mehr nachvollziehbar (CLAUDE.md: "reason
+ * Pflichtfeld bei kritischen Aktionen").
+ */
+const removeMemberSchema = z.object({
+  reason: z.string().trim().min(5).max(500)
+});
+
 const memberScopeSchema = z.object({
   location_id:   z.string().uuid().nullable().optional(),
   department_id: z.string().uuid().nullable().optional()
@@ -97,6 +111,27 @@ export function createOrgControlCenterRouter(deps) {
     next();
   };
 
+  // Ausfuhr des Protokolls: dieselbe Drossel wie die Ausfuhr im Admin-Bereich.
+  const exportLimiter = deps.requestLimiter || ((_req, _res, next) => next());
+
+  /** Die Seite der Firma (`company` oder `agency`) — fuer die Rollen je Seite. */
+  async function seiteDerFirma(orgId) {
+    const { rows } = await pool.query("SELECT type FROM organizations WHERE id = $1", [orgId]);
+    return rows[0]?.type || null;
+  }
+
+  /** Die Rolle passt nicht zur Seite: verstaendlich ablehnen, nicht still. */
+  function rolleFalschFuerSeite(res, seite, rolle) {
+    const wer = seite === "agency" ? "Zeitarbeitsfirmen" : seite === "company" ? "Unternehmen" : "diese Firma";
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: "ROLLE_PASST_NICHT_ZUR_SEITE",
+        message: `Die Rolle "${rollenName(rolle)}" gibt es fuer ${wer} nicht.`
+      }
+    });
+  }
+
   /* ═══════════════════════════════════════════════════════
    *  OVERVIEW — Org-Dashboard mit Counts
    * ═══════════════════════════════════════════════════════ */
@@ -104,11 +139,12 @@ export function createOrgControlCenterRouter(deps) {
   router.get("/org/overview", requireAuth, ensureOrg, rperm("org.settings"),
     async (req, res) => {
       try {
-        const [org, members, integrations, apiKeyCount] = await Promise.all([
+        const [org, members, integrations, apiKeyCount, invites] = await Promise.all([
           orgService.getOrganization(pool, req.orgId),
           orgService.listOrgMembers(pool, req.orgId),
           integrationService.listIntegrations(pool, req.orgId),
-          apiKeyService.countActiveKeys(pool, req.orgId)
+          apiKeyService.countActiveKeys(pool, req.orgId),
+          orgInviteService.listInvites(pool, req.orgId)
         ]);
 
         if (!org) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
@@ -132,8 +168,13 @@ export function createOrgControlCenterRouter(deps) {
               active_integrations: integrations.filter(i => i.is_active).length,
               api_keys: apiKeyCount,
               locations: org.location_count || 0,
-              departments: org.department_count || 0
-            }
+              departments: org.department_count || 0,
+              open_invitations: Array.isArray(invites) ? invites.length : 0
+            },
+            /* W-E9: was diese Firma vergeben darf, und wie die Rollen heissen —
+               EINE Beschriftung fuer alle Flaechen (config/orgRollen.js). */
+            rollen: rollenAngebot(org.type),
+            rollen_namen: ROLLEN_NAMEN
           }
         });
       } catch (err) {
@@ -165,12 +206,18 @@ export function createOrgControlCenterRouter(deps) {
         const parsed = updateMemberSchema.safeParse(req.body);
         if (!parsed.success) return res.status(400).json({ success: false, error: { code: "VALIDATION", details: parsed.error.issues } });
 
+        const seite = await seiteDerFirma(req.orgId);
+        if (!rolleErlaubt(seite, parsed.data.role_key, { ownerErlaubt: true })) {
+          return rolleFalschFuerSeite(res, seite, parsed.data.role_key);
+        }
+
         const updated = await orgService.updateMemberRole(pool, req.orgId, req.params.userId, parsed.data.role_key);
         if (!updated) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
 
         res.locals.audit = {
           action: "org.member.role_change", entity_type: "org_membership",
-          entity_id: req.params.userId, details: { org_id: req.orgId, new_role: parsed.data.role_key }
+          entity_id: req.params.userId,
+          details: { org_id: req.orgId, new_role: parsed.data.role_key, responsible_actor_user_id: req.session?.userId || null }
         };
         res.json({ success: true, data: updated });
       } catch (err) {
@@ -181,15 +228,50 @@ export function createOrgControlCenterRouter(deps) {
     }
   );
 
+  /*
+   * Mitglied entfernen — beendet die MITGLIEDSCHAFT in dieser Firma, nicht das
+   * Konto. Das ist der Ersatz fuer "Deaktivieren" im Admin Panel (W-E9): jenes
+   * setzte `users.role = 'inactive'` und scheiterte damit an `users_role_check`
+   * (HTTP 500 bei jedem Klick); haette es funktioniert, haette es das Konto auf
+   * der GANZEN Plattform gesperrt, auch fuer andere Firmen der Person.
+   */
   router.delete("/org/members/:userId", requireAuth, ensureOrg, rperm("org.members"),
     async (req, res) => {
       try {
+        const parsed = removeMemberSchema.safeParse(req.body || {});
+        if (!parsed.success) {
+          return res.status(400).json({
+            success: false,
+            error: { code: "GRUND_FEHLT", message: "Bitte einen Grund angeben (mindestens 5 Zeichen)." }
+          });
+        }
+        if (req.params.userId === req.session?.userId) {
+          return res.status(409).json({
+            success: false,
+            error: { code: "SELBST_ENTFERNEN", message: "Sich selbst entfernen geht hier nicht." }
+          });
+        }
+
+        const { rows: vorher } = await pool.query(
+          `SELECT role_key FROM org_memberships
+            WHERE org_id = $1 AND user_id = $2 AND is_active = TRUE
+            LIMIT 1`,
+          [req.orgId, req.params.userId]
+        );
+        if (!vorher.length) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+
         const deactivated = await orgService.deactivateMember(pool, req.orgId, req.params.userId);
         if (!deactivated) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
 
         res.locals.audit = {
           action: "org.member.remove", entity_type: "org_membership",
-          entity_id: req.params.userId, details: { org_id: req.orgId }
+          entity_id: req.params.userId,
+          details: {
+            org_id: req.orgId,
+            removed_role: vorher[0].role_key,
+            reason: parsed.data.reason,
+            responsible_actor_user_id: req.session?.userId || null
+          }
         };
         res.json({ success: true, data: { removed: true } });
       } catch (err) {
@@ -220,6 +302,11 @@ export function createOrgControlCenterRouter(deps) {
         const parsed = inviteSchema.safeParse(req.body);
         if (!parsed.success) return res.status(400).json({ success: false, error: { code: "VALIDATION", details: parsed.error.issues } });
 
+        const seite = await seiteDerFirma(req.orgId);
+        if (!rolleErlaubt(seite, parsed.data.role_key)) {
+          return rolleFalschFuerSeite(res, seite, parsed.data.role_key);
+        }
+
         let result;
         try {
           result = await orgInviteService.createInvite(pool, {
@@ -232,12 +319,16 @@ export function createOrgControlCenterRouter(deps) {
 
         const base = (process.env.PUBLIC_BASE_URL || process.env.APP_URL || "").replace(/\/$/, "");
         const inviteUrl = `${base}/org-invite.html?token=${encodeURIComponent(result.rawToken)}`;
+        // Die Mail nennt die Rolle so, wie die Oberflaeche sie nennt — nicht den
+        // internen Schluessel ("dispatcher"). Der Name stammt aus einer festen
+        // Liste (config/orgRollen.js), nie aus der Anfrage.
+        const rolleLesbar = rollenName(parsed.data.role_key);
         try {
           await sendMail({
             to: parsed.data.email,
             subject: "Einladung zu Ihrer Organisation auf TempConnect",
-            text: `Sie wurden als ${parsed.data.role_key} eingeladen. Einladung annehmen: ${inviteUrl}\nDer Link ist ${orgInviteService.INVITE_TTL_DAYS} Tage gueltig.`,
-            html: `<p>Sie wurden als <strong>${parsed.data.role_key}</strong> in eine Organisation auf TempConnect eingeladen.</p>` +
+            text: `Sie wurden als ${rolleLesbar} eingeladen. Einladung annehmen: ${inviteUrl}\nDer Link ist ${orgInviteService.INVITE_TTL_DAYS} Tage gueltig.`,
+            html: `<p>Sie wurden als <strong>${rolleLesbar}</strong> in eine Organisation auf TempConnect eingeladen.</p>` +
                   `<p><a href="${inviteUrl}">Einladung annehmen</a> (gueltig ${orgInviteService.INVITE_TTL_DAYS} Tage).</p>`
           });
         } catch (mailErr) { logger.warn({ err: mailErr.message }, "invite mail failed"); }
@@ -447,12 +538,70 @@ export function createOrgControlCenterRouter(deps) {
           offset
         });
 
+        /* W-E9: zu jedem Eintrag die lesbare Bezeichnung ("Mitglied eingeladen"
+           statt "org.member.invite") und WER es war. Das Symbol aus
+           `formatFeedItem` bleibt bewusst weg — es ist ein Emoji, und Emojis
+           gehoeren nicht in die produktive Oberflaeche (CLAUDE.md). */
+        const items = result.items.map((row) => {
+          const f = formatFeedItem(row);
+          return { ...row, label: f.action_label, wer: f.user };
+        });
+
         res.json({
           success: true,
-          data: { items: result.items, total: result.total, limit, offset }
+          data: { items, total: result.total, limit, offset }
         });
       } catch (err) {
         logger.error({ err: err.message }, "org/audit-log");
+        res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+      }
+    }
+  );
+
+  /*
+   * Protokoll als CSV — zog mit W-E9 aus dem Admin Panel hierher, der einzigen
+   * Faehigkeit, die die Verwaltung dort noch nicht hatte. Gebunden an die EIGENE
+   * Firma (`req.orgId`); eine `org_id` in der Anfrage wird nicht gelesen. Die
+   * Ausfuhr selbst wird protokolliert: wer das Protokoll aus dem Haus traegt,
+   * steht darin.
+   */
+  router.get("/org/audit-log/export/csv", requireAuth, ensureOrg,
+    requireRole(["owner", "admin", "platform_admin"], { pool, logger }),
+    exportLimiter,
+    async (req, res) => {
+      try {
+        const filter = {
+          action_type: req.query.action_type ? String(req.query.action_type).slice(0, 40) : null,
+          from:        req.query.from ? String(req.query.from).slice(0, 40) : null,
+          to:          req.query.to ? String(req.query.to).slice(0, 40) : null
+        };
+        const result = await queryOrgAuditLog(pool, req.orgId, { ...filter, limit: 500, offset: 0 });
+        const csv = exportAuditLogCsv(result.items);
+
+        try {
+          await writeAuditEnhanced(pool, req, {
+            action: "org.audit_log.export",
+            action_type: "EXPORT",
+            entity_type: "organization",
+            entity_id: String(req.orgId),
+            org_id: req.orgId,
+            details: {
+              zeilen: result.items.length,
+              gesamt: result.total,
+              filter,
+              responsible_actor_user_id: req.session?.userId || null
+            }
+          });
+        } catch (auditErr) {
+          logger.warn({ err: auditErr.message }, "org/audit-log export: Protokollierung fehlgeschlagen");
+        }
+
+        const datum = todayDE();   // DACH-first: Berliner Datum, nie der UTC-Ausschnitt
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="protokoll-${datum}.csv"`);
+        res.send(csv);
+      } catch (err) {
+        logger.error({ err: err.message }, "org/audit-log export");
         res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
       }
     }
@@ -722,12 +871,18 @@ export function createOrgControlCenterRouter(deps) {
         const parsed = updateMemberSchema.safeParse(req.body);
         if (!parsed.success) return res.status(400).json({ success: false, error: { code: "VALIDATION", details: parsed.error.issues } });
 
+        const seite = await seiteDerFirma(req.orgId);
+        if (!rolleErlaubt(seite, parsed.data.role_key, { ownerErlaubt: true })) {
+          return rolleFalschFuerSeite(res, seite, parsed.data.role_key);
+        }
+
         const updated = await orgService.updateMemberRoleByMembershipId(pool, req.orgId, req.params.membershipId, parsed.data.role_key);
         if (!updated) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
 
         res.locals.audit = {
           action: "org.member.role_change", entity_type: "org_membership",
-          entity_id: req.params.membershipId, details: { org_id: req.orgId, new_role: parsed.data.role_key }
+          entity_id: req.params.membershipId,
+          details: { org_id: req.orgId, new_role: parsed.data.role_key, responsible_actor_user_id: req.session?.userId || null }
         };
         res.json({ success: true, data: updated });
       } catch (err) {
@@ -770,12 +925,27 @@ export function createOrgControlCenterRouter(deps) {
    * ═══════════════════════════════════════════════════════ */
 
   router.get("/org/roles-permissions", requireAuth, ensureOrg,
-    (_req, res) => {
-      const roles = [
+    async (req, res) => {
+      /* W-E9: die Spalten der Matrix sind die Rollen DIESER Seite (plus Owner),
+         nicht alle zehn — eine Zeitarbeitsfirma sah sonst "Hiring-Manager",
+         ein Unternehmen "Dispatcher". Faellt die Abfrage der Seite aus, bleibt
+         die volle Liste stehen: lieber zu viel gezeigt als eine leere Matrix. */
+      const alle = [
         "owner","admin","program_manager","hiring_manager",
         "supplier_manager","finance","recruiter","dispatcher","member","viewer"
       ];
-      res.json({ success: true, data: { permissions: PERMISSIONS, roles, hierarchy: ROLE_HIERARCHY } });
+      let roles = alle;
+      try {
+        const seite = await seiteDerFirma(req.orgId);
+        const jeSeite = rollenFuerSeite(seite);
+        if (jeSeite.length) roles = ["owner", ...jeSeite];
+      } catch (err) {
+        logger.warn({ err: err.message }, "org/roles-permissions: Seite nicht ermittelbar");
+      }
+      res.json({
+        success: true,
+        data: { permissions: PERMISSIONS, roles, hierarchy: ROLE_HIERARCHY, rollen_namen: ROLLEN_NAMEN }
+      });
     }
   );
 

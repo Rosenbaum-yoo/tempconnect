@@ -182,9 +182,11 @@ describe("Org Control Center Router — Standorte & Member-Scope", () => {
   });
 
   it("PATCH /org/members/:membershipId/role aendert Rolle, Scope bleibt erhalten (200)", async () => {
+    // `type` beantwortet die Abfrage nach der Seite der Firma (W-E9, Rollen je
+    // Seite): returnPool liefert dieselbe Zeile auf jede Abfrage.
     const membership = {
       id: "m-1", org_id: ORG_A, user_id: USER_A,
-      role_key: "admin", location_id: "loc-1", department_id: null
+      role_key: "admin", location_id: "loc-1", department_id: null, type: "company"
     };
     const router = createOrgControlCenterRouter(baseDeps(returnPool([membership])));
     const handler = findHandlerExact(router, "patch", "/org/members/:membershipId/role");

@@ -503,7 +503,7 @@ export async function getAllowedLocationsForMembership(pool, membership) {
  */
 export async function listOrgMembers(pool, orgId) {
   const { rows } = await pool.query(
-    `SELECT om.*, u.email, u.company_name, u.phone,
+    `SELECT om.*, u.email, u.company_name, u.phone, u.contact_person,
             ol.name AS location_name, od.name AS department_name
      FROM org_memberships om
      JOIN users u ON u.id = om.user_id

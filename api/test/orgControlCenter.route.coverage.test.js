@@ -112,8 +112,19 @@ function getHandler(router, method, path) {
   throw new Error(`Route ${method.toUpperCase()} ${path} not found`);
 }
 
+/*
+ * Die Seite der Firma (W-E9, Rollen je Seite): Einladung und Rollenwechsel
+ * fragen sie ab, bevor sie schreiben. Steht VORN, damit ein Test, der jede
+ * Abfrage scheitern laesst (`match: () => true`), weiterhin den Dienst trifft,
+ * den er pruefen will — und nicht schon die Seitenabfrage.
+ */
+const SEITE_UNTERNEHMEN = {
+  match: (s) => s.startsWith("SELECT type FROM organizations"),
+  respond: { rows: [{ type: "company" }], rowCount: 1 }
+};
+
 function build(routes = []) {
-  const pool = trackingPool(routes);
+  const pool = trackingPool([SEITE_UNTERNEHMEN, ...routes]);
   const router = createOrgControlCenterRouter(makeDeps(pool));
   return { pool, router };
 }
@@ -304,37 +315,81 @@ describe("PATCH /org/members/:userId", () => {
 /* ── DELETE /org/members/:userId ───────────────────────────────────────── */
 
 describe("DELETE /org/members/:userId", () => {
-  it("404 NOT_FOUND when deactivateMember falsy", async () => {
-    const { router } = build([
-      { match: (s) => s.includes("UPDATE"), respond: { rows: [], rowCount: 0 } }
-    ]);
+  const GRUND = { reason: "hat das Unternehmen verlassen" };
+  const MITGLIED = {
+    match: (s) => s.includes("SELECT role_key FROM org_memberships"),
+    respond: { rows: [{ role_key: "member" }], rowCount: 1 }
+  };
+
+  it("400 GRUND_FEHLT ohne Grund — und es wird nichts geschrieben", async () => {
+    const { pool, router } = build();
     const handler = getHandler(router, "delete", "/org/members/:userId");
     const res = mockRes();
     await handler(mockReq({ params: { userId: "u9" } }), res);
-    assert.strictEqual(res._status, 404);
-    assert.strictEqual(res._json.error.code, "NOT_FOUND");
+    assert.strictEqual(res._status, 400);
+    assert.strictEqual(res._json.error.code, "GRUND_FEHLT");
+    assert.strictEqual(pool.find("UPDATE").length, 0);
   });
 
-  it("200 removed + audit", async () => {
+  it("400 GRUND_FEHLT bei einem Grund aus Leerzeichen", async () => {
+    const { router } = build();
+    const handler = getHandler(router, "delete", "/org/members/:userId");
+    const res = mockRes();
+    await handler(mockReq({ params: { userId: "u9" }, body: { reason: "    " } }), res);
+    assert.strictEqual(res._status, 400);
+  });
+
+  it("409 SELBST_ENTFERNEN — sich selbst entfernt man hier nicht", async () => {
+    const { pool, router } = build([MITGLIED]);
+    const handler = getHandler(router, "delete", "/org/members/:userId");
+    const res = mockRes();
+    await handler(mockReq({ params: { userId: "u1" }, body: GRUND }), res);
+    assert.strictEqual(res._status, 409);
+    assert.strictEqual(res._json.error.code, "SELBST_ENTFERNEN");
+    assert.strictEqual(pool.find("UPDATE").length, 0);
+  });
+
+  it("404 NOT_FOUND, wenn die Person kein aktives Mitglied DIESER Firma ist", async () => {
+    const { pool, router } = build();
+    const handler = getHandler(router, "delete", "/org/members/:userId");
+    const res = mockRes();
+    await handler(mockReq({ params: { userId: "u9" }, body: GRUND }), res);
+    assert.strictEqual(res._status, 404);
+    assert.strictEqual(res._json.error.code, "NOT_FOUND");
+    // Gelesen wurde mit der EIGENEN Firma und dem Adressaten zusammen.
+    const lesen = pool.find("SELECT role_key FROM org_memberships");
+    assert.strictEqual(lesen.length, 1);
+    assert.deepStrictEqual(lesen[0].params, ["org-1", "u9"]);
+    assert.ok(lesen[0].sql.includes("is_active = TRUE"));
+    assert.strictEqual(pool.find("UPDATE").length, 0);
+  });
+
+  it("200 removed + Audit mit Grund, entfernter Rolle und Verantwortlichem", async () => {
     const { router } = build([
+      MITGLIED,
       { match: (s) => s.includes("UPDATE"), respond: { rows: [{ id: "mem-1" }], rowCount: 1 } }
     ]);
     const handler = getHandler(router, "delete", "/org/members/:userId");
     const res = mockRes();
-    await handler(mockReq({ params: { userId: "u9" } }), res);
+    await handler(mockReq({ params: { userId: "u9" }, body: GRUND }), res);
     assert.strictEqual(res._status, 200);
     assert.strictEqual(res._json.data.removed, true);
     assert.strictEqual(res.locals.audit.action, "org.member.remove");
+    assert.strictEqual(res.locals.audit.details.reason, "hat das Unternehmen verlassen");
+    assert.strictEqual(res.locals.audit.details.removed_role, "member");
+    assert.strictEqual(res.locals.audit.details.responsible_actor_user_id, "u1");
+    assert.strictEqual(res.locals.audit.details.org_id, "org-1");
   });
 
   it("maps err.status", async () => {
     const e = new Error("cannot remove owner"); e.status = 422; e.code = "CANNOT_REMOVE_OWNER";
     const { router } = build([
+      MITGLIED,
       { match: (s) => s.includes("UPDATE"), respond: () => { throw e; } }
     ]);
     const handler = getHandler(router, "delete", "/org/members/:userId");
     const res = mockRes();
-    await handler(mockReq({ params: { userId: "u9" } }), res);
+    await handler(mockReq({ params: { userId: "u9" }, body: GRUND }), res);
     assert.strictEqual(res._status, 422);
     assert.strictEqual(res._json.error.code, "CANNOT_REMOVE_OWNER");
   });
