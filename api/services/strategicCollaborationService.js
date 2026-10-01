@@ -135,23 +135,52 @@ export async function listRequests(pool, opts) {
   return rows;
 }
 
-export async function updateStatus(pool, id, orgId, status, actorUserId) {
+/**
+ * Der einzige Statusschritt, den ein KUNDE an einer strategischen Anfrage tun
+ * darf: die eigene Anfrage zurueckziehen (Owner-Entscheid 2026-10-01).
+ *
+ * Bis dahin setzte `updateStatus` jeden der sieben Status — auch fuer die
+ * ANGEFRAGTE Firma und auch Schritte, die TempConnects Vertriebsablauf gehoeren
+ * ("angebot_erstellt", "aktiviert"). Die Status beschreiben, was TempConnect
+ * getan hat; ein Kunde, der "aktiviert" setzt, behauptet etwas, das nicht
+ * geschehen ist. Uebrig bleibt, was fuer den Kunden Sinn ergibt: "ich brauche
+ * das nicht mehr" — solange noch nichts aktiviert ist.
+ *
+ * Gibt { row } zurueck, oder { fehler: "NICHT_GEFUNDEN" | "NUR_ANFRAGENDE_FIRMA"
+ * | "NICHT_MEHR_ZURUECKZIEHBAR" }.
+ */
+export const ZURUECKZIEHBAR = Object.freeze(["eingegangen", "rueckfrage_offen", "angebot_erstellt"]);
+
+export async function zurueckziehen(pool, id, orgId, actorUserId) {
   const { rows } = await pool.query(
     `UPDATE strategic_collaboration_requests
-        SET status = $3,
+        SET status = 'abgeschlossen',
             status_updated_at = NOW(),
-            status_updated_by = $4,
+            status_updated_by = $3,
             updated_at = NOW()
       WHERE id = $1
-        AND (requester_org_id = $2 OR target_org_id = $2)
+        AND requester_org_id = $2
+        AND status = ANY($4::text[])
       RETURNING id, requester_user_id, requester_org_id, target_user_id, target_org_id,
                 source_context, requester_company_name, contact_name, contact_email, contact_phone,
                 region_scope, site_count, expected_volume, needs_enterprise_multi_site,
                 interest_enterprise_support, interest_framework_conditions, interest_strategic_cooperation,
                 message, requested_modules, status, status_updated_at, status_updated_by, created_at, updated_at`,
-    [id, orgId, status, actorUserId]
+    [id, orgId, actorUserId, ZURUECKZIEHBAR]
   );
-  return rows[0] || null;
+  if (rows[0]) return { row: rows[0] };
+
+  // Warum nicht? Nur innerhalb der eigenen Beteiligung nachsehen — eine fremde
+  // Anfrage ist "nicht gefunden", nicht "gehoert jemand anderem".
+  const { rows: da } = await pool.query(
+    `SELECT status, requester_org_id = $2 AS ist_anfragende
+       FROM strategic_collaboration_requests
+      WHERE id = $1 AND (requester_org_id = $2 OR target_org_id = $2)`,
+    [id, orgId]
+  );
+  if (!da[0]) return { fehler: "NICHT_GEFUNDEN" };
+  if (!da[0].ist_anfragende) return { fehler: "NUR_ANFRAGENDE_FIRMA" };
+  return { fehler: "NICHT_MEHR_ZURUECKZIEHBAR", status: da[0].status };
 }
 
 export async function listAllRequestsAdmin(pool, opts = {}) {

@@ -268,3 +268,53 @@ describe("POST /api/enterprise-request — rate-limit + duplicate", () => {
     assert.equal(res._json.existing_id, "req-existing-1");
   });
 });
+
+/* ── Status einer strategischen Anfrage: Kunden duerfen nur zurueckziehen ── */
+// Owner-Entscheid 2026-10-01. Vorher setzte ein Kunden-Admin jeden der sieben
+// Status, auch "aktiviert" — Schritte aus TempConnects Vertriebsablauf.
+
+describe("PATCH /strategic-collaboration/requests/:id/status — nur zurueckziehen", () => {
+  const ID = "11111111-1111-4111-8111-111111111111";
+  const req = (body, extra = {}) => mockReq({
+    session: { userId: "u-1" }, orgId: "org-1", orgRole: "owner", params: { id: ID }, body, ...extra
+  });
+
+  for (const status of ["aktiviert", "angebot_erstellt", "bestaetigt", "rueckfrage_offen", "eingegangen", "abgelehnt"]) {
+    it(`status "${status}" → 400 NUR_ZURUECKZIEHEN, ohne Schreibvorgang`, async () => {
+      const pool = sequencePool();
+      const res = mockRes();
+      await findHandler(createStrategicCollaborationRouter({ pool, requireAuth }), "patch", "/requests/:id/status")(req({ status }), res);
+      assert.equal(res._status, 400);
+      assert.equal(res._json.error, "NUR_ZURUECKZIEHEN");
+      assert.equal(pool.calls.length, 0);
+    });
+  }
+
+  it("abgeschlossen → zurueckgezogen, mit Audit und verantwortlichem Nutzer", async () => {
+    const pool = sequencePool({ rows: [{ id: ID, status: "abgeschlossen" }] });
+    const res = mockRes();
+    await findHandler(createStrategicCollaborationRouter({ pool, requireAuth }), "patch", "/requests/:id/status")(req({ status: "abgeschlossen" }), res);
+    assert.equal(res._status, 200);
+    assert.equal(res.locals.audit.action, "strategic_collaboration.zurueckgezogen");
+    assert.equal(res.locals.audit.details.responsible_actor_user_id, "u-1");
+  });
+
+  it("die angefragte Firma → 403, schon aktiviert → 409, fremd → 404", async () => {
+    const fall = async (zweite) => {
+      const res = mockRes();
+      await findHandler(createStrategicCollaborationRouter({ pool: sequencePool({ rows: [] }, { rows: zweite }), requireAuth }), "patch", "/requests/:id/status")(req({ status: "abgeschlossen" }), res);
+      return res;
+    };
+    assert.equal((await fall([{ status: "eingegangen", ist_anfragende: false }]))._status, 403);
+    assert.equal((await fall([{ status: "aktiviert", ist_anfragende: true }]))._status, 409);
+    assert.equal((await fall([]))._status, 404);
+  });
+
+  it("ohne Verwaltungsrolle → 403 vor jeder Pruefung", async () => {
+    const pool = sequencePool();
+    const res = mockRes();
+    await findHandler(createStrategicCollaborationRouter({ pool, requireAuth }), "patch", "/requests/:id/status")(req({ status: "abgeschlossen" }, { orgRole: "member" }), res);
+    assert.equal(res._status, 403);
+    assert.equal(pool.calls.length, 0);
+  });
+});

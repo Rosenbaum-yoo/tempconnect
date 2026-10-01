@@ -61,6 +61,9 @@ const ACTION_LABELS = {
   "product_release.ack_seen":      "Produktneuheit gelesen",
   "product_release.ack_modal_dismiss": "Hinweis auf Produktneuheit geschlossen",
 
+  "strategic_collaboration.zurueckgezogen":        "Strategische Anfrage zurückgezogen",
+  "strategic_collaboration.status_update_attempt": "Statusänderung einer Anfrage versucht",
+
   // Anmeldung über den Firmen-Login (SSO) und Kontenabgleich (SCIM)
   "sso.config_upsert":         "Firmen-Login eingerichtet",
   "sso.config_test":           "Firmen-Login getestet",

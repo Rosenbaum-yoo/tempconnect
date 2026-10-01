@@ -112,14 +112,13 @@ unsichtbar, in der Konsole steht ein 403. Nicht behoben.
    Kunden verdient (MRR, Churn, Pilot-Umwandlung — englisch, Plattform-Sicht). Empfehlung:
    für Kunden entfernen (die Zahlen gibt es im Staff CC unter Revenue), die eigenen Ausgaben
    des Kunden stehen in `spend-analytics.html`. Antwort offen.
-3. **Status strategischer Anfragen** (`PATCH /strategic-collaboration/requests/:id/status`):
-   Owner-Antwort „Kunden sollen keinen Status setzen, außer es macht Sinn“. Die Status sind
-   TempConnects Vertriebsablauf (eingegangen … angebot_erstellt, aktiviert). Sinnvoll für den
-   Kunden ist nur: **die eigene Anfrage zurückziehen**. Wird so gebaut (nur die anfragende
-   Firma, nur auf `abgeschlossen`, nur solange nicht aktiviert); kein Oberflächen-Aufrufer
-   betroffen.
-4. **`CLAUDE.md`-Zeile zum Admin Panel:** Owner hat die Änderung **freigegeben** — wird mit
-   dem Abschluss von W-E10 angepasst.
+3. **Status strategischer Anfragen** — ✅ **gebaut** (Owner: „Kunden sollen keinen Status
+   setzen, außer es macht Sinn“). `PATCH /strategic-collaboration/requests/:id/status` nimmt
+   nur noch `abgeschlossen` an (= zurückziehen), nur von der **anfragenden** Firma, nur aus
+   `eingegangen`/`rueckfrage_offen`/`angebot_erstellt`; sonst 400 `NUR_ZURUECKZIEHEN`,
+   403 (angefragte Firma), 409 (schon aktiviert), 404 (fremd). Dienst `zurueckziehen` ersetzt
+   `updateStatus`. Kein Oberflächen-Aufrufer betroffen.
+4. **`CLAUDE.md`-Zeile zum Admin Panel:** ✅ freigegeben und geändert (`f7db106`).
 5. **Produkt-Mails** (höchstens 400 je Mitteilung, Empfänger einzeln geladen): Vorschlag
    steht beim Owner — Versand über die bestehende Warteschlange in Paketen, Empfänger in
    einer Abfrage, Versandprotokoll je Empfänger (kein Doppelversand, Fortschritt sichtbar),

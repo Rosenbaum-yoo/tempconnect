@@ -2547,7 +2547,7 @@
       "methode": "patch",
       "pfad": "/strategic-collaboration/requests/:id/status",
       "wachart": "eigene-daten",
-      "begruendung": "Interessensbekundung der eigenen Organisation; der Statuswechsel traegt dagegen ein Rollentor.",
+      "begruendung": "Nur die eigene Anfrage zurueckziehen (Owner-Entscheid 2026-10-01): die anfragende Firma aus der Sitzung, die Grenze steht im UPDATE (requester_org_id = $2), nur aus offenen Status; dazu ein Rollentor (owner/admin). Alle anderen Status setzt TempConnect im Staff CC.",
       "orgGeprueft": true
     },
     {

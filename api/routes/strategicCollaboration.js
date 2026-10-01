@@ -25,9 +25,17 @@ const createSchema = z.object({
   message: z.string().min(10).max(2000).optional().nullable()
 });
 
+// Kunden duerfen nur zurueckziehen (Owner-Entscheid 2026-10-01) — alle anderen
+// Status setzt TempConnect im Staff Control Center.
 const statusSchema = z.object({
-  status: z.enum(strategicSvc.ALLOWED_STATUSES)
+  status: z.literal("abgeschlossen")
 });
+
+const ZURUECKZIEHEN_FEHLER = {
+  NICHT_GEFUNDEN: [404, "Diese Anfrage gibt es nicht."],
+  NUR_ANFRAGENDE_FIRMA: [403, "Zurückziehen kann nur die Firma, die angefragt hat."],
+  NICHT_MEHR_ZURUECKZIEHBAR: [409, "Diese Anfrage ist schon aktiviert oder abgeschlossen."]
+};
 
 function isOrgBackofficeRole(role) {
   return ["platform_admin", "owner", "admin", "manager", "compliance_manager"].includes(String(role || ""));
@@ -107,16 +115,24 @@ export function createStrategicCollaborationRouter(deps) {
     if (!req.orgId) return res.status(400).json({ error: "ORG_REQUIRED" });
     if (!isOrgBackofficeRole(req.orgRole)) return res.status(403).json({ error: "FORBIDDEN" });
     const parsed = statusSchema.safeParse(req.body || {});
-    if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
-    const row = await strategicSvc.updateStatus(pool, req.params.id, req.orgId, parsed.data.status, req.session.userId);
-    if (!row) return res.status(404).json({ error: "NOT_FOUND" });
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: "NUR_ZURUECKZIEHEN",
+        message: "Eine Anfrage kann hier nur zurückgezogen werden (status: abgeschlossen). Alle anderen Schritte setzt TempConnect."
+      });
+    }
+    const r = await strategicSvc.zurueckziehen(pool, req.params.id, req.orgId, req.session.userId);
+    if (r.fehler) {
+      const [code, message] = ZURUECKZIEHEN_FEHLER[r.fehler];
+      return res.status(code).json({ error: r.fehler, message });
+    }
     res.locals.audit = {
-      action: "strategic_collaboration.status_update",
+      action: "strategic_collaboration.zurueckgezogen",
       entity_type: "strategic_collaboration_request",
-      entity_id: row.id,
-      details: { status: row.status }
+      entity_id: r.row.id,
+      details: { status: r.row.status, responsible_actor_user_id: req.session.userId }
     };
-    res.json({ success: true, data: row });
+    res.json({ success: true, data: r.row });
   });
 
   /**

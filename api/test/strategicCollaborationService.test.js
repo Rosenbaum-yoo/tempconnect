@@ -123,13 +123,43 @@ describe("strategicCollaborationService", () => {
     assert.equal(row.status, created.status);
   });
 
-  it("updateStatus updates request status", async () => {
-    const pool = {
-      query: async () => ({ rows: [{ id: "req-1", status: "rueckfrage_offen" }] })
+  /* Owner-Entscheid 2026-10-01: ein Kunde darf nur die EIGENE Anfrage
+     zurueckziehen, solange nichts aktiviert ist — alle anderen Status setzt
+     TempConnect. Vorher setzte `updateStatus` jeden Status, auch fuer die
+     angefragte Firma. */
+  it("zurueckziehen: nur die anfragende Firma, nur aus offenen Status, Org im selben UPDATE", async () => {
+    const calls = [];
+    const pool = { query: async (sql, params) => { calls.push({ sql, params }); return { rows: [{ id: "req-1", status: "abgeschlossen" }] }; } };
+    const r = await strategicSvc.zurueckziehen(pool, "req-1", "org-1", "u-actor");
+    assert.equal(r.row.status, "abgeschlossen");
+    assert.equal(calls.length, 1);
+    assert.match(calls[0].sql, /SET status = 'abgeschlossen'/);
+    assert.match(calls[0].sql, /WHERE id = \$1\s+AND requester_org_id = \$2\s+AND status = ANY\(\$4::text\[\]\)/);
+    assert.ok(!/target_org_id = \$2/.test(calls[0].sql), "die angefragte Firma darf nicht zurueckziehen");
+    assert.deepEqual(calls[0].params, ["req-1", "org-1", "u-actor", ["eingegangen", "rueckfrage_offen", "angebot_erstellt"]]);
+  });
+
+  it("zurueckziehen: fremd = NICHT_GEFUNDEN, angefragte Firma = NUR_ANFRAGENDE_FIRMA, aktiviert = NICHT_MEHR_ZURUECKZIEHBAR", async () => {
+    const mit = (zweite) => {
+      const calls = [];
+      let n = 0;
+      return { calls, query: async (sql, params) => { calls.push({ sql, params }); n += 1; return n === 1 ? { rows: [] } : { rows: zweite }; } };
     };
-    const row = await strategicSvc.updateStatus(pool, "req-1", "org-1", "rueckfrage_offen", "u-actor");
-    assert.equal(row.id, "req-1");
-    assert.equal(row.status, "rueckfrage_offen");
+    const fremd = mit([]);
+    assert.deepEqual(await strategicSvc.zurueckziehen(fremd, "req-1", "org-x", "u"), { fehler: "NICHT_GEFUNDEN" });
+    assert.match(fremd.calls[1].sql, /requester_org_id = \$2 OR target_org_id = \$2/, "nur innerhalb der eigenen Beteiligung nachsehen");
+    assert.deepEqual(fremd.calls[1].params, ["req-1", "org-x"]);
+
+    assert.equal((await strategicSvc.zurueckziehen(mit([{ status: "eingegangen", ist_anfragende: false }]), "r", "o", "u")).fehler, "NUR_ANFRAGENDE_FIRMA");
+    const spaet = await strategicSvc.zurueckziehen(mit([{ status: "aktiviert", ist_anfragende: true }]), "r", "o", "u");
+    assert.equal(spaet.fehler, "NICHT_MEHR_ZURUECKZIEHBAR");
+    assert.equal(spaet.status, "aktiviert");
+  });
+
+  it("es gibt keinen Weg mehr, mit dem ein Kunde einen beliebigen Status setzt", () => {
+    assert.equal(strategicSvc.updateStatus, undefined);
+    assert.ok(!strategicSvc.ZURUECKZIEHBAR.includes("aktiviert"));
+    assert.ok(!strategicSvc.ZURUECKZIEHBAR.includes("abgeschlossen"));
   });
 
   it("listAllRequestsAdmin returns paginated items with total and bounded count query", async () => {

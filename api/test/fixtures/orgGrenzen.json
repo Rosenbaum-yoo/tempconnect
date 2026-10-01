@@ -3670,16 +3670,15 @@
           "gegenprobe": false,
           "anfrage": {
             "body": {
-              "status": "rueckfrage_offen"
+              "status": "abgeschlossen"
             }
           },
-          "hinweis": "Der Statuswechsel traegt seine Grenze selbst: 'UPDATE ... WHERE id = $1 AND (requester_org_id = $2 OR target_org_id = $2)'. Der Schreibvorgang traegt seine Grenze selbst im WHERE. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "hinweis": "Seit 2026-10-01 (Owner-Entscheid) nur noch Zurueckziehen der EIGENEN Anfrage: 'UPDATE ... WHERE id = $1 AND requester_org_id = $2 AND status = ANY($4)'. Der Schreibvorgang traegt seine Grenze selbst im WHERE; die Nachschau bei 0 Treffern liest nur innerhalb der eigenen Beteiligung (requester_org_id = $2 OR target_org_id = $2). Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
           "reqZusatz": {
             "orgRole": "owner"
           },
           "traegerspalten": [
-            "requester_org_id",
-            "target_org_id"
+            "requester_org_id"
           ],
           "schreibenGrenztSelbst": true
         }
