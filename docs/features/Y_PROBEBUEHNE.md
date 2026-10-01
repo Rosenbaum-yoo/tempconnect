@@ -430,11 +430,68 @@ sehen."* Genau das ist heute nicht möglich.
 |---|---|---|
 | Y2.1 | **Deals in jedem Zustand**: angefragt, verhandelt, abgeschlossen, laufend, beendet, zurückgenommen | Jeder Zustand einmal sichtbar, auf **beiden** Seiten |
 | Y2.2 | **Stundenzettel in jedem Zustand**: offen, eingereicht, abgelehnt mit Korrekturbitte, genehmigt, an den Kunden gesendet, abgerechnet | Der ganze Weg des Kreislaufs K-2 ist an einem Tag durchklickbar |
-| Y2.3 | **Rechnungen**: offen, fällig, überfällig, gemahnt, bezahlt — mit **relativen** Datumswerten | Die Mahnstrecke zeigt echte Fälligkeiten statt „vor zwei Jahren" |
+| Y2.3 ✅ | **Rechnungen**: offen, fällig, überfällig, gemahnt, bezahlt — mit **relativen** Datumswerten | Die Mahnstrecke zeigt echte Fälligkeiten statt „vor zwei Jahren" |
 | Y2.4 | **Ein Mensch für den Betrugsriegel** (M4c.3): eine Kraft, die als Einzelangebot **und** im Sammelangebot steht | Die wichtigste Probe aus M4c lässt sich von Hand nachvollziehen |
-| Y2.5 | **Eine Sperre**: dieselbe Kraft bei Kunde A gesperrt, bei Kunde B sichtbar | Die zentrale Zusage der Sperrliste wird vorführbar |
-| Y2.6 | **Ein offener Fähigkeits-Vorschlag** und **eine katalogfremde Schreibvariante** | Die Kuratierfläche aus b-6/b-7 ist nicht leer, wenn man sie zeigt |
+| Y2.5 ✅ | **Eine Sperre**: dieselbe Kraft bei Kunde A gesperrt, bei Kunde B sichtbar | Die zentrale Zusage der Sperrliste wird vorführbar |
+| Y2.6 ✅ | **Ein offener Fähigkeits-Vorschlag** und **eine katalogfremde Schreibvariante** | Die Kuratierfläche aus b-6/b-7 ist nicht leer, wenn man sie zeigt |
 | Y2.7 | **Sammelangebote mit eigenen Mitgliedern.** Gemessen am 2026-09-24: die beiden vorhandenen Sammelangebote teilen sich **dieselben zwei Menschen**, und einer davon steht zusätzlich in einem Einzelangebot. Eine Bühne, die Sammelangebote vorführen soll, braucht Mitglieder, die sonst nirgends stehen — sonst führt sie genau die Doppelbuchung vor, die sie widerlegen soll | Ein Sammelangebot mit 4 Mitgliedern, die in keinem Einzelangebot vorkommen; dazu **ein** bewusst doppelt geführter Mensch für die Probe aus M4c.3 |
+
+> **Y2.3 · Y2.5 · Y2.6 GEBAUT — Stand 2026-10-01. Drei Gegenstände fehlten nicht
+> teilweise, sondern GANZ.**
+>
+> | Gemessen | vorher | nachher |
+> |---|---|---|
+> | `invoices` | **0 Zeilen** — alle fünf Zustände unbesetzt | 5, jeder Zustand einmal |
+> | `company_worker_blocklist` | **0 Zeilen** | 1 (mit sichtbarer Gegenseite) |
+> | Fähigkeits-Vorschläge | **0** — alle 162 auf `approved` | 1 `proposed` + 1 `merged` |
+>
+> **Eine leere Tabelle ist schlimmer als ein unbesetzter Zustand:** beim Zustand
+> sieht man wenigstens die Liste. Bei der leeren Tabelle sieht man nichts und
+> weiß nicht, ob die Fläche kaputt ist oder nur leer.
+>
+> **Y2.3 — die Mahnstrecke.** Fünf Rechnungen: Entwurf (noch nicht fällig),
+> gestellt (fällig in acht Tagen), **überfällig mit Mahnstufe 2** (30 Tage, letzte
+> Mahnung vor neun Tagen), bezahlt (drei Tage vor Fälligkeit), storniert. Vier
+> operative Rechnungen und **eine Abo-Rechnung**, weil beide Wege getrennt
+> gezeigt werden.
+>
+> Die überfällige hängt an **der Organisation, die wegen Zahlungsausfall gesperrt
+> ist** (Y1.3). Überfälligkeit und Sperre gehören zusammen; getrennt zeigen sie
+> zwei Zustände, die nichts miteinander zu tun haben.
+>
+> **Alle Fälligkeiten relativ, gemessen null feste Kalenderdaten in der Datei.**
+> Y2.3 verlangt das wörtlich: *„die Mahnstrecke zeigt echte Fälligkeiten statt
+> ,vor zwei Jahren'"*.
+>
+> **DIE SUMMEN RECHNEN AUF, Zeile für Zeile:** gemessen 5 von 5. Die Datenbank
+> erzwingt `brutto − Rabatt = netto` (CHECK); `netto + MwSt = Summe` erzwingt sie
+> **nicht**, und genau deshalb prüft der Wächter es. Eine Bühne für Geldwege mit
+> falscher Summe zeigt einen Rechenfehler als Produkt. Eine Rechnung trägt
+> **10 % Rabatt**, sonst bliebe der Rabattpfad ohne Beispiel.
+>
+> **Y2.5 — die Sperre, und beide Seiten.** Jonas Harms ist bei Nordlicht
+> gesperrt (befristet, `CURRENT_DATE + 90`, mit Grund und vermittelndem
+> Lieferanten) und steht **gleichzeitig weiter mit einem offenen Angebot im
+> Markt**. Das ist die ganze Zusage der Sperrliste — und sie lässt sich nur
+> zeigen, wenn beide Seiten da sind. Eine Sperre ohne sichtbares Angebot wäre die
+> halbe Hälfte.
+>
+> **Y2.6 — zwei verschiedene Fälle.** Ein `proposed` (eine Firma schlägt
+> „Kaltlager-Kommissionierung (−25 Grad)" vor, noch nicht entschieden, `is_active
+> = FALSE`) und ein `merged` („Lagerhelfer/in (m/w/d)" → zusammengeführt auf
+> „Lagerhelfer:in"). Das Ziel wird **aus** `platform_skills` gelesen, nicht
+> getippt: ein Tippfehler ließe `merged_into_skill_id` ins Leere zeigen, und die
+> `INSERT..SELECT` legte lautlos keine Zeile an.
+>
+> **Wächter:** `api/test/probebuehneGeldwege.test.js`, 9 Zusicherungen,
+> **19 Rückmutationen, alle rot und jede an der gemeinten Stelle** — darunter die
+> drei wichtigsten: MwSt falsch rechnen, Rabatt falsch rechnen, Rabatt ganz
+> entfernen.
+>
+> **Noch offen in Y2:** Y2.1 (Deals in jedem Zustand — gemessen **7 von 11**
+> `requests.status`-Werten unbesetzt), Y2.2 (Stundenzettel — nur `cancelled`
+> fehlt), Y2.4 und Y2.7 (Sammelangebote mit eigenen Mitgliedern; gemessen teilen
+> sich die beiden vorhandenen dieselben zwei Menschen).
 
 ### Y3 · Das Einsatzportal
 
