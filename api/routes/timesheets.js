@@ -206,7 +206,10 @@ export function createTimesheetsRouter(deps) {
       if (!ts) return res.status(404).json({ error: "NOT_FOUND" });
       if (!checkOrgBoundary(ts, req.orgId)) return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
 
-      const result = await timesheetService.updateTimesheet(pool, req.params.id, parsed.data, req.session.userId);
+      /* U6.5: die Org muss mit - der Dienst prueft damit den Einsatz, den der
+         Rumpf setzen will. Sie steht hier fest: checkOrgBoundary(ts, req.orgId)
+         ist zwei Zeilen darueber erzwungen. */
+      const result = await timesheetService.updateTimesheet(pool, req.params.id, parsed.data, req.session.userId, req.orgId);
       if (result.error) return res.status(result.error === 'NOT_FOUND' ? 404 : 409).json({ error: result.error, status: result.status });
 
       res.locals.audit = {

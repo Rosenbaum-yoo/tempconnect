@@ -58,6 +58,7 @@ import * as rbacService from "../services/rbacService.js";
 import * as organizationService from "../services/organizationService.js";
 import * as requisitionService from "../services/requisitionService.js";
 import * as rateCardService from "../services/rateCardService.js";
+import * as timesheetService from "../services/timesheetService.js";
 import * as vendorPoolService from "../services/vendorPoolService.js";
 import { orgContextMiddleware } from "../middleware/orgContext.js";
 
@@ -500,6 +501,112 @@ describe("U0.2b · die Route reicht die Organisation auch wirklich durch", () =>
       "die Route ruft updateRateCard OHNE req.orgId auf — der Dienst kann den "
       + "Standort dann nicht pruefen und wirft stattdessen. Der Weg ist damit "
       + "kaputt, nicht sicher.");
+  });
+});
+
+describe("U6.5 · der Stundenzettel zeigt nicht auf einen fremden Einsatz", () => {
+  /*
+   * EIGENE GRUPPE, weil dieser Dienst NICHT wirft: `timesheetService` gibt
+   * `{ error: "ORG_BOUNDARY_VIOLATION" }` zurueck, und die Routen darueber lesen
+   * das. Ein OrgBoundaryError waere hier die Abweichung und endete als 500 statt
+   * als 403 - deshalb passt die Schreibweg-Schleife oben (assert.rejects) nicht.
+   *
+   * Gefunden hat den Fall die Messung zu U6.4: `assignment_id` steht in der
+   * `allowed`-Liste von `updateTimesheet`, die Route prueft nur, dass der
+   * STUNDENZETTEL der eigenen Org gehoert, und die Abfrage hat kein org_id. Ein
+   * eigener Zettel liess sich auf einen fremden Einsatz umhaengen - und
+   * Stundenzettel sind Abrechnungsgrundlage.
+   */
+  const EINSATZ = "99999999-9999-4999-a999-999999999999";
+
+  /** Pool, der einen Einsatz einer FREMDEN Organisation liefert. */
+  function poolFremderEinsatz() {
+    return {
+      calls: [],
+      async query(sql, params) {
+        this.calls.push({ sql, params });
+        if (/FROM\s+assignments/i.test(sql)) {
+          return { rows: [{ id: EINSATZ, org_id: FREMD_LOC, supplier_org_id: FREMD_LOC, status: "active" }] };
+        }
+        /* Ein ENTWURF, sonst greift `status !== draft` VOR dem Riegel und die
+           Probe prueft ihren Gegenstand nie. Erste Fassung lieferte nur { id }
+           und war dadurch leer rot. */
+        return { rows: [{ id: "ts", status: "draft", org_id: ORG_A, supplier_org_id: ORG_A }] };
+      }
+    };
+  }
+
+  it("updateTimesheet weist einen fremden Einsatz ab", async () => {
+    const pool = poolFremderEinsatz();
+    const r = await timesheetService.updateTimesheet(pool, "ts-1", { assignment_id: EINSATZ }, USER_A, ORG_A);
+    assert.equal(r?.error, "ORG_BOUNDARY_VIOLATION",
+      "ein eigener Stundenzettel laesst sich auf einen fremden Einsatz umhaengen");
+    /* Und zwar VOR dem Schreiben. */
+    assert.deepStrictEqual(pool.calls.filter((c) => istSchreibend(c.sql)).map(() => 1), [],
+      "es wurde vor der Ablehnung bereits geschrieben");
+  });
+
+  it("createTimesheet weist ihn ebenso ab — dieselbe Quelle", async () => {
+    const r = await timesheetService.createTimesheet(poolFremderEinsatz(), {
+      org_id: ORG_A, supplier_org_id: ORG_A, assignment_id: EINSATZ,
+      worker_name: "Probe", week_start: "2026-01-05", week_end: "2026-01-11"
+    });
+    assert.equal(r?.error, "ORG_BOUNDARY_VIOLATION");
+  });
+
+  it("ohne Organisation wird abgewiesen, nicht uebersprungen", async () => {
+    /* Die alte Bedingung lautete `if (data.org_id && ...)` - bei fehlender
+       org_id fiel die Pruefung GANZ aus. Das ist jetzt fail-closed. */
+    const r = await timesheetService.updateTimesheet(poolFremderEinsatz(),
+      "ts-1", { assignment_id: EINSATZ }, USER_A, null);
+    assert.equal(r?.error, "ORG_BOUNDARY_VIOLATION");
+  });
+
+  it("GEGENPROBE: der EIGENE Einsatz kommt durch, und ohne Feld aendert sich nichts", async () => {
+    /* Ohne sie bestuenden die drei Proben oben auch dann, wenn die Pruefung
+       grundsaetzlich ablehnt - und eine Pruefung, die immer ablehnt, ist kaputt. */
+    const eigener = {
+      calls: [],
+      async query(sql, params) {
+        this.calls.push({ sql, params });
+        if (/FROM\s+assignments/i.test(sql)) {
+          return { rows: [{ id: EINSATZ, org_id: ORG_A, supplier_org_id: FREMD_LOC, status: "active" }] };
+        }
+        return { rows: [{ id: "ts", status: "draft", org_id: ORG_A, supplier_org_id: ORG_A }] };
+      }
+    };
+    const r = await timesheetService.updateTimesheet(eigener, "ts-1", { assignment_id: EINSATZ }, USER_A, ORG_A);
+    assert.equal(r?.error, undefined, "der eigene Einsatz wurde abgewiesen");
+
+    /* Und die LIEFERANTEN-Seite gilt auch: ein Zettel darf zu einem Einsatz
+       gehoeren, in dem die Firma Lieferant ist. */
+    const alsLieferant = {
+      async query(sql) {
+        if (/FROM\s+assignments/i.test(sql)) {
+          return { rows: [{ id: EINSATZ, org_id: FREMD_LOC, supplier_org_id: ORG_A, status: "active" }] };
+        }
+        return { rows: [{ id: "ts", status: "draft", org_id: ORG_A, supplier_org_id: ORG_A }] };
+      }
+    };
+    const r2 = await timesheetService.updateTimesheet(alsLieferant, "ts-1", { assignment_id: EINSATZ }, USER_A, ORG_A);
+    assert.equal(r2?.error, undefined, "die Lieferanten-Seite wird faelschlich abgewiesen");
+
+    /* Wer kein Einsatzfeld schickt, braucht keine Org und wird nicht behindert. */
+    const ohneFeld = { calls: [], async query(sql, params) { this.calls.push({ sql, params });
+      return { rows: [{ id: "ts", status: "draft", org_id: ORG_A, supplier_org_id: ORG_A }] }; } };
+    const r3 = await timesheetService.updateTimesheet(ohneFeld, "ts-1", { notes: "nur eine Notiz" }, USER_A, null);
+    assert.equal(r3?.error, undefined, "der reine Notiz-Weg wurde blockiert");
+  });
+
+  it("PATCH /timesheets/:id uebergibt req.orgId an updateTimesheet", () => {
+    /* Die Verdrahtungsprobe - dieselbe Lehre wie bei updateRateCard: ein
+       nachtraeglicher Parameter am Ende einer Signatur verschwindet beim
+       naechsten Umbau am leisesten. */
+    const quelle = fs.readFileSync(path.resolve(HIER, "..", "routes", "timesheets.js"), "utf8");
+    const aufruf = /timesheetService\.updateTimesheet\(([^;]*?)\);/s.exec(quelle);
+    assert.ok(aufruf, "der Aufruf von updateTimesheet wurde nicht gefunden — ist er umgezogen?");
+    assert.match(aufruf[1], /req\.orgId/,
+      "die Route ruft updateTimesheet OHNE req.orgId auf — der Einsatz bleibt ungeprueft");
   });
 });
 

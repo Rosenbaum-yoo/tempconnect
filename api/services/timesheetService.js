@@ -51,26 +51,60 @@ async function recalcTotals(pool, timesheetId) {
 
 /* ── CRUD ───────────────────────────────────────────────────────────────────── */
 
+/**
+ * Darf dieser Stundenzettel auf diesen Einsatz zeigen?
+ *
+ * HERAUSGEZOGEN am 2026-10-01 (U6.5), nicht neu geschrieben: diese Pruefung
+ * stand woertlich in createTimesheet und FEHLTE in updateTimesheet - obwohl
+ * dessen allowed-Liste assignment_id fuehrt und seine Abfrage
+ * UPDATE timesheets SET ... WHERE id = $1 kein org_id kennt. Ein eigener
+ * Stundenzettel liess sich damit auf einen FREMDEN Einsatz umhaengen, und
+ * Stundenzettel sind Abrechnungsgrundlage.
+ *
+ * Gefunden hat es die Messung zu U6.4 (Felder auf *_id in allowed-Listen ohne
+ * Riegel). Es ist der fuenfte Fall desselben Paar-Musters in dieser Woche -
+ * nach createDepartment/updateDepartment, createRequisition/updateRequisition,
+ * createRateCard/updateRateCard und contract_id in beiden Haelften.
+ *
+ * BEIDE SEITEN GELTEN, und das ist die bestehende Regel, nicht eine neue: ein
+ * Stundenzettel gehoert zu einem Einsatz, in dem die Organisation Kunde ODER
+ * Lieferant ist. Dieselbe Form wie bei Vertraegen (assertContractBelongsToOrg).
+ *
+ * KEIN WURF, sondern ein Fehlerobjekt: dieser Dienst gibt { error: ... }
+ * zurueck, und die Routen daruber lesen das. Ein OrgBoundaryError waere hier
+ * die Abweichung und wuerde als 500 enden statt als 403.
+ *
+ * @returns {null | { error: string }} null, wenn der Verweis in Ordnung ist.
+ */
+export async function pruefeEinsatzVerweis(pool, assignmentId, orgId) {
+  if (!assignmentId) return null;
+  const { rows } = await pool.query(
+    `SELECT id, org_id, supplier_org_id, status
+       FROM assignments WHERE id = $1`, [assignmentId]
+  );
+  const a = rows[0];
+  if (!a) return { error: 'ASSIGNMENT_NOT_FOUND' };
+  if (a.status === 'cancelled') return { error: 'ASSIGNMENT_CANCELLED' };
+  /* Ohne Organisation ist nichts pruefbar - und ein stilles Durchlassen waere
+     genau die Luecke, die hier geschlossen wird. Fail-closed. */
+  if (!orgId) return { error: 'ORG_BOUNDARY_VIOLATION' };
+  if (a.org_id !== orgId && a.supplier_org_id !== orgId) {
+    return { error: 'ORG_BOUNDARY_VIOLATION' };
+  }
+  return null;
+}
+
 export async function createTimesheet(pool, data) {
   // week_end muss nach week_start liegen
   if (data.week_end < data.week_start) {
     return { error: 'INVALID_DATE_RANGE', message: 'week_end muss nach week_start liegen' };
   }
 
-  // Assignment validieren wenn angegeben
-  if (data.assignment_id) {
-    const { rows: aRows } = await pool.query(
-      `SELECT id, org_id, supplier_org_id, status
-       FROM assignments WHERE id = $1`, [data.assignment_id]
-    );
-    const a = aRows[0];
-    if (!a) return { error: 'ASSIGNMENT_NOT_FOUND' };
-    if (a.status === 'cancelled') return { error: 'ASSIGNMENT_CANCELLED' };
-    // Org-Boundary: Anfragender muss buyer oder supplier des Assignments sein
-    if (data.org_id && a.org_id !== data.org_id && a.supplier_org_id !== data.org_id) {
-      return { error: 'ORG_BOUNDARY_VIOLATION' };
-    }
-  }
+  /* U6.5: dieselbe Pruefung wie im Aendern-Pfad, aus EINER Quelle.
+     Zuvor stand sie nur hier - und die Bedingung `if (data.org_id && ...)` liess
+     sie bei fehlender org_id ganz aus. Das ist jetzt fail-closed. */
+  const einsatz = await pruefeEinsatzVerweis(pool, data.assignment_id, data.org_id);
+  if (einsatz) return einsatz;
 
   const ts = await withTransaction(pool, async (client) => {
     const { rows } = await client.query(
@@ -188,10 +222,27 @@ export function listTimesheetsForAssignment(pool, assignmentId, filters = {}) {
   return listTimesheets(pool, { ...filters, assignment_id: assignmentId });
 }
 
-export async function updateTimesheet(pool, id, data, actorId) {
+/*
+ * U6.5: orgId ist dazugekommen und hat ABSICHTLICH keine Vorgabe. Ohne sie
+ * weist pruefeEinsatzVerweis zurueck, sobald wirklich ein Einsatz gesetzt
+ * wird - fail-closed. Wer nur Namen oder Notizen aendert, merkt nichts davon.
+ *
+ * Ein nachtraeglicher Parameter am Ende einer Signatur verschwindet beim
+ * naechsten Umbau am leisesten; deshalb prueft eine Probe die AUFRUFSTELLE in
+ * der Route, nicht nur den Dienst (dieselbe Lehre wie bei updateRateCard).
+ */
+export async function updateTimesheet(pool, id, data, actorId, orgId = null) {
   const ts = await getTimesheet(pool, id);
   if (!ts) return { error: 'NOT_FOUND' };
   if (ts.status !== 'draft') return { error: 'NOT_EDITABLE', status: ts.status };
+
+  /* U6.5 (2026-10-01): assignment_id steht in dieser Liste, und niemand hat
+     geprueft, zu welcher Organisation der Einsatz gehoert. Die Route prueft nur,
+     dass der STUNDENZETTEL der eigenen Org gehoert (checkOrgBoundary); die
+     Abfrage unten hat kein org_id. Ein eigener Zettel liess sich damit auf einen
+     fremden Einsatz umhaengen. */
+  const verweis = await pruefeEinsatzVerweis(pool, data.assignment_id, orgId);
+  if (verweis) return verweis;
 
   const allowed = ['worker_name', 'worker_identifier', 'week_start', 'week_end', 'notes', 'assignment_id'];
   const fields = [];

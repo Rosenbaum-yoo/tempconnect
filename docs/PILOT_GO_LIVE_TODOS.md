@@ -2,6 +2,62 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-10-01 — Der Stundenzettel durfte auf einen fremden Einsatz zeigen (U6.4 / U6.5)
+
+**Status:** erledigt · **Kategorie:** Rollen-/Sichtbarkeitslogik mit Sicherheitswirkung ·
+**Quelle:** Messung zu U6.4 (Owner-Freigabe 2026-10-01, U6 im Standort-Plan)
+
+**U6.4 war „erst messen, dann entscheiden" — und die Antwort ist zweiteilig.**
+
+**Die Zahl spricht gegen den Wächter:** 21 `allowed`-Listen in `services/` und `routes/`, darin
+**11** Felder auf `*_id` mit eindeutigem Fremdschlüssel-Ziel, **4 ohne Riegel im Dienst** — und
+**drei davon sind Fehlalarme.** In `assignmentService.updateAssignment` fehlt der Riegel im
+Dienst, aber `routes/assignments.js` prüft **alle drei** Felder: Org-Grenze, Standort, Abteilung
+**und** `pruefeVertragsVerweis`. Eine Heuristik, die nur im Dienst sucht, meldet dort drei
+Fehlalarme; eine, die die Route mitliest, wird teuer. **75 % Fehlalarmquote — nicht gebaut**,
+nach demselben Maßstab wie bei „123 von 967" und dem Pfadverweis-Wächter.
+
+**Die Messung hat sich trotzdem bezahlt, denn der vierte Treffer ist echt.**
+
+**Der Befund (U6.5):** `PATCH /timesheets/:id` prüft mit `checkOrgBoundary(ts, req.orgId)`, dass
+**der Stundenzettel** der eigenen Organisation gehört. `updateTimesheet` schreibt danach
+`assignment_id` aus dem Rumpf — die `allowed`-Liste führt es, das Änderungs-Schema nimmt es
+nicht aus, die Abfrage lautet `UPDATE timesheets SET … WHERE id = $1` **ohne `org_id`**, und die
+Funktion bekam gar keine Organisation. **Ein eigener Stundenzettel ließ sich auf einen fremden
+Einsatz umhängen** — und Stundenzettel sind Abrechnungsgrundlage.
+
+**Der fünfte Fall des Paar-Musters in einer Woche**, nach
+`createDepartment`/`updateDepartment`, `createRequisition`/`updateRequisition`,
+`createRateCard`/`updateRateCard` und `contract_id` in beiden Hälften.
+
+**Die Prüfung existierte bereits** — in `createTimesheet`, wörtlich, gegen **beide** Seiten des
+Einsatzes (`org_id` oder `supplier_org_id`): ein Stundenzettel darf zu einem Einsatz gehören, in
+dem die Firma Lieferant ist. Sie ist **herausgezogen** worden, nicht kopiert, als
+`pruefeEinsatzVerweis`. Zwei Besonderheiten:
+
+- **Kein Wurf, sondern ein Fehlerobjekt.** Dieser Dienst gibt `{ error: … }` zurück, und die
+  Routen darüber lesen das. Ein `OrgBoundaryError` wäre hier die Abweichung und endete als
+  **500 statt 403**.
+- **Die alte Bedingung ließ die Prüfung ganz aus.** Sie lautete *„wenn eine Organisation
+  angegeben ist und …"* — bei fehlender Angabe fiel sie weg. Das ist jetzt fail-closed.
+
+**Hier wäre `assertOrgOwnership` übrigens wirklich das richtige Werkzeug** (anders als bei
+`contracts`): `assignments` hat `org_id` **und** steht in `ALLOWED_TABLES`. Genommen wurde
+dennoch die bestehende Zwei-Seiten-Prüfung — weil die Lieferanten-Seite gelten muss.
+
+**Eine Probe war zuerst leer rot, und der Grund gehört notiert:** vor dem Riegel steht in
+`updateTimesheet` eine Vorbedingung („nur Entwürfe sind änderbar"). Mein Mock lieferte einen
+Stundenzettel **ohne Status**, also griff die Vorbedingung und der Riegel wurde nie erreicht.
+**Eine Probe, die ihren Gegenstand nicht herstellt, prüft ihn auch nicht** — vier Zeilen
+Fixture-Pflege, Zusicherungen unverändert.
+
+**Nachweis:** `api/test/standortGrenze.test.js` — von 23 auf **28 Proben**, eigene Gruppe
+*U6.5*, weil das Fehlerobjekt-Muster nicht in die `assert.rejects`-Schleife passt. Darin die
+Gegenprobe in drei Teilen: eigener Einsatz kommt durch, **Lieferanten-Seite** kommt durch, und
+wer kein Einsatzfeld schickt, wird nicht behindert. Dazu die Verdrahtungsprobe auf die
+Aufrufstelle in der Route. **5 Rückmutationen, alle rot** — darunter „nur die Käufer-Seite" und
+„Route reicht die Organisation nicht durch".
+
 ### 2026-10-01 — Der Vertrag war in beiden Pfaden ungeprüft (U6.3)
 
 **Status:** erledigt · **Kategorie:** Rollen-/Sichtbarkeitslogik mit Sicherheitswirkung ·
