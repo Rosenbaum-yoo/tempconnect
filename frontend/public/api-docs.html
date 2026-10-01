@@ -1564,7 +1564,7 @@ x-csrf-token: &lt;token&gt;
             <span class="endpoint-path">/api/admin/metrics-export</span>
             <span class="endpoint-desc">Plattform-Metriken (Ops-Export)</span>
           </div>
-          <div class="endpoint-body"><p><span class="tag auth">Auth</span> <span class="tag role">Admin</span> Geschützt via Admin-Secret (Header <code>x-admin-secret</code>). Gibt aggregierte Plattform-KPIs als JSON für externe Ops/Monitoring zurück. (Das Admin-Panel selbst nutzt die session-authentifizierte Route <code>/api/admin/metrics</code>.)</p></div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> <span class="tag role">Admin</span> Geschützt via Admin-Secret (Header <code>x-admin-secret</code>). Gibt aggregierte Plattform-KPIs als JSON für externe Ops/Monitoring zurück. (Daneben gibt es die session-authentifizierte Route <code>/api/admin/metrics</code> hinter <code>requireAdmin</code>; seit das Admin Panel am 2026-10-01 in die Verwaltung aufging, ruft sie keine Oberfläche mehr auf.)</p></div>
         </div>
       </section>
 

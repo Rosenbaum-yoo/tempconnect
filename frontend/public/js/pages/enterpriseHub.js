@@ -31,13 +31,13 @@
 
     'ent.banner.eyebrow': 'workflow-Standard jetzt',
     'ent.banner.title': 'Arbeitsplatzangebot → Deal → Besetzung/Einsatz → Zeiten ',
-    'ent.banner.text': 'Diese Plattform priorisiert bewusst klare Bedienbarkeit und robuste Kernflows. Steuerungs-, Trust- und Admin-Bereiche bleiben sichtbar, werden aber dem operativen Pilotkern nachgeordnet.',
+    'ent.banner.text': 'Diese Plattform priorisiert bewusst klare Bedienbarkeit und robuste Kernflows. Steuerungs-, Trust- und Verwaltungsbereiche bleiben sichtbar, werden aber dem operativen Pilotkern nachgeordnet.',
     'ent.banner.pillOffers': 'Angebote & Vermittlung',
     'ent.banner.pillDeal': 'Dealabschluss',
     'ent.banner.pillAssign': 'Worker-Zuweisung',
     'ent.banner.pillTimesheets': 'Stundenzettel & Freigabe',
     'ent.banner.asideTitle': 'Bewusst nachgelagert',
-    'ent.banner.asideText': 'Executive, Trust, Admin und breitere Ausbauflächen staerken Vertrieb und Betrieb, ersetzen aber nicht den Pilotstandard. Neue Themen ziehen nur vor, wenn sie Abschluss, Demo oder Robustheit direkt verbessern.',
+    'ent.banner.asideText': 'Executive, Trust, Verwaltung und breitere Ausbauflächen staerken Vertrieb und Betrieb, ersetzen aber nicht den Pilotstandard. Neue Themen ziehen nur vor, wenn sie Abschluss, Demo oder Robustheit direkt verbessern.',
 
     'ent.onboarding.label': 'Plattform einrichten',
     'ent.onboarding.toggleTitle': 'Auf-/Zuklappen',
@@ -162,13 +162,13 @@
 
     'ent.banner.eyebrow': 'Workflow standard now',
     'ent.banner.title': 'Job posting → Deal → Placement/Assignment → Hours ',
-    'ent.banner.text': 'This platform deliberately prioritises clear usability and robust core flows. Steering, trust and admin areas stay visible, but rank behind the operational pilot core.',
+    'ent.banner.text': 'This platform deliberately prioritises clear usability and robust core flows. Steering, trust and administration areas stay visible, but rank behind the operational pilot core.',
     'ent.banner.pillOffers': 'Offers & placement',
     'ent.banner.pillDeal': 'Deal closing',
     'ent.banner.pillAssign': 'Worker assignment',
     'ent.banner.pillTimesheets': 'Timesheets & approval',
     'ent.banner.asideTitle': 'Deliberately deferred',
-    'ent.banner.asideText': 'Executive, trust, admin and wider expansion areas strengthen sales and operations, but they do not replace the pilot standard. New topics only move up if they directly improve closing, demo or robustness.',
+    'ent.banner.asideText': 'Executive, trust, administration and wider expansion areas strengthen sales and operations, but they do not replace the pilot standard. New topics only move up if they directly improve closing, demo or robustness.',
 
     'ent.onboarding.label': 'Set up platform',
     'ent.onboarding.toggleTitle': 'Expand/collapse',
