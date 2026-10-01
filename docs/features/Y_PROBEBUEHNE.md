@@ -440,10 +440,72 @@ sehen."* Genau das ist heute nicht möglich.
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|
-| Y3.1 | **Vier Arbeiter in vier Stadien**: eingeladen aber nicht registriert · registriert ohne Fähigkeiten · vollständig mit Nachweisen · im Einsatz | Jeder Schritt der Kette aus M2/M3 ist von außen nachvollziehbar |
-| Y3.2 | **Krankmeldung und Verspätung** je einmal gesetzt, mit heutigem Bezug | Welle Q wird prüfbar, ohne auf einen Ausfall zu warten |
-| Y3.3 | **Ein hochgeladener Nachweis mit Katalogbezug** (seit N8.1b Pflicht) | Der Nachweis belegt eine Katalog-Fähigkeit, keinen freien Text |
-| Y3.4 | **Die harte Trennung bleibt:** kein Arbeiterkonto erreicht die Plattform, kein Firmenkonto das Portal | Bestehende Wächter bleiben grün — **diese Zusage darf die Bühne nicht aufweichen** |
+| Y3.1 ✅ | **Vier Arbeiter in vier Stadien**: eingeladen aber nicht registriert · registriert ohne Fähigkeiten · vollständig mit Nachweisen · im Einsatz | Jeder Schritt der Kette aus M2/M3 ist von außen nachvollziehbar |
+| Y3.2 ✅ | **Krankmeldung und Verspätung** je einmal gesetzt, mit heutigem Bezug | **Mit Y1.4 erfüllt:** `worker_absences` art='krank' ab `CURRENT_DATE`, `worker_delays` `gilt_fuer = CURRENT_DATE` — an ZWEI verschiedenen Kräften, sonst lässt sich nicht zeigen, dass das eine den Markt verdeckt und das andere nicht |
+| Y3.3 ✅ | **Ein hochgeladener Nachweis mit Katalogbezug** (seit N8.1b Pflicht) | Der Nachweis belegt eine Katalog-Fähigkeit, keinen freien Text |
+| Y3.4 ✅ | **Die harte Trennung bleibt:** kein Arbeiterkonto erreicht die Plattform, kein Firmenkonto das Portal | Bestehende Wächter bleiben grün — **diese Zusage darf die Bühne nicht aufweichen** |
+
+> **Y3 GEBAUT — Stand 2026-10-01. Von vier Stadien hatten ZWEI kein Beispiel.**
+>
+> | Stadium | vorher | nachher |
+> |---|---|---|
+> | 1 · eingeladen, nicht registriert | **0** — sechs Einladungen, **alle abgelaufen** | 1 |
+> | 2 · registriert ohne Fähigkeiten | 34 | 34 |
+> | 3 · vollständig **mit Nachweis** | **0** — `worker_profile_documents` war LEER | 1 |
+> | 4 · im Einsatz | 15 | 15 |
+>
+> **Stadium 1 ist der aufschlussreichere Befund:** Einladungen *gab* es, sie waren
+> nur alle verfallen. Der Zustand „eingeladen, wartet" — der einzige, in dem die
+> Einladungsfläche überhaupt etwas zeigt — hatte kein Beispiel. Dieselbe Klasse
+> wie die zwölf unbesetzten Zustände aus Y1.3: nicht fehlende Daten, ein
+> fehlender **Zustand**.
+>
+> **Stadium 3 ist härter:** im ganzen Bestand existierte **kein einziger
+> Arbeiter-Nachweis**. Seit N8.1b muss ein Nachweis einen Katalogbezug tragen,
+> geprüft über `qualification_name` gegen `platform_skills` — und es gab keinen
+> Fall, an dem sich das zeigen ließ.
+>
+> `sql/seeds/y3-arbeiterstadien.sql` legt beides an. Der Nachweis belegt dabei die
+> **eigene** Fähigkeit der Kraft: Jonas Harms trägt „Lagerhelfer:in", und sein
+> geprüfter Nachweis nennt genau diesen Katalognamen — gelesen **aus**
+> `platform_skills`, nicht getippt. Ein Nachweis über eine fremde Fähigkeit wäre
+> formal gültig und inhaltlich sinnlos; eine Rückmutation hält das fest.
+>
+> **Der Einladungs-Token ist heikler als ein Passwort.** `worker_invites.token`
+> ist der **rohe** Token, mit dem jemand ein Konto anlegt — in einem öffentlichen
+> Repo wäre er ein gültiger Zugangsschlüssel, der ohne Anmeldung wirkt. Er
+> entsteht deshalb beim Laden aus `gen_random_bytes(32)`; `token_hash` ist sein
+> SHA-256, genau wie `orgInviteService` ihn bildet. Gemessen: 64 Zeichen, Hash
+> stimmt, Token steht nicht in der Datei. **Ein zweiter Lauf lässt ihn
+> unverändert** — sonst würde ein schon verschickter Link ungültig, ohne dass
+> jemand es merkt. Die Laufzeit wird dagegen aufgefrischt, damit die Einladung
+> nicht mit der Zeit verfällt und Stadium 1 wieder verliert.
+>
+> **Y3.2 war mit Y1.4 schon erfüllt:** Krankmeldung und Verspätung je einmal
+> gesetzt, mit heutigem Bezug (`worker_absences` art='krank' ab `CURRENT_DATE`,
+> `worker_delays` `gilt_fuer = CURRENT_DATE`) — und zwar an **zwei
+> verschiedenen** Kräften, sonst ließe sich nicht zeigen, dass das eine den Markt
+> verdeckt und das andere nicht.
+>
+> **Y3.4 ist eine Zusage, keine Daten** — und sie wird jetzt bewacht. Die Gefahr
+> ist konkret: wer einem Arbeiterkonto eine Mitgliedschaft mit Firmenrolle gibt,
+> damit „man alles sieht", hebelt `hidden_worker` **in den Daten** aus, wo kein
+> RBAC-Wächter hinsieht. Die Zusicherung prüft **alle vier** Bühnen-Saaten; drei
+> Gegenproben (Firmenrolle in Y3, Firmenrolle in Y1.4, alle Arbeiterkonten
+> unsichtbar machen) sind rot.
+>
+> **Wächter:** `api/test/probebuehneArbeiterstadien.test.js`, 9 Zusicherungen,
+> **16 Rückmutationen + 3 Gegenproben, alle rot und jede an der gemeinten
+> Stelle.** Drei Lücken in meiner eigenen Probe kamen dabei heraus:
+>
+>   - Zwei Zusicherungen fanden `'pending'` und die Laufzeit **in der
+>     ON-CONFLICT-Klausel** statt in der Einfügung — eine Einladung auf
+>     `'expired'` zu setzen blieb grün. Geprüft wird jetzt nur die Einfügung.
+>   - Die Y3.4-Zusicherung war **leer grün**: ihr Muster verlangte `('` ohne
+>     Weißraum, in der Datei steht dazwischen ein Zeilenumbruch, und ein
+>     `continue` bei leerer Menge verdeckte es. Eine Gegenprobe, die einem
+>     Arbeiterkonto `admin` gab, wurde **nicht** gefangen. Jetzt zählt eine
+>     Notbremse die gefundenen Arbeiterkonten über alle Saaten.
 
 ### Y4 · Die getrennten Flächen
 
