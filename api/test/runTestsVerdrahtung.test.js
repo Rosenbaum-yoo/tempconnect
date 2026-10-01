@@ -72,6 +72,10 @@ const KOPIEN = [
   "scripts/lib/klaerungslauf.mjs",
   /* Und der Zaehler, der meldet, was ein Lauf ausgelassen hat. */
   "scripts/lib/uebersprungen.mjs",
+  /* Seit 2026-10-01: die Tor-Marke, auf die scripts/dev/cloud-stand-holen.sh
+     wartet. Zum dritten Mal hat V0 die Luecke gemeldet. Im Sandkasten (kein
+     Git-Ordner) legt der Lauf keine Marke — fail-soft, wie im Abbild. */
+  "scripts/lib/torMarke.mjs",
 ];
 
 describe("Verdrahtung: run-tests.js liest seine eigene Ausgabe mit", () => {

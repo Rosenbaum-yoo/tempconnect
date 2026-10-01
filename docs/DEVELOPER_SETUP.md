@@ -130,6 +130,25 @@ docker compose up -d
 
 Alle Dev-Scripts liegen in `scripts/dev/` und werden via Bash ausgefuehrt (Git Bash / WSL unter Windows).
 
+### cloud-stand-holen.sh — Stand der Cloud-Sitzung holen (seit 2026-10-01)
+
+Holt den Branch der Cloud-Sitzung (`claude/zen-goldberg-w1oxw3`) in diesen Ordner,
+damit Neues lokal zu sehen ist. Unter Windows genuegt ein **Doppelklick auf
+`scripts/dev/cloud-stand-holen.cmd`** (holt alle 30 Minuten und baut nach).
+
+```bash
+bash scripts/dev/cloud-stand-holen.sh                   # einmal holen, zeigen was neu ist
+bash scripts/dev/cloud-stand-holen.sh --bauen           # dazu Migrationen, API, Staff-App (Docker)
+bash scripts/dev/cloud-stand-holen.sh --bauen --wiederholen 30
+scripts\dev\cloud-stand-holen.cmd autostart             # Windows: ab der naechsten Anmeldung von selbst
+```
+
+**Fasst nichts an**, solange ungesicherte Aenderungen im Ordner liegen, ein Testlauf
+ueber den Baum geht (`api/scripts/run-tests.js` legt dafuer selbst eine Marke in
+`.git/`, siehe `api/scripts/lib/torMarke.mjs`) oder ein Zusammenfuehren laeuft. Bei
+Konflikt bricht es ab. Es pusht nie. Bau-Schritte, die nicht klappen (Docker noch
+aus), merkt es sich in `.git/cloud-stand-offen` und holt sie nach.
+
 ### reset-db.sh — Datenbank zuruecksetzen
 
 Loescht alle lokalen Daten, erstellt die DB komplett neu (init.sql + alle Migrations).

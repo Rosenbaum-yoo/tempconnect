@@ -33,6 +33,7 @@ import {
 } from "./lib/klaerungslauf.mjs";
 import { neuerSkipZaehler, formuliereSkips } from "./lib/uebersprungen.mjs";
 import { teileNachAbbild } from "./lib/abbildSuite.mjs";
+import { torMarkePfad, setzeTorMarke, loescheTorMarke } from "./lib/torMarke.mjs";
 
 const PROJECT_DIR = join(import.meta.dirname, "..");
 const TEST_DIR = join(PROJECT_DIR, "test");
@@ -208,6 +209,20 @@ const selectedFiles = selectSuite(discoveredFiles, suite);
 if (selectedFiles.length === 0) {
   console.error(`[run-tests] No test files found for suite '${suite}'.`);
   process.exit(1);
+}
+
+/* Tor-Marke: solange dieser Lauf ueber den Baum geht, fuehrt
+   scripts/dev/cloud-stand-holen.sh nicht automatisch zusammen (Begruendung in
+   lib/torMarke.mjs). `exit` deckt jedes regulaere Ende ab; bei Strg+C kommt
+   `exit` nicht, deshalb raeumen die Signale selbst auf und beenden dann wie
+   gewohnt. */
+const torMarke = setzeTorMarke(torMarkePfad({ cwd: PROJECT_DIR }), { suite });
+process.on("exit", () => loescheTorMarke(torMarke));
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.once(signal, () => {
+    loescheTorMarke(torMarke);
+    process.kill(process.pid, signal);
+  });
 }
 
 /*

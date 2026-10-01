@@ -23,7 +23,8 @@ Umschreibung von Historie). Konfliktgefahr nur in den Dateien, die unten stehen.
 ### Neu sichtbar im Frontend — zum lokalen Ansehen *(wird bei jedem Push nachgeführt)*
 
 Owner 2026-10-01: *„und auch mergen in gewissen Abständen immer wenn etwas neues im frontend zu
-sehen wäre automatisch, damit ich lokal auch gucken kann“*.
+sehen wäre automatisch, damit ich lokal auch gucken kann“*. Holt automatisch:
+`scripts/dev/cloud-stand-holen.cmd` (Doppelklick) — es zeigt nach jedem Holen genau diese Tabelle.
 
 | Was | Wo ansehen | Lokal nötig |
 |---|---|---|
@@ -35,14 +36,43 @@ sehen wäre automatisch, damit ich lokal auch gucken kann“*.
 | Executive Dashboard: Block „Abrechnung (30 Tage)“ statt TempConnect-Zahlen | Executive Dashboard (Unternehmen) | API neu starten |
 | Verwaltung (7 Reiter, Wirkungsvorschau) | Übersicht → Kachel „Verwaltung“ oder Nutzermenü „Verwaltung →“ | — |
 
-**K1-Routine „Cloud-Stand holen“ — ab jetzt bei jedem Sitzungsbeginn und immer, wenn oben etwas
-Neues steht:** nur bei **sauberem** Arbeitsbaum (`git status` leer) `git fetch origin
-claude/zen-goldberg-w1oxw3` und `git merge --ff-only origin/claude/zen-goldberg-w1oxw3`; geht
-`--ff-only` nicht, ein normaler `git merge` (keine Umschreibung). Danach: neue Migrationen einspielen
-(`docker compose up migrate`), bei Änderungen unter `api/` die API neu bauen
-(`docker compose up -d --build api`), bei `frontend/src/staff/` `npm run build:scc`. Seiten unter
-`frontend/public/` sind sofort sichtbar (nginx liest den Ordner direkt), Browser neu laden.
-**Nie** zusammenführen, während ein Testlauf über den Baum läuft (eiserne Regel unten).
+**K1-Routine „Cloud-Stand holen“ — ab jetzt per Skript, bei jedem Sitzungsbeginn:**
+`bash scripts/dev/cloud-stand-holen.sh --bauen`. Für den Owner unter Windows: **Doppelklick auf
+`scripts/dev/cloud-stand-holen.cmd`** — holt dann alle 30 Minuten, solange das Fenster offen ist
+(minimiert genügt); `scripts\dev\cloud-stand-holen.cmd autostart` startet es ab der nächsten
+Anmeldung von selbst, `… autostart-aus` nimmt es wieder heraus. Der Owner hat die Automatik
+ausdrücklich gewollt; einrichten darf K1 sie, und sagt ihm dann, wie sie wieder herausgeht.
+
+Das Skript macht genau die Schritte, die hier bisher von Hand standen, und **fasst nichts an**,
+solange (a) ungesicherte Änderungen im Ordner liegen (ungetrackte Geschäftsunterlagen zählen nicht),
+(b) ein Zusammenführen läuft, (c) **ein Testlauf über den Baum geht** — `api/scripts/run-tests.js`
+legt dafür seit diesem Stand **selbst** eine Marke `.git/tor-laeuft-<pid>` und räumt sie bei jedem
+Ende weg, auch bei Strg+C (verwaist nach 2 Stunden). Für andere lange Läufe (E2E, Mutation) die
+Marke von Hand: `touch "$(git rev-parse --git-path tor-laeuft-hand)"`, danach löschen. Sonst:
+`--ff-only`, wenn das nicht geht ein normaler Merge (keine Umschreibung), bei **Konflikt Abbruch**
+— der Ordner bleibt, wie er war, und K1 führt von Hand zusammen. Danach, je nachdem, was sich
+geändert hat: Migrationen (`docker compose run --rm migrate`), API (`docker compose up -d --build
+api`), Staff-App (`frontend-build`). Was nicht klappt (Docker noch aus), steht in
+`.git/cloud-stand-offen` und wird beim nächsten Lauf nachgeholt. Seiten unter `frontend/public/`
+sind sofort sichtbar (nginx liest den Ordner direkt), Browser neu laden. Es **pusht nie**.
+
+**Prüfliste für K1 — der Windows-Teil ist in der Cloud nicht prüfbar** (dort gibt es kein
+Windows; geprüft sind Linux-Bash, echtes Git, Marke, Sperre, Merkzettel mit Docker-Attrappe):
+C1 `bash scripts/dev/cloud-stand-holen.sh` in Git Bash → „Vorgespult“ oder „Nichts Neues“, danach
+die Tabelle oben · C2 eine getrackte Datei ändern, nochmal → „Ungesicherte Änderungen … Nichts
+angefasst“ · C3 während `node scripts/run-tests.js` läuft → „Ein Testlauf geht gerade …“ ·
+C4 **Doppelklick** auf `scripts/dev/cloud-stand-holen.cmd` → Fenster „TempConnect Cloud-Stand“,
+erster Lauf sofort, Schließen beendet ihn · C5 `node --test test/torMarke.test.js` in Git Bash →
+15 grün (ohne `bash`/`git` im PATH überspringt sich der Teil am echten Git — dann in Git Bash
+wiederholen). Meldet C1 „Kann nicht prüfen, ob ein Testlauf läuft“, findet Git Bash das falsche
+`find` — Befund bitte hierher, nicht umgehen.
+
+*Beim Prüfen passiert (zur Warnung, Lern-Inbox-Kandidat):* eine Probe als `cd KLON && … & …`-Kette
+geschrieben — `&` schickt die ganze Kette samt `cd` in den Hintergrund, und das folgende
+`git reset --hard` lief im **echten** Arbeitsbaum der Cloud-Sitzung. Nichts Gepushtes betroffen;
+per `git merge --ff-only 89ca180` zurückgeholt, verloren war nur eine eigene ungesicherte Änderung
+(neu eingetragen). Proben in Wegwerf-Kopien deshalb nur noch als Skript mit Ordner-Wache
+(`[ "$(git rev-parse --show-toplevel)" = "$KLON" ] || exit 99`) oder durchgehend mit `git -C`.
 
 ### Was gebaut und gepusht ist (in dieser Reihenfolge)
 
@@ -53,7 +83,8 @@ claude/zen-goldberg-w1oxw3` und `git merge --ff-only origin/claude/zen-goldberg-
 | `b1e8e2e` | **W-E9 Backend:** Rollen je Seite (Unternehmen bekommt keinen Disponenten, Zeitarbeitsfirma keinen Hiring-Manager; Owner nie per Einladung) — serverseitig, `400 ROLLE_PASST_NICHT_ZUR_SEITE`. Mitglied entfernen braucht **Grund** (≥ 5 Zeichen, `400 GRUND_FEHLT`), sich selbst entfernen `409`. Neu: `GET /org/audit-log/export/csv` (eigene Firma, max. 500, Export steht selbst im Protokoll). Übersicht liefert `rollen`, `rollen_namen`, `counts.open_invitations` | **neu** `api/config/orgRollen.js` (einzige Quelle der Rollennamen), `api/routes/orgControlCenter.js`, `api/services/rbacService.js` |
 | `4123bad` | **W-E9 Oberfläche:** `organization.html` komplett neu als **„Verwaltung“** für beide Seiten, 7 Reiter (Team, Standorte, Rollen, Sicherheit, Protokoll, Schnittstellen, Tarif), jede folgenreiche Handlung mit **Wirkungsvorschau**. **Owner-Rechte vergibt/entzieht nur ein Owner** (`403 NUR_OWNER`; vorher konnte ein Admin den Owner herabstufen/entfernen und sich selbst zum Owner machen). **38 Vorgänge** im Protokoll hatten keinen deutschen Namen („Org Member Invite Revoke“) — ergänzt, ein Wächter erzwingt es | **neu** `frontend/public/js/pages/verwaltung.js`, `frontend/public/css/pages/verwaltung.css`; `api/services/activityFeedService.js`, `api/test/verwaltung.test.js` |
 | `92c29aa` | **Die Verwaltung heißt überall Verwaltung** (Owner: „umbenennen in Verwaltung“): Kachel „Organisation“ im Anbieterprofil, Menüpunkt in System-Health, Banner der Übersicht, Trust-Seiten („Admin-Panel mit Echtzeit-Filterung“ → was es gibt), api-docs. „Organisation“ als Name der eigenen Firma bleibt | `sla_profil.html`, `slaProfil.js`, `system-health.html`, `enterprise.html`, `enterpriseHub.js`, `trust/*.html`, `api-docs.html` |
-| *dieser Commit* | **Einsatzportal im Protokoll** — eigener Abschnitt unten | siehe dort |
+| `89ca180` | **Einsatzportal im Protokoll** — eigener Abschnitt unten | siehe dort |
+| `git log -1 -- scripts/dev/cloud-stand-holen.sh` | **Cloud-Stand automatisch holen** (Owner: „mergen in gewissen Abständen … automatisch, damit ich lokal auch gucken kann“): Skript + Windows-Doppelklick, holt nur über einen sauberen Baum, nie während eines Testlaufs, bei Konflikt Abbruch, pusht nie; baut nach, was sich geändert hat, und holt liegengebliebene Bau-Schritte nach. **Der Testlauf legt dafür selbst eine Marke**; ist die Prüfung selbst gestört, fasst das Skript nichts an — 8 Rückmutationen, alle gefangen, volles Tor 12.198/0 | **neu** `scripts/dev/cloud-stand-holen.sh`, `scripts/dev/cloud-stand-holen.cmd`, `api/scripts/lib/torMarke.mjs`, `api/test/torMarke.test.js`; **geändert** `api/scripts/run-tests.js` (Marke setzen/räumen, sonst unverändert), `docs/DEVELOPER_SETUP.md` |
 | `d7c239e` | **Ein Weg zur Verwaltung:** Hub-Karte `verwaltung` ersetzt `admin_panel` **und** `location_management` (Schlüssel gelöscht, nicht nur Karten); Link „Verwaltung →“ im Nutzermenü; Suche findet sie jetzt auch für Zeitarbeitsfirmen; drei tote Admin-Links im Executive Dashboard entfernt; Rollenabzeichen nennen die Rollen wie die Verwaltung | `enterprise.html`, `hubVisibility.js`, `pageShell.js`, `roleBadge.js`, `executive_dashboard.html`, `api/config/visibilityMatrix.js` |
 
 Geprüft am laufenden System (Postgres 16 + API + Chromium), beide Demo-Firmen,
@@ -2241,7 +2272,7 @@ immer dieselben fünf Dinge:
 | **Immer `git commit --only <pfade>`** | **Zweimal passiert (2026-08-27/28):** eine zweite Sitzung arbeitet auf derselben Linie und committet, während meine Dateien im Index liegen — meine Arbeit landete unter *ihrer* Commit-Nachricht (`33374dd`, `e70dafc`). Inhaltlich unversehrt, die Historie erzählt es falsch. `--only` bindet den Commit an genau die genannten Pfade und ist immun dagegen. **Eine geteilte Linie wird nicht umgeschrieben** — der Fehler bleibt stehen und wird benannt. |
 | **Kein Weg von der Plattform ins Staff Control Center** | Owner-Vorgabe 2026-09-01, unverrückbar: keine Hub-Karte, kein Menüpunkt, kein Link, **auch kein toter.** Das Staff Center ist das Kontrollzentrum des Betreibers, kein Kundenzugang. Eine Kachel *innerhalb* des Staff Centers ist erlaubt; eine *auf der Plattform*, die dorthin führt, nie — diese beiden wurden einmal verwechselt. Erzwungen von `api/test/staffNieAusDerPlattform.test.js` (samt Gegenprobe, weil `/staff` Teilzeichenkette von `/staffing-*` ist). Vollständig in [FLAECHEN.md](FLAECHEN.md). |
 | **Kein Freitext, wo ein Katalog existiert** *(Owner-Entscheid 2026-09-22)* | *„keine Freitexte mehr, alles katalogbunden, um maximal integriert zu sein."* Betrifft **jedes** Feld, das eine Tätigkeit, Rolle, Fähigkeit, Qualifikation oder einen Nachweis benennt — auf **allen** Flächen, nicht nur im Marktplatz: Angebot, Bedarf, Suche, Konditionsrahmen, Einsatzportal, Import. **Der Grund ist nicht Bedienkomfort:** zwei Seiten, die dieselbe Sache verschieden schreiben, finden sich nie. Gemessen am 2026-09-21: von 44 Rollenbezeichnungen im Markt treffen **19** den Katalog nie — darunter „Bauhelfer" gegen „Bauhelfer:in", dazu „lager", „ljoj" und ein kaputt kodiertes „Schwei??er". **Ausnahme nur, wo es keinen Katalog geben kann** (Freitext-Notiz, Nachricht, Beschreibung) — und dann darf das Feld auch nicht so heißen, als benenne es eine Rolle. Erzwungen entdeckend, nicht je Seite aufgezählt. |
-| **Ein volles Tor über einen Baum, an dem zwei schreiben, beweist nichts** | **Passiert 2026-09-21:** mein Tor-Lauf lief, während die Parallelsitzung im selben Baum schrieb. Ihr eigener Lauf meldete daraufhin `arbeiterSitzung.test.js` rot — mit einer Begründung, die zu ihrer Arbeit gar nicht passte; in Isolation war die Probe grün. **Wer das volle Tor fährt, sagt es vorher an**, und der andere schreibt in dieser Zeit nur in den Kratzblock. Sonst misst man nicht den Stand, sondern den Zufall des Augenblicks. |
+| **Ein volles Tor über einen Baum, an dem zwei schreiben, beweist nichts** | **Passiert 2026-09-21:** mein Tor-Lauf lief, während die Parallelsitzung im selben Baum schrieb. Ihr eigener Lauf meldete daraufhin `arbeiterSitzung.test.js` rot — mit einer Begründung, die zu ihrer Arbeit gar nicht passte; in Isolation war die Probe grün. **Wer das volle Tor fährt, sagt es vorher an**, und der andere schreibt in dieser Zeit nur in den Kratzblock. Sonst misst man nicht den Stand, sondern den Zufall des Augenblicks. **Seit 2026-10-01 gibt es einen dritten Schreiber** — das automatische Abholskript `scripts/dev/cloud-stand-holen.sh`; ihm sagt `run-tests.js` es selbst: eine Marke `.git/tor-laeuft-<pid>` für die Dauer des Laufs (`api/scripts/lib/torMarke.mjs`, erzwungen von `api/test/torMarke.test.js`). |
 | **ROT heißt `fail > 0` ODER `cancelled > 0` ODER Rückgabewert ≠ 0** | **Ergänzung zu „Tor-Ergebnis nur an `ℹ fail` ablesen" (2026-09-27, gefunden von der bauenden Sitzung).** Eine Rückmutation, die das **Laden** der Datei zerstört, meldet `tests 39 | pass 0 | fail 0 | cancelled 39`. Wer nur `fail` liest, sieht **null** und hält den Mutanten für überlebend — die Suche nach dem Loch, das es nicht gibt, kostete dort eine halbe Stunde. Dieselbe Falle wie die ursprüngliche Regel, nur in der Gegenrichtung: dort verdeckt ein Abbruch eine rote Zusicherung, hier einen toten Mutanten. **Beide Zahlen lesen, und den Rückgabewert dazu.** |
 | **Rückmutation nie an der ersten Fundstelle — der Kommentar steht oben** | **Mir selbst an einem Tag VIERMAL passiert (2026-09-25/26):** `replace(muster, neu, 1)` trifft die Erklärung über dem Code, nicht den Code. Jedes Mal sah es nach einem überlebenden Mutanten aus, jedes Mal war es meine eigene Zielverfehlung — bei `capacity_post_pool_members`, beim Alias-Schreibvorgang, bei `SUM(` und zuletzt bei `COUNT(DISTINCT`, wo Zeile 28 ein Kommentar und Zeile 74 das SQL war. **Ein Mutant, der überlebt, ist erst dann ein Befund, wenn die Stelle belegt ist** — Zeile zeigen, nicht Muster raten. In dieser Datei ausgerechnet erklärt der Kommentar dieselbe Sache, die der Code tut; genau deshalb steht das Muster zweimal drin. Zeilengenau mutieren, oder die Fundstellen vorher zählen und die richtige auswählen. |
 | **Ein zweiter Mechanismus kann den Mutanten heilen, bevor die Probe hinsieht** | **Gefunden 2026-09-26 (bauende Sitzung, M4c.1):** die Rückmutation an der Titel-Abschrift blieb grün — das Nachführen sah die Abweichung im selben Lauf und schrieb den richtigen Wert hinein. **Selbstheilung ist eine gute Eigenschaft und ein schlechter Zeuge.** Sie verdeckte, dass die Anlage etwas anderes schreibt, als das Nachführen erwartet. Das Gegenmittel ist eine Probe auf den **Zwischenzustand**: ein frisch angelegtes Bündel gibt dem Nachführen **nichts** zu tun. Eigene Klasse, verwandt mit „Probe prüft ihren Gegenstand", aber anders gelagert: dort fehlt der Gegenstand, hier wird er repariert, während man hinsieht. |
