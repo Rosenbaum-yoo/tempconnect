@@ -48,6 +48,10 @@ Woche zuerst“ darüber und schickt alles per **Push und E-Mail** an den Owner:
 eine Zeile, C in der ersten Woche des Monats als Liste. Sie ändert nichts am Repository. Sie kennt
 nur, was **gepusht** ist — wer etwas erledigt, pusht die Zeile, sonst erinnert sie weiter daran.
 Ändern oder abstellen: in claude.ai unter Routinen, oder einer Sitzung sagen.
+**Geprüft am 2026-10-01:** der erste Probelauf scheiterte am 5-Stunden-Nutzungslimit des Kontos
+(die Sitzung durfte nicht starten — kein Fehler der Routine); der zweite um 12:01 UTC lief durch
+(frische Sitzung, ~80 Sekunden, Status „fertig“, rund **0,29 $ je Lauf**, also gut 1 $ im Monat).
+Fällt ein Montag in ein ausgeschöpftes Limit, kommt an diesem Tag keine Erinnerung.
 
 Selbst ansehen: `node api/scripts/wichtigkeit.mjs` (die Erinnerung für heute) · `… --alle` (mit
 der C-Liste) · `… --pruefen` (Form und Kopplung). **Für K1:** im lokalen Skill
