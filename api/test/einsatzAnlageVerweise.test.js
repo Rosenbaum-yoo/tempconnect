@@ -199,7 +199,15 @@ describe("N2.9 — Vertrag und Zeitarbeitsfirma", () => {
     assert.equal(res._status, 403);
     assert.deepEqual(res._json, { error: "SUPPLIER_NOT_PARTNER", field: "supplier_org_id" });
     assert.equal(geschrieben(pool), false);
-    assert.deepEqual(abfrage(pool, /AS partner/).params, [ORG, ZAF]);
+    /* U6.7: der Riegel bindet seit der Zusammenfuehrung einen dritten Parameter,
+       den Stichtag aus todayDE(). Geprueft bleibt, WAS die Zusicherung meinte -
+       dass Org und Zeitarbeitsfirma in dieser Reihenfolge gebunden werden; ein
+       deepEqual auf die ganze Liste war gegen eine legitime neue Bindung sproede. */
+    const partnerAbfrage = abfrage(pool, /AS partner/);
+    assert.deepEqual(partnerAbfrage.params.slice(0, 2), [ORG, ZAF]);
+    assert.equal(partnerAbfrage.params.length, 3, "erwartet Org, Zeitarbeitsfirma, Stichtag");
+    assert.match(String(partnerAbfrage.params[2]), /^\d{4}-\d{2}-\d{2}$/,
+      "der dritte Parameter ist kein Datum");
   });
 
   it("ein unklares Partner-Ergebnis (null) ist KEIN Partner", async () => {
@@ -223,19 +231,40 @@ describe("N2.9 — Vertrag und Zeitarbeitsfirma", () => {
     assert.equal(abfrage(pool, /AS partner/), undefined);
   });
 
-  it("Partner heisst: Vendor-Pool aktiv/nicht gesperrt/nicht abgelaufen, aktiver Vertrag, oder Einsatz aus Deal", async () => {
+  it("Partner heisst: Vendor-Pool im gueltigen Fenster, aktiver Vertrag, oder Einsatz aus Deal", async () => {
+    /*
+     * U6.7 (Owner-Freigabe 2026-10-01): DER POOL-ZWEIG IST ENGER GEWORDEN, und
+     * diese Probe ist deshalb nicht abgeschwaecht, sondern verschaerft.
+     *
+     * Vorher nagelte sie den Wortlaut fest:
+     *   "(vp.valid_until IS NULL OR vp.valid_until >= CURRENT_DATE)"
+     * Also zwei Implementierungsdetails - dass nur EINE Fensterseite geprueft wird,
+     * und dass das Datum aus CURRENT_DATE kommt. Beide sind in U6.7 bewusst
+     * geaendert worden: der Zweig bezieht seine Bedingung jetzt aus
+     * `poolBedingungenSql` (also BEIDE Fensterseiten) und bindet den Stichtag
+     * statt ihn aus der Server-Zeitzone zu nehmen - gemessen pinnte NICHTS im
+     * Repo diese Zone, sie kam vom Host.
+     *
+     * Geprueft wird jetzt die REGEL: beide Fensterseiten gegen denselben
+     * gebundenen Stichtag, und CURRENT_DATE ausdruecklich NICHT mehr.
+     */
     const pool = welt({ partner: true });
     await anlegen(pool, { supplier_org_id: ZAF });
     const sql = abfrage(pool, /AS partner/).sql.replace(/\s+/g, " ");
     for (const teil of [
-      "vp.client_org_id = $1 AND vp.supplier_org_id = $2",
-      "vp.status = 'active' AND vp.tier <> 'BLOCKED'",
-      "(vp.valid_until IS NULL OR vp.valid_until >= CURRENT_DATE)",
+      "vp.client_org_id = $1",
+      "vp.supplier_org_id = $2",
+      "vp.status = 'active'",
+      "vp.tier <> 'BLOCKED'",
+      "(vp.valid_from IS NULL OR vp.valid_from <= $3::date)",
+      "(vp.valid_until IS NULL OR vp.valid_until >= $3::date)",
       "c.buyer_org_id = $1 AND c.supplier_org_id = $2 AND c.status = 'active'",
       "a.org_id = $1 AND a.supplier_org_id = $2 AND a.offer_id IS NOT NULL"
     ]) {
       assert.ok(sql.includes(teil), `Partner-Abfrage ohne: ${teil}`);
     }
+    assert.ok(!/CURRENT_DATE/i.test(sql),
+      "der Riegel rechnet wieder mit CURRENT_DATE - das ist die Zeitzone des SERVERS");
     // Die drei Wege sind ODER-verknuepft — ein UND verlangte alle drei zugleich.
     assert.equal((sql.match(/\) OR EXISTS \(/g) || []).length, 2);
   });

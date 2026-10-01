@@ -115,6 +115,37 @@ describe("N2.9 — die Verweis-Pruefung am realen Schema",
     await client.query("UPDATE vendor_pool SET valid_until = CURRENT_DATE WHERE id = $1", [vendorId]);
     assert.equal(await partner(kunde, zaf), null, "ein heute noch gueltiger Eintrag zaehlt nicht");
 
+    /*
+     * U6.7 (Owner-Freigabe 2026-10-01): DIE ANDERE FENSTERSEITE, durch den
+     * ECHTEN Dienst geprueft.
+     *
+     * Diese Probe hat die Verengung zunaechst NICHT beruehrt - sie setzte
+     * `valid_from` nie, und die Spalte hat keinen Vorgabewert. Sie blieb also
+     * gruen, ohne den neuen Teil des Riegels je auszufuehren: der Spiegelfall
+     * fehlte. Gefunden hat das eine Breitenmessung, nicht der Lauf.
+     *
+     * Die SQL-Ebene prueft test/integration/partnerRiegelFenster.flow.test.js.
+     * HIER laeuft es durch `pruefeAnlageVerweise`, also durch den Riegel selbst -
+     * das ist der Unterschied zwischen "die Bedingung ist richtig" und "das Tor
+     * benutzt sie".
+     */
+    await client.query(
+      "UPDATE vendor_pool SET valid_from = CURRENT_DATE + 1, valid_until = NULL WHERE id = $1",
+      [vendorId]);
+    assert.equal((await partner(kunde, zaf))?.error, "SUPPLIER_NOT_PARTNER",
+      "ein VORDATIERTER Eintrag (Beginn morgen) zaehlt als Partner - genau die " +
+      "Abweichung, die U6.7 geschlossen hat");
+
+    await client.query("UPDATE vendor_pool SET valid_from = CURRENT_DATE WHERE id = $1", [vendorId]);
+    assert.equal(await partner(kunde, zaf), null,
+      "AM Tag des Beginns muss der Eintrag gelten - die Grenze ist einschliessend, " +
+      "und ohne diese Haelfte waere die Zusicherung darueber auch wahr, wenn der " +
+      "Riegel alles abweist");
+
+    await client.query("UPDATE vendor_pool SET valid_from = NULL WHERE id = $1", [vendorId]);
+    assert.equal(await partner(kunde, zaf), null,
+      "ein Eintrag ohne Beginn ist unbegrenzt und muss gelten");
+
     await client.query("UPDATE vendor_pool SET status = 'suspended' WHERE id = $1", [vendorId]);
     assert.equal((await partner(kunde, zaf))?.error, "SUPPLIER_NOT_PARTNER", "ausgesetzter Eintrag zaehlt als Partner");
 

@@ -942,7 +942,7 @@ Org der Sitzung geprüft; fremd und nicht vorhanden sind dieselbe Antwort.
 | `requisition_id` | muss der Org gehören | `403 ORG_BOUNDARY_VIOLATION` (`field`) |
 | `demand_request_id` | Anleger gehört der Org (`users.org_id` oder aktive Mitgliedschaft) | `403 ORG_BOUNDARY_VIOLATION` (`field`) |
 | `contract_id` | Käufer = Org; nennt der Rumpf eine andere Zeitarbeitsfirma als der Vertrag | `403 ORG_BOUNDARY_VIOLATION` / `400 SUPPLIER_CONTRACT_MISMATCH` |
-| `supplier_org_id` | eigene Org, oder erklärter Partner: Vendor-Pool aktiv/nicht gesperrt/nicht abgelaufen, aktiver Rahmenvertrag, oder ein Einsatz aus einem Deal | `403 SUPPLIER_NOT_PARTNER` |
+| `supplier_org_id` | eigene Org, oder erklärter Partner: Vendor-Pool aktiv, nicht gesperrt und **im Gültigkeitsfenster** (`valid_from` **und** `valid_until`, Stichtag `Europe/Berlin`), aktiver Rahmenvertrag, oder ein Einsatz aus einem Deal | `403 SUPPLIER_NOT_PARTNER` |
 | `org_id` im Rumpf | darf nicht von der Org der Sitzung abweichen | `403 ORG_BOUNDARY_VIOLATION` |
 | ohne Org-Kontext | Verweise werden abgelehnt | `400 ORG_CONTEXT_REQUIRED` |
 

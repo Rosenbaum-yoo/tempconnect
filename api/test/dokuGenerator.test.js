@@ -102,6 +102,11 @@ const ERWARTET = {
      stimmen", während eine vierte in DERSELBEN Datei veraltet war. */
   "servicedateien": (w) =>
     fs.readdirSync(path.join(w, "api", "services")).filter((f) => f.endsWith(".js")).length,
+  /* U6.7a: dieselbe Naht wie bei den Dienstdateien — eine einzige neue Migration
+     liess das volle Tor rot werden, weil die Zahl geprueft, aber nicht
+     fortgeschrieben wurde. */
+  "migrationsdateien": (w) =>
+    fs.readdirSync(path.join(w, "sql", "migrations")).filter((f) => f.endsWith(".sql")).length,
 };
 
 describe("Doku-Generator (W3) — die Zahlen im Register und der Wirkungsbereich", () => {
@@ -276,6 +281,8 @@ describe("Doku-Generator (W3) — die Zahlen im Register und der Wirkungsbereich
       /* U6.2a: die Dienstdateien sind der vierte fortgeschriebene Wert — ohne
          dieses Verzeichnis zaehlt der Generator gegen ein fehlendes. */
       fs.mkdirSync(path.join(sandkasten, "api", "services"), { recursive: true });
+      /* U6.7a: die Migrationen sind der fuenfte fortgeschriebene Wert. */
+      fs.mkdirSync(path.join(sandkasten, "sql", "migrations"), { recursive: true });
 
       for (const n of ["a", "b", "c"]) {
         fs.writeFileSync(path.join(sandkasten, "api", "test", `${n}.test.js`), "// leer\n");
@@ -295,6 +302,11 @@ describe("Doku-Generator (W3) — die Zahlen im Register und der Wirkungsbereich
       }
       /* Zaehlt NICHT mit: nur .js sind Dienstdateien. */
       fs.writeFileSync(path.join(sandkasten, "api", "services", "notiz.md"), "kein Dienst\n");
+      for (const n of ["001_eins", "002_zwei", "003_drei", "004_vier", "005_fuenf"]) {
+        fs.writeFileSync(path.join(sandkasten, "sql", "migrations", `${n}.sql`), "-- leer\n");
+      }
+      /* Zaehlt NICHT mit: NUMBERING.md ist keine Migration. */
+      fs.writeFileSync(path.join(sandkasten, "sql", "migrations", "NUMBERING.md"), "keine\n");
 
       fs.writeFileSync(path.join(sandkasten, "docs", "PLATTFORM_REGISTER.md"),
         "# Attrappe\n\n" + "Fuellzeile.\n".repeat(600) +
@@ -302,6 +314,7 @@ describe("Doku-Generator (W3) — die Zahlen im Register und der Wirkungsbereich
         "| E2E-Testdateien | <!--zahl:e2e-testdateien-->999<!--/zahl--> | x |\n" +
         "| Ablauf-Proben | <!--zahl:ablaufproben-->999<!--/zahl--> | x |\n" +
         "| Service-Dateien | <!--zahl:servicedateien-->999<!--/zahl--> | x |\n" +
+        "| Migrationsdateien | <!--zahl:migrationsdateien-->999<!--/zahl--> | x |\n" +
         "\nStand: <!--zahl:stand-->1999-01-01<!--/zahl-->\n" +
         "\nHandgeschrieben: 999 bleibt hier stehen.\n");
     });

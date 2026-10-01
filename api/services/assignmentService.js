@@ -8,6 +8,11 @@ import { notifyAssignmentNew } from "./workerNotificationService.js";
 import { withTransaction } from "../utils/transaction.js";
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
 import { swallow } from "../utils/logger.js";
+/* U6.7: der Partner-Riegel bezieht seine Pool-Bedingung aus dem Wahrheitsmodul,
+   und sein Stichtag aus todayDE() statt aus CURRENT_DATE - Begruendung an der
+   Fundstelle. */
+import { poolBedingungenSql } from "./poolMitgliedschaftSql.js";
+import { todayDE } from "../utils/dateDE.js";
 import {
   buildAssignmentActivePredicateSql,
   buildAssignmentHistoryPredicateSql,
@@ -121,18 +126,45 @@ export async function pruefeAnlageVerweise(db, orgId, data) {
      * selbst an — aber als eigene, auditierte Handlung an anderer Stelle, nicht
      * als Nebenwirkung eines einzelnen Aufrufs.
      */
+    /*
+     * U6.7 (Owner-Freigabe 2026-10-01): DER POOL-ZWEIG KOMMT AUS DEM
+     * GEMEINSAMEN MODUL, nicht mehr aus eigener Hand.
+     *
+     * Vorher stand hier eine EIGENE Fassung der Pool-Bedingung, und sie wich ab:
+     * sie prueefte `valid_until`, aber NICHT `valid_from`. Ein Pooleintrag mit
+     * einem Beginn in der ZUKUNFT galt hier schon heute als Partnerschaft,
+     * waehrend `istLieferantImPool` (U6.2) ihn ablehnte. Zwei Wahrheiten ueber
+     * einem Feld - die Fehlerklasse, mit der diese Woche angefangen hat, und die
+     * fuenfte Fassung derselben Regel.
+     *
+     * DER RIEGEL WIRD DAMIT ENGER. Das ist die sichere Richtung, aber eine
+     * Verhaltensaenderung an einem Sicherheitsriegel, und sie gehoerte dem Owner.
+     * Gemessen vor der Freigabe: `vendor_pool` hat 0 Zeilen, davon 0 vordatiert -
+     * die Verengung kostet heute null 403er, und mit jedem Kunden mehr.
+     *
+     * DAS DATUM WIRD GEBUNDEN, NICHT AUS CURRENT_DATE GENOMMEN - und das ist der
+     * eigentliche Fund dieser Welle. Ich wollte CURRENT_DATE behalten, weil die
+     * DACH-Direktive `TZ=Europe/Berlin` im Container verlangt. Nachgemessen:
+     * NICHTS im Repo pinnte die Zeitzone der DATENBANK (nicht compose, nicht
+     * init.sql, keine Migration) - das Europe/Berlin kam vom HOST. Auf einem
+     * UTC-Server liegt CURRENT_DATE nach 22 Uhr deutscher Zeit einen Tag zurueck.
+     *
+     * Migration 227 pinnt die Zone jetzt dauerhaft. Hier wird das Datum
+     * TROTZDEM gebunden: ein Riegel, der entscheidet, wem ein Einsatz gegeben
+     * werden darf, soll nicht an einer Einstellung haengen, die jemand
+     * zuruecksetzen kann. Dieselbe Haltung wie bei der Org-Grenze, die zweimal
+     * steht - in der Route und im SQL.
+     */
     const { rows } = await db.query(
       `SELECT (
          EXISTS (SELECT 1 FROM vendor_pool vp
-                  WHERE vp.client_org_id = $1 AND vp.supplier_org_id = $2
-                    AND vp.status = 'active' AND vp.tier <> 'BLOCKED'
-                    AND (vp.valid_until IS NULL OR vp.valid_until >= CURRENT_DATE))
+                  WHERE ${poolBedingungenSql({ kunde: "$1", lieferant: "$2", datum: "$3", alias: "vp" })})
          OR EXISTS (SELECT 1 FROM contracts c
                      WHERE c.buyer_org_id = $1 AND c.supplier_org_id = $2 AND c.status = 'active')
          OR EXISTS (SELECT 1 FROM assignments a
                      WHERE a.org_id = $1 AND a.supplier_org_id = $2 AND a.offer_id IS NOT NULL)
        ) AS partner`,
-      [orgId, data.supplier_org_id]
+      [orgId, data.supplier_org_id, todayDE()]
     );
     if (rows[0]?.partner !== true) return { status: 403, error: "SUPPLIER_NOT_PARTNER", field: "supplier_org_id" };
   }

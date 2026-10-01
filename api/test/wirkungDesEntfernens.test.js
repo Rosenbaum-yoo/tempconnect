@@ -278,37 +278,53 @@ describe("U6.2b · die Kopplung an den Partner-Riegel", () => {
       "der Abschluss-Zweig prüft nicht mehr auf offer_id IS NOT NULL");
   });
 
-  it("der Pool-Zweig des Riegels und die Pool-Definition aus U6.2 weichen VORSÄTZLICH ab", () => {
+  it("der Pool-Zweig des Riegels benutzt dasselbe Wahrheitsmodul — die Abweichung ist geschlossen", () => {
     /*
-     * BEFUND, FESTGEHALTEN STATT STILL REPARIERT (Owner-Vorlage, nicht autonom).
+     * DIESE PROBE IST UMGEDREHT WORDEN, und das war der geplante Weg.
      *
-     * Gemessen: `istLieferantImPool` (U6.2) prüft `valid_from <= heute` UND
-     * `valid_until >= heute`. Der Partner-Riegel in `assignmentService` prüft
-     * **nur** `valid_until` — ein Pooleintrag mit einem valid_from in der
-     * ZUKUNFT gilt dort schon heute als Partnerschaft.
+     * Bis zum 2026-10-01 nagelte sie den IST-Zustand fest: der Partner-Riegel in
+     * `assignmentService` prüfte `valid_until`, aber **nicht** `valid_from` — ein
+     * Pooleintrag mit einem Beginn in der ZUKUNFT galt dort schon heute als
+     * Partnerschaft, während `istLieferantImPool` (U6.2) ihn ablehnte. Zwei
+     * Wahrheiten über demselben Feld.
      *
-     * Das ist eine zweite Wahrheit über demselben Feld, also genau die
-     * Fehlerklasse, die diese Woche geliefert hat. Ich habe sie NICHT
-     * angeglichen: der Riegel entscheidet, wem ein Einsatz gegeben werden darf.
-     * Ihn zu verengen ist die sichere Richtung, kostet aber eine 403 für jede
-     * Firma, die einen Pooleintrag vordatiert hat — eine spürbare
-     * Verhaltensänderung an einem Sicherheitsriegel, und die gehört dem Owner.
+     * Ich habe das damals NICHT angeglichen und in der Fehlermeldung dieser Probe
+     * ausdrücklich angekündigt, dass sie bei einer Angleichung rot wird und dann
+     * umzudrehen ist — weil der Riegel entscheidet, wem ein Einsatz gegeben
+     * werden darf, und eine Verengung dem Owner gehört.
      *
-     * Diese Probe hält den IST-Zustand fest, damit er nicht unbemerkt in die
-     * eine oder andere Richtung wandert. Wird sie rot, ist die Frage
-     * entschieden worden — dann gehört die Entscheidung hierher dokumentiert.
+     * **Owner-Freigabe am 2026-10-01 (U6.7).** Gemessen vor der Entscheidung:
+     * `vendor_pool` hat 0 Zeilen, davon 0 vordatierte — die Verengung kostete
+     * null echte 403er, und mit jedem Kunden mehr. Der Riegel benutzt jetzt
+     * `poolBedingungenSql`, also dieselbe Fassung wie alle anderen.
+     *
+     * Dass eine Probe ihre eigene Umkehrung ankündigt und der Weg dann genau so
+     * verläuft, ist der Unterschied zwischen einem Befund und einem Unfall.
      */
     const quelle = readFileSync(join(API, "services", "assignmentService.js"), "utf8");
     const riegel = quelle.match(/SELECT \(\s*EXISTS[\s\S]*?\) AS partner/i);
     assert.ok(riegel, "der Partner-Riegel ist nicht mehr an seinem Platz");
-    const poolZweig = riegel[0].match(/EXISTS \(SELECT 1 FROM vendor_pool vp[\s\S]*?\)\)/i);
-    assert.ok(poolZweig, "der Pool-Zweig des Riegels ist nicht auffindbar");
 
-    assert.match(poolZweig[0], /vp\.valid_until IS NULL OR vp\.valid_until >= CURRENT_DATE/i,
-      "der Pool-Zweig prüft valid_until nicht mehr");
-    assert.doesNotMatch(poolZweig[0], /valid_from/i,
-      "der Pool-Zweig prüft jetzt AUCH valid_from — die Abweichung zu U6.2 ist also " +
-      "geschlossen worden. Gut, aber: dann diese Probe und den Befund in " +
-      "docs/features/U_STANDORTE_ROLLEN_SICHTBARKEIT.md nachziehen.");
+    assert.match(riegel[0], /poolBedingungenSql\(/,
+      "der Pool-Zweig schreibt seine Bedingung wieder selbst — damit entsteht die " +
+      "fünfte Fassung der Pool-Regel neu, und `bleibt_partner` in dieser Datei " +
+      "bildet dann etwas anderes nach als der Riegel prüft");
+    assert.doesNotMatch(riegel[0], /vp\.status = 'active'/,
+      "die Bedingung steht als nackter Text im Riegel statt im Modul");
+
+    /* Und der Stichtag ist GEBUNDEN, nicht CURRENT_DATE: gemessen pinnte nichts
+       im Repo die Zeitzone der Datenbank (Migration 227 tut es jetzt), und ein
+       Sicherheitsriegel soll nicht an einer Einstellung hängen, die jemand
+       zurücksetzen kann. */
+    assert.match(riegel[0], /datum: "\$3"/,
+      "der Stichtag ist nicht als dritter Parameter gebunden");
+    assert.doesNotMatch(riegel[0], /CURRENT_DATE/i,
+      "der Riegel rechnet wieder mit CURRENT_DATE — das ist die Zeitzone des " +
+      "SERVERS, und sie war bis Migration 227 nirgends gepinnt");
+    const aufruf = quelle.match(/\[orgId, data\.supplier_org_id[^\]]*\]/);
+    assert.ok(aufruf, "die Parameterliste des Riegels ist nicht auffindbar");
+    assert.match(aufruf[0], /todayDE\(\)/,
+      "der Stichtag kommt nicht aus todayDE() — ein roher UTC-Schnitt liegt nach " +
+      "22 Uhr deutscher Zeit einen Tag zurück");
   });
 });

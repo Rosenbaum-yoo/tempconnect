@@ -1092,7 +1092,7 @@ im Handelsstand gegen die freie Kopfzahl des fremden Angebots. `PATCH` ließ das
 | `requisition_id` | muss der Org gehören, sonst 403 |
 | `demand_request_id` | Anleger gehört der Org (`users.org_id` oder aktive Mitgliedschaft), sonst 403 |
 | `contract_id` | Käufer = Org, sonst 403; nennt der Rumpf eine andere Firma als der Vertrag: 400 |
-| `supplier_org_id` | eigene Org, oder **erklärter Partner**: Vendor-Pool aktiv/nicht gesperrt/nicht abgelaufen, aktiver Rahmenvertrag, oder ein Einsatz aus einem Deal; sonst 403 `SUPPLIER_NOT_PARTNER` |
+| `supplier_org_id` | eigene Org, oder **erklärter Partner**: Vendor-Pool aktiv, nicht gesperrt, **im Gültigkeitsfenster** (beide Seiten, Stichtag `Europe/Berlin` — seit U6.7, Owner-Freigabe 2026-10-01), aktiver Rahmenvertrag, oder ein Einsatz aus einem Deal; sonst 403 `SUPPLIER_NOT_PARTNER` |
 | ohne Org-Kontext | Verweise werden abgelehnt (400), nicht ungeprüft geschrieben |
 
 Fremd und nicht vorhanden sind **dieselbe** Antwort — sonst ließe sich mit der Anlage abfragen,
@@ -1102,6 +1102,15 @@ welche Kennungen es bei anderen gibt. Die Prüfung sitzt in `assignmentService.p
 **Grenze, benannt:** „erklärter Partner" beweist eine Beziehung, die die **Org selbst** angelegt
 hat (Vendor-Pool, Vertrag) — nicht die Zustimmung der Zeitarbeitsfirma. Das ist eine eigene,
 auditierte Handlung an anderer Stelle, keine Nebenwirkung eines einzelnen Aufrufs.
+
+**Nachtrag U6.7 (Owner-Freigabe 2026-10-01):** der Pool-Zweig dieses Riegels prüfte bis dahin
+`valid_until`, aber **nicht** `valid_from` — ein vordatierter Pooleintrag galt hier schon heute als
+Partnerschaft, während `istLieferantImPool` (U6.2) ihn ablehnte. Zwei Wahrheiten über demselben
+Feld. Der Zweig bezieht seine Bedingung jetzt aus `services/poolMitgliedschaftSql.js`; der Riegel
+ist damit **enger**. Gemessen vor der Freigabe: `vendor_pool` hatte **0** Zeilen, davon 0
+vordatierte — die Verengung kostete null echte 403er, und mit jedem Kunden mehr.
+Der Stichtag wird **gebunden** (`todayDE()`), nicht aus `CURRENT_DATE` genommen: gemessen pinnte
+**nichts** im Repo die Zeitzone der Datenbank, sie kam vom Host (Migration 227 pinnt sie seitdem).
 
 **3. Die Warteliste läuft still.** Owner-Vorgabe: „keiner soll mitbekommen, dass er vorgemerkt ist
 für ein Angebot, das er sehr wahrscheinlich niemals annimmt." **Gemessen: der Code hält das

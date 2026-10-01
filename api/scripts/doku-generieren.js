@@ -166,6 +166,25 @@ export const WERTE = [
     befehl: "ls api/services/ | wc -l",
     rechne: (w) => zaehle(w, "api/services", (f) => f.endsWith(".js")),
   },
+  {
+    /*
+     * U6.7a (2026-10-01): DIESELBE NAHT WIE BEI DEN DIENSTDATEIEN, einen Tag
+     * spaeter wieder zugeschnappt. Die Zahl war handgepflegt und wurde von
+     * `dokuWaechter.test.js` geprueft, aber nicht fortgeschrieben: eine einzige
+     * neue Migration (227) liess das volle Tor rot werden, und zwar erst nach
+     * zwanzig Minuten Laufzeit.
+     *
+     * Der SATZ um die Zahl bleibt handgepflegt - er nennt die hoechste vergebene
+     * Nummer und die doppelt belegten, und das ist eine Ermessensfrage. Die ZAHL
+     * ist keine: `ls sql/migrations/*.sql | wc -l` hat keine Ausnahme.
+     * NUMBERING.md ist keine Migration und zaehlt nicht mit, weil sie nicht auf
+     * .sql endet.
+     */
+    marke: "migrationsdateien",
+    titel: "Migrationsdateien",
+    befehl: "ls sql/migrations/*.sql | wc -l",
+    rechne: (w) => zaehle(w, "sql/migrations", (f) => f.endsWith(".sql")),
+  },
 ];
 
 /** `<!--zahl:id-->WERT<!--/zahl-->` — Leerzeichen in den Marken sind erlaubt. */

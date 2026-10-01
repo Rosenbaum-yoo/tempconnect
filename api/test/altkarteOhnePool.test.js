@@ -308,13 +308,19 @@ describe("U6.2a · die Pool-Regel steht an EINER Stelle", () => {
      * eine Probe ihre eigene Begründung als Befund, viermal passiert in dieser
      * Woche.
      */
-    const BESTAND = new Map([
-      ["services/assignmentService.js",
-       "Partner-Riegel. Prüft OHNE valid_from und weicht damit von U6.2 ab — " +
-       "BEFUND, der dem Owner gehört: ihn zu verengen ist die sichere Richtung, " +
-       "kostet aber eine 403 für jede Firma mit vordatiertem Pooleintrag. " +
-       "Der IST-Zustand ist in test/wirkungDesEntfernens.test.js festgenagelt."]
-    ]);
+    /*
+     * SEIT U6.7 IST DIESE LISTE LEER — und das ist das Ergebnis, nicht ein
+     * Versehen. Sie trug genau einen Eintrag: `assignmentService`, dessen
+     * Partner-Riegel die Sperre selbst hinschrieb und dabei `valid_from`
+     * ausliess. Der Owner hat die Zusammenführung am 2026-10-01 freigegeben; der
+     * Riegel benutzt jetzt `poolBedingungenSql`, und damit gibt es im ganzen
+     * Korpus KEINE Stelle mehr, die die Sperre von Hand schreibt.
+     *
+     * Eine leere Ausnahmeliste ist der Zustand, auf den ein Waechter hinarbeitet.
+     * Sie ist aber auch der Zustand, in dem er am leichtesten leer gruen wird —
+     * dagegen steht die Notbremse in der naechsten Probe.
+     */
+    const BESTAND = new Map();
 
     const neue = [];
     for (const pfad of quellDateien()) {
@@ -374,8 +380,12 @@ describe("U6.2a · die Pool-Regel steht an EINER Stelle", () => {
        "Der Dienst der Tabelle selbst: addToPool (ON CONFLICT), blockVendor und " +
        "die drei Stellen, die jetzt das Modul benutzen. Hier IST das Paar der " +
        "Gegenstand, nicht eine Nachbildung."],
-      ["services/assignmentService.js",
-       "Partner-Riegel, ohne valid_from — derselbe Owner-Befund wie oben."],
+      /* `services/assignmentService.js` STAND HIER und ist seit U6.7 heraus: der
+         Partner-Riegel benutzt jetzt `poolBedingungenSql`, stellt die Paar-Frage
+         also nicht mehr selbst. Dass diese Liste durch eine Zusammenführung
+         KÜRZER wird und nicht länger, ist der Beleg, dass wirklich zusammengeführt
+         und nicht bloss ergänzt wurde — so von der gegenprüfenden Sitzung
+         verlangt. */
       ["services/supplierManagementService.js",
        "Sucht den Pooleintrag eines Paares, um ihn zu ÄNDERN " +
        "(status != 'removed'), nicht um Zugehörigkeit zu entscheiden. Ein " +
@@ -416,21 +426,57 @@ describe("U6.2a · die Pool-Regel steht an EINER Stelle", () => {
 
   it("das Modul ist wirklich erreicht — der Wächter oben wäre sonst leer grün", () => {
     /*
-     * NOTBREMSE. Fände `jsLiterale` nichts (falscher Pfad, Scanner umgebaut,
-     * Korpus leer), wäre `neue` leer und der Wächter grün — ohne eine einzige
-     * Datei gelesen zu haben. Diese Probe belegt, dass der Scan greift: die
-     * EINE bekannte Stelle muss gefunden werden.
+     * NOTBREMSE, und sie ist seit U6.7 WICHTIGER als vorher: die Ausnahmeliste
+     * des Sperr-Wächters ist jetzt LEER. Fände `jsLiterale` gar nichts (falscher
+     * Pfad, Scanner umgebaut, Korpus leer), wäre `neue` ebenfalls leer — und ein
+     * Wächter, der nichts liest, meldet dasselbe wie einer, der alles in Ordnung
+     * findet.
+     *
+     * DER ANKER MUSSTE ZWEIMAL WECHSELN, und der zweite Wechsel ist lehrreich.
+     *
+     * Vorher sicherte die Probe zu, dass `assignmentService` gefunden wird — die
+     * Stelle ist in U6.7 verschwunden, die Probe wurde zu Recht rot. Mein erster
+     * Ersatz war das Wahrheitsmodul selbst: „es enthält die Sperre, also muss der
+     * Scan es finden." **Fand er nicht.** Grund: das Modul schreibt
+     * `'${POOL_GESPERRTE_STUFE}'`, der Wert ist also **interpoliert**, und der
+     * Haus-Scanner maskiert `${…}` ausdrücklich. Im gescannten Text steht nicht
+     * `'BLOCKED'`, sondern ein Maskenzeichen.
+     *
+     * Das heisst zugleich: der `continue` für das Modul im Wächter oben war
+     * **toter Code** — die Datei wurde nie gefunden, also auch nie übersprungen.
+     * Er bleibt als Absicht stehen (schreibt jemand den Wert dort einmal
+     * wörtlich, soll es keine Meldung geben), ist aber keine Zusicherung.
+     *
+     * JETZT EINE ECHTE POSITIVKONTROLLE: der Scan muss den Korpus überhaupt
+     * lesen. Gesucht wird `vendor_pool` — 19 Dateien nennen es (gemessen). Findet
+     * der Scan davon keine, ist die Maschinerie kaputt (falscher Pfad, leeres
+     * Mount-Verzeichnis, Scanner umgebaut), und die leere Fundliste des Wächters
+     * oben bedeutet nichts.
      */
-    const treffer = [];
+    const liest = [];
     for (const pfad of quellDateien()) {
       const rel = pfad.slice(API_DIR.length + 1).replace(/\\/g, "/");
-      if (jsLiterale(readFileSync(pfad, "utf8")).some(l =>
-        /\bvendor_pool\b/.test(l.text) && /\btier\s*(<>|!=)\s*'BLOCKED'/i.test(l.text))) treffer.push(rel);
+      if (jsLiterale(readFileSync(pfad, "utf8")).some(l => /\bvendor_pool\b/.test(l.text))) {
+        liest.push(rel);
+      }
     }
-    assert.ok(treffer.length >= 1,
-      "der Scan findet GAR KEINE Stelle — der Wächter oben ist damit leer grün");
-    assert.ok(treffer.includes("services/assignmentService.js"),
-      "die bekannte Stelle wird nicht gefunden, gefunden wurde: " + treffer.join(", "));
+    assert.ok(liest.length >= 10,
+      "der Scan findet nur " + liest.length + " Dateien, die `vendor_pool` nennen — " +
+      "gemessen am 2026-10-01 waren es 19. So wenige deuten auf eine kaputte " +
+      "Dateisuche, nicht auf ein aufgeräumtes Projekt. Damit ist auch die leere " +
+      "Fundliste des Wächters oben bedeutungslos.");
+    assert.ok(liest.includes("services/vendorPoolService.js"),
+      "selbst der Dienst der Tabelle wird nicht gefunden — der Scan greift nicht. " +
+      "Gefunden wurde: " + liest.slice(0, 5).join(", "));
+
+    /* Und das Modul trägt die Sperre wirklich — direkt gelesen, nicht über den
+       Scanner, weil der den interpolierten Wert nicht sehen kann. */
+    const modul = readFileSync(join(API_DIR, "services", "poolMitgliedschaftSql.js"), "utf8");
+    assert.match(modul, /POOL_GESPERRTE_STUFE\s*=\s*"BLOCKED"/,
+      "das Wahrheitsmodul benennt die gesperrte Stufe nicht mehr");
+    assert.match(modul, /\$\{alias\}\.tier <> '\$\{POOL_GESPERRTE_STUFE\}'/,
+      "das Wahrheitsmodul baut die Sperre nicht mehr in die Bedingung ein — " +
+      "dann ist die Regel weg, und der Wächter oben bewacht eine leere Zusage");
   });
 
   it("istLieferantImPool benutzt das Modul, statt den Text zu wiederholen", () => {

@@ -234,6 +234,30 @@ SELECT json_build_object(
    * Neugenerierung einen Diff ohne Inhalt, und ein Diff ohne Inhalt trainiert
    * dem Leser das Wegschauen an.
    */
+  /*
+   * U6.7a (2026-10-01): DIE EINSTELLUNGEN AN DER DATENBANK SELBST.
+   *
+   * Gemessen: NICHTS im Repo pinnte die Zeitzone der Datenbank - nicht
+   * docker-compose.yml (TZ stand nur am api-Dienst), nicht sql/init.sql, keine
+   * Migration. Das Europe/Berlin kam vom HOST. Auf einem UTC-Server liegt
+   * CURRENT_DATE nach 22 Uhr deutscher Zeit einen Tag zurueck, und im Korpus
+   * stehen 57 Vorkommen davon in 18 Dateien.
+   *
+   * Migration 227 setzt die Zone dauerhaft (ALTER DATABASE ... SET timezone).
+   * Damit sie nicht unbemerkt zurueckgenommen wird, steht sie hier - und die
+   * Probe darueber laeuft OHNE Datenbank, also auch im Host-Tor. Dieselbe
+   * Begruendung wie bei den Wertelisten einen Abschnitt weiter: eine
+   * DB-gebundene Zusicherung ist im Host-Tor keine.
+   *
+   * pg_db_role_setting traegt die Einstellungen als Array "name=wert".
+   */
+  'datenbank_einstellungen', COALESCE((
+    SELECT json_agg(e ORDER BY e)
+      FROM pg_db_role_setting s
+      JOIN pg_database d ON d.oid = s.setdatabase
+      CROSS JOIN LATERAL unnest(s.setconfig) AS e
+     WHERE d.datname = current_database() AND s.setrole = 0
+  ), '[]'::json),
   'wertelisten', COALESCE((
     SELECT json_object_agg(f.tab, f.spalten)
     FROM (
@@ -368,6 +392,8 @@ const ausgabe = {
   sichten: (daten.sichten || []).sort(),
   funktionen: (daten.funktionen || []).sort(),
   enums: (daten.enums || []).sort(),
+  /* U6.7a: sortiert, damit eine zweite Einstellung keinen Diff ohne Inhalt macht. */
+  datenbank_einstellungen: (daten.datenbank_einstellungen || []).sort(),
   /* U6.6: beide Ebenen UND die Werte sortiert. Postgres sortiert schon in der
      Abfrage, aber json_object_agg gibt keine Reihenfolgegarantie ueber die
      Tabellen — ohne diese Zeile erzeugt jede Neugenerierung einen Diff ohne

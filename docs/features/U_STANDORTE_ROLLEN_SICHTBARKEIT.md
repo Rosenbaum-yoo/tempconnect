@@ -466,6 +466,132 @@ schreibt ihn. Die Spalte ist tot; sie aus der Pool-Regel auszulassen ist damit b
 nachlässig. Genau diesen Fall macht U6.6 künftig sichtbar, statt ihn dem Zufall zu überlassen — die
 Waisen-Familie aus Z11 reicht bis auf die **Spalten**ebene.
 
+
+### U6.7 · gebaut 2026-10-01 — und der Zweizeiler hat eine Zeitzone aufgedeckt, die niemand gepinnt hatte
+
+**Owner-Freigabe am 2026-10-01**, direkt in die bauende Sitzung („ja"), nachdem eine Weitergabe
+durch die planende Sitzung ausdrücklich **nicht** als Freigabe genommen wurde.
+
+Der Partner-Riegel in `assignmentService` bezieht seine Pool-Bedingung jetzt aus
+`services/poolMitgliedschaftSql.js`. Er prüfte bis dahin `valid_until`, aber **nicht**
+`valid_from`: ein vordatierter Pooleintrag galt dort schon heute als Partnerschaft, während
+`istLieferantImPool` (U6.2) ihn ablehnte. **Fünfte Fassung derselben Regel**, und die letzte.
+
+Gemessen vor der Freigabe: `vendor_pool` hatte **0** Zeilen, davon 0 vordatierte — die Verengung
+kostete **null** echte 403er, und mit jedem Kunden mehr. Das war das Argument, mit dem der Owner
+schon U6.1 entschieden hat: *heute kostenlos, später teuer.*
+
+**Die Gegenprobe der planenden Sitzung greift, und sie war die richtige Forderung:** die
+Ausnahmeliste des Paar-Wächters wird **kürzer** (4 → 3), die des Sperr-Wächters sogar **leer**.
+Eine Zusammenführung, nach der die Ausnahmen wachsen, wäre keine gewesen.
+
+#### Der eigentliche Fund: `CURRENT_DATE` war eine Wette auf den Host
+
+Ich wollte `CURRENT_DATE` im Riegel **behalten**, mit der Begründung „die DACH-Direktive verlangt
+`TZ=Europe/Berlin` im Container". Dann nachgemessen statt geglaubt:
+
+| Messung | Ergebnis |
+|---|---|
+| laufende Datenbank, `SHOW TimeZone` | `Europe/Berlin` ✔ |
+| `docker-compose.yml`, **db**-Dienst | **kein `TZ`** — es stand nur am api-Dienst |
+| `sql/init.sql` (80 Zeilen) | **nichts** zur Zeitzone |
+| alle 226 Migrationen | **keine** `SET timezone`, kein `ALTER DATABASE … timezone` |
+
+**Das `Europe/Berlin` kam vom Host.** Der Postgres-Container erbte die Zone der Docker-VM.
+**Nichts im Repo pinnte sie.** Auf einem Hetzner-Server mit UTC — dem Standard, und das Ziel für den
+Livegang im Dezember — liegt `CURRENT_DATE` nach 22 Uhr deutscher Zeit einen Tag zurück. Der Fehler
+tritt **nur abends** auf: in jedem Tagtest grün.
+
+**Reichweite, mit dem Haus-Scanner über den ganzen Korpus:** 57 Vorkommen zeitzonenabhängiger
+SQL-Ausdrücke in 18 Dateien, **0** mit ausdrücklicher Zone. Die dicksten: `workforceService` (14),
+`workerService` (10), `companyBlocklistService` (6), `marktpraesenzService` (4) — darunter
+`assignmentService` (dieser Riegel) und `bindungSql` (ein Wahrheitsmodul).
+
+**Die Messung hat meinen Befund zweimal verkleinert, und beides gehört dazu:**
+
+1. **Die JS-Seite ist nicht betroffen.** `todayDE()` baut sein `Intl.DateTimeFormat` mit
+   `{ timeZone: "Europe/Berlin" }`, nennt die Zone also selbst — der eigene Kommentar sagt
+   „unabhängig von der Container-Zeitzone". Das `TZ` am api-Dienst ist für Datumsrichtigkeit gar
+   nicht nötig.
+2. **„`TZ` fehlt" in den prod-Dateien ist keine Lücke.** `prod.yml`, `demo.yml`,
+   `prod.managed.yml`, `managed.yml` und `ports-internal.yml` sind **Overlays**; compose **mischt**
+   `environment`-Abschnitte, also trägt der api-Dienst sein `TZ` auch in Produktion. Es gibt genau
+   **eine** echte db- und **eine** echte api-Definition.
+
+**Gelöst an der Wurzel, nicht an 57 Aufrufstellen:** Migration **227** setzt
+`ALTER DATABASE … SET timezone = 'Europe/Berlin'`. Das steht in `pg_db_role_setting`, überlebt
+Neustart und Neuaufsetzen und gilt für **jeden** Verbindungsweg — eine Umgebungsvariable gilt nur
+für den Prozess. 57 Aufrufstellen umzuschreiben wäre viel Bewegung für einen Fehler mit **einer**
+Ursache. Das `TZ` am db-Dienst kommt dazu, aber als **Beiwerk**: es richtet Containeruhr und
+Log-Zeitstempel, nicht die Rechnung.
+
+**Und im Riegel trotzdem gebunden:** der Stichtag kommt aus `todayDE()`, nicht aus `CURRENT_DATE`.
+Ein Riegel, der entscheidet, wem ein Einsatz gegeben werden darf, soll nicht an einer Einstellung
+hängen, die jemand zurücksetzen kann — dieselbe Haltung wie bei der Org-Grenze, die „zweimal steht:
+in der Route und im SQL".
+
+**Nachweis in drei Schichten** (`test/zeitzoneIstGepinnt.test.js`, 6 Proben, **datenbankfrei**):
+die Migration · die Momentaufnahme (neuer Abschnitt `datenbank_einstellungen`) · der db-Dienst in
+compose. Bewacht wird die **Pinnung**, ausdrücklich **nicht** die Abwesenheit von `CURRENT_DATE` —
+eine Ausnahmeliste mit 57 Einträgen wäre die Ausrede mit Zahlen, die dieses Projekt zweimal
+verworfen hat.
+
+#### Nachweis: 20 Rückmutationen, 20 rot — und vier haben Probenlücken aufgedeckt
+
+`test/integration/partnerRiegelFenster.flow.test.js` (8, DB-gebunden) prüft das Fenster an echtem
+SQL: vordatiert abgewiesen, am Tag des Beginns angenommen, am letzten Tag noch gültig, einen Tag
+später nicht. Und `test/integration/einsatzVerweise.flow.test.js` prüft denselben Fall **durch den
+echten Dienst** — der Unterschied zwischen „die Bedingung ist richtig" und „das Tor benutzt sie".
+Dass dort der Spiegelfall fehlte (die Datei setzte `valid_from` nie und ging durch die Verengung
+hindurch, ohne sie zu berühren), hat eine Breitenmessung gefunden, nicht der Lauf.
+
+**Vier Mutanten sind beim ersten Anlauf entwischt**, und drei davon aus **einer** Ursache:
+
+| Mutation | Warum sie durchkam |
+|---|---|
+| `ALTER DATABASE` durch `SET timezone` ersetzt | `ALTER DATABASE` steht **auch in meinem eigenen Kommentar** zwei Zeilen darüber |
+| andere Zone eingesetzt (`Etc/UTC`) | `Europe/Berlin` steht zusätzlich in der `SET LOCAL`-Zeile — eine **andere Anweisung** erfüllte die Zusicherung |
+| fester Datenbankname statt `current_database()` | derselbe Kommentar |
+| Notbremse-Schwelle von `>= 10` auf `>= 0` gesenkt | **meine Mutation war unsinnig**: eine abgeschwächte Probe wird davon nicht rot |
+
+Der erste Fall ist der **fünfte** dieser Woche — und diesmal in einer Probe, die ich ausdrücklich
+dagegen gebaut hatte: der Schnitt bei `BEGIN;` schützt gegen den **Kopf**, nicht gegen Kommentare
+im **Rumpf**. Jetzt werden beide Kommentarformen herausgeschnitten, mit einer Notbremse für den
+Schnitt selbst. Der zweite Fall ist die Klasse „die Zusicherung traf die falsche Stelle", die am
+selben Tag schon vier Mutanten durchgelassen hat — die Zone wird jetzt **in der herausgeschnittenen
+`ALTER DATABASE`-Anweisung** geprüft.
+
+Der vierte ist die Gegenrichtung und gehört genauso notiert: **eine Mutation, die nur den Wächter
+abschwächt, prüft nichts.** Ersetzt durch zwei, die den **Gegenstand** kaputt machen — Korpus des
+Scanners geleert und auf ein Verzeichnis ohne `vendor_pool` verengt. Beide rot.
+
+#### Fünf Befunde derselben Klasse, gemessen und NICHT gebaut
+
+Eine Breitenmessung (vier parallele Blickwinkel, jeder Befund adversarial gegengeprüft; 7 von 21
+Befunden wurden dabei **widerlegt**, alle sieben, weil sie den Stand vor meinen Korrekturen
+beschrieben) hat dieselbe Lücke an weiteren Stellen gefunden. Jede ist eine eigene Welle, und jede
+ist eine **Verhaltensänderung an einem Lesepfad oder Riegel** — also owner-gebunden:
+
+| Stelle | Befund | heute messbar betroffen |
+|---|---|---|
+| `assignmentService`, **Vertrags**-Zweig desselben Riegels | prüft nur `status = 'active'`; `contracts` **hat** `valid_from`/`valid_until` | **0** von 1 aktiven Verträgen (0 abgelaufen, 0 vordatiert) |
+| `supplierPoolService.getEligibleSuppliers` | lädt Lieferanten für Verteilstufen **ohne jedes** Gültigkeitsfenster | — |
+| `marketplaceService` | zwei Wahrheiten über `availability_to` in **einem** Pfad | — |
+| `assignmentStaffingService` | `verified_doc_names` heißt „verified" und filtert nichts | — |
+| `workerService` | `valid_from` wird viermal erhoben, gespeichert, angezeigt — und **nie** ausgewertet | — |
+
+Dazu zwei Hinweise aus derselben Messung: `capacityWorkflow` trägt eine **unbenutzte
+Zwillingsfunktion**, die die Hälfte des echten Kerns prüft (derselbe Stolperstein wie `isInPool`,
+U6.2a) — und `bountyService`s einseitige Fenster sind **absichtlich richtig**, damit niemand sie
+„mitfixt". Der letzte Punkt ist der wertvollste der Liste: eine Messung, die nur Treffer meldet und
+nicht die begründeten Nicht-Treffer, erzeugt beim nächsten Leser genau den falschen Eingriff.
+
+**Methodischer Vorbehalt, von einem der Prüf-Agenten selbst notiert:** die Dateien haben sich
+**während** der Messung geändert, weil die bauende Sitzung gleichzeitig in denselben Arbeitsbaum
+schrieb. Deshalb beschreiben sieben Befunde einen Stand, der beim Prüfen schon behoben war. Für die
+oben stehenden fünf gilt das nicht — sie liegen in Dateien, die in dieser Welle nicht angefasst
+wurden.
+
 ## 5. Reihenfolge
 
 **U0 → U2.4 → U6 → U1 → U5 → U2 → U3 → U4.**
