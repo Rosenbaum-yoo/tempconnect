@@ -34,25 +34,39 @@ Geprüft am laufenden System (Postgres 16 + API + Chromium), beide Demo-Firmen,
 Desktop und Telefon (390 px): alle Reiter, Dialoge, Einladen/Zurückziehen, Standort
 anlegen/deaktivieren, CSV, API-Schlüssel; keine Antwort ≥ 400, Konsole sauber.
 
-### In Arbeit, NOCH NICHT gepusht — W-E10 (folgt als nächster Commit)
+### W-E10 — Backend gepusht, Oberfläche in Arbeit
 
-Freischaltungen und Produkt-Updates ziehen aus dem Admin Panel ins **Staff Control
-Center**. Bitte **nicht parallel** daran bauen:
+**Gepusht (Backend):** Freischaltungen und Produkt-Updates sind ins **Staff Control
+Center** umgezogen. Bitte **nicht parallel** daran bauen:
 
-- `/api/admin/feature-overrides`, `/api/admin/feature-keys` und `/api/admin/product-releases*`
-  **fallen weg**. Neu: `/staff/api/freischaltungen*` und `/staff/api/produkt-updates*`.
+- **Entfernt:** `/api/admin/feature-overrides` (GET/PUT/DELETE), `/api/admin/feature-keys`,
+  `/api/admin/product-releases*` (sechs Wege). Der Kunden-Router `productReleases.js` hat nur
+  noch die vier Lesewege der Nutzer.
+- **Neu:** `GET /staff/api/freischaltungen`, `…/wirkung`, `…/firmen`,
+  `POST …/setzen`, `POST …/:id/entfernen` · `GET/POST /staff/api/produkt-updates`,
+  `PATCH …/:id`, `POST …/:id/veroeffentlichen`, `…/mailen`, `…/loeschen`.
+  Bereich: Freischaltungen = `commercial`, Produkt-Updates = `platform` (`staffRollen.js`).
 - **Befund:** `feature_overrides` liest im ganzen Code **genau ein** Verbraucher
   (`staffing_ready_fast_track`). Das Admin Panel bot jeden Tarifschlüssel an — alle anderen
   waren wirkungslos. Neu: **`api/config/freischaltHebel.js`** — nur dort eingetragene Hebel
   sind schaltbar, ein Test erzwingt *Hebel ↔ Leser im Code* in beiden Richtungen. Ausnahme je
-  Firma **nur mit Ende** (≤ 366 Tage) und nur auf der Seite, auf der der Hebel wirkt.
-- **Befund:** `app.js` hat dem Staff-Router **nie `sendMail` übergeben** — Statusmails an
-  Kunden aus dem Staff CC gingen seit jeher still verloren. Wird mitbehoben; **nach dem
-  Deploy gehen diese Mails wirklich raus.**
-- **Befund:** Produktmitteilungen „ab PLUS“ erreichten Kunden im Tarif **INDIVIDUELL nie**
-  (Rang 0). Wird über `normalizePlanKey` behoben.
-- Danach: `admin_panel.html` wird Weiterleitung auf die Verwaltung; `adminPanel.js`,
-  `adminProductReleases.js`, `admin-panel.css` entfallen.
+  Firma **nur mit Ende** (≤ 366 Tage, Berliner Tagesende) und nur auf der Seite, auf der der
+  Hebel wirkt. Änderung und Staff-Protokoll in **einer** Transaktion. Neuer Dienst
+  `api/services/freischaltungService.js`; 10 Rückmutationen, alle gefangen.
+- **Befund behoben:** `app.js` hat dem Staff-Router **nie `sendMail` übergeben** —
+  Statusmails an Kunden aus dem Staff CC gingen still verloren. **Nach dem Deploy gehen diese
+  Mails wirklich raus.** Probe: `api/test/staffMailVerdrahtung.test.js`.
+- **Befund behoben:** Produktmitteilungen „ab PLUS“ erreichten Kunden im Tarif
+  **INDIVIDUELL nie** (Rang 0) — `planTier` läuft jetzt über `normalizePlanKey`.
+- Produkt-Updates: Speichern legt **immer einen Entwurf** an; Veröffentlichen und Mailen nur
+  über den eigenen Weg mit Step-up HOCH und Grund; eine veröffentlichte Mitteilung ändert sich
+  nur mit Grund; zweiter Versand `409 SCHON_GEMAILT`.
+- Register: `wachen.json` bleibt bei 470/164 (7 Wege raus, 7 rein), `orgGrenzen.json`
+  nachgezogen, Wach-Name `nurPlattformverwaltung` entfernt.
+
+**Noch offen (Oberfläche):** zwei React-Module im Staff CC (`freischaltungen`,
+`produkt-updates`), danach wird `admin_panel.html` eine Weiterleitung auf die Verwaltung,
+`adminPanel.js`, `adminProductReleases.js`, `admin-panel.css` entfallen.
 
 ### Für Welle 1 (Lint/CI) — gefunden, bewusst NICHT angefasst (K1-Dateien)
 
@@ -64,21 +78,34 @@ Center**. Bitte **nicht parallel** daran bauen:
 `publicFieldLabel`, die **keinen Aufrufer** hat; tot, würde sonst `ReferenceError` werfen).
 Lösung: Globals in `frontend/eslint.config.*` ergänzen, tote Funktion entfernen.
 
+Im API-Teil meldet `npx eslint routes` **2 Fehler** in `api/routes/workers.js:365`
+(`no-useless-escape`, unnötiges `\/` im regulären Ausdruck) — ebenfalls nicht aus dieser Sitzung.
+
 Zweite Beobachtung: holen mehrere Skripte gleichzeitig `/api/csrf`, bekommt der erste
 POST gelegentlich `403 CSRF_INVALID`. `TC.api` wiederholt einmal automatisch — für Nutzer
 unsichtbar, in der Konsole steht ein 403. Nicht behoben.
 
-### Offene Owner-Fragen aus dieser Sitzung
+### Owner-Fragen aus dieser Sitzung — Stand der Antworten
 
-1. „Owner-Rechte nur durch einen Owner“ ist als **Vorgabe gebaut** — bitte bestätigen
-   (Rückweg: eine Funktion `darfOwnerRechte` in `orgControlCenter.js`).
-2. Das Executive Dashboard zeigt Kunden **TempConnect-eigene SaaS-Kennzahlen** (MRR, Churn,
-   Pilot-Funnel, englisch) — gehören die in eine Kundenansicht?
-3. Kunden können bei strategischen Anfragen den **Status ihrer eigenen Anfrage** setzen.
-4. Die Zeile in `CLAUDE.md` „Admin Panel (`/public/admin_panel.html`, `/api/admin/*`)“ ist
-   nach W-E10 veraltet — Änderung nur mit Owner-Zusage.
-5. Produkt-Mails: höchstens **400 je Mitteilung**, Empfänger werden einzeln geladen
-   (bis 5000 Abfragen) — bei 300 Kunden zu klein und zu teuer.
+1. **Owner-Regel** („Owner-Rechte vergibt oder entzieht nur ein Owner“, `403 NUR_OWNER`):
+   Rückfrage des Owners, was gemeint ist — erklärt, Empfehlung: **so lassen**. Antwort offen.
+2. **Executive Dashboard:** die drei Abschnitte „Finance Truth“, „SaaS Retention“, „Pilot &
+   Conversion“ zeigen **nicht die Umsätze des Kunden**, sondern was **TempConnect** an diesem
+   Kunden verdient (MRR, Churn, Pilot-Umwandlung — englisch, Plattform-Sicht). Empfehlung:
+   für Kunden entfernen (die Zahlen gibt es im Staff CC unter Revenue), die eigenen Ausgaben
+   des Kunden stehen in `spend-analytics.html`. Antwort offen.
+3. **Status strategischer Anfragen** (`PATCH /strategic-collaboration/requests/:id/status`):
+   Owner-Antwort „Kunden sollen keinen Status setzen, außer es macht Sinn“. Die Status sind
+   TempConnects Vertriebsablauf (eingegangen … angebot_erstellt, aktiviert). Sinnvoll für den
+   Kunden ist nur: **die eigene Anfrage zurückziehen**. Wird so gebaut (nur die anfragende
+   Firma, nur auf `abgeschlossen`, nur solange nicht aktiviert); kein Oberflächen-Aufrufer
+   betroffen.
+4. **`CLAUDE.md`-Zeile zum Admin Panel:** Owner hat die Änderung **freigegeben** — wird mit
+   dem Abschluss von W-E10 angepasst.
+5. **Produkt-Mails** (höchstens 400 je Mitteilung, Empfänger einzeln geladen): Vorschlag
+   steht beim Owner — Versand über die bestehende Warteschlange in Paketen, Empfänger in
+   einer Abfrage, Versandprotokoll je Empfänger (kein Doppelversand, Fortschritt sichtbar),
+   Empfängerzahl vor dem Klick, Abmeldelink (UWG §7). Antwort offen.
 
 ---
 

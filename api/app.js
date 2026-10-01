@@ -579,7 +579,14 @@ export async function createApp() {
   app.use("/staff/api", staffOriginGuard);
   app.use("/staff/api", limiters.staffMutationLimiter);
   // SCC WAVE 01: staffLoginLimiter aus createRateLimiters injizieren
-  const sccDeps = { pool, logger, staffLoginLimiter: limiters.staffLoginLimiter };
+  /*
+   * `sendMail` und `getUserAndPlan` fehlten hier bis 2026-10-01 — der Router hat
+   * `sendMail` immer erwartet (Benachrichtigungen bei Statuswechseln, Umwandlung
+   * strategischer Anfragen), bekam aber `undefined`. Jede dieser Mails endete still
+   * als "kein Versandweg". Seit W-E10 versendet das Staff CC auch Produkt-Updates.
+   * Probe: test/staffMailVerdrahtung.test.js.
+   */
+  const sccDeps = { pool, logger, sendMail, getUserAndPlan, staffLoginLimiter: limiters.staffLoginLimiter };
   app.use("/staff/api", createStaffControlAuthRouter(sccDeps));
   app.use("/staff/api", createStaffControlCenterRouter(sccDeps));
   app.use("/staff/api", (req, res) => {

@@ -73,6 +73,9 @@ export const BEREICH_JE_PFAD = Object.freeze({
   "rabatt-eingriff": "commercial",
   "rabatt-vorschau": "commercial",
   "rabatt-monat": "commercial",
+  // W-E10: Freischaltungen je Kunde — wer welchen Schalter bekommt, ist eine
+  // kaufmaennische Entscheidung, keine des Betriebs.
+  freischaltungen: "commercial",
   customers: "commercial",
   "customers-meta": "commercial",
   pilots: "pilots",
@@ -86,6 +89,8 @@ export const BEREICH_JE_PFAD = Object.freeze({
   incidents: "operations",
   platform: "platform",
   "platform-audit": "platform",
+  // W-E10: Produkt-Updates ("Was ist neu") — eine Mitteilung an die ganze Plattform.
+  "produkt-updates": "platform",
   "data-explorer": "platform",
   "data-governance": "platform",
   mail: "operations",

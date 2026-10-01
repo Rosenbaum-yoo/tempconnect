@@ -33,6 +33,10 @@ import * as searchModeration from "../services/searchModerationService.js";
 import { config } from "../config/index.js";
 import { STAFF_ROLLEN } from "../config/staffRollen.js";
 import { withTransaction } from "../utils/transaction.js";
+import { z } from "zod";
+// W-E10: Freischaltungen und Produkt-Updates — aus dem Admin Panel hierher umgezogen.
+import * as freischaltung from "../services/freischaltungService.js";
+import * as produktUpdates from "../services/productReleaseService.js";
 import {
   notifyRequestStatusChanged,
   notifyActivationFailed
@@ -122,7 +126,7 @@ function computeFeatureFlagConfirmation(flagKey, enabled) {
 }
 
 export function createStaffControlCenterRouter(deps) {
-  const { pool, logger, sendMail } = deps;
+  const { pool, logger, sendMail, getUserAndPlan } = deps;
   const router = Router();
   const notifyDeps = { sendMail, logger };
   const requireStaff = createStaffControlAccessMiddleware({ pool, logger });
@@ -2611,6 +2615,391 @@ export function createStaffControlCenterRouter(deps) {
         });
       } catch (err) {
         logger?.error({ err, key: schluessel }, "SCC bounty catalog update");
+        res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+      }
+    }
+  );
+
+  /* ════════════════════════════════════════════════════════════════════════
+   * W-E10 — FREISCHALTUNGEN (aus dem Admin Panel, 2026-10-01)
+   * ════════════════════════════════════════════════════════════════════════
+   *
+   * Ein Schalter je Kunde oder plattformweit, gespeichert in `feature_overrides`.
+   * Im Admin Panel liess sich JEDER Tarifschluessel setzen — gelesen wird aber
+   * nur einer (`config/freischaltHebel.js`). Hier gibt es nur Hebel, die greifen,
+   * eine Ausnahme je Kunde nur mit Ende (hoechstens ein Jahr) und vor jeder
+   * Aenderung die Wirkung: was gilt heute fuer diese Firma, und woher.
+   *
+   * Aenderung und Protokoll laufen in EINER Transaktion: es gibt keinen Schalter,
+   * der umgelegt ist, ohne dass im Protokoll steht, wer es war und warum.
+   */
+  function freischaltFehler(res, r) {
+    return res.status(r.status || 400).json({ success: false, error: { code: r.code, message: r.message } });
+  }
+
+  router.get("/freischaltungen", requireStaff, async (_req, res) => {
+    try {
+      res.json({ success: true, data: await freischaltung.uebersicht(pool) });
+    } catch (err) {
+      logger?.error({ err }, "SCC freischaltungen");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  /** Wirkungsvorschau: was gilt heute — fuer eine Firma oder plattformweit */
+  router.get("/freischaltungen/wirkung", requireStaff, async (req, res) => {
+    try {
+      const r = await freischaltung.wirkung(pool, {
+        key: String(req.query.hebel || ""),
+        orgId: req.query.org_id ? String(req.query.org_id) : null
+      });
+      if (!r.ok) return freischaltFehler(res, r);
+      res.json({ success: true, data: { hebel: r.hebel, org: r.org, heute: r.heute, eigene_ausnahmen: r.eigene_ausnahmen } });
+    } catch (err) {
+      logger?.error({ err }, "SCC freischaltungen wirkung");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  /** Firmenauswahl — nur die Seite, auf der der Hebel wirkt */
+  router.get("/freischaltungen/firmen", requireStaff, async (req, res) => {
+    try {
+      const r = await freischaltung.firmenSuche(pool, { key: String(req.query.hebel || ""), suche: req.query.suche });
+      if (!r.ok) return freischaltFehler(res, r);
+      res.json({ success: true, data: { firmen: r.firmen } });
+    } catch (err) {
+      logger?.error({ err }, "SCC freischaltungen firmen");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  router.post("/freischaltungen/setzen",
+    requireStaff, mfaGuard, requireStepUpHigh, requireConfirmAndReason,
+    async (req, res) => {
+      const pruefung = freischaltung.pruefeSetzen(req.body || {});
+      if (!pruefung.ok) return freischaltFehler(res, pruefung);
+      const { key, orgId, enabled, giltBis } = pruefung.werte;
+      try {
+        const r = await withTransaction(pool, async (client) => {
+          const ergebnis = await freischaltung.setzen(client, {
+            key, orgId, enabled, giltBis, grund: req.sccReason, actorId: req.sccActorId
+          });
+          if (!ergebnis.ok) return ergebnis;
+          await writeStaffAudit(client, {
+            actorId: req.sccActorId, area: "commercial",
+            action: "staff.freischaltung.gesetzt",
+            entityType: "feature_override", entityId: String(ergebnis.eintrag.id),
+            status: "ok", reason: req.sccReason, confirmed: true,
+            // Der plattformweite Schalter trifft jeden Kunden ohne eigene Ausnahme.
+            riskLevel: orgId ? "medium" : "high",
+            ...auditContextFromReq(req),
+            details: {
+              hebel: key,
+              org_id: orgId,
+              org_name: ergebnis.org?.name || null,
+              vorher: ergebnis.vorher,
+              nachher: ergebnis.nachher,
+              gilt_bis: giltBis,
+              eigene_ausnahmen_unberuehrt: ergebnis.eigene_ausnahmen
+            }
+          });
+          return ergebnis;
+        });
+        if (!r.ok) return freischaltFehler(res, r);
+        res.json({ success: true, data: { eintrag_id: r.eintrag.id, org: r.org, vorher: r.vorher, nachher: r.nachher } });
+      } catch (err) {
+        logger?.error({ err, hebel: key }, "SCC freischaltungen setzen");
+        res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+      }
+    }
+  );
+
+  router.post("/freischaltungen/:id/entfernen",
+    requireStaff, mfaGuard, requireStepUp, requireConfirmAndReason,
+    async (req, res) => {
+      // `feature_overrides.id` ist SERIAL (Migration 059/223), keine UUID.
+      const id = /^\d{1,10}$/.test(String(req.params.id)) ? Number(req.params.id) : 0;
+      if (!id) return res.status(400).json({ success: false, error: { code: "ID_UNGUELTIG", message: "Die Kennung ist ungültig." } });
+      try {
+        const r = await withTransaction(pool, async (client) => {
+          const ergebnis = await freischaltung.entfernen(client, id);
+          if (!ergebnis) return null;
+          await writeStaffAudit(client, {
+            actorId: req.sccActorId, area: "commercial",
+            action: "staff.freischaltung.entfernt",
+            entityType: "feature_override", entityId: String(id),
+            status: "ok", reason: req.sccReason, confirmed: true,
+            riskLevel: ergebnis.eintrag.org_id ? "medium" : "high",
+            ...auditContextFromReq(req),
+            details: {
+              hebel: ergebnis.eintrag.hebel,
+              org_id: ergebnis.eintrag.org_id,
+              org_name: ergebnis.eintrag.org_name,
+              entfernt: { enabled: ergebnis.eintrag.enabled, gilt_bis: ergebnis.eintrag.gilt_bis, wirkte: ergebnis.eintrag.wirkt },
+              nachher: ergebnis.nachher
+            }
+          });
+          return ergebnis;
+        });
+        if (!r) return res.status(404).json({ success: false, error: { code: "NICHT_GEFUNDEN", message: "Diesen Eintrag gibt es nicht mehr." } });
+        res.json({ success: true, data: { eintrag: r.eintrag, nachher: r.nachher } });
+      } catch (err) {
+        logger?.error({ err, id }, "SCC freischaltungen entfernen");
+        res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+      }
+    }
+  );
+
+  /* ════════════════════════════════════════════════════════════════════════
+   * W-E10 — PRODUKT-UPDATES ("Was ist neu", aus dem Admin Panel, 2026-10-01)
+   * ════════════════════════════════════════════════════════════════════════
+   *
+   * Eine Mitteilung ist plattformweit: veroeffentlicht erscheint sie bei jedem
+   * Nutzer, den die Zielgruppe trifft, auf Wunsch als Modal und per Mail. Darum
+   * ist die Bauart gestuft:
+   *   - Entwurf anlegen/aendern: Step-up, kein Grund (es sieht ihn niemand)
+   *   - eine VEROEFFENTLICHTE Mitteilung aendern: Grund Pflicht (alle sehen es)
+   *   - veroeffentlichen, mailen: Step-up HOCH, Bestaetigung mit Grund
+   *   - Veroeffentlichen geht NUR ueber den eigenen Weg — Speichern kann nichts
+   *     versehentlich veroeffentlichen (status 'published' wird beim Anlegen und
+   *     Aendern abgelehnt).
+   */
+  const MITTEILUNG_ZIELGRUPPEN = ["worker", "agency", "company", "admin", "supplier_user"];
+  const MITTEILUNG_PLAENE = ["DEMO", "BASIS", "PLUS", "PRO", "INDIVIDUELL"];
+  const mitteilungFelder = z.object({
+    title: z.string().trim().min(1).max(500),
+    summary: z.string().max(8000).optional().nullable(),
+    body: z.string().max(50000).optional().nullable(),
+    feature_key: z.string().max(120).optional().nullable(),
+    audiences: z.array(z.enum(MITTEILUNG_ZIELGRUPPEN)).optional(),
+    min_plan: z.enum(MITTEILUNG_PLAENE).optional().nullable(),
+    required_feature_key: z.string().max(120).optional().nullable(),
+    visibility: z.enum(["public", "internal"]),
+    show_in_app: z.boolean().optional(),
+    send_email_on_publish: z.boolean().optional(),
+    priority: z.number().int().min(-100).max(100).optional(),
+    show_as_modal: z.boolean().optional()
+  }).strict();
+  const mitteilungAenderung = mitteilungFelder.partial().extend({
+    // Zurueckziehen (published -> draft) ist erlaubt, Veroeffentlichen nicht.
+    status: z.literal("draft").optional(),
+    reason: z.string().optional(),
+    confirmed: z.boolean().optional()
+  }).strict();
+  const UUID_RE_PU = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  function mitteilungUngueltig(res, err) {
+    const erstes = err?.issues?.[0];
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: "UNGUELTIG",
+        message: erstes ? `${erstes.path.join(".") || "Eingabe"}: ${erstes.message}` : "Die Eingabe ist ungültig.",
+        details: err?.issues || []
+      }
+    });
+  }
+
+  router.get("/produkt-updates", requireStaff, async (_req, res) => {
+    try {
+      const items = await produktUpdates.listAllAdmin(pool);
+      res.json({
+        success: true,
+        data: {
+          items,
+          mail_obergrenze: produktUpdates.mailObergrenze(),
+          // Ohne Versandweg zaehlt der Versand nichts — das muss VOR dem Klick sichtbar sein.
+          mail_versand_bereit: typeof sendMail === "function"
+        }
+      });
+    } catch (err) {
+      logger?.error({ err }, "SCC produkt-updates");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  router.post("/produkt-updates", requireStaff, mfaGuard, requireStepUp, async (req, res) => {
+    const { confirmed: _c, reason: _r, ...roh } = req.body || {};
+    const parsed = mitteilungFelder.safeParse(roh);
+    if (!parsed.success) return mitteilungUngueltig(res, parsed.error);
+    try {
+      const eintrag = await withTransaction(pool, async (client) => {
+        const neu = await produktUpdates.createEntry(client, req.sccActorId, {
+          ...parsed.data, audiences: parsed.data.audiences || [], status: "draft", published_at: null
+        });
+        await writeStaffAudit(client, {
+          actorId: req.sccActorId, area: "platform",
+          action: "staff.produkt_update.angelegt",
+          entityType: "product_release", entityId: neu.id,
+          status: "ok", confirmed: true, riskLevel: "low",
+          ...auditContextFromReq(req),
+          details: { title: neu.title, visibility: neu.visibility }
+        });
+        return neu;
+      });
+      res.status(201).json({ success: true, data: eintrag });
+    } catch (err) {
+      logger?.error({ err }, "SCC produkt-updates anlegen");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  router.patch("/produkt-updates/:id", requireStaff, mfaGuard, requireStepUp, async (req, res) => {
+    if (!UUID_RE_PU.test(String(req.params.id))) {
+      return res.status(400).json({ success: false, error: { code: "ID_UNGUELTIG", message: "Die Kennung ist ungültig." } });
+    }
+    const parsed = mitteilungAenderung.safeParse(req.body || {});
+    if (!parsed.success) return mitteilungUngueltig(res, parsed.error);
+    const { reason, confirmed, ...aenderung } = parsed.data;
+    try {
+      const vorher = await produktUpdates.getById(pool, req.params.id);
+      if (!vorher) return res.status(404).json({ success: false, error: { code: "NICHT_GEFUNDEN", message: "Diese Mitteilung gibt es nicht mehr." } });
+      // Was alle sehen, aendert sich nur mit Begruendung.
+      const grund = String(reason || "").trim();
+      if (vorher.status === "published" && (confirmed !== true || grund.length < 10)) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "GRUND_PFLICHT", message: "Diese Mitteilung ist veröffentlicht — eine Änderung braucht Bestätigung und einen Grund (mindestens 10 Zeichen)." }
+        });
+      }
+      const nachher = await withTransaction(pool, async (client) => {
+        const neu = await produktUpdates.updateEntry(client, req.params.id, aenderung);
+        await writeStaffAudit(client, {
+          actorId: req.sccActorId, area: "platform",
+          action: aenderung.status === "draft" && vorher.status === "published"
+            ? "staff.produkt_update.zurueckgezogen" : "staff.produkt_update.geaendert",
+          entityType: "product_release", entityId: req.params.id,
+          status: "ok", reason: grund || null, confirmed: true,
+          riskLevel: vorher.status === "published" ? "medium" : "low",
+          ...auditContextFromReq(req),
+          details: { title: neu?.title, geaenderte_felder: Object.keys(aenderung), war_veroeffentlicht: vorher.status === "published" }
+        });
+        return neu;
+      });
+      res.json({ success: true, data: nachher });
+    } catch (err) {
+      logger?.error({ err }, "SCC produkt-updates aendern");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  router.post("/produkt-updates/:id/veroeffentlichen",
+    requireStaff, mfaGuard, requireStepUpHigh, requireConfirmAndReason,
+    async (req, res) => {
+      if (!UUID_RE_PU.test(String(req.params.id))) {
+        return res.status(400).json({ success: false, error: { code: "ID_UNGUELTIG", message: "Die Kennung ist ungültig." } });
+      }
+      try {
+        const vorher = await produktUpdates.getById(pool, req.params.id);
+        if (!vorher) return res.status(404).json({ success: false, error: { code: "NICHT_GEFUNDEN", message: "Diese Mitteilung gibt es nicht mehr." } });
+        if (vorher.status === "published") {
+          return res.status(409).json({ success: false, error: { code: "SCHON_VEROEFFENTLICHT", message: "Diese Mitteilung ist bereits veröffentlicht." } });
+        }
+        const eintrag = await withTransaction(pool, async (client) => {
+          const neu = await produktUpdates.publishEntry(client, req.params.id);
+          await writeStaffAudit(client, {
+            actorId: req.sccActorId, area: "platform",
+            action: "staff.produkt_update.veroeffentlicht",
+            entityType: "product_release", entityId: req.params.id,
+            status: "ok", reason: req.sccReason, confirmed: true,
+            riskLevel: vorher.visibility === "public" ? "high" : "medium",
+            ...auditContextFromReq(req),
+            details: {
+              title: neu.title, visibility: neu.visibility, audiences: neu.audiences,
+              min_plan: neu.min_plan, show_as_modal: neu.show_as_modal, mail_folgt: neu.send_email_on_publish === true
+            }
+          });
+          return neu;
+        });
+
+        // Der Versand laeuft NACH der Transaktion: er kann dauern und darf das
+        // Veroeffentlichen nicht zuruecknehmen, wenn ein Mailserver hakt.
+        let mail = null;
+        if (eintrag.send_email_on_publish) {
+          mail = await mitteilungMailen(req, eintrag.id);
+        }
+        res.json({ success: true, data: { eintrag, mail } });
+      } catch (err) {
+        logger?.error({ err }, "SCC produkt-updates veroeffentlichen");
+        res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+      }
+    }
+  );
+
+  async function mitteilungMailen(req, id) {
+    if (typeof sendMail !== "function" || typeof getUserAndPlan !== "function") {
+      return { gesendet: 0, uebersprungen: 0, hinweis: "Kein Versandweg verbunden — es wurde nichts gesendet." };
+    }
+    let ergebnis = { sent: 0, skipped: 0 };
+    let status = "ok";
+    try {
+      ergebnis = await produktUpdates.dispatchReleaseEmails(
+        pool, id, getUserAndPlan, sendMail, logger, config?.BASE_URL || process.env.BASE_URL || ""
+      );
+    } catch (err) {
+      status = "error";
+      logger?.error({ err, id }, "SCC produkt-updates mail");
+    }
+    await writeStaffAudit(pool, {
+      actorId: req.sccActorId, area: "platform",
+      action: "staff.produkt_update.gemailt",
+      entityType: "product_release", entityId: id,
+      status, reason: req.sccReason, confirmed: true, riskLevel: "high",
+      ...auditContextFromReq(req),
+      details: { gesendet: ergebnis.sent, uebersprungen: ergebnis.skipped, obergrenze: produktUpdates.mailObergrenze() }
+    });
+    return { gesendet: ergebnis.sent, uebersprungen: ergebnis.skipped, fehler: status === "error" };
+  }
+
+  router.post("/produkt-updates/:id/mailen",
+    requireStaff, mfaGuard, requireStepUpHigh, requireConfirmAndReason,
+    async (req, res) => {
+      if (!UUID_RE_PU.test(String(req.params.id))) {
+        return res.status(400).json({ success: false, error: { code: "ID_UNGUELTIG", message: "Die Kennung ist ungültig." } });
+      }
+      try {
+        const eintrag = await produktUpdates.getById(pool, req.params.id);
+        if (!eintrag) return res.status(404).json({ success: false, error: { code: "NICHT_GEFUNDEN", message: "Diese Mitteilung gibt es nicht mehr." } });
+        if (eintrag.status !== "published") {
+          return res.status(409).json({ success: false, error: { code: "NICHT_VEROEFFENTLICHT", message: "Gemailt wird nur, was veröffentlicht ist." } });
+        }
+        if (eintrag.email_sent_at) {
+          return res.status(409).json({ success: false, error: { code: "SCHON_GEMAILT", message: "Diese Mitteilung wurde bereits per E-Mail versendet — ein zweiter Versand ginge an dieselben Menschen." } });
+        }
+        res.json({ success: true, data: await mitteilungMailen(req, eintrag.id) });
+      } catch (err) {
+        logger?.error({ err }, "SCC produkt-updates mailen");
+        res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+      }
+    }
+  );
+
+  router.post("/produkt-updates/:id/loeschen",
+    requireStaff, mfaGuard, requireStepUp, requireConfirmAndReason,
+    async (req, res) => {
+      if (!UUID_RE_PU.test(String(req.params.id))) {
+        return res.status(400).json({ success: false, error: { code: "ID_UNGUELTIG", message: "Die Kennung ist ungültig." } });
+      }
+      try {
+        const geloescht = await withTransaction(pool, async (client) => {
+          const vorher = await produktUpdates.getById(client, req.params.id);
+          if (!vorher) return null;
+          await client.query("DELETE FROM product_release_entries WHERE id = $1", [req.params.id]);
+          await writeStaffAudit(client, {
+            actorId: req.sccActorId, area: "platform",
+            action: "staff.produkt_update.geloescht",
+            entityType: "product_release", entityId: req.params.id,
+            status: "ok", reason: req.sccReason, confirmed: true,
+            riskLevel: vorher.status === "published" ? "medium" : "low",
+            ...auditContextFromReq(req),
+            details: { title: vorher.title, war_veroeffentlicht: vorher.status === "published" }
+          });
+          return vorher;
+        });
+        if (!geloescht) return res.status(404).json({ success: false, error: { code: "NICHT_GEFUNDEN", message: "Diese Mitteilung gibt es nicht mehr." } });
+        res.json({ success: true, data: { id: geloescht.id } });
+      } catch (err) {
+        logger?.error({ err }, "SCC produkt-updates loeschen");
         res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
       }
     }

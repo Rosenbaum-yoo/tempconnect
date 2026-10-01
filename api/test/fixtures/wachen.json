@@ -8,20 +8,6 @@
   "wege": [
     {
       "datei": "admin.js",
-      "methode": "put",
-      "pfad": "/admin/feature-overrides",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAdmin` (Administration) steht vor diesem Weg."
-    },
-    {
-      "datei": "admin.js",
-      "methode": "delete",
-      "pfad": "/admin/feature-overrides/:id",
-      "wachart": "flaechentor",
-      "begruendung": "Eintrittsbedingung `requireAdmin` (Administration) steht vor diesem Weg."
-    },
-    {
-      "datei": "admin.js",
       "methode": "patch",
       "pfad": "/admin/organizations/:id/pilot-policy",
       "wachart": "flaechentor",
@@ -1719,41 +1705,6 @@
     {
       "datei": "productReleases.js",
       "methode": "post",
-      "pfad": "/admin/product-releases",
-      "wachart": "flaechentor",
-      "begruendung": "Nur die Plattformverwaltung: benannte Wache `nurPlattformverwaltung` (Org-Rolle oder Nutzerrolle `platform_admin`), bewusst ohne `ADMIN_PANEL_OPEN`. BEFUND 2026-10-01: bis dahin liess die Wache jede Org-Rolle owner/admin durch — ein Kunden-Admin konnte Mitteilungen an ALLE Nutzer anlegen, veroeffentlichen, mailen und loeschen. Der fruehere Eintrag hier ('die eigene Lesebestaetigung') war eine Abschrift der Nachbarzeile und hat die Luecke verdeckt. Probe: test/produktUpdatesNurPlattform.test.js."
-    },
-    {
-      "datei": "productReleases.js",
-      "methode": "delete",
-      "pfad": "/admin/product-releases/:id",
-      "wachart": "flaechentor",
-      "begruendung": "Nur die Plattformverwaltung: benannte Wache `nurPlattformverwaltung` (Org-Rolle oder Nutzerrolle `platform_admin`), bewusst ohne `ADMIN_PANEL_OPEN`. BEFUND 2026-10-01: bis dahin liess die Wache jede Org-Rolle owner/admin durch — ein Kunden-Admin konnte Mitteilungen an ALLE Nutzer anlegen, veroeffentlichen, mailen und loeschen. Der fruehere Eintrag hier ('die eigene Lesebestaetigung') war eine Abschrift der Nachbarzeile und hat die Luecke verdeckt. Probe: test/produktUpdatesNurPlattform.test.js."
-    },
-    {
-      "datei": "productReleases.js",
-      "methode": "patch",
-      "pfad": "/admin/product-releases/:id",
-      "wachart": "flaechentor",
-      "begruendung": "Nur die Plattformverwaltung: benannte Wache `nurPlattformverwaltung` (Org-Rolle oder Nutzerrolle `platform_admin`), bewusst ohne `ADMIN_PANEL_OPEN`. BEFUND 2026-10-01: bis dahin liess die Wache jede Org-Rolle owner/admin durch — ein Kunden-Admin konnte Mitteilungen an ALLE Nutzer anlegen, veroeffentlichen, mailen und loeschen. Der fruehere Eintrag hier ('die eigene Lesebestaetigung') war eine Abschrift der Nachbarzeile und hat die Luecke verdeckt. Probe: test/produktUpdatesNurPlattform.test.js."
-    },
-    {
-      "datei": "productReleases.js",
-      "methode": "post",
-      "pfad": "/admin/product-releases/:id/publish",
-      "wachart": "flaechentor",
-      "begruendung": "Nur die Plattformverwaltung: benannte Wache `nurPlattformverwaltung` (Org-Rolle oder Nutzerrolle `platform_admin`), bewusst ohne `ADMIN_PANEL_OPEN`. BEFUND 2026-10-01: bis dahin liess die Wache jede Org-Rolle owner/admin durch — ein Kunden-Admin konnte Mitteilungen an ALLE Nutzer anlegen, veroeffentlichen, mailen und loeschen. Der fruehere Eintrag hier ('die eigene Lesebestaetigung') war eine Abschrift der Nachbarzeile und hat die Luecke verdeckt. Probe: test/produktUpdatesNurPlattform.test.js."
-    },
-    {
-      "datei": "productReleases.js",
-      "methode": "post",
-      "pfad": "/admin/product-releases/:id/send-email",
-      "wachart": "flaechentor",
-      "begruendung": "Nur die Plattformverwaltung: benannte Wache `nurPlattformverwaltung` (Org-Rolle oder Nutzerrolle `platform_admin`), bewusst ohne `ADMIN_PANEL_OPEN`. BEFUND 2026-10-01: bis dahin liess die Wache jede Org-Rolle owner/admin durch — ein Kunden-Admin konnte Mitteilungen an ALLE Nutzer anlegen, veroeffentlichen, mailen und loeschen. Der fruehere Eintrag hier ('die eigene Lesebestaetigung') war eine Abschrift der Nachbarzeile und hat die Luecke verdeckt. Probe: test/produktUpdatesNurPlattform.test.js."
-    },
-    {
-      "datei": "productReleases.js",
-      "methode": "post",
       "pfad": "/product-releases/:id/ack",
       "wachart": "eigene-daten",
       "begruendung": "Die eigene Lesebestaetigung. Ausnahme: die Pflege liegt unter /admin/."
@@ -3311,12 +3262,61 @@
       "pfad": "/workers/:userId/skills",
       "wachart": "berechtigung",
       "begruendung": "N1b: `rperm(\"worker.edit\")` traegt den Weg, dazu `requireScope(\"write:workers\")`. Die Zeile selbst bindet `getScopedWorker` an die eigene Organisation - im Org-Grenzen-Register als verhaltensgeprueft gefuehrt und dort ausgefuehrt geprueft."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/freischaltungen/setzen",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Sitzung (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, Ablauf und Widerruf im WHERE und das Rollentor (config/staffRollen.js). MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten. W-E10 (2026-10-01): aus dem Admin Panel hierher umgezogen; Aenderung und Protokoll laufen in EINER Transaktion. Step-up HOCH, Bestaetigung mit Pflichtbegruendung. Strukturelle Riegel statt Vier-Augen (das Team ist eine Person): nur Hebel aus config/freischaltHebel.js, die ein Verbraucher im Code liest; eine Ausnahme je Firma nur mit Ende (hoechstens 366 Tage) und nur auf der Seite, auf der der Hebel wirkt; Wirkung davor und danach im Protokoll. Probe: test/freischaltungen.test.js."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/freischaltungen/:id/entfernen",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Sitzung (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, Ablauf und Widerruf im WHERE und das Rollentor (config/staffRollen.js). MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten. W-E10 (2026-10-01): aus dem Admin Panel hierher umgezogen; Aenderung und Protokoll laufen in EINER Transaktion. Step-up, Bestaetigung mit Pflichtbegruendung; das Protokoll nennt, was danach gilt. Probe: test/freischaltungen.test.js."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/produkt-updates",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Sitzung (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, Ablauf und Widerruf im WHERE und das Rollentor (config/staffRollen.js). MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten. W-E10 (2026-10-01): aus dem Admin Panel hierher umgezogen; Aenderung und Protokoll laufen in EINER Transaktion. Step-up. Legt IMMER einen Entwurf an — status im Rumpf wird abgelehnt, Veroeffentlichen geht nur ueber den eigenen Weg. Probe: test/produktUpdatesNurPlattform.test.js."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "patch",
+      "pfad": "/produkt-updates/:id",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Sitzung (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, Ablauf und Widerruf im WHERE und das Rollentor (config/staffRollen.js). MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten. W-E10 (2026-10-01): aus dem Admin Panel hierher umgezogen; Aenderung und Protokoll laufen in EINER Transaktion. Step-up; an einer veroeffentlichten Mitteilung zusaetzlich Bestaetigung mit Grund (im Handler, 400 GRUND_PFLICHT). Kann nicht veroeffentlichen, nur zurueckziehen. Probe: test/produktUpdatesNurPlattform.test.js."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/produkt-updates/:id/veroeffentlichen",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Sitzung (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, Ablauf und Widerruf im WHERE und das Rollentor (config/staffRollen.js). MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten. W-E10 (2026-10-01): aus dem Admin Panel hierher umgezogen; Aenderung und Protokoll laufen in EINER Transaktion. Step-up HOCH, Bestaetigung mit Pflichtbegruendung — eine Mitteilung erscheint bei jedem Nutzer der Zielgruppe. Probe: test/produktUpdatesNurPlattform.test.js."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/produkt-updates/:id/mailen",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Sitzung (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, Ablauf und Widerruf im WHERE und das Rollentor (config/staffRollen.js). MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten. W-E10 (2026-10-01): aus dem Admin Panel hierher umgezogen; Aenderung und Protokoll laufen in EINER Transaktion. Step-up HOCH, Bestaetigung mit Pflichtbegruendung; nur Veroeffentlichtes, nie zweimal (409 SCHON_GEMAILT), ohne Versandweg sagt die Antwort es. Probe: test/produktUpdatesNurPlattform.test.js."
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "methode": "post",
+      "pfad": "/produkt-updates/:id/loeschen",
+      "wachart": "flaechentor",
+      "begruendung": "Staff Control Center: `requireStaff` (createStaffControlAccessMiddleware) am Eintritt — eigene Staff-Sitzung (tc.staff.sid), Zugehoerigkeit in `tempconnect_staff`, Ablauf und Widerruf im WHERE und das Rollentor (config/staffRollen.js). MFA-Audit (bewusst nicht erzwingend, siehe Kommentar an der Fabrik). Eine Org-Grenze gibt es hier nicht und darf es nicht geben: Staff verwaltet die Plattform, nicht einen Mandanten. W-E10 (2026-10-01): aus dem Admin Panel hierher umgezogen; Aenderung und Protokoll laufen in EINER Transaktion. Step-up, Bestaetigung mit Pflichtbegruendung. Probe: test/produktUpdatesNurPlattform.test.js."
     }
   ],
   "grundlinie": {
     "wege": 470,
     "berechtigung": 164,
-    "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-22 von 415 auf 416 erhoeht: Abschnitt 10 hat mit `POST /support-requests` den Weg eines Kunden INS Support Center angelegt — vorher hatte `support_cases` im gesamten Repo kein einziges INSERT, das Support Center war ein Lesesaal ueber einer Tabelle, die niemand fuellen konnte. Die Wachart bleibt `eigene-daten`: der Melder kommt aus der Sitzung, nicht aus dem Anfragekoerper. Am 2026-08-22 weiter auf 417: `POST /offers/:id/report` (Abschnitt 10, Inhalte melden). `berechtigung` unveraendert bei 161. Am 2026-08-23 von 418 auf 417 GESENKT: `POST /reports` wurde nach Owner-Entscheid ENTFERNT (0 Aufrufer, 0 Zeilen; Migration 191). Eine Route, die es nicht mehr gibt, kann nicht bewacht werden — stattdessen haelt eine Probe fest, dass sie nicht zurueckkehrt. Am 2026-08-24 weiter auf 419: `PATCH /staff-access/:userId/role` (Rollen vergeben, Owner-Entscheid). `berechtigung` unveraendert bei 161. Am 2026-08-24 sprunghaft auf 456: der Waechter montierte pro Datei nur die ERSTE `create*Router`-Fabrik. `staffControlCenter.js` exportiert zwei — die Auth-Fabrik (1 Weg) steht vor der Center-Fabrik (50 Wege). Die gesamte schreibende Flaeche des Staff Control Center war damit fuer das Bestandsbuch blind. Der Waechter montiert jetzt alle Fabriken. Am 2026-08-26 von 470 auf 465 GESENKT: die fünf Wege von timesheetTemplates.js wurden nach Owner-Entscheid ENTFERNT, zusammen mit Route, Dienst und Oberfläche. Grund war kein Aufräumen, sondern ein Totalausfall: der Dienst fragte timesheet_templates.is_default ab — eine Spalte, die dort nicht existiert (sie liegt auf timesheet_template_assignments, Migration 033). Auflisten UND Anlegen warfen, die Tabelle hatte deshalb dauerhaft 0 Zeilen, und ein blosses catch in timesheetService.js verschluckte den SQL-Fehler. Die drei Tabellen bleiben stehen. `berechtigung` unverändert bei 162 — die fünf Wege waren `flaechentor`, kein einziger war per Berechtigung bewacht. Am 2026-08-31 von 467 auf 468 erhoeht: Welle K1 hat mit `POST /rabatt-eingriff` den Eingriffspunkt in die Rabatt-Automatik angelegt — der einzige Weg, auf dem ein Mensch den automatisch ermittelten Rabatt eines Kunden veraendern kann. Er traegt dieselbe Kette wie der Rabatt-Katalog (Staff-Tor, Step-up HOCH, Bestaetigung mit Pflichtbegruendung) und zusaetzlich die strukturellen Riegel aus Plan-Abschnitt 3a, weil es keine zweite Staff-Rolle gibt und ein Vier-Augen-Prinzip damit dauerhaft blockiert waere. Am 2026-09-20 von 469 auf 470 erhoeht: Welle N3.5 hat mit POST /internal/profil-rangliste die Handkurbel zum neuen Takt angelegt. Der Dienst dahinter war vollstaendig gebaut, hatte aber KEINEN Aufrufer - die oeffentliche Profil-Rangliste wurde nie geschrieben, und die Zeile 'Ihre Position' im Anbieterprofil blieb dauerhaft leer. Wachart cron wie bei den uebrigen internen Endpunkten; berechtigung unveraendert. Am 2026-09-22 von 470 auf 471 erhoeht: Welle N8.1b-7 hat mit POST /faehigkeits-vorschlaege/:id/entscheiden die Kuratierung der Faehigkeits-Vorschlaege angelegt. Gemessen davor: status='proposed' wurde von KEINER Zeile im ganzen Stack gelesen - der Arbeiter hoerte 'wird geprueft', und geprueft wurde nie. Unter dem Owner-Entscheid 'keine Freitexte mehr' ist dieser Weg das einzige Ventil. Am 2026-09-27 von 471 auf 470 GESENKT (Welle Z, Z2): POST /timesheets/:id/sign wurde ENTFERNT. Die Route schrieb timesheets.worker_signed_at/_ip - zwei Spalten, die es NIE gab (auch keine Migration nennt sie; die in api/docs/TIMESHEETS.md als Quelle angegebene 'Migration 031' ist 031_rls_prep.sql). Sie konnte damit ausschliesslich eine 500 liefern, keinen einzigen Tag etwas anderes. Eine Route, die es nicht mehr gibt, kann nicht bewacht werden. Dass die Spalten nicht ANGELEGT, sondern der Weg entfernt wurde, ist in services/timesheetService.js ausfuehrlich begruendet: die Kraft steht ueber worker_time_submissions + timesheets.source='worker_submission' hinter ihren Stunden, und der Zettel kennt den Menschen nur als Text (kein worker_user_id) - angelegt haette das Feld eine Unterschrift belegen koennen, die jemand anders geleistet hat. Entscheid Claude, dem Owner zur Bestaetigung vorgelegt; der Rueckweg waere die Unterschrift an worker_time_submissions, nicht an timesheets."
+    "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-22 von 415 auf 416 erhoeht: Abschnitt 10 hat mit `POST /support-requests` den Weg eines Kunden INS Support Center angelegt — vorher hatte `support_cases` im gesamten Repo kein einziges INSERT, das Support Center war ein Lesesaal ueber einer Tabelle, die niemand fuellen konnte. Die Wachart bleibt `eigene-daten`: der Melder kommt aus der Sitzung, nicht aus dem Anfragekoerper. Am 2026-08-22 weiter auf 417: `POST /offers/:id/report` (Abschnitt 10, Inhalte melden). `berechtigung` unveraendert bei 161. Am 2026-08-23 von 418 auf 417 GESENKT: `POST /reports` wurde nach Owner-Entscheid ENTFERNT (0 Aufrufer, 0 Zeilen; Migration 191). Eine Route, die es nicht mehr gibt, kann nicht bewacht werden — stattdessen haelt eine Probe fest, dass sie nicht zurueckkehrt. Am 2026-08-24 weiter auf 419: `PATCH /staff-access/:userId/role` (Rollen vergeben, Owner-Entscheid). `berechtigung` unveraendert bei 161. Am 2026-08-24 sprunghaft auf 456: der Waechter montierte pro Datei nur die ERSTE `create*Router`-Fabrik. `staffControlCenter.js` exportiert zwei — die Auth-Fabrik (1 Weg) steht vor der Center-Fabrik (50 Wege). Die gesamte schreibende Flaeche des Staff Control Center war damit fuer das Bestandsbuch blind. Der Waechter montiert jetzt alle Fabriken. Am 2026-08-26 von 470 auf 465 GESENKT: die fünf Wege von timesheetTemplates.js wurden nach Owner-Entscheid ENTFERNT, zusammen mit Route, Dienst und Oberfläche. Grund war kein Aufräumen, sondern ein Totalausfall: der Dienst fragte timesheet_templates.is_default ab — eine Spalte, die dort nicht existiert (sie liegt auf timesheet_template_assignments, Migration 033). Auflisten UND Anlegen warfen, die Tabelle hatte deshalb dauerhaft 0 Zeilen, und ein blosses catch in timesheetService.js verschluckte den SQL-Fehler. Die drei Tabellen bleiben stehen. `berechtigung` unverändert bei 162 — die fünf Wege waren `flaechentor`, kein einziger war per Berechtigung bewacht. Am 2026-08-31 von 467 auf 468 erhoeht: Welle K1 hat mit `POST /rabatt-eingriff` den Eingriffspunkt in die Rabatt-Automatik angelegt — der einzige Weg, auf dem ein Mensch den automatisch ermittelten Rabatt eines Kunden veraendern kann. Er traegt dieselbe Kette wie der Rabatt-Katalog (Staff-Tor, Step-up HOCH, Bestaetigung mit Pflichtbegruendung) und zusaetzlich die strukturellen Riegel aus Plan-Abschnitt 3a, weil es keine zweite Staff-Rolle gibt und ein Vier-Augen-Prinzip damit dauerhaft blockiert waere. Am 2026-09-20 von 469 auf 470 erhoeht: Welle N3.5 hat mit POST /internal/profil-rangliste die Handkurbel zum neuen Takt angelegt. Der Dienst dahinter war vollstaendig gebaut, hatte aber KEINEN Aufrufer - die oeffentliche Profil-Rangliste wurde nie geschrieben, und die Zeile 'Ihre Position' im Anbieterprofil blieb dauerhaft leer. Wachart cron wie bei den uebrigen internen Endpunkten; berechtigung unveraendert. Am 2026-09-22 von 470 auf 471 erhoeht: Welle N8.1b-7 hat mit POST /faehigkeits-vorschlaege/:id/entscheiden die Kuratierung der Faehigkeits-Vorschlaege angelegt. Gemessen davor: status='proposed' wurde von KEINER Zeile im ganzen Stack gelesen - der Arbeiter hoerte 'wird geprueft', und geprueft wurde nie. Unter dem Owner-Entscheid 'keine Freitexte mehr' ist dieser Weg das einzige Ventil. Am 2026-09-27 von 471 auf 470 GESENKT (Welle Z, Z2): POST /timesheets/:id/sign wurde ENTFERNT. Die Route schrieb timesheets.worker_signed_at/_ip - zwei Spalten, die es NIE gab (auch keine Migration nennt sie; die in api/docs/TIMESHEETS.md als Quelle angegebene 'Migration 031' ist 031_rls_prep.sql). Sie konnte damit ausschliesslich eine 500 liefern, keinen einzigen Tag etwas anderes. Eine Route, die es nicht mehr gibt, kann nicht bewacht werden. Dass die Spalten nicht ANGELEGT, sondern der Weg entfernt wurde, ist in services/timesheetService.js ausfuehrlich begruendet: die Kraft steht ueber worker_time_submissions + timesheets.source='worker_submission' hinter ihren Stunden, und der Zettel kennt den Menschen nur als Text (kein worker_user_id) - angelegt haette das Feld eine Unterschrift belegen koennen, die jemand anders geleistet hat. Entscheid Claude, dem Owner zur Bestaetigung vorgelegt; der Rueckweg waere die Unterschrift an worker_time_submissions, nicht an timesheets. Am 2026-10-01 unveraendert bei 470 (W-E10): sieben Pflegewege verlassen die Kundenwelt (PUT/DELETE /admin/feature-overrides, fuenf schreibende /admin/product-releases-Wege) und kommen als sieben Wege ins Staff Control Center (/freischaltungen/setzen, /freischaltungen/:id/entfernen, /produkt-updates anlegen/aendern/veroeffentlichen/mailen/loeschen). `berechtigung` unveraendert — alle vierzehn waren und sind `flaechentor`."
   },
   "lesen": {
     "zweck": "M2.3 — die LESENDEN Wege. Anders als bei den schreibenden steht hier NICHT jeder Weg einzeln: 457 von 471 lassen sich aus der montierten Middleware-Kette ableiten (`wachen` unten). Ein Register, das 457 Zeilen wiederholt, was ohnehin im Code steht, wird nicht gepflegt — und die 14 echten Urteile verschwinden darin. Eingetragen ist deshalb, was die Ableitung NICHT entscheiden kann.",
@@ -3331,7 +3331,6 @@
       "requireAgencyOrgMiddleware": "flaechentor",
       "verweigereArbeiterMiddleware": "flaechentor",
       "requireAdmin": "flaechentor",
-      "nurPlattformverwaltung": "flaechentor",
       "requireWorkerRole": "flaechentor",
       "requireAgencyRole": "flaechentor",
       "requireRoleMiddleware": "flaechentor",

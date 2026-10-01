@@ -4,15 +4,25 @@
  */
 
 import { hasFeature } from "../config/planFeatures.js";
+import { normalizePlanKey } from "../config/planCatalog.js";
 
+/*
+ * Rang je KANONISCHEM Plan. Bis 2026-10-01 stand hier ENTERPRISE als oberste
+ * Stufe — aber `getUserAndPlan` liefert den kanonischen Schluessel INDIVIDUELL,
+ * und den kannte diese Tabelle nicht: Rang 0. Eine Mitteilung "ab PLUS" erreichte
+ * damit jeden Kunden AUSSER denen im hoechsten Tarif. Jetzt wird jeder Wert erst
+ * ueber `normalizePlanKey` gefuehrt (ENTERPRISE -> INDIVIDUELL, FREE -> DEMO).
+ */
 const PLAN_RANK = {
   DEMO: 0,
-  FREE: 0,
   BASIS: 1,
   PLUS: 2,
   PRO: 3,
-  ENTERPRISE: 4
+  INDIVIDUELL: 4
 };
+
+/** Hoechstzahl Mails je Mitteilung — siehe dispatchReleaseEmails. */
+const EMAIL_BATCH_CAP = 400;
 
 const AUDIENCE_KEYS = new Set(["worker", "agency", "company", "admin", "supplier_user"]);
 
@@ -21,8 +31,12 @@ const AUDIENCE_KEYS = new Set(["worker", "agency", "company", "admin", "supplier
  * @returns {number}
  */
 export function planTier(plan) {
-  const p = String(plan || "DEMO").toUpperCase();
-  return PLAN_RANK[p] ?? 0;
+  return PLAN_RANK[normalizePlanKey(plan)] ?? 0;
+}
+
+/** Wie viele Mails eine Mitteilung hoechstens verschickt (siehe dispatchReleaseEmails). */
+export function mailObergrenze() {
+  return EMAIL_BATCH_CAP;
 }
 
 /**
@@ -333,7 +347,6 @@ export async function publishEntry(pool, id) {
   return rows[0] ? mapRow(rows[0]) : null;
 }
 
-const EMAIL_BATCH_CAP = 400;
 
 /**
  * One-shot email blast to users matching entry targeting. Sets email_sent_at when done.

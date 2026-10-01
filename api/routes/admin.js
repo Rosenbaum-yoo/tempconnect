@@ -14,16 +14,6 @@ import * as pilotPolicyService from "../services/pilotPolicyService.js";
 import { buildAdminControlCenter } from "../services/adminControlCenterService.js";
 import { buildAuditReport as buildVisibilityAuditReport } from "../services/visibilityAuditService.js";
 
-/*
- * Z4 (2026-09-27): Bezeichner dieses Projekts sind UUIDs — `organizations.id`
- * und `users.id` gemessen als `uuid`. Drei Stellen der Feature-Override-Routen
- * haben sie mit `parseInt` gelesen und damit `NaN` erhalten: der Org-Filter
- * konnte nie greifen, und DELETE endete wegen `if (!id)` immer in einer 400. Das
- * Muster dieses Projekts ist ein lokales `UUID_RE` je Modul
- * (`middleware/orgBoundary.js`, `orgContext.js`, `utils/metrics.js`).
- */
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export function createAdminRouter(deps) {
   const { pool, requireAuth, logger, config, getUserAndPlan, requestLimiter } = deps;
   // exportLimiter: applies to GETs (unlike apiLimiter which skips them).
@@ -879,103 +869,14 @@ export function createAdminRouter(deps) {
     } catch (e) { logger.error({ err: e }, "admin audit csv export"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
   });
 
-  /* ── Feature Overrides (Admin Feature Dashboard) ─────── */
-  router.get("/admin/feature-overrides", requireAuth, requireAdmin, async (req, res) => {
-    // Freischalt-Hebel: `checkOverride` entscheidet ueber bezahlte Funktionen.
-    if (!nurPlattform(req, res)) return;
-    try {
-      const { listOverrides } = await import("../services/featureOverrideService.js");
-      /* Z4: `parseInt` auf einer UUID ergibt NaN — der Filter konnte nie greifen. */
-      const orgId = req.query.org_id ? String(req.query.org_id) : null;
-      if (orgId && !UUID_RE.test(orgId)) {
-        return res.status(400).json({ success: false, error: { code: "INVALID_ORG_ID" } });
-      }
-      const limit = Math.min(200, parseInt(req.query.limit) || 100);
-      const offset = parseInt(req.query.offset) || 0;
-      const result = await listOverrides(pool, { orgId, limit, offset });
-      res.json({ success: true, data: result });
-    } catch (e) { logger.error({ err: e }, "admin feature-overrides list"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
-  });
-
-  router.put("/admin/feature-overrides", requireAuth, requireAdmin, async (req, res) => {
-    // Nahm `org_id` frei aus dem Rumpf: ein Kunden-Admin konnte damit eine
-    // Funktion fuer JEDE Organisation freischalten, auch die eigene.
-    if (!nurPlattform(req, res)) return;
-    try {
-      const { upsertOverride } = await import("../services/featureOverrideService.js");
-      const { org_id, enabled, reason, expires_at } = req.body;
-      /* Z4: hier stand `if (!feature_key)` auf dem rohen Wert — `"   "` kam
-         damit durch. Ein Hebel auf Leerzeichen steht in der Liste, sperrt den
-         echten Schluessel nicht und wirkt nie, weil `checkOverride` am
-         Schluessel sucht. Die Datenbank haelt dieselbe Regel (Migration 223). */
-      const feature_key = typeof req.body.feature_key === "string" ? req.body.feature_key.trim() : "";
-      if (!feature_key) return res.status(400).json({ success: false, error: { code: "MISSING_FEATURE_KEY" } });
-      /* Z4: ohne Pruefung wuerde eine unbrauchbare Org-Kennung erst am
-         Fremdschluessel scheitern — also als 500 statt als 400, und der Owner
-         saehe "Serverfehler", wo "diese Kennung stimmt nicht" gemeint ist. */
-      if (org_id && !UUID_RE.test(String(org_id))) {
-        return res.status(400).json({ success: false, error: { code: "INVALID_ORG_ID" } });
-      }
-      const override = await upsertOverride(pool, {
-        featureKey: feature_key,
-        orgId: org_id || null,
-        enabled: enabled !== false,
-        reason: reason || null,
-        createdBy: req.session.userId,
-        expiresAt: expires_at || null
-      });
-      try {
-        const { writeAuditEnhanced } = await import("../services/auditLog.js");
-        await writeAuditEnhanced(pool, req, {
-          action: "admin.feature_override.upsert", entity_type: "feature_override", entity_id: String(override.id),
-          details: { feature_key, org_id, enabled }
-        });
-      } catch { /* audit non-critical */ }
-      res.json({ success: true, data: override });
-    } catch (e) { logger.error({ err: e }, "admin feature-override upsert"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
-  });
-
-  router.delete("/admin/feature-overrides/:id", requireAuth, requireAdmin, async (req, res) => {
-    if (!nurPlattform(req, res)) return;
-    try {
-      const { deleteOverride } = await import("../services/featureOverrideService.js");
-      /* Z4: `parseInt` ist hier RICHTIG und bleibt. `feature_overrides.id` ist
-         `SERIAL` (Migration 059, nachgetragen von 223) — anders als fast alle
-         juengeren Tabellen dieses Projekts, die UUIDs tragen. Meine erste
-         Fassung des Nachtrags hatte die Tabelle auf UUID umgestellt und diese
-         Zeile mitgeaendert; das waere eine zweite Definition derselben Tabelle
-         gewesen. Ein Nachtrag richtet sich nach dem, was er nachtraegt. */
-      const id = parseInt(req.params.id, 10);
-      if (!id) return res.status(400).json({ success: false, error: { code: "INVALID_ID" } });
-      const deleted = await deleteOverride(pool, id);
-      if (!deleted) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
-      try {
-        const { writeAuditEnhanced } = await import("../services/auditLog.js");
-        await writeAuditEnhanced(pool, req, {
-          action: "admin.feature_override.delete", entity_type: "feature_override", entity_id: String(id)
-        });
-      } catch { /* audit non-critical */ }
-      res.json({ success: true });
-    } catch (e) { logger.error({ err: e }, "admin feature-override delete"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
-  });
-
-  /** List all known feature keys (for dropdown in dashboard) */
-  router.get("/admin/feature-keys", requireAuth, requireAdmin, (req, res) => {
-    // Der Katalog der Freischalt-Schluessel gehoert zum Hebel darueber.
-    if (!nurPlattform(req, res)) return;
-    try {
-      const { planFeatures } = require("../config/planFeatures.js");
-      const keys = Object.keys(planFeatures);
-      res.json({ success: true, data: { keys } });
-    } catch {
-      // ESM fallback
-      import("../config/planFeatures.js").then(m => {
-        res.json({ success: true, data: { keys: Object.keys(m.planFeatures) } });
-      }).catch(_e => {
-        res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
-      });
-    }
-  });
+  /* ── Freischaltungen (frueher: Feature Overrides) ───────────────────────
+   * W-E10 (Owner-Entscheid 2026-09-30, umgesetzt 2026-10-01): die vier Wege
+   * `/admin/feature-overrides` (lesen, setzen, loeschen) und `/admin/feature-keys` sind ins Staff Control
+   * Center umgezogen (`/staff/api/freischaltungen`). Dort gibt es nur Hebel, die
+   * ein Verbraucher wirklich liest (`config/freischaltHebel.js`), eine Ausnahme
+   * je Kunde nur mit Ende und vor jeder Aenderung die Wirkung. Hier wurde jeder
+   * Tarifschluessel angenommen — gelesen wurde einer.
+   * Probe, dass die Wege nicht zurueckkehren: test/freischaltungen.test.js. */
 
   return router;
 }

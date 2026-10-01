@@ -149,11 +149,7 @@ describe("admin router — registration", () => {
       "get /admin/activity-feed/action-types",
       "get /admin/revenue",
       "get /admin/system-health",
-      "get /admin/audit-log/export/csv",
-      "get /admin/feature-overrides",
-      "put /admin/feature-overrides",
-      "delete /admin/feature-overrides/:id",
-      "get /admin/feature-keys"
+      "get /admin/audit-log/export/csv"
     ]) {
       assert.ok(seen.has(r), `missing route: ${r}`);
     }
@@ -813,10 +809,6 @@ describe("Admin-Flaeche — was der Plattformverwaltung vorbehalten bleibt", () 
     ["get", "/admin/metrics", "zaehlt ueber alle Nutzer und Organisationen"],
     ["get", "/admin/revenue", "Plattformumsatz ueber alle Kunden"],
     ["get", "/admin/system-health", "Systeminternes"],
-    ["get", "/admin/feature-overrides", "Freischalt-Hebel"],
-    ["put", "/admin/feature-overrides", "schaltet Funktionen fuer JEDE Org frei"],
-    ["delete", "/admin/feature-overrides/:id", "Freischalt-Hebel"],
-    ["get", "/admin/feature-keys", "Katalog der Freischalt-Schluessel"],
     ["patch", "/admin/requests/:id/status", "Eingriff von aussen in einen Marktplatz-Vorgang"],
     ["patch", "/admin/strategic-collaboration/requests/:id/status", "Team-Workflow zwischen zwei Kunden"],
     ["patch", "/admin/strategic-collaboration/requests/:id/assign", "Zuweisung an einen Bearbeiter"],
@@ -1430,184 +1422,8 @@ describe("GET /admin/audit-log/export/csv", () => {
   });
 });
 
-/* ── GET /admin/feature-overrides ──────────────────────────────────────── */
-
-describe("GET /admin/feature-overrides", () => {
-  it("200 returns override listing", async () => {
-    // listOverrides runs pool.query; unmatched -> [] -> zero-fallback shape.
-    const handler = getHandler(createAdminRouter(makeDeps(trackingPool())), "get", "/admin/feature-overrides");
-    const res = mockRes();
-    await handler(mockReq({ query: { limit: "50" } }), res);
-    assert.strictEqual(res._status, 200);
-    assert.strictEqual(res._json.success, true);
-    assert.ok(res._json.data, "override result present");
-  });
-
-  it("500 SERVER_ERROR when listOverrides throws", async () => {
-    const pool = trackingPool([
-      { match: () => true, respond: () => { throw new Error("db"); } }
-    ]);
-    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/feature-overrides");
-    const res = mockRes();
-    await handler(mockReq(), res);
-    assert.strictEqual(res._status, 500);
-    assert.strictEqual(res._json.error.code, "SERVER_ERROR");
-  });
-});
-
-/* ── PUT /admin/feature-overrides ──────────────────────────────────────── */
-
-describe("PUT /admin/feature-overrides", () => {
-  it("400 MISSING_FEATURE_KEY when feature_key absent", async () => {
-    const handler = getHandler(createAdminRouter(makeDeps(trackingPool())), "put", "/admin/feature-overrides");
-    const res = mockRes();
-    await handler(mockReq({ body: { org_id: "org-1" } }), res);
-    assert.strictEqual(res._status, 400);
-    assert.strictEqual(res._json.error.code, "MISSING_FEATURE_KEY");
-  });
-
-  it("200 upserts override", async () => {
-    const pool = trackingPool([
-      { match: (s) => s.includes("feature_overrides") && (s.includes("INSERT") || s.includes("ON CONFLICT") || s.includes("UPDATE")),
-        respond: { rows: [{ id: 5, feature_key: "kpi_dashboard", enabled: true }] } }
-    ]);
-    const handler = getHandler(createAdminRouter(makeDeps(pool)), "put", "/admin/feature-overrides");
-    const res = mockRes();
-    await handler(mockReq({ body: { feature_key: "kpi_dashboard", enabled: true } }), res);
-    assert.strictEqual(res._status, 200);
-    assert.strictEqual(res._json.success, true);
-    assert.strictEqual(res._json.data.id, 5);
-  });
-
-  it("500 SERVER_ERROR when upsert throws", async () => {
-    const pool = trackingPool([
-      { match: () => true, respond: () => { throw new Error("db"); } }
-    ]);
-    const handler = getHandler(createAdminRouter(makeDeps(pool)), "put", "/admin/feature-overrides");
-    const res = mockRes();
-    await handler(mockReq({ body: { feature_key: "kpi_dashboard" } }), res);
-    assert.strictEqual(res._status, 500);
-    assert.strictEqual(res._json.error.code, "SERVER_ERROR");
-  });
-});
-
-/* ── DELETE /admin/feature-overrides/:id ───────────────────────────────── */
-
-describe("DELETE /admin/feature-overrides/:id", () => {
-  it("400 INVALID_ID for non-numeric id", async () => {
-    const handler = getHandler(createAdminRouter(makeDeps(trackingPool())), "delete", "/admin/feature-overrides/:id");
-    const res = mockRes();
-    await handler(mockReq({ params: { id: "abc" } }), res);
-    assert.strictEqual(res._status, 400);
-    assert.strictEqual(res._json.error.code, "INVALID_ID");
-  });
-
-  it("404 NOT_FOUND when nothing deleted", async () => {
-    const pool = trackingPool([
-      { match: (s) => s.includes("feature_overrides") && s.includes("DELETE"), respond: { rows: [], rowCount: 0 } }
-    ]);
-    const handler = getHandler(createAdminRouter(makeDeps(pool)), "delete", "/admin/feature-overrides/:id");
-    const res = mockRes();
-    await handler(mockReq({ params: { id: "7" } }), res);
-    assert.strictEqual(res._status, 404);
-    assert.strictEqual(res._json.error.code, "NOT_FOUND");
-  });
-
-  it("200 deletes override", async () => {
-    const pool = trackingPool([
-      { match: (s) => s.includes("feature_overrides") && s.includes("DELETE"),
-        respond: { rows: [{ id: 7 }], rowCount: 1 } }
-    ]);
-    const handler = getHandler(createAdminRouter(makeDeps(pool)), "delete", "/admin/feature-overrides/:id");
-    const res = mockRes();
-    await handler(mockReq({ params: { id: "7" } }), res);
-    assert.strictEqual(res._status, 200);
-    assert.strictEqual(res._json.success, true);
-  });
-
-  it("Z4: eine unbrauchbare Kennung gibt 400 und fragt die Datenbank nicht", async () => {
-    /* `feature_overrides.id` ist SERIAL (059/223) - eine Zahl ist hier also
-       RICHTIG, und die Probe darf nicht auf UUID umgestellt werden. Geprueft
-       wird, was wirklich gilt: was keine Zahl ist, erreicht die Datenbank nicht. */
-    const pool = trackingPool([
-      { match: (s) => s.includes("feature_overrides"), respond: { rows: [], rowCount: 0 } }
-    ]);
-    const handler = getHandler(createAdminRouter(makeDeps(pool)), "delete", "/admin/feature-overrides/:id");
-    const res = mockRes();
-    await handler(mockReq({ params: { id: "keine-zahl" } }), res);
-    assert.strictEqual(res._status, 400);
-    assert.strictEqual(res._json.error.code, "INVALID_ID");
-    assert.strictEqual(pool.calls.length, 0,
-      "die Route hat mit einer unbrauchbaren Kennung die Datenbank befragt");
-  });
-
-  it("Z4: ein GUELTIGER Org-Filter kommt durch und erreicht die Abfrage als UUID", async () => {
-    /* DIESE PROBE FEHLTE, und ihr Fehlen war kein Detail: die Probe darunter
-       prueft nur, dass Unbrauchbares abgewiesen wird. Sie bleibt gruen, wenn der
-       GUELTIGE Weg zerstoert wird - mit `parseInt` wird aus dieser UUID die Zahl
-       3, die faellt durch dieselbe Schranke, und jeder echte Filter endete in
-       einer 400. Gefunden von der eigenen Rueckmutation, nicht vom Nachdenken. */
-    const pool = trackingPool([
-      { match: (s) => s.includes("feature_overrides") && s.includes("COUNT("),
-        respond: { rows: [{ total: 1 }], rowCount: 1 } },
-      { match: (s) => s.includes("feature_overrides"),
-        respond: { rows: [{ id: 7, feature_key: "x", org_id: "3f1c9b42-0a5e-4d77-9c31-8b6e2f40a1d9" }], rowCount: 1 } }
-    ]);
-    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/feature-overrides");
-    const res = mockRes();
-    await handler(mockReq({ query: { org_id: "3f1c9b42-0a5e-4d77-9c31-8b6e2f40a1d9" } }), res);
-    assert.strictEqual(res._json.success, true,
-      "ein gueltiger Org-Filter wird abgewiesen: " + JSON.stringify(res._json));
-    assert.ok(!res._json.error, "die Route meldet einen Fehler: " + JSON.stringify(res._json.error));
-    const mitOrg = pool.calls.filter((c) => (c.params || []).includes("3f1c9b42-0a5e-4d77-9c31-8b6e2f40a1d9"));
-    assert.ok(mitOrg.length >= 1,
-      "die Org-Kennung erreicht die Abfrage nicht als UUID - gebunden wurde: "
-      + JSON.stringify(pool.calls.map((c) => c.params)));
-  });
-
-  it("Z4: ein Funktionsschluessel aus Leerzeichen gibt 400 und erreicht die Datenbank nicht", async () => {
-    /* Ebenfalls von der Rueckmutation gefunden. `if (!feature_key)` auf dem rohen
-       Wert laesst "   " durch: der Hebel stuende in der Liste, sperrte den echten
-       Schluessel nicht und wirkte nie, weil checkOverride am Schluessel sucht. */
-    const pool = trackingPool([
-      { match: (s) => s.includes("feature_overrides"), respond: { rows: [{ id: 7 }], rowCount: 1 } }
-    ]);
-    const handler = getHandler(createAdminRouter(makeDeps(pool)), "put", "/admin/feature-overrides");
-    const res = mockRes();
-    await handler(mockReq({ body: { feature_key: "   ", enabled: true } }), res);
-    assert.strictEqual(res._status, 400);
-    assert.strictEqual(res._json.error.code, "MISSING_FEATURE_KEY");
-    assert.strictEqual(pool.calls.length, 0,
-      "ein Schluessel aus Leerzeichen wurde in die Datenbank geschrieben");
-  });
-
-  it("Z4: ein Org-Filter, der keine UUID ist, gibt 400", async () => {
-    /* Org-Kennungen sind UUIDs (gemessen: organizations.id ist uuid). Vorher las
-       die Route sie mit parseInt - der Filter konnte nie greifen, und die
-       Liste zeigte stillschweigend ALLE Ausnahmen statt der einen Org. */
-    const pool = trackingPool([
-      { match: (s) => s.includes("feature_overrides"), respond: { rows: [], rowCount: 0 } }
-    ]);
-    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/feature-overrides");
-    const res = mockRes();
-    await handler(mockReq({ query: { org_id: "42" } }), res);
-    assert.strictEqual(res._status, 400);
-    assert.strictEqual(res._json.error.code, "INVALID_ORG_ID");
-  });
-});
-
-/* ── GET /admin/feature-keys ───────────────────────────────────────────── */
-
-describe("GET /admin/feature-keys", () => {
-  it("200 returns the list of known feature keys", async () => {
-    const handler = getHandler(createAdminRouter(makeDeps(trackingPool())), "get", "/admin/feature-keys");
-    const res = mockRes();
-    handler(mockReq(), res);
-    // require() fails in ESM -> falls into the async import() fallback; await a tick.
-    await new Promise((r) => setTimeout(r, 50));
-    assert.strictEqual(res._status, 200);
-    assert.strictEqual(res._json.success, true);
-    assert.ok(Array.isArray(res._json.data.keys));
-    assert.ok(res._json.data.keys.length > 0, "planFeatures keys present");
-  });
-});
+/* ── Freischaltungen ─────────────────────────────────────────────────────
+ * W-E10 (2026-10-01): /admin/feature-overrides und /admin/feature-keys sind ins
+ * Staff Control Center umgezogen. Die Proben dafuer stehen in
+ * test/freischaltungen.test.js — dort auch die Zusicherung, dass die alten
+ * Wege auf diesem Router nicht zurueckkehren. */

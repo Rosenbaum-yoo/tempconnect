@@ -91,8 +91,7 @@ describe("G1.5: requireAdmin — Whitelist (owner/admin/platform_admin)", () => 
     "/admin/revenue",
     "/admin/system-health",
     "/admin/visibility-audit",
-    "/admin/feature-overrides",
-    "/admin/feature-keys",
+    // /admin/feature-overrides und /admin/feature-keys: W-E10, ins Staff CC umgezogen
     "/admin/activity-feed"
   ];
 
@@ -338,8 +337,7 @@ describe("G1.5: Admin-Routen-Vollstaendigkeit — alle kritischen Routen haben G
     "/admin/metrics",
     "/admin/revenue",
     "/admin/system-health",
-    "/admin/audit-log/export/csv",
-    "/admin/feature-overrides"
+    "/admin/audit-log/export/csv"
   ];
 
   it("Alle kritischen Admin-Routen blockieren Zugriff fuer dispatcher", async () => {

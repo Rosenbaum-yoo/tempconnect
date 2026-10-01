@@ -74,12 +74,6 @@
           "pfad": "/admin/users/:id/deactivate",
           "urteil": "bewusste-ausnahme",
           "begruendung": "Plattform-Administration: org-uebergreifend PER BAUART — eine Org-Grenze waere hier falsch. Getragen wird die Flaeche vom Torwaechter requireAdmin (403 ohne Administratorrechte), der auf JEDER Platzhalter-Route dieser Datei verhaltensgeprueft ist."
-        },
-        {
-          "methode": "delete",
-          "pfad": "/admin/feature-overrides/:id",
-          "urteil": "bewusste-ausnahme",
-          "begruendung": "Plattform-Administration: org-uebergreifend PER BAUART — eine Org-Grenze waere hier falsch. Getragen wird die Flaeche vom Torwaechter requireAdmin (403 ohne Administratorrechte), der auf JEDER Platzhalter-Route dieser Datei verhaltensgeprueft ist."
         }
       ],
       "torwaechter": {
@@ -2673,31 +2667,7 @@
           "methode": "post",
           "pfad": "/product-releases/:id/ack",
           "urteil": "bewusste-ausnahme",
-          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung: die Pflege liegt unter /admin/ hinter der Administrationsrolle, die Lesebestaetigung bindet den Nutzer ueber die Sitzung. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt."
-        },
-        {
-          "methode": "patch",
-          "pfad": "/admin/product-releases/:id",
-          "urteil": "bewusste-ausnahme",
-          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung. Die Pflege haengt seit 2026-10-01 an `nurPlattformverwaltung` (nur platform_admin) — vorher an einer Wache, die jeden Kunden-Owner/-Admin durchliess, obwohl dieser Eintrag 'hinter der Administrationsrolle' sagte. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt; die Grenze ist die zur Plattformverwaltung."
-        },
-        {
-          "methode": "post",
-          "pfad": "/admin/product-releases/:id/publish",
-          "urteil": "bewusste-ausnahme",
-          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung. Die Pflege haengt seit 2026-10-01 an `nurPlattformverwaltung` (nur platform_admin) — vorher an einer Wache, die jeden Kunden-Owner/-Admin durchliess, obwohl dieser Eintrag 'hinter der Administrationsrolle' sagte. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt; die Grenze ist die zur Plattformverwaltung."
-        },
-        {
-          "methode": "post",
-          "pfad": "/admin/product-releases/:id/send-email",
-          "urteil": "bewusste-ausnahme",
-          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung. Die Pflege haengt seit 2026-10-01 an `nurPlattformverwaltung` (nur platform_admin) — vorher an einer Wache, die jeden Kunden-Owner/-Admin durchliess, obwohl dieser Eintrag 'hinter der Administrationsrolle' sagte. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt; die Grenze ist die zur Plattformverwaltung."
-        },
-        {
-          "methode": "delete",
-          "pfad": "/admin/product-releases/:id",
-          "urteil": "bewusste-ausnahme",
-          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung. Die Pflege haengt seit 2026-10-01 an `nurPlattformverwaltung` (nur platform_admin) — vorher an einer Wache, die jeden Kunden-Owner/-Admin durchliess, obwohl dieser Eintrag 'hinter der Administrationsrolle' sagte. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt; die Grenze ist die zur Plattformverwaltung."
+          "begruendung": "Plattformweite Produktmitteilung ohne Org-Bindung: die Lesebestaetigung bindet den Nutzer ueber die Sitzung. Die Pflege liegt seit W-E10 (2026-10-01) im Staff Control Center (/staff/api/produkt-updates), nicht mehr unter /admin/. Eine Mandantengrenze gibt es hier nicht, weil es keinen Mandanten-Inhalt gibt."
         }
       ],
       "hinweis": "Produktmitteilungen sind PLATTFORMWEIT — sie gehoeren keiner Org. Die Pflege-Routen haengen an `nurPlattformverwaltung` (platform_admin, Befund 2026-10-01); die Bestaetigung (/ack) bindet den Leser ueber die Sitzung."
@@ -3410,6 +3380,12 @@
           "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen. Hier zusaetzlich, und das Argument kommt aus der STRUKTUR statt aus der Flaechen-Zuordnung: `platform_skills` hat gar keine Org-Spalte, der Name ist global eindeutig (Mig 023). Eine Org-Grenze waere hier nicht nur falsch, sie waere NICHT DARSTELLBAR - es gibt keine Spalte, an der sie haengen koennte. Der Katalog ist plattformweite Referenz (docs/FLAECHEN.md, Antwort 3), und ein Begriff, den nur eine Firma sehen darf, kann kein gemeinsames Vokabular sein. Diese Begruendung haelt auch dann, wenn jemand die Flaechen-Zuordnung spaeter anders liest (N8.1b-7)."
         },
         {
+          "methode": "post",
+          "pfad": "/freischaltungen/:id/entfernen",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen. W-E10: Freischaltungen und Produkt-Updates sind plattformweit (feature_overrides / product_release_entries); `:id` adressiert eine Plattform-Zeile, keinen Mandanten-Inhalt."
+        },
+        {
           "methode": "get",
           "pfad": "/inbox/:id",
           "urteil": "bewusste-ausnahme",
@@ -3516,6 +3492,30 @@
           "pfad": "/preregistrations/:id/status",
           "urteil": "bewusste-ausnahme",
           "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "patch",
+          "pfad": "/produkt-updates/:id",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen. W-E10: Freischaltungen und Produkt-Updates sind plattformweit (feature_overrides / product_release_entries); `:id` adressiert eine Plattform-Zeile, keinen Mandanten-Inhalt."
+        },
+        {
+          "methode": "post",
+          "pfad": "/produkt-updates/:id/loeschen",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen. W-E10: Freischaltungen und Produkt-Updates sind plattformweit (feature_overrides / product_release_entries); `:id` adressiert eine Plattform-Zeile, keinen Mandanten-Inhalt."
+        },
+        {
+          "methode": "post",
+          "pfad": "/produkt-updates/:id/mailen",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen. W-E10: Freischaltungen und Produkt-Updates sind plattformweit (feature_overrides / product_release_entries); `:id` adressiert eine Plattform-Zeile, keinen Mandanten-Inhalt."
+        },
+        {
+          "methode": "post",
+          "pfad": "/produkt-updates/:id/veroeffentlichen",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen. W-E10: Freischaltungen und Produkt-Updates sind plattformweit (feature_overrides / product_release_entries); `:id` adressiert eine Plattform-Zeile, keinen Mandanten-Inhalt."
         },
         {
           "methode": "get",
@@ -3651,7 +3651,7 @@
           "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
         }
       ],
-      "hinweis": "Die einzige Eintrittsbedingung ist eine SEPARATE Staff-Sitzung. Von den 47 Platzhalter-Routen tragen zusaetzlich viele einen Step-up-Zwang, eine MFA-Huerde und eine Pflicht zu Bestaetigung und Begruendung.",
+      "hinweis": "Die einzige Eintrittsbedingung ist eine SEPARATE Staff-Sitzung. Von den 56 Platzhalter-Routen tragen zusaetzlich viele einen Step-up-Zwang, eine MFA-Huerde und eine Pflicht zu Bestaetigung und Begruendung.",
       "torwaechter": {
         "middleware": "staffControlAccess",
         "erwarteterStatus": 401
