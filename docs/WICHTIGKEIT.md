@@ -85,7 +85,7 @@ Form: eindeutige Nummern, gültige Daten, *Wer* aus der Liste, Verweise auf echt
 | OP-25 | Anbindung an Fremdsysteme: zvoove-Anfrage (Schnittstellenpartner) | Owner | zvoove anschreiben — der Vorlauf dauert | 2026-09-30 | — | [Übergabe](UEBERGABE.md): Entscheidung W-E8 · [Integrationen](INTEGRATIONS.md) |
 | OP-26 | Owner Control Center ins Staff Control Center: der angekündigte Owner-Abschnitt fehlt (W-E6, das *Wie*) | Owner | Abschnitt schreiben: Zugangsstufe, Audit-Namensraum, sieben Modulnamen, Bauart | 2026-08-27 | — | [Flächen](FLAECHEN.md): „Owner-Entscheid 2026-08-27“ |
 | OP-27 | Marktplatz mit **einer** Suchrichtung? (nur Unternehmen suchen Menschen) | Owner | entscheiden — bis dahin wird M5.4 nicht gebaut | 2026-09-06 | — | [Übergabe](UEBERGABE.md): „Owner-Gedanke 2026-09-06“ |
-| OP-28 | Alte CSV-Exporte ohne Schutz gegen Tabellenformeln (`=`, `+`, `-`, `@` am Zellanfang) | Cloud | Schutz aus `csvText` auf die alten Exporte übertragen, echte Zahlen ausnehmen | 2026-10-01 | — | [Übergabe](UEBERGABE.md): „Einsatzportal im Protokoll“ (Gefunden, nicht angefasst) |
+| OP-54 | Weitere CSV-Exporte ohne Schutz gegen Tabellenformeln: Rechnungsliste, Einzelrechnung, Executive-Bericht, Agenturportal, Datenschutz-Anfragen im Staff CC | Owner | entscheiden: Hochkomma auch in Rechnungen (eine Position „- Abzug“ erschiene als „'- Abzug“) — Empfehlung: ja, nur an Menschentext, nie an Beträgen; der DATEV-Buchungsstapel bleibt ausgenommen | 2026-10-01 | — | [Übergabe](UEBERGABE.md): „Einsatzportal im Protokoll“ (Gefunden, dann behoben) |
 
 ## C — später
 
@@ -121,3 +121,5 @@ Form: eindeutige Nummern, gültige Daten, *Wer* aus der Liste, Verweise auf echt
 | OP-51 | Produkt-Mails im Paketversand, Listen nach 12 Monaten löschen | 2026-10-01 | `3633b1d`, `982ea1f` |
 | OP-52 | Einsatzportal im Protokoll | 2026-10-01 | `89ca180` |
 | OP-53 | Cloud-Stand automatisch holen | 2026-10-01 | `afc9e1f` |
+| OP-28 | Formel-Schutz in den alten Exporten des Export-Dienstes (Stundenzettel, Anfragen, Protokoll) | 2026-10-01 | Test „Formel-Schutz in den alten Exporten (OP-28)“, 10 Rückmutationen gefangen |
+| OP-55 | Wichtigkeits-Wächter: Register, Prüfung, Erinnerung montags | 2026-10-01 | `7ebed42`, Routine `trig_013dTpQ4vaMMgH9ABtmUZ4NF` |

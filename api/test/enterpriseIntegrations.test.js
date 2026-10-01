@@ -290,3 +290,51 @@ describe("Export Service — Audit Log CSV", () => {
     assert.ok(lines[1].includes("x@y.de"));
   });
 });
+
+/* ── Formel-Schutz in den alten Exporten (OP-28, 2026-10-01) ──────────────────
+ * Ein Name wie "=HYPERLINK(...)" lief in Excel als Formel los. Der Schutz
+ * (`csvText`, ein Hochkomma vor = + - @ Tab CR) gilt an jedem Feld, das ein
+ * Mensch fuellt — und an keinem, das das System erzeugt: eine Ueberstunde von
+ * -5 muss eine Zahl bleiben. Beide Haelften werden geprueft.
+ */
+describe("Export Service — Formel-Schutz in den alten Exporten (OP-28)", () => {
+  const zellen = (zeile) => zeile.split(",");
+
+  it("Stundenzettel: Namen geschuetzt, Zahlen und Zeiten unberuehrt", () => {
+    const [, zeile] = exportTimesheetsCsv([{
+      id: "ts-1", worker_name: "=1+1", org_name: "+49 Firma", supplier_org_name: "@Agentur",
+      status: "approved", week_start: null, week_end: null,
+      total_hours: 40, overtime_hours: -5, submitted_at: null, approved_at: null, rejected_at: null
+    }]).split("\n");
+    assert.deepEqual(zellen(zeile), ["ts-1", "'=1+1", "'+49 Firma", "'@Agentur", "approved", "", "", "40", "-5", "", "", ""]);
+  });
+
+  it("Stundenzettel: eine Formel mit Komma und Anfuehrungszeichen bleibt geschuetzt UND korrekt gequotet", () => {
+    const csv = exportTimesheetsCsv([{ id: "ts-2", worker_name: '=HYPERLINK("http://x","y")', status: "draft" }]);
+    assert.ok(csv.includes(`"'=HYPERLINK(""http://x"",""y"")"`), csv);
+  });
+
+  it("Anfragen: Titel und beide Firmen geschuetzt, Stundensatz und Anzahl unberuehrt", () => {
+    const [, zeile] = exportDealsCsv([{
+      id: "req-1", title: "-2+3", buyer_company: "=Kunde", supplier_company: "+Lieferant",
+      status: "ACCEPTED", priority: "NORMAL", urgency: "normal",
+      max_hourly_rate_cents: 5000, workers_needed: -1, created_at: null, updated_at: null
+    }]).split("\n");
+    assert.deepEqual(zellen(zeile), ["req-1", "'-2+3", "'=Kunde", "'+Lieferant", "ACCEPTED", "NORMAL", "normal", "50.00", "-1", "", ""]);
+  });
+
+  it("Protokoll: Kennung, E-Mail, Name und Detailtext geschuetzt; Aktion, Status, Zeit unberuehrt", () => {
+    const [, zeile] = exportAuditLogCsv([{
+      id: "aud-1", action: "org.member.update", action_type: "UPDATE",
+      entity_type: "org_member", entity_id: "=E1",
+      actor_email: "+tag@x.de", actor_name: "@Admin", status: "SUCCESS", created_at: null,
+      details: { "=feld": 1 }
+    }]).split("\n");
+    assert.deepEqual(zellen(zeile), ["aud-1", "org.member.update", "UPDATE", "org_member", "'=E1", "'+tag@x.de", "'@Admin", "SUCCESS", "", "'=feld=1"]);
+  });
+
+  it("gewoehnliche Namen bleiben, wie sie sind", () => {
+    const [, zeile] = exportTimesheetsCsv([{ id: "ts-3", worker_name: "Max Müller", org_name: "Corp", supplier_org_name: "Agency", status: "approved" }]).split("\n");
+    assert.deepEqual(zellen(zeile).slice(0, 4), ["ts-3", "Max Müller", "Corp", "Agency"]);
+  });
+});

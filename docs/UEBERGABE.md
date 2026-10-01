@@ -378,10 +378,15 @@ Zeitarbeitsfirma einen Betriebsrat, braucht sie dessen Zustimmung, bevor sie die
 die Transparenz (DSGVO Art. 13) steht der Hinweis im Portal; die Datenschutzerklärung sollte den
 Punkt ebenfalls nennen. Erfasst wird bewusst nur von/bis und Aktionen, keine Seitenaufrufe.
 
-**Gefunden, nicht angefasst (für Welle 1):** `exportService.escapeCsvField` hat **keinen Formel-Schutz**
-— ein Name wie `=HYPERLINK(…)` würde in Excel ausgeführt. Im neuen Export geschützt (`csvText`), in
-den alten Exporten nicht: ein pauschaler Schutz würde negative Zahlen (`-5`) zu Text machen, das
-braucht eine Unterscheidung je Spalte.
+**Gefunden, dann behoben (OP-28, 2026-10-01):** `exportService.escapeCsvField` hatte **keinen
+Formel-Schutz** — ein Name wie `=HYPERLINK(…)` wäre in Excel ausgeführt worden. Jetzt tragen **alle vier
+Exporte des Dienstes** (Stundenzettel, Anfragen, Protokoll, Einsatzportal) `csvText` an jedem Feld, das
+ein Mensch füllt — Spalte für Spalte, nicht pauschal, damit eine Überstunde von `-5` eine Zahl bleibt
+(Test „Formel-Schutz in den alten Exporten (OP-28)“, 10 Rückmutationen gefangen). **Offen:** die
+anderen CSV-Wege haben **eigene** Escaper ohne Schutz — Rechnungsliste, Einzelrechnung,
+Executive-Bericht, Agenturportal, Datenschutz-Anfragen im Staff CC. Bei Rechnungen ist es eine
+Owner-Frage (eine Position „- Abzug“ erschiene als „'- Abzug“); der DATEV-Buchungsstapel bleibt als
+Maschinenformat ausgenommen. Eingestuft als **OP-54 (B)** in [WICHTIGKEIT.md](WICHTIGKEIT.md).
 
 ### Für Welle 1 (Testlauf): `--test-force-exit` schneidet den Bericht ab — gemessen, nicht angefasst
 

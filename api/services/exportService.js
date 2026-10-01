@@ -85,6 +85,12 @@ export function fmtDateTime(v) {
  * als Formel loslaufen ("=HYPERLINK(...)" als Vorname). Eine fuehrende Formel-
  * Marke bekommt deshalb ein Hochkomma (OWASP: CSV Injection). NUR fuer Textfelder —
  * Zahlen wie "-5" wuerden sonst zu Text.
+ *
+ * Seit 2026-10-01 in ALLEN Exporten dieses Dienstes (Stundenzettel, Anfragen,
+ * Protokoll, Einsatzportal) an jedem Feld, das ein Mensch fuellt: Namen, Firmen,
+ * Titel, E-Mail, Kennung, Detailtext. Nicht an Status, Zahlen und Zeitpunkten —
+ * die erzeugt das System. Die anderen CSV-Wege (Rechnungen, Berichte,
+ * Agenturportal, Staff CC) haben eigene Escaper: docs/WICHTIGKEIT.md, OP-54.
  */
 export function csvText(v) {
   const s = v == null ? "" : String(v);
@@ -108,9 +114,9 @@ const TIMESHEET_HEADERS = [
 export function exportTimesheetsCsv(timesheets) {
   const rows = (timesheets || []).map(ts => toCsvRow([
     ts.id,
-    ts.worker_name,
-    ts.org_name,
-    ts.supplier_org_name,
+    csvText(ts.worker_name),
+    csvText(ts.org_name),
+    csvText(ts.supplier_org_name),
     ts.status,
     fmtDate(ts.week_start),
     fmtDate(ts.week_end),
@@ -140,9 +146,9 @@ const DEAL_HEADERS = [
 export function exportDealsCsv(deals) {
   const rows = (deals || []).map(d => toCsvRow([
     d.id,
-    d.title || d.role || "",
-    d.buyer_company || d.company_name || "",
-    d.supplier_company || d.supplier_name || "",
+    csvText(d.title || d.role || ""),
+    csvText(d.buyer_company || d.company_name || ""),
+    csvText(d.supplier_company || d.supplier_name || ""),
     d.status,
     d.priority || "",
     d.urgency || "",
@@ -182,12 +188,12 @@ export function exportAuditLogCsv(entries) {
       e.action,
       e.action_type,
       e.entity_type,
-      e.entity_id,
-      e.actor_email || "",
-      e.actor_name || e.actor_company || "",
+      csvText(e.entity_id),
+      csvText(e.actor_email || ""),
+      csvText(e.actor_name || e.actor_company || ""),
       e.status,
       fmtDateTime(e.created_at),
-      detailsSummary.replace(/[\r\n]/g, " ")
+      csvText(detailsSummary.replace(/[\r\n]/g, " "))
     ]);
   });
   return [AUDIT_HEADERS.join(","), ...rows].join("\n");
