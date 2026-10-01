@@ -1,6 +1,8 @@
 /**
  * Reporting route handler tests.
  * Covers GET /reporting/finance-truth/export format handling, payload shape, and audit details.
+ * Seit 2026-10-01 (Owner-Entscheid) ist der Auszug die Abrechnungssicht der eigenen Firma —
+ * keine MRR-, ARR- oder Preisquellen-Zeilen aus TempConnects Betreibersicht.
  *
  * Run: node --test --test-force-exit test/reporting.route.test.js
  */
@@ -187,14 +189,18 @@ describe("reporting routes — GET /reporting/finance-truth/export", () => {
     assert.strictEqual(res._json.org_id, "org-42");
     assert.ok(Array.isArray(res._json.rows));
     assert.ok(res._json.rows.length > 0);
-    assert.ok(res._json.finance);
+    assert.ok(res._json.abrechnung, "der Auszug traegt die Abrechnungssicht der Firma");
+    assert.equal(res._json.finance, undefined, "TempConnects Betreibersicht (MRR, ARR, Preisquellen) gehoert nicht in den Kunden-Export");
+    for (const zeile of res._json.rows) {
+      assert.ok(["billable_truth", "reconciliation_30d"].includes(zeile.section), `fremder Abschnitt im Kunden-Export: ${zeile.section}`);
+    }
     assert.strictEqual(res.locals.audit.action, "report.finance_truth_export");
     assert.strictEqual(res.locals.audit.entity_type, "organization");
     assert.strictEqual(res.locals.audit.entity_id, "org-42");
     assert.strictEqual(res.locals.audit.details.format, "json");
     assert.strictEqual(res.locals.audit.details.row_count, res._json.rows.length);
-    assert.strictEqual(res.locals.audit.details.generator, "reporting.executiveFinanceTruthExport");
-    assert.strictEqual(res.locals.audit.details.source, "revenueMetricsService.getRevenueMetrics");
+    assert.strictEqual(res.locals.audit.details.generator, "reporting.kundenAbrechnungExport");
+    assert.strictEqual(res.locals.audit.details.source, "revenueMetricsService.getKundenAbrechnung");
     assert.strictEqual(res.locals.audit.details.responsible_actor_user_id, "user-42");
     assert.ok(res.locals.audit.details.generated_at);
   });
@@ -220,9 +226,11 @@ describe("reporting routes — GET /reporting/finance-truth/export", () => {
     assert.equal(typeof res._send, "string");
     assert.match(res._send, /^generated_at,org_id,section,metric_key,metric_value,unit,available,source/m);
     assert.match(String(res._headers["content-type"] || ""), /^text\/csv/i);
-    assert.match(String(res._headers["content-disposition"] || ""), /^attachment;\s*filename="finance-truth-/i);
+    // Dateiname mit dem Berliner Kalendertag (todayDE), nicht mit einem UTC-Schnitt.
+    assert.match(String(res._headers["content-disposition"] || ""), /^attachment;\s*filename="abrechnung-\d{4}-\d{2}-\d{2}\.csv"/i);
     assert.strictEqual(res.locals.audit.details.format, "csv");
-    assert.strictEqual(res.locals.audit.details.source, "revenueMetricsService.getRevenueMetrics");
+    assert.strictEqual(res.locals.audit.details.source, "revenueMetricsService.getKundenAbrechnung");
+    assert.ok(!/(mrr|arr|catalog|subscription_truth|pricing_state)/i.test(res._send), "keine Betreiberzahlen im CSV");
     assert.strictEqual(res.locals.audit.details.responsible_actor_user_id, "user-7");
     assert.strictEqual(res.locals.audit.details.row_count > 0, true);
   });

@@ -1210,12 +1210,18 @@
               "</td><td data-label=\"Tarif\">" + esc(s.plan || "–") + "</td></tr>";
           }).join("") + "</tbody></table>"
         : leer("Noch keine Monatswerte. Sie entstehen zum Monatsende.")) + "</div>";
-    html += "<div class=\"ds-card\"><div class=\"vw-section-title\"><h2>Finanzauszug</h2></div>" +
-      "<p class=\"vw-muted ds-mt-0\">Ein prüffähiger Auszug Ihrer Abrechnungsdaten, zum Beispiel für die Buchhaltung.</p>" +
-      "<div class=\"vw-aktionen vw-aktionen--links\">" +
-      "<button class=\"ds-btn ds-btn--ghost\" type=\"button\" data-feature-key=\"basic_analytics\" data-finanz=\"csv\">Als CSV</button>" +
-      "<button class=\"ds-btn ds-btn--ghost\" type=\"button\" data-feature-key=\"basic_analytics\" data-finanz=\"json\">Als JSON</button></div>" +
-      "<div class=\"vw-feedback\" id=\"vwFinanzHinweis\" role=\"status\"></div></div>";
+    // Den Abrechnungsauszug liefert der Server nur Unternehmen mit Enterprise-Auswertung
+    // (`/reporting/finance-truth/export`: requireCompanyOrg + enterprise_analytics) —
+    // einer Zeitarbeitsfirma einen Knopf zu zeigen, der immer mit 403 endet, waere ein
+    // toter Knopf. Inhalt seit dem Owner-Entscheid 2026-10-01: nur die eigene Abrechnung.
+    if (S.seite === "company") {
+      html += "<div class=\"ds-card\"><div class=\"vw-section-title\"><h2>Abrechnungsauszug</h2></div>" +
+        "<p class=\"vw-muted ds-mt-0\">Freigegebene, noch nicht abgerechnete Stunden und Ihre Ausgaben gegenüber den gestellten Rechnungen der letzten 30 Tage — zum Beispiel für die Buchhaltung.</p>" +
+        "<div class=\"vw-aktionen vw-aktionen--links\">" +
+        "<button class=\"ds-btn ds-btn--ghost\" type=\"button\" data-feature-key=\"enterprise_analytics\" data-finanz=\"csv\">Als CSV</button>" +
+        "<button class=\"ds-btn ds-btn--ghost\" type=\"button\" data-feature-key=\"enterprise_analytics\" data-finanz=\"json\">Als JSON</button></div>" +
+        "<div class=\"vw-feedback\" id=\"vwFinanzHinweis\" role=\"status\"></div></div>";
+    }
     ziel.innerHTML = html;
     S.geladen.tarif = true;
     applyOrgDomLocks(ziel);
@@ -1232,7 +1238,7 @@
         : await antwort.blob();
       var a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = "finanzauszug-" + tagVor(0) + "." + format;
+      a.download = "abrechnung-" + tagVor(0) + "." + format;
       document.body.appendChild(a);
       a.click();
       setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);

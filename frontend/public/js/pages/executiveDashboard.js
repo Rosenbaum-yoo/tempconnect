@@ -69,15 +69,20 @@ TCi18n.register('de', {
   'exe.link.allReq': 'Alle Angebote',
   'exe.sec.sla': 'SLA Compliance (30 Tage)',
   'exe.sec.compliance': 'Compliance Dokumente',
-  'exe.sec.platform': 'Plattform',
   'exe.sec.searchResults': 'Suchergebnisse',
   'exe.sec.spend': 'Spend Overview (30 Tage)',
   'exe.link.details': 'Details',
-  'exe.sec.finance': 'Finance Truth',
-  'exe.finance.exportCsv': 'Export CSV',
-  'exe.finance.exportJson': 'Export JSON',
-  'exe.sec.retention': 'SaaS Retention & Usage Truth',
-  'exe.sec.pilot': 'Pilot & Conversion Truth',
+  'exe.sec.finance': 'Abrechnung (30 Tage)',
+  'exe.abr.unavailable': 'Die Abrechnung konnte nicht geladen werden.',
+  'exe.abr.offen': 'Freigegeben, noch nicht abgerechnet',
+  'exe.abr.offenTip': 'Freigegebene Stundenzettel, zu denen noch keine Rechnung gestellt ist — Kosten, die noch kommen. Quelle: Stundenzettel und Verrechnungssatz des Einsatzes.',
+  'exe.abr.gap': 'Ausgaben ohne Rechnung (30 Tage)',
+  'exe.abr.gapTip': 'Freigegebene Ausgaben der letzten 30 Tage abzüglich der dazu gestellten Rechnungen. Größer als null heißt: es sind noch Rechnungen zu erwarten.',
+  'exe.abr.stunden': '{stunden} Stunden aus {zettel} freigegebenen Stundenzetteln sind noch nicht abgerechnet.',
+  'exe.abr.fehlendeSaetze': 'Bei {n} Stundenzetteln fehlt der Verrechnungssatz — sie sind im Betrag nicht enthalten.',
+  'exe.abr.deckung': 'Abgerechnet: {pct} · freigegebene Ausgaben {spend} · Rechnungen {invoiced}',
+  'exe.finance.exportCsv': 'Auszug als CSV',
+  'exe.finance.exportJson': 'Auszug als JSON',
   'exe.sec.ce': 'Vermittlungsaktivität',
   'exe.sec.activity': 'Letzte Aktivitäten',
   'exe.sec.dsgvo': 'DSGVO Compliance',
@@ -141,11 +146,8 @@ TCi18n.register('de', {
   'exe.unavail.req': 'Arbeitsplatzangebote konnten nicht geladen werden.',
   'exe.unavail.sla': 'SLA-Daten konnten nicht geladen werden.',
   'exe.unavail.compliance': 'Compliance-Daten konnten nicht geladen werden.',
-  'exe.unavail.platform': 'Plattformdaten konnten nicht geladen werden.',
   'exe.unavail.spend': 'Spend-Daten konnten nicht geladen werden.',
-  'exe.unavail.finance': 'Finance-Daten konnten nicht geladen werden.',
-  'exe.unavail.retention': 'Retention-/Churn-Daten konnten nicht geladen werden.',
-  'exe.unavail.pilot': 'Pilot-/Conversion-Daten konnten nicht geladen werden.',
+  'exe.unavail.finance': 'Die Abrechnung konnte nicht geladen werden.',
   'exe.unavail.exportHint': 'Dashboard nicht verfügbar. Export kann separat versucht werden.',
 
   'exe.locked.kpiLabel': 'Steuerung ausgeblendet',
@@ -153,11 +155,8 @@ TCi18n.register('de', {
   'exe.locked.req': 'Arbeitsplatzangebote bleiben für diese Rolle ausgeblendet.',
   'exe.locked.sla': 'SLA-Daten bleiben fuer diese Rolle ausgeblendet.',
   'exe.locked.compliance': 'Compliance-Daten bleiben fuer diese Rolle ausgeblendet.',
-  'exe.locked.platform': 'Plattformdaten bleiben fuer diese Rolle ausgeblendet.',
   'exe.locked.spend': 'Spend-Daten bleiben fuer diese Rolle ausgeblendet.',
-  'exe.locked.finance': 'Finance-Daten bleiben fuer diese Rolle ausgeblendet.',
-  'exe.locked.retention': 'Retention-/Churn-Daten bleiben fuer diese Rolle ausgeblendet.',
-  'exe.locked.pilot': 'Pilot-/Conversion-Daten bleiben fuer diese Rolle ausgeblendet.',
+  'exe.locked.finance': 'Die Abrechnung bleibt für diese Rolle ausgeblendet.',
   'exe.locked.ce': 'Vermittlungsaktivitaet bleibt fuer diese Rolle ausgeblendet.',
   'exe.locked.activity': 'Aktivitaeten bleiben fuer diese Rolle ausgeblendet.',
   'exe.locked.dsgvo': 'Governance-Kennzahlen bleiben fuer diese Rolle ausgeblendet.',
@@ -210,12 +209,6 @@ TCi18n.register('de', {
   'exe.comp.rejected': 'Abgelehnt',
   'exe.comp.expiring': '{count} Dokument(e) laufen in 30 Tagen ab',
 
-  'exe.platform.none': 'Keine Plattform-Daten verfügbar.',
-  'exe.platform.users': 'Nutzer',
-  'exe.platform.orgs': 'Organisationen',
-  'exe.platform.capacityPosts': 'Aktive Personalangebote',
-  'exe.platform.openDemands': 'Offene Demands',
-  'exe.platform.vendorEntries': 'Vendor Eintraege',
 
   'exe.spend.unavailable': 'Spend derzeit nicht verfügbar.',
   'exe.spend.noData': 'Keine Spend-Daten im aktuellen 30-Tage-Fenster.',
@@ -238,123 +231,8 @@ TCi18n.register('de', {
   'exe.spend.overRate': 'Over-Rate ({pct}%)',
   'exe.spend.overRateTip': '{count} Einsätze im Fenster liegen über dem Preisrahmen-Ziel.',
 
-  'exe.fin.unavailable': 'Finance-Wahrheit derzeit nicht verfügbar.',
-  'exe.fin.mrr': 'Contractual MRR',
-  'exe.fin.mrrTip': 'Vertraglich anerkannter monatlicher Umsatz ohne custom_quote_pending.',
-  'exe.fin.catalogMrr': 'Catalog MRR (theoretisch)',
-  'exe.fin.catalogMrrTip': 'Katalogbasierter Referenz-MRR für aktive bezahlte Subscriptions.',
-  'exe.fin.receivables': 'Open Receivables',
-  'exe.fin.receivablesTip': 'Issued + overdue Rechnungen, noch nicht bezahlt.',
-  'exe.fin.paidRevenue': 'Paid Revenue',
-  'exe.fin.paidRevenueTip': 'Historisch als paid markierter Rechnungsumsatz.',
-  'exe.fin.billable': 'Billable Volumen',
-  'exe.fin.billableTip': 'Freigegebene, noch nicht abgerechnete Stundenzettel-Leistung.',
-  'exe.fin.pendingQuotes': 'Pending Quotes',
-  'exe.fin.pendingQuotesTip': 'Aktive Subscriptions mit custom_quote_pending ohne anerkannten Preis.',
-  'exe.fin.sessions': 'Completed Sessions',
-  'exe.fin.sessionsTip': 'Abgeschlossene Payment Sessions als Cash-Proxy.',
-  'exe.fin.gap': 'Spend↔Invoice Gap 30d',
-  'exe.fin.gapTip': 'Approved Spend (30d) minus operational invoiced revenue (30d).',
-  'exe.fin.thSource': 'Preisquelle',
-  'exe.fin.thSubscribers': 'Subscriber',
-  'exe.fin.thMrr': 'MRR',
-  'exe.fin.lifecycle': 'Invoice-Lifecycle: Draft {draft} · Issued {issued} · Overdue {overdue} · Paid {paid} · Void {voided}',
-  'exe.fin.coverage': 'Coverage 30d: {pct} · Approved Spend {spend} · Operational Invoiced {invoiced}',
 
-  'exe.ret.unavailable': 'Retention-/Churn-Truth derzeit nicht verfügbar.',
-  'exe.ret.activePaidOrgs': 'Active Paid Orgs',
-  'exe.ret.activePaidOrgsTip': 'Aktive zahlende Organisationen im aktuellen Fenster.',
-  'exe.ret.activeCustomers': 'Active Customers',
-  'exe.ret.activeCustomersTip': 'Zahlende Organisationen mit wertstiftender Aktivität.',
-  'exe.ret.retainedLogos': 'Retained Logos',
-  'exe.ret.retainedLogosTip': 'Vorperioden-Kohorte, die weiterhin aktiv zahlend bleibt.',
-  'exe.ret.logoChurn': 'Logo Churn Rate',
-  'exe.ret.logoChurnTip': 'Logo-Churn im Kohortenvergleich.',
-  'exe.ret.nrr': 'NRR',
-  'exe.ret.nrrTip': 'Net Revenue Retention inkl. Expansion/Kontraktion.',
-  'exe.ret.grossChurn': 'Gross Churn MRR',
-  'exe.ret.grossChurnTip': 'Brutto-MRR-Verlust aus Vorperioden-Kohorte.',
-  'exe.ret.expansion': 'Expansion MRR',
-  'exe.ret.expansionTip': 'MRR-Expansion in der Vorperioden-Kohorte.',
-  'exe.ret.inactivePaying': 'Inactive but Paying',
-  'exe.ret.inactivePayingTip': 'Zahlende Organisationen ohne wertstiftende Aktivität.',
-  'exe.ret.pqa': 'PQA',
-  'exe.ret.pqaTip': 'Product Qualified Accounts mit intensiver Nutzung.',
-  'exe.ret.usageHigh': 'Usage High',
-  'exe.ret.usageMedium': 'Usage Medium',
-  'exe.ret.usageLow': 'Usage Low',
-  'exe.ret.usageDormant': 'Usage Dormant',
-  'exe.ret.avgValueEvents': 'Avg Value Events',
-  'exe.ret.medianValueEvents': 'Median Value Events',
-  'exe.ret.segStage': 'Segment by Stage',
-  'exe.ret.segPlan': 'Segment by Plan',
-  'exe.ret.thStage': 'Stage',
-  'exe.ret.thPlan': 'Plan',
-  'exe.ret.thPaidOrgs': 'Paid Orgs',
-  'exe.ret.thRetention': 'Retention',
-  'exe.ret.thMrr': 'MRR',
-  'exe.ret.atRisk': 'At-Risk Accounts',
-  'exe.ret.thOrg': 'Organisation',
-  'exe.ret.thRisk': 'Risk',
-  'exe.ret.thValueEvents': 'Value Events',
-  'exe.ret.usageMissing': 'Usage-Quelle nicht verfügbar: usage-basierte Retention-/Churn-Kennzahlen sind eingeschränkt.',
 
-  'exe.pc.unavailable': 'Pilot-/Conversion-Truth derzeit nicht verfügbar.',
-  'exe.pc.activePilots': 'Active Pilots',
-  'exe.pc.activePilotsTip': 'Aktuell laufende Piloten.',
-  'exe.pc.activatedPilots': 'Activated Pilots',
-  'exe.pc.activatedPilotsTip': 'Aktive Piloten mit echtem Produktkontakt.',
-  'exe.pc.convertedPilots': 'Converted Pilots',
-  'exe.pc.convertedPilotsTip': 'Piloten mit zahlender Live-Conversion.',
-  'exe.pc.atRiskPilots': 'At-Risk Pilots',
-  'exe.pc.atRiskPilotsTip': 'Aktive Piloten mit klaren Risikosignalen.',
-  'exe.pc.daysToActivation': 'Ø Tage bis Aktivierung',
-  'exe.pc.daysToActivationTip': 'Durchschnitt Pilotstart bis erste echte Aktivierung.',
-  'exe.pc.daysToConversion': 'Ø Tage bis Conversion',
-  'exe.pc.daysToConversionTip': 'Durchschnitt Pilotstart bis zahlend live.',
-  'exe.pc.pilotToActivated': 'Pilot → Aktiviert',
-  'exe.pc.pilotToActivatedTip': 'Cohort-Rate Pilotstart bis Aktivierung.',
-  'exe.pc.activatedToPaid': 'Aktiviert → Paid',
-  'exe.pc.activatedToPaidTip': 'Cohort-Rate Aktivierung bis zahlend live.',
-  'exe.pc.pilotToLost': 'Pilot → Lost',
-  'exe.pc.pilotToLostTip': 'Cohort-Rate Pilotstart bis verloren.',
-  'exe.pc.funnelNow': 'Aktueller Funnel-Stand',
-  'exe.pc.thStage': 'Stage',
-  'exe.pc.thOrgs': 'Orgs',
-  'exe.pc.thAvgDays': 'Ø Tage',
-  'exe.pc.thAtRisk': 'At-Risk',
-  'exe.pc.noStages': 'Keine Funnel-Stufen vorhanden.',
-  'exe.pc.transitions': 'Transition-Raten ({window})',
-  'exe.pc.window': 'Fenster',
-  'exe.pc.thTransition': 'Transition',
-  'exe.pc.thCohort': 'Cohort',
-  'exe.pc.thConverted': 'Converted',
-  'exe.pc.thRate': 'Rate',
-  'exe.pc.trLeadReg': 'Lead → Registrierung',
-  'exe.pc.trRegPilot': 'Registrierung → Pilotstart',
-  'exe.pc.trPilotAct': 'Pilotstart → Aktivierung',
-  'exe.pc.trActPaid': 'Aktivierung → Paid',
-  'exe.pc.trPilotLost': 'Pilot → Lost',
-  'exe.pc.icp': 'GTM Learnings nach ICP',
-  'exe.pc.thIcp': 'ICP',
-  'exe.pc.thTracked': 'Tracked',
-  'exe.pc.thActivated': 'Aktiviert',
-  'exe.pc.noIcp': 'Keine ICP-Learnings vorhanden.',
-  'exe.pc.tariff': 'Tarif-/Pfad-Learnings',
-  'exe.pc.thPath': 'Pfad',
-  'exe.pc.noTariff': 'Keine Tarifpfade vorhanden.',
-  'exe.pc.modules': 'Produktbereiche mit echter Pilotnutzung',
-  'exe.pc.thArea': 'Bereich',
-  'exe.pc.thPilotOrgs': 'Pilot-Orgs',
-  'exe.pc.thActivePilots': 'Active Pilots',
-  'exe.pc.thSuccessUsage': 'Successful Usage',
-  'exe.pc.thEvents': 'Events',
-  'exe.pc.thOrg': 'Organisation',
-  'exe.pc.thRisk': 'Risk',
-  'exe.pc.thHints': 'Hinweise',
-  'exe.pc.bottlenecks': 'Onboarding-Bottlenecks: ',
-  'exe.pc.leadQuality': 'Pre-Registration-Leads sind nur teilweise vorhanden; Lead-Stage fallbackt sonst ehrlich auf Registrierung.',
-  'exe.pc.pricingQuality': 'Pricing-Klarheit nutzt teilweise abgeleitete Zeitanker (Pilotstart / Subscription-Erstellung), da kein separates historisches Pricing-Timestamp existiert.',
 
   'exe.search.running': 'Suche laeuft…',
   'exe.search.noHits': 'Keine Treffer',
@@ -470,15 +348,20 @@ TCi18n.register('en', {
   'exe.link.allReq': 'All postings',
   'exe.sec.sla': 'SLA compliance (30 days)',
   'exe.sec.compliance': 'Compliance documents',
-  'exe.sec.platform': 'Platform',
   'exe.sec.searchResults': 'Search results',
   'exe.sec.spend': 'Spend overview (30 days)',
   'exe.link.details': 'Details',
-  'exe.sec.finance': 'Finance truth',
-  'exe.finance.exportCsv': 'Export CSV',
-  'exe.finance.exportJson': 'Export JSON',
-  'exe.sec.retention': 'SaaS retention & usage truth',
-  'exe.sec.pilot': 'Pilot & conversion truth',
+  'exe.sec.finance': 'Billing (30 days)',
+  'exe.abr.unavailable': 'Billing data could not be loaded.',
+  'exe.abr.offen': 'Approved, not yet invoiced',
+  'exe.abr.offenTip': 'Approved timesheets without an invoice yet — costs still to come. Source: timesheets and the assignment bill rate.',
+  'exe.abr.gap': 'Spend without invoice (30 days)',
+  'exe.abr.gapTip': 'Approved spend of the last 30 days minus the invoices issued for it. Above zero means invoices are still to come.',
+  'exe.abr.stunden': '{stunden} hours from {zettel} approved timesheets are not invoiced yet.',
+  'exe.abr.fehlendeSaetze': '{n} timesheets have no bill rate — they are not included in the amount.',
+  'exe.abr.deckung': 'Invoiced: {pct} · approved spend {spend} · invoices {invoiced}',
+  'exe.finance.exportCsv': 'Export as CSV',
+  'exe.finance.exportJson': 'Export as JSON',
   'exe.sec.ce': 'Matching activity',
   'exe.sec.activity': 'Recent activity',
   'exe.sec.dsgvo': 'GDPR compliance',
@@ -542,11 +425,8 @@ TCi18n.register('en', {
   'exe.unavail.req': 'Job postings could not be loaded.',
   'exe.unavail.sla': 'SLA data could not be loaded.',
   'exe.unavail.compliance': 'Compliance data could not be loaded.',
-  'exe.unavail.platform': 'Platform data could not be loaded.',
   'exe.unavail.spend': 'Spend data could not be loaded.',
-  'exe.unavail.finance': 'Finance data could not be loaded.',
-  'exe.unavail.retention': 'Retention and churn data could not be loaded.',
-  'exe.unavail.pilot': 'Pilot and conversion data could not be loaded.',
+  'exe.unavail.finance': 'Billing data could not be loaded.',
   'exe.unavail.exportHint': 'Dashboard unavailable. The export can be attempted separately.',
 
   'exe.locked.kpiLabel': 'Steering hidden',
@@ -554,11 +434,8 @@ TCi18n.register('en', {
   'exe.locked.req': 'Job postings stay hidden for this role.',
   'exe.locked.sla': 'SLA data stays hidden for this role.',
   'exe.locked.compliance': 'Compliance data stays hidden for this role.',
-  'exe.locked.platform': 'Platform data stays hidden for this role.',
   'exe.locked.spend': 'Spend data stays hidden for this role.',
-  'exe.locked.finance': 'Finance data stays hidden for this role.',
-  'exe.locked.retention': 'Retention and churn data stays hidden for this role.',
-  'exe.locked.pilot': 'Pilot and conversion data stays hidden for this role.',
+  'exe.locked.finance': 'Billing stays hidden for this role.',
   'exe.locked.ce': 'Matching activity stays hidden for this role.',
   'exe.locked.activity': 'Activity stays hidden for this role.',
   'exe.locked.dsgvo': 'Governance metrics stay hidden for this role.',
@@ -611,12 +488,6 @@ TCi18n.register('en', {
   'exe.comp.rejected': 'Rejected',
   'exe.comp.expiring': '{count} document(s) expire within 30 days',
 
-  'exe.platform.none': 'No platform data available.',
-  'exe.platform.users': 'Users',
-  'exe.platform.orgs': 'Organisations',
-  'exe.platform.capacityPosts': 'Active staff offers',
-  'exe.platform.openDemands': 'Open demands',
-  'exe.platform.vendorEntries': 'Supplier entries',
 
   'exe.spend.unavailable': 'Spend currently unavailable.',
   'exe.spend.noData': 'No spend data in the current 30-day window.',
@@ -639,123 +510,8 @@ TCi18n.register('en', {
   'exe.spend.overRate': 'Over-rate ({pct}%)',
   'exe.spend.overRateTip': '{count} assignment(s) in the window exceed the rate card target.',
 
-  'exe.fin.unavailable': 'Finance truth currently unavailable.',
-  'exe.fin.mrr': 'Contractual MRR',
-  'exe.fin.mrrTip': 'Contractually recognised monthly revenue excluding custom_quote_pending.',
-  'exe.fin.catalogMrr': 'Catalog MRR (theoretical)',
-  'exe.fin.catalogMrrTip': 'Catalog-based reference MRR for active paid subscriptions.',
-  'exe.fin.receivables': 'Open receivables',
-  'exe.fin.receivablesTip': 'Issued and overdue invoices that are not yet paid.',
-  'exe.fin.paidRevenue': 'Paid revenue',
-  'exe.fin.paidRevenueTip': 'Invoice revenue historically marked as paid.',
-  'exe.fin.billable': 'Billable volume',
-  'exe.fin.billableTip': 'Approved timesheet work that has not been invoiced yet.',
-  'exe.fin.pendingQuotes': 'Pending quotes',
-  'exe.fin.pendingQuotesTip': 'Active subscriptions with custom_quote_pending and no recognised price.',
-  'exe.fin.sessions': 'Completed sessions',
-  'exe.fin.sessionsTip': 'Completed payment sessions as a cash proxy.',
-  'exe.fin.gap': 'Spend↔invoice gap 30d',
-  'exe.fin.gapTip': 'Approved spend (30d) minus operational invoiced revenue (30d).',
-  'exe.fin.thSource': 'Price source',
-  'exe.fin.thSubscribers': 'Subscribers',
-  'exe.fin.thMrr': 'MRR',
-  'exe.fin.lifecycle': 'Invoice lifecycle: draft {draft} · issued {issued} · overdue {overdue} · paid {paid} · void {voided}',
-  'exe.fin.coverage': 'Coverage 30d: {pct} · approved spend {spend} · operational invoiced {invoiced}',
 
-  'exe.ret.unavailable': 'Retention and churn truth currently unavailable.',
-  'exe.ret.activePaidOrgs': 'Active paid orgs',
-  'exe.ret.activePaidOrgsTip': 'Active paying organisations in the current window.',
-  'exe.ret.activeCustomers': 'Active customers',
-  'exe.ret.activeCustomersTip': 'Paying organisations with value-generating activity.',
-  'exe.ret.retainedLogos': 'Retained logos',
-  'exe.ret.retainedLogosTip': 'Prior-period cohort that keeps paying actively.',
-  'exe.ret.logoChurn': 'Logo churn rate',
-  'exe.ret.logoChurnTip': 'Logo churn in the cohort comparison.',
-  'exe.ret.nrr': 'NRR',
-  'exe.ret.nrrTip': 'Net revenue retention incl. expansion and contraction.',
-  'exe.ret.grossChurn': 'Gross churn MRR',
-  'exe.ret.grossChurnTip': 'Gross MRR loss from the prior-period cohort.',
-  'exe.ret.expansion': 'Expansion MRR',
-  'exe.ret.expansionTip': 'MRR expansion within the prior-period cohort.',
-  'exe.ret.inactivePaying': 'Inactive but paying',
-  'exe.ret.inactivePayingTip': 'Paying organisations without value-generating activity.',
-  'exe.ret.pqa': 'PQA',
-  'exe.ret.pqaTip': 'Product qualified accounts with intensive usage.',
-  'exe.ret.usageHigh': 'Usage high',
-  'exe.ret.usageMedium': 'Usage medium',
-  'exe.ret.usageLow': 'Usage low',
-  'exe.ret.usageDormant': 'Usage dormant',
-  'exe.ret.avgValueEvents': 'Avg value events',
-  'exe.ret.medianValueEvents': 'Median value events',
-  'exe.ret.segStage': 'Segment by stage',
-  'exe.ret.segPlan': 'Segment by plan',
-  'exe.ret.thStage': 'Stage',
-  'exe.ret.thPlan': 'Plan',
-  'exe.ret.thPaidOrgs': 'Paid orgs',
-  'exe.ret.thRetention': 'Retention',
-  'exe.ret.thMrr': 'MRR',
-  'exe.ret.atRisk': 'At-risk accounts',
-  'exe.ret.thOrg': 'Organisation',
-  'exe.ret.thRisk': 'Risk',
-  'exe.ret.thValueEvents': 'Value events',
-  'exe.ret.usageMissing': 'Usage source unavailable: usage-based retention and churn figures are limited.',
 
-  'exe.pc.unavailable': 'Pilot and conversion truth currently unavailable.',
-  'exe.pc.activePilots': 'Active pilots',
-  'exe.pc.activePilotsTip': 'Pilots currently running.',
-  'exe.pc.activatedPilots': 'Activated pilots',
-  'exe.pc.activatedPilotsTip': 'Active pilots with real product contact.',
-  'exe.pc.convertedPilots': 'Converted pilots',
-  'exe.pc.convertedPilotsTip': 'Pilots with a paying live conversion.',
-  'exe.pc.atRiskPilots': 'At-risk pilots',
-  'exe.pc.atRiskPilotsTip': 'Active pilots with clear risk signals.',
-  'exe.pc.daysToActivation': 'Avg days to activation',
-  'exe.pc.daysToActivationTip': 'Average from pilot start to the first real activation.',
-  'exe.pc.daysToConversion': 'Avg days to conversion',
-  'exe.pc.daysToConversionTip': 'Average from pilot start to paying live.',
-  'exe.pc.pilotToActivated': 'Pilot → activated',
-  'exe.pc.pilotToActivatedTip': 'Cohort rate from pilot start to activation.',
-  'exe.pc.activatedToPaid': 'Activated → paid',
-  'exe.pc.activatedToPaidTip': 'Cohort rate from activation to paying live.',
-  'exe.pc.pilotToLost': 'Pilot → lost',
-  'exe.pc.pilotToLostTip': 'Cohort rate from pilot start to lost.',
-  'exe.pc.funnelNow': 'Current funnel state',
-  'exe.pc.thStage': 'Stage',
-  'exe.pc.thOrgs': 'Orgs',
-  'exe.pc.thAvgDays': 'Avg days',
-  'exe.pc.thAtRisk': 'At-risk',
-  'exe.pc.noStages': 'No funnel stages available.',
-  'exe.pc.transitions': 'Transition rates ({window})',
-  'exe.pc.window': 'window',
-  'exe.pc.thTransition': 'Transition',
-  'exe.pc.thCohort': 'Cohort',
-  'exe.pc.thConverted': 'Converted',
-  'exe.pc.thRate': 'Rate',
-  'exe.pc.trLeadReg': 'Lead → registration',
-  'exe.pc.trRegPilot': 'Registration → pilot start',
-  'exe.pc.trPilotAct': 'Pilot start → activation',
-  'exe.pc.trActPaid': 'Activation → paid',
-  'exe.pc.trPilotLost': 'Pilot → lost',
-  'exe.pc.icp': 'GTM learnings by ICP',
-  'exe.pc.thIcp': 'ICP',
-  'exe.pc.thTracked': 'Tracked',
-  'exe.pc.thActivated': 'Activated',
-  'exe.pc.noIcp': 'No ICP learnings available.',
-  'exe.pc.tariff': 'Tariff and path learnings',
-  'exe.pc.thPath': 'Path',
-  'exe.pc.noTariff': 'No tariff paths available.',
-  'exe.pc.modules': 'Product areas with real pilot usage',
-  'exe.pc.thArea': 'Area',
-  'exe.pc.thPilotOrgs': 'Pilot orgs',
-  'exe.pc.thActivePilots': 'Active pilots',
-  'exe.pc.thSuccessUsage': 'Successful usage',
-  'exe.pc.thEvents': 'Events',
-  'exe.pc.thOrg': 'Organisation',
-  'exe.pc.thRisk': 'Risk',
-  'exe.pc.thHints': 'Notes',
-  'exe.pc.bottlenecks': 'Onboarding bottlenecks: ',
-  'exe.pc.leadQuality': 'Pre-registration leads are only partly available; otherwise the lead stage falls back honestly to registration.',
-  'exe.pc.pricingQuality': 'Pricing clarity partly uses derived time anchors (pilot start / subscription creation) because no separate historical pricing timestamp exists.',
 
   'exe.search.running': 'Searching…',
   'exe.search.noHits': 'No results',
@@ -991,13 +747,13 @@ TCi18n.register('en', {
         var csvBlob = await response.blob();
         var csvName = fileNameFromContentDisposition(
           response.headers.get('content-disposition'),
-          'finance-truth-' + new Date().toISOString().slice(0, 10) + '.csv'
+          'abrechnung.csv'
         );
         saveBlob(csvBlob, csvName);
       } else {
         var payload = await TC.api.get('/reporting/finance-truth/export?format=json');
         var jsonBlob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
-        var jsonName = 'finance-truth-' + new Date().toISOString().slice(0, 10) + '.json';
+        var jsonName = 'abrechnung.json';
         saveBlob(jsonBlob, jsonName);
       }
       setFinanceExportStatus(t('exe.export.done'), 'good');
@@ -1196,14 +952,9 @@ TCi18n.register('en', {
     document.getElementById('reqChart').innerHTML = sectionMessage(t('exe.unavail.req'));
     document.getElementById('slaSection').innerHTML = sectionMessage(t('exe.unavail.sla'));
     document.getElementById('compSection').innerHTML = sectionMessage(t('exe.unavail.compliance'));
-    document.getElementById('platformGrid').innerHTML = sectionMessage(t('exe.unavail.platform'));
     document.getElementById('spendGrid').innerHTML = sectionMessage(t('exe.unavail.spend'));
-    document.getElementById('financeGrid').innerHTML = sectionMessage(t('exe.unavail.finance'));
-    document.getElementById('financeDetail').innerHTML = '';
-    document.getElementById('retentionGrid').innerHTML = sectionMessage(t('exe.unavail.retention'));
-    document.getElementById('retentionDetail').innerHTML = '';
-    document.getElementById('pilotConversionGrid').innerHTML = sectionMessage(t('exe.unavail.pilot'));
-    document.getElementById('pilotConversionDetail').innerHTML = '';
+    document.getElementById('abrechnungGrid').innerHTML = sectionMessage(t('exe.unavail.finance'));
+    document.getElementById('abrechnungDetail').innerHTML = '';
     setFinanceExportStatus(t('exe.unavail.exportHint'), 'warn');
   }
   function renderDashboardLocked() {
@@ -1215,14 +966,9 @@ TCi18n.register('en', {
     document.getElementById('reqChart').innerHTML = sectionMessage(t('exe.locked.req'));
     document.getElementById('slaSection').innerHTML = sectionMessage(t('exe.locked.sla'));
     document.getElementById('compSection').innerHTML = sectionMessage(t('exe.locked.compliance'));
-    document.getElementById('platformGrid').innerHTML = sectionMessage(t('exe.locked.platform'));
     document.getElementById('spendGrid').innerHTML = sectionMessage(t('exe.locked.spend'));
-    document.getElementById('financeGrid').innerHTML = sectionMessage(t('exe.locked.finance'));
-    document.getElementById('financeDetail').innerHTML = '';
-    document.getElementById('retentionGrid').innerHTML = sectionMessage(t('exe.locked.retention'));
-    document.getElementById('retentionDetail').innerHTML = '';
-    document.getElementById('pilotConversionGrid').innerHTML = sectionMessage(t('exe.locked.pilot'));
-    document.getElementById('pilotConversionDetail').innerHTML = '';
+    document.getElementById('abrechnungGrid').innerHTML = sectionMessage(t('exe.locked.finance'));
+    document.getElementById('abrechnungDetail').innerHTML = '';
     document.getElementById('ceGrid').innerHTML = sectionMessage(t('exe.locked.ce'));
     document.getElementById('activityTimeline').innerHTML = sectionMessage(t('exe.locked.activity'));
     document.getElementById('dsgvoGrid').innerHTML = sectionMessage(t('exe.locked.dsgvo'));
@@ -1293,11 +1039,8 @@ TCi18n.register('en', {
     renderReqChart(data.requisitions);
     renderSla(data.sla);
     renderCompliance(data.compliance);
-    renderPlatform(data.platform);
     renderSpend(data.spend, data.window);
-    renderFinance(data.finance);
-    renderRetention(data.retention || (data.finance && data.finance.retention_truth));
-    renderPilotConversion(data.pilot_conversion || (data.finance && data.finance.pilot_conversion_truth));
+    renderAbrechnung(data.abrechnung);
     renderProcurementPulse(data.procurement_pulse);
     renderCriticalStaffingPressure(data.critical_staffing_pressure);
     applyExecutiveDomLocks(document);
@@ -1486,23 +1229,6 @@ TCi18n.register('en', {
       (c.expiring_soon > 0 ? '<p style="color:var(--warn);margin:8px 0 0;font-size:13px">⚠ ' + esc(t('exe.comp.expiring', { count: c.expiring_soon })) + '</p>' : '');
   }
 
-  function renderPlatform(p) {
-    if (!p) {
-      document.getElementById('platformGrid').innerHTML = sectionMessage(t('exe.platform.none'));
-      return;
-    }
-    var tiles = [
-      { label: t('exe.platform.users'), val: p.total_users || 0 },
-      { label: t('exe.platform.orgs'), val: p.total_orgs || 0 },
-      { label: t('exe.platform.capacityPosts'), val: p.active_capacity_posts || 0 },
-      { label: t('exe.platform.openDemands'), val: p.open_demands || 0 },
-      { label: t('exe.platform.vendorEntries'), val: p.active_vendor_entries || 0 }
-    ];
-    document.getElementById('platformGrid').innerHTML = tiles.map(function(t) {
-      return '<div class="kpi-tile"><span class="kpi-val">' + esc(String(t.val)) + '</span><span class="kpi-label">' + esc(t.label) + '</span></div>';
-    }).join('');
-  }
-
   function renderSpend(s, window) {
     var grid = document.getElementById('spendGrid');
     if (!grid) return;
@@ -1517,8 +1243,12 @@ TCi18n.register('en', {
     function eurFmt(c) { return (c/100).toLocaleString(loc(),{minimumFractionDigits:0,maximumFractionDigits:0}); }
     function eurFull(c) { return (c/100).toLocaleString(loc(),{minimumFractionDigits:2,maximumFractionDigits:2}); }
     var spendHref = spendWindowHref(window);
-    var overRatePct = s.over_rate_spend_cents && s.total_spend_cents
-      ? Math.round(s.over_rate_spend_cents / s.total_spend_cents * 100) : 0;
+    // Betraege kommen aus bigint-Spalten als TEXT ("0" ist in JS wahr) — vorher
+    // ergab das bei leeren Ausgaben "0"/"0" = NaN und die Kachel zeigte "NAN%".
+    var overRateSpend = Number(s.over_rate_spend_cents) || 0;
+    var totalSpendCents = Number(s.total_spend_cents) || 0;
+    var overRatePct = overRateSpend > 0 && totalSpendCents > 0
+      ? Math.round(overRateSpend / totalSpendCents * 100) : 0;
     grid.innerHTML = [
       {
         label:t('exe.spend.total'),
@@ -1591,75 +1321,39 @@ TCi18n.register('en', {
     }).join('');
   }
 
-  function renderFinance(finance) {
-    var grid = document.getElementById('financeGrid');
-    var detail = document.getElementById('financeDetail');
+  /*
+   * Abrechnung (Owner-Entscheid 2026-10-01). Hier standen vier Abschnitte aus
+   * TempConnects Betreibersicht: Plattform (Zaehlungen ueber ALLE Firmen),
+   * Finance Truth (MRR, Katalog-MRR, Preisaufschluesselung, Angebots-Pipeline,
+   * Checkout-Sitzungen), SaaS-Retention und Pilot-Umwandlung. Dem Kunden gehoeren
+   * daraus zwei Zahlen — nur die liefert der Server noch.
+   */
+  function renderAbrechnung(a) {
+    var grid = document.getElementById('abrechnungGrid');
+    var detail = document.getElementById('abrechnungDetail');
     if (!grid) return;
     if (detail) detail.innerHTML = '';
-    if (!finance || finance.available === false) {
-      grid.innerHTML = sectionMessage(t('exe.fin.unavailable'));
+    if (!a || a.available === false) {
+      grid.innerHTML = sectionMessage(t('exe.abr.unavailable'));
       return;
     }
-
-    var subscription = finance.subscription_truth || {};
-    var invoice = finance.invoice_truth || {};
-    var payment = finance.payment_truth || {};
-    var billable = finance.billable_truth || {};
-    var reconciliation = finance.reconciliation_30d || {};
-    var pendingQuotes = Number(subscription.pending_quote_subscribers || 0);
-    var spendInvoiceGap = Number(reconciliation.spend_invoice_gap_cents || 0);
-
+    var offen = a.billable_truth || {};
+    var abgleich = a.reconciliation_30d || {};
+    var luecke = Number(abgleich.spend_invoice_gap_cents || 0);
     var tiles = [
       {
-        label: t('exe.fin.mrr'),
-        val: compactEuroValue(subscription.contractually_active_mrr || 0),
-        color: 'var(--brand)',
-        title: t('exe.fin.mrrTip')
-      },
-      {
-        label: t('exe.fin.catalogMrr'),
-        val: compactEuroValue(subscription.catalog_mrr_theoretical || 0),
-        color: '#7c5cff',
-        title: t('exe.fin.catalogMrrTip')
-      },
-      {
-        label: t('exe.fin.receivables'),
-        val: compactEuro(invoice.open_receivables_cents || 0),
-        color: Number(invoice.overdue_receivables_cents || 0) > 0 ? 'var(--bad)' : 'var(--warn)',
-        title: t('exe.fin.receivablesTip')
-      },
-      {
-        label: t('exe.fin.paidRevenue'),
-        val: compactEuro(invoice.paid_revenue_cents || 0),
-        color: 'var(--good)',
-        title: t('exe.fin.paidRevenueTip')
-      },
-      {
-        label: t('exe.fin.billable'),
-        val: billable.available === false ? '–' : compactEuro(billable.approved_uninvoiced_amount_cents || 0),
+        label: t('exe.abr.offen'),
+        val: offen.available === false ? '–' : compactEuro(offen.approved_uninvoiced_amount_cents || 0),
         color: 'var(--warn)',
-        title: t('exe.fin.billableTip')
+        title: t('exe.abr.offenTip')
       },
       {
-        label: t('exe.fin.pendingQuotes'),
-        val: pendingQuotes,
-        color: pendingQuotes > 0 ? 'var(--warn)' : 'var(--good)',
-        title: t('exe.fin.pendingQuotesTip')
-      },
-      {
-        label: t('exe.fin.sessions'),
-        val: payment.available === false ? '–' : (payment.completed_count || 0),
-        color: 'var(--text)',
-        title: t('exe.fin.sessionsTip')
-      },
-      {
-        label: t('exe.fin.gap'),
-        val: reconciliation.available === false ? '–' : compactEuro(spendInvoiceGap),
-        color: reconciliation.available === false ? 'var(--muted)' : (spendInvoiceGap > 0 ? 'var(--warn)' : 'var(--good)'),
-        title: t('exe.fin.gapTip')
+        label: t('exe.abr.gap'),
+        val: abgleich.available === false ? '–' : compactEuro(luecke),
+        color: abgleich.available === false ? 'var(--muted)' : (luecke > 0 ? 'var(--warn)' : 'var(--good)'),
+        title: t('exe.abr.gapTip')
       }
     ];
-
     grid.innerHTML = tiles.map(function(tile) {
       return '<div class="kpi-tile" title="' + esc(tile.title || '') + '">' +
         '<span class="kpi-val" style="color:' + tile.color + ';font-size:20px">' + esc(String(tile.val)) + '</span>' +
@@ -1668,363 +1362,26 @@ TCi18n.register('en', {
     }).join('');
 
     if (!detail) return;
-    var pricingRows = Array.isArray(finance.pricing_state_breakdown) ? finance.pricing_state_breakdown : [];
-    var detailHtml = '';
-
-    if (pricingRows.length) {
-      detailHtml +=
-        '<div style="overflow:auto;margin-top:12px">' +
-          '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
-            '<thead><tr>' +
-              '<th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.fin.thSource')) + '</th>' +
-              '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.fin.thSubscribers')) + '</th>' +
-              '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.fin.thMrr')) + '</th>' +
-            '</tr></thead>' +
-            '<tbody>' +
-              pricingRows.map(function(row) {
-                return '<tr>' +
-                  '<td style="padding:6px;border-bottom:1px solid var(--line)">' + esc(row.source || 'unknown') + '</td>' +
-                  '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(String(row.subscribers || 0)) + '</td>' +
-                  '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactEuroValue(row.mrr || 0)) + '</td>' +
-                '</tr>';
-              }).join('') +
-            '</tbody>' +
-          '</table>' +
-        '</div>';
+    var zeilen = [];
+    if (offen.available !== false) {
+      zeilen.push(t('exe.abr.stunden', {
+        stunden: compactCount(offen.approved_uninvoiced_hours || 0),
+        zettel: compactCount(offen.approved_uninvoiced_timesheets || 0)
+      }));
+      if (Number(offen.missing_rate_count || 0) > 0) {
+        zeilen.push(t('exe.abr.fehlendeSaetze', { n: compactCount(offen.missing_rate_count) }));
+      }
     }
-
-    detailHtml +=
-      '<div style="margin-top:10px;font-size:13px;color:var(--muted)">' +
-        esc(t('exe.fin.lifecycle', {
-          draft: invoice.draft_count || 0,
-          issued: invoice.issued_count || 0,
-          overdue: invoice.overdue_count || 0,
-          paid: invoice.paid_count || 0,
-          voided: invoice.void_count || 0
-        })) +
-      '</div>';
-
-    if (reconciliation.available) {
-      detailHtml +=
-        '<div style="margin-top:6px;font-size:13px;color:var(--muted)">' +
-          esc(t('exe.fin.coverage', {
-            pct: reconciliation.coverage_ratio_pct == null ? '–' : (String(reconciliation.coverage_ratio_pct) + '%'),
-            spend: compactEuro(reconciliation.approved_spend_30d_cents || 0),
-            invoiced: compactEuro(reconciliation.operational_invoiced_30d_cents || 0)
-          })) +
-        '</div>';
+    if (abgleich.available) {
+      zeilen.push(t('exe.abr.deckung', {
+        pct: abgleich.coverage_ratio_pct == null ? '–' : (String(abgleich.coverage_ratio_pct) + ' %'),
+        spend: compactEuro(abgleich.approved_spend_30d_cents || 0),
+        invoiced: compactEuro(abgleich.operational_invoiced_30d_cents || 0)
+      }));
     }
-
-    detail.innerHTML = detailHtml;
-  }
-
-  function renderSegmentRows(rows) {
-    return (rows || []).slice(0, 5).map(function(row) {
-      return '<tr>' +
-        '<td style="padding:6px;border-bottom:1px solid var(--line)">' + esc(row.label || row.value || '–') + '</td>' +
-        '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactCount(row.active_paid_orgs || 0)) + '</td>' +
-        '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactPercent(
-          (row.retained_logos || 0) > 0 || (row.logo_churned_orgs || 0) > 0
-            ? ((Number(row.retained_logos || 0) / Math.max(1, Number(row.retained_logos || 0) + Number(row.logo_churned_orgs || 0))) * 100)
-            : null
-        )) + '</td>' +
-        '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactEuroValue(row.current_mrr || 0)) + '</td>' +
-      '</tr>';
+    detail.innerHTML = zeilen.map(function(z) {
+      return '<div style="margin-top:6px;font-size:13px;color:var(--muted)">' + esc(z) + '</div>';
     }).join('');
-  }
-  function renderRetention(retention) {
-    var grid = document.getElementById('retentionGrid');
-    var detail = document.getElementById('retentionDetail');
-    if (!grid) return;
-    if (detail) detail.innerHTML = '';
-    if (!retention || retention.available === false) {
-      grid.innerHTML = sectionMessage(t('exe.ret.unavailable'));
-      return;
-    }
-    var headline = retention.headline || {};
-    var usage = retention.usage_intensity || {};
-    var quality = retention.quality_flags || {};
-    var cards = [
-      { label: t('exe.ret.activePaidOrgs'), val: compactCount(headline.active_paid_orgs || 0), color: 'var(--brand)', title: t('exe.ret.activePaidOrgsTip') },
-      { label: t('exe.ret.activeCustomers'), val: compactCount(headline.active_customer_orgs || 0), color: '#7c5cff', title: t('exe.ret.activeCustomersTip') },
-      { label: t('exe.ret.retainedLogos'), val: compactCount(headline.retained_logos || 0), color: 'var(--good)', title: t('exe.ret.retainedLogosTip') },
-      { label: t('exe.ret.logoChurn'), val: compactPercent(headline.logo_churn_rate_pct), color: Number(headline.logo_churn_rate_pct || 0) >= 10 ? 'var(--bad)' : 'var(--warn)', title: t('exe.ret.logoChurnTip') },
-      { label: t('exe.ret.nrr'), val: compactPercent(headline.net_revenue_retention_pct), color: Number(headline.net_revenue_retention_pct || 0) >= 100 ? 'var(--good)' : 'var(--warn)', title: t('exe.ret.nrrTip') },
-      { label: t('exe.ret.grossChurn'), val: compactEuroValue(headline.gross_revenue_churn_mrr || 0), color: 'var(--bad)', title: t('exe.ret.grossChurnTip') },
-      { label: t('exe.ret.expansion'), val: compactEuroValue(headline.expansion_mrr || 0), color: 'var(--good)', title: t('exe.ret.expansionTip') },
-      { label: t('exe.ret.inactivePaying'), val: compactCount(headline.inactive_but_paying_orgs || 0), color: Number(headline.inactive_but_paying_orgs || 0) > 0 ? 'var(--warn)' : 'var(--good)', title: t('exe.ret.inactivePayingTip') },
-      { label: t('exe.ret.pqa'), val: compactCount(headline.pqa_orgs || 0), color: '#4fa7ff', title: t('exe.ret.pqaTip') }
-    ];
-    grid.innerHTML = cards.map(function(tile) {
-      return '<div class="kpi-tile" title="' + esc(tile.title || '') + '">' +
-        '<span class="kpi-val" style="color:' + tile.color + ';font-size:20px">' + esc(String(tile.val)) + '</span>' +
-        '<span class="kpi-label">' + esc(tile.label) + '</span>' +
-      '</div>';
-    }).join('');
-    if (!detail) return;
-    var stageRows = (((retention || {}).segment_drilldown || {}).by_stage) || [];
-    var planRows = (((retention || {}).segment_drilldown || {}).by_plan) || [];
-    var atRiskRows = (((retention || {}).org_drilldown || {}).at_risk || []).slice(0, 10);
-    var usageAvailable = quality.usage_source_available !== false;
-    var detailHtml = '<div class="kpi-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));margin-top:12px">' +
-      '<div class="kpi-tile"><span class="kpi-val" style="font-size:20px">' + esc(compactCount(usage.high || 0)) + '</span><span class="kpi-label">' + esc(t('exe.ret.usageHigh')) + '</span></div>' +
-      '<div class="kpi-tile"><span class="kpi-val" style="font-size:20px">' + esc(compactCount(usage.medium || 0)) + '</span><span class="kpi-label">' + esc(t('exe.ret.usageMedium')) + '</span></div>' +
-      '<div class="kpi-tile"><span class="kpi-val" style="font-size:20px">' + esc(compactCount(usage.low || 0)) + '</span><span class="kpi-label">' + esc(t('exe.ret.usageLow')) + '</span></div>' +
-      '<div class="kpi-tile"><span class="kpi-val" style="font-size:20px">' + esc(compactCount(usage.dormant || 0)) + '</span><span class="kpi-label">' + esc(t('exe.ret.usageDormant')) + '</span></div>' +
-      '<div class="kpi-tile"><span class="kpi-val" style="font-size:20px">' + esc(compactCount(usage.avg_value_events_per_active_org || 0)) + '</span><span class="kpi-label">' + esc(t('exe.ret.avgValueEvents')) + '</span></div>' +
-      '<div class="kpi-tile"><span class="kpi-val" style="font-size:20px">' + esc(compactCount(usage.median_value_events_per_active_org || 0)) + '</span><span class="kpi-label">' + esc(t('exe.ret.medianValueEvents')) + '</span></div>' +
-    '</div>';
-    detailHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-top:12px">' +
-      '<div style="overflow:auto">' +
-        '<div style="font-size:13px;font-weight:700;margin-bottom:6px">' + esc(t('exe.ret.segStage')) + '</div>' +
-        '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
-          '<thead><tr>' +
-            '<th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.ret.thStage')) + '</th>' +
-            '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.ret.thPaidOrgs')) + '</th>' +
-            '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.ret.thRetention')) + '</th>' +
-            '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.ret.thMrr')) + '</th>' +
-          '</tr></thead><tbody>' + renderSegmentRows(stageRows) + '</tbody>' +
-        '</table>' +
-      '</div>' +
-      '<div style="overflow:auto">' +
-        '<div style="font-size:13px;font-weight:700;margin-bottom:6px">' + esc(t('exe.ret.segPlan')) + '</div>' +
-        '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
-          '<thead><tr>' +
-            '<th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.ret.thPlan')) + '</th>' +
-            '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.ret.thPaidOrgs')) + '</th>' +
-            '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.ret.thRetention')) + '</th>' +
-            '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.ret.thMrr')) + '</th>' +
-          '</tr></thead><tbody>' + renderSegmentRows(planRows) + '</tbody>' +
-        '</table>' +
-      '</div>' +
-    '</div>';
-    if (atRiskRows.length) {
-      detailHtml += '<div style="margin-top:12px;overflow:auto">' +
-        '<div style="font-size:13px;font-weight:700;margin-bottom:6px">' + esc(t('exe.ret.atRisk')) + '</div>' +
-        '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
-          '<thead><tr>' +
-            '<th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.ret.thOrg')) + '</th>' +
-            '<th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.ret.thStage')) + '</th>' +
-            '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.ret.thRisk')) + '</th>' +
-            '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.ret.thValueEvents')) + '</th>' +
-            '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.ret.thMrr')) + '</th>' +
-          '</tr></thead><tbody>' +
-            atRiskRows.map(function(row) {
-              return '<tr>' +
-                '<td style="padding:6px;border-bottom:1px solid var(--line)">' + esc(row.org_name || row.org_id || '–') + '</td>' +
-                '<td style="padding:6px;border-bottom:1px solid var(--line)">' + esc(row.stage || '–') + '</td>' +
-                '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line);color:var(--warn)">' + esc(compactCount(row.risk_score || 0)) + '</td>' +
-                '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactCount(row.current_value_events || 0)) + '</td>' +
-                '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactEuroValue(row.current_mrr || 0)) + '</td>' +
-              '</tr>';
-            }).join('') +
-          '</tbody>' +
-        '</table>' +
-      '</div>';
-    }
-    if (!usageAvailable) {
-      detailHtml += '<div style="margin-top:10px;font-size:12px;color:var(--warn)">' + esc(t('exe.ret.usageMissing')) + '</div>';
-    }
-    detail.innerHTML = detailHtml;
-  }
-  function renderPilotConversion(truth) {
-    var grid = document.getElementById('pilotConversionGrid');
-    var detail = document.getElementById('pilotConversionDetail');
-    if (!grid) return;
-    if (detail) detail.innerHTML = '';
-    if (!truth || truth.available === false) {
-      grid.innerHTML = sectionMessage(t('exe.pc.unavailable'));
-      return;
-    }
-    var headline = truth.headline || {};
-    var transitions = truth.transitions || {};
-    var pilotToActivated = transitions.pilot_started_to_activated || {};
-    var activatedToPaid = transitions.activated_to_paid_live || {};
-    var pilotToLost = transitions.pilot_to_lost || {};
-    var cards = [
-      { label: t('exe.pc.activePilots'), val: compactCount(headline.active_pilots || 0), color: 'var(--brand)', title: t('exe.pc.activePilotsTip') },
-      { label: t('exe.pc.activatedPilots'), val: compactCount(headline.activated_pilots || 0), color: '#4fa7ff', title: t('exe.pc.activatedPilotsTip') },
-      { label: t('exe.pc.convertedPilots'), val: compactCount(headline.converted_pilots || 0), color: 'var(--good)', title: t('exe.pc.convertedPilotsTip') },
-      { label: t('exe.pc.atRiskPilots'), val: compactCount(headline.at_risk_pilots || 0), color: Number(headline.at_risk_pilots || 0) > 0 ? 'var(--warn)' : 'var(--good)', title: t('exe.pc.atRiskPilotsTip') },
-      { label: t('exe.pc.daysToActivation'), val: compactDays(headline.avg_days_to_activation), color: 'var(--text)', title: t('exe.pc.daysToActivationTip') },
-      { label: t('exe.pc.daysToConversion'), val: compactDays(headline.avg_days_to_conversion), color: 'var(--text)', title: t('exe.pc.daysToConversionTip') },
-      { label: t('exe.pc.pilotToActivated'), val: compactPercent(pilotToActivated.rate_pct), color: Number(pilotToActivated.rate_pct || 0) >= 60 ? 'var(--good)' : 'var(--warn)', title: t('exe.pc.pilotToActivatedTip') },
-      { label: t('exe.pc.activatedToPaid'), val: compactPercent(activatedToPaid.rate_pct), color: Number(activatedToPaid.rate_pct || 0) >= 35 ? 'var(--good)' : 'var(--warn)', title: t('exe.pc.activatedToPaidTip') },
-      { label: t('exe.pc.pilotToLost'), val: compactPercent(pilotToLost.rate_pct), color: Number(pilotToLost.rate_pct || 0) >= 20 ? 'var(--bad)' : 'var(--text)', title: t('exe.pc.pilotToLostTip') }
-    ];
-    grid.innerHTML = cards.map(function(tile) {
-      return '<div class="kpi-tile" title="' + esc(tile.title || '') + '">' +
-        '<span class="kpi-val" style="color:' + tile.color + ';font-size:20px">' + esc(String(tile.val)) + '</span>' +
-        '<span class="kpi-label">' + esc(tile.label) + '</span>' +
-      '</div>';
-    }).join('');
-    if (!detail) return;
-
-    var stageRows = Array.isArray(truth.current_stage_distribution) ? truth.current_stage_distribution : [];
-    var atRiskRows = ((((truth || {}).org_drilldown || {}).at_risk) || []).slice(0, 8);
-    var bottlenecks = ((((truth || {}).gtm_learning || {}).onboarding_bottlenecks) || []).slice(0, 5);
-    var icpRows = ((((truth || {}).gtm_learning || {}).by_icp) || []).slice(0, 5);
-    var tariffRows = ((((truth || {}).gtm_learning || {}).by_tariff_path) || []).slice(0, 5);
-    var moduleRows = (((truth || {}).gtm_learning || {}).product_area_usage) || [];
-    var quality = truth.quality_flags || {};
-    var detailHtml = '';
-
-    detailHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-top:12px">';
-    detailHtml += '<div style="overflow:auto">' +
-      '<div style="font-size:13px;font-weight:700;margin-bottom:6px">' + esc(t('exe.pc.funnelNow')) + '</div>' +
-      '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
-        '<thead><tr>' +
-          '<th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thStage')) + '</th>' +
-          '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thOrgs')) + '</th>' +
-          '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thAvgDays')) + '</th>' +
-          '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thAtRisk')) + '</th>' +
-        '</tr></thead>' +
-        '<tbody>' +
-          (stageRows.length ? stageRows.map(function(row) {
-            return '<tr>' +
-              '<td style="padding:6px;border-bottom:1px solid var(--line)">' + esc(pilotStageLabel(row.stage)) + '</td>' +
-              '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactCount(row.orgs || 0)) + '</td>' +
-              '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactDays(row.avg_days_in_stage)) + '</td>' +
-              '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactCount(row.at_risk_orgs || 0)) + '</td>' +
-            '</tr>';
-          }).join('') : '<tr><td colspan="4" style="padding:8px;color:var(--muted)">' + esc(t('exe.pc.noStages')) + '</td></tr>') +
-        '</tbody>' +
-      '</table>' +
-    '</div>';
-    detailHtml += '<div style="overflow:auto">' +
-      '<div style="font-size:13px;font-weight:700;margin-bottom:6px">' + esc(t('exe.pc.transitions', { window: ((truth.cohort_window || {}).label) || t('exe.pc.window') })) + '</div>' +
-      '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
-        '<thead><tr>' +
-          '<th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thTransition')) + '</th>' +
-          '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thCohort')) + '</th>' +
-          '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thConverted')) + '</th>' +
-          '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thRate')) + '</th>' +
-        '</tr></thead><tbody>' +
-          [
-            { label: t('exe.pc.trLeadReg'), data: transitions.lead_to_registered || {} },
-            { label: t('exe.pc.trRegPilot'), data: transitions.registration_to_pilot_started || {} },
-            { label: t('exe.pc.trPilotAct'), data: transitions.pilot_started_to_activated || {} },
-            { label: t('exe.pc.trActPaid'), data: transitions.activated_to_paid_live || {} },
-            { label: t('exe.pc.trPilotLost'), data: transitions.pilot_to_lost || {} }
-          ].map(function(row) {
-            return '<tr>' +
-              '<td style="padding:6px;border-bottom:1px solid var(--line)">' + esc(row.label) + '</td>' +
-              '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactCount(row.data.cohort_count || 0)) + '</td>' +
-              '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactCount(row.data.converted_count || 0)) + '</td>' +
-              '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactPercent(row.data.rate_pct)) + '</td>' +
-            '</tr>';
-          }).join('') +
-        '</tbody>' +
-      '</table>' +
-    '</div>';
-    detailHtml += '</div>';
-
-    detailHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-top:12px">';
-    detailHtml += '<div style="overflow:auto">' +
-      '<div style="font-size:13px;font-weight:700;margin-bottom:6px">' + esc(t('exe.pc.icp')) + '</div>' +
-      '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
-        '<thead><tr>' +
-          '<th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thIcp')) + '</th>' +
-          '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thTracked')) + '</th>' +
-          '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thActivated')) + '</th>' +
-          '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thConverted')) + '</th>' +
-        '</tr></thead><tbody>' +
-          (icpRows.length ? icpRows.map(function(row) {
-            return '<tr>' +
-              '<td style="padding:6px;border-bottom:1px solid var(--line)">' + esc(row.label || row.key || '–') + '</td>' +
-              '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactCount(row.tracked_orgs || 0)) + '</td>' +
-              '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactPercent(row.activation_rate_pct)) + '</td>' +
-              '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactPercent(row.conversion_rate_pct)) + '</td>' +
-            '</tr>';
-          }).join('') : '<tr><td colspan="4" style="padding:8px;color:var(--muted)">' + esc(t('exe.pc.noIcp')) + '</td></tr>') +
-        '</tbody>' +
-      '</table>' +
-    '</div>';
-    detailHtml += '<div style="overflow:auto">' +
-      '<div style="font-size:13px;font-weight:700;margin-bottom:6px">' + esc(t('exe.pc.tariff')) + '</div>' +
-      '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
-        '<thead><tr>' +
-          '<th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thPath')) + '</th>' +
-          '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thTracked')) + '</th>' +
-          '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thActivated')) + '</th>' +
-          '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thConverted')) + '</th>' +
-        '</tr></thead><tbody>' +
-          (tariffRows.length ? tariffRows.map(function(row) {
-            return '<tr>' +
-              '<td style="padding:6px;border-bottom:1px solid var(--line)">' + esc(tariffPathLabel(row.label || row.key)) + '</td>' +
-              '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactCount(row.tracked_orgs || 0)) + '</td>' +
-              '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactPercent(row.activation_rate_pct)) + '</td>' +
-              '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactPercent(row.conversion_rate_pct)) + '</td>' +
-            '</tr>';
-          }).join('') : '<tr><td colspan="4" style="padding:8px;color:var(--muted)">' + esc(t('exe.pc.noTariff')) + '</td></tr>') +
-        '</tbody>' +
-      '</table>' +
-    '</div>';
-    detailHtml += '</div>';
-
-    if (moduleRows.length) {
-      detailHtml += '<div style="margin-top:12px;overflow:auto">' +
-        '<div style="font-size:13px;font-weight:700;margin-bottom:6px">' + esc(t('exe.pc.modules')) + '</div>' +
-        '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
-          '<thead><tr>' +
-            '<th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thArea')) + '</th>' +
-            '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thPilotOrgs')) + '</th>' +
-            '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thActivePilots')) + '</th>' +
-            '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thSuccessUsage')) + '</th>' +
-            '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thEvents')) + '</th>' +
-          '</tr></thead><tbody>' +
-            moduleRows.map(function(row) {
-              return '<tr>' +
-                '<td style="padding:6px;border-bottom:1px solid var(--line)">' + esc(moduleLabel(row.module)) + '</td>' +
-                '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactCount(row.pilot_orgs || 0)) + '</td>' +
-                '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactCount(row.active_pilot_orgs || 0)) + '</td>' +
-                '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactCount(row.successful_usage_orgs || 0)) + '</td>' +
-                '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line)">' + esc(compactCount(row.event_count || 0)) + '</td>' +
-              '</tr>';
-            }).join('') +
-          '</tbody>' +
-        '</table>' +
-      '</div>';
-    }
-
-    if (atRiskRows.length) {
-      detailHtml += '<div style="margin-top:12px;overflow:auto">' +
-        '<div style="font-size:13px;font-weight:700;margin-bottom:6px">' + esc(t('exe.pc.atRiskPilots')) + '</div>' +
-        '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
-          '<thead><tr>' +
-            '<th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thOrg')) + '</th>' +
-            '<th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thStage')) + '</th>' +
-            '<th style="text-align:right;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thRisk')) + '</th>' +
-            '<th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">' + esc(t('exe.pc.thHints')) + '</th>' +
-          '</tr></thead><tbody>' +
-            atRiskRows.map(function(row) {
-              return '<tr>' +
-                '<td style="padding:6px;border-bottom:1px solid var(--line)">' + esc(row.org_name || row.org_id || '–') + '</td>' +
-                '<td style="padding:6px;border-bottom:1px solid var(--line)">' + esc(pilotStageLabel(row.current_stage)) + '</td>' +
-                '<td style="padding:6px;text-align:right;border-bottom:1px solid var(--line);color:var(--warn)">' + esc(compactCount(row.risk_score || 0)) + '</td>' +
-                '<td style="padding:6px;border-bottom:1px solid var(--line)">' + esc(((row.risk_reasons || []).slice(0, 2)).join(' · ') || '–') + '</td>' +
-              '</tr>';
-            }).join('') +
-          '</tbody>' +
-        '</table>' +
-      '</div>';
-    }
-
-    if (bottlenecks.length) {
-      detailHtml += '<div style="margin-top:10px;font-size:13px;color:var(--muted)">' +
-        esc(t('exe.pc.bottlenecks')) +
-        bottlenecks.map(function(row) {
-          return esc(row.label + ' (' + compactCount(row.blocked_pilots || 0) + ')');
-        }).join(' · ') +
-      '</div>';
-    }
-    if (quality.pre_registration_lead_capture_available === false) {
-      detailHtml += '<div style="margin-top:6px;font-size:12px;color:var(--warn)">' + esc(t('exe.pc.leadQuality')) + '</div>';
-    }
-    if (quality.pricing_clarity_timestamps_partially_inferred) {
-      detailHtml += '<div style="margin-top:6px;font-size:12px;color:var(--muted)">' + esc(t('exe.pc.pricingQuality')) + '</div>';
-    }
-    detail.innerHTML = detailHtml;
   }
 
   /* ── Quick Search ─────────────────────────────────── */

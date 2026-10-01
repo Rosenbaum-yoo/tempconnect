@@ -5,9 +5,7 @@
 
 import * as spendAnalyticsService from "./spendAnalyticsService.js";
 import * as emergencyStaffingService from "./emergencyStaffingService.js";
-import { zeroPilotConversionTruth } from "./pilotConversionTruthService.js";
-import { zeroSaaSRetentionTruth } from "./retentionMetricsService.js";
-import { getRevenueMetrics } from "./revenueMetricsService.js";
+import { getKundenAbrechnung } from "./revenueMetricsService.js";
 import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
 
 const EXECUTIVE_WINDOW_DAYS = 30;
@@ -53,16 +51,6 @@ function zeroSlaReport() {
   };
 }
 
-function zeroPlatformStats() {
-  return {
-    total_users: 0,
-    total_orgs: 0,
-    active_capacity_posts: 0,
-    open_demands: 0,
-    active_vendor_entries: 0
-  };
-}
-
 function zeroSpendSummary(available = true) {
   return {
     available,
@@ -91,38 +79,16 @@ function zeroProcurementPulse(window) {
   };
 }
 
-function zeroExecutiveFinanceTruth(available = true) {
+/*
+ * Owner-Entscheid 2026-10-01: das Kunden-Dashboard zeigt die Abrechnungssicht des
+ * KUNDEN, nicht TempConnects Umsatzsicht auf ihn. Vorher standen hier vertraglicher
+ * und Katalog-MRR, Rechnungs-, Zahlungs- und Preisaufschluesselung, SaaS-Retention
+ * und Pilot-Umwandlung — im Export bis hin zu MRR und ARR je Preisquelle. Das ist
+ * Plattformbetreiber-Wissen; es steht im Staff CC unter Revenue.
+ */
+function zeroKundenAbrechnung(available = true) {
   return {
     available,
-    subscription_truth: {
-      catalog_mrr_theoretical: 0,
-      contractually_active_mrr: 0,
-      catalog_price_missing_count: 0,
-      pending_quote_subscribers: 0
-    },
-    invoice_truth: {
-      available: false,
-      total_count: 0,
-      draft_count: 0,
-      issued_count: 0,
-      overdue_count: 0,
-      paid_count: 0,
-      void_count: 0,
-      invoiced_revenue_cents: 0,
-      paid_revenue_cents: 0,
-      open_receivables_cents: 0,
-      overdue_receivables_cents: 0,
-      operational_count: 0,
-      subscription_count: 0
-    },
-    payment_truth: {
-      available: false,
-      completed_count: 0,
-      completed_amount_cents: 0,
-      pending_count: 0,
-      failed_count: 0,
-      expired_count: 0
-    },
     billable_truth: {
       available: false,
       approved_uninvoiced_timesheets: 0,
@@ -137,40 +103,10 @@ function zeroExecutiveFinanceTruth(available = true) {
       spend_invoice_gap_cents: 0,
       coverage_ratio_pct: null,
       operational_invoiced_available: false
-    },
-    retention_truth: zeroSaaSRetentionTruth(EXECUTIVE_WINDOW_DAYS),
-    pilot_conversion_truth: zeroPilotConversionTruth(),
-    pricing_state_breakdown: []
+    }
   };
 }
-const EXECUTIVE_FINANCE_EXPORT_SOURCE = 'revenueMetricsService.getRevenueMetrics';
-const SUBSCRIPTION_EXPORT_FIELDS = [
-  { key: 'catalog_mrr_theoretical', unit: 'eur' },
-  { key: 'contractually_active_mrr', unit: 'eur' },
-  { key: 'catalog_price_missing_count', unit: 'count' },
-  { key: 'pending_quote_subscribers', unit: 'count' }
-];
-const INVOICE_EXPORT_FIELDS = [
-  { key: 'total_count', unit: 'count' },
-  { key: 'draft_count', unit: 'count' },
-  { key: 'issued_count', unit: 'count' },
-  { key: 'overdue_count', unit: 'count' },
-  { key: 'paid_count', unit: 'count' },
-  { key: 'void_count', unit: 'count' },
-  { key: 'invoiced_revenue_cents', unit: 'cents' },
-  { key: 'paid_revenue_cents', unit: 'cents' },
-  { key: 'open_receivables_cents', unit: 'cents' },
-  { key: 'overdue_receivables_cents', unit: 'cents' },
-  { key: 'operational_count', unit: 'count' },
-  { key: 'subscription_count', unit: 'count' }
-];
-const PAYMENT_EXPORT_FIELDS = [
-  { key: 'completed_count', unit: 'count' },
-  { key: 'completed_amount_cents', unit: 'cents' },
-  { key: 'pending_count', unit: 'count' },
-  { key: 'failed_count', unit: 'count' },
-  { key: 'expired_count', unit: 'count' }
-];
+const ABRECHNUNG_EXPORT_SOURCE = 'revenueMetricsService.getKundenAbrechnung';
 const BILLABLE_EXPORT_FIELDS = [
   { key: 'approved_uninvoiced_timesheets', unit: 'count' },
   { key: 'approved_uninvoiced_hours', unit: 'hours' },
@@ -427,17 +363,13 @@ function buildEmergencyPressureReasons(item) {
   return reasons.slice(0, 4);
 }
 
-async function getPlatformStats(pool) {
-  const { rows: platform } = await pool.query(
-    `SELECT
-       (SELECT COUNT(*)::int FROM users WHERE is_active = TRUE) AS total_users,
-       (SELECT COUNT(*)::int FROM organizations WHERE is_active = TRUE) AS total_orgs,
-       (SELECT COUNT(*)::int FROM capacity_posts WHERE is_active = TRUE) AS active_capacity_posts,
-       (SELECT COUNT(*)::int FROM demand_requests WHERE status = 'open') AS open_demands,
-       (SELECT COUNT(*)::int FROM vendor_pool WHERE status = 'active') AS active_vendor_entries`
-  );
-  return { ...zeroPlatformStats(), ...(platform[0] || {}) };
-}
+/*
+ * `getPlatformStats` stand hier bis 2026-10-01 und zaehlte fuer JEDEN Kunden ueber
+ * die ganze Plattform: aktive Nutzer, aktive Firmen, Angebote, offene Bedarfe und
+ * die Lieferantenlisten ALLER Kunden — ohne Firmengrenze (Pfeiler 1). Marktgroessen
+ * zeigt die oeffentliche Seite schaufenster.html, mit ihren Schwellen gegen
+ * Rueckschluesse auf einzelne Firmen; das Dashboard umging diese Schwellen.
+ */
 
 async function getExecutiveSpendSummary(pool, orgId, window, locationId = null) {
   if (!orgId) return zeroSpendSummary(false);
@@ -458,28 +390,6 @@ async function getExecutiveSpendSummary(pool, orgId, window, locationId = null) 
   }
 }
 
-async function getExecutiveFinanceTruth(pool, orgId) {
-  try {
-    const revenue = await getRevenueMetrics(pool, { orgId });
-    const fallback = zeroExecutiveFinanceTruth(true);
-    return {
-      available: true,
-      subscription_truth: revenue.subscription_truth || fallback.subscription_truth,
-      invoice_truth: revenue.invoice_truth || fallback.invoice_truth,
-      payment_truth: revenue.payment_truth || fallback.payment_truth,
-      billable_truth: revenue.billable_truth || fallback.billable_truth,
-      reconciliation_30d: revenue.reconciliation_30d || fallback.reconciliation_30d,
-      retention_truth: revenue.retention_truth || fallback.retention_truth,
-      pilot_conversion_truth: revenue.pilot_conversion_truth || fallback.pilot_conversion_truth,
-      pricing_state_breakdown: Array.isArray(revenue.pricing_state_breakdown)
-        ? revenue.pricing_state_breakdown
-        : []
-    };
-  } catch {
-    return zeroExecutiveFinanceTruth(false);
-  }
-}
-
 function csvEscape(value) {
   if (value == null) return '';
   const text = String(value);
@@ -494,111 +404,18 @@ function buildSectionRows(section, data, fields, available) {
     metric_value: data?.[key] ?? null,
     unit,
     available: Boolean(available),
-    source: EXECUTIVE_FINANCE_EXPORT_SOURCE
+    source: ABRECHNUNG_EXPORT_SOURCE
   }));
 }
 
-function buildPricingStateRows(pricingStateBreakdown, available) {
-  const rows = [];
-  for (const row of pricingStateBreakdown || []) {
-    const sourceKey = String(row?.source || 'unknown');
-    rows.push({
-      section: 'pricing_state_breakdown',
-      metric_key: `${sourceKey}.subscribers`,
-      metric_value: toInt(row?.subscribers),
-      unit: 'count',
-      available: Boolean(available),
-      source: EXECUTIVE_FINANCE_EXPORT_SOURCE
-    });
-    rows.push({
-      section: 'pricing_state_breakdown',
-      metric_key: `${sourceKey}.mrr`,
-      metric_value: toInt(row?.mrr),
-      unit: 'eur',
-      available: Boolean(available),
-      source: EXECUTIVE_FINANCE_EXPORT_SOURCE
-    });
-    rows.push({
-      section: 'pricing_state_breakdown',
-      metric_key: `${sourceKey}.arr`,
-      metric_value: toInt(row?.arr),
-      unit: 'eur',
-      available: Boolean(available),
-      source: EXECUTIVE_FINANCE_EXPORT_SOURCE
-    });
-  }
-  return rows;
-}
-
-function mergeExecutiveFinanceTruth(financeTruth) {
-  const fallback = zeroExecutiveFinanceTruth(false);
-  return {
-    ...fallback,
-    ...(financeTruth || {}),
-    subscription_truth: {
-      ...fallback.subscription_truth,
-      ...(financeTruth?.subscription_truth || {})
-    },
-    invoice_truth: {
-      ...fallback.invoice_truth,
-      ...(financeTruth?.invoice_truth || {})
-    },
-    payment_truth: {
-      ...fallback.payment_truth,
-      ...(financeTruth?.payment_truth || {})
-    },
-    billable_truth: {
-      ...fallback.billable_truth,
-      ...(financeTruth?.billable_truth || {})
-    },
-    reconciliation_30d: {
-      ...fallback.reconciliation_30d,
-      ...(financeTruth?.reconciliation_30d || {})
-    },
-    pilot_conversion_truth: {
-      ...fallback.pilot_conversion_truth,
-      ...(financeTruth?.pilot_conversion_truth || {})
-    },
-    pricing_state_breakdown: Array.isArray(financeTruth?.pricing_state_breakdown)
-      ? financeTruth.pricing_state_breakdown
-      : []
-  };
-}
-
-export function buildExecutiveFinanceTruthRows(financeTruth = {}) {
-  const merged = mergeExecutiveFinanceTruth(financeTruth);
+/** Die Zeilen des Abrechnungsauszugs — nur die zwei Abschnitte, die dem Kunden gehoeren. */
+export function buildAbrechnungRows(abrechnung = {}) {
+  const basis = zeroKundenAbrechnung(false);
+  const billable = { ...basis.billable_truth, ...(abrechnung?.billable_truth || {}) };
+  const reconciliation = { ...basis.reconciliation_30d, ...(abrechnung?.reconciliation_30d || {}) };
   return [
-    ...buildSectionRows(
-      'subscription_truth',
-      merged.subscription_truth,
-      SUBSCRIPTION_EXPORT_FIELDS,
-      merged.available
-    ),
-    ...buildSectionRows(
-      'invoice_truth',
-      merged.invoice_truth,
-      INVOICE_EXPORT_FIELDS,
-      merged.invoice_truth?.available
-    ),
-    ...buildSectionRows(
-      'payment_truth',
-      merged.payment_truth,
-      PAYMENT_EXPORT_FIELDS,
-      merged.payment_truth?.available
-    ),
-    ...buildSectionRows(
-      'billable_truth',
-      merged.billable_truth,
-      BILLABLE_EXPORT_FIELDS,
-      merged.billable_truth?.available
-    ),
-    ...buildSectionRows(
-      'reconciliation_30d',
-      merged.reconciliation_30d,
-      RECONCILIATION_EXPORT_FIELDS,
-      merged.reconciliation_30d?.available
-    ),
-    ...buildPricingStateRows(merged.pricing_state_breakdown, merged.available)
+    ...buildSectionRows('billable_truth', billable, BILLABLE_EXPORT_FIELDS, billable.available),
+    ...buildSectionRows('reconciliation_30d', reconciliation, RECONCILIATION_EXPORT_FIELDS, reconciliation.available)
   ];
 }
 
@@ -631,15 +448,15 @@ export function renderExecutiveFinanceTruthCsv(rows = [], context = {}) {
   return lines.join('\n');
 }
 
-export async function executiveFinanceTruthExport(pool, orgId = null) {
+export async function kundenAbrechnungExport(pool, orgId) {
   const generatedAt = new Date().toISOString();
-  const finance = await getExecutiveFinanceTruth(pool, orgId);
-  const rows = buildExecutiveFinanceTruthRows(finance);
+  const abrechnung = await getKundenAbrechnung(pool, orgId);
+  const rows = buildAbrechnungRows(abrechnung);
   return {
     generated_at: generatedAt,
     org_id: orgId || null,
-    source: EXECUTIVE_FINANCE_EXPORT_SOURCE,
-    finance,
+    source: ABRECHNUNG_EXPORT_SOURCE,
+    abrechnung,
     rows,
     csv: renderExecutiveFinanceTruthCsv(rows, {
       generatedAt,
@@ -1156,30 +973,26 @@ export async function executiveDashboard(pool, orgId = null, locationId = null) 
   const window = buildWindow(EXECUTIVE_WINDOW_DAYS);
 
   // Location-aware KPIs: requisitions, sla, spend, critical_staffing_pressure
-  // Org-only KPIs:        compliance, platform, finance (no location_id column)
-  const [reqKpisResult, complianceResult, slaResult, platformResult, spendResult, criticalResult, financeResult] = await Promise.allSettled([
+  // Org-only KPIs:        compliance, abrechnung (no location_id column)
+  const [reqKpisResult, complianceResult, slaResult, spendResult, criticalResult, abrechnungResult] = await Promise.allSettled([
     requisitionKpis(pool, orgId, locationId),
     complianceSummary(pool, orgId),
     slaReport(pool, orgId, EXECUTIVE_WINDOW_DAYS, locationId),
-    getPlatformStats(pool),
     getExecutiveSpendSummary(pool, orgId, window, locationId),
     getCriticalStaffingPressure(pool, orgId, window, locationId),
-    getExecutiveFinanceTruth(pool, orgId)
+    getKundenAbrechnung(pool, orgId)
   ]);
 
   const requisitions = reqKpisResult.status === 'fulfilled' ? reqKpisResult.value : zeroRequisitionKpis();
   const compliance = complianceResult.status === 'fulfilled' ? complianceResult.value : zeroComplianceSummary();
   const sla = slaResult.status === 'fulfilled' ? slaResult.value : zeroSlaReport();
-  const platform = platformResult.status === 'fulfilled' ? platformResult.value : zeroPlatformStats();
   const spend = spendResult.status === 'fulfilled' ? spendResult.value : zeroSpendSummary(false);
   const critical_staffing_pressure = criticalResult.status === 'fulfilled'
     ? criticalResult.value
     : zeroCriticalStaffing(window, false);
-  const finance = financeResult.status === 'fulfilled'
-    ? financeResult.value
-    : zeroExecutiveFinanceTruth(false);
-  const retention = finance?.retention_truth || zeroSaaSRetentionTruth(EXECUTIVE_WINDOW_DAYS);
-  const pilot_conversion = finance?.pilot_conversion_truth || zeroPilotConversionTruth();
+  const abrechnung = abrechnungResult.status === 'fulfilled'
+    ? abrechnungResult.value
+    : zeroKundenAbrechnung(false);
 
   let procurement_pulse = zeroProcurementPulse(window);
   try {
@@ -1237,11 +1050,10 @@ export async function executiveDashboard(pool, orgId = null, locationId = null) 
     requisitions,
     compliance,
     sla,
-    platform,
     spend,
-    finance,
-    retention,
-    pilot_conversion,
+    // Owner-Entscheid 2026-10-01: statt platform/finance/retention/pilot_conversion
+    // nur noch die Abrechnungssicht der eigenen Firma.
+    abrechnung,
     procurement_pulse,
     critical_staffing_pressure
   };

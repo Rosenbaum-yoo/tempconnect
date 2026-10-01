@@ -81,7 +81,9 @@ const TARGETS = [
     html: "frontend/public/organization.html",
     js: ["frontend/public/js/pages/verwaltung.js"],
     applyFn: "applyOrgDomLocks",
-    keys: ["integrations", "org_settings", "basic_analytics"]
+    // Abrechnungsauszug: derselbe Schalter wie die Server-Wache
+    // (/reporting/finance-truth/export -> requireOrgFeature("enterprise_analytics")).
+    keys: ["integrations", "org_settings", "enterprise_analytics"]
   },
   {
     name: "executive_dashboard",

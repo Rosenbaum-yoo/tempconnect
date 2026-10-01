@@ -181,12 +181,6 @@
       <div id="compSection"></div>
     </div>
 
-    <!-- Plattform-Statistik -->
-    <div class="dash-section">
-      <h3 data-i18n="exe.sec.platform">Plattform</h3>
-      <div class="kpi-grid" id="platformGrid"></div>
-    </div>
-
     <!-- Quick-Search Ergebnisse (versteckt) -->
     <div class="dash-section" id="quickSearchSection" style="display:none">
       <h3 data-i18n="exe.sec.searchResults">Suchergebnisse</h3>
@@ -199,28 +193,19 @@
       <div class="kpi-grid" id="spendGrid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"></div>
     </div>
 
+    <!-- Abrechnung (Owner-Entscheid 2026-10-01): nur die Zahlen der eigenen Firma.
+         Die frueheren Abschnitte Plattform, Finance, SaaS-Bindung und Pilot waren
+         TempConnects Betreibersicht und stehen im Staff Control Center. -->
     <div class="dash-section">
-      <h3><span data-i18n="exe.sec.finance">Finance Truth</span></h3>
+      <h3><span data-i18n="exe.sec.finance">Abrechnung (30 Tage)</span> <a href="/public/spend-analytics.html" class="dash-section__link" data-feature-key="spend_analytics"><span data-i18n="exe.link.details">Details</span> &rarr;</a></h3>
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
-        <button class="btn" type="button" data-feature-key="basic_analytics" data-i18n="exe.finance.exportCsv" onclick="exportExecutiveFinanceTruth('csv')">Export CSV</button>
-        <button class="btn" type="button" data-feature-key="basic_analytics" data-i18n="exe.finance.exportJson" onclick="exportExecutiveFinanceTruth('json')">Export JSON</button>
+        <button class="btn" type="button" data-feature-key="basic_analytics" data-i18n="exe.finance.exportCsv" onclick="exportExecutiveFinanceTruth('csv')">Auszug als CSV</button>
+        <button class="btn" type="button" data-feature-key="basic_analytics" data-i18n="exe.finance.exportJson" onclick="exportExecutiveFinanceTruth('json')">Auszug als JSON</button>
         <!-- Kein data-i18n: setFinanceExportStatus() setzt den Text ueber t(). -->
         <span id="financeExportStatus" class="ds-text-sm ds-text-muted" aria-live="polite"></span>
       </div>
-      <div class="kpi-grid" id="financeGrid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))"></div>
-      <div id="financeDetail"></div>
-    </div>
-
-    <div class="dash-section">
-      <h3><span data-i18n="exe.sec.retention">SaaS Retention &amp; Usage Truth</span></h3>
-      <div class="kpi-grid" id="retentionGrid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))"></div>
-      <div id="retentionDetail"></div>
-    </div>
-
-    <div class="dash-section">
-      <h3><span data-i18n="exe.sec.pilot">Pilot &amp; Conversion Truth</span></h3>
-      <div class="kpi-grid" id="pilotConversionGrid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))"></div>
-      <div id="pilotConversionDetail"></div>
+      <div class="kpi-grid" id="abrechnungGrid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))"></div>
+      <div id="abrechnungDetail"></div>
     </div>
 
     <!-- Vermittlungsaktivität -->

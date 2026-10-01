@@ -169,15 +169,19 @@ describe("reportingService — executiveDashboard", () => {
       ["candidate_count", { rows: [{ id: "req-1", title: "ICU Pflege", role: "Pflege", status: "OPEN", urgency: "urgent", headcount: 4, start_date: "2026-04-06", created_at: "2026-03-20T00:00:00Z", sla_status: "BREACHED", candidate_count: 1, shortlisted_count: 0, accepted_count: 0, supplier_count: 1 }] }],
       ["sla_minutes", { rows: [{ total_with_sla: 10, sla_met: 8, sla_breached: 2, sla_running: 0 }] }],
       ["compliance_documents", { rows: [{ total_documents: 20, verified: 15, pending: 2, rejected: 1, expired: 1, expiring_soon: 2 }] }],
-      ["COUNT(*) FILTER (WHERE r.status = 'APPROVED')", { rows: [{ total: 50, open: 10, approved: 3, in_review: 4, shortlisted: 2, filled: 30, closed: 1, cancelled: 0, draft: 0, pending_approval: 1, urgent_open: 5, avg_time_to_fill_hours: 48.5, avg_time_to_approve_hours: 12.1 }] }],
-      ["total_users", { rows: [{ total_users: 100, total_orgs: 10, active_capacity_posts: 5, open_demands: 3, active_vendor_entries: 8 }] }]
+      ["COUNT(*) FILTER (WHERE r.status = 'APPROVED')", { rows: [{ total: 50, open: 10, approved: 3, in_review: 4, shortlisted: 2, filled: 30, closed: 1, cancelled: 0, draft: 0, pending_approval: 1, urgent_open: 5, avg_time_to_fill_hours: 48.5, avg_time_to_approve_hours: 12.1 }] }]
     ]);
+    const gesehen = [];
+    const query = pool.query;
+    pool.query = (sql, params) => { gesehen.push(String(sql)); return query(sql, params); };
     const result = await svc.executiveDashboard(pool, "org-1");
     assert.strictEqual(result.requisitions.total, 50);
     assert.strictEqual(result.compliance.total_documents, 20);
     assert.strictEqual(result.sla.total_with_sla, 10);
-    assert.strictEqual(result.platform.total_users, 100);
-    assert.strictEqual(result.platform.active_vendor_entries, 8);
+    // Owner-Entscheid 2026-10-01: keine Zaehlung ueber alle Firmen mehr.
+    assert.equal(result.platform, undefined);
+    assert.ok(!gesehen.some((sql) => /COUNT\(\*\)::int FROM users WHERE is_active/.test(sql)),
+      "das Kunden-Dashboard darf keine plattformweite Nutzerzaehlung mehr ausfuehren");
     assert.strictEqual(result.spend.has_data, true);
     assert.strictEqual(result.spend.total_spend_cents, 123000);
     assert.strictEqual(result.spend.projected_spend_cents, 200000);
@@ -209,15 +213,14 @@ describe("reportingService — executiveDashboard", () => {
     assert.strictEqual(result.critical_staffing_pressure.items[1].open_headcount, 4);
     assert.strictEqual(result.critical_staffing_pressure.items[1].sla_status, "BREACHED");
     assert.match(result.critical_staffing_pressure.items[1].href, /focus_id=req-1/);
-    assert.ok(result.finance);
-    assert.strictEqual(result.finance.available, true);
-    assert.ok(result.finance.invoice_truth);
-    assert.strictEqual(result.finance.invoice_truth.open_receivables_cents, 0);
-    assert.ok(result.retention);
-    assert.ok(result.retention.headline);
-    assert.strictEqual(result.retention.available, true);
-    assert.ok(result.pilot_conversion);
-    assert.ok(result.finance.pilot_conversion_truth);
+    // Owner-Entscheid 2026-10-01: Abrechnungssicht der Firma statt Betreibersicht.
+    assert.ok(result.abrechnung);
+    assert.strictEqual(result.abrechnung.available, true);
+    assert.ok(result.abrechnung.billable_truth);
+    assert.ok(result.abrechnung.reconciliation_30d);
+    for (const weg of ["finance", "retention", "pilot_conversion", "platform"]) {
+      assert.equal(result[weg], undefined, `${weg} gehoert nicht mehr in die Kundensicht`);
+    }
   });
 
   it("returns an available empty critical-pressure section when no cases are prioritized", async () => {
@@ -460,51 +463,38 @@ describe("reportingService — location-scope SQL-Härtung", () => {
 // finance truth export
 // ═══════════════════════════════════════════════════════════════
 
-describe("reportingService — finance truth export", () => {
-  it("flattens executive finance truth into auditable export rows", () => {
-    const rows = svc.buildExecutiveFinanceTruthRows({
+describe("reportingService — Abrechnungsauszug der eigenen Firma", () => {
+  // Owner-Entscheid 2026-10-01: der Auszug enthielt TempConnects Betreibersicht
+  // (MRR, ARR je Preisquelle, Zahlungen, Rechnungsumsatz). Uebrig bleiben die zwei
+  // Abschnitte, die dem Kunden gehoeren.
+  it("baut nur die Abschnitte billable_truth und reconciliation_30d", () => {
+    const rows = svc.buildAbrechnungRows({
       available: true,
-      subscription_truth: {
-        catalog_mrr_theoretical: 3000,
-        contractually_active_mrr: 2400,
-        catalog_price_missing_count: 1,
-        pending_quote_subscribers: 2
-      },
-      invoice_truth: {
-        available: true,
-        open_receivables_cents: 123400
-      },
-      payment_truth: {
-        available: true,
-        completed_amount_cents: 9900
-      },
-      pricing_state_breakdown: [
-        { source: "contract_price", subscribers: 5, mrr: 2400, arr: 28800 }
-      ]
+      billable_truth: { available: true, approved_uninvoiced_amount_cents: 45600, approved_uninvoiced_hours: 12 },
+      reconciliation_30d: { available: true, spend_invoice_gap_cents: 1200, coverage_ratio_pct: 80 },
+      // was hier zusaetzlich hineingereicht wird, darf nicht herauskommen
+      subscription_truth: { contractually_active_mrr: 2400 },
+      pricing_state_breakdown: [{ source: "contract_price", subscribers: 5, mrr: 2400, arr: 28800 }]
     });
-
-    const openReceivables = rows.find((row) => (
-      row.section === "invoice_truth" && row.metric_key === "open_receivables_cents"
-    ));
-    const pricingMrr = rows.find((row) => row.metric_key === "contract_price.mrr");
-    assert.ok(openReceivables);
-    assert.strictEqual(openReceivables.metric_value, 123400);
-    assert.strictEqual(openReceivables.unit, "cents");
-    assert.strictEqual(openReceivables.available, true);
-    assert.ok(pricingMrr);
-    assert.strictEqual(pricingMrr.metric_value, 2400);
-    assert.strictEqual(pricingMrr.unit, "eur");
+    const abschnitte = new Set(rows.map((r) => r.section));
+    assert.deepEqual([...abschnitte].sort(), ["billable_truth", "reconciliation_30d"]);
+    const offen = rows.find((r) => r.metric_key === "approved_uninvoiced_amount_cents");
+    assert.strictEqual(offen.metric_value, 45600);
+    assert.strictEqual(offen.unit, "cents");
+    assert.strictEqual(offen.available, true);
+    assert.strictEqual(offen.source, "revenueMetricsService.getKundenAbrechnung");
+    assert.ok(!rows.some((r) => /mrr|arr/i.test(r.metric_key)), "keine MRR-/ARR-Zeile");
   });
 
   it("renders deterministic CSV rows including metadata columns", () => {
     const csv = svc.renderExecutiveFinanceTruthCsv([
       {
-        section: "invoice_truth",
-        metric_key: "open_receivables_cents",
-        metric_value: 123400,
+        section: "billable_truth",
+        metric_key: "approved_uninvoiced_amount_cents",
+        metric_value: 45600,
         unit: "cents",
         available: true,
-        source: "revenueMetricsService.getRevenueMetrics"
+        source: "revenueMetricsService.getKundenAbrechnung"
       }
     ], {
       generatedAt: "2026-04-09T10:00:00.000Z",
@@ -513,18 +503,34 @@ describe("reportingService — finance truth export", () => {
     const lines = csv.split("\n");
     assert.strictEqual(lines.length, 2);
     assert.strictEqual(lines[0], "generated_at,org_id,section,metric_key,metric_value,unit,available,source");
-    assert.match(lines[1], /^2026-04-09T10:00:00\.000Z,org-1,invoice_truth,open_receivables_cents,123400,cents,true,/);
+    assert.match(lines[1], /^2026-04-09T10:00:00\.000Z,org-1,billable_truth,approved_uninvoiced_amount_cents,45600,cents,true,/);
   });
 
-  it("returns fallback export when finance truth source is unavailable", async () => {
+  it("faellt bei Datenbankfehler auf den Leerzustand zurueck, ohne Wurf", async () => {
     const failingPool = { query: () => { throw new Error("db unavailable"); } };
-    const exported = await svc.executiveFinanceTruthExport(failingPool, "org-1");
+    const exported = await svc.kundenAbrechnungExport(failingPool, "org-1");
     assert.strictEqual(exported.org_id, "org-1");
-    assert.strictEqual(exported.finance.available, true);
-    assert.strictEqual(exported.finance.invoice_truth.available, false);
-    assert.strictEqual(exported.finance.payment_truth.available, false);
+    assert.strictEqual(exported.abrechnung.billable_truth.available, false);
+    assert.strictEqual(exported.abrechnung.reconciliation_30d.available, false);
     assert.ok(Array.isArray(exported.rows));
     assert.ok(exported.rows.length > 0);
     assert.match(exported.csv, /^generated_at,org_id,section,metric_key,metric_value,unit,available,source/m);
   });
+
+  it("die Abfragen tragen die Firma als Parameter (Bindungsprobe)", async () => {
+    const calls = [];
+    const spalten = ["id", "org_id", "supplier_org_id", "status", "assignment_id", "total_hours", "overtime_hours",
+      "invoice_id", "hourly_rate_cents", "total_cents", "invoice_type", "issued_at", "approved_at", "work_date", "created_at"];
+    const pool = { query: async (sql, params) => {
+      calls.push({ sql: String(sql), params });
+      return /information_schema/.test(String(sql)) ? { rows: spalten.map((column_name) => ({ column_name })) } : { rows: [] };
+    } };
+    await svc.kundenAbrechnungExport(pool, "org-1");
+    const summen = calls.filter((c) => /FROM timesheets ts/.test(c.sql));
+    assert.ok(summen.length >= 1, "keine Stundenzettel-Abfrage gelaufen");
+    for (const c of summen) {
+      assert.ok(c.params.includes("org-1"), "Abfrage ohne Firmenbindung: " + c.sql.slice(0, 80));
+    }
+  });
 });
+

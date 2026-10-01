@@ -106,12 +106,19 @@ unsichtbar, in der Konsole steht ein 403. Nicht behoben.
 ### Owner-Fragen aus dieser Sitzung — Stand der Antworten
 
 1. **Owner-Regel** („Owner-Rechte vergibt oder entzieht nur ein Owner“, `403 NUR_OWNER`):
-   Rückfrage des Owners, was gemeint ist — erklärt, Empfehlung: **so lassen**. Antwort offen.
-2. **Executive Dashboard:** die drei Abschnitte „Finance Truth“, „SaaS Retention“, „Pilot &
-   Conversion“ zeigen **nicht die Umsätze des Kunden**, sondern was **TempConnect** an diesem
-   Kunden verdient (MRR, Churn, Pilot-Umwandlung — englisch, Plattform-Sicht). Empfehlung:
-   für Kunden entfernen (die Zahlen gibt es im Staff CC unter Revenue), die eigenen Ausgaben
-   des Kunden stehen in `spend-analytics.html`. Antwort offen.
+   ✅ **vom Owner bestätigt (2026-10-01): bleibt so.**
+2. **Executive Dashboard** — ✅ **entschieden (ja) und gebaut.** Beim Umsetzen genauer
+   gemessen: die Abschnitte „Finance Truth“, „SaaS Retention“, „Pilot & Conversion“ **und**
+   „Plattform“ waren TempConnects Betreibersicht (MRR, Katalog-MRR, MRR/ARR je Preisquelle,
+   Angebots-Pipeline, Checkout-Sitzungen, Churn, Pilot-Umwandlung; „Plattform“ zählte sogar
+   **ohne Firmengrenze** Nutzer, Firmen, Bedarfe und die Lieferantenlisten aller Kunden).
+   Alles entfernt — aus der Anzeige **und** aus der Server-Antwort und dem Export. Dem Kunden
+   gehören daraus zwei Zahlen; die stehen jetzt als Block **„Abrechnung (30 Tage)“**:
+   freigegeben-noch-nicht-abgerechnet und Ausgaben ohne Rechnung. Neue Funktion
+   `revenueMetricsService.getKundenAbrechnung` (ohne Firma: nicht verfügbar statt
+   plattformweit). Der Verwaltungs-Auszug heißt jetzt „Abrechnungsauszug“ und erscheint nur
+   noch für Unternehmen (der Server erlaubt ihn nur dort). Nebenbei: „OVER-RATE (NAN%)“ im
+   Spend-Block behoben.
 3. **Status strategischer Anfragen** — ✅ **gebaut** (Owner: „Kunden sollen keinen Status
    setzen, außer es macht Sinn“). `PATCH /strategic-collaboration/requests/:id/status` nimmt
    nur noch `abgeschlossen` an (= zurückziehen), nur von der **anfragenden** Firma, nur aus
@@ -119,10 +126,10 @@ unsichtbar, in der Konsole steht ein 403. Nicht behoben.
    403 (angefragte Firma), 409 (schon aktiviert), 404 (fremd). Dienst `zurueckziehen` ersetzt
    `updateStatus`. Kein Oberflächen-Aufrufer betroffen.
 4. **`CLAUDE.md`-Zeile zum Admin Panel:** ✅ freigegeben und geändert (`f7db106`).
-5. **Produkt-Mails** (höchstens 400 je Mitteilung, Empfänger einzeln geladen): Vorschlag
-   steht beim Owner — Versand über die bestehende Warteschlange in Paketen, Empfänger in
-   einer Abfrage, Versandprotokoll je Empfänger (kein Doppelversand, Fortschritt sichtbar),
-   Empfängerzahl vor dem Klick, Abmeldelink (UWG §7). Antwort offen.
+5. **Produkt-Mails** — ✅ **entschieden (ja):** Abmeldelink in jeder Mail und die
+   Empfängerzahl vor dem Klick werden **jetzt** gebaut (in Arbeit); der Versand in Paketen
+   über die Warteschlange, die Empfänger in einer Abfrage und das Versandprotokoll je
+   Empfänger kommen **vor etwa 50 Kunden** (offen, Skalierungs-Schwelle).
 
 ---
 

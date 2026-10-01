@@ -181,9 +181,27 @@ describe("WAVE_05: executiveDashboard() Schema", () => {
     assert.equal(result.scope.window_days, 30);
 
     // Alle KPI-Gruppen vorhanden
-    for (const key of ["requisitions", "compliance", "sla", "platform", "spend", "finance", "procurement_pulse", "critical_staffing_pressure"]) {
+    for (const key of ["requisitions", "compliance", "sla", "spend", "abrechnung", "procurement_pulse", "critical_staffing_pressure"]) {
       assert.ok(Object.prototype.hasOwnProperty.call(result, key), `${key} fehlt im executiveDashboard-Response`);
     }
+  });
+
+  it("Owner-Entscheid 2026-10-01: keine Betreibersicht im Kunden-Dashboard", async () => {
+    // platform zaehlte ueber ALLE Firmen, finance/retention/pilot_conversion waren
+    // TempConnects Umsatzsicht auf den Kunden (MRR, Churn, Pilot-Umwandlung).
+    const result = await executiveDashboard(emptyPool(), "org-1", null);
+    for (const key of ["platform", "finance", "retention", "pilot_conversion"]) {
+      assert.equal(Object.prototype.hasOwnProperty.call(result, key), false, `${key} darf ein Kunde nicht mehr bekommen`);
+    }
+    assert.deepEqual(Object.keys(result.abrechnung).sort(), ["available", "billable_truth", "reconciliation_30d"]);
+  });
+
+  it("ohne Firma gibt es keine Abrechnung — nie plattformweite Summen", async () => {
+    const calls = [];
+    const pool = { query: async (sql, params) => { calls.push({ sql: String(sql), params }); return { rows: [] }; } };
+    const result = await executiveDashboard(pool, null, null);
+    assert.equal(result.abrechnung.available, false);
+    assert.equal(calls.filter((c) => /FROM timesheets/.test(c.sql)).length, 0, "ohne orgId darf keine Stundenzettel-Summe laufen");
   });
 
   it("requisitions.partially_filled ist im executiveDashboard enthalten", async () => {

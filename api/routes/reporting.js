@@ -2,6 +2,7 @@
  * Reporting REST-Router: Executive Dashboard, KPIs, Vendor Performance, Compliance.
  */
 import { Router } from "express";
+import { todayDE } from "../utils/dateDE.js";
 import * as reportingService from "../services/reportingService.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { requireCompanyOrg } from "../middleware/orgAccess.js";
@@ -50,7 +51,15 @@ export function createReportingRouter(deps) {
     res.json(data);
   });
 
-  /** GET /reporting/finance-truth/export – Executive Finance Truth Export (CSV/JSON) */
+  /**
+   * GET /reporting/finance-truth/export – Abrechnungsauszug der eigenen Firma (CSV/JSON)
+   *
+   * Pfad bleibt (Verwaltung und Executive Dashboard rufen ihn), der Inhalt nicht:
+   * seit dem Owner-Entscheid 2026-10-01 nur noch die Abrechnungssicht des Kunden —
+   * freigegebene, noch nicht abgerechnete Stunden und Ausgaben gegen Rechnungen der
+   * letzten 30 Tage. Vorher enthielt der Auszug TempConnects MRR und ARR je
+   * Preisquelle, Zahlungs- und Rechnungsumsaetze aus Betreibersicht.
+   */
   router.get("/reporting/finance-truth/export", requireAuth, enterpriseAnalyticsGate, rperm("report.executive"), companyOrg, async (req, res, next) => {
     try {
       const orgId = req.orgId || null;
@@ -58,7 +67,7 @@ export function createReportingRouter(deps) {
       if (!["csv", "json"].includes(format)) {
         return res.status(400).json({ error: "INVALID_FORMAT", message: "format must be csv or json" });
       }
-      const exported = await reportingService.executiveFinanceTruthExport(pool, orgId);
+      const exported = await reportingService.kundenAbrechnungExport(pool, orgId);
       const actorUserId = req?.session?.userId || req?.user?.id || null;
       res.locals.audit = {
         action: "report.finance_truth_export",
@@ -69,7 +78,7 @@ export function createReportingRouter(deps) {
           row_count: exported.rows.length,
           generated_at: exported.generated_at,
           source: exported.source,
-          generator: "reporting.executiveFinanceTruthExport",
+          generator: "reporting.kundenAbrechnungExport",
           responsible_actor_user_id: actorUserId
         }
       };
@@ -79,10 +88,10 @@ export function createReportingRouter(deps) {
           org_id: exported.org_id,
           source: exported.source,
           rows: exported.rows,
-          finance: exported.finance
+          abrechnung: exported.abrechnung
         });
       }
-      const filename = `finance-truth-${new Date(exported.generated_at).toISOString().slice(0, 10)}.csv`;
+      const filename = `abrechnung-${todayDE()}.csv`;
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       return res.send(exported.csv);

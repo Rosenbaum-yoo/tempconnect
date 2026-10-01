@@ -86,21 +86,13 @@ Jeder KPI-Block im System muss beantworten:
 **Drilldown:** `/public/requisitions.html?sla=breached`
 **Null-Zustand:** Alle = 0, Prozent = null
 
-### 1d. Plattform-Statistik (`platform.*`)
+### 1d. ~~Plattform-Statistik (`platform.*`)~~ — entfernt 2026-10-01
 
-**Quelle:** `getPlatformStats(pool)` — plattformweite Aggregation (kein Org-Scope)
-**Zeitraum:** Aktueller Zustand (kein Zeitfenster)
-
-| Feld | Definition | Quelle-Tabelle |
-|---|---|---|
-| `total_users` | Aktive User-Accounts | `users WHERE is_active = TRUE` |
-| `total_orgs` | Aktive Organisationen | `organizations WHERE is_active = TRUE` |
-| `active_capacity_posts` | Aktive Kapazitaetsangebote | `capacity_posts WHERE is_active = TRUE` |
-| `open_demands` | Offene Bedarfsanfragen (legacy) | `demand_requests WHERE status = 'open'` |
-| `active_vendor_entries` | Aktive Vendor-Pool-Eintraege (gesamt) | `vendor_pool WHERE status = 'active'` |
-
-**Drilldown:** `/public/admin_panel.html` (Plattform-Admin)
-**Hinweis:** Diese KPIs sind plattformweit, nicht org-spezifisch.
+Stand hier bis zum Owner-Entscheid vom 2026-10-01: `getPlatformStats(pool)` zaehlte
+**ohne Firmengrenze** aktive Nutzer, Firmen, Angebote, offene Bedarfe und die
+Lieferantenlisten aller Kunden — fuer jeden Kunden sichtbar (Verstoss gegen Pfeiler 1).
+Marktgroessen zeigt die oeffentliche Seite `schaufenster.html` mit ihren Schwellen;
+Betreiberzahlen stehen im Staff Control Center.
 
 ### 1e. Spend-Uebersicht (`spend.*`)
 
@@ -183,21 +175,25 @@ WHERE status = 'active'
 
 **Drilldown:** `/public/requisitions.html?status_group=backlog`
 
-### 1j. Finance Truth (`finance.*`)
+### 1j. Abrechnung (`abrechnung.*`) — seit 2026-10-01, vorher „Finance Truth“
 
-**Quelle:** `getExecutiveFinanceTruth(pool, orgId)` → `revenueMetricsService.getRevenueMetrics()`
-**Scope:** org-gefiltert (nur eigene Abo-/Invoice-Daten)
-**Plan-Gate:** Revenue-Metriken nur fuer eigene Org sichtbar
+**Quelle:** `revenueMetricsService.getKundenAbrechnung(pool, orgId)`
+**Scope:** nur die eigene Firma — ohne `orgId` liefert die Funktion `available: false`
+statt plattformweiter Summen (die Filter darunter lassen bei fehlender Firma die Grenze weg).
+**Export:** `GET /reporting/finance-truth/export` (Pfad unveraendert) → nur diese zwei Abschnitte.
 
 | Sub-Gruppe | Inhalt |
 |---|---|
-| `subscription_truth` | MRR (theoretisch vs. vertraglich), fehlende Katalogpreise |
-| `invoice_truth` | Invoice-Counts nach Status, offene Forderungen |
-| `payment_truth` | Payment-Counts (completed/pending/failed/expired) |
-| `billable_truth` | Nicht-fakturierte, approved Timesheets (Gap: Leistung → Rechnung) |
-| `reconciliation_30d` | Spend vs. invoicierter Betrag (Coverage-Ratio) |
+| `billable_truth` | Freigegebene, noch nicht abgerechnete Stundenzettel: Anzahl, Stunden, Betrag, fehlende Verrechnungssaetze |
+| `reconciliation_30d` | Freigegebene Ausgaben vs. operative Rechnungen der letzten 30 Tage (Luecke, Deckung in %) |
 
-**Drilldown:** `/public/admin_panel.html?tab=revenue`
+**Entfernt (Owner-Entscheid 2026-10-01):** `subscription_truth` (MRR), `invoice_truth`
+(Umsatz/Forderungen aus Betreibersicht), `payment_truth` (Checkout-Sitzungen),
+`pricing_state_breakdown` (MRR/ARR je Preisquelle), `retention_truth`,
+`pilot_conversion_truth`. Das ist TempConnects Sicht auf den Kunden; sie steht im
+Staff Control Center unter Revenue.
+
+**Drilldown:** `/public/spend-analytics.html`
 
 ---
 
@@ -262,7 +258,7 @@ Alle KPI-Funktionen sind explizit demo-sicher implementiert:
 | `requisitionKpis()` | Alle Felder = 0 wenn keine Rows |
 | `complianceSummary()` | Alle Felder = 0 wenn keine Rows |
 | `slaReport()` | Alle = 0, Prozent = null |
-| `getPlatformStats()` | Alle = 0 |
+| `getKundenAbrechnung()` | `available: false` ohne orgId, Einzelabschnitte `available: false` bei Fehler |
 | `getExecutiveSpendSummary()` | `available: false` wenn kein orgId |
 | `executiveDashboard()` | `Promise.allSettled` — Einzel-Fehler blockieren nicht |
 | `queryComplianceWarningBreakdown()` | Zwei separate try/catch — partiell verfuegbar |
@@ -294,5 +290,5 @@ Bevor ein neuer KPI eingebaut wird, muss gelten:
 | 1 | Spend Analytics | Quarterly-Granularitaet (`DATE_TRUNC('quarter')`) fehlt | P3 |
 | 2 | Spend Analytics | Scope-Bar (active_location_id Anzeige) | ✅ ERLEDIGT 2026-05-28 (E-02) |
 | 3 | Executive Dashboard | `PARTIALLY_FILLED` in Requisition-KPIs (Migration 113) | ✅ ERLEDIGT |
-| 4 | Retention Truth | `retention_truth` sub-keys noch nicht in Tabelle dokumentiert | P2 |
-| 5 | Platform Stats | `open_demands` koppelt an `demand_requests` (legacy-Tabelle) — verifizieren ob noch verwendet | P2 |
+| 4 | Retention Truth | gegenstandslos — seit 2026-10-01 nicht mehr in der Kundensicht | ✅ |
+| 5 | Platform Stats | gegenstandslos — Abschnitt 2026-10-01 entfernt (plattformweite Zaehlung ohne Firmengrenze) | ✅ |

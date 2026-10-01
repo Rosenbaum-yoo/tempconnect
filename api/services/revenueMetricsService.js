@@ -569,6 +569,44 @@ async function queryReconciliation30d(pool, orgId, timesheetColumns, assignmentC
  * @param {{ orgId?: string|null }|string|null} [options]
  * @returns {Promise<object>}
  */
+/**
+ * Die Abrechnungssicht EINER Firma — was das Executive Dashboard einem Kunden zeigt
+ * (Owner-Entscheid 2026-10-01).
+ *
+ * Bis dahin rechnete das Kunden-Dashboard `getRevenueMetrics` komplett durch und
+ * zeigte daraus TempConnects eigene Sicht auf den Kunden: vertraglicher und
+ * Katalog-MRR, Preisaufschluesselung, Angebots-Pipeline, Checkout-Sitzungen,
+ * SaaS-Retention, Pilot-Umwandlung — englisch, als "Truth". Das sind Zahlen des
+ * Plattformbetreibers, nicht des Kunden; sie stehen im Staff CC unter Revenue.
+ *
+ * Dem Kunden gehoeren zwei Zahlen daraus, und nur diese werden noch berechnet:
+ *   - freigegebene, noch nicht abgerechnete Stunden (kommende Kosten)
+ *   - Ausgaben gegen operative Rechnungen der letzten 30 Tage (Abgleich)
+ *
+ * Ohne Firma gibt es nichts: die Filter weiter unten lassen bei fehlender
+ * `orgId` die Grenze weg und zaehlten dann plattformweit. Genau das darf ein
+ * Kunden-Weg nie liefern — also "nicht verfuegbar" statt fremder Summen.
+ */
+export async function getKundenAbrechnung(pool, orgId) {
+  if (!orgId) {
+    return { available: false, billable_truth: zeroBillableTruth(), reconciliation_30d: zeroReconciliation30d() };
+  }
+  const [timesheetColumns, assignmentColumns, invoiceColumns] = await Promise.all([
+    getTableColumns(pool, "timesheets"),
+    getTableColumns(pool, "assignments"),
+    getTableColumns(pool, "invoices")
+  ]);
+  let billable_truth = zeroBillableTruth();
+  let reconciliation_30d = zeroReconciliation30d();
+  try {
+    billable_truth = await queryBillableTruth(pool, orgId, timesheetColumns, assignmentColumns);
+  } catch { /* Zero-State statt 500 */ }
+  try {
+    reconciliation_30d = await queryReconciliation30d(pool, orgId, timesheetColumns, assignmentColumns, invoiceColumns);
+  } catch { /* Zero-State statt 500 */ }
+  return { available: true, billable_truth, reconciliation_30d };
+}
+
 export async function getRevenueMetrics(pool, options = {}) {
   const orgId = typeof options === "string"
     ? (options || null)

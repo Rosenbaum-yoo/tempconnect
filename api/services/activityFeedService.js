@@ -64,6 +64,8 @@ const ACTION_LABELS = {
   "strategic_collaboration.zurueckgezogen":        "Strategische Anfrage zurückgezogen",
   "strategic_collaboration.status_update_attempt": "Statusänderung einer Anfrage versucht",
 
+  "report.finance_truth_export":  "Abrechnungsauszug exportiert",
+
   // Anmeldung über den Firmen-Login (SSO) und Kontenabgleich (SCIM)
   "sso.config_upsert":         "Firmen-Login eingerichtet",
   "sso.config_test":           "Firmen-Login getestet",
