@@ -31,7 +31,7 @@
     var token=new URLSearchParams(location.search).get('token')||'';
     var _csrf='';
     async function getCSRF(){if(_csrf)return _csrf;try{var r=await fetch('/api/csrf',{credentials:'include'});var d=await r.json();_csrf=d.token||'';return _csrf;}catch(e){return'';}}
-    var ROLE_LABEL={member:'Mitglied',admin:'Admin',program_manager:'Programm-Manager',hiring_manager:'Hiring-Manager',supplier_manager:'Supplier-Manager',finance:'Finanzen',recruiter:'Recruiter',dispatcher:'Dispatcher',supplier_user:'Lieferant',viewer:'Betrachter'};
+    var ROLE_LABEL={member:'Mitglied',admin:'Admin',program_manager:'Programm-Manager/in',hiring_manager:'Hiring-Manager/in',supplier_manager:'Supplier-Manager/in',finance:'Finanzen',recruiter:'Recruiter/in',dispatcher:'Disponent/in',supplier_user:'Lieferant (extern)',viewer:'Betrachter/in'};
 
     async function load(){
       var body=document.getElementById('body');

@@ -405,6 +405,22 @@ describe("Rollennamen sind ueberall dieselben", () => {
   // Das Abzeichen oben in der Leiste (roleBadge.js) und die Verwaltung muessen
   // dieselbe Rolle gleich nennen — sonst heisst sie oben "Dispatcher" und in der
   // Verwaltung "Disponent/in". Quelle ist config/orgRollen.js.
+  it("die Einladungsseite nennt die angebotene Rolle so wie die Verwaltung", async () => {
+    // org-invite.html zeigte "Sie wurden als Dispatcher eingeladen", die Verwaltung
+    // "Disponent/in" — dieselbe Person sah zwei Namen fuer eine Rolle (2026-10-01).
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const datei = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "..", "frontend", "public", "org-invite.html");
+    if (!fs.existsSync(datei)) return; // Abbild ohne Frontend
+    const text = fs.readFileSync(datei, "utf8");
+    const block = (/var ROLE_LABEL=\{([^}]*)\}/.exec(text) || [])[1] || "";
+    const paare = [...block.matchAll(/([a-z_]+):'([^']+)'/g)].map((m) => [m[1], m[2]]);
+    assert.ok(paare.length >= 9, `zu wenige Eintraege gelesen (${paare.length})`);
+    for (const [rolle, name] of paare) {
+      assert.equal(name, ROLLEN_NAMEN[rolle], `org-invite.html nennt ${rolle} "${name}", die Verwaltung "${ROLLEN_NAMEN[rolle]}"`);
+    }
+  });
+
   it("roleBadge.js nennt jede Rolle so wie ROLLEN_NAMEN", async () => {
     const fs = await import("node:fs");
     const path = await import("node:path");

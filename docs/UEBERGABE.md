@@ -126,10 +126,13 @@ unsichtbar, in der Konsole steht ein 403. Nicht behoben.
    403 (angefragte Firma), 409 (schon aktiviert), 404 (fremd). Dienst `zurueckziehen` ersetzt
    `updateStatus`. Kein Oberflächen-Aufrufer betroffen.
 4. **`CLAUDE.md`-Zeile zum Admin Panel:** ✅ freigegeben und geändert (`f7db106`).
-5. **Produkt-Mails** — ✅ **entschieden (ja):** Abmeldelink in jeder Mail und die
-   Empfängerzahl vor dem Klick werden **jetzt** gebaut (in Arbeit); der Versand in Paketen
-   über die Warteschlange, die Empfänger in einer Abfrage und das Versandprotokoll je
-   Empfänger kommen **vor etwa 50 Kunden** (offen, Skalierungs-Schwelle).
+5. **Produkt-Mails** — ✅ **entschieden (ja), erster Teil gebaut:** jede Mail trägt einen
+   **Abmeldelink** (signiert, zweckgebunden, Schlüssel `JWT_SECRET`; ohne Schlüssel kein Versand),
+   die öffentliche Seite `abmelden.html` bestellt nach Klick ab (`notification_preferences`,
+   Kategorie `product_updates`), und das Staff CC zeigt **vor dem Klick die Empfängerzahl**
+   (Zielgruppe, abbestellt, gingen raus). Vorschau und Versand nutzen dieselbe Ermittlung.
+   **Offen, vor etwa 50 Kunden:** Versand in Paketen über die Warteschlange, Empfänger in einer
+   Abfrage, Versandprotokoll je Empfänger, `List-Unsubscribe`-Kopf.
 
 ---
 

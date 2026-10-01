@@ -2,6 +2,17 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
 
+### 2026-10-01 — Kunden sehen ihre Zahlen, Produkt-Mails sind abbestellbar (Owner-Entscheide)
+
+- **Executive Dashboard:** TempConnects Betreibersicht (MRR, Retention, Pilot-Umwandlung,
+  plattformweite Zählungen ohne Firmengrenze) ist aus Anzeige, Server-Antwort und Export entfernt;
+  der Kunde sieht „Abrechnung (30 Tage)“ — freigegeben-noch-nicht-abgerechnet und Ausgaben ohne
+  Rechnung.
+- **Produkt-Mails:** Abmeldelink in jeder Mail (§ 7 Abs. 3 UWG), öffentliche Seite `abmelden.html`,
+  Empfängerzahl vor dem Klick im Staff CC. **Vor etwa 50 Kunden offen:** Versand in Paketen.
+- **Rechte:** Kunden ziehen strategische Anfragen nur noch zurück; Owner-Rechte vergibt nur ein Owner
+  (vom Owner bestätigt).
+
 ### 2026-10-01 — Livegang-Blocker behoben: Staff-Login auf frischer Datenbank (Migration 226)
 
 **Gefunden** beim Prüfen von W-E10 am laufenden System: auf einer frischen Datenbank endet

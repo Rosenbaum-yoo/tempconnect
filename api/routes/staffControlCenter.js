@@ -2934,7 +2934,9 @@ export function createStaffControlCenterRouter(deps) {
     let status = "ok";
     try {
       ergebnis = await produktUpdates.dispatchReleaseEmails(
-        pool, id, getUserAndPlan, sendMail, logger, config?.BASE_URL || process.env.BASE_URL || ""
+        pool, id, getUserAndPlan, sendMail, logger, config?.BASE_URL || process.env.BASE_URL || "",
+        // Schluessel fuer den Abmeldelink in jeder Mail (§ 7 Abs. 3 UWG) — aus der Umgebung.
+        config?.JWT_SECRET || config?.SESSION_SECRET || null
       );
     } catch (err) {
       status = "error";
@@ -2946,10 +2948,38 @@ export function createStaffControlCenterRouter(deps) {
       entityType: "product_release", entityId: id,
       status, reason: req.sccReason, confirmed: true, riskLevel: "high",
       ...auditContextFromReq(req),
-      details: { gesendet: ergebnis.sent, uebersprungen: ergebnis.skipped, obergrenze: produktUpdates.mailObergrenze() }
+      details: {
+        gesendet: ergebnis.sent, uebersprungen: ergebnis.skipped, abgemeldet: ergebnis.abgemeldet ?? 0,
+        obergrenze: produktUpdates.mailObergrenze()
+      }
     });
-    return { gesendet: ergebnis.sent, uebersprungen: ergebnis.skipped, fehler: status === "error" };
+    return {
+      gesendet: ergebnis.sent, uebersprungen: ergebnis.skipped, abgemeldet: ergebnis.abgemeldet ?? 0,
+      fehler: status === "error"
+    };
   }
+
+  /**
+   * Die Zahl vor dem Klick (Owner-Entscheid 2026-10-01): wie viele Menschen trifft
+   * die Mitteilung, wie viele haben Produkt-Mails abbestellt, wie viele Mails
+   * gingen tatsaechlich raus. Dieselbe Ermittlung wie der Versand.
+   */
+  router.get("/produkt-updates/:id/empfaenger", requireStaff, async (req, res) => {
+    if (!UUID_RE_PU.test(String(req.params.id))) {
+      return res.status(400).json({ success: false, error: { code: "ID_UNGUELTIG", message: "Die Kennung ist ungültig." } });
+    }
+    if (typeof getUserAndPlan !== "function") {
+      return res.json({ success: true, data: { verfuegbar: false } });
+    }
+    try {
+      const v = await produktUpdates.empfaengerVorschau(pool, req.params.id, getUserAndPlan);
+      if (!v) return res.status(404).json({ success: false, error: { code: "NICHT_GEFUNDEN", message: "Diese Mitteilung gibt es nicht mehr." } });
+      res.json({ success: true, data: { verfuegbar: true, ...v } });
+    } catch (err) {
+      logger?.error({ err }, "SCC produkt-updates empfaenger");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
 
   router.post("/produkt-updates/:id/mailen",
     requireStaff, mfaGuard, requireStepUpHigh, requireConfirmAndReason,

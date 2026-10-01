@@ -527,6 +527,7 @@ Weiterleitung oder für keinen Nutzer erreichbar.
 | `credits.html` | beide | Guthabenstand, Verlauf und Kauf über Stripe (Befund P1-22) | aktiv |
 | `organization.html` | beide (Admin) | Mitglieder, API-Schlüssel, Sicherheitseinstellungen, Finanz-Export | aktiv |
 | `org-invite.html` | neue Mitglieder | Einladung aus der E-Mail annehmen; bewusst ohne Navigation | aktiv |
+| `abmelden.html` | Empfänger von Produkt-Mails | Produktneuheiten per E-Mail abbestellen (§ 7 Abs. 3 UWG), aus der E-Mail; bewusst ohne Navigation | aktiv |
 | `integrations.html` | beide | Slack/Teams, DATEV, SAP, zvoove anbinden | aktiv |
 | `sso_config.html` | Unternehmen (Admin) | Anmeldung über das Firmen-Login einrichten | aktiv |
 | `system-health.html` | Admin | Echtzeit-Diagnose der Plattformkomponenten | aktiv |
@@ -727,7 +728,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | davon reine Weiterleitungen | 9 | je 14 nicht-leere Zeilen, reiner Meta-Refresh |
 | davon Attrappen | 3 | `sla_nachweise.html`, `impressum.html`, `datenschutz.html` (Wurzel) |
 | davon für keinen Nutzer erreichbar | **0** | war 1 (timesheet-templates.html); am 26.08. entfernt — siehe Liste A, A1 |
-| Backend-Testdateien | <!--zahl:backend-testdateien-->504<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
+| Backend-Testdateien | <!--zahl:backend-testdateien-->505<!--/zahl--> | `ls api/test/*.test.js \| wc -l` |
 | E2E-Testdateien | <!--zahl:e2e-testdateien-->17<!--/zahl--> | `ls e2e/tests/ \| wc -l` |
 | Ablauf-Proben (datenbankgebunden) | <!--zahl:ablaufproben-->52<!--/zahl--> | `ls api/test/integration/*.flow.test.js \| wc -l` |
 | Rollen im Rechtemodell | 12 | `ROLE_HIERARCHY` in `api/services/rbacService.js:9-22` |
@@ -746,7 +747,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 >
 > **Eine Zahl, die hier bewusst fehlt:** die Gesamtzahl grüner Tests. Sie steht in mehreren
 > Projektdokumenten (3979+), wurde für dieses Register aber **nicht** nachgerechnet, weil das
-> einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die <!--zahl:backend-testdateien-->504<!--/zahl--> Testdateien,
+> einen vollständigen Suite-Lauf erfordert hätte. Belegt sind nur die <!--zahl:backend-testdateien-->505<!--/zahl--> Testdateien,
 > <!--zahl:e2e-testdateien-->17<!--/zahl--> E2E-Dateien und <!--zahl:ablaufproben-->52<!--/zahl--> datenbankgebundene Ablauf-Proben. Wer die Testzahl in ein
 > Investorendokument schreibt, muss sie vorher unter `api/scripts/run-tests.js`
 > real erzeugen.
@@ -962,7 +963,7 @@ Ehrlichkeit über die eigenen Grenzen gehört in ein Dokument, das später an In
    `docs-consistency`-Test existiert, der tote Verweise und verwaiste Dateien rot werden lässt,
    veraltet diese Datei still. Vorbild für die Mechanik: `api/test/flaechenZuordnung.test.js`.
 
-2. **Die Testzahl ist nicht nachgerechnet.** Belegt sind <!--zahl:backend-testdateien-->504<!--/zahl--> Backend-Testdateien und <!--zahl:e2e-testdateien-->17<!--/zahl-->
+2. **Die Testzahl ist nicht nachgerechnet.** Belegt sind <!--zahl:backend-testdateien-->505<!--/zahl--> Backend-Testdateien und <!--zahl:e2e-testdateien-->17<!--/zahl-->
    E2E-Dateien. Die in mehreren Projektdokumenten genannte Gesamtzahl grüner Tests (3979+)
    wurde für dieses Register **nicht** verifiziert — dazu wäre ein vollständiger Suite-Lauf
    unter `api/scripts/run-tests.js` nötig gewesen. Wer sie in eine Investorendarstellung

@@ -575,28 +575,40 @@ describe("publishEntry", () => {
 const noopLogger = { info: () => {} };
 
 describe("dispatchReleaseEmails", () => {
+  // Seit 2026-10-01 Pflicht: der Schluessel fuer den Abmeldelink (§ 7 Abs. 3 UWG).
+  const KEY = "abmelde-schluessel-probe";
+
+  it("ohne Abmelde-Schluessel wird nicht gemailt (fail closed)", async () => {
+    let gesendet = 0;
+    await assert.rejects(
+      svc.dispatchReleaseEmails(trackingPool([]), "x", getPlan("PRO"), async () => { gesendet++; return true; }, noopLogger),
+      /ohne Abmelde-Schluessel/
+    );
+    assert.equal(gesendet, 0);
+  });
+
   it("returns {0,0} when entry not found", async () => {
     const pool = trackingPool([
       { match: "FROM product_release_entries WHERE id =", respond: { rows: [] } }
     ]);
-    const out = await svc.dispatchReleaseEmails(pool, "x", getPlan("PRO"), async () => true, noopLogger);
-    assert.deepEqual(out, { sent: 0, skipped: 0 });
+    const out = await svc.dispatchReleaseEmails(pool, "x", getPlan("PRO"), async () => true, noopLogger, "", KEY);
+    assert.deepEqual(out, { sent: 0, skipped: 0, abgemeldet: 0 });
   });
 
   it("returns {0,0} when entry not published", async () => {
     const pool = trackingPool([
       { match: "FROM product_release_entries WHERE id =", respond: { rows: [{ id: "x", status: "draft" }] } }
     ]);
-    const out = await svc.dispatchReleaseEmails(pool, "x", getPlan("PRO"), async () => true, noopLogger);
-    assert.deepEqual(out, { sent: 0, skipped: 0 });
+    const out = await svc.dispatchReleaseEmails(pool, "x", getPlan("PRO"), async () => true, noopLogger, "", KEY);
+    assert.deepEqual(out, { sent: 0, skipped: 0, abgemeldet: 0 });
   });
 
   it("returns {0,0} when email already sent", async () => {
     const pool = trackingPool([
       { match: "FROM product_release_entries WHERE id =", respond: { rows: [{ id: "x", status: "published", email_sent_at: new Date().toISOString() }] } }
     ]);
-    const out = await svc.dispatchReleaseEmails(pool, "x", getPlan("PRO"), async () => true, noopLogger);
-    assert.deepEqual(out, { sent: 0, skipped: 0 });
+    const out = await svc.dispatchReleaseEmails(pool, "x", getPlan("PRO"), async () => true, noopLogger, "", KEY);
+    assert.deepEqual(out, { sent: 0, skipped: 0, abgemeldet: 0 });
   });
 
   it("sends to matching users and skips non-matching, then stamps email_sent_at", async () => {
@@ -619,7 +631,7 @@ describe("dispatchReleaseEmails", () => {
       { match: "SET email_sent_at = NOW()", respond: { rows: [] } }
     ]);
     const sendMail = async (to, subject, html) => { sentTo.push({ to, subject, html }); return true; };
-    const out = await svc.dispatchReleaseEmails(pool, "rel", getPlan("PRO"), sendMail, noopLogger, "https://app.test/");
+    const out = await svc.dispatchReleaseEmails(pool, "rel", getPlan("PRO"), sendMail, noopLogger, "https://app.test/", KEY);
 
     assert.equal(out.sent, 1);
     assert.equal(out.skipped, 1);
@@ -629,6 +641,8 @@ describe("dispatchReleaseEmails", () => {
     // newline in summary -> <br/>; baseUrl trailing slash stripped
     assert.ok(sentTo[0].html.includes("<br/>"));
     assert.ok(sentTo[0].html.includes("https://app.test/public/whats-new.html"));
+    // jede Mail traegt den Abmeldelink des Empfaengers
+    assert.ok(sentTo[0].html.includes("https://app.test/public/abmelden.html?u=u1&amp;t="));
     // email_sent_at stamped exactly once
     const stamp = pool.calls.filter((c) => c.sql.includes("SET email_sent_at = NOW()"));
     assert.equal(stamp.length, 1);
@@ -648,9 +662,11 @@ describe("dispatchReleaseEmails", () => {
       { match: "SET email_sent_at = NOW()", respond: { rows: [] } }
     ]);
     const sendMail = async (to, subject, body) => { html = body; return true; };
-    await svc.dispatchReleaseEmails(pool, "rel", getPlan("PRO"), sendMail, noopLogger);
+    await svc.dispatchReleaseEmails(pool, "rel", getPlan("PRO"), sendMail, noopLogger, "", KEY);
     assert.equal(html.includes("<script>"), false);
-    assert.ok(html.includes("script>x")); // '<' stripped, rest remains
+    // seit 2026-10-01 maskiert statt abgeschnitten — der Text bleibt lesbar
+    assert.ok(html.includes("&lt;script&gt;x"));
+    assert.ok(html.includes("&lt;b&gt;hi"));
   });
 
   it("counts only successfully delivered mails as sent", async () => {
@@ -662,7 +678,7 @@ describe("dispatchReleaseEmails", () => {
       { match: "AS internal", respond: { rows: [{ internal: false }] } },
       { match: "SET email_sent_at = NOW()", respond: { rows: [] } }
     ]);
-    const out = await svc.dispatchReleaseEmails(pool, "rel", getPlan("PRO"), async () => false, noopLogger);
+    const out = await svc.dispatchReleaseEmails(pool, "rel", getPlan("PRO"), async () => false, noopLogger, "", KEY);
     // sendMail returns false → not counted as sent, but user matched so not skipped either
     assert.equal(out.sent, 0);
     assert.equal(out.skipped, 0);

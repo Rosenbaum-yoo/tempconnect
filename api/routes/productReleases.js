@@ -15,8 +15,47 @@ import { z } from "zod";
 import * as productReleaseService from "../services/productReleaseService.js";
 
 export function createProductReleasesRouter(deps) {
-  const { pool, requireAuth, getUserAndPlan, logger } = deps;
+  const { pool, requireAuth, getUserAndPlan, logger, config } = deps;
   const router = Router();
+  const abmeldeSchluessel = config?.JWT_SECRET || config?.SESSION_SECRET || null;
+  const begrenzt = deps.requestLimiter || ((_req, _res, next) => next());
+
+  /**
+   * Produktneuheiten per E-Mail abbestellen — der Weg hinter dem Link in jeder
+   * Produkt-Mail (§ 7 Abs. 3 UWG, Owner-Entscheid 2026-10-01).
+   *
+   * Bewusst OHNE Anmeldung: wer widersprechen will, darf nicht erst ein Passwort
+   * suchen muessen. Die Berechtigung ist die Signatur im Link (HMAC ueber die
+   * Nutzerkennung, zweckgebunden) — sie laesst nur EINE Wirkung zu: fuer genau
+   * diesen Nutzer die E-Mail-Kategorie "product_updates" ausschalten. CSRF-Token
+   * holt die Abmeldeseite wie jedes oeffentliche Formular ueber /api/csrf.
+   */
+  const abmeldeSchema = z.object({ u: z.string().uuid(), t: z.string().min(16).max(200) });
+  router.post("/product-releases/abmelden", begrenzt, async (req, res) => {
+    const parsed = abmeldeSchema.safeParse(req.body || {});
+    if (!parsed.success || !productReleaseService.pruefeAbmeldung(parsed.data.u, parsed.data.t, abmeldeSchluessel)) {
+      return res.status(400).json({
+        success: false,
+        error: { code: "LINK_UNGUELTIG", message: "Dieser Abmeldelink ist ungültig oder unvollständig." }
+      });
+    }
+    try {
+      const gefunden = await productReleaseService.abmelden(pool, parsed.data.u);
+      if (!gefunden) {
+        return res.status(404).json({ success: false, error: { code: "KONTO_UNBEKANNT", message: "Zu diesem Link gibt es kein Konto mehr." } });
+      }
+      res.locals.audit = {
+        action: "product_release.unsubscribe",
+        entity_type: "user",
+        entity_id: parsed.data.u,
+        details: { kategorie: productReleaseService.ABMELDE_KATEGORIE, weg: "abmeldelink", responsible_actor_user_id: parsed.data.u }
+      };
+      res.json({ success: true, data: { abgemeldet: true } });
+    } catch (e) {
+      logger.error({ err: e }, "product-releases abmelden");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+    }
+  });
 
   /* ── Authenticated users ─────────────────────────────────── */
 

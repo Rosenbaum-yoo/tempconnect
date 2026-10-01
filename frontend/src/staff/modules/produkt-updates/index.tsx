@@ -30,6 +30,24 @@ interface Mitteilung {
   show_as_modal: boolean; created_at: string; updated_at: string;
 }
 interface Liste { items: Mitteilung[]; mail_obergrenze: number; mail_versand_bereit: boolean }
+interface Vorschau {
+  verfuegbar: boolean; zielgruppe?: number; abgemeldet?: number;
+  wuerden_gesendet?: number; obergrenze?: number; ueber_obergrenze?: number;
+}
+
+/** Die Zahl vor dem Klick (Owner-Entscheid 2026-10-01) — dieselbe Ermittlung wie der Versand. */
+async function empfaengerSatz(id: string): Promise<string> {
+  try {
+    const v = await sccApi.get<Vorschau>(`/produkt-updates/${id}/empfaenger`);
+    if (!v?.verfuegbar) return "";
+    let satz = ` Die E-Mail geht an ${v.wuerden_gesendet ?? 0} ${v.wuerden_gesendet === 1 ? "Person" : "Personen"}`;
+    if (v.abgemeldet) satz += ` (${v.abgemeldet} ${v.abgemeldet === 1 ? "hat" : "haben"} Produkt-Mails abbestellt)`;
+    if (v.ueber_obergrenze) satz += `; ${v.ueber_obergrenze} bekämen wegen der Obergrenze von ${v.obergrenze} keine`;
+    return satz + ". Jede Mail enthält einen Abmeldelink.";
+  } catch {
+    return " Die Empfängerzahl ließ sich gerade nicht ermitteln.";
+  }
+}
 
 const ZIELGRUPPEN: [string, string][] = [
   ["company", "Unternehmen"],
@@ -139,8 +157,9 @@ export default function ProduktUpdates() {
     }
   }
 
-  function veroeffentliche(m: Mitteilung) {
+  async function veroeffentliche(m: Mitteilung) {
     const mail = m.send_email_on_publish && m.visibility === "public";
+    const zahl = mail && liste?.mail_versand_bereit ? await empfaengerSatz(m.id) : "";
     confirm({
       title: `Veröffentlichen: ${m.title}`,
       hint:
@@ -148,7 +167,7 @@ export default function ProduktUpdates() {
         (m.show_as_modal ? " Als Hinweisfenster beim nächsten Öffnen." : "") +
         (mail
           ? (liste?.mail_versand_bereit
-            ? ` Danach geht eine E-Mail raus (höchstens ${liste.mail_obergrenze} Empfänger, nur einmal).`
+            ? ` Danach geht einmalig eine E-Mail raus.${zahl}`
             : " Eine E-Mail ist vorgesehen, aber es ist kein Versandweg verbunden — es wird nichts gesendet.")
           : ""),
       onConfirm: async (reason: string) => {
@@ -161,18 +180,19 @@ export default function ProduktUpdates() {
     });
   }
 
-  function maile(m: Mitteilung) {
+  async function maile(m: Mitteilung) {
+    const zahl = liste?.mail_versand_bereit ? await empfaengerSatz(m.id) : "";
     confirm({
       title: `Per E-Mail senden: ${m.title}`,
       hint: liste?.mail_versand_bereit
-        ? `Geht an: ${empfaenger(m)} — höchstens ${liste.mail_obergrenze} Empfänger, nur einmal. Ein zweiter Versand ist danach gesperrt.`
+        ? `Zielgruppe: ${empfaenger(m)}.${zahl} Nur einmal — ein zweiter Versand ist danach gesperrt.`
         : "Es ist kein Versandweg verbunden — es würde nichts gesendet.",
       dangerLabel: "E-Mails senden",
       onConfirm: async (reason: string) => {
         await stepUp();
-        const r = await sccApi.post<{ gesendet: number; uebersprungen: number; hinweis?: string }>(
+        const r = await sccApi.post<{ gesendet: number; uebersprungen: number; abgemeldet?: number; hinweis?: string }>(
           `/produkt-updates/${m.id}/mailen`, { confirmed: true, reason });
-        toast.success(r?.hinweis ?? `${r.gesendet} E-Mails gesendet, ${r.uebersprungen} nicht in der Zielgruppe.`);
+        toast.success(r?.hinweis ?? `${r.gesendet} E-Mails gesendet${r.abgemeldet ? `, ${r.abgemeldet} abbestellt` : ""}.`);
         await load();
       },
     });
@@ -321,9 +341,9 @@ export default function ProduktUpdates() {
                       </td>
                       <td style={{ whiteSpace: "nowrap" }}>
                         <button className="scc-btn" onClick={() => oeffne(m)}>Bearbeiten</button>{" "}
-                        {m.status === "draft" && <button className="scc-btn scc-btn--primary" onClick={() => veroeffentliche(m)}>Veröffentlichen</button>}
+                        {m.status === "draft" && <button className="scc-btn scc-btn--primary" onClick={() => void veroeffentliche(m)}>Veröffentlichen</button>}
                         {m.status === "published" && !m.email_sent_at && m.visibility === "public" && (
-                          <><button className="scc-btn" onClick={() => maile(m)}>Mailen</button>{" "}</>
+                          <><button className="scc-btn" onClick={() => void maile(m)}>Mailen</button>{" "}</>
                         )}
                         {m.status === "published" && <><button className="scc-btn" onClick={() => zurueckziehen(m)}>Zurückziehen</button>{" "}</>}
                         <button className="scc-btn" onClick={() => loesche(m)}>Löschen</button>

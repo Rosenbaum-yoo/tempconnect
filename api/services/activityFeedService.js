@@ -58,6 +58,7 @@ const ACTION_LABELS = {
   "product_release.delete":        "Produktmitteilung gelöscht",
   "product_release.send_email":    "Produktmitteilung per E-Mail versendet",
   "product_release.mark_all_seen": "Produktneuheiten als gelesen markiert",
+  "product_release.unsubscribe":   "Produktneuheiten per E-Mail abbestellt",
   "product_release.ack_seen":      "Produktneuheit gelesen",
   "product_release.ack_modal_dismiss": "Hinweis auf Produktneuheit geschlossen",
 

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Produkt-Mails abbestellen · TempConnect</title>
+  <link rel="stylesheet" href="/public/css/design-system.css">
+  <script src="/public/js/theme.js"></script>
+  <style>
+    body{background:var(--ds-bg);color:var(--ds-text);font-family:var(--ds-font);margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .ab-card{background:var(--ds-bg-surface);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);max-width:460px;width:100%;padding:32px;box-sizing:border-box}
+    .ab-eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ds-brand);font-weight:700;margin-bottom:8px}
+    .ab-title{font-size:22px;font-weight:800;margin:0 0 8px}
+    .ab-text{font-size:14px;color:var(--ds-text-secondary);margin:0 0 16px;line-height:1.55}
+    .ab-msg{font-size:14px;margin-top:14px;line-height:1.5}
+    .ab-msg--gut{color:var(--ds-success)}
+    .ab-msg--schlecht{color:var(--ds-danger)}
+  </style>
+</head>
+<body>
+  <main class="ab-card">
+    <div class="ab-eyebrow">TempConnect</div>
+    <h1 class="ab-title">Produkt-Mails abbestellen</h1>
+    <p class="ab-text">Sie bekommen dann keine Produktneuheiten mehr per E-Mail. In der App sehen Sie sie weiterhin unter „Was ist neu“. Andere Nachrichten — etwa zu Ihren Einsätzen oder Rechnungen — betrifft das nicht.</p>
+    <button class="ds-btn ds-btn--primary" type="button" id="abKnopf">Produkt-Mails abbestellen</button>
+    <div class="ab-msg" id="abMeldung" role="status" aria-live="polite"></div>
+  </main>
+  <script src="/public/js/pages/abmelden.js"></script>
+</body>
+</html>
