@@ -152,6 +152,8 @@ Laedt Entwicklungs-/Demo-Daten aus `sql/seeds/` in die laufende DB.
 SEED_DEMO_WORLD=true ./scripts/dev/seed-data.sh                     # Alle Seeds
 SEED_DEMO_WORLD=true ./scripts/dev/seed-data.sh --file=dev-data.sql # Nur eine Datei
 SEED_DEMO_WORLD=true ./scripts/dev/seed-data.sh --clean             # Tabellen vorher leeren
+SEED_DEMO_WORLD=true SEED_PASSWORT=<mind. 12 Zeichen> \
+  ./scripts/dev/seed-data.sh --file=y1-probebuehne.sql   # Probebühne (Welle Y1)
 ./scripts/dev/seed-data.sh --list                                   # Auflisten (ohne Schalter)
 ```
 
@@ -159,6 +161,7 @@ SEED_DEMO_WORLD=true ./scripts/dev/seed-data.sh --clean             # Tabellen v
 - `sql/seeds/dev-data.sql` — Basis-Accounts + Listings
 - `sql/seeds/demo-sales.sql` — Vertriebs-Demo: 3 Nutzer, Subscriptions, Listings, Requests
 - `sql/seeds/demo-timesheets.sql` — Orgs, Timesheets in allen Status
+- `sql/seeds/y1-probebuehne.sql` — Probebühne (Welle Y1): eine Firma mit drei Standorten und drei Menschen in drei Rollen. **Braucht zusätzlich `SEED_PASSWORT`** — diese Saat trägt absichtlich kein Passwort im Repo und hasht beim Laden (pgcrypto).
 
 ### run-worker.sh — Worker-Management
 

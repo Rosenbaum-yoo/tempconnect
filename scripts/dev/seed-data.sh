@@ -60,8 +60,18 @@ fail() { echo "[seed-data] FEHLER: $*" >&2; exit 1; }
 # in sql/seeds/ verweigern ohne ihn jede Zeile (gleiche Sperre wie Mig 052).
 # ON_ERROR_STOP ist Pflicht: ohne es endet psql mit 0, auch wenn die
 # Transaktion abgebrochen ist - das Skript meldete dann Erfolg ohne Zeilen.
+#
+# Dazu app.seed_passwort aus SEED_PASSWORT: sql/seeds/y1-probebuehne.sql hasht
+# daraus beim Laden (pgcrypto) und traegt deshalb KEIN Passwort im Repo.
+# Der Kompromiss, benannt: der Wert steht fuer die Dauer des Ladens in den
+# Session-Einstellungen der ENTWICKLUNGS-Datenbank. Ein psql-Variable waere
+# serverseitig unsichtbar, laesst sich aber in dollar-quoted DO-Bloecken nicht
+# einsetzen - und genau dort steht die Pruefung, die ein leeres oder zu kurzes
+# Passwort ablehnt. Ein Schalter fuer beides ist die ehrlichere Wahl.
 run_psql() {
-  docker compose exec -T -e PGOPTIONS="-c app.seed_demo_world=true" db \
+  docker compose exec -T \
+    -e PGOPTIONS="-c app.seed_demo_world=true -c app.seed_passwort=$SEED_PASSWORT_WERT" \
+    db \
     psql -v ON_ERROR_STOP=1 -U "$PG_USER" -d "$PG_DB" "$@"
 }
 
@@ -114,6 +124,18 @@ esac
 if [ "$SEED_DEMO_WORLD_NORM" != "true" ]; then
   fail "SEED_DEMO_WORLD ist nicht gesetzt - Saat verweigert. Die Saat-Dateien legen ANMELDBARE Demo-Konten an und sperren ohne diesen Schalter selbst (sql/seeds/*.sql). Erlaubter Aufruf: SEED_DEMO_WORLD=true $0"
 fi
+
+# Das Passwort fuer die Probebuehne (Y1). Nur dort noetig; die drei aelteren
+# Saaten tragen ihre Hashes noch selbst. Kein Vorgabewert - eine Vorgabe waere
+# genau das Passwort im Repo, das vermieden werden soll.
+SEED_PASSWORT_WERT="${SEED_PASSWORT:-}"
+if [ -z "$SEED_PASSWORT_WERT" ] && { [ -z "$TARGET_FILE" ] || [ "$TARGET_FILE" = "y1-probebuehne.sql" ]; }; then
+  fail "SEED_PASSWORT ist nicht gesetzt. sql/seeds/y1-probebuehne.sql legt anmeldbare Konten an und hasht das Passwort beim Laden (pgcrypto) - es steht ABSICHTLICH nicht im Repo. Erlaubter Aufruf: SEED_DEMO_WORLD=true SEED_PASSWORT=<mindestens 12 Zeichen> $0"
+fi
+case "$SEED_PASSWORT_WERT" in
+  *[[:space:]]*|*\"*|*\'*)
+    fail "SEED_PASSWORT enthaelt Leerzeichen oder Anfuehrungszeichen. Der Wert wird ueber PGOPTIONS weitergegeben, und das ist leerzeichengetrennt - ein solches Passwort wuerde die Option zerlegen und UNBEMERKT ein anderes Passwort setzen. Bitte ohne Weissraum und Anfuehrungszeichen." ;;
+esac
 
 # ── DB-Container pruefen ────────────────────────────────────────────────────
 if ! docker compose exec db pg_isready -U "$PG_USER" -q 2>/dev/null; then

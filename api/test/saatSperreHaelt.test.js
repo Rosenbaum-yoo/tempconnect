@@ -354,11 +354,20 @@ suite("Y0.1 — die Saat sperrt sich selbst, auf jedem Ladeweg", () => {
       + "üblicherweise ungesetzt und der Riegel fällt auf \"development\" zurück");
   });
 
-  it("C2: seed-data.sh gibt den Schalter wirklich an die Sitzung weiter", () => {
+  it("C2: seed-data.sh gibt die Schalter wirklich an die Sitzung weiter", () => {
     const sh = lies("scripts/dev/seed-data.sh");
-    assert.match(sh, new RegExp("PGOPTIONS=\"-c " + SCHALTER.replace(/\./g, "\\.") + "=true\""),
+    /* Nicht auf die ganze Zeichenkette prüfen: in PGOPTIONS stehen inzwischen
+       ZWEI Schalter, und eine wörtliche Prüfung wurde dadurch rot, obwohl sie
+       nichts Falsches gefunden hatte. Geprüft wird, dass der Schalter DRIN ist. */
+    assert.match(sh, new RegExp("PGOPTIONS=\"[^\"]*-c " + SCHALTER.replace(/\./g, "\\.") + "=true"),
       "seed-data.sh setzt den Schalter nicht per PGOPTIONS — dann verweigern die Saat-Dateien "
       + "auch den erlaubten Entwickler-Pfad, und der Riegel wird umgangen statt benutzt");
+    /* Und der zweite Schalter: ohne ihn kann sql/seeds/y1-probebuehne.sql nicht
+       laden, denn sie trägt ABSICHTLICH kein Passwort im Repo (Y6.3) und hasht
+       beim Laden aus `app.seed_passwort`. */
+    assert.match(sh, /PGOPTIONS="[^"]*-c app\.seed_passwort=/,
+      "seed-data.sh reicht app.seed_passwort nicht weiter. Dann bricht die Probebühne beim "
+      + "Laden ab — oder, schlimmer, jemand schreibt wieder ein Passwort in die Datei.");
   });
 
   it("C3: seed-data.sh macht einen Fehler zum Fehler", () => {

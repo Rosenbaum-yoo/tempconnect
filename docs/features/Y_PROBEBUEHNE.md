@@ -225,9 +225,73 @@ sehen."* Genau das ist heute nicht möglich.
 | Phase | Inhalt | Nachweis |
 |---|---|---|
 | Y1.1 | **Je Abo eine Zeitarbeitsfirma und ein Unternehmen** — DEMO, BASIS, PLUS, PRO, INDIVIDUELL; bei INDIVIDUELL zusätzlich die Größenstufen S und Enterprise, weil sie andere Grenzen tragen | 12 Konten, jedes anmeldbar, jedes mit Zweck im Regiebuch |
-| Y1.2 | **Eine Firma mit drei Standorten und drei Menschen** (Verwaltung, Disposition, Standortleitung) — heute gibt es **eine** solche Organisation unter 2566 | Welle U wird damit überhaupt erst durchspielbar |
+| Y1.2 ✅ | **Eine Firma mit drei Standorten und drei Menschen** (Verwaltung, Disposition, Standortleitung) — heute gibt es **eine** solche Organisation unter 2566 | Welle U wird damit überhaupt erst durchspielbar |
 | Y1.3 | **Je ein Konto im Sonderzustand:** Pilotkunde, gekündigt, wegen Zahlungsausfall gesperrt, Abo läuft in drei Tagen ab | Jeder Zustand ist anmeldbar und zeigt genau seine Oberfläche |
 | Y1.4 | **Eine Zeitarbeitsfirma mit vollständiger Belegschaft:** 12 Kräfte, davon 8 mit Katalog-Fähigkeiten, 2 im Einsatz, 1 krank, 1 verspätet | Erst damit kann der Marktplatz voll wirken (heute: 3 von 33 mit Fähigkeiten) |
+
+> **Y1.2 GEBAUT — Stand 2026-10-01. Beide Nullen stehen jetzt auf 1.**
+>
+> `sql/seeds/y1-probebuehne.sql` legt **Nordlicht Logistik GmbH** an (PLUS) mit
+> drei Standorten (Hamburg Hafen als Hauptsitz, Berlin Schoenefeld, Muenchen
+> Nord), drei standortgebundenen Abteilungen und **drei Menschen mit drei
+> Sichtweiten**:
+>
+> | Konto | Rolle | sieht |
+> |---|---|---|
+> | `verwaltung@probebuehne.tempconnect.de` | `admin` | alle drei Standorte |
+> | `disposition@probebuehne.tempconnect.de` | `hiring_manager` | alle drei Standorte |
+> | `standort.hamburg@probebuehne.tempconnect.de` | `member`, gebunden an Hamburg | **nur Hamburg** |
+>
+> Die dritte Zeile ist der ganze Zweck. Gemessen an der laufenden Datenbank,
+> vorher → nachher:
+>
+> | | vorher | nachher |
+> |---|---|---|
+> | Organisationen mit >1 Standort **und** >1 Mitglied | **0** | **1** |
+> | Mitgliedschaften mit Standortbindung | **0** von 252 | **1** |
+> | Abteilungen mit Standortbindung | 4 | 7 |
+>
+> **Vorher war der Vorgang nicht herstellbar** — es gab keine zweite Person in
+> derselben Firma an einem anderen Standort. Ab jetzt lässt sich die Grenze aus
+> Welle U zum ersten Mal von Hand durchspielen.
+>
+> **KEIN PASSWORT IM REPO, und das ist der Unterschied zu den drei älteren
+> Saaten.** Mig 052 trägt `DemoPass2026!`, `demo-sales.sql` trägt `Demo2026!`,
+> `dev-data.sql` trägt `password123` — im Klartext, in einem öffentlichen Repo.
+> Die neue Saat nimmt das Passwort aus dem Schalter `app.seed_passwort` und
+> hasht **erst beim Laden** mit `pgcrypto`
+> (`crypt(…, gen_salt('bf', 10))` → `$2a$10$…`, dasselbe Format, das 71
+> bestehende Konten tragen und das `bcryptjs.compare` prüft). Ohne Schalter:
+> Abbruch. Es gibt **keine Vorgabe** — eine Vorgabe wäre genau das Passwort im
+> Repo, das vermieden werden soll. Zusätzlich abgelehnt: leer, kürzer als 12
+> Zeichen, mit Leerzeichen oder Anführungszeichen (`PGOPTIONS` ist
+> leerzeichengetrennt — ein solcher Wert würde die Option zerlegen und
+> **unbemerkt** ein anderes Passwort setzen). Y6.3 ist damit für die Datei
+> vorweggenommen, die ab heute dazukommt; die drei alten bleiben eine
+> Owner-Entscheidung.
+>
+> **Aufruf:**
+>
+> ```bash
+> SEED_DEMO_WORLD=true SEED_PASSWORT=<mindestens 12 Zeichen> \
+>   ./scripts/dev/seed-data.sh --file=y1-probebuehne.sql
+> ```
+>
+> **Gemessen in fünf Richtungen:** Skript ohne Schalter → verweigert; Skript mit
+> Schalter, ohne Passwort → verweigert; SQL ohne Schalter (also **jeder** andere
+> Ladeweg) → verweigert; Passwort zu kurz → verweigert; mit beidem → geladen,
+> alle drei Konten anmeldbar (`crypt`-Verifikation `true`). **Zweiter Lauf
+> idempotent:** `users` 412 → 412, `org_locations` 7 → 7, `org_memberships`
+> 255 → 255.
+>
+> **Wächter:** `api/test/probebuehneY1.test.js`, 7 Zusicherungen über die Form
+> der Saat, **15 Rückmutationen, alle rot und jede an der gemeinten Stelle** —
+> darunter die wichtigste: die Standortbindung der dritten Mitgliedschaft
+> entfernen → rot. Dazu zwei gegen die Falle, die falsche Tabelle zu füllen
+> (`company_locations` statt `org_locations`) und zwei gegen ein Passwort in der
+> Datei. Geprüft wird die **Form**, nicht die Datenbank: das Tor lädt keine Saat,
+> und eine DB-gebundene Zusicherung wäre auf jedem Rechner rot, auf dem die Bühne
+> nicht geladen ist.
 
 ### Y2 · Die Zustände, die sonst niemand herstellt
 
