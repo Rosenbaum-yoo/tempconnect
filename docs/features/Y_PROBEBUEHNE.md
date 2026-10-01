@@ -30,6 +30,28 @@ Fläche das Richtige sieht — und das Falsche nicht.
 | Arbeiter **mit Fähigkeiten** | **3 von 33** | der Marktplatz kann gar nicht voll wirken |
 | Demo-Welt (Mig 052) | vorhanden und **gegatet** über `app.seed_demo_world` | die Schiene existiert, sie ist nur dünn besetzt |
 
+> **Y0.2 ausgeführt — Stand 2026-10-01, und die aufschlussreichste Zahl ist die, die sich NICHT
+> bewegt hat.**
+>
+> | Gemessen | 2026-09-24 | **2026-10-01** | Veränderung |
+> |---|---|---|---|
+> | Organisationen | 2566 | **2940** (2136 Unternehmen, 804 Zeitarbeitsfirmen) | **+374** |
+> | Abos aktiv | DEMO 10 · BASIS 16 · PLUS 266 · PRO 3 · INDIVIDUELL 17 | DEMO **11** · BASIS 16 · PLUS 266 · **PRO 3** · INDIVIDUELL 17 | +1 DEMO |
+> | Organisationen mit mehr als einem **Standort** | 1 | **1** | **unverändert** |
+> | Organisationen mit mehr als einem **Mitglied** | 15 | **15** | **unverändert** |
+> | Arbeiterprofile | 33 (alle mit Portalkonto) | **33** (alle mit Portalkonto) | unverändert |
+> | Arbeiter **mit Fähigkeiten** | 3 von 33 | **3 von 33** | **unverändert** |
+>
+> **In einer Woche sind 374 Organisationen dazugekommen, und keine einzige strukturelle Lücke hat
+> sich geschlossen.** Die Masse wächst durch Testläufe; die Bühne wächst nicht mit. Das ist der
+> Beleg dafür, dass Y1 keine Fleißaufgabe ist: **mehr Organisationen machen die Plattform nicht
+> durchspielbar.** PRO steht weiter bei **drei** Abos, ein multistandortiger Kunde ist weiter
+> **einer**, und der Marktplatz kann mit **3 von 33** Kräften mit Fähigkeiten nicht voll wirken.
+>
+> *Nachtrag zur Methode: zwei meiner Abfragen schlugen zuerst fehl, weil ich Namen geraten habe —
+> `subscriptions.plan_key` (heißt `plan`) und `worker_skills` (heißt `worker_profile_skills`).
+> Nachgesehen statt weitergeraten; die Zahlen oben stehen auf den echten Namen.*
+
 **Der Befund in einem Satz: es fehlen keine Daten, es fehlt eine BENANNTE BESETZUNG.**
 2566 Organisationen nützen nichts, wenn man sich in keine davon anmelden kann und von keiner
 weiß, wofür sie steht. Durchspielen heißt: *„ich melde mich als X an, klicke Y, und muss Z
