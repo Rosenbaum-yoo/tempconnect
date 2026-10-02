@@ -431,10 +431,10 @@ sehen."* Genau das ist heute nicht möglich.
 | Y2.1 ✅ | **Deals in jedem Zustand**: angefragt, verhandelt, abgeschlossen, laufend, beendet, zurückgenommen | Jeder Zustand einmal sichtbar, auf **beiden** Seiten |
 | Y2.2 ✅ | **Stundenzettel in jedem Zustand**: offen, eingereicht, abgelehnt mit Korrekturbitte, genehmigt, an den Kunden gesendet, abgerechnet | Der ganze Weg des Kreislaufs K-2 ist an einem Tag durchklickbar |
 | Y2.3 ✅ | **Rechnungen**: offen, fällig, überfällig, gemahnt, bezahlt — mit **relativen** Datumswerten | Die Mahnstrecke zeigt echte Fälligkeiten statt „vor zwei Jahren" |
-| Y2.4 | **Ein Mensch für den Betrugsriegel** (M4c.3): eine Kraft, die als Einzelangebot **und** im Sammelangebot steht | Die wichtigste Probe aus M4c lässt sich von Hand nachvollziehen |
+| Y2.4 ✅ | **Ein Mensch für den Betrugsriegel** (M4c.3): eine Kraft, die als Einzelangebot **und** im Sammelangebot steht | Die wichtigste Probe aus M4c lässt sich von Hand nachvollziehen |
 | Y2.5 ✅ | **Eine Sperre**: dieselbe Kraft bei Kunde A gesperrt, bei Kunde B sichtbar | Die zentrale Zusage der Sperrliste wird vorführbar |
 | Y2.6 ✅ | **Ein offener Fähigkeits-Vorschlag** und **eine katalogfremde Schreibvariante** | Die Kuratierfläche aus b-6/b-7 ist nicht leer, wenn man sie zeigt |
-| Y2.7 | **Sammelangebote mit eigenen Mitgliedern.** Gemessen am 2026-09-24: die beiden vorhandenen Sammelangebote teilen sich **dieselben zwei Menschen**, und einer davon steht zusätzlich in einem Einzelangebot. Eine Bühne, die Sammelangebote vorführen soll, braucht Mitglieder, die sonst nirgends stehen — sonst führt sie genau die Doppelbuchung vor, die sie widerlegen soll | Ein Sammelangebot mit 4 Mitgliedern, die in keinem Einzelangebot vorkommen; dazu **ein** bewusst doppelt geführter Mensch für die Probe aus M4c.3 |
+| Y2.7 ✅ | **Sammelangebote mit eigenen Mitgliedern.** Gemessen am 2026-09-24: die beiden vorhandenen Sammelangebote teilen sich **dieselben zwei Menschen**, und einer davon steht zusätzlich in einem Einzelangebot. Eine Bühne, die Sammelangebote vorführen soll, braucht Mitglieder, die sonst nirgends stehen — sonst führt sie genau die Doppelbuchung vor, die sie widerlegen soll | Ein Sammelangebot mit 4 Mitgliedern, die in keinem Einzelangebot vorkommen; dazu **ein** bewusst doppelt geführter Mensch für die Probe aus M4c.3 |
 
 > **Y2.1 + Y2.2 GEBAUT — Stand 2026-10-01. Sechzehn Zustände hatten kein
 > Beispiel.**
@@ -551,6 +551,60 @@ sehen."* Genau das ist heute nicht möglich.
 > `requests.status`-Werten unbesetzt), Y2.2 (Stundenzettel — nur `cancelled`
 > fehlt), Y2.4 und Y2.7 (Sammelangebote mit eigenen Mitgliedern; gemessen teilen
 > sich die beiden vorhandenen dieselben zwei Menschen).
+
+> **Y2.4 + Y2.7 GEBAUT — Stand 2026-10-01. Damit ist Welle Y2 vollständig.**
+>
+> **Der Plan nennt hier selbst eine Falle, und die Messung bestätigt sie genau:**
+> die beiden vorhandenen Pool-Angebote teilen sich **dieselben zwei Menschen**
+> (Max Mustermann, Anna Kraft) — und beide stehen zusätzlich in **vier** bzw.
+> **drei** offenen Einzelangeboten. Eine Bühne auf ihnen führt genau die
+> **Doppelbuchung** vor, die der Betrugsriegel widerlegen soll. Der Owner nennt
+> diesen Zustand ausdrücklich Betrug: *„ein Mensch, fünfmal gebucht, wäre
+> Betrug"*.
+>
+> `sql/seeds/y2-3-sammelangebote.sql` legt **zwei** Angebote mit **zwei
+> verschiedenen Zwecken** an:
+>
+> **(A) Y2.7 — vier Mitglieder, die in KEINEM Einzelangebot stehen.**
+> Dafür sind die vier Kräfte **ohne** Katalog-Fähigkeit (HPS-009…012) genau
+> richtig: `sweepMarktpraesenz()` legt für sie **nie** ein Einzelangebot an, weil
+> Bedingung 6 fehlt. Die Exklusivität hält damit **dauerhaft** — nicht bis zum
+> nächsten Cron-Takt. Gemessen nach dem Laden: alle vier mit **0** offenen
+> Einzelangeboten.
+>
+> Und die Saat **prüft** das selbst: trägt eine der vier später eine
+> Katalog-Fähigkeit, bricht sie ab und sagt warum. Eine Behauptung im Kommentar
+> hätte nicht gehalten.
+>
+> **(B) Y2.4 — der Gegenstand für den Betrugsriegel M4c.3.**
+> `capacityExchangeService` rechnet die freie Kopfzahl eines Sammelangebots als
+> `SUM(CASE WHEN NOT gebunden THEN 1 ELSE 0 END)`. Drei Mitglieder, eines davon
+> **im Einsatz** bei Nordlicht (Y1.4):
+>
+> | Mitglied | Lage |
+> |---|---|
+> | Tomasz Nowak | **gebunden** — zählt als Mitglied, nicht als frei |
+> | Jonas Harms | frei, **zusätzlich in einem automatischen Einzelangebot** |
+> | Dennis Brinkmann | frei, sonst nirgends |
+>
+> **Gemessen: Mitglieder 3, frei 2.** Wer die Oberfläche öffnet und drei sieht,
+> hat den Riegel gefunden. Genau diese Lücke verlangt M4c.3 — ohne sie ist die
+> wichtigste Probe der Welle M4c nicht von Hand nachvollziehbar.
+>
+> **`quelle = 'manuell'` ist kein Schmuck, und das ist gemessen.** Die Rücknahme
+> des Sweeps fasst ausschließlich `quelle = 'live_belegschaft'` an. Mit der
+> falschen Herkunft hätte der nächste Takt beide Angebote abgeräumt und die Bühne
+> wäre nach einer Stunde wieder leer. Geprüft mit einem **echten**
+> `sweepMarktpraesenz()`-Lauf: 2 Angebote und 7 Mitgliedschaften vorher, dieselben
+> danach, freie Kopfzahl weiter 2.
+>
+> **Wächter:** `api/test/probebuehneSammelangebote.test.js`, 9 Zusicherungen,
+> **14 Rückmutationen, alle rot und jede an der gemeinten Stelle — beim ersten
+> Lauf.** Darunter die drei, die den Zweck treffen: eine Kraft *mit* Fähigkeit in
+> (A) aufnehmen, die gebundene Kraft aus (B) nehmen, die Herkunft auf
+> `live_belegschaft` stellen. Eine weitere prüft, dass die Notbremse der Saat die
+> Bindung **so rechnet wie der Dienst** — rechnete sie anders, belegte sie die
+> falsche Zahl, und das wäre schlimmer als keine Prüfung.
 
 ### Y3 · Das Einsatzportal
 
