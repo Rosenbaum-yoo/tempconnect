@@ -197,6 +197,37 @@ describe("D-M4/D-M5 — Zusammenarbeit innerhalb einer Firma", { skip: !hasDb &&
     return o.id;
   }
 
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * DIESE PROBE IST ROT, UND SIE SOLL ES BLEIBEN (Befund 2026-10-02)
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Sie meldet `OVERFILL_NOT_ALLOWED` statt der Annahme. Das ist KEIN Fehler der
+   * Probe — sie legt einen Bedarf ueber ZWEI Plaetze an und ein Angebot ueber
+   * ZWEI, also genau passend. Gemessen ist die Ursache ein Defekt im Geld-Pfad:
+   *
+   *   `demand_requests.required_total_count` hat DEFAULT 1 und ist NOT NULL.
+   *   Die Rueckfallkette in `getDemandCommercialStates`
+   *   (`GREATEST(COALESCE(dr.required_total_count, dr.headcount, 1), 1)`) erreicht
+   *   `headcount` deshalb NIEMALS: der Wert ist 1, nicht NULL. Ein Bedarf, den
+   *   nicht der Dienst selbst angelegt hat (Rohinsert, Import, aelterer Pfad),
+   *   sagt also "ich brauche drei" und wird kaufmaennisch als "einer" gelesen.
+   *
+   * WIRKUNG AM BESTAND, gemessen am 2026-10-02: **5 von 46 Bedarfen** haben
+   * `required_total_count < headcount`, **einer davon ist offen** (headcount 3,
+   * required 1, `overfill_allowed = false`). Fuer diesen Bedarf kann eine
+   * Zeitarbeitsfirma drei Kraefte anbieten — genau das Verlangte — und bekommt
+   * `OVERFILL_NOT_ALLOWED: requested 3, remaining 1`. Es gibt keinen Weg, ihn zu
+   * erfuellen, und keinen Hinweis, warum.
+   *
+   * WARUM HIER NICHTS REPARIERT WIRD. Die Probe gruen zu machen hiesse,
+   * `required_total_count` in ihrem Rohinsert zu setzen — und genau damit waere
+   * der Produktionsdefekt wieder unsichtbar. Welche der beiden Spalten die
+   * Wahrheit traegt, ist eine KAUFMAENNISCHE Entscheidung (Owner), nicht eine
+   * Testfrage; drei Wege stehen in `docs/UEBERGABE.md`. Bis dahin ist dieses Rot
+   * der Befund, und es laeuft nur mit angehaengter Datenbank — das normale Tor
+   * bleibt gruen.
+   */
   it("D-M5: die Kollegin der Kundenfirma darf ein Angebot annehmen", async () => {
     await inTransaktion(async (db, m, k) => {
       const ergebnis = await mpSvc.updateOfferStatus(m, await angebot(db, k), "accepted", k.kollege);

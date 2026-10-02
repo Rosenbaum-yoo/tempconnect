@@ -144,7 +144,11 @@ bauende Sitzung geht von oben nach unten; wer etwas vorzieht, schreibt den Grund
 > **Deshalb ist M1.1 ein Takt-Herzschlag** — eine Tabelle, die sagt, wann jede Aufgabe
 > zuletzt lief, plus ein Wächter, der bei Schweigen rot wird. Blueprint-fähig.
 
-**Der nächste Griff: die Antwort des Owners auf E-K3-1 bis E-K3-3.** Der Entwurf
+**Der nächste Griff: die Antwort des Owners auf E-K3-1 bis E-K3-3.** ⏭ **Erledigt
+2026-08-31** — alle vier Entscheidungen sind beantwortet und gebaut (E-K3-1 Mig 211
+`auegService`, E-K3-3 `randvermerk`, E-K3-4 Mig 210; E-K3-2 ist in K3.5
+eingeflossen). *Der Satz bleibt als Chronik stehen; ohne diese Auflösung wäre er
+ein Zeiger auf fertige Arbeit.* Der Entwurf
 der Monatsplanung liegt vor (K3.1) und die Datenlage ist gemessen (K3.2), beides
 in [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md).
 **Gebaut wird erst nach der Freigabe** — anders als bei K1 und K2 ist das kein
@@ -160,7 +164,9 @@ Plan: **K0 → K4 → K1 → K2 → K3** — die ersten vier sind durch.
 | **E-K3-3** | offene Einsätze am Rand? | **bis Monatsrand, Vermerk „läuft noch"** | ✅ `randvermerk` |
 | **E-K3-4** | Zuordnungen aufräumen? | **ja, mehrfach prüfen** | ✅ Mig 210, acht Wege |
 
-**Der nächste Griff: `K3.5`** — beide Spuren schreibend. E-K3-2 ist beantwortet,
+**Der nächste Griff: `K3.5`** ⏭ **Erledigt** — beide Schreibwege existierten
+bereits; neu war die Konfliktvorschau vor dem Schreiben, auf der Fläche
+verdrahtet. *Chronik, siehe oben.* — beide Spuren schreibend. E-K3-2 ist beantwortet,
 also darf in einen vergangenen Monat geplant werden. **Die lesende Fläche steht**
 (`monatsplan.html`, `GET /workforce/monatsplan`) und ist im Browser belegt —
 Raster, Leerzustand, Fehlerzustand, Konsole sauber.
@@ -3156,7 +3162,21 @@ SEED_DEMO_WORLD=true SEED_PASSWORT=<mindestens 12 Zeichen> scripts/dev/seed-data
 
 **Aktiv: [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md)**
 — Owner-Abschnitte 12 und 13, alle Entscheidungen getroffen. Reihenfolge
-**K0 → K4 → K1 → K2 → K3**; K0 und K4 sind durch, **K1 ist der nächste Griff**.
+**K0 → K4 → K1 → K2 → K3** — und diese Reihenfolge ist abgearbeitet: **alle fünf
+Abschnitte sind gebaut** (Stand 2026-10-02, gegen die Phasentabellen des Plans
+geprüft). Einzige Ausnahme ist `K4.3`, eine **entschiedene Nicht-Umsetzung** mit
+Ersatz, keine offene Phase.
+
+> **Diese Zeile nannte bis zum 2026-10-02 „K1 ist der nächste Griff" — und K1 war
+> seit dem 2026-08-29 gebaut.** Es ist dieselbe Falle wie zweimal vorher: wer eine
+> Arbeitsanweisung liest, fängt oben an und baut, was längst steht. Dagegen steht
+> jetzt ein Wächter (`api/test/planZeigerIstLebendig.test.js`): ein „nächster
+> Griff" muss entweder auf etwas Offenes zeigen oder seine Auflösung daneben
+> tragen.
+
+**Welche Welle als nächste kommt, ist eine Owner-Entscheidung** — die Pläne unter
+`docs/features/` sind freigegebene Bauanweisungen, aber ihre Reihenfolge ist eine
+Priorisierung und steht nicht im Code.
 
 Die tragenden Entscheidungen in Kurzform, damit niemand sie neu verhandelt:
 
@@ -3233,6 +3253,72 @@ durch sind** (Owner-Vorgabe). Bis dahin bleibt dieser Eintrag der Merkzettel.
 ## Offene Owner-Entscheidungen
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
+
+### Welche Spalte sagt, wie viele Kräfte ein Bedarf braucht? *(2026-10-02, gemessen)*
+
+**Ein offener Bedarf im Bestand kann nicht erfüllt werden, und niemand sieht
+warum.** Der Befund kam aus dem ersten echten Lauf der datenbankgebundenen Suite
+(584 Proben mit `DATABASE_URL`, 582 grün) — er war vorher unsichtbar, weil diese
+Proben sich ohne Datenbank überspringen.
+
+**Die Ursache in einem Satz:** `demand_requests.required_total_count` hat
+**DEFAULT 1** und ist **NOT NULL**, und die Rückfallkette in
+`getDemandCommercialStates` lautet
+`GREATEST(COALESCE(dr.required_total_count, dr.headcount, 1), 1)`. Weil der Wert
+**1** ist und nicht **NULL**, wird `headcount` nie erreicht. Ein Bedarf, den
+nicht der Dienst selbst angelegt hat — Rohinsert, Import, älterer Pfad — sagt also
+„ich brauche drei" und wird kaufmännisch als „einer" gelesen.
+
+**Wirkung am Bestand:**
+
+    5 von 46 Bedarfen haben required_total_count < headcount
+    1 davon ist offen:  headcount = 3, required_total_count = 1,
+                        overfill_allowed = false
+
+Für diesen Bedarf kann eine Zeitarbeitsfirma **drei** Kräfte anbieten — genau das
+Verlangte — und bekommt `OVERFILL_NOT_ALLOWED: requested 3, remaining 1`. Der
+Riegel selbst ist richtig und gewollt (Owner-Entscheid 2026-09-19, die drei Riegel
+beim Annehmen); er rechnet nur mit der falschen Zahl.
+
+**Belegt von einer roten Probe, die rot bleiben soll:**
+`api/test/integration/kollegenZugriff.flow.test.js`, *„D-M5: die Kollegin der
+Kundenfirma darf ein Angebot annehmen"*. Sie legt Bedarf **2** und Angebot **2**
+an, also passgenau, und wird abgewiesen. Sie grün zu machen hieße,
+`required_total_count` in ihrem Rohinsert zu setzen — und damit wäre der
+Produktionsdefekt wieder unsichtbar. Deshalb steht die Begründung im Test und
+nicht im Diff.
+
+**Drei Wege, und die Wahl ist kaufmännisch:**
+
+| Weg | Was er bedeutet | Preis |
+|---|---|---|
+| **A · `headcount` ist die Wahrheit** | `required_total_count` wird abgeleitet (Trigger oder beim Schreiben gesetzt), die Lesekette nimmt `GREATEST(required, headcount, 1)` | Ein bewusst kleineres `required` ist dann nicht mehr ausdrückbar |
+| **B · `required_total_count` ist die Wahrheit** | `headcount` wird zur Anzeige­spalte; jeder Schreibpfad MUSS `required` setzen, und die Altdaten werden einmalig nachgezogen | „Nachziehen" heißt raten: bei `required = 1` ist nicht unterscheidbar, ob das die Vorgabe war oder eine Absicht |
+| **C · beide bleiben, Abweichung wird gezeigt** | Die Fläche zeigt „3 gesucht, 1 freigegeben" und der Kunde entscheidet | Ehrlichste Variante, aber eine neue Oberfläche und eine Erklärung, die der Kunde verstehen muss |
+
+Was in jedem Fall dazugehört: eine **Migration mit Rollback-Plan** für die
+Altdaten und ein **Wächter**, der eine Abweichung zwischen den beiden Spalten
+künftig rot werden lässt — sonst entsteht sie beim nächsten Schreibpfad erneut.
+
+*Nicht gebaut: die Wahl entscheidet, was ein Kunde bekommt, wenn er drei Kräfte
+bestellt. Das ist keine Testfrage.*
+
+### Eine Probe erreichte ihren eigenen Gegenstand nicht *(2026-10-02, behoben)*
+
+Derselbe Lauf brachte einen zweiten Fehler, und der war **Fixture-Pflege**:
+`api/test/integration/workerOpenDealAssignments.flow.test.js` prüft laut eigenem
+Kopf, dass `/api/open-deal-assignments` **nicht mit 500** antwortet
+(Spalten-Drift in `getOpenDealAssignments`). Angemeldet hat sie sich dafür als
+**Unternehmen** — und die Route gehört der Zeitarbeitsfirma
+(`AGENCY_ORG_REQUIRED`). Der Dienst wurde also nie gerufen; geprüft wurde ein
+Tor, nicht die Drift. Test und Route stammen aus demselben Erst-Import
+(2026-06-01): die Probe war **nie** grün.
+
+Geändert wurde die **Anmeldung**, nicht die Zusicherung — die bestehenden
+`assert.*` stehen unverändert und laufen jetzt gegen die Rolle, die die Route
+erreicht. Dazu kommt die Grenze als **eigene** Zusicherung (Unternehmen → 403 mit
+Grund). Damit prüft die Probe beides, und das 403 ist kein Zufallstreffer mehr.
+Gemessen nach der Änderung: 2 von 2 grün.
 
 ### Drei Befunde an den internen Flächen *(2026-10-02, gegen die laufende Datenbank gemessen)*
 

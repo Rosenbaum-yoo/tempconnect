@@ -1,6 +1,17 @@
 # Welle K — Bounty-Auszahlung, Werbe-Cashback, Monatsplanung
 
-> **Status (2026-08-31): K0 ✅ · K4 ✅ · K1 ✅ · K2 ✅ vollständig · K3 offen.**
+> **Status (2026-10-02): K0 ✅ · K1 ✅ · K2 ✅ · K3 ✅ · K4 ✅ — die Welle ist gebaut.**
+>
+> *Die Zeile sagte bis zum 2026-10-02 „K3 offen“, während jede K3-Zeile in der
+> Tabelle ✅ trug (K3.1 bis K3.8, einschließlich der Härtung mit 957 Mutanten).
+> Eine Statuszeile, die ihrer eigenen Tabelle widerspricht, schickt die nächste
+> Sitzung an fertige Arbeit — und genau das ist zweimal passiert. Erzwungen von
+> `api/test/planZeigerIstLebendig.test.js`.*
+>
+> **Eine Ausnahme, bewusst:** `K4.3` (Meldung an das Team beim Rückfall) ist
+> ⚠️ **nicht baubar** — es gibt keinen Kanal dafür. Der Ersatz steht und zählt
+> (`rueckfaelle`, `letzter_rueckfall`, Protokoll auf `error`). Das ist eine
+> entschiedene Nicht-Umsetzung, keine offene Phase.
 > Alle Owner-Entscheidungen getroffen (2026-08-27).
 > Owner-Abschnitte **12** und **13**, dazu zwei Punkte aus dem Betrieb.
 >
