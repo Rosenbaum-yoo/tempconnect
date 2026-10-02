@@ -199,12 +199,21 @@ describe("D-M4/D-M5 — Zusammenarbeit innerhalb einer Firma", { skip: !hasDb &&
 
   /*
    * ═══════════════════════════════════════════════════════════════════════════
-   * DIESE PROBE IST ROT, UND SIE SOLL ES BLEIBEN (Befund 2026-10-02)
+   * DIESE PROBE WAR ROT UND IST ES NICHT MEHR — WEIL DER DEFEKT WEG IST
    * ═══════════════════════════════════════════════════════════════════════════
    *
-   * Sie meldet `OVERFILL_NOT_ALLOWED` statt der Annahme. Das ist KEIN Fehler der
+   * Behoben am 2026-10-02 durch Migration 229 (Owner-Punkt 14). An DIESER Datei
+   * wurde dafuer keine Zeile geaendert: kein `assert` angepasst, kein Wert im
+   * Pruefdatensatz gesetzt. Das ist der ganze Punkt — der Code wurde an die Probe
+   * angepasst, nicht die Probe an den Code.
+   *
+   * Der Befund bleibt hier stehen, weil er erklaert, warum die Spalte so
+   * aussieht, wie sie aussieht. Wer den Kommentar loescht, loescht die
+   * Begruendung fuer `required_total_count IS NULL`.
+   *
+   * Sie meldete `OVERFILL_NOT_ALLOWED` statt der Annahme. Das war KEIN Fehler der
    * Probe — sie legt einen Bedarf ueber ZWEI Plaetze an und ein Angebot ueber
-   * ZWEI, also genau passend. Gemessen ist die Ursache ein Defekt im Geld-Pfad:
+   * ZWEI, also genau passend. Die Ursache war ein Defekt im Geld-Pfad:
    *
    *   `demand_requests.required_total_count` hat DEFAULT 1 und ist NOT NULL.
    *   Die Rueckfallkette in `getDemandCommercialStates`
@@ -220,13 +229,38 @@ describe("D-M4/D-M5 — Zusammenarbeit innerhalb einer Firma", { skip: !hasDb &&
    * `OVERFILL_NOT_ALLOWED: requested 3, remaining 1`. Es gibt keinen Weg, ihn zu
    * erfuellen, und keinen Hinweis, warum.
    *
-   * WARUM HIER NICHTS REPARIERT WIRD. Die Probe gruen zu machen hiesse,
-   * `required_total_count` in ihrem Rohinsert zu setzen — und genau damit waere
-   * der Produktionsdefekt wieder unsichtbar. Welche der beiden Spalten die
-   * Wahrheit traegt, ist eine KAUFMAENNISCHE Entscheidung (Owner), nicht eine
-   * Testfrage; drei Wege stehen in `docs/UEBERGABE.md`. Bis dahin ist dieses Rot
-   * der Befund, und es laeuft nur mit angehaengter Datenbank — das normale Tor
-   * bleibt gruen.
+   * WARUM HIER NICHTS REPARIERT WURDE. Die Probe gruen zu machen haette
+   * geheissen, `required_total_count` in ihrem Rohinsert zu setzen — und genau
+   * damit waere der Defekt wieder unsichtbar geworden. Welche Spalte die Wahrheit
+   * traegt, war eine KAUFMAENNISCHE Entscheidung und keine Testfrage.
+   *
+   * ─────────────────────────────────────────────────────────────────────────
+   * WIE ES BEHOBEN WURDE (Owner-Punkt 14, Migration 229)
+   * ─────────────────────────────────────────────────────────────────────────
+   *
+   * NICHT per `GREATEST(required, headcount)` im Lesepfad — das haette ein
+   * kleineres `required` DAUERHAFT verboten und muesste zurueckgebaut werden,
+   * sobald "Teilfreigabe eines Bedarfs" ein Produktmerkmal wird.
+   *
+   * Sondern an der Wurzel: `DEFAULT 1` und `NOT NULL` sind weg. "Nicht angegeben"
+   * ist damit NULL und von "eine Person verlangt" unterscheidbar — und die
+   * vorhandene Rueckfallkette `COALESCE(required_total_count, headcount, 1)`
+   * erreicht `headcount` zum ersten Mal. Gemessen nach der Migration: ein
+   * Rohinsert mit `headcount = 3` ergibt `required_total_count = NULL`, und der
+   * Lesepfad liefert **3**.
+   *
+   * Die fuenf Altzeilen wurden nachgezogen. Das war kein Raten: gemessen setzt
+   * KEIN Schreibpfad die Spalte unabhaengig von `headcount` (der eigene Dienst
+   * schreibt zweimal `payload.headcount ?? 1`), und es gab **null** Zeilen mit
+   * `required > headcount`. Es gab also keine Absicht, die ein Nachziehen
+   * zerstoeren konnte — der einzige Einwand dagegen, gemessen widerlegt.
+   *
+   * Dieselbe Rueckfallkette wurde dabei im Notdienst nachgezogen
+   * (`emergencyCommitmentService`): dort stand `required_total_count || 1`, was
+   * aus NULL wieder eine 1 gemacht haette — derselbe Fehler mit anderem Grund.
+   *
+   * Gegen die Rueckkehr der Vorgabe steht
+   * `api/test/bedarfMengeIstDieWahrheit.test.js`.
    */
   it("D-M5: die Kollegin der Kundenfirma darf ein Angebot annehmen", async () => {
     await inTransaktion(async (db, m, k) => {

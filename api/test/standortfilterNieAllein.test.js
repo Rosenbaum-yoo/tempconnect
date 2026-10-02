@@ -103,10 +103,86 @@ suite("Ein Standortfilter steht nie allein — drei Schichten, einzeln wertlos",
       + "(reporting, spendAnalytics) — wurde der Pruefer umbenannt? Dann gilt diese ganze "
       + "Probe nicht mehr und muss nachziehen.");
     for (const d of dateien) {
-      assert.match(d.text, /if \(!locationId \|\| !req\.orgId\) return true;/,
+      /* SEIT PUNKT 18 IST DER ZWEIG LAUT, ABER NOCH OFFEN. Vorher stand hier
+       * `if (!locationId || !req.orgId) return true;` in einer Zeile; jetzt ist
+       * der Org-Fall ausgeklappt, protokolliert und gibt DANACH `true` zurueck.
+       * Beides muss die Probe erkennen, sonst prueft sie eine Form, die es nicht
+       * mehr gibt. */
+      assert.match(d.text, /if \(!locationId\) return true;/,
+        `${d.rel}: der fruehe Ausstieg fuer "kein Standort angefragt" fehlt`);
+      assert.match(d.text, /if \(!req\.orgId\) \{[\s\S]{0,600}?return true;\s*\}/,
         `${d.rel}: der durchlaessige Zweig sieht anders aus als beim Schreiben dieser Probe. `
-        + "Wurde er auf fail-closed umgestellt (dann ist dieser Waechter ueberfluessig und "
-        + "darf weg) oder nur umformuliert (dann muss das Muster nachziehen)?");
+        + "Wurde er auf fail-closed umgestellt (dann darf dieser Waechter weg, siehe "
+        + "Ablose-Bedingung im Code) oder nur umformuliert (dann muss das Muster nachziehen)?");
+    }
+  });
+
+  it("PUNKT 18 · der durchlaessige Zweig PROTOKOLLIERT, bevor er durchlaesst", () => {
+    /* Der billige Zwischenschritt vor fail-closed (Owner-Freigabe 2026-10-02):
+     * nicht abweisen, sondern laut sein. Der Wert liegt in der ABLOESE-BEDINGUNG —
+     * feuert die Zeile ueber den vereinbarten Zeitraum nie, ist die Verengung
+     * gratis; feuert sie doch, ist der Aufrufer gefunden, von dem niemand wusste.
+     *
+     * Ohne diese Zusicherung ist der Zwischenschritt ein Kommentar: jemand
+     * entfernt das `logger.warn`, der Zweig laesst weiter durch, und die
+     * Entscheidungsgrundlage fuer fail-closed entsteht nie. */
+    for (const d of dateienMitPruefer()) {
+      const i = d.text.indexOf("if (!req.orgId) {");
+      assert.ok(i > 0, `${d.rel}: kein ausgeklappter Org-Zweig`);
+      /* DER ZWEIG, UND NUR DER ZWEIG. Erster Entwurf nahm ein Fenster von 700
+       * Zeichen — und das reicht ueber das schliessende `}` hinaus bis in
+       * `assertLocationBelongsToOrg(pool, locationId, req.orgId)`. Die Zusicherung
+       * „die Meldung nennt locationId" war damit schon durch den Code DANACH
+       * erfuellt: eine Rueckmutation, die `locationId` aus der Meldung entfernte,
+       * blieb gruen. Geschnitten wird deshalb bis zum `return true;` des Zweigs. */
+      const roh = d.text.slice(i);
+      const ende = roh.indexOf("return true;");
+      assert.ok(ende > 0, `${d.rel}: der Org-Zweig endet nicht mit return true;`);
+      const zweig = roh.slice(0, ende + "return true;".length);
+      /* DAS PROTOKOLL MUSS DIE ERSTE ANWEISUNG DES ZWEIGS SEIN.
+       *
+       * Erster Entwurf suchte nur den Text `logger?.warn?.(` irgendwo im Zweig —
+       * und blieb gruen, als die Rueckmutation ihn mit `if (false)` davorsetzte.
+       * Der Aufruf stand noch da und lief nicht mehr. Dieselbe Lehre wie „Zaehlen
+       * ist kein Nachweis": die Anwesenheit eines Aufrufs ist nicht seine
+       * Ausfuehrung. Steht er als erste Anweisung, kann ihn kein Vorsatz
+       * ueberspringen, ohne die Form zu brechen. */
+      assert.match(zweig, /if \(!req\.orgId\) \{\s*logger\?\.warn\?\.\(/,
+        `${d.rel}: das Protokoll ist nicht die erste Anweisung des durchlaessigen `
+        + "Zweigs. Steht etwas davor — und sei es nur ein `if (false)` —, entsteht die "
+        + "Entscheidungsgrundlage fuer fail-closed nie, und der Zwischenschritt ist "
+        + "nur ein Kommentar.");
+      assert.match(zweig, /ORG_CONTEXT_MISSING/,
+        `${d.rel}: die Meldung traegt keine durchsuchbare Kennung. Ein Protokolleintrag, `
+        + "den man nicht filtern kann, ist fuer die Abloese-Bedingung wertlos.");
+      assert.match(zweig, /locationId/,
+        `${d.rel}: die Meldung nennt die angefragte Standort-Kennung nicht — dann weiss `
+        + "niemand, WAS der Aufrufer wollte");
+    }
+  });
+
+  it("die beiden Kopien des Pruefers bleiben gleich", () => {
+    /* Zwei wortgleiche Kopien in zwei Routern sind Absicht (eine gemeinsame
+     * Hilfsfunktion wuerde `pool` und `logger` zweier Router zusammenfuehren und
+     * mehr aendern als dieser Schritt will) — und ein Risiko: die eine wird
+     * verengt, die andere vergessen. Also wird die Gleichheit geprueft, statt
+     * gehofft. */
+    const bloecke = dateienMitPruefer().map((d) => {
+      const i = d.text.indexOf("async function validateLocationScope");
+      const j = d.text.indexOf("\n  }", i);
+      return {
+        rel: d.rel,
+        /* Kommentare raus: die eine Kopie traegt die lange Begruendung, die
+         * andere den Verweis darauf. Verglichen wird der CODE. */
+        code: d.text.slice(i, j).replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\s+/g, " ").trim()
+      };
+    });
+    assert.ok(bloecke.length >= 2, "weniger als zwei Kopien gefunden");
+    for (const b of bloecke.slice(1)) {
+      assert.equal(b.code, bloecke[0].code,
+        `${b.rel} und ${bloecke[0].rel} sind auseinandergelaufen. Wird eine Kopie `
+        + "verengt und die andere nicht, steht die Luecke weiter offen — und sie faellt "
+        + "niemandem auf, weil die verengte Kopie beweist, dass man es wusste.");
     }
   });
 

@@ -28,7 +28,46 @@ export function createReportingRouter(deps) {
    * Gibt false zurueck und setzt 403 wenn Violation; true wenn OK.
    */
   async function validateLocationScope(req, res, locationId) {
-    if (!locationId || !req.orgId) return true;
+    if (!locationId) return true;
+    /*
+     * ═══════════════════════════════════════════════════════════════════════
+     * DER ZWEIG, DER DURCHLAESST — JETZT LAUT, NOCH NICHT GESCHLOSSEN
+     * ═══════════════════════════════════════════════════════════════════════
+     *
+     * Ohne Organisation kann diese Pruefung nichts pruefen: `location_id` gehoert
+     * genau EINER Org, und ohne eigene Org gibt es nichts, wogegen man sie haelt.
+     * Sie gibt deshalb `true` zurueck — sie LAESST DURCH, statt zu sperren. Der
+     * Dienst darunter baut seine Org-Bedingung bedingt (`if (orgId)`), die
+     * Standort-Bedingung unbedingt: zusammen waere das eine Abfrage, die NUR nach
+     * Standort filtert, also ein Lesezugriff auf eine fremde Organisation.
+     *
+     * HEUTE IST DAS UNERREICHBAR, und zwar nicht hier, sondern zwei Schichten
+     * hoeher: `requirePermission` setzt `req.orgId` (rbac.js) und antwortet ohne
+     * Mitgliedschaft `403 NO_ORG_MEMBERSHIP`. Gemessen am 2026-10-02: alle 16
+     * standortgebundenen Routen in dieser und in spendAnalytics.js tragen
+     * `rperm(...)`. Festgenagelt von `api/test/standortfilterNieAllein.test.js`
+     * ueber alle drei Schichten.
+     *
+     * WARUM HIER ERST EIN PROTOKOLL UND NOCH KEIN 403 (Owner-Freigabe 2026-10-02,
+     * Punkt 18): fail-closed ist eine Verhaltensaenderung. Feuert diese Zeile
+     * ueber einen vereinbarten Zeitraum NIE, ist die Verengung gratis — dann
+     * kostet sie niemanden etwas. Feuert sie doch, haben wir den Aufrufer
+     * gefunden, der sonst eine 403 bekommen haette, OHNE dass jemand von ihm
+     * wusste. Der Umweg ist nicht Zoegern, er macht die Aenderung messbar.
+     *
+     * ABLOESE-BEDINGUNG, damit das hier nicht dauerhaft steht: null Treffer ueber
+     * den vereinbarten Zeitraum -> der `return true` wird zu
+     * `res.status(403).json({ error: "ORG_CONTEXT_REQUIRED" })`.
+     */
+    if (!req.orgId) {
+      logger?.warn?.({
+        route: req.originalUrl || req.path,
+        method: req.method,
+        locationId,
+        userId: req.session?.userId || null
+      }, "Standortfilter ohne Org-Kontext: Pruefung uebersprungen (ORG_CONTEXT_MISSING, Punkt 18 — Ablaufpfad fuer fail-closed)");
+      return true;
+    }
     try {
       await assertLocationBelongsToOrg(pool, locationId, req.orgId);
       return true;

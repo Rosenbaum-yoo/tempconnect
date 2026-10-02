@@ -41,9 +41,26 @@ const TEST_DIR = HIER;
 
 /* Untergrenzen: faellt die Suite darunter, prueft das Abbild-Gate zu wenig —
  * und ein Gate, das fast nichts mehr laeuft, ist schlimmer als keins, weil es
- * gruen meldet. (Gemessen 2026-08-25: 380 non-integration, 298 im Abbild.) */
+ * gruen meldet. (Gemessen 2026-08-25: 380 non-integration, 298 im Abbild.)
+ *
+ * 2026-10-02: Obergrenze 140 -> 145, gemessen 141 ausgelassen von 526 Dateien.
+ *
+ * WARUM DIE ZAHL STEIGEN DURFTE, und das ist der Punkt dieser Ratsche: sie soll
+ * genau diese Begruendung erzwingen, nicht verhindern. Die drei neuen
+ * Auslassungen lesen `sql/seeds/` bzw. `docs/` — Verzeichnisse, die das Abbild
+ * ABSICHTLICH nicht traegt (`probebuehneFlaechen`, `probebuehneBesetzung`,
+ * `planZeigerIstLebendig`). Sie pruefen also nichts, was ausgeliefert wird; sie
+ * auszulassen ist richtig, nicht bequem.
+ *
+ * Entscheidend bleibt die ANDERE Richtung, und die ist unveraendert: R3 oben
+ * laesst keine Datei auslassen, die das Abbild prueft. Im selben Lauf sind die
+ * drei neuen Waechter, die `api/` und `sql/migrations` lesen
+ * (`standortfilterNieAllein`, `auegFristFindetIhreZeilen`,
+ * `bedarfMengeIstDieWahrheit`), korrekt DRIN. Waere eine davon ausgelassen
+ * worden, haette R3 das gemeldet — und dann waere die richtige Antwort nicht
+ * eine hoehere Zahl gewesen, sondern ein Blick auf die Regel. */
 const MIN_IM_ABBILD = 250;
-const MAX_AUSGELASSEN = 140;
+const MAX_AUSGELASSEN = 145;
 
 /* Vertreter beider Seiten. Bewusst wenige und langlebige: jeder steht fuer ein
  * Idiom bzw. fuer den Normalfall, nicht fuer sich selbst. */

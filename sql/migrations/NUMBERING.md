@@ -1,5 +1,13 @@
 # Migration Numbering Reference
 
+> 2026-10-02 — **228** Index `wal_org_worker_start_idx` auf
+> `worker_assignment_links (org_id, worker_user_id, start_date)`: die AUEG-Frist
+> schlug im vollen Durchlauf nach (M11.7, Lastprobe 300 Kunden: 503 Buffer ohne,
+> 20 mit). **229** `required_total_count` ohne Vorgabe und nullbar: `DEFAULT 1`
+> hat die Rueckfallkette `COALESCE(required_total_count, headcount, 1)` seit ihrer
+> Einfuehrung ausgehebelt, ein Bedarf ueber drei Plaetze galt als einer
+> (Owner-Punkt 14).
+
 > Last updated: 2026-08-13 — 166–169 Bounty-Zeitraum und -Entzug, 170 Bounty-Rabatt
 > auf der Rechnung, 171 Anstupser, 172 Merken ist ein Zustand, 173 ein aktives Abo
 > je Nutzer, 174 CSV-Spaltentabelle (P10/D3), 175 Mitarbeiter ohne Konto, 176 Einladung kennt das Profil (P10/D5),
@@ -45,7 +53,7 @@ for all future migrations.
 
 ## Rule: Next migration number
 
-**Next migration MUST start at: 228**
+**Next migration MUST start at: 230**
 
 Format: `<NNN>_<short_description>.sql` (three-digit zero-padded)
 
@@ -121,8 +129,8 @@ alphabetical order within the number (e.g. `064_capacity_…` before `064_strate
 
 ## Checklist for new migrations
 
-1. Use the next sequential number (currently **228**)
-2. File name: `228_<short_snake_case>.sql`
+1. Use the next sequential number (currently **230**)
+2. File name: `230_<short_snake_case>.sql`
 3. Wrap DDL in a transaction if the DB supports transactional DDL
 4. Include a `-- Migration NNN:` comment header with a brief description
 5. Use `SET client_min_messages TO WARNING;` to suppress noise

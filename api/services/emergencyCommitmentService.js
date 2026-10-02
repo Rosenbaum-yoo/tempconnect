@@ -33,7 +33,13 @@ async function recalcDemandCoverage(client, demandId) {
   const { syncDemandCommercialState } = await import("./marketplaceService.js");
   const bedarf = await syncDemandCommercialState(client, demandId);
   if (!bedarf) return null;
-  const requiredTotal = Number(bedarf.required_total_count || 1);
+  /* `??` statt `||` (Owner-Punkt 14). `bedarf` kommt hier aus
+   * `syncDemandCommercialState`, das die Rueckfallkette auf `headcount` schon
+   * angewandt hat — der Wert ist also nie NULL und `|| 1` war hier wirkungslos.
+   * Gewechselt wird trotzdem: `|| 1` ist das Muster, das an der Stelle weiter
+   * unten den Defekt getragen hat, und ein Muster, das an einer Stelle falsch und
+   * an der anderen nur zufaellig richtig ist, wird kopiert. */
+  const requiredTotal = Number(bedarf.required_total_count ?? 1) || 1;
   const committedTotal = Number(bedarf.committed_headcount ?? bedarf.currently_committed_count ?? 0);
   const { status, remaining } = mapDemandStatus(requiredTotal, committedTotal);
   return {
@@ -69,7 +75,20 @@ export async function createCommitment(pool, { demandId, supplierCompanyId, quan
     await client.query("BEGIN");
 
     const demandQ = await client.query(
-      `SELECT id, urgency, status, required_total_count, currently_committed_count, remaining_open_count, overfill_allowed
+      /*
+       * `headcount` GEHOERT IN DIESE AUSWAHL (Owner-Punkt 14, 2026-10-02).
+       *
+       * Darunter stand `Number(demand.required_total_count || 1)`. Solange
+       * `required_total_count` die Vorgabe 1 trug, war das unauffaellig falsch:
+       * ein Bedarf ueber drei Plaetze wurde als einer gelesen. Seit Migration 229
+       * die Vorgabe entfernt, ist der Wert bei einem Rohinsert NULL — und
+       * `NULL || 1` ist WIEDER 1. Derselbe Fehler, nur mit anderem Grund.
+       *
+       * Die Rueckfallkette braucht also die Spalte, auf die sie zurueckfaellt.
+       * Ohne `headcount` in der Auswahl kann sie hier gar nicht greifen, egal wie
+       * sie geschrieben ist.
+       */
+      `SELECT id, urgency, status, headcount, required_total_count, currently_committed_count, remaining_open_count, overfill_allowed
          FROM demand_requests
         WHERE id = $1
         FOR UPDATE`,
@@ -89,7 +108,14 @@ export async function createCommitment(pool, { demandId, supplierCompanyId, quan
       return { error: "NOT_OPEN" };
     }
 
-    const remaining = Number(demand.remaining_open_count ?? (Number(demand.required_total_count || 1) - Number(demand.currently_committed_count || 0)));
+    /* `??` statt `||`, und `headcount` als zweite Stufe (Owner-Punkt 14).
+     * `required_total_count || 1` machte aus einer 0 UND aus NULL eine 1; jetzt
+     * faellt NULL auf `headcount` zurueck, so wie der Lesepfad in
+     * marketplaceService es ohnehin tut. Dieselbe Kette an beiden Stellen - zwei
+     * verschiedene Ketten fuer dieselbe Frage sind auf Dauer eine Kette, und zwar
+     * die schwaechere von beiden. */
+    const verlangt = Number(demand.required_total_count ?? demand.headcount ?? 1) || 1;
+    const remaining = Number(demand.remaining_open_count ?? (verlangt - Number(demand.currently_committed_count || 0)));
     if (remaining <= 0) {
       await client.query("ROLLBACK");
       return { error: "ALREADY_FULLY_COVERED" };

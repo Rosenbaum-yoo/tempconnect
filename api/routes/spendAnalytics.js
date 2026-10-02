@@ -40,7 +40,29 @@ export function createSpendAnalyticsRouter(deps) {
    * Gibt 403 zurueck wenn fremde Org; ignoriert null/leere locationId.
    */
   async function validateLocationScope(req, res, locationId) {
-    if (!locationId || !req.orgId) return true;
+    if (!locationId) return true;
+    /*
+     * Wortgleich zu `api/routes/reporting.js` — dort steht die ausfuehrliche
+     * Begruendung. Kurz: ohne Organisation kann diese Pruefung nichts pruefen und
+     * LAESST DURCH; unerreichbar ist der Zweig nur durch `rperm`, das zwei
+     * Schichten hoeher `req.orgId` setzt. Erst protokollieren, dann (bei null
+     * Treffern) auf 403 verengen — Owner-Freigabe 2026-10-02, Punkt 18.
+     *
+     * DIE ZWEI KOPIEN SIND ABSICHT UND EIN RISIKO. Eine gemeinsame Hilfsfunktion
+     * waere schoener; sie wuerde aber `pool` und `logger` aus zwei Routern
+     * zusammenfuehren und damit mehr aendern als dieser Schritt will. Dass beide
+     * Kopien gleich bleiben, prueft `api/test/standortfilterNieAllein.test.js` —
+     * dort ist die Gleichheit eine Zusicherung, nicht eine Hoffnung.
+     */
+    if (!req.orgId) {
+      logger?.warn?.({
+        route: req.originalUrl || req.path,
+        method: req.method,
+        locationId,
+        userId: req.session?.userId || null
+      }, "Standortfilter ohne Org-Kontext: Pruefung uebersprungen (ORG_CONTEXT_MISSING, Punkt 18 — Ablaufpfad fuer fail-closed)");
+      return true;
+    }
     try {
       await assertLocationBelongsToOrg(pool, locationId, req.orgId);
       return true;

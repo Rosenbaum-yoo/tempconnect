@@ -3321,6 +3321,95 @@ durch sind** (Owner-Vorgabe). Bis dahin bleibt dieser Eintrag der Merkzettel.
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
 
+### Punkt 18 und Punkt 14 sind gebaut *(2026-10-02, Owner-Freigabe)*
+
+Zwei der fünf freigegebenen Punkte stehen. Beide mit Messung, Wächter und
+Rückmutationen; die Reihenfolge war „zuerst das, was heute wirkt und nichts
+umbaut".
+
+#### Punkt 18 — der Standort-Prüfer ist laut, noch nicht geschlossen
+
+Der Zweig `if (!req.orgId)` in `validateLocationScope` (zwei Kopien:
+`reporting.js`, `spendAnalytics.js`) **protokolliert** jetzt, bevor er
+durchlässt — er weist noch nicht ab. Das ist der billige Zwischenschritt, und
+sein Wert liegt in der **Ablöse-Bedingung**: feuert die Zeile über den
+vereinbarten Zeitraum nie, ist fail-closed gratis; feuert sie doch, ist der
+Aufrufer gefunden, von dem niemand wusste.
+
+| | |
+|---|---|
+| Kennung im Protokoll | `ORG_CONTEXT_MISSING` — durchsuchbar, sonst ist der Eintrag für die Ablöse-Bedingung wertlos |
+| Mitgeschrieben | Route, Methode, angefragte `locationId`, `userId` |
+| Erwartung | **null Treffer** — der Zweig ist durch `rperm` unerreichbar (alle 16 Routen) |
+| Ablöse | `return true` → `res.status(403).json({ error: "ORG_CONTEXT_REQUIRED" })` |
+
+**Neu im Wächter** (`api/test/standortfilterNieAllein.test.js`, jetzt 7
+Zusicherungen, 5 Rückmutationen): das Protokoll muss die **erste Anweisung** des
+Zweigs sein — ein `if (false)` davor hätte die erste Fassung der Zusicherung
+nicht gestört, der Aufruf stand ja noch da. Und die **beiden Kopien müssen
+wortgleich** bleiben: wird eine verengt und die andere nicht, steht die Lücke
+weiter offen — und fällt niemandem auf, weil die verengte Kopie beweist, dass man
+es wusste.
+
+#### Punkt 14 — `required_total_count` lügt nicht mehr
+
+`sql/migrations/229_required_total_count_luegt_nicht_mehr.sql`. **Nicht** per
+`GREATEST` im Lesepfad, sondern an der Wurzel: `DEFAULT 1` und `NOT NULL`
+sind weg. „Nicht angegeben" ist damit **NULL** und von „eine Person verlangt"
+unterscheidbar — und die vorhandene Rückfallkette
+`COALESCE(required_total_count, headcount, 1)` erreicht `headcount` zum ersten
+Mal.
+
+Gemessen nach der Migration:
+
+    Zeilen mit required < headcount        5  ->  0
+    Vorgabe / Nullbarkeit            1 / NO  ->  (keine) / YES
+    die vormals offene Zeile      hc 3, req 1  ->  hc 3, req 3
+    Rohinsert mit headcount = 3   req = NULL, Lesepfad liefert 3
+
+**Die rote Probe ist grün — und keine Zeile in ihr wurde angefasst.**
+`kollegenZugriff.flow.test.js` D-M5: 7/7. Kein `assert` angepasst, kein Wert im
+Prüfdatensatz gesetzt. Der Code wurde an die Probe angepasst, nicht umgekehrt.
+
+**Das Nachziehen der fünf Altzeilen war kein Raten**, und damit ist der einzige
+Einwand dagegen gemessen widerlegt: **kein** Schreibpfad setzt die Spalte
+unabhängig von `headcount` (der eigene Dienst schreibt zweimal
+`payload.headcount ?? 1`), und es gab **null** Zeilen mit
+`required > headcount`. Es konnte also keine Absicht zerstört werden. Der
+Rollback ist exakt, weil alle fünf vorher genau `1` trugen.
+
+*Eine Korrektur meiner eigenen früheren Meldung:* vier der fünf Zeilen tragen
+`b9000000`-Kennungen, sind also **Zeilen der Probebühne** (Welle Y2.2) — und die
+einzige **offene** davon war eine davon. Die Formulierung „ein echter Kunde kann
+heute nicht bedient werden" war deshalb zu stark. Der Mechanismus ist echt, der
+heutige Schaden lag auf der Bühne. Dass die Bühne ihn **vorgeführt** hat, statt
+ihn zu verdecken, ist genau ihr Zweck: sie arbeitet mit Rohinserts, wie jeder
+Import.
+
+**Mitgezogen, dieselbe Fehlerklasse:** `emergencyCommitmentService` las
+`required_total_count || 1` — das macht aus NULL **wieder** eine 1, derselbe
+Fehler mit anderem Grund. Jetzt `?? demand.headcount ?? 1`, und `headcount`
+steht in der `FOR UPDATE`-Auswahl (ohne die Spalte kann die Kette dort gar nicht
+greifen, egal wie sie geschrieben ist).
+
+**Wächter:** `api/test/bedarfMengeIstDieWahrheit.test.js` — 6 Zusicherungen ohne
+Datenbank, 3 weitere **mit** (die scharfen: ein Rohinsert in einer
+zurückgerollten Transaktion muss NULL ergeben und der Lesepfad `headcount`
+liefern). 10 Rückmutationen. Darunter eine, die **keine Migration nach 229** die
+Vorgabe zurücksetzen lässt — und eine Gegenprobe, dass eine Migration **vor** 229
+sie wirklich gesetzt hat, damit die Nummern-Grenze nicht alles wegfiltert und die
+Zusicherung leer grün wird.
+
+**Und eine Zusicherung gegen die naheliegende Härtung:** kein
+`GREATEST(required, headcount)` im Lesepfad. Es wäre die bequeme Lösung und
+würde ein kleineres `required` **dauerhaft verbieten** — sobald „Teilfreigabe
+eines Bedarfs" ein Produktmerkmal wird, müsste es zurückgebaut werden. Die Spalte
+bleibt die einzige Wahrheit der Füll-Logik; die kaufmännische Frage bleibt offen
+statt verbaut.
+
+**Offen aus diesen beiden:** die Verengung von Punkt 18 (braucht den vereinbarten
+Beobachtungszeitraum) und die Punkte 15, 16, 17.
+
 ### Der Standort-Prüfer lässt durch, statt zu sperren *(2026-10-02, gemessen — latent, nicht offen)*
 
 Beim Blick auf „was passiert bei fünfzig Standorten" kam kein Mengenproblem
