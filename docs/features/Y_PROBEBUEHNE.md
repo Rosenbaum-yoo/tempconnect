@@ -688,9 +688,43 @@ sehen."* Genau das ist heute nicht möglich.
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|
-| Y5.1 | **Ein Dokument mit Durchspiel-Wegen**, je Richtung einer: „melde dich an als … → klicke … → du musst sehen …" | Ein Mensch ohne Vorwissen prüft jede Richtung in Minuten |
-| Y5.2 | Die Wege decken **die Kreisläufe K-1 bis K-7** ab (`V_SCHNITTSTELLEN.md`, Abschnitt 3b) | Jeder Kreislauf hat mindestens einen Weg |
-| Y5.3 | **Das erwartete Ergebnis steht dabei**, nicht nur der Klickpfad | Wer etwas anderes sieht, erkennt es sofort als Fehler |
+| Y5.1 ✅ | **Ein Dokument mit Durchspiel-Wegen**, je Richtung einer: „melde dich an als … → klicke … → du musst sehen …" | Ein Mensch ohne Vorwissen prüft jede Richtung in Minuten |
+| Y5.2 ✅ | Die Wege decken **die Kreisläufe K-1 bis K-7** ab (`docs/features/V_SCHNITTSTELLEN.md`, Abschnitt 3b — der Pfad stand hier ohne `docs/features/` und war damit nicht auflösbar) | Jeder Kreislauf hat mindestens einen Weg |
+| Y5.3 ✅ | **Das erwartete Ergebnis steht dabei**, nicht nur der Klickpfad | Wer etwas anderes sieht, erkennt es sofort als Fehler |
+
+> **Y5 GEBAUT — Stand 2026-10-02. `docs/features/Y_REGIEBUCH.md`.**
+>
+> Sieben Wege, einer je Kreislauf, dazu zwei getrennte Abschnitte: die
+> **Standortgrenze** (der Weg, für den Welle U gebaut wurde und der vor Y1.2 nicht
+> einmal herstellbar war) und die **zwölf Sonderzustände** (je eine Anmeldung, je
+> eine erwartete Oberfläche).
+>
+> Jeder Weg hat drei Spalten — *melde dich an als · öffne · du musst sehen* — und
+> **zusätzlich einen Absatz „Woran du einen Fehler erkennst"**. Das ist die
+> schärfere Hälfte von Y5.3: „du musst sehen" sagt, was richtig ist; das
+> Fehlerbild sagt, **welche Verwechslung der Weg aufdeckt**. Ein Weg ohne
+> Fehlerbild bestätigt nur, dass eine Seite lädt.
+>
+> Beispiel (K-1): *erscheinen in Schritt 3 sechs Kräfte, greift Bedingung 4 nicht
+> — eine Abwesenheit verdeckt nicht. Erscheinen vier, ist Mehmet Kaya
+> verschwunden: dann verdeckt eine Verspätung, was sie nicht verdecken darf.*
+>
+> **Gemessen beim Schreiben:** 18 genannte Seiten, **alle vorhanden**; 19 genannte
+> Konten, **alle von einer Saat angelegt** (die Bühne ist durch Y3 von 18 auf 19
+> gewachsen).
+>
+> **Wächter:** `api/test/regiebuch.test.js`, 9 Zusicherungen. Er bindet das
+> Regiebuch an die Wirklichkeit: jede Seite existiert, jedes Konto wird angelegt,
+> **jeder Kreislauf aus `docs/features/V_SCHNITTSTELLEN.md` hat einen Weg** — und
+> das Regiebuch **erfindet keinen**. Dazu: kein Passwort im Dokument (es beschreibt
+> Anmeldungen und wäre damit der naheliegendste Ort für die Umgehung von Y6.3).
+>
+> *Zwei eigene Fehler kamen beim ersten Lauf heraus: `String.match(/…/g)`
+> **verwirft Fanggruppen** — `m[1]` war das Zeichen `#`, und eine zweite Stelle
+> funktionierte nur ZUFÄLLIG, weil `m[4]` gerade auf die Ziffer fiel. Jetzt
+> `matchAll`. Und das Regiebuch nannte die zwölf Sonderzustands-Konten
+> **gekürzt** (`pilot-beendet@`) — ein Leser kann sie so nicht kopieren, und der
+> Wächter kann nicht prüfen, ob eine Saat sie anlegt. Jetzt stehen sie voll da.*
 
 ### Y6 · Wächter
 
@@ -731,7 +765,7 @@ sehen."* Genau das ist heute nicht möglich.
 ## 8. Kreislauf und Verdrahtung
 
 Welle Y baut keinen Kreislauf — sie macht **alle sieben begehbar**
-(`V_SCHNITTSTELLEN.md`, Abschnitt 3b). Damit ist sie die Voraussetzung dafür, das Monatsaudit
+(`docs/features/V_SCHNITTSTELLEN.md`, Abschnitt 3b — der Pfad stand hier ohne `docs/features/` und war damit nicht auflösbar). Damit ist sie die Voraussetzung dafür, das Monatsaudit
 aus Welle T ehrlich zu lesen: **eine Fähigkeit, die niemand durchspielen kann, ist auch im
 Audit nur eine Behauptung.**
 
@@ -798,7 +832,7 @@ An jeder Fläche, in dieser Reihenfolge. Die ersten fünf sind schnell, die sech
 
 **Frage 6 im Konkreten:** eine Kraft auf „krank" setzen → verschwindet sie aus dem Marktplatz,
 ändert sich die Live-Belegschaft, entsteht eine Benachrichtigung, bleibt der Stundenzettel
-stimmig? Genau das sind die Kreisläufe **K-1 bis K-7** (`V_SCHNITTSTELLEN.md`, Abschnitt 3b).
+stimmig? Genau das sind die Kreisläufe **K-1 bis K-7** (`docs/features/V_SCHNITTSTELLEN.md`, Abschnitt 3b — der Pfad stand hier ohne `docs/features/` und war damit nicht auflösbar).
 
 ### 9.4 Stufe 3 — die drei Matrizen (hier liegt das Gold)
 
