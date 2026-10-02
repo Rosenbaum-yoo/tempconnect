@@ -50,6 +50,164 @@ await withStaffContext(pool, async (client) => { /* ... */ }, {
 
 ---
 
+## ⚠️ DER BACKSTOP IST HEUTE NICHT IM PFAD (gemessen 2026-10-02)
+
+> **Owner-Entscheidung 2026-10-02: „Umstellung vorbereiten, nicht schalten."**
+> Dieser Abschnitt dokumentiert den Befund, nennt die nötigen Rechte und benennt,
+> was die Umstellung **nicht** löst. **Geschaltet wird nicht** — das ist eine
+> Entscheidung über den Datenbank-Anmeldeweg und gehört dem Owner.
+
+### Der Befund
+
+Die Anwendung verbindet sich als Rolle `tempconnect`. Gemessen:
+
+| Rolle | `rolsuper` | `rolbypassrls` | `rolcanlogin` | Tabellenrechte auf `public` |
+|---|---|---|---|---|
+| **`tempconnect`** (die Anwendung) | **true** | **true** | true | alle (als Eigentümer) |
+| `rls_app` | false | false | true | **keine** |
+
+`rolbypassrls = true` heißt: **jede Policy dieses Dokuments ist für die Anwendung
+wirkungslos.** `rolsuper = true` ebenfalls, unabhängig davon. Die 26 Tabellen mit
+`rowsecurity` und die 21 mit `FORCE` sind korrekt eingerichtet — sie liegen nur
+nicht im Weg der Verbindung, die sie schützen sollen.
+
+**Das ist kein Loch im Mandantenschutz, aber auch kein Backstop.** Die Isolation
+wirkt heute ausschließlich über den Anwendungscode: `withOrgContext`, die
+`org_id`-Bedingungen in den Abfragen und die Guards. Das funktioniert; RLS war als
+**zweite** Schicht gedacht, die greift, wenn in der ersten jemand eine Bedingung
+vergisst. Diese zweite Schicht ist derzeit nicht eingeschaltet.
+
+**Und ein Hinweis zur Beweisführung, der zum Befund gehört:** der Nachweis, dass
+die Policies funktionieren, wurde als `rls_app` geführt — also mit genau der
+Rolle, die die Anwendung **nicht** benutzt. Der Nachweis war richtig, seine
+Übertragung auf den Betrieb nicht. Ein Beleg gilt für die Rolle, mit der er
+erbracht wurde.
+
+### Was die Umstellung NICHT löst — und das ist die wichtigere Zahl
+
+**171 von 197 Tabellen haben überhaupt kein RLS** (26 haben es). Für diese 171
+bleibt der Anwendungscode auch nach der Umstellung die einzige Schicht. Wer die
+Umstellung für „Mandantenschutz erledigt" nimmt, irrt um den Faktor sieben. Die
+Klassifikation darunter sagt je Tabelle, warum — und für 12 Tabellen ist der
+Grund, dass die Trägerspalte nicht gefüllt ist.
+
+### Die Rechte, die `rls_app` braucht (gemessen, nicht geschätzt)
+
+`rls_app` hat heute `USAGE` auf `public` und **sonst nichts** — keine
+Tabellenrechte, keine Sequenzrechte. Eine Umstellung ohne die Rechte macht die
+Anwendung vollständig funktionslos, nicht sicherer. Gemessener Bedarf:
+**197 Tabellen, 11 Sequenzen, 1 Sicht.**
+
+```sql
+-- Die Rechte. NICHT ausführen, bevor der Owner die Umstellung entscheidet.
+GRANT USAGE ON SCHEMA public TO rls_app;                      -- steht schon
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES    IN SCHEMA public TO rls_app;
+GRANT USAGE, SELECT                 ON ALL SEQUENCES  IN SCHEMA public TO rls_app;
+
+-- Und für alles, was später dazukommt — sonst ist die erste neue Tabelle
+-- nach der Umstellung für die Anwendung unsichtbar, und zwar still:
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO rls_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO rls_app;
+```
+
+**Kein `TRUNCATE`, kein `REFERENCES`, kein `TRIGGER`** — die Anwendung braucht sie
+nicht, und `TRUNCATE` umgeht RLS vollständig. `EXECUTE` auf Funktionen ist nicht
+nötig: in PostgreSQL hat `PUBLIC` es standardmäßig.
+
+### Was NICHT umgestellt wird, und warum
+
+**Die Migrationskette bleibt auf einer privilegierten Rolle.** Sie macht DDL,
+und `052_demo_seed_world.sql` legt im dev-Pfad `pgcrypto` an — beides braucht
+Rechte, die `rls_app` absichtlich nicht hat. Umgestellt wird **nur die
+Anwendungsverbindung** (`DATABASE_URL` / `POSTGRES_USER` des API-Dienstes), nicht
+`sql/migrate.sh`.
+
+Daraus folgt eine Falle, die vor dem Schalten geprüft werden muss: wer die
+Migrationen als `tempconnect` laufen lässt, gibt neuen Tabellen diesen Eigentümer
+— und ohne die `ALTER DEFAULT PRIVILEGES` oben sieht `rls_app` sie nicht. Der
+Fehler äußert sich als „Tabelle existiert nicht" in einer Fläche, die gerade erst
+gebaut wurde.
+
+### Der Wächter
+
+`api/test/rlsBackstopIstImPfad.test.js` wird **rot**, sobald die Anwendungsrolle
+RLS umgeht — und ist bis zur Entscheidung des Owners bewusst eine **Diagnose**,
+kein roter Test: er meldet den Befund in jedem Lauf sichtbar, ohne das Tor zu
+blockieren. Mit dem Schalter `RLS_BACKSTOP_ERWARTET=1` (oder nach der Umstellung,
+wenn die Anwendungsrolle `rolbypassrls = false` trägt) wird er zur Zusicherung.
+
+So steht die Lage in jedem Lauf, statt in einem Dokument, das niemand öffnet —
+und ein Rückschritt nach der Umstellung wird rot, nicht unsichtbar.
+
+### Belegt auf Wegwerf-Datenbanken (2026-10-02)
+
+Die Rechte oben sind nicht geschätzt. Vier Wegwerf-Datenbanken, jede mit der
+**ganzen** Migrationskette und der Demo-Welt, dann `rls_app` angelegt und die
+Rechte vergeben. Keine Zeile davon berührte die Entwicklungs- oder
+Produktionsdatenbank.
+
+**Sind die Rechte nötig?** Ja — ohne sie kommt `rls_app` nirgends hin:
+
+```
+rls_app ohne GRANTs:  ERROR: permission denied for table users
+rls_app ohne GRANTs:  ERROR: permission denied for table audit_log
+```
+
+**Sind sie vollständig?** Ja. Nach den vier Anweisungen oben:
+
+```
+Tabellen OHNE SELECT für rls_app:  keine
+```
+
+**Greift die Isolation wirklich?** Gemessen an `assignments` (RLS aktiv, 4 Zeilen,
+alle in Org A):
+
+| Wer, mit welchem Kontext | sieht | erwartet |
+|---|---|---|
+| Eigentümer (umgeht RLS) | 4 | 4 |
+| `rls_app`, **kein** Org-Kontext | **0** | 0 — deny-by-default |
+| `rls_app`, Kontext A | **4** | 4 — sieht die eigenen |
+| `rls_app`, Kontext B, sucht A-Zeilen | **0** | 0 — Mandantengrenze |
+| `rls_app`, Kontext A, Tabelle **ohne** RLS | **5** | 5 — der Kontext filtert dort nichts |
+
+Die Gegenprobe gehört dazu: der Eigentümer sieht dieselben 4, die `rls_app` ohne
+Kontext **nicht** sieht. Die Null ist also der Riegel, nicht eine leere Tabelle —
+genau dieser Unterschied hat zwei frühere Läufe wertlos gemacht, weil
+`requisitions` in der Demo-Welt leer ist.
+
+**Und die Schreibseite — hier liegt der eigentliche Gewinn.** An `audit_log`:
+
+| Versuch | Ergebnis |
+|---|---|
+| mit GRANTs + Kontext A: `INSERT` → `SELECT` → `UPDATE` → `DELETE` | 1 / 1 / 0 — voller Schreibweg |
+| **ohne** Org-Kontext schreiben | `ERROR: new row violates row-level security policy` |
+| **fremde Org** schreiben, mit gültigem Kontext A | `ERROR: new row violates row-level security policy` |
+
+Die letzten zwei Zeilen sind das Argument für die Umstellung: der Riegel sperrt
+nicht nur das **Lesen** über die Mandantengrenze, sondern auch das **Schreiben** —
+eine Zeile mit fremder `org_id` lässt sich nicht einfügen, selbst mit korrekt
+gesetztem eigenen Kontext. Das garantiert die Anwendungsschicht allein nicht: dort
+ist es eine Frage der Sorgfalt in jeder einzelnen Schreibstelle.
+
+Alles in zurückgerollten Transaktionen; Bestand danach: 0 Probezeilen.
+
+### Was zum Schalten noch fehlt — und es gehört dem Owner
+
+1. `rls_app` braucht ein Passwort im Geheimnis-Speicher und die Rechte oben.
+2. Die **Anwendungsverbindung** zeigt auf `rls_app` (`DATABASE_URL` /
+   `POSTGRES_USER` des API-Dienstes), die **Migrationskette nicht**.
+3. Ein Durchlauf der Flächen danach, mit Blick auf „Tabelle existiert nicht" und
+   leere Listen — das sind die beiden Gesichter einer fehlenden Berechtigung.
+4. Danach dieses Dokument richtigstellen; der Wächter wird dadurch von einer
+   Diagnose zu einer Zusicherung, ohne dass jemand daran denken muss.
+
+**Nicht geschaltet wird von dieser Seite.** Ein Eingriff in den
+Datenbank-Anmeldeweg ist eine Owner-Entscheidung.
+
+---
+
 ## Tabellen-Klassifikation
 
 <!-- MANDANTEN-MODELL:START — generiert, nicht von Hand pflegen -->

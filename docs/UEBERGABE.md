@@ -3704,8 +3704,91 @@ Blöcke zuerst.
   Wächter. Vier blieben im ersten Durchgang grün und haben die Zusicherungen erst
   scharf gemacht (Punkte 4 und 5 oben).
 
-**Offen aus den fünf Punkten:** nur noch die Verengung von Punkt 18 — sie braucht
-den vereinbarten Beobachtungszeitraum mit null `ORG_CONTEXT_MISSING`-Treffern.
+##### Offen aus den fünf Punkten: die Verengung von Punkt 18 — und sie kann noch nicht beginnen
+
+Punkt 18 loggt heute `ORG_CONTEXT_MISSING`, statt zu sperren; die Verengung auf
+fail-closed soll kommen, wenn der vereinbarte Beobachtungszeitraum **null**
+Treffer zeigt.
+
+**Gemessen am 2026-10-02: der Zeitraum hat nicht angefangen.** Das Protokoll des
+laufenden API-Containers enthält 0 Treffer — und das ist **kein Nachweis**,
+sondern die Abwesenheit einer Messung:
+
+```
+docker exec tempconnect_api grep -c ORG_CONTEXT_MISSING /app/routes/reporting.js   -> 0 (FEHLT)
+grep -c ORG_CONTEXT_MISSING <Haupt-Repo>/api/routes/reporting.js                   -> 0
+```
+
+Die Protokollzeile existiert **nur auf diesem Arbeitszweig**. Der Container läuft
+seit 26 Stunden und mountet das **Haupt-Repo**, nicht den Arbeitsbaum — er kann
+den Treffer also nicht einmal erzeugen. Wer die „0" als Freigabe liest, verengt
+einen Riegel auf Grundlage einer Messung, die nie gelaufen ist. Genau dieselbe
+Verwechslung lag dem RLS-Befund zugrunde (ein Beleg gilt für die Rolle, mit der er
+erbracht wurde — und eine Messung für den Code, der sie erzeugt).
+
+**Die Vorbedingung, benannt:** der Zeitraum beginnt mit dem **Einsatz dieses
+Zweigs**, nicht mit seinem Commit. Danach gilt:
+
+```bash
+docker logs tempconnect_api 2>&1 | grep -c ORG_CONTEXT_MISSING
+```
+
+Erst wenn dieser Befehl über den vereinbarten Zeitraum `0` liefert **und** die
+Zeile im laufenden Container nachweisbar vorhanden ist (`docker exec … grep -c …
+/app/routes/reporting.js` ergibt ≥ 1), ist die Bedingung erfüllt. Beide Hälften
+gehören zusammen: ohne die zweite ist die erste leer.
+
+### Der RLS-Backstop ist nicht im Pfad — vorbereitet, nicht geschaltet *(2026-10-02, Owner-Entscheidung)*
+
+**Der Befund.** Die Anwendung verbindet sich als Rolle `tempconnect`, und die trägt
+`rolsuper = true` **und** `rolbypassrls = true`. Damit ist **jede** Policy des
+Mandantenmodells für die Anwendung wirkungslos — 26 Tabellen mit `rowsecurity`,
+21 mit `FORCE`, alle korrekt eingerichtet und keine im Weg der Verbindung, die sie
+schützen soll. Kein Loch im Mandantenschutz (der Anwendungscode scoped), aber auch
+kein Backstop.
+
+**Und warum es nicht auffiel, gehört zum Befund:** der Nachweis, dass die Policies
+funktionieren, wurde als `rls_app` geführt — mit genau der Rolle, die die Anwendung
+**nicht** benutzt. Der Nachweis war richtig, seine Übertragung auf den Betrieb
+nicht. Dieselbe Verwechslung wie bei Punkt 18 oben: **ein Beleg gilt für die Rolle
+beziehungsweise den Code, mit dem er erbracht wurde.**
+
+**Die wichtigere Zahl:** `171 von 197` Tabellen haben **überhaupt kein** RLS. Für
+die bleibt der Anwendungscode auch nach einer Umstellung die einzige Schicht. Wer
+die Umstellung für „Mandantenschutz erledigt" nimmt, irrt um den Faktor sieben.
+
+**Owner-Entscheidung: vorbereiten, nicht schalten.** Geliefert ist deshalb:
+
+* **Der Befund im Mandantenmodell** — `docs/security/TENANT_ISOLATION_MODEL.md`,
+  Abschnitt „DER BACKSTOP IST HEUTE NICHT IM PFAD", mit den vier nötigen
+  `GRANT`-Anweisungen (gemessen: `rls_app` hat heute **null** Tabellenrechte, eine
+  Umstellung ohne sie macht die Anwendung funktionslos statt sicherer).
+* **Der Wächter** `api/test/rlsBackstopIstImPfad.test.js` als **Zwei-Wege-Sperre**:
+  er vergleicht nicht den Zustand, sondern ob Zustand und Dokumentation
+  übereinstimmen. Heute grün mit einer sichtbaren Diagnose in jedem Lauf; nach der
+  Umstellung wird er automatisch zur Zusicherung, und ein Rückschritt danach wird
+  **rot**. So blockiert nichts die Entscheidung, und keine der beiden Richtungen
+  kann still passieren. 7 Rückmutationen, 7 rot — darunter die Rückschritt-Richtung.
+* **Vier Wegwerf-Datenbanken als Beleg**, je mit ganzer Kette und Demo-Welt:
+  die Rechte sind **nötig** (`permission denied` ohne sie) und **vollständig**
+  (keine Tabelle ohne `SELECT`), und die Isolation greift wirklich — Eigentümer
+  sieht 4, `rls_app` ohne Kontext **0**, mit Kontext A **4**, mit Kontext B auf
+  A-Zeilen **0**, auf einer Tabelle ohne RLS **5**.
+* **Die Schreibseite, und sie ist das eigentliche Argument:** mit Kontext A läuft
+  `INSERT`/`UPDATE`/`DELETE` durch — **ohne** Kontext und mit **fremder** `org_id`
+  antwortet Postgres mit `new row violates row-level security policy`. Der Riegel
+  sperrt also auch das **Schreiben** über die Mandantengrenze. Das garantiert die
+  Anwendungsschicht allein nicht; dort ist es eine Frage der Sorgfalt in jeder
+  einzelnen Schreibstelle.
+
+**Zwei Fehlgriffe auf dem Weg, benannt:** zwei frühere Läufe prüften
+`requisitions` — die ist in der Demo-Welt **leer**, also bewies „0 Zeilen ohne
+Kontext" nichts. Und die Tabellenauswahl per `reltuples <> 0` traf eine leere
+Tabelle, weil `reltuples` **-1** ist, solange nie analysiert wurde. Beides gefunden,
+weil die Gegenprobe („sieht der Eigentümer dieselben Zeilen?") daneben stand.
+
+**Was zum Schalten fehlt**, steht im Mandantenmodell am Ende des Abschnitts. Es
+betrifft den Datenbank-Anmeldeweg und gehört dem Owner.
 
 ### Der Standort-Prüfer lässt durch, statt zu sperren *(2026-10-02, gemessen — latent, nicht offen)*
 
