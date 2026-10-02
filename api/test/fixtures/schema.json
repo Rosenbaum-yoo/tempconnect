@@ -1,11 +1,11 @@
 {
   "_hinweis": "GENERIERT — nicht von Hand bearbeiten. Neu erzeugen mit: npm run schema:snapshot (liest die laufende Datenbank im Container tempconnect_db).",
-  "erzeugt_am": "2026-10-02T10:34:49.913Z",
+  "erzeugt_am": "2026-10-02T10:54:44.590Z",
   "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
   "migrations_fingerabdruck": {
     "init": "49a1c9ef343102f593f1267155c30cea987684bf1a93826cf237e61101238c7e",
-    "dateien": 233,
-    "hash": "26314d08a4aaf438e481c6027435355b30d098d45395050ae452e9cdc4b85ec8"
+    "dateien": 235,
+    "hash": "ca772d117c02f937e856fe4fab49860de8655735a61a868c3749b3299618690a"
   },
   "pruefwerte": {
     "approval_requests": {
@@ -23,19 +23,25 @@
       ]
     },
     "assignment_staffing_campaigns": {
+      "promotion_mode": [
+        "auto_finalize",
+        "manual_review"
+      ],
       "status": [
         "active",
         "auto_stopped",
         "cancelled",
         "completed",
         "draft"
-      ],
-      "promotion_mode": [
-        "auto_finalize",
-        "manual_review"
       ]
     },
     "assignment_staffing_choice_options": {
+      "dispatcher_state": [
+        "assigned",
+        "manual_override",
+        "pending",
+        "withdrawn"
+      ],
       "worker_response": [
         "acceptable",
         "declined",
@@ -43,12 +49,6 @@
         "preferred",
         "ranked",
         "selected"
-      ],
-      "dispatcher_state": [
-        "assigned",
-        "manual_override",
-        "pending",
-        "withdrawn"
       ]
     },
     "assignment_staffing_choice_sets": {
@@ -107,6 +107,12 @@
       ]
     },
     "assignment_staffing_invites": {
+      "delivery_status": [
+        "delivered",
+        "failed",
+        "pending",
+        "queued"
+      ],
       "status": [
         "accepted",
         "cancelled",
@@ -115,12 +121,6 @@
         "interested",
         "sent",
         "viewed"
-      ],
-      "delivery_status": [
-        "delivered",
-        "failed",
-        "pending",
-        "queued"
       ]
     },
     "assignment_staffing_messages": {
@@ -155,6 +155,13 @@
       ]
     },
     "assignments": {
+      "status": [
+        "active",
+        "cancelled",
+        "completed",
+        "extended",
+        "planned"
+      ],
       "staffing_status": [
         "cancelled",
         "closed",
@@ -162,16 +169,14 @@
         "open",
         "partially_filled",
         "sourcing"
-      ],
-      "status": [
-        "active",
-        "cancelled",
-        "completed",
-        "extended",
-        "planned"
       ]
     },
     "audit_log": {
+      "status": [
+        "DENIED",
+        "FAILED",
+        "SUCCESS"
+      ],
       "action_type": [
         "APPROVAL",
         "CONFIG_CHANGE",
@@ -184,14 +189,15 @@
         "STATUS_CHANGE",
         "SUBMISSION",
         "UPDATE"
-      ],
-      "status": [
-        "DENIED",
-        "FAILED",
-        "SUCCESS"
       ]
     },
     "automation_jobs": {
+      "status": [
+        "disabled",
+        "enabled",
+        "failed",
+        "running"
+      ],
       "trigger": [
         "event_based",
         "manual",
@@ -203,22 +209,16 @@
         "high",
         "low",
         "medium"
-      ],
-      "status": [
-        "disabled",
-        "enabled",
-        "failed",
-        "running"
       ]
     },
     "betriebs_takt": {
-      "ergebnis": [
-        "fehler",
-        "ok"
-      ],
       "quelle": [
         "intern",
         "takt"
+      ],
+      "ergebnis": [
+        "fehler",
+        "ok"
       ]
     },
     "billing_usage_metrics": {
@@ -239,14 +239,14 @@
       ]
     },
     "bounty_nudges": {
+      "kanal": [
+        "email",
+        "in_app"
+      ],
       "anlass": [
         "earned",
         "lost",
         "near"
-      ],
-      "kanal": [
-        "email",
-        "in_app"
       ]
     },
     "capacity_interactions": {
@@ -263,15 +263,11 @@
       ]
     },
     "capacity_posts": {
-      "visibility_status": [
-        "plan_gated",
-        "private",
-        "public",
-        "vendor_pool_only"
-      ],
-      "quelle": [
-        "live_belegschaft",
-        "manuell"
+      "compliance_status": [
+        "complete",
+        "partial",
+        "pending",
+        "unknown"
       ],
       "price_type": [
         "daily",
@@ -284,12 +280,6 @@
         "pool_multi_skill",
         "pool_single_skill",
         "single_skill"
-      ],
-      "priority_level": [
-        "elevated",
-        "normal",
-        "notdienst",
-        "urgent"
       ],
       "availability_type": [
         "flexible",
@@ -311,11 +301,21 @@
         "temp_to_perm",
         "temporary"
       ],
-      "compliance_status": [
-        "complete",
-        "partial",
-        "pending",
-        "unknown"
+      "visibility_status": [
+        "plan_gated",
+        "private",
+        "public",
+        "vendor_pool_only"
+      ],
+      "quelle": [
+        "live_belegschaft",
+        "manuell"
+      ],
+      "priority_level": [
+        "elevated",
+        "normal",
+        "notdienst",
+        "urgent"
       ],
       "status": [
         "active",
@@ -344,6 +344,11 @@
       ]
     },
     "company_certifications": {
+      "status": [
+        "active",
+        "expired",
+        "revoked"
+      ],
       "cert_type": [
         "aueg_lizenz",
         "branchenzertifikat",
@@ -354,11 +359,6 @@
         "qualitaetssiegel",
         "sonstige",
         "tuev"
-      ],
-      "status": [
-        "active",
-        "expired",
-        "revoked"
       ]
     },
     "company_profiles": {
@@ -373,12 +373,6 @@
       ]
     },
     "compliance_documents": {
-      "status": [
-        "expired",
-        "pending",
-        "rejected",
-        "verified"
-      ],
       "doc_type": [
         "arbeitssicherheit",
         "aueg_erlaubnis",
@@ -391,9 +385,21 @@
         "uvv_nachweis",
         "versicherung",
         "zertifikat"
+      ],
+      "status": [
+        "expired",
+        "pending",
+        "rejected",
+        "verified"
       ]
     },
     "contracts": {
+      "status": [
+        "active",
+        "draft",
+        "expired",
+        "terminated"
+      ],
       "contract_type": [
         "framework",
         "msa",
@@ -401,28 +407,22 @@
         "other",
         "pricing",
         "sla"
-      ],
-      "status": [
-        "active",
-        "draft",
-        "expired",
-        "terminated"
       ]
     },
     "credit_transactions": {
-      "type": [
-        "earned",
-        "expired",
-        "purchased",
-        "refund",
-        "spent"
-      ],
       "source": [
         "admin",
         "bounty",
         "purchase",
         "referral",
         "system"
+      ],
+      "type": [
+        "earned",
+        "expired",
+        "purchased",
+        "refund",
+        "spent"
       ]
     },
     "csv_import_field_aliases": {
@@ -453,13 +453,6 @@
       ]
     },
     "deal_documents": {
-      "document_type": [
-        "agreement",
-        "amendment",
-        "cancellation",
-        "conditions_sheet",
-        "summary"
-      ],
       "source": [
         "generated",
         "uploaded"
@@ -468,13 +461,19 @@
         "archived",
         "current",
         "superseded"
+      ],
+      "document_type": [
+        "agreement",
+        "amendment",
+        "cancellation",
+        "conditions_sheet",
+        "summary"
       ]
     },
     "deal_feedback": {
-      "sentiment": [
-        "negative",
-        "neutral",
-        "positive"
+      "direction": [
+        "company_to_supplier",
+        "supplier_to_company"
       ],
       "status": [
         "revealed",
@@ -487,9 +486,10 @@
         "pending",
         "rejected"
       ],
-      "direction": [
-        "company_to_supplier",
-        "supplier_to_company"
+      "sentiment": [
+        "negative",
+        "neutral",
+        "positive"
       ]
     },
     "deal_reliability": {
@@ -499,11 +499,6 @@
       ]
     },
     "demand_requests": {
-      "sla_status": [
-        "BREACHED",
-        "MET",
-        "RUNNING"
-      ],
       "status": [
         "cancelled",
         "closed",
@@ -512,6 +507,11 @@
         "open",
         "partially_covered",
         "paused"
+      ],
+      "sla_status": [
+        "BREACHED",
+        "MET",
+        "RUNNING"
       ],
       "urgency": [
         "normal",
@@ -530,6 +530,12 @@
       ]
     },
     "deployments": {
+      "risk_level": [
+        "critical",
+        "high",
+        "low",
+        "medium"
+      ],
       "status": [
         "failed",
         "pending",
@@ -537,23 +543,24 @@
         "running",
         "success",
         "unknown"
-      ],
-      "risk_level": [
-        "critical",
-        "high",
-        "low",
-        "medium"
       ]
     },
     "document_center": {
+      "status": [
+        "active",
+        "archived"
+      ],
       "source": [
         "invoice",
         "system",
         "upload"
       ],
-      "status": [
-        "active",
-        "archived"
+      "content_category": [
+        "financial",
+        "hr",
+        "legal",
+        "operational",
+        "other"
       ],
       "document_type": [
         "certificate",
@@ -563,13 +570,6 @@
         "other",
         "policy",
         "report"
-      ],
-      "content_category": [
-        "financial",
-        "hr",
-        "legal",
-        "operational",
-        "other"
       ]
     },
     "emergency_provider_commitment_events": {
@@ -628,14 +628,16 @@
       ]
     },
     "invoices": {
+      "status": [
+        "draft",
+        "issued",
+        "overdue",
+        "paid",
+        "void"
+      ],
       "invoice_type": [
         "operational",
         "subscription"
-      ],
-      "currency": [
-        "EUR",
-        "GBP",
-        "USD"
       ],
       "plan": [
         "BASIS",
@@ -644,12 +646,10 @@
         "PLUS",
         "PRO"
       ],
-      "status": [
-        "draft",
-        "issued",
-        "overdue",
-        "paid",
-        "void"
+      "currency": [
+        "EUR",
+        "GBP",
+        "USD"
       ]
     },
     "listings": {
@@ -779,6 +779,12 @@
       ]
     },
     "occ_decisions": {
+      "priority": [
+        "high",
+        "low",
+        "normal",
+        "urgent"
+      ],
       "status": [
         "approved",
         "assigned",
@@ -790,12 +796,6 @@
         "triaged",
         "waiting_for_owner_decision",
         "waiting_for_reply"
-      ],
-      "priority": [
-        "high",
-        "low",
-        "normal",
-        "urgent"
       ]
     },
     "occ_owner_access": {
@@ -805,29 +805,18 @@
       ]
     },
     "offer_assets": {
-      "source_type": [
-        "compliance_card",
-        "offer"
-      ],
       "asset_type": [
         "compliance",
         "gallery",
         "logo",
         "safety"
+      ],
+      "source_type": [
+        "compliance_card",
+        "offer"
       ]
     },
     "offer_cancellations": {
-      "from_status": [
-        "activated",
-        "agreement_created",
-        "confirmed",
-        "none",
-        "pending_confirmation"
-      ],
-      "cancelled_by_side": [
-        "agency",
-        "company"
-      ],
       "reason_code": [
         "customer_cancelled",
         "date_moved",
@@ -835,18 +824,20 @@
         "other",
         "worker_quit",
         "worker_sick"
+      ],
+      "cancelled_by_side": [
+        "agency",
+        "company"
+      ],
+      "from_status": [
+        "activated",
+        "agreement_created",
+        "confirmed",
+        "none",
+        "pending_confirmation"
       ]
     },
     "offers": {
-      "agreement_status": [
-        "activated",
-        "agreement_created",
-        "cancelled",
-        "confirmed",
-        "expired",
-        "none",
-        "pending_confirmation"
-      ],
       "status": [
         "accepted",
         "countered",
@@ -854,11 +845,6 @@
         "rejected",
         "sent",
         "withdrawn"
-      ],
-      "price_type": [
-        "daily",
-        "fixed",
-        "hourly"
       ],
       "signature_status": [
         "expired",
@@ -873,6 +859,20 @@
         "hourly",
         "monthly",
         "weekly"
+      ],
+      "price_type": [
+        "daily",
+        "fixed",
+        "hourly"
+      ],
+      "agreement_status": [
+        "activated",
+        "agreement_created",
+        "cancelled",
+        "confirmed",
+        "expired",
+        "none",
+        "pending_confirmation"
       ]
     },
     "ops_incidents": {
@@ -897,14 +897,14 @@
       ]
     },
     "org_active_addons": {
+      "status": [
+        "active",
+        "inactive"
+      ],
       "source": [
         "manual",
         "staff_activation",
         "subscription_request"
-      ],
-      "status": [
-        "active",
-        "inactive"
       ]
     },
     "org_erp_mappings": {
@@ -929,12 +929,6 @@
       ]
     },
     "org_invitations": {
-      "status": [
-        "accepted",
-        "expired",
-        "pending",
-        "revoked"
-      ],
       "role_key": [
         "admin",
         "dispatcher",
@@ -946,6 +940,12 @@
         "supplier_manager",
         "supplier_user",
         "viewer"
+      ],
+      "status": [
+        "accepted",
+        "expired",
+        "pending",
+        "revoked"
       ]
     },
     "org_memberships": {
@@ -973,12 +973,28 @@
       ]
     },
     "organizations": {
+      "account_type": [
+        "demo",
+        "internal",
+        "live"
+      ],
       "plan": [
         "BASIS",
         "DEMO",
         "INDIVIDUELL",
         "PLUS",
         "PRO"
+      ],
+      "type": [
+        "agency",
+        "company"
+      ],
+      "access_suspended_kind": [
+        "compliance",
+        "manual",
+        "non_payment",
+        "other",
+        "security"
       ],
       "pilot_status": [
         "active",
@@ -998,11 +1014,6 @@
         "enterprise_full",
         "standard"
       ],
-      "account_type": [
-        "demo",
-        "internal",
-        "live"
-      ],
       "billing_mode": [
         "individual_contract",
         "pilot_contract",
@@ -1019,41 +1030,31 @@
         "demo",
         "live",
         "pilot"
-      ],
-      "access_suspended_kind": [
-        "compliance",
-        "manual",
-        "non_payment",
-        "other",
-        "security"
-      ],
-      "type": [
-        "agency",
-        "company"
       ]
     },
     "owner_control_access_audit": {
       "action": [
         "access_denied",
+        "extend",
         "grant",
         "list",
         "revoke"
       ]
     },
     "payment_sessions": {
-      "plan": [
-        "BASIS",
-        "DEMO",
-        "INDIVIDUELL",
-        "PLUS",
-        "PRO"
-      ],
       "status": [
         "cancelled",
         "completed",
         "failed",
         "paid",
         "pending"
+      ],
+      "plan": [
+        "BASIS",
+        "DEMO",
+        "INDIVIDUELL",
+        "PLUS",
+        "PRO"
       ],
       "method": [
         "demo",
@@ -1062,15 +1063,15 @@
       ]
     },
     "pilot_preregistrations": {
-      "side": [
-        "agency",
-        "company"
-      ],
       "sector": [
         "andere",
         "industrie",
         "logistik",
         "pflege"
+      ],
+      "side": [
+        "agency",
+        "company"
       ],
       "status": [
         "accepted",
@@ -1135,14 +1136,14 @@
       ]
     },
     "premium_listing_charges": {
+      "listing_type": [
+        "capacity",
+        "demand"
+      ],
       "status": [
         "cancelled",
         "invoiced",
         "pending"
-      ],
-      "listing_type": [
-        "capacity",
-        "demand"
       ]
     },
     "product_analytics_daily_rollups": {
@@ -1165,15 +1166,15 @@
       ]
     },
     "product_analytics_journeys": {
-      "outcome": [
-        "abandoned",
-        "completed",
-        "interrupted"
-      ],
       "lifecycle_segment": [
         "demo",
         "live",
         "pilot"
+      ],
+      "outcome": [
+        "abandoned",
+        "completed",
+        "interrupted"
       ]
     },
     "product_analytics_sessions": {
@@ -1211,17 +1212,17 @@
         "other",
         "spam"
       ],
-      "ziel_art": [
-        "angebot",
-        "kapazitaet",
-        "nutzer",
-        "profil"
-      ],
       "status": [
         "open",
         "resolved_action_taken",
         "resolved_dismissed",
         "under_review"
+      ],
+      "ziel_art": [
+        "angebot",
+        "kapazitaet",
+        "nutzer",
+        "profil"
       ]
     },
     "profile_bounties": {
@@ -1293,16 +1294,16 @@
       ]
     },
     "rate_cards": {
+      "currency": [
+        "EUR",
+        "GBP",
+        "USD"
+      ],
       "status": [
         "active",
         "archived",
         "draft",
         "expired"
-      ],
-      "currency": [
-        "EUR",
-        "GBP",
-        "USD"
       ]
     },
     "referral_rewards": {
@@ -1340,6 +1341,11 @@
         "RESOLVED",
         "RUNNING"
       ],
+      "urgency": [
+        "high",
+        "normal",
+        "urgent"
+      ],
       "status": [
         "ACCEPTED",
         "ASSIGNMENT_STARTED",
@@ -1356,19 +1362,9 @@
       "priority": [
         "NORMAL",
         "NOTDIENST"
-      ],
-      "urgency": [
-        "high",
-        "normal",
-        "urgent"
       ]
     },
     "requisition_candidates": {
-      "compliance_status": [
-        "cleared",
-        "flagged",
-        "pending"
-      ],
       "status": [
         "accepted",
         "draft",
@@ -1379,20 +1375,25 @@
         "suggested",
         "under_review",
         "withdrawn"
+      ],
+      "compliance_status": [
+        "cleared",
+        "flagged",
+        "pending"
       ]
     },
     "requisition_distribution_stages": {
-      "pool_tier": [
-        "OPEN",
-        "PREFERRED",
-        "SECONDARY",
-        "TRIAL"
-      ],
       "status": [
         "active",
         "completed",
         "pending",
         "skipped"
+      ],
+      "pool_tier": [
+        "OPEN",
+        "PREFERRED",
+        "SECONDARY",
+        "TRIAL"
       ]
     },
     "requisition_events": {
@@ -1480,18 +1481,13 @@
       ]
     },
     "sla_search_jobs": {
-      "owner_type": [
-        "AGENCY",
-        "COMPANY"
-      ],
-      "sla_status": [
-        "BREACHED",
-        "MET",
-        "RUNNING"
-      ],
       "target_type": [
         "CAPACITY",
         "DEMAND"
+      ],
+      "owner_type": [
+        "AGENCY",
+        "COMPANY"
       ],
       "urgency": [
         "normal",
@@ -1502,6 +1498,11 @@
         "closed",
         "open",
         "paused"
+      ],
+      "sla_status": [
+        "BREACHED",
+        "MET",
+        "RUNNING"
       ]
     },
     "sla_search_matches": {
@@ -1536,37 +1537,37 @@
         "offer",
         "order_confirmation"
       ],
+      "format": [
+        "html",
+        "pdf"
+      ],
       "status": [
         "archived",
         "draft",
         "issued",
         "superseded"
-      ],
-      "format": [
-        "html",
-        "pdf"
       ]
     },
     "subscription_notification_log": {
+      "context_type": [
+        "enterprise_request",
+        "subscription_request"
+      ],
       "dispatched_via": [
         "both",
         "db",
         "email",
         "skipped"
       ],
+      "recipient_role": [
+        "customer",
+        "staff"
+      ],
       "mail_status": [
         "failed",
         "no_smtp",
         "ok",
         "skipped"
-      ],
-      "context_type": [
-        "enterprise_request",
-        "subscription_request"
-      ],
-      "recipient_role": [
-        "customer",
-        "staff"
       ]
     },
     "subscription_requests": {
@@ -1594,18 +1595,18 @@
       ]
     },
     "subscriptions": {
+      "status": [
+        "active",
+        "canceled",
+        "canceling",
+        "past_due"
+      ],
       "plan": [
         "BASIS",
         "DEMO",
         "INDIVIDUELL",
         "PLUS",
         "PRO"
-      ],
-      "status": [
-        "active",
-        "canceled",
-        "canceling",
-        "past_due"
       ]
     },
     "supplier_reputation": {
@@ -1618,21 +1619,23 @@
       ]
     },
     "support_agents": {
-      "scope": [
-        "external",
-        "internal"
-      ],
-      "role": [
-        "external_support_agent",
-        "external_support_supervisor",
-        "internal_support_agent",
-        "internal_support_lead",
-        "support_auditor"
-      ],
       "data_scope": [
         "assigned_only",
         "full_internal",
         "vendor_scoped"
+      ],
+      "role": [
+        "external",
+        "external_support_agent",
+        "external_support_supervisor",
+        "internal",
+        "internal_support_agent",
+        "internal_support_lead",
+        "support_auditor"
+      ],
+      "scope": [
+        "external",
+        "internal"
       ]
     },
     "support_case_notes": {
@@ -1643,24 +1646,6 @@
       ]
     },
     "support_cases": {
-      "escalation_target": [
-        "commercial",
-        "decisions_requests",
-        "ops",
-        "owner"
-      ],
-      "case_type": [
-        "billing",
-        "bug_report",
-        "complaint",
-        "feature_question",
-        "general",
-        "invite",
-        "login_access",
-        "onboarding",
-        "other",
-        "verification"
-      ],
       "priority": [
         "critical",
         "high",
@@ -1681,6 +1666,24 @@
         "resolved",
         "waiting_customer",
         "waiting_internal"
+      ],
+      "case_type": [
+        "billing",
+        "bug_report",
+        "complaint",
+        "feature_question",
+        "general",
+        "invite",
+        "login_access",
+        "onboarding",
+        "other",
+        "verification"
+      ],
+      "escalation_target": [
+        "commercial",
+        "decisions_requests",
+        "ops",
+        "owner"
       ]
     },
     "support_escalations": {
@@ -1748,24 +1751,23 @@
       ]
     },
     "users": {
-      "role": [
-        "agency",
-        "company",
-        "worker"
-      ],
       "customer_stage": [
         "contract_requested",
         "demo",
         "live",
         "pilot"
+      ],
+      "role": [
+        "agency",
+        "company",
+        "worker"
       ]
     },
     "vendor_pool": {
-      "invitation_status": [
-        "accepted",
-        "expired",
-        "none",
-        "sent"
+      "status": [
+        "active",
+        "removed",
+        "suspended"
       ],
       "tier": [
         "BLOCKED",
@@ -1774,20 +1776,14 @@
         "SECONDARY",
         "TRIAL"
       ],
-      "status": [
-        "active",
-        "removed",
-        "suspended"
+      "invitation_status": [
+        "accepted",
+        "expired",
+        "none",
+        "sent"
       ]
     },
     "warp_executions": {
-      "trigger_source": [
-        "automation",
-        "event_based",
-        "manual",
-        "owner_confirmed",
-        "scheduled"
-      ],
       "status": [
         "dry_run",
         "failed",
@@ -1800,6 +1796,13 @@
         "high",
         "low",
         "medium"
+      ],
+      "trigger_source": [
+        "automation",
+        "event_based",
+        "manual",
+        "owner_confirmed",
+        "scheduled"
       ]
     },
     "warp_hosts": {
@@ -1844,6 +1847,12 @@
       ]
     },
     "worker_absences": {
+      "art": [
+        "krank",
+        "sonstiges",
+        "termin",
+        "urlaub"
+      ],
       "quelle": [
         "disponent",
         "mitarbeiter"
@@ -1852,12 +1861,6 @@
         "abgelehnt",
         "beantragt",
         "wirksam"
-      ],
-      "art": [
-        "krank",
-        "sonstiges",
-        "termin",
-        "urlaub"
       ]
     },
     "worker_assignment_links": {
@@ -1896,6 +1899,12 @@
       ]
     },
     "worker_profile_documents": {
+      "status": [
+        "archived",
+        "pending_review",
+        "rejected",
+        "verified"
+      ],
       "category": [
         "identity",
         "medical",
@@ -1903,29 +1912,30 @@
         "permit",
         "qualification",
         "training"
-      ],
-      "status": [
-        "archived",
-        "pending_review",
-        "rejected",
-        "verified"
       ]
     },
     "worker_profile_skills": {
-      "source": [
-        "agency",
-        "import",
-        "onboarding",
-        "worker"
-      ],
       "proficiency": [
         "advanced",
         "beginner",
         "expert",
         "intermediate"
+      ],
+      "source": [
+        "agency",
+        "import",
+        "onboarding",
+        "worker"
       ]
     },
     "worker_status_events": {
+      "nach_zustand": [
+        "abwesend",
+        "im_einsatz",
+        "inaktiv",
+        "montage",
+        "verfuegbar"
+      ],
       "von_zustand": [
         "abwesend",
         "im_einsatz",
@@ -1937,13 +1947,6 @@
         "abwesenheit",
         "einsatz",
         "profil"
-      ],
-      "nach_zustand": [
-        "abwesend",
-        "im_einsatz",
-        "inaktiv",
-        "montage",
-        "verfuegbar"
       ]
     },
     "worker_submission_events": {
@@ -1967,6 +1970,13 @@
       ]
     },
     "worker_time_submissions": {
+      "customer_bundle_status": [
+        "confirmed",
+        "partially_confirmed",
+        "prepared",
+        "rejected",
+        "sent"
+      ],
       "status": [
         "accepted_into_timesheet",
         "approved_internal",
@@ -1980,13 +1990,6 @@
         "submitted",
         "superseded",
         "under_review"
-      ],
-      "customer_bundle_status": [
-        "confirmed",
-        "partially_confirmed",
-        "prepared",
-        "rejected",
-        "sent"
       ]
     },
     "zuordnung_bereinigung_210": {
@@ -6870,6 +6873,7 @@
     },
     "occ_owner_access": {
       "spalten": [
+        "expires_at",
         "granted_at",
         "granted_by",
         "id",

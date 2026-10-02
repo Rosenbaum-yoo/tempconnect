@@ -40,28 +40,71 @@ export function requireOwnerControlAccess(deps) {
     }
 
     try {
+      /*
+       * ABLAUF UND WIDERRUF STEHEN IM `WHERE`, NICHT IN EINER JS-NACHPRUEFUNG
+       * (Owner-Punkt 17, Migration 230).
+       *
+       * Dieselbe Form wie im Staff-Tor (`staffControlAccess.js`), und aus
+       * demselben Grund: eine Bedingung, die erst nach dem Laden greift, fehlt
+       * beim naechsten Aufrufer dieser Abfrage. Gemessen hatte dieses Tor nur
+       * `revoked_at` — die privilegierteste Flaeche des Systems war damit die
+       * einzige, deren Zugaenge nicht von selbst enden.
+       *
+       * `expires_at IS NULL` heisst ausdruecklich "kein Ablauf" und gilt fuer die
+       * Eigentuemer selbst. Die Stop-Regel dazu steht in Migration 230: die Menge
+       * der wirksamen Zugaenge enthaelt immer mindestens einen ohne Ablauf —
+       * sonst sperrt der Verfall die Eigentuemer aus einer Flaeche aus, in der das
+       * Aufheben passiert.
+       */
       const result = await pool.query(
-        `SELECT id, occ_role
+        `SELECT id, occ_role, expires_at
            FROM occ_owner_access
           WHERE user_id = $1
             AND revoked_at IS NULL
+            AND (expires_at IS NULL OR expires_at > NOW())
           LIMIT 1`,
         [req.session.userId]
       );
 
       if (result.rowCount === 0) {
+        /*
+         * FAIL-CLOSED, ABER NICHT STILL (Owner-Punkt 17, dieselbe Form wie
+         * staffControlAccess.js). Die ANTWORT bleibt fuer jeden Ablehnungsgrund
+         * dieselbe — sonst waere sie ein Orakel darueber, wer Zugang hat. Das
+         * PROTOKOLL darf und muss unterscheiden: ohne diese Zeile sieht ein
+         * Eigentuemer nicht, ob sein Zugang ABGELAUFEN oder nie vorhanden war,
+         * und bekommt fuer zwei voellig verschiedene Lagen dieselbe ratlose
+         * Fehlersuche. Die Abfrage laeuft nur im Ablehnungsfall, kostet also
+         * nichts auf dem heissen Pfad.
+         */
+        let grund = "nicht_in_occ_owner_access";
+        try {
+          const { rows: diag } = await pool.query(
+            `SELECT revoked_at IS NOT NULL AS widerrufen,
+                    (expires_at IS NOT NULL AND expires_at <= NOW()) AS abgelaufen,
+                    expires_at
+               FROM occ_owner_access WHERE user_id = $1 LIMIT 1`,
+            [req.session.userId]
+          );
+          if (diag[0]?.abgelaufen) grund = "abgelaufen";
+          else if (diag[0]?.widerrufen) grund = "widerrufen";
+        } catch {
+          /* Der Grund ist Komfort, nicht Entscheidung — eine fehlgeschlagene
+           * Diagnose darf die Ablehnung nicht in einen 500er verwandeln. */
+        }
         await writeAccessAudit({
           userId: req.session.userId,
           action: "access_denied",
           metadata: {
             path: req.path,
             method: req.method,
-            ip: req.ip
+            ip: req.ip,
+            grund
           }
         });
         logger?.warn?.(
-          { userId: req.session.userId, path: req.path },
-          "OCC access denied - user not in allowlist"
+          { userId: req.session.userId, path: req.path, grund },
+          "OCC access denied"
         );
         return res.status(403).json({
           success: false,

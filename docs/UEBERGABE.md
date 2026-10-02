@@ -3321,7 +3321,7 @@ durch sind** (Owner-Vorgabe). Bis dahin bleibt dieser Eintrag der Merkzettel.
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
 
-### Punkt 18 und Punkt 14 sind gebaut *(2026-10-02, Owner-Freigabe)*
+### Punkt 18, 14 und 17 sind gebaut *(2026-10-02, Owner-Freigabe)*
 
 Zwei der fünf freigegebenen Punkte stehen. Beide mit Messung, Wächter und
 Rückmutationen; die Reihenfolge war „zuerst das, was heute wirkt und nichts
@@ -3407,8 +3407,73 @@ eines Bedarfs" ein Produktmerkmal wird, müsste es zurückgebaut werden. Die Spa
 bleibt die einzige Wahrheit der Füll-Logik; die kaufmännische Frage bleibt offen
 statt verbaut.
 
-**Offen aus diesen beiden:** die Verengung von Punkt 18 (braucht den vereinbarten
-Beobachtungszeitraum) und die Punkte 15, 16, 17.
+#### Punkt 17 — der Owner-Zugang kann ablaufen, und sperrt dabei niemanden aus
+
+`tempconnect_staff` trägt `expires_at`, und die Middleware prüft es seit
+2026-08-22 wirklich — in beiden Toren, im `WHERE`. `occ_owner_access` kannte nur
+`revoked_at`. Damit war die **privilegierteste** Fläche des Systems die einzige,
+deren Zugänge nicht von selbst enden konnten.
+
+Jetzt (Migration 230, 231; `api/middleware/requireOwnerControlAccess.js`;
+`api/scripts/owner-access-cli.js`):
+
+| | vorher | jetzt |
+|---|---|---|
+| Spalte | nur `revoked_at` | `expires_at TIMESTAMPTZ`, nullbar |
+| Vorgabe bei `grant` | unbefristet | **90 Tage** (`--expires-in N`, `--no-expiry`) |
+| Tor-Bedingung | `revoked_at IS NULL` | `+ AND (expires_at IS NULL OR expires_at > NOW())` |
+| Verlängerung | gab es nicht | `extend`, **auditiert** |
+| Ablehnungsgrund | einer für alles | `abgelaufen` / `widerrufen` / `nicht_in_occ_owner_access` |
+
+**Bestandszeilen bekommen KEINEN Ablauf.** Ein pauschales „ab jetzt 90 Tage"
+hätte die Fläche in 90 Tagen geschlossen, ohne dass jemand es entschieden hat.
+Die Notbremse der Migration prüft genau das.
+
+**Die Stop-Regel ist ein Satz, nicht zwei:**
+
+> Die Menge der wirksamen OCC-Zugänge enthält immer mindestens einen **ohne**
+> Ablaufdatum.
+
+Daraus folgt beides — der letzte unbefristete Zugang kann nicht widerrufen
+werden, und dem einzigen Zugang kann kein Ablauf gegeben werden. „Kein Enforce
+ohne Break-Glass" gilt hier gegen uns selbst: wer sich aus dem Owner Control
+Center aussperrt, kann die Sperre nicht aufheben, denn das Aufheben passiert
+dort. Vorbild ist `assertNotLastOwner`. Entfristen bleibt erlaubt — eine Regel,
+die auch das verweigert, wäre unerfüllbar, weil der verlangte zweite
+unbefristete Zugang nie entstehen könnte.
+
+**Sie hat sich beim Bauen sofort bewährt, auf die unangenehme Art.** Ein Skript,
+das drei Stellen der CLI gleichzeitig ändern sollte, meldete Erfolg — und drei
+der Ersetzungen waren still nicht gegriffen, darunter die Stop-Regel in
+`cmdRevoke`. Die erste Erprobung **nahm dem Eigentümer seinen OCC-Zugang** in der
+Entwicklungsdatenbank. Aufgefallen ist es nur, weil die Zustandsausgabe am Ende
+des Skripts mitlief; beide Zeilen wurden wiederhergestellt, die Ersetzungen von
+Hand gesetzt, erneut erprobt. Lehre, und sie steht jetzt im Wächter: **ein
+Prüfstand muss melden, wenn ein Ersetzen nicht greift** — „Skript lief durch"
+ist kein Nachweis. Der Rückmutations-Prüfstand für diesen Punkt bricht ab, wenn
+ein Suchmuster null Treffer hat.
+
+**Und ein zweiter Befund, der ohne die Härtung nie aufgefallen wäre:**
+`extend` rief `writeAudit` korrekt auf — und hinterließ **keine Zeile**. Der
+CHECK auf `owner_control_access_audit.action` kannte vier Werte, `extend` war
+keiner davon, das Einfügen warf, und `writeAudit` fing es in einem leeren
+`catch {}` ab (ausdrücklich, damit die CLI auch ohne Protokolltabelle arbeitet).
+Der Befehl meldete Erfolg, die Spur fehlte — die Anforderung „**auditierte**
+Verlängerung" war still unerfüllt. Ein tolerantes `catch` erfindet keine
+Befunde, es verdeckt sie. Migration 231 kennt den Wert, `writeAudit` meldet den
+Fehlschlag jetzt auf stderr (nicht fatal — die Begründung bleibt gültig).
+Gemessen danach: `extend  tage=14  neu=2026-10-16  notiz=Spur-Probe`.
+
+**Nachweis:** `api/test/ownerZugangLaeuftAb.test.js` — 9 Proben, davon 3 am
+Bestand. **13 Rückmutationen, 13 rot:** zehn gegen Text (Tor-Bedingung,
+Ablehnungsgrund, 90 Tage, `--no-expiry`, Stop-Regel je Befehl, bedingungsloses
+Befristen, pauschaler Ablauf in 230, `extend` im CHECK, Gegenprobe gegen
+beliebige Handlungen, stummes `catch`) und drei am Bestand, in zurückgerollten
+Transaktionen (jeder Zugang befristet; `expires_at NOT NULL`; Tor-Abfrage ohne
+Ablaufbedingung → der abgelaufene Zugang kommt wieder durch).
+
+**Offen aus diesen vier:** die Verengung von Punkt 18 (braucht den vereinbarten
+Beobachtungszeitraum) und die Punkte 15 und 16.
 
 ### Der Standort-Prüfer lässt durch, statt zu sperren *(2026-10-02, gemessen — latent, nicht offen)*
 

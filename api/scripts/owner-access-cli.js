@@ -25,12 +25,24 @@ function usage() {
     "Owner-Control Access CLI",
     "",
     "Commands:",
-    "  grant  --user-id <uuid>|--email <mail> [--occ-role owner|co-owner] [--performed-by <uuid|mail>] [--note <text>]",
+    "  grant  --user-id <uuid>|--email <mail> [--occ-role owner|co-owner] [--expires-in <tage>] [--no-expiry] [--performed-by <uuid|mail>] [--note <text>]",
+    "  extend --user-id <uuid>|--email <mail> [--expires-in <tage>] [--no-expiry] [--performed-by <uuid|mail>] [--note <text>]",
     "  revoke --user-id <uuid>|--email <mail> [--performed-by <uuid|mail>] [--note <text>]",
     "  list   [--active-only] [--json] [--performed-by <uuid|mail>]",
     "",
+    "Ablauf (Owner-Punkt 17): ein grant laeuft nach 90 Tagen ab, wenn nichts anderes",
+    "gesagt wird. --expires-in setzt eine andere Zahl, --no-expiry vergibt",
+    "unbefristet. `extend` verlaengert und schreibt altes und neues Datum ins Audit.",
+    "",
+    "STOP-REGEL: es muss immer mindestens EIN wirksamer Zugang ohne Ablaufdatum",
+    "geben. Ein revoke oder ein Befristen, das den letzten unbefristeten nehmen",
+    "wuerde, wird mit LETZTER_UNBEFRISTETER_ZUGANG abgewiesen — wer sich aus dem",
+    "Owner Control Center aussperrt, kann die Sperre dort nicht mehr aufheben.",
+    "",
     "Examples:",
-    "  node scripts/owner-access-cli.js grant --email owner@example.com --occ-role owner --note \"go-live\"",
+    "  node scripts/owner-access-cli.js grant --email owner@example.com --occ-role owner --no-expiry --note \"Eigentuemer\"",
+    "  node scripts/owner-access-cli.js grant --email berater@example.com --occ-role co-owner --note \"Projekt X\"",
+    "  node scripts/owner-access-cli.js extend --email berater@example.com --expires-in 30 --note \"Projekt X verlaengert\"",
     "  node scripts/owner-access-cli.js revoke --user-id <uuid> --note \"offboarding\"",
     "  node scripts/owner-access-cli.js list --active-only --json"
   ].join("\n");
@@ -70,9 +82,94 @@ async function writeAudit({ userId, action, performedBy, note, metadata }) {
        VALUES ($1::uuid, $2, $3::uuid, $4, $5::jsonb)`,
       [userId || null, action, performedBy || null, note || null, JSON.stringify(metadata || {})]
     );
-  } catch {
-    // keep CLI functional even if audit table is unavailable
+  } catch (err) {
+    /*
+     * NICHT FATAL, ABER NICHT STILL (Owner-Punkt 17, 2026-10-02).
+     *
+     * Die Begruendung fuer das Abfangen bleibt gueltig: die CLI soll auch ohne
+     * Protokolltabelle arbeiten. Still war sie zu viel. Gemessen: der neue Befehl
+     * `extend` rief writeAudit korrekt auf, der CHECK auf `action` kannte den Wert
+     * nicht, der Einfuegeversuch warf — und dieses `catch` verschluckte es. Der
+     * Befehl meldete Erfolg, die Spur fehlte, und die Anforderung "auditierte
+     * Verlaengerung" war damit UNERFUELLT, ohne dass irgendwo etwas rot wurde.
+     * (Behoben in Migration 231.)
+     *
+     * Ein tolerantes `catch` erfindet keine Befunde — es verdeckt sie. Eine Zeile
+     * auf stderr kostet nichts und macht den naechsten Fall sichtbar.
+     */
+    console.error(`WARNUNG: Protokolleintrag "${action}" nicht geschrieben: ${err?.message || err}`);
   }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * PUNKT 17 — DER OWNER-ZUGANG KANN ABLAUFEN
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Owner-Freigabe 2026-10-02: 90 Tage, auditierte Verlaengerung. Lang genug, dass
+ * sich niemand taeglich selbst freischaltet, kurz genug, dass ein vergessener
+ * Zugang von selbst endet.
+ *
+ * DIE STOP-REGEL GEGEN DIE EIGENE HAERTUNG, in einem Satz:
+ *
+ *   Die Menge der wirksamen OCC-Zugaenge enthaelt immer mindestens einen OHNE
+ *   Ablaufdatum.
+ *
+ * Daraus folgt beides, ohne zwei Regeln zu brauchen: der letzte unbefristete
+ * Zugang kann nicht widerrufen werden, und dem einzigen Zugang kann kein Ablauf
+ * gegeben werden. Vorbild ist `assertNotLastOwner` (rbacService), das die
+ * Herabstufung des letzten Owners mit 409 LAST_OWNER verweigert — "kein Enforce
+ * ohne Break-Glass", hier gegen uns selbst gewendet: wer sich aus dem Owner
+ * Control Center aussperrt, kann die Sperre nicht aufheben, denn das Aufheben
+ * passiert dort.
+ */
+const STANDARD_TAGE = 90;
+
+/** Wirksame Zugaenge ohne Ablauf — die Menge, die nie leer werden darf. */
+async function unbefristeteZugaenge(ausserUserId = null) {
+  const { rows } = await pool.query(
+    `SELECT user_id FROM occ_owner_access
+       WHERE revoked_at IS NULL AND expires_at IS NULL
+         AND ($1::uuid IS NULL OR user_id <> $1::uuid)`,
+    [ausserUserId]
+  );
+  return rows.map((r) => r.user_id);
+}
+
+/**
+ * Verweigert eine Handlung, die den letzten unbefristeten Zugang nehmen wuerde.
+ * `userId` ist der Zugang, der befristet oder widerrufen werden soll.
+ */
+async function assertNichtLetzterUnbefristeter(userId, handlung) {
+  const { rows } = await pool.query(
+    `SELECT 1 FROM occ_owner_access
+       WHERE user_id = $1::uuid AND revoked_at IS NULL AND expires_at IS NULL`,
+    [userId]
+  );
+  if (!rows.length) return;                 // Ziel ist nicht unbefristet -> unkritisch
+  const andere = await unbefristeteZugaenge(userId);
+  if (andere.length === 0) {
+    const fehler = new Error(
+      `LETZTER_UNBEFRISTETER_ZUGANG: ${handlung} wuerde den einzigen Owner-Zugang ohne `
+      + "Ablaufdatum nehmen. Danach endet jeder Zugang irgendwann von selbst — und das "
+      + "Aufheben passiert im Owner Control Center, also nirgends. Erst einen zweiten "
+      + "unbefristeten Zugang vergeben (grant --no-expiry), dann hier erneut."
+    );
+    fehler.code = "LETZTER_UNBEFRISTETER_ZUGANG";
+    throw fehler;
+  }
+}
+
+/** Liest `--expires-in` / `--no-expiry` und gibt Tage oder null zurueck. */
+function ablaufAusArgumenten(args) {
+  if (args["no-expiry"] === true) return null;
+  const roh = args["expires-in"];
+  if (roh === undefined) return STANDARD_TAGE;
+  const tage = Number(roh);
+  if (!Number.isInteger(tage) || tage < 1 || tage > 3650) {
+    throw new Error("expires-in muss eine ganze Zahl zwischen 1 und 3650 (Tagen) sein.");
+  }
+  return tage;
 }
 
 async function cmdGrant(args) {
@@ -83,19 +180,30 @@ async function cmdGrant(args) {
   }
   const note = args.note ? String(args.note) : null;
   const performedBy = await resolveOptionalActor(args["performed-by"]);
+  const tage = ablaufAusArgumenten(args);
+
+  /* Ein `grant` auf einen bestehenden Zugang ist durch `ON CONFLICT` auch ein
+   * UPDATE — es kann also einen unbefristeten Zugang BEFRISTEN. Damit greift die
+   * Stop-Regel hier genauso wie beim Widerruf. */
+  if (tage !== null) {
+    await assertNichtLetzterUnbefristeter(target.id, "ein grant mit Ablaufdatum");
+  }
 
   const { rows } = await pool.query(
-    `INSERT INTO occ_owner_access (user_id, occ_role, granted_by, granted_at, revoked_at, notes)
-     VALUES ($1::uuid, $2, $3::uuid, NOW(), NULL, $4)
+    `INSERT INTO occ_owner_access (user_id, occ_role, granted_by, granted_at, revoked_at, notes, expires_at)
+     VALUES ($1::uuid, $2, $3::uuid, NOW(), NULL, $4,
+             CASE WHEN $5::int IS NULL THEN NULL
+                  ELSE NOW() + ($5::int || ' days')::interval END)
      ON CONFLICT (user_id)
      DO UPDATE
        SET occ_role = EXCLUDED.occ_role,
            granted_by = EXCLUDED.granted_by,
            granted_at = NOW(),
            revoked_at = NULL,
-           notes = EXCLUDED.notes
-     RETURNING user_id, occ_role, granted_by, granted_at, revoked_at, notes`,
-    [target.id, occRole, performedBy, note]
+           notes = EXCLUDED.notes,
+           expires_at = EXCLUDED.expires_at
+     RETURNING user_id, occ_role, granted_by, granted_at, revoked_at, notes, expires_at`,
+    [target.id, occRole, performedBy, note, tage]
   );
 
   await writeAudit({
@@ -103,16 +211,23 @@ async function cmdGrant(args) {
     action: "grant",
     performedBy,
     note,
-    metadata: { occ_role: occRole, source: "owner-access-cli" }
+    metadata: { occ_role: occRole, source: "owner-access-cli", expires_in_days: tage }
   });
 
-  return { action: "grant", user_email: target.email, entry: rows[0] || null };
+  return { action: "grant", user_email: target.email, expires_in_days: tage, entry: rows[0] || null };
 }
 
 async function cmdRevoke(args) {
   const target = await resolveUserId({ userId: args["user-id"], email: args.email });
   const note = args.note ? String(args.note) : null;
   const performedBy = await resolveOptionalActor(args["performed-by"]);
+
+  /* DIE STOP-REGEL. Ohne sie kann der letzte unbefristete Zugang widerrufen
+   * werden — danach endet jeder verbleibende irgendwann von selbst, und die
+   * Flaeche schliesst sich lautlos. Gemessen am 2026-10-02: genau das ist in der
+   * ersten Erprobung passiert, weil diese Zeile fehlte (der Patch war still
+   * gescheitert). Der Zugang des Eigentuemers war danach widerrufen. */
+  await assertNichtLetzterUnbefristeter(target.id, "ein revoke");
 
   const { rows, rowCount } = await pool.query(
     `UPDATE occ_owner_access
@@ -135,6 +250,54 @@ async function cmdRevoke(args) {
   return { action: "revoke", user_email: target.email, updated: rowCount > 0, entry: rows[0] || null };
 }
 
+
+/**
+ * Verlaengert einen befristeten Zugang. Auditiert, mit altem und neuem Datum —
+ * eine Verlaengerung ohne Spur ist eine unbefristete Vergabe in Raten.
+ */
+async function cmdExtend(args) {
+  const target = await resolveUserId({ userId: args["user-id"], email: args.email });
+  const note = args.note ? String(args.note) : null;
+  const performedBy = await resolveOptionalActor(args["performed-by"]);
+  const tage = args["expires-in"] === undefined && args["no-expiry"] !== true
+    ? STANDARD_TAGE
+    : ablaufAusArgumenten(args);
+
+  /* Entfristen ist erlaubt (es macht die Menge der Unbefristeten groesser, nie
+     kleiner) — befristen dagegen faellt unter die Stop-Regel. */
+  if (tage !== null) {
+    await assertNichtLetzterUnbefristeter(target.id, "eine Verlaengerung mit Ablaufdatum");
+  }
+
+  const { rows, rowCount } = await pool.query(
+    `UPDATE occ_owner_access
+        SET expires_at = CASE WHEN $2::int IS NULL THEN NULL
+                              ELSE NOW() + ($2::int || ' days')::interval END,
+            notes = COALESCE($3, notes)
+      WHERE user_id = $1::uuid
+        AND revoked_at IS NULL
+    RETURNING user_id, occ_role, granted_at, revoked_at, notes, expires_at`,
+    [target.id, tage, note]
+  );
+  if (!rowCount) {
+    throw new Error("Kein wirksamer Zugang fuer diesen Nutzer — nichts verlaengert.");
+  }
+
+  await writeAudit({
+    userId: target.id,
+    action: "extend",
+    performedBy,
+    note,
+    metadata: {
+      source: "owner-access-cli",
+      expires_in_days: tage,
+      neues_ablaufdatum: rows[0]?.expires_at || null
+    }
+  });
+
+  return { action: "extend", user_email: target.email, expires_in_days: tage, entry: rows[0] || null };
+}
+
 async function cmdList(args) {
   const activeOnly = args["active-only"] === true || String(args["active-only"] || "").toLowerCase() === "true";
   const performedBy = await resolveOptionalActor(args["performed-by"]);
@@ -148,6 +311,8 @@ async function cmdList(args) {
             granted_by_u.email AS granted_by_email,
             oa.granted_at,
             oa.revoked_at,
+            oa.expires_at,
+            (oa.expires_at IS NOT NULL AND oa.expires_at <= NOW()) AS abgelaufen,
             oa.notes
        FROM occ_owner_access oa
        LEFT JOIN users u ON u.id = oa.user_id
@@ -181,6 +346,8 @@ try {
     result = await cmdGrant(args);
   } else if (command === "revoke") {
     result = await cmdRevoke(args);
+  } else if (command === "extend") {
+    result = await cmdExtend(args);
   } else if (command === "list") {
     result = await cmdList(args);
   } else {
