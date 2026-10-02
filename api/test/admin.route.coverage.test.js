@@ -1018,8 +1018,34 @@ describe("Admin-Nutzerverwaltung — die Mandantengrenze am SCHREIBPFAD", () => 
 
     assert.strictEqual(res._status, 200);
     assert.ok(pool.calls.some((c) => c.sql.includes("UPDATE users")));
-    assert.ok(!pool.calls.some((c) => c.sql.includes("FROM org_memberships")),
-      "plattformweit braucht es keine Mitgliedschaftsabfrage");
+    /* ─────────────────────────────────────────────────────────────────────────
+     * VERENGT am 2026-10-02, und der Grund gehoert daneben.
+     * ─────────────────────────────────────────────────────────────────────────
+     *
+     * Hier stand: `!pool.calls.some((c) => c.sql.includes("FROM org_memberships"))`.
+     * Die ZUSAGE dahinter ist richtig und bleibt: plattformweit darf die
+     * BERECHTIGUNG nicht an einer Mitgliedschaft haengen — sonst waere ein
+     * `platform_admin` ohne Mitgliedschaft ploetzlich eingeschraenkt.
+     *
+     * Geprueft wurde das aber als Zeichenkette in IRGENDEINEM abgesetzten SQL,
+     * und das ist ein Stellvertreter. Seit dem Owner-Entscheid „Akteurs-Org"
+     * (2026-10-02) traegt der Audit-INSERT in `api/services/auditLog.js` einen
+     * Rueckfall, der `org_memberships` liest — um die Zeile dem Mandanten des
+     * Akteurs ZUZUORDNEN, nicht um eine Berechtigung zu pruefen. Zwei Zwecke,
+     * dieselbe Tabelle; die alte Fassung konnte sie nicht unterscheiden.
+     *
+     * Verengt, nicht abgeschwaecht: ausgenommen wird GENAU die Anweisung, die
+     * auch nach `audit_log` schreibt. Eine eigenstaendige Mitgliedschaftsabfrage
+     * auf diesem Pfad wird weiter rot — per Rueckmutation geprueft.
+     * ───────────────────────────────────────────────────────────────────────── */
+    const mitgliedschaftsAbfragen = pool.calls
+      .filter((c) => c.sql.includes("FROM org_memberships"))
+      .filter((c) => !c.sql.includes("INSERT INTO audit_log"));
+    assert.deepEqual(mitgliedschaftsAbfragen.map((c) => c.sql.replace(/\s+/g, " ").slice(0, 70)), [],
+      "plattformweit braucht es keine Mitgliedschaftsabfrage. Ausgenommen ist nur der "
+      + "Audit-INSERT, der die Zeile dem Mandanten des Akteurs zuordnet (Akteurs-Org, "
+      + "2026-10-02) — eine eigenstaendige Abfrage waere eine Berechtigungspruefung, und "
+      + "genau die darf hier nicht stattfinden.");
   });
 
   it("die Liste sagt der Oberflaeche, wessen Daten sie zeigt", async () => {

@@ -275,12 +275,64 @@ export async function writeAudit(pool, params) {
   const orgId = params.org_id ?? null;
   const actionType = params.action_type || deriveActionType(a);
   const status = params.status || 'SUCCESS';
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * DIE AKTEURS-ORG (Owner-Entscheidung 2026-10-02)
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Hat der Aufrufer keine Org uebergeben und liefert `bestimmeAuditOrg()` nichts,
+   * dann bekommt die Zeile die Org des AKTEURS — aber nur, wenn er genau EINER
+   * angehoert. Bei null, zwei oder mehr bleibt `org_id` NULL: eine Org zu RATEN
+   * waere schlimmer als keine.
+   *
+   * WARUM HIER UND NICHT AN 78 AUFRUFSTELLEN. Die Regel dieses Moduls steht
+   * darueber: "die Grenze gehoert an die Quelle der Wahrheit, nicht an den
+   * Kontext des Aufrufers". Gemessen am 2026-10-02 gaben 13 von 51 pool-Aufrufen
+   * ein `org_id` mit. Die Regel an 38 Stellen nachzutragen heisst, sie 38 mal
+   * richtig zu treffen und beim 39. Aufruf zu verlieren.
+   *
+   * WARUM DIESELBE BEDINGUNG WIE DER TEST, buchstabengenau. Die rote Zusicherung
+   * in `auditMandantenGrenze.test.js` zaehlt `count(*) FROM org_memberships` und
+   * verlangt `= 1`. `org_memberships` traegt `UNIQUE (user_id, org_id)` (gemessen),
+   * also ist `count(*) = 1` dort identisch mit `count(DISTINCT org_id) = 1` hier —
+   * per Schema, nicht per heutiger Datenlage. Und `is_active` wird ABSICHTLICH
+   * NICHT gefiltert: der Test filtert auch nicht, und wer hier enger prueft als
+   * die Spezifikation, laesst sie rot.
+   *
+   * WARUM `(array_agg(…))[1]` UND NICHT `max(…)`. Weil es `max(uuid)` in
+   * PostgreSQL NICHT GIBT:
+   *     SELECT max(org_id) FROM org_memberships;
+   *     ERROR:  function max(uuid) does not exist
+   * Der erste Entwurf dieser Zeile stand mit `max()` da. Er haette bei JEDEM
+   * Audit-Schreiben geworfen — genau das, was der Kommentar bei `bestimmeAuditOrg`
+   * verbietet ("Ein Audit-Eintrag, der verschwindet, waere schlimmer als einer,
+   * der keine Org traegt"). Migration 202 hat denselben Fehler schon einmal
+   * kassiert und fuehrt ihn dort als Lehre. Gefunden hat es eine Erhebung, nicht
+   * der Build.
+   *
+   * KEINE ZWEITE ABFRAGE. Der Rueckfall steht INLINE im INSERT; die Zahl der
+   * Datenbank-Runden bleibt eins. Mock-Pool-Proben, die Abfragen zaehlen, sehen
+   * also keinen Unterschied — und ein zweiter `pool.query` waere auf dem
+   * Audit-Pfad eine Verdoppelung der Runden fuer 38 % der Schreibvorgaenge.
+   *
+   * HINTERGRUNDLAEUFE BLEIBEN UNBERUEHRT, und das ist gemessen: die request-losen
+   * Schreibstellen uebergeben `actor_id` ausdruecklich als `null`
+   * (`capacityExchangeService.js`, `stateMachine.js`). Ohne Akteur trifft die
+   * Unterabfrage keine Zeile und liefert NULL — dort entsteht also keine einzige
+   * neue `org_id`.
+   * ═══════════════════════════════════════════════════════════════════════════ */
   await pool.query(
     `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, details,
        request_id, capacity_id, reservation_id, org_id,
        old_values, new_values, ip_address, user_agent,
        action_type, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
+             COALESCE($9::uuid, (
+               SELECT (array_agg(m.org_id))[1]
+                 FROM org_memberships m
+                WHERE m.user_id = $1::uuid
+               HAVING count(DISTINCT m.org_id) = 1
+             )),
+             $10, $11, $12, $13, $14, $15)`,
     [actor, a, et, eid, details ? JSON.stringify(details) : null,
      rid, cid, resid, orgId,
      params.old_values ? JSON.stringify(sanitizeMetadata(params.old_values)) : null,

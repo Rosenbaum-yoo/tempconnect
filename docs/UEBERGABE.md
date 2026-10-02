@@ -3815,6 +3815,37 @@ Kontext" nichts. Und die Tabellenauswahl per `reltuples <> 0` traf eine leere
 Tabelle, weil `reltuples` **-1** ist, solange nie analysiert wurde. Beides gefunden,
 weil die Gegenprobe („sieht der Eigentümer dieselben Zeilen?") daneben stand.
 
+#### ⚠️ KORREKTUR DESSELBEN TAGES: der Kontext wird nie gesetzt
+
+**Die Messwerte oben stimmen. Meine Übertragung auf den Betrieb war falsch** — und
+es ist dieselbe Verwechslung, die diesen Abschnitt überhaupt ausgelöst hat, nur eine
+Ebene tiefer. „Mit Kontext A → 4 Zeilen" habe **ich** gemessen, indem ich den
+Kontext in `psql` von Hand gesetzt habe. **Die Anwendung setzt ihn nirgends.**
+
+Gemessen über den ganzen Quelltext: `withOrgContext()`
+(`api/utils/orgContext.js:39`), `req.setOrgContext` (`middleware/orgContext.js:273`)
+und `req.withStaffContext` (`middleware/staffControlAccess.js:193`) haben jeweils
+**null** Produktions-Aufrufer — sie existieren, sind getestet, und werden nur von
+Tests benutzt. Dazu setzt `writeAudit()` sein `pool.query` **ausserhalb jeder
+Transaktion** ab, und `SET LOCAL` wirkt nur innerhalb einer.
+
+`audit_log` trägt zwei `ALL`-Policies **ohne** `WITH CHECK` (`polwithcheck IS NULL`
+gemessen) — PostgreSQL benutzt dann das `USING` auch als `WITH CHECK`. Ohne gesetzte
+GUC wird `(org_id = current_org_id()) OR is_staff_context()` zu `NULL OR NULL` und
+die Zeile abgelehnt.
+
+**Folge:** eine Umstellung auf `rls_app` würde heute **jeden mandantengebundenen
+Lesevorgang auf 0 Zeilen und jedes Audit-Schreiben auf einen Fehler** setzen — nicht
+wegen der Rechte, die sind belegt vollständig, sondern weil der Kontext fehlt. Die
+Umstellung ist damit **deutlich weiter weg**, als dieser Abschnitt vorher las: ihr
+**Schritt 0** ist eine Welle über alle mandantengebundenen Pfade, nicht eine
+Konfigurationsänderung.
+
+Vollständig, mit der korrigierten Schrittliste: `docs/security/TENANT_ISOLATION_MODEL.md`,
+Abschnitt „KORREKTUR 2026-10-02". `api/test/rlsBackstopIstImPfad.test.js` hält jetzt
+auch diesen Satz fest — **5 Rückmutationen, 5 rot** —, damit die Liste nicht wieder
+als vollständig gelesen wird.
+
 **Was zum Schalten fehlt**, steht im Mandantenmodell am Ende des Abschnitts. Es
 betrifft den Datenbank-Anmeldeweg und gehört dem Owner.
 
@@ -3906,7 +3937,12 @@ gewinnt, wenn der letzte Schlüssel verfällt.
 
 ---
 
-### Der eine rote Test in jedem Tor-Lauf: entscheidungsreif, nicht gebaut *(2026-10-02)*
+### Der eine rote Test in jedem Tor-Lauf: ENTSCHIEDEN UND GEBAUT *(2026-10-02)*
+
+> **Owner-Entscheid 2026-10-02: „akteurs-org bauen".** Gebaut, belegt, grün. Die
+> Analyse darunter bleibt stehen — sie ist der Grund, warum die Entscheidung
+> nötig war, und sie erklärt, was *nicht* gewählt wurde. Der Bau und seine
+> Messwerte stehen am Ende dieses Abschnitts.
 
 `auditMandantenGrenze.test.js` → „jede org-lose Zeile hat einen Grund" ist in
 **jedem** Lauf mit Datenbank rot: 9 Audit-Zeilen ohne `org_id`, deren Akteur genau
@@ -3973,11 +4009,90 @@ Schreibstellen weiter lecken.
 * Rein additiv: keine bestehende Zeile wird weniger sichtbar, 9 bisher für
   **niemanden** sichtbare Zeilen werden für genau einen Mandanten sichtbar.
 
-**Umfang nach der Entscheidung:** `logTransition` bekommt ein durchgereichtes
-`org_id` (ein Parameter), die vier Schreibstellen geben es mit, eine Migration
-füllt die 9 Bestandszeilen nach (Vorbild 187/198), und die 50 Dienst-Aufrufe
-werden in einer eigenen Welle durchgegangen — mit einem Wächter, der eine neue
-req-lose Form ohne `org_id` rot macht, damit die Zahl nicht wieder wächst.
+**~~Umfang nach der Entscheidung~~ — und er ist anders ausgefallen als geplant.**
+Geplant war: `logTransition` bekommt einen Parameter, die vier Schreibstellen geben
+ihn mit, eine Migration trägt nach, und die 50 Dienst-Aufrufe folgen in einer
+eigenen Welle. **Gebaut wurde etwas Besseres: eine Stelle statt 54.**
+
+#### Gebaut: die Akteurs-Org an der Quelle der Wahrheit
+
+Die Regel dieses Moduls steht über `bestimmeAuditOrg()`: *„die Grenze gehört an die
+Quelle der Wahrheit, nicht an den Kontext des Aufrufers."* Also nicht 54
+Aufrufstellen, sondern **ein** `COALESCE` im `INSERT` von `writeAudit()`:
+
+```sql
+COALESCE($9::uuid, (
+  SELECT (array_agg(m.org_id))[1]
+    FROM org_memberships m
+   WHERE m.user_id = $1::uuid
+  HAVING count(DISTINCT m.org_id) = 1
+))
+```
+
+Das wirkt für **alle 78** `writeAudit`-Aufrufstellen gleichzeitig, kostet **keine
+zweite Datenbank-Runde** (inline, nicht davor), und `api/services/auditLog.js` ist
+die einzige geänderte Codedatei. Migration **233** trägt den Bestand nach.
+
+**Vier Eigenschaften, jede mit gemessenem Grund:**
+
+| | |
+|---|---|
+| genau **eine** Organisation | bei 0, 2 oder mehr bleibt `org_id` NULL — eine Org zu **raten** wäre eine falsche Behauptung in einem Prüfpfad |
+| **kein** `is_active`-Filter | die rote Zusicherung filtert auch nicht; wer enger prüft als die Spezifikation, lässt sie rot |
+| `(array_agg(…))[1]` | **es gibt kein `max(uuid)`** — siehe unten, das war der Blocker |
+| **inline** im `INSERT` | eine zweite Abfrage wäre eine Verdoppelung der Runden für 38 % der Schreibvorgänge |
+
+#### Der Blocker, den eine Erhebung fand und der Build nicht gefunden hätte
+
+Mein erster Entwurf stand mit `max(m.org_id)` da. **Diese Funktion existiert in
+PostgreSQL nicht:**
+
+```
+SELECT max(org_id) FROM org_memberships;
+ERROR:  function max(uuid) does not exist
+```
+
+Der `INSERT` hätte bei **jedem** Audit-Schreiben geworfen — genau das, was der
+Kommentar bei `bestimmeAuditOrg` verbietet: *„Ein Audit-Eintrag, der verschwindet,
+wäre schlimmer als einer, der keine Org trägt."* Und **Migration 233 hätte jeden
+Frischinstall gebrochen**, obwohl sie dort ein No-Op ist: PostgreSQL *plant* die
+Unterabfrage auch, wenn keine Zeile die Bedingung erfüllt. Migration 202 hat
+denselben Fehler schon einmal kassiert und führt ihn dort als Lehre.
+
+Gefunden hat es eine parallele Erhebung mit fünf unabhängigen Blickwinkeln, nicht
+der Build. Selbst nachgemessen, bevor gebaut wurde.
+
+#### Nachweis
+
+* **Der Wächter war vor der Migration ROT und danach GRÜN**, am selben Bestand im
+  selben Lauf: `13 pass / 1 fail` → `14 pass / 0 fail`. Die Migration meldet
+  *„9 von 9"*.
+* **Bestand:** `mit Org` 2428 → **2437**, `ohne` 1567 → 1558, **zuordenbar ohne
+  Org: 0**. Die 1558 übrigen haben keinen Akteur (1316) oder einen in null
+  Organisationen (242) — für die gibt es keine Zuordnung, und der Test nennt genau
+  das als erlaubt.
+* **Schreibseite gemessen**, nicht gefolgert: eine neue Zeile mit Akteur in einer
+  Org erhält `org_id`; ohne Akteur bleibt sie NULL. In einer zurückgerollten
+  Transaktion, Bestand danach 0 Probezeilen.
+* **Alle Zweige belegt**, auch die heute leeren: 1 Org → die Org, 0 Orgs → NULL,
+  NULL-Akteur → NULL, **2 Orgs → NULL** (es gibt heute keinen Nutzer mit mehr als
+  einer Org, also künstlich erzeugt und zurückgerollt).
+* **`UNIQUE (user_id, org_id)`** auf `org_memberships` gemessen — damit sind
+  `count(*) = 1` (Test) und `count(DISTINCT org_id) = 1` (Code) **per Schema**
+  identisch, nicht nur nach heutiger Datenlage. Der Test wird also wirklich grün,
+  nicht zufällig.
+* **7 Rückmutationen, 7 rot** (max statt array_agg in Quelle **und** Migration,
+  Eindeutigkeits-Bedingung weg, `is_active`-Filter dazu, COALESCE raus, zweite
+  Abfrage dazu). Eine blieb im ersten Durchgang grün und war eine echte Lücke:
+  mein Ausschnitt `[\s\S]*?\)\)` endete am ersten `))` — also schon in
+  `(array_agg(m.org_id))` — und erreichte die `WHERE`-Klausel nie, in der ein
+  `is_active`-Filter stünde.
+
+**Was NICHT gebaut wurde und auch nicht nötig ist:** die 50 Dienst-Aufrufe
+einzeln. Sie laufen alle durch `writeAudit()` und sind damit gedeckt. Die
+Hintergrundläufe bleiben unberührt, und das ist gemessen: sie übergeben `actor_id`
+ausdrücklich als `null` — ohne Akteur trifft die Unterabfrage keine Zeile, dort
+entsteht also keine einzige neue `org_id`.
 
 ### Der Standort-Prüfer lässt durch, statt zu sperren *(2026-10-02, gemessen — latent, nicht offen)*
 

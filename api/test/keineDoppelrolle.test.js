@@ -137,8 +137,36 @@ suite("Punkt 15 — ein Kundenkonto hält keinen Plattform-Zugang", () => {
       `die Owner-Ausnahme steht ${treffer.length}-mal, erwartet mindestens 3 (Zählung, UPDATE, `
       + "Notbremse). Fehlt sie an EINER Stelle, meldet die Notbremse eine Lage, die das UPDATE "
       + "nicht hergestellt hat — oder das UPDATE nimmt dem Eigentümer seinen Zugang.");
-    assert.match(code, /SELECT count\(\*\) INTO rest FROM occ_owner_access WHERE revoked_at IS NULL/,
-      "Migration 232 prüft nach dem Lauf nicht, dass noch ein wirksamer Owner-Zugang da ist");
+    /* ─────────────────────────────────────────────────────────────────────────
+     * UND SIE PRÜFT DIE VERÄNDERUNG, NICHT DIE EXISTENZ (Korrektur 2026-10-02)
+     * ─────────────────────────────────────────────────────────────────────────
+     *
+     * Hier stand eine Zusicherung auf `SELECT count(*) … WHERE revoked_at IS NULL`
+     * allein — und die Migration prüfte danach `IF rest < 1 THEN RAISE EXCEPTION`.
+     * Auf einem FRISCHINSTALL ist `occ_owner_access` leer, also `rest = 0`, also
+     * feuerte die Bremse: **die Migrationskette brach bei 232 ab.**
+     *
+     * Das war eine WIEDERHOLUNG. Migration 230 hatte denselben Denkfehler am
+     * gleichen Tag, dort war er schon behoben, und ich habe ihn wenige Stunden
+     * später identisch gebaut. Gefunden hat ihn `sql/test-fresh-install.sh`, nicht
+     * die Suite — 232 war nur noch nie darüber gelaufen.
+     *
+     * Die richtige Frage ist nicht „gibt es einen Owner-Zugang?", sondern „hat
+     * DIESER LAUF einen genommen?". Diese Probe hält beides fest: den Vergleich,
+     * und das Verbot der alten Form.
+     * ───────────────────────────────────────────────────────────────────────── */
+    assert.match(code, /SELECT count\(\*\) INTO owner_vorher FROM occ_owner_access WHERE revoked_at IS NULL/,
+      "Migration 232 merkt sich die Zahl der Owner-Zugänge nicht VOR dem Lauf. Ohne den "
+      + "Vorher-Wert kann sie nur die Existenz prüfen — und das bricht auf einem Frischinstall.");
+    assert.match(code, /IF rest <> owner_vorher THEN/,
+      "Migration 232 vergleicht die Zahl der Owner-Zugänge nicht mit dem Vorher-Wert. Sie "
+      + "schreibt gar nicht in occ_owner_access; die Zahl muss unverändert sein, auch wenn "
+      + "sie 0 ist.");
+    assert.ok(!/rest\s*<\s*1/.test(code),
+      "Migration 232 prüft wieder `rest < 1` auf occ_owner_access. Auf einem FRISCHINSTALL ist "
+      + "die Tabelle leer, die Bremse feuert, und die Migrationskette bricht ab — genau der "
+      + "Fehler, den Migration 230 am 2026-10-02 schon hatte. Aus einer Fläche, zu der niemand "
+      + "Zugang hat, kann niemand ausgesperrt werden.");
   });
 
   it("Migration 232 sagt es, wenn sie nichts nachgewiesen hat", () => {

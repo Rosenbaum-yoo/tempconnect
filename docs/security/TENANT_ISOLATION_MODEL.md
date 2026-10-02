@@ -193,14 +193,75 @@ ist es eine Frage der Sorgfalt in jeder einzelnen Schreibstelle.
 
 Alles in zurückgerollten Transaktionen; Bestand danach: 0 Probezeilen.
 
+### ⚠️ KORREKTUR 2026-10-02: die Anwendung setzt den Kontext NIE
+
+> **Dieser Abschnitt korrigiert den Nachweis darüber, nicht seine Messwerte.** Die
+> Zahlen stimmen; meine Übertragung auf den Betrieb war falsch — zum zweiten Mal an
+> einem Tag dieselbe Verwechslung.
+
+Der Nachweis „Isolation greift" oben wurde als `rls_app` geführt **mit einem
+Kontext, den ich in `psql` von Hand gesetzt habe**:
+
+```sql
+BEGIN; SET LOCAL app.current_org_id = '<org>'; SELECT … ; COMMIT;
+```
+
+**Die Anwendung tut das nirgends.** Gemessen am 2026-10-02 über den ganzen
+Quelltext:
+
+| Mechanismus | definiert in | Produktions-Aufrufer |
+|---|---|---|
+| `withOrgContext(pool, orgId, fn)` | `api/utils/orgContext.js:39` | **0** (nur `test/rlsTenantIsolation.test.js`) |
+| `req.setOrgContext(client)` | `api/middleware/orgContext.js:273` | **0** (nur zwei Tests) |
+| `req.withStaffContext(fn)` | `api/middleware/staffControlAccess.js:193` | **0** |
+
+`writeAudit()` setzt sein `pool.query` ausserdem **ausserhalb jeder Transaktion**
+ab, und `SET LOCAL` wirkt nur innerhalb einer. `api/db/pool.js` hat keinen
+`connect`-Haken, der eine GUC setzt.
+
+**Was das für die Umstellung bedeutet, woertlich an der Policy.** `audit_log` trägt
+zwei `ALL`-Policies **ohne** `WITH CHECK` (gemessen: `polwithcheck IS NULL`) —
+PostgreSQL benutzt dann das `USING` auch als `WITH CHECK`. Die wirksame
+INSERT-Bedingung ist also:
+
+```
+(org_id = current_org_id()) OR is_staff_context()
+```
+
+Ohne gesetzte GUC ist `current_setting('app.current_org_id', TRUE)` NULL →
+`current_org_id()` NULL → `X = NULL` ergibt NULL; `is_staff_context()` ergibt
+ebenfalls NULL; `NULL OR NULL` = NULL; `WITH CHECK` verlangt TRUE → **Zeile
+abgelehnt.** Dasselbe Muster liegt auf `org_memberships` und den übrigen 24
+Tabellen.
+
+**Folge:** eine Umstellung auf `rls_app` würde heute nicht „die Isolation
+einschalten", sondern **jeden mandantengebundenen Lesevorgang auf 0 Zeilen und
+jedes Audit-Schreiben auf einen Fehler** setzen. Nicht wegen der Rechte — die sind
+belegt vollständig — sondern weil der Kontext fehlt.
+
+**Das ist kein neuer Befund an den Policies, sondern an meinem Beleg.** Und es ist
+dasselbe Muster, das diesen Abschnitt überhaupt ausgelöst hat: ein Nachweis gilt
+für die Bedingungen, unter denen er entstand. Oben steht es über die *Rolle*; hier
+gilt es über den *Kontext*.
+
 ### Was zum Schalten noch fehlt — und es gehört dem Owner
 
-1. `rls_app` braucht ein Passwort im Geheimnis-Speicher und die Rechte oben.
-2. Die **Anwendungsverbindung** zeigt auf `rls_app` (`DATABASE_URL` /
+> **Schritt 0 fehlte in dieser Liste und ist der grösste:** die Anwendung muss den
+> Kontext überhaupt setzen. `withOrgContext()` existiert und ist getestet — es ist
+> nur nirgends benutzt. Das ist keine Konfigurationsänderung, sondern eine Welle
+> über alle mandantengebundenen Schreib- und Lesepfade, inklusive der Frage, was
+> Hintergrundläufe tun (sie haben keine Org und bräuchten den Staff-Bypass oder
+> eine ausdrückliche Org je Lauf).
+
+1. **Schritt 0:** `withOrgContext()` / `req.setOrgContext` in den Produktionspfaden
+   verdrahten, und für `writeAudit()` entscheiden, wie es ohne Transaktion zu einer
+   GUC kommt. Vorher ist alles darunter wirkungslos.
+2. `rls_app` braucht ein Passwort im Geheimnis-Speicher und die Rechte oben.
+3. Die **Anwendungsverbindung** zeigt auf `rls_app` (`DATABASE_URL` /
    `POSTGRES_USER` des API-Dienstes), die **Migrationskette nicht**.
-3. Ein Durchlauf der Flächen danach, mit Blick auf „Tabelle existiert nicht" und
+4. Ein Durchlauf der Flächen danach, mit Blick auf „Tabelle existiert nicht" und
    leere Listen — das sind die beiden Gesichter einer fehlenden Berechtigung.
-4. Danach dieses Dokument richtigstellen; der Wächter wird dadurch von einer
+5. Danach dieses Dokument richtigstellen; der Wächter wird dadurch von einer
    Diagnose zu einer Zusicherung, ohne dass jemand daran denken muss.
 
 **Nicht geschaltet wird von dieser Seite.** Ein Eingriff in den

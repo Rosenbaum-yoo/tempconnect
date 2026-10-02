@@ -104,10 +104,16 @@ DECLARE
   betroffen int;
   kennungen text;
   rest int;
+  owner_vorher int;
 BEGIN
   /* Erst benennen, dann handeln: wer wird angefasst? Das NOTICE ist der einzige
      Weg zurueck (siehe Rollback-Strategie), also muss es VOR dem UPDATE
      eingesammelt werden. */
+  /* Die Zahl der Owner-Zugaenge VOR dem Lauf. Notbremse 2 vergleicht sie danach:
+     diese Migration schreibt nicht in occ_owner_access, die Zahl muss also gleich
+     bleiben - auch wenn sie 0 ist (Frischinstall). */
+  SELECT count(*) INTO owner_vorher FROM occ_owner_access WHERE revoked_at IS NULL;
+
   SELECT count(*), coalesce(string_agg(a.id::text || ' (' || u.email || ')', ', '), '-')
     INTO betroffen, kennungen
     FROM support_agents a
@@ -153,14 +159,33 @@ BEGIN
     RAISE EXCEPTION '232: % Kundenkonto/-konten halten weiter einen aktiven Support-Zugang. Die Bedingung hat sie nicht erfasst - die Vermischung besteht.', rest;
   END IF;
 
-  /* NOTBREMSE 2 · das Netz hat gehalten. Ein wirksamer Owner-Zugang darf diesen
-     Lauf ueberlebt haben, auch mit Org-Mitgliedschaft. Wuerde hier 0 stehen,
-     haette die Migration den eigenen Anmeldeweg angefasst - genau das, was sie
-     nicht darf. Geprueft wird die Zahl der Owner-Zugaenge, nicht ihre Rolle: die
-     Flaeche muss offen bleiben. */
+  /* NOTBREMSE 2 · das Netz hat gehalten: diese Migration hat KEINEN Owner-Zugang
+     angefasst.
+     ───────────────────────────────────────────────────────────────────────────
+     KORRIGIERT am 2026-10-02, und der Fehler gehoert benannt, weil er eine
+     WIEDERHOLUNG war. Hier stand:
+
+         SELECT count(*) INTO rest FROM occ_owner_access WHERE revoked_at IS NULL;
+         IF rest < 1 THEN RAISE EXCEPTION '... kein wirksamer Owner-Zugang mehr';
+
+     Auf einem FRISCHINSTALL ist occ_owner_access leer -> rest = 0 -> die Bremse
+     feuerte, und die Migrationskette brach bei 232 ab. Ein Frischinstall war
+     damit unmoeglich.
+
+     Das ist derselbe Denkfehler, den Migration 230 am GLEICHEN TAG hatte und der
+     dort schon behoben war: eine Notbremse, die Bestandsdaten voraussetzt. Ich
+     habe ihn wenige Stunden spaeter identisch wiederholt. Gefunden hat ihn
+     `sql/test-fresh-install.sh`, das seit heute die Demo-Welt als Vorgabe faehrt -
+     232 war nur noch nie darueber gelaufen.
+
+     Die richtige Frage ist nicht "gibt es einen Owner-Zugang?", sondern "hat
+     DIESER LAUF einen genommen?". Diese Migration schreibt gar nicht in
+     occ_owner_access; die Zahl muss also UNVERAENDERT sein. Bei leerer Tabelle
+     ist 0 = 0 und die Bremse schweigt - richtig, denn aus einer Flaeche, zu der
+     niemand Zugang hat, kann niemand ausgesperrt werden. */
   SELECT count(*) INTO rest FROM occ_owner_access WHERE revoked_at IS NULL;
-  IF rest < 1 THEN
-    RAISE EXCEPTION '232: kein wirksamer Owner-Zugang mehr. Diese Migration darf Owner-Konten NICHT anfassen.';
+  IF rest <> owner_vorher THEN
+    RAISE EXCEPTION '232: die Zahl der wirksamen Owner-Zugaenge hat sich von % auf % geaendert. Diese Migration darf occ_owner_access NICHT anfassen.', owner_vorher, rest;
   END IF;
 
   /* NOTBREMSE 3 · die Probe prueft ueberhaupt etwas. Gibt es keine einzige

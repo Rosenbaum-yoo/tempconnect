@@ -60,6 +60,105 @@ describe("Audit-Mandantengrenze — die Schreibseite", () => {
       "bestimmeAuditOrg() fehlt — dann steht die Regel wieder verstreut in den Aufrufern");
   });
 
+  it("die AKTEURS-ORG steht im INSERT — inline, mit array_agg, ohne is_active-Filter", () => {
+    /* ═════════════════════════════════════════════════════════════════════════
+     * OWNER-ENTSCHEID 2026-10-02: die Audit-Zeile bekommt die Org des AKTEURS.
+     * ═════════════════════════════════════════════════════════════════════════
+     *
+     * Die Zusicherung darunter („jede org-lose Zeile hat einen Grund") war in
+     * JEDEM Lauf mit Datenbank rot: 9 Zeilen, deren Akteur genau einer
+     * Organisation angehört. Migration 233 hat den Bestand nachgetragen; DIESE
+     * Probe hält die Schreibseite, damit die Zahl nicht wieder wächst.
+     *
+     * VIER EIGENSCHAFTEN, und jede hat einen gemessenen Grund.
+     * ═════════════════════════════════════════════════════════════════════════ */
+    const i = auditLogQuelle.indexOf("export async function writeAudit");
+    assert.ok(i > 0, "writeAudit() gibt es nicht mehr");
+    const rumpf = auditLogQuelle.slice(i, auditLogQuelle.indexOf("\n}", i))
+      .replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
+
+    /* 1 · Der Rückfall steht im INSERT, nicht in einer zweiten Abfrage. Ein
+     *     zweiter `pool.query` wäre auf dem Audit-Pfad eine Verdoppelung der
+     *     Datenbank-Runden für 38 % der Schreibvorgänge (gemessen: 1567 von 3995
+     *     Zeilen trugen keine Org). */
+    assert.match(rumpf, /COALESCE\(\$9::uuid,\s*\(\s*SELECT/,
+      "der Rückfall auf die Akteurs-Org steht nicht mehr inline im INSERT. Eine zweite "
+      + "Abfrage verdoppelt die Datenbank-Runden auf dem Audit-Pfad — und Mock-Pool-Proben, "
+      + "die Abfragen zählen, würden es melden.");
+    const abfragen = (rumpf.match(/pool\.query\(/g) || []).length;
+    assert.equal(abfragen, 1,
+      `writeAudit() setzt ${abfragen} Abfragen ab, erwartet 1. Der Rückfall gehört in den `
+      + "INSERT, nicht davor.");
+
+    /* 2 · `(array_agg(...))[1]`, NICHT `max(...)`. Weil es `max(uuid)` nicht gibt:
+     *     SELECT max(org_id) FROM org_memberships;
+     *     ERROR:  function max(uuid) does not exist
+     *     Der erste Entwurf dieser Zeile stand mit `max()` da und hätte bei JEDEM
+     *     Audit-Schreiben geworfen — genau das, was der Kommentar bei
+     *     bestimmeAuditOrg verbietet. Migration 202 hat denselben Fehler schon
+     *     einmal kassiert. */
+    assert.match(rumpf, /\(array_agg\(m\.org_id\)\)\[1\]/,
+      "der Rückfall benutzt nicht (array_agg(m.org_id))[1]. Falls dort wieder max() steht: "
+      + "es gibt KEIN max(uuid) in PostgreSQL, und der INSERT würde bei jedem Audit-Schreiben "
+      + "werfen — ein Audit-Eintrag, der verschwindet, ist schlimmer als einer ohne Org.");
+    assert.ok(!/max\(\s*m\.org_id\s*\)/.test(rumpf),
+      "der Rückfall benutzt max(m.org_id). Diese Funktion existiert für uuid NICHT "
+      + "(ERROR: function max(uuid) does not exist) — der INSERT würde immer werfen.");
+
+    /* 3 · GENAU EINE Organisation. Bei null, zwei oder mehr bleibt die Zeile
+     *     org-los: eine Org zu RATEN wäre eine falsche Behauptung in einem
+     *     Prüfpfad. Der mehrdeutige Fall ist heute leer (0 Nutzer mit mehr als
+     *     einer Org) und wurde künstlich belegt: NULL. */
+    assert.match(rumpf, /HAVING count\(DISTINCT m\.org_id\) = 1/,
+      "der Rückfall prüft nicht auf GENAU EINE Organisation. Ohne das Kriterium nimmt er bei "
+      + "zwei Mitgliedschaften eine beliebige — und rät damit eine Zuordnung.");
+
+    /* 4 · KEIN is_active-Filter, und das ist Absicht. Die rote Zusicherung zählt
+     *     `count(*) FROM org_memberships` ohne Filter; wer hier enger prüft als
+     *     die Spezifikation, lässt sie rot. (`org_memberships` trägt
+     *     UNIQUE (user_id, org_id) — count(*) dort und count(DISTINCT org_id)
+     *     hier sind per Schema identisch, nicht nur nach heutiger Datenlage.) */
+    /* RÜCKMUTATION 2026-10-02: hier stand `rumpf.match(/SELECT \(array_agg[\s\S]*?\)\)/)`
+     * — und das endet am ERSTEN `))`, also schon innerhalb von
+     * `(array_agg(m.org_id))`. Der Ausschnitt erreichte die WHERE-Klausel nie, und
+     * ein hinzugefügtes `AND m.is_active` blieb GRÜN. Geschnitten wird jetzt von
+     * `COALESCE($9` bis `HAVING` — genau der Bereich, in dem ein Filter stünde. */
+    const iVon = rumpf.indexOf("COALESCE($9");
+    const iBis = rumpf.indexOf("HAVING", iVon);
+    assert.ok(iVon > 0 && iBis > iVon,
+      "der Rückfall ist nicht in der erwarteten Form (COALESCE … HAVING) auffindbar — "
+      + "dann prüfen die Zusicherungen darunter die Nachbarschaft statt den Gegenstand");
+    const unterabfrage = rumpf.slice(iVon, iBis);
+    assert.ok(/FROM org_memberships/.test(unterabfrage),
+      "der geschnittene Bereich enthält die Unterabfrage nicht — falsch geschnitten");
+    assert.ok(!/is_active/.test(unterabfrage),
+      "der Rückfall filtert auf is_active. Die rote Zusicherung dieser Datei filtert NICHT — "
+      + "wer hier enger prüft als die Spezifikation, lässt sie rot. Soll beides filtern, "
+      + "gehört die Zusicherung zuerst geändert, mit Begründung.");
+
+    /* 5 · UND DIE MIGRATION GENAUSO — sonst bricht sie jeden Frischinstall.
+     *     Das ist nicht dasselbe Argument wie oben: die Migration läuft auf einer
+     *     frischen Datenbank als No-Op, weil keine Zeile die Bedingung erfüllt.
+     *     PostgreSQL PLANT die Unterabfrage aber trotzdem — `max(uuid)` scheitert
+     *     beim Planen, nicht beim Ausführen. Eine Migration mit `max()` wäre also
+     *     auf jedem Frischinstall ein Kettenabbruch, genau wie Migration 230 vor
+     *     ihrer Korrektur. */
+    const mig = path.join(API, "..", "sql", "migrations",
+      "233_audit_zeile_bekommt_die_akteurs_org.sql");
+    assert.ok(fs.existsSync(mig),
+      "Migration 233 (Akteurs-Org, Bestandsreparatur) fehlt — dann sind die 9 Zeilen wieder "
+      + "org-los, sobald jemand auf einem anderen Stand aufsetzt");
+    const migText = fs.readFileSync(mig, "utf8").replace(/--[^\n]*/g, " ");
+    assert.match(migText, /\(array_agg\(m\.org_id\)\)\[1\]/,
+      "Migration 233 benutzt nicht (array_agg(m.org_id))[1]");
+    assert.ok(!/max\(\s*m?\.?org_id\s*\)/.test(migText),
+      "Migration 233 benutzt max() auf einer uuid-Spalte. PostgreSQL PLANT die Unterabfrage "
+      + "auch dann, wenn keine Zeile die Bedingung erfüllt — die Migration wäre auf JEDEM "
+      + "Frischinstall ein Kettenabbruch, nicht nur ein No-Op.");
+    assert.match(migText, /HAVING count\(DISTINCT m\.org_id\) = 1/,
+      "Migration 233 prüft nicht auf genau eine Organisation — sie würde eine Zuordnung raten");
+  });
+
   it("keine Schreibstelle stempelt `req.orgId` ungeprueft", () => {
     /*
      * Der Riegel. Frueher stand an beiden Schreibstellen woertlich

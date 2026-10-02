@@ -17,7 +17,16 @@
 > `external_support_agent` beim Dienstleister „India Support BPO" — die
 > Vermischung, die `docs/FLAECHEN.md` verbietet. Widerruf per `is_active = FALSE`,
 > kein DELETE (sechs Tabellen zeigen mit `ON DELETE SET NULL` darauf), und
-> Owner-Konten bleiben unberuehrt (Owner-Punkt 15).
+> Owner-Konten bleiben unberuehrt (Owner-Punkt 15). **233** die Audit-Zeile
+> bekommt die Org ihres AKTEURS: 9 Zeilen ohne `org_id`, deren Akteur genau einer
+> Organisation angehoert, machten `auditMandantenGrenze.test.js` in jedem Lauf mit
+> Datenbank rot. Owner-Entscheid 2026-10-02 (Akteurs-Org statt Ressourcen-Org —
+> `audit_log` hat EINE `org_id`, und ein Mandant will zuerst wissen, was SEINE
+> Leute getan haben). Die Schreibseite loest `api/services/auditLog.js` an der
+> Quelle der Wahrheit, inline im INSERT fuer alle 78 Aufrufstellen; diese
+> Migration traegt nur den Bestand nach. **Und NICHT mit `max(uuid)` — die
+> Funktion gibt es nicht, PostgreSQL plant die Unterabfrage auch bei null
+> Treffern, der erste Entwurf haette jeden Frischinstall gebrochen.**
 
 > Last updated: 2026-08-13 — 166–169 Bounty-Zeitraum und -Entzug, 170 Bounty-Rabatt
 > auf der Rechnung, 171 Anstupser, 172 Merken ist ein Zustand, 173 ein aktives Abo
@@ -64,7 +73,7 @@ for all future migrations.
 
 ## Rule: Next migration number
 
-**Next migration MUST start at: 233**
+**Next migration MUST start at: 234**
 
 Format: `<NNN>_<short_description>.sql` (three-digit zero-padded)
 
@@ -140,8 +149,8 @@ alphabetical order within the number (e.g. `064_capacity_…` before `064_strate
 
 ## Checklist for new migrations
 
-1. Use the next sequential number (currently **233**)
-2. File name: `233_<short_snake_case>.sql`
+1. Use the next sequential number (currently **234**)
+2. File name: `234_<short_snake_case>.sql`
 3. Wrap DDL in a transaction if the DB supports transactional DDL
 4. Include a `-- Migration NNN:` comment header with a brief description
 5. Use `SET client_min_messages TO WARNING;` to suppress noise

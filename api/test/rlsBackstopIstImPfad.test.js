@@ -129,6 +129,53 @@ suite("RLS-Backstop — Zustand und Dokumentation müssen übereinstimmen", () =
     assert.match(DOKU, /Migrationskette bleibt auf einer privilegierten Rolle/,
       `${DOKU_REL} sagt nicht, dass die Migrationen NICHT umgestellt werden. Sie machen DDL und `
       + "legen im dev-Pfad pgcrypto an — mit rls_app bricht die Kette.");
+
+    /* ─────────────────────────────────────────────────────────────────────────
+     * SCHRITT 0 MUSS DRINSTEHEN (Korrektur 2026-10-02)
+     * ─────────────────────────────────────────────────────────────────────────
+     *
+     * Die erste Fassung dieses Dokuments las sich so, als wäre die Umstellung eine
+     * Rechte- und Konfigurationsfrage: GRANTs vergeben, `DATABASE_URL` umstellen,
+     * Flächen durchgehen. Gemessen ist sie das nicht. `withOrgContext()`,
+     * `req.setOrgContext` und `req.withStaffContext` sind definiert und getestet —
+     * und haben NULL Produktions-Aufrufer. Die Anwendung setzt
+     * `app.current_org_id` nirgends.
+     *
+     * Ohne gesetzte GUC wird die wirksame INSERT-Bedingung der ALL-Policies
+     * (`USING` gilt dort auch als `WITH CHECK`, weil `polwithcheck IS NULL`) zu
+     * `NULL OR NULL` — und damit abgelehnt. Eine Umstellung würde also nicht die
+     * Isolation einschalten, sondern jeden mandantengebundenen Lesevorgang auf 0
+     * Zeilen und jedes Audit-Schreiben auf einen Fehler setzen.
+     *
+     * Diese Zusicherung hält den Satz fest. Ohne ihn liest die nächste Sitzung die
+     * Liste, hält sie für vollständig, und schaltet.
+     * ───────────────────────────────────────────────────────────────────────── */
+    assert.match(DOKU, /Schritt 0/,
+      `${DOKU_REL} nennt keinen "Schritt 0". Die Liste der fehlenden Schritte liest sich dann `
+      + "wie eine Konfigurationsaufgabe — und der grösste Teil fehlt: die Anwendung setzt den "
+      + "Kontext nirgends.");
+    assert.match(DOKU, /withOrgContext/,
+      `${DOKU_REL} nennt withOrgContext nicht. Das ist der Mechanismus, der existiert, getestet `
+      + "ist und NICHT benutzt wird — ohne seinen Namen findet niemand die Lücke.");
+    /* OHNE AUFFANG-ALTERNATIVE. Beide Zusicherungen hier standen zuerst als
+     * Alternation mit drei Zweigen — und blieben in der Rückmutation GRÜN, weil
+     * jeweils ein schwacher Zweig weiter passte: `0** (nur` steht in der Tabelle,
+     * `SET LOCAL app.current_org_id` im Codeblock darüber. Eine Zusicherung mit
+     * Auffang-Alternative prüft den schwächsten ihrer Zweige, nicht die Aussage. */
+    /* ZWEI Zusicherungen, nicht eine kombinierte: `**0**` und das Wort stehen in
+     * VERSCHIEDENEN Tabellenzeilen (Kopf und Daten). Eine Bedingung, die beides in
+     * einer Zeile verlangt, ist auf dem unmutierten Dokument rot — passiert und
+     * gemessen. */
+    assert.match(DOKU, /\|\s*Produktions-Aufrufer\s*\|/,
+      `${DOKU_REL} hat keine Spalte „Produktions-Aufrufer". Genau diese Zahl ist der Befund — `
+      + "alles andere ist seit Monaten richtig dokumentiert.");
+    assert.match(DOKU, /\|\s*\*\*0\*\*\s*\(nur/,
+      `${DOKU_REL} nennt die NULL nicht. Ohne sie liest sich der Abschnitt wie eine Beschreibung `
+      + "des Mechanismus statt wie der Nachweis, dass ihn niemand benutzt.");
+    assert.match(DOKU, /von Hand gesetzt habe/,
+      `${DOKU_REL} sagt nicht, dass der Nachweis mit einem HÄNDISCH gesetzten Kontext geführt `
+      + "wurde. Ein Beleg ohne seine Bedingungen wird beim nächsten Lesen zur Freigabe — genau "
+      + "so ist dieser Befund vier Monate lang übersehen worden.");
   });
 });
 
