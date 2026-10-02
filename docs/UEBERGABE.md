@@ -3790,6 +3790,81 @@ weil die Gegenprobe („sieht der Eigentümer dieselben Zeilen?") daneben stand.
 **Was zum Schalten fehlt**, steht im Mandantenmodell am Ende des Abschnitts. Es
 betrifft den Datenbank-Anmeldeweg und gehört dem Owner.
 
+---
+
+### Der eine rote Test in jedem Tor-Lauf: entscheidungsreif, nicht gebaut *(2026-10-02)*
+
+`auditMandantenGrenze.test.js` → „jede org-lose Zeile hat einen Grund" ist in
+**jedem** Lauf mit Datenbank rot: 9 Audit-Zeilen ohne `org_id`, deren Akteur genau
+**einer** Organisation angehört, also eindeutig zuordenbar wären. CLAUDE.md führt
+den Befund seit dem 2026-10-01. Ich habe ihn diesmal bis zur Entscheidung
+aufgeklärt, aber **nicht gebaut** — und der Grund ist der Befund selbst.
+
+**Die Leckstelle ist gefunden und klein.** Vier Schreibstellen in zwei Dateien,
+alle in der req-losen Form, die `bestimmeAuditOrg()` nie fragt:
+
+```
+api/services/dealAgreementService.js:157   deal.agreement_created
+api/services/dealAgreementService.js:232   deal.agreement_confirmed
+api/services/dealAgreementService.js:397   deal.agreement_activated
+api/services/stateMachine.js:165           state_machine.transition  (generischer Helfer)
+```
+
+Die dokumentierte Regel in `api/services/auditLog.js` ist eindeutig: *„Ein
+ausdrücklich übergebenes `org_id` gewinnt — der Aufrufer kennt die Ressource."*
+Ohne `req` ist das der **einzige** richtige Weg. Und die Spalte ist da:
+`demand_requests.requester_org_id`.
+
+**Warum es trotzdem nicht gebaut ist.** Gemessen tragen die 9 Zeilen **zwei**
+Akteure aus **zwei** Organisationen — auf denselben Angeboten:
+
+```
+deal.agreement_created    Akteur 4b855907  Org cde2dc13   <- der Käufer
+deal.agreement_confirmed  Akteur d3596cd0  Org dfa21075   <- der Lieferant
+deal.agreement_activated  Akteur 4b855907  Org cde2dc13
+```
+
+Das ist der Normalfall eines Geschäfts zwischen zwei Firmen, und damit gibt es
+keine „strikt bessere" Wahl, sondern **zwei Audit-Modelle**:
+
+| | Gewinn | Preis |
+|---|---|---|
+| **Ressourcen-Org** (`requester_org_id`) | die Geschäftshistorie ist an **einer** Stelle vollständig | die Handlung des Lieferanten erscheint im Mandanten des **Käufers** |
+| **Akteurs-Org** | jeder Mandant sieht, was **seine** Leute getan haben | kein Mandant hat die vollständige Geschäftshistorie |
+
+`audit_log` hat **eine** `org_id` — eine Zeile gehört also genau einer Seite. Das
+ist eine Entscheidung über Audit-Sichtbarkeit an der Mandantengrenze, und solche
+gehören dem Owner, nicht einer Sitzung.
+
+**Und die Größenordnung gehört dazu:** **1516 von 3942** Audit-Zeilen tragen heute
+keine Org. Die 9 sind nur der Teil, den der Test als *eindeutig zuordenbar*
+erkennt. Auf der Schreibseite: **10** Dienst-Aufrufe geben `org_id` mit, **50**
+nicht. Eine halb umgesetzte Welle wäre hier schlimmer als keine — sie würde die
+Zahl senken, ohne die Regel herzustellen, und der Test wäre grün, während 40
+Schreibstellen weiter lecken.
+
+#### Empfehlung (eine Minute Entscheidung, dann baubar)
+
+**Akteurs-Org für die Zeile, plus `details.counterparty_org_id`.** Begründung:
+
+* Ein Audit-Pfad beantwortet zuerst *„wer aus meinem Haus hat was getan?"* — das
+  ist die Frage, die ein Mandant an seinen eigenen Pfad stellt, und die Frage, auf
+  die eine Aufsicht antwortet.
+* Es ist dieselbe Regel, die der Test schon anwendet (*Akteur gehört genau einer
+  Organisation → zuordenbar*). Das Soll stünde dann an einer Stelle statt an zwei.
+* Die Gegenseite ist nicht verloren, sondern **benannt**: `details.counterparty`
+  wird in `dealAgreementService` bereits geschrieben; eine zusätzliche
+  `counterparty_org_id` macht die Geschäftshistorie von **beiden** Seiten
+  rekonstruierbar, ohne eine zweite Zeile und ohne eine Spalte zu ändern.
+* Rein additiv: keine bestehende Zeile wird weniger sichtbar, 9 bisher für
+  **niemanden** sichtbare Zeilen werden für genau einen Mandanten sichtbar.
+
+**Umfang nach der Entscheidung:** `logTransition` bekommt ein durchgereichtes
+`org_id` (ein Parameter), die vier Schreibstellen geben es mit, eine Migration
+füllt die 9 Bestandszeilen nach (Vorbild 187/198), und die 50 Dienst-Aufrufe
+werden in einer eigenen Welle durchgegangen — mit einem Wächter, der eine neue
+req-lose Form ohne `org_id` rot macht, damit die Zahl nicht wieder wächst.
+
 ### Der Standort-Prüfer lässt durch, statt zu sperren *(2026-10-02, gemessen — latent, nicht offen)*
 
 Beim Blick auf „was passiert bei fünfzig Standorten" kam kein Mengenproblem
