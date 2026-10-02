@@ -398,6 +398,43 @@ P1-C: Abbild-Verifikation (Pflicht vor jedem Release)
   Der Laeufer sagt es selbst: *"DIESER LAUF BEWEIST WENIGER, ALS ER SCHEINT"*. Er
   sagt es seit Monaten in jedem Lauf — nur stand nirgends, dass man den Schalter
   setzen MUSS. Ein Hinweis ohne Pflicht wird gelesen und nicht befolgt.
+- **UND DER AUFBAU VON NULL — der einzige Lauf, der eine ganze Fehlerklasse findet
+  (Owner-Freigabe 2026-10-02, Punkt der Sammelliste):**
+- `sh sql/test-fresh-install.sh`
+  Baut eine **eigene** Wegwerf-Datenbank in einem **eigenen** Container
+  (`tempconnect_test`) — die laufende Entwicklungs-Datenbank bleibt unberuehrt —
+  faehrt **alle** Migrationen **und jeden Seed**, und prueft danach die Dinge, die
+  nur auf einer leeren Datenbank schiefgehen.
+- **Warum das eine eigene Pflichtzeile ist, und die Begruendung ist gemessen:** am
+  2026-10-02 hat dieser Lauf **zwei** Defekte gefunden, die **12575 gruene Proben
+  nicht gefunden haben** — und beide haetten den ersten Start auf einem fremden
+  Server gebrochen:
+
+      230/232  eine Notbremse fragte "gibt es einen wirksamen Zugang?" — auf einer
+               leeren Tabelle ist die Antwort nein, die Migrationskette brach ab.
+               Ein Frischinstall war UNMOEGLICH.
+      pgcrypto hatte NIRGENDS einen Erzeuger: nicht in init.sql, in keiner
+               Migration. Es lag nur in der Entwicklungs-Datenbank, weil es jemand
+               von Hand angelegt hatte. Das Passwort-Muster hing seit Monaten daran.
+
+- **Die Klasse hinter diesen Befunden hat an zwei Tagen SECHS Faelle geliefert**
+  (Zeitzone vom Host, Abbild mit beschreibbarer Schicht, `pgcrypto` von Hand, zwei
+  Notbremsen auf leerer Tabelle, fuenf Konten mit unbrauchbaren dokumentierten
+  Zugangsdaten). Sie lautet: **es laeuft hier, weil diese Maschine es richtig macht
+  — nicht weil das Projekt es festlegt.** Die richtige Frage ist deshalb nicht
+  „laeuft es?", sondern **„woher kommt das, und steht es im Repo?"** — und der
+  Aufbau von null ist das einzige Werkzeug, das sie beantwortet. Der sechste Fall
+  entstand, **nachdem** der fuenfte dokumentiert war: eine Notiz reicht
+  nachweislich nicht, ein Lauf schon.
+- **Ausgefuehrt, nicht angenommen:** am 2026-10-02 von der planenden Sitzung gefahren,
+  **exit 0** — 237 Migrationsdateien, Kerntabellen vorhanden, RLS-Backstop vorhanden,
+  6 Demo-Konten, `pgcrypto` **von 052 angelegt** (nicht mehr von Hand), kein Konto mit dem
+  alten oeffentlichen Hash, alle 6 Hashes gueltiges bcrypt. **Diese Zeile stand zweimal falsch
+  im Dokument, weil niemand sie getippt hat** — deshalb steht hier, wer sie wann gefahren hat.
+- **Dauer und Reihenfolge:** der Lauf braucht Docker und mehrere Minuten, laeuft
+  deshalb NICHT im Tor. Dafuer gilt: **jede neue Migrations-Notbremse laeuft einmal
+  hiergegen, BEVOR sie committet wird.** Zwei Minuten gegen einen gebrochenen
+  Livegang.
 - Aufwand: 0.5 Stunden | Nutzen: Hoch — Produktions-Konfidenz
 
 **PRIO 2 — Enterprise-Qualitaet (diese Woche)**
