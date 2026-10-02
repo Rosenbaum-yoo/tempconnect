@@ -3321,7 +3321,7 @@ durch sind** (Owner-Vorgabe). Bis dahin bleibt dieser Eintrag der Merkzettel.
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
 
-### Punkt 18, 14 und 17 sind gebaut *(2026-10-02, Owner-Freigabe)*
+### Punkt 18, 14, 17 und 16 sind gebaut *(2026-10-02, Owner-Freigabe)*
 
 Zwei der fünf freigegebenen Punkte stehen. Beide mit Messung, Wächter und
 Rückmutationen; die Reihenfolge war „zuerst das, was heute wirkt und nichts
@@ -3472,8 +3472,121 @@ beliebige Handlungen, stummes `catch`) und drei am Bestand, in zurückgerollten
 Transaktionen (jeder Zugang befristet; `expires_at NOT NULL`; Tor-Abfrage ohne
 Ablaufbedingung → der abgelaufene Zugang kommt wieder durch).
 
+#### Punkt 16 — kein Passwort mehr im Repo, und vier Befunde auf dem Weg
+
+**Der Umbau.** Migration 052 trug den bcrypt-Hash von `DemoPass2026!` **sechsmal**,
+und der Klartext stand als erste Zeile des Kopfes daneben. Das Gating hinter
+`SEED_DEMO_WORLD` verhinderte nur, dass die Hintertür **neu entsteht** — nicht,
+dass der Klartext weiter im öffentlichen Repo stand. Dazu zwei weitere Saaten mit
+festen Hashes. Alle sechs Dateien hashen jetzt **beim Laden** aus
+`app.seed_passwort` (`crypt(…, gen_salt('bf', 10))`), dem Muster der Y-Saaten
+(Y6.3):
+
+| | vorher | jetzt |
+|---|---|---|
+| Mig 052 | 6× fester Hash, Klartext im Kopf | `crypt(current_setting('app.seed_passwort'), …)` |
+| `demo-sales.sql` | 3× fester Hash | dito, mit Sperre |
+| `dev-data.sql` | 2× fester Hash | dito, mit Sperre |
+| Lader | nur `app.seed_demo_world` | `migrate.sh` reicht auch `app.seed_passwort` durch |
+| ohne Passwort | — | 052 **verweigert** (NOTICE), Saaten **brechen ab** (EXCEPTION) |
+| Passwort < 12 | — | überall lauter Abbruch |
+| Altlasten-Liste | 4 Einträge | **1** (Mig 125, muss den Hash als Suchmuster nennen) |
+
+**Der Unterschied zwischen „verweigern" und „abbrechen" ist Absicht.** 052 hängt in
+der **automatischen** Migrationskette — ein Abbruch ließe jedes `docker compose up`
+mit `SEED_DEMO_WORLD=true` stehen. Also die sichere Richtung: keine Konten. Die
+Saaten ruft ein Mensch von Hand auf; dort ist ein lauter Fehler der richtige
+Lehrer. Beides ist fail-closed, keines degradiert.
+
+**Fehlt `SEED_PASSWORT` bei aktiver Demo-Welt, erzeugt `migrate.sh` eines und gibt
+es aus** — je Installation ein anderes, nirgends hinterlegt. Keine Vorgabe: eine
+Vorgabe wäre wieder ein Passwort im Repo, nur an einer Stelle, an der niemand
+danach sucht (per Rückmutation geprüft).
+
+**Die Probe hat die Richtung gewechselt, nicht aufgehört.** `Y6.3` in
+`probebuehneBesetzung.test.js` las das Passwort früher **aus** 052 und verlangte,
+dass es dort steht — sonst träfe 125 ins Leere. Jetzt verlangt sie, dass 052
+**keines** nennt und 125 das historische **trotzdem** trifft. Das historische
+Passwort steht dafür im Wächter, und das ist eine bewusste Wahl: es muss irgendwo
+stehen, sonst kann niemand prüfen, dass 125 noch das Richtige sucht — und es ist
+kein Zugang mehr, sondern ein verbranntes, auf Produktion von 125 neutralisiertes
+Passwort, das keine Datei im Repo noch vergeben kann.
+
+##### Vier Befunde, die erst der Umbau sichtbar gemacht hat
+
+**1 · `pgcrypto` hatte nirgends einen Erzeuger.** Migrationen legen Erweiterungen
+dort an, wo sie sie brauchen (135: `pg_trgm`/`unaccent`, 177: `btree_gist`) —
+für `pgcrypto` tut es **nichts**: nicht `init.sql` (nur `uuid-ossp`), keine
+Migration. In der Entwicklungsdatenbank lag es nur, weil es jemand von Hand
+angelegt hatte. Das Y6.3-Passwortmuster hing damit seit Y6.3 an einer Erweiterung,
+die ein Frischinstall nicht hat. 052 und die zwei Saaten legen sie jetzt selbst an,
+**innerhalb** des Riegels und per `EXECUTE`: auf Produktion ist der Riegel zu, und
+`CREATE EXTENSION` braucht Rechte, die eine verwaltete Datenbank der
+Anwendungsrolle nicht geben muss.
+
+**2 · Meine eigene Migration 230 machte einen Frischinstall unmöglich.** Ihre
+Notbremse prüfte „mindestens ein wirksamer Zugang ohne Ablauf" — ohne zu fragen,
+ob es **überhaupt** Zugänge gibt. Auf einer frischen Datenbank ist
+`occ_owner_access` leer, die Bedingung schlug zu, und die Kette brach bei 230 ab.
+Der Denkfehler war feiner als ein Tippfehler: die Stop-Regel schützt den
+**letzten** Zugang, nicht die Existenz eines **ersten**; bei leerer Menge ist sie
+erfüllt, nicht verletzt. Korrigiert, und dieselbe falsche Annahme steckte im
+Wächter — die Probe sagt auf einer leeren Datenbank jetzt ausdrücklich, dass sie
+**nichts** nachgewiesen hat, statt still grün zu sein.
+
+**3 · `docker-compose.override.yml` existiert nicht.** Drei Stellen beriefen sich
+darauf, um einen **sicherheitsrelevanten** Default zu begründen: der Basis-Compose
+(„Der dev-Override setzt dies auf true"), der Kopf von 052, und — nachdem ich sie
+abgeschrieben hatte — mein eigener Kommentar in `migrate.sh`. Gesetzt wird
+`SEED_DEMO_WORLD=true` von `docker-compose.demo.yml`. Alle drei richtiggestellt.
+
+**4 · Zwei Saaten dokumentierten Passwörter, mit denen niemand hineinkommt.**
+`demo-sales.sql` (3 Konten) und `dev-data.sql` (2 Konten) trugen **denselben**
+Hash — der Kopf der einen nannte `Demo2026!`, der anderen `password123`. Gemessen
+mit grüner Selbstprobe des Vergleichers: der Hash passt zu **keinem** von beiden
+und zu keinem von acht weiteren Kandidaten. Fünf Konten waren mit den
+dokumentierten Zugangsdaten unbenutzbar, während das Repo behauptete, sie seien
+es. Der Umbau hat sie **reparieren** müssen, nicht nur entschärfen — und damit war
+die Frage „darf ich über 052/125 hinausgehen?" beantwortet: es gab keine
+funktionierende Anmeldung, die zu brechen gewesen wäre.
+
+##### Das Tor, das alles hätte finden müssen
+
+Befund 1 und 2 hat **kein Test** gefunden, sondern ein Wegwerf-Frischinstall von
+Hand. Der Grund: `sql/test-fresh-install.sh` lief **ohne** `SEED_DEMO_WORLD` —
+Migration 052 war darin ein No-Op, und mit ihr alles, was die Demo-Welt berührt.
+Ein Frischinstall-Tor, das den größten Seed der Kette überspringt, prüft weniger,
+als sein Name sagt.
+
+Seit dem 2026-10-02 fährt es die Demo-Welt **als Vorgabe** (`--ohne-demo-welt`
+schaltet ab), mit einem je Lauf erzeugten Passwort, und prüft danach vier Dinge:
+sechs Konten entstanden, `pgcrypto` da, **kein** Konto mit dem alten öffentlichen
+Hash, alle sechs Hashes gültig formatiertes bcrypt. Die letzten drei sind nötig,
+weil die Verweigerung von 052 ein **NOTICE** ist: ohne sie wäre der Lauf auch grün,
+wenn gar keine Konten entstünden. Vorgabe statt Schalter, weil ein Hinweis ohne
+Pflicht gelesen und nicht befolgt wird.
+
+##### Nachweis
+
+* **Wegwerf-Frischinstall mit Demo-Welt:** Kette `exit=0` von `init.sql` bis 231.
+  `pgcrypto` vorher **0**, von 052 angelegt. Sechs Konten, alle `$2a$10$`, **null**
+  mit dem alten Hash. `bcryptjs`: gesetztes Passwort `true`, `DemoPass2026!`
+  `false`.
+* **Beide umgebauten Saaten auf einer zweiten Wegwerf-Datenbank:** je drei
+  Verweigerungen (ohne Schalter / ohne Passwort / zu kurz) und ein erfolgreicher
+  Lauf; vier Konten, gesetztes Passwort `true`, alte Doku `false`.
+* **`sh sql/test-fresh-install.sh`:** PASS, inklusive der vier neuen Prüfungen.
+* **Neue Wächter:** `C6` (wer `app.seed_passwort` **liest**, hat einen Lader, der
+  es **setzt** — die Naht war unbewacht) und `C7` (das Frischinstall-Tor fährt die
+  Demo-Welt als Vorgabe) in `saatSperreHaelt.test.js`.
+* **18 Rückmutationen, 18 rot.** Zwei blieben im ersten Durchgang grün und haben
+  die Zusicherungen erst scharf gemacht: ein **Fenster-Muster**
+  (`app.seed_passwort[\s\S]{0,400}RAISE`) traf bei `IF false THEN` eine andere
+  Stelle, und eine Prüfung auf `SEED_PASSWORT=DemoPass…` sah die **Variable**
+  nicht, über die der Wert tatsächlich gesetzt wird.
+
 **Offen aus diesen vier:** die Verengung von Punkt 18 (braucht den vereinbarten
-Beobachtungszeitraum) und die Punkte 15 und 16.
+Beobachtungszeitraum) und Punkt 15.
 
 ### Der Standort-Prüfer lässt durch, statt zu sperren *(2026-10-02, gemessen — latent, nicht offen)*
 

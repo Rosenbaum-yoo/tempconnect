@@ -20,10 +20,33 @@
  */
 import { test, expect } from "@playwright/test";
 
-const AGENTUR = { email: "demo-agency@tempconnect.de", password: "DemoPass2026!" };
+/*
+ * DAS PASSWORT KOMMT AUS DER UMGEBUNG (Owner-Punkt 16, 2026-10-02).
+ *
+ * Hier stand `"DemoPass2026!"` zweimal fest. Das war dasselbe Passwort, das
+ * Migration 052 im Kopf dokumentierte und sechsmal als Hash trug — die
+ * Login-Hintertuer, die Migration 125 auf Produktion zumachen musste. 052 hasht
+ * jetzt beim Laden aus `app.seed_passwort`; damit ist der Wert hier nicht nur
+ * unerwuenscht, sondern auch FALSCH: auf einer frisch geseedeten Datenbank
+ * passt er nicht mehr.
+ *
+ * Es wird NICHT geraten und es gibt KEINE Vorgabe — eine Vorgabe waere genau
+ * das, was Punkt 16 abgeschafft hat. Fehlt die Variable, uebersprungen diese
+ * Datei ihre Tests mit einem Grund, statt mit sechs Anmeldefehlern zu scheitern,
+ * die wie ein Produktfehler aussehen.
+ *
+ *   SEED_PASSWORT=<dasselbe, mit dem geseedet wurde> npx playwright test …
+ */
+const SEED_PASSWORT = process.env.SEED_PASSWORT || "";
+const AGENTUR = { email: "demo-agency@tempconnect.de", password: SEED_PASSWORT };
 // Ein Einsatz gehoert dem einsetzenden UNTERNEHMEN — die Agentur verknuepft nur
 // ihre Kraefte damit. Deshalb zwei Konten in der Fixture.
-const UNTERNEHMEN = { email: "demo-buyer@tempconnect.de", password: "DemoPass2026!" };
+const UNTERNEHMEN = { email: "demo-buyer@tempconnect.de", password: SEED_PASSWORT };
+
+test.skip(!SEED_PASSWORT,
+  "SEED_PASSWORT ist nicht gesetzt. Die Demo-Konten werden seit Owner-Punkt 16 mit "
+  + "dem Passwort aus der Umgebung geseedet (Migration 052 hasht beim Laden); das Repo "
+  + "kennt keines. Aufruf: SEED_PASSWORT=<dasselbe wie beim Seed> npx playwright test …");
 /**
  * ZWEI Kraefte, und das ist keine Bequemlichkeit:
  *

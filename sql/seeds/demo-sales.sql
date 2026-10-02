@@ -7,12 +7,15 @@
 --  vorbei. Seit 2026-10-01 sperrt die Datei sich selbst - siehe SPERRE unten.)
 --
 -- ACHTUNG: NIEMALS in Produktionsumgebung ausfuehren!
--- Alle Passwort-Hashes entsprechen "Demo2026!" (bcrypt, Work Factor 10).
+-- Das Passwort steht NICHT in dieser Datei - es kommt aus `app.seed_passwort`
+-- und wird beim Laden gehasht (Owner-Punkt 16, siehe Sperre unten).
 --
 -- Demo-Accounts:
---   demo-hr@mustermann-gmbh.de  / Demo2026!  (company, PLUS-Plan)
---   demo-dispatch@toptemp.de    / Demo2026!  (agency, PRO-Plan)
---   demo-worker@example.de      / Demo2026!  (worker)
+--   demo-hr@mustermann-gmbh.de  (company, PLUS-Plan)
+--   demo-dispatch@toptemp.de    (agency, PRO-Plan)
+--   demo-worker@example.de      (worker)
+--
+--   Passwort fuer alle drei: der Wert von SEED_PASSWORT beim Laden.
 -- =============================================================================
 
 BEGIN;
@@ -44,6 +47,47 @@ BEGIN
   END IF;
 END $sperre_saat$;
 -- ──────────────────────────────────────────────────────────────────────────────
+-- DAS PASSWORT STEHT NICHT IM REPO (Owner-Punkt 16, 2026-10-02)
+--
+-- Diese Saat trug einen FESTEN bcrypt-Hash, und der Kopf nannte ein Passwort
+-- dazu. GEMESSEN am 2026-10-02 passte der Hash zu diesem Passwort NICHT - und
+-- auch zu keinem von acht weiteren Kandidaten. Die 3 Konten waren mit den
+-- dokumentierten Zugangsdaten also unbenutzbar, waehrend das Repo behauptete,
+-- sie seien es. Der Umbau repariert das und nimmt gleichzeitig das Passwort aus
+-- dem oeffentlichen Repo: gehasht wird ERST BEIM LADEN aus `app.seed_passwort`
+-- (gesetzt von scripts/dev/seed-data.sh aus SEED_PASSWORT), genau wie in den
+-- Y-Saaten und in Migration 052.
+--
+-- Keine Vorgabe. Ein Vorgabe-Passwort waere genau das, was hier abgeschafft wird.
+-- ──────────────────────────────────────────────────────────────────────────────
+DO $passwort$
+BEGIN
+  /* pgcrypto liefert crypt()/gen_salt(). GEMESSEN: nichts im Repo legte die
+     Erweiterung an - nicht init.sql (nur uuid-ossp), keine Migration. Migration
+     052 tut es seit heute, aber nur wenn die Kette MIT Demo-Welt lief; wer ohne
+     sie migriert und danach saet, haette sie nicht. Also selbst anlegen. */
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto') THEN
+    EXECUTE 'CREATE EXTENSION IF NOT EXISTS pgcrypto';
+    RAISE NOTICE 'demo-sales.sql: pgcrypto angelegt (nur dev - crypt() hasht beim Laden).';
+  END IF;
+
+  /* Ohne Passwort KEINE Zeile. Anders als Migration 052 (die in der
+     automatischen Migrationskette haengt und sich deshalb nur VERWEIGERT) darf
+     diese Saat laut abbrechen: sie wird von Hand aufgerufen, und dort ist ein
+     lauter Fehler der richtige Lehrer. crypt('') liefert sonst einen GUELTIGEN
+     Hash fuer das leere Passwort - anmeldbar fuer jeden, der es versucht. */
+  IF coalesce(current_setting('app.seed_passwort', true), '') = '' THEN
+    RAISE EXCEPTION
+      'demo-sales.sql: app.seed_passwort ist nicht gesetzt. Diese Saat traegt ABSICHTLICH kein Passwort im Repo (Owner-Punkt 16) und kennt keine Vorgabe. Aufruf: SEED_DEMO_WORLD=true SEED_PASSWORT=<geheim> ./scripts/dev/seed-data.sh';
+  END IF;
+  IF length(current_setting('app.seed_passwort', true)) < 12 THEN
+    RAISE EXCEPTION
+      'demo-sales.sql: app.seed_passwort ist kuerzer als 12 Zeichen. Diese Konten sind anmeldbar; ein kurzes Passwort macht die Saat zur Tuer.';
+  END IF;
+END $passwort$;
+-- ──────────────────────────────────────────────────────────────────────────────
+
+-- ──────────────────────────────────────────────────────────────────────────────
 
 
 -- ---------------------------------------------------------------------------
@@ -55,7 +99,7 @@ INSERT INTO users (role, email, password_hash, company_name, phone, is_verified)
 VALUES (
   'company',
   'demo-hr@mustermann-gmbh.de',
-  '$2b$10$UeHLVjBbRRQeGx03tWS73O6X4MZ4pWk0zBP4PtPrdHk2Jc.OTsKpK',
+  crypt(current_setting('app.seed_passwort'), gen_salt('bf', 10)),
   'Mustermann GmbH',
   '+49 40 123456',
   TRUE
@@ -67,7 +111,7 @@ INSERT INTO users (role, email, password_hash, company_name, phone, is_verified)
 VALUES (
   'agency',
   'demo-dispatch@toptemp.de',
-  '$2b$10$UeHLVjBbRRQeGx03tWS73O6X4MZ4pWk0zBP4PtPrdHk2Jc.OTsKpK',
+  crypt(current_setting('app.seed_passwort'), gen_salt('bf', 10)),
   'TopTemp Zeitarbeit GmbH',
   '+49 30 987654',
   TRUE
@@ -79,7 +123,7 @@ INSERT INTO users (role, email, password_hash, company_name, phone, is_verified)
 VALUES (
   'worker',
   'demo-worker@example.de',
-  '$2b$10$UeHLVjBbRRQeGx03tWS73O6X4MZ4pWk0zBP4PtPrdHk2Jc.OTsKpK',
+  crypt(current_setting('app.seed_passwort'), gen_salt('bf', 10)),
   NULL,
   '+49 170 1234567',
   TRUE

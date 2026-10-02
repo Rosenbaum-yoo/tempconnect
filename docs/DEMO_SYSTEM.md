@@ -27,7 +27,28 @@ contextHints.js → seitenspezifische Guidance-Banner (nur Demo)
 
 ## Demo-Accounts
 
-Alle Accounts verwenden das Passwort `DemoPass2026!`.
+**Das Passwort steht nicht in diesem Repo** (Owner-Punkt 16, 2026-10-02).
+
+Bis zum 2026-10-02 stand hier `DemoPass2026!` — dasselbe Passwort, das Migration 052
+im Kopf dokumentierte und sechsmal als bcrypt-Hash trug. Das war die Login-Hintertür,
+die Migration 125 auf laufenden Installationen zumachen musste.
+
+Seitdem hasht 052 beim Laden aus dem Session-Schalter `app.seed_passwort`
+(`pgcrypto`). Gesetzt wird er von `sql/migrate.sh` aus der Umgebungsvariablen
+`SEED_PASSWORT`:
+
+```bash
+SEED_DEMO_WORLD=true SEED_PASSWORT=<geheim> docker compose up db-migrate
+```
+
+Ist `SEED_PASSWORT` bei aktiver Demo-Welt leer, **erzeugt der Läufer eines und gibt
+es aus** — je Installation ein anderes, nirgends hinterlegt. Wer es reproduzierbar
+braucht (E2E-Tests), setzt die Variable selbst. Ohne Passwort entstehen **keine
+Konten**: die sichere Richtung, nicht die bequeme.
+
+Das Passwort einer **bestehenden** Installation steht nicht hier und lässt sich auch
+nicht nachlesen — es existiert nur als Hash. Vergessen heißt: neu seeden oder
+zurücksetzen.
 
 **Primär (Rollen-basiert):**
 - `demo-buyer@tempconnect.de` — Nordbau Industrie GmbH, company, ENTERPRISE

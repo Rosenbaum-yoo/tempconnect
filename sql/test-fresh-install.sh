@@ -51,13 +51,21 @@ MIGRATIONS_DIR="$(cd "$(dirname "$0")/migrations" && pwd)"
 MIGRATE_SCRIPT="$(cd "$(dirname "$0")" && pwd)/migrate.sh"
 CLEANUP=1
 FAILED=0
+MIT_DEMO_WELT=1   # Vorgabe seit 2026-10-02, Begruendung beim Migrationslauf unten
 
 # ── Argument parsing ─────────────────────────────────────────────────────────
 for arg in "$@"; do
   case "$arg" in
-    --no-cleanup) CLEANUP=0 ;;
+    --no-cleanup)      CLEANUP=0 ;;
+    --ohne-demo-welt)  MIT_DEMO_WELT=0 ;;
     --help|-h)
-      echo "Usage: sh sql/test-fresh-install.sh [--no-cleanup]"
+      echo "Usage: sh sql/test-fresh-install.sh [--no-cleanup] [--ohne-demo-welt]"
+      echo ""
+      echo "  --no-cleanup      Testcontainer stehen lassen (Fehlersuche)"
+      echo "  --ohne-demo-welt  Migration 052 als No-Op laufen lassen."
+      echo "                    VORGABE ist MIT: ohne sie uebersprang dieses Tor den"
+      echo "                    groessten Seed der Kette und hat am 2026-10-02 zwei"
+      echo "                    Defekte nicht gemeldet, die ein Frischinstall sofort zeigt."
       exit 0
       ;;
   esac
@@ -138,7 +146,36 @@ done
 ok "Postgres is ready."
 
 # ── Run migrations ───────────────────────────────────────────────────────────
-printf "\n${CYAN}--- Running migrations ---${RESET}\n"
+# MIT DEMO-WELT, und das ist seit 2026-10-02 die Vorgabe (Owner-Punkt 16).
+#
+# WARUM DAS GEAENDERT WURDE — zwei Befunde an einem Tag, beide von keinem Test
+# gefunden, beide von EINEM Frischinstall mit Demo-Welt:
+#
+#   1. Migration 230 (occ_owner_access.expires_at) hatte eine Notbremse, die auf
+#      einer LEEREN Tabelle zuschlug. Auf einem Frischinstall ist
+#      occ_owner_access leer -> die Kette brach bei 230 ab. Ein Frischinstall war
+#      unmoeglich, und dieses Tor hat es NICHT gemeldet.
+#   2. Migration 052 braucht seit Punkt 16 `pgcrypto`, und GEMESSEN legt nichts
+#      sonst im Repo die Erweiterung an. Ohne den Demo-Welt-Lauf waere nie
+#      aufgefallen, dass 052 sie selbst anlegen muss.
+#
+# Das Tor lief vorher ohne SEED_DEMO_WORLD — Migration 052 war darin ein No-Op,
+# und mit ihr alles, was die Demo-Welt beruehrt. Ein Frischinstall-Tor, das den
+# groessten Seed der Kette ueberspringt, prueft weniger, als sein Name sagt.
+#
+# Das Passwort wird HIER erzeugt und nirgends hinterlegt: der Lauf ist eine
+# Wegwerf-Datenbank, die Konten werden nie benutzt, und ein festes Passwort im
+# Repo ist genau das, was Punkt 16 abgeschafft hat.
+# Abschalten: --ohne-demo-welt (dann prueft das Tor die Demo-Welt NICHT).
+if [ "$MIT_DEMO_WELT" = "1" ]; then
+  FRESH_SEED_PW="FrischTor$(date +%s)xyz"
+  SEED_ENV="-e SEED_DEMO_WORLD=true -e SEED_PASSWORT=$FRESH_SEED_PW"
+  printf "\n${CYAN}--- Running migrations (MIT Demo-Welt) ---${RESET}\n"
+else
+  FRESH_SEED_PW=""
+  SEED_ENV=""
+  printf "\n${CYAN}--- Running migrations (OHNE Demo-Welt: --ohne-demo-welt) ---${RESET}\n"
+fi
 
 MIGRATION_OUTPUT=$(
   docker run --rm \
@@ -147,6 +184,7 @@ MIGRATION_OUTPUT=$(
     -e POSTGRES_DB="$TEST_DB" \
     -e POSTGRES_USER="$TEST_USER" \
     -e POSTGRES_PASSWORD="$TEST_PASS" \
+    $SEED_ENV \
     -v "${MIGRATE_SCRIPT}:/migrate.sh:ro" \
     -v "${MIGRATIONS_DIR}:/migrations:ro" \
     postgres:16-alpine \
@@ -253,6 +291,37 @@ check_policy "requisitions" "req_no_ctx"       "absent"
 check_force_rls "requisitions"
 check_force_rls "timesheets"
 check_force_rls "invoices"
+
+# ── Demo-Welt: entsteht sie, und mit WELCHEM Passwort? (Owner-Punkt 16) ───────
+if [ "$MIT_DEMO_WELT" = "1" ]; then
+  printf "\n${CYAN}--- Demo-Welt (Migration 052, Passwort aus der Umgebung) ---${RESET}\n"
+
+  # 1) Die Konten entstehen ueberhaupt. Ohne diese Pruefung waere der Lauf auch
+  #    dann gruen, wenn 052 sich still verweigert (z. B. weil app.seed_passwort
+  #    nicht ankommt) — und genau DAS waere unsichtbar, weil die Verweigerung
+  #    ein NOTICE ist und kein Fehler.
+  KONTEN=$(run_sql "SELECT COUNT(*) FROM users WHERE email LIKE 'demo-%@tempconnect.de';")
+  if [ "$KONTEN" = "6" ]; then ok "Demo-Konten angelegt: 6"
+  else fail "Demo-Konten: $KONTEN statt 6 — 052 hat sich verweigert (die Verweigerung ist ein NOTICE, kein Fehler) oder die Kette brach vorher ab"; fi
+
+  # 2) pgcrypto ist da. 052 legt es selbst an; GEMESSEN am 2026-10-02 tut das
+  #    nichts anderes im Repo — nicht init.sql (nur uuid-ossp), keine Migration.
+  PGC=$(run_sql "SELECT COUNT(*) FROM pg_extension WHERE extname='pgcrypto';")
+  if [ "$PGC" = "1" ]; then ok "pgcrypto vorhanden (von 052 angelegt)"
+  else fail "pgcrypto fehlt — dann kann 052 nicht hashen, und jemand wird den festen Hash zurueckschreiben"; fi
+
+  # 3) Und die eigentliche Zusicherung: KEIN Konto traegt den alten, oeffentlich
+  #    bekannten Demo-Hash. Das war die Login-Backdoor aus Migration 125.
+  ALT=$(run_sql "SELECT COUNT(*) FROM users WHERE password_hash LIKE '\$2a\$12\$mA5dLvWmN%';")
+  if [ "$ALT" = "0" ]; then ok "kein Konto traegt den alten oeffentlichen Demo-Hash"
+  else fail "$ALT Konto/Konten tragen den oeffentlich bekannten Demo-Hash — die Hintertuer aus 125 ist zurueck"; fi
+
+  # 4) Das Format muss bcryptjs-vertraeglich sein, sonst sind die Konten nicht
+  #    anmeldbar und die Demo-Welt ist Deko.
+  FORMAT=$(run_sql "SELECT COUNT(*) FROM users WHERE email LIKE 'demo-%@tempconnect.de' AND password_hash ~ '^\\\$2[aby]\\\$[0-9]{2}\\\$.{53}\$';")
+  if [ "$FORMAT" = "6" ]; then ok "alle 6 Hashes sind gueltig formatiertes bcrypt"
+  else fail "nur $FORMAT von 6 Demo-Hashes sind gueltiges bcrypt — bcryptjs.compare wirft dann statt false zu liefern (500er statt abgelehnter Anmeldung)"; fi
+fi
 
 # ── Final result ─────────────────────────────────────────────────────────────
 printf "\n"

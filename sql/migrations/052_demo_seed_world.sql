@@ -9,28 +9,97 @@
 --   ElektroStaff, StahlPro, RheinWorker (Agenturen) bieten an.
 --   BauWest AG (zweiter Buyer) für Vergleichsdaten.
 --
--- Demo-Accounts:  Passwort für alle: DemoPass2026!
+-- Demo-Accounts (das Passwort steht NICHT in dieser Datei, siehe unten):
 --   demo-buyer@tempconnect.de    (company / ENTERPRISE / Nordbau)
 --   demo-agency@tempconnect.de   (agency  / ENTERPRISE / ElektroStaff)
 --   demo-admin@tempconnect.de    (company / ENTERPRISE / Nordbau admin)
 --   demo-buyer2@tempconnect.de   (company / PLUS / BauWest)
 --   demo-agency2@tempconnect.de  (agency  / PRO  / StahlPro)
 --   demo-agency3@tempconnect.de  (agency  / BASIS / RheinWorker)
+--
+-- ─────────────────────────────────────────────────────────────────────────────
+-- DAS PASSWORT STEHT NICHT IM REPO (Owner-Punkt 16, 2026-10-02)
+-- ─────────────────────────────────────────────────────────────────────────────
+--
+-- Bis 2026-10-02 trug diese Datei SECHSMAL denselben festen bcrypt-Hash, und der
+-- Klartext stand als erste Zeile des Kopfes daneben. Das war die Login-Backdoor,
+-- die Migration 125 auf bereits laufenden Datenbanken aufraeumen musste — und
+-- das Gating von 052 verhinderte nur, dass sie NEU entsteht, nicht dass der
+-- Klartext weiter im oeffentlichen Repo steht. Ein Hash im Repo ist ein Passwort
+-- mit Umweg: wer ihn hat, kann offline raten, und der Klartext steht
+-- erfahrungsgemaess zwei Zeilen darueber im Kommentar. Hier stand er.
+--
+-- Jetzt gilt dasselbe Muster wie fuer die Y-Saaten (Y6.3): das Passwort kommt aus
+-- dem Session-Schalter `app.seed_passwort` und wird ERST BEIM LADEN gehasht
+-- (`crypt(…, gen_salt('bf', 10))` → `$2a$10$…`, dasselbe Format, das
+-- `bcryptjs.compare` prueft). Gesetzt wird der Schalter von `sql/migrate.sh` aus
+-- der Umgebungsvariablen `SEED_PASSWORT`; ist sie bei SEED_DEMO_WORLD=true leer,
+-- ERZEUGT der Laeufer eines und gibt es aus — je Installation ein anderes.
+--
+-- WAS DIESE DATEI NICHT TUT, und das gehoert benannt: sie aendert NICHTS an
+-- bestehenden Installationen. Wer den alten Hash in der Datenbank hat, behaelt
+-- ihn; dafuer ist Migration 125 da (und nur dort darf der alte Hash noch
+-- stehen — als Suchmuster, nicht als Zugang). Die Bindung zwischen beiden prueft
+-- `api/test/probebuehneBesetzung.test.js`.
 -- =============================================================================
 
 -- prod-sicher GEGATET: Der gesamte Seed-Body laeuft als EIN PL/pgSQL-DO-Block und
 -- wird NUR ausgefuehrt, wenn die Session-GUC app.seed_demo_world = 'true' ist
 -- (gesetzt von sql/migrate.sh aus der Umgebungsvariable SEED_DEMO_WORLD; default
 -- 'false'). Auf Prod ist die Migration damit ein No-Op (wird sauber als applied
--- verbucht), erzeugt aber KEINE Demo-Accounts mit oeffentlich dokumentiertem
--- Passwort (DemoPass2026!). In dev/sales aktiviert docker-compose.override.yml
--- SEED_DEMO_WORLD=true die volle Demo-Welt. Der DO-Block ist atomar: bei Fehler
+-- verbucht), erzeugt aber KEINE Demo-Accounts. Auf "true" setzt den Schalter
+-- docker-compose.demo.yml (NICHT docker-compose.override.yml - die Datei gibt es
+-- nicht, siehe Korrektur im docker-compose.yml vom 2026-10-02). Der DO-Block ist atomar: bei Fehler
 -- Rollback, ON_ERROR_STOP greift. (Ersetzt das fruehere explizite BEGIN/COMMIT.)
 DO $seed_demo_world$
 BEGIN
   IF current_setting('app.seed_demo_world', true) IS DISTINCT FROM 'true' THEN
     RAISE NOTICE '052_demo_seed_world.sql: SEED_DEMO_WORLD nicht aktiv – Demo-Welt wird NICHT geseedet (prod-sicher, No-Op).';
     RETURN;
+  END IF;
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     DAS PASSWORT (Owner-Punkt 16). Ab hier laeuft nur dev/sales.
+     ───────────────────────────────────────────────────────────────────────────
+
+     pgcrypto zuerst: crypt()/gen_salt() kommen daraus, und GEMESSEN am
+     2026-10-02 legt NICHTS im Repo die Erweiterung an — nicht init.sql (nur
+     uuid-ossp), keine Migration. In der Entwicklungsdatenbank liegt sie nur,
+     weil sie jemand von Hand angelegt hat. Ein Frischinstall haette sie nicht,
+     und diese Datei braucht sie ab heute. Also legt sie sie selbst an — genau
+     wie 135 (pg_trgm, unaccent) und 177 (btree_gist) es tun.
+
+     Dass das INNERHALB des Riegels steht und per EXECUTE laeuft, ist Absicht:
+     auf Produktion ist der Riegel zu, und CREATE EXTENSION braucht Rechte, die
+     eine verwaltete Datenbank der Anwendungsrolle nicht geben muss. Ein
+     CREATE EXTENSION ausserhalb wuerde dort die ganze Migrationskette
+     anhalten — fuer eine Erweiterung, die nur die Demo-Welt braucht. */
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto') THEN
+    EXECUTE 'CREATE EXTENSION IF NOT EXISTS pgcrypto';
+    RAISE NOTICE '052: pgcrypto angelegt (nur dev/sales — crypt() hasht das Demo-Passwort beim Laden).';
+  END IF;
+
+  /* Ohne Passwort KEINE Konten. Das ist der Unterschied zu den Y-Saaten, und er
+     ist begruendet: die ruft ein Mensch von Hand auf, dort ist ein lauter
+     Abbruch der richtige Lehrer. Diese Datei haengt in der AUTOMATISCHEN
+     Migrationskette — ein Abbruch liesse jedes `docker compose up` mit
+     SEED_DEMO_WORLD=true stehen. Also die sichere Richtung: keine Konten.
+
+     Das ist kein abgeschwaechter Fehlerpfad, sondern ein geschlossener: wer
+     nichts setzt, bekommt keinen Anmeldeweg. Ein Vorgabe-Passwort waere genau
+     das, was hier abgeschafft wird. Der Laeufer erzeugt ohnehin eines, dieser
+     Fall tritt also nur bei direktem psql-Aufruf ein. */
+  IF coalesce(current_setting('app.seed_passwort', true), '') = '' THEN
+    RAISE NOTICE '052_demo_seed_world.sql: app.seed_passwort ist nicht gesetzt – Demo-Welt wird NICHT geseedet. Diese Datei traegt ABSICHTLICH kein Passwort und kennt keine Vorgabe (Owner-Punkt 16). Aufruf: SEED_DEMO_WORLD=true SEED_PASSWORT=<geheim> sh sql/migrate.sh';
+    RETURN;
+  END IF;
+
+  /* Gesetzt, aber zu kurz, ist etwas anderes als nicht gesetzt: hier hat jemand
+     eine Entscheidung getroffen, und zwar eine schlechte. Drei dieser Konten
+     stehen auf ENTERPRISE-Funktionsniveau. Das wird laut. */
+  IF length(current_setting('app.seed_passwort', true)) < 12 THEN
+    RAISE EXCEPTION
+      '052_demo_seed_world.sql: app.seed_passwort ist kuerzer als 12 Zeichen. Diese sechs Konten sind anmeldbar, drei davon auf ENTERPRISE-Funktionsniveau – ein kurzes Passwort macht die Demo-Welt zur Tuer.';
   END IF;
 
 -- ═══════════════════════════════════════════════════════════════
@@ -41,37 +110,37 @@ INSERT INTO users (id, role, email, password_hash, company_name, phone, contact_
 VALUES
   ('d0a00000-0000-0000-0000-000000000001', 'company',
    'demo-buyer@tempconnect.de',
-   '$2a$12$mA5dLvWmN5sd27Mr6c0yROV6GI1NnrPfJgSIWHpHCQCW1bEQGkOVO',
+   crypt(current_setting('app.seed_passwort'), gen_salt('bf', 10)),
    'Nordbau Industrie GmbH', '+49 211 4401200', 'Thomas Brinkmann',
    'Düsseldorf', '40210', 'Industriestr. 42', TRUE, TRUE, TRUE),
 
   ('d0a00000-0000-0000-0000-000000000002', 'agency',
    'demo-agency@tempconnect.de',
-   '$2a$12$mA5dLvWmN5sd27Mr6c0yROV6GI1NnrPfJgSIWHpHCQCW1bEQGkOVO',
+   crypt(current_setting('app.seed_passwort'), gen_salt('bf', 10)),
    'ElektroStaff GmbH', '+49 221 9987650', 'Sandra Köhler',
    'Köln', '50667', 'Rheinuferstr. 18', TRUE, TRUE, TRUE),
 
   ('d0a00000-0000-0000-0000-000000000003', 'company',
    'demo-admin@tempconnect.de',
-   '$2a$12$mA5dLvWmN5sd27Mr6c0yROV6GI1NnrPfJgSIWHpHCQCW1bEQGkOVO',
+   crypt(current_setting('app.seed_passwort'), gen_salt('bf', 10)),
    'Nordbau Industrie GmbH', '+49 211 4401201', 'Julia Hartmann',
    'Düsseldorf', '40210', 'Industriestr. 42', TRUE, TRUE, TRUE),
 
   ('d0a00000-0000-0000-0000-000000000004', 'company',
    'demo-buyer2@tempconnect.de',
-   '$2a$12$mA5dLvWmN5sd27Mr6c0yROV6GI1NnrPfJgSIWHpHCQCW1bEQGkOVO',
+   crypt(current_setting('app.seed_passwort'), gen_salt('bf', 10)),
    'BauWest AG', '+49 201 7785430', 'Markus Feldmann',
    'Essen', '45127', 'Bauweg 7', TRUE, TRUE, TRUE),
 
   ('d0a00000-0000-0000-0000-000000000005', 'agency',
    'demo-agency2@tempconnect.de',
-   '$2a$12$mA5dLvWmN5sd27Mr6c0yROV6GI1NnrPfJgSIWHpHCQCW1bEQGkOVO',
+   crypt(current_setting('app.seed_passwort'), gen_salt('bf', 10)),
    'StahlPro Personal', '+49 231 5543210', 'Michael Stahl',
    'Dortmund', '44135', 'Stahlwerkstr. 3', TRUE, TRUE, TRUE),
 
   ('d0a00000-0000-0000-0000-000000000006', 'agency',
    'demo-agency3@tempconnect.de',
-   '$2a$12$mA5dLvWmN5sd27Mr6c0yROV6GI1NnrPfJgSIWHpHCQCW1bEQGkOVO',
+   crypt(current_setting('app.seed_passwort'), gen_salt('bf', 10)),
    'RheinWorker Solutions', '+49 203 8876540', 'Anna Rheinfeld',
    'Duisburg', '47051', 'Hafenstr. 22', TRUE, TRUE, TRUE)
 ON CONFLICT (email) DO NOTHING;

@@ -297,16 +297,38 @@ suite("Y6 — ist die Besetzung vollstaendig, datumsfrei, passwortfrei, wiederho
      * geratene Name liess sie durch die Ratsche fallen, statt sie zu dulden.
      * Gemessen wurden dadurch zwei „neue" Funde, von denen keiner neu war. */
     const BEKANNT = new Set([
-      /* Das oeffentlich dokumentierte Demo-Passwort der gegateten Demo-Welt.
-       * Entfernen betrifft einen ANMELDEWEG -> Owner-Entscheidung. */
-      "sql/migrations/052_demo_seed_world.sql",
+      /* ─────────────────────────────────────────────────────────────────────
+       * DREI EINTRAEGE WENIGER (Owner-Punkt 16, 2026-10-02)
+       * ─────────────────────────────────────────────────────────────────────
+       *
+       * Hier standen bis heute auch:
+       *   sql/migrations/052_demo_seed_world.sql   (DemoPass2026!, 6x als Hash)
+       *   sql/seeds/demo-sales.sql                 (Hash fuer 3 Konten)
+       *   sql/seeds/dev-data.sql                   (Hash fuer 2 Konten)
+       *
+       * Alle drei hashen jetzt beim Laden aus `app.seed_passwort`. Beim Umbau
+       * kam ein Befund dazu, der die Entscheidung leicht machte: demo-sales und
+       * dev-data trugen DENSELBEN Hash, und der passte zu KEINEM der beiden
+       * dokumentierten Passwoerter ("Demo2026!" bzw. "password123") noch zu acht
+       * weiteren Kandidaten — bei gruener Selbstprobe des Vergleichers. Die fuenf
+       * Konten waren mit den dokumentierten Zugangsdaten unbenutzbar, waehrend
+       * das Repo behauptete, sie seien es. Der Umbau hat sie reparieren muessen,
+       * nicht nur entschaerfen.
+       *
+       * Belegt durch einen Wegwerf-Frischinstall MIT Demo-Welt: Kette exit=0,
+       * sechs Konten, bcryptjs bestaetigt das Umgebungspasswort und lehnt
+       * DemoPass2026! ab. Das Tor dazu ist jetzt Vorgabe in
+       * sql/test-fresh-install.sh.
+       */
+
       /* Die Remediation. Sie MUSS den Hash nennen: ohne ihn kann sie die
        * betroffenen Konten nicht praezise und nicht idempotent finden. Der
        * Ersatz-Hash ist absichtlich einer ohne bekanntes Vorbild — siehe die
-       * beiden Zusicherungen darunter, die das pruefen statt es zu glauben. */
-      "sql/migrations/125_remediate_demo_seed_backdoor.sql",
-      "sql/seeds/demo-sales.sql",
-      "sql/seeds/dev-data.sql"
+       * beiden Zusicherungen darunter, die das pruefen statt es zu glauben.
+       * Sie ist seit dem 2026-10-02 der EINZIGE verbleibende Eintrag, und das
+       * soll so bleiben: 052 kann den gesuchten Hash nicht mehr erzeugen, aber
+       * auf Bestands-Datenbanken liegt er noch. */
+      "sql/migrations/125_remediate_demo_seed_backdoor.sql"
     ]);
     const MUSTER = /\$2[aby]?\$\d\d\$[./A-Za-z0-9]{20,}/;     // ein bcrypt-Hash im Klartext
     /* `[a-z_]*` nach dem Wort, und das kam aus einer Rueckmutation, die gruen
@@ -359,7 +381,7 @@ suite("Y6 — ist die Besetzung vollstaendig, datumsfrei, passwortfrei, wiederho
       + erledigt.join("\n  "));
   });
 
-  it("Y6.3 · die Backdoor-Remediation trifft wirklich das dokumentierte Passwort", async () => {
+  it("Y6.3 · 052 kann die Hintertuer nicht mehr bauen — und 125 trifft sie weiter", async () => {
     /* ═══════════════════════════════════════════════════════════════════════
      * DIE SCHAERFSTE ZUSICHERUNG DIESER DATEI — und sie kam aus einer Frage, die
      * sich beim Aufraeumen der Altliste stellte: woher weiss man, dass
@@ -385,12 +407,79 @@ suite("Y6 — ist die Besetzung vollstaendig, datumsfrei, passwortfrei, wiederho
     const t052 = fs.readFileSync(p052, "utf8");
     const t125 = fs.readFileSync(p125, "utf8");
 
-    /* Das Passwort steht im KOPF von 052 (ein Kommentar) — es ist dort
-     * absichtlich dokumentiert, weil die Demo-Welt damit bedient wird. */
-    const pw = (t052.match(/\b([A-Za-z][A-Za-z0-9]{3,}\d{4}!)/) || [])[1];
-    assert.ok(pw, "in 052 steht kein dokumentiertes Demo-Passwort der Form Wort+Jahr+! mehr. "
-      + "Wenn es bewusst entfernt wurde, muss die Bedingung in 125 nachziehen — sonst "
-      + "neutralisiert sie auf Bestands-Datenbanken nichts mehr.");
+    /* ───────────────────────────────────────────────────────────────────────
+     * DIE RICHTUNG HAT SICH GEDREHT (Owner-Punkt 16, 2026-10-02)
+     * ───────────────────────────────────────────────────────────────────────
+     *
+     * Diese Probe las das Passwort frueher AUS 052 — es stand dort im Kopf, und
+     * genau das war der Mangel. 052 hasht jetzt beim Laden aus
+     * `app.seed_passwort` und nennt kein Passwort mehr. Die Probe ist deshalb
+     * nicht verschwunden, sondern hat die Richtung gewechselt:
+     *
+     *   VORHER  052 MUSS ein Passwort nennen, sonst trifft 125 ins Leere.
+     *   JETZT   052 DARF keines nennen — und 125 muss das historische
+     *           trotzdem weiter treffen.
+     *
+     * Dass das historische Passwort nun HIER steht, ist der Preis und eine
+     * bewusste Wahl. Es muss irgendwo stehen, sonst kann niemand pruefen, dass
+     * 125 noch das Richtige sucht; und ein Waechter ist der ehrlichste Ort
+     * dafuer. Es ist ausserdem kein Zugang mehr, sondern ein VERBRANNTES
+     * Passwort: oeffentlich dokumentiert (docs/PILOT_GO_LIVE_TODOS.md), auf
+     * Produktion von 125 neutralisiert, und keine Datei im Repo kann es noch
+     * vergeben. Sechs weitere Waechter fuehren es schon als VERBOTENE
+     * Zeichenkette — hier ist es das Suchmuster einer Aufraeumung.
+     */
+    const HISTORISCH = "DemoPass2026" + "!";  // bewusst zerlegt: kein Volltreffer fuer Geheimnis-Suchen
+    const pw = HISTORISCH;
+
+    /* ── Die neue Richtung, Teil 1: 052 traegt keinen Hash mehr ───────────── */
+    const hashes052 = t052.match(/\$2[aby]\$\d\d\$[./A-Za-z0-9]{10,}/g) || [];
+    assert.deepEqual(hashes052, [],
+      "052 traegt wieder einen bcrypt-Hash. Ein Hash im oeffentlichen Repo ist ein Passwort "
+      + "mit Umweg: wer ihn hat, kann offline raten — und der Klartext stand hier "
+      + "erfahrungsgemaess zwei Zeilen darueber im Kommentar. Genau das war der Vorfall, "
+      + "den 125 aufraeumen musste.");
+
+    /* ── Teil 2: auch kein Klartext in einer ANWEISUNG ───────────────────── */
+    const t052ohne = t052.replace(/--[^\n]*/g, " ").replace(/\/\*[\s\S]*?\*\//g, " ");
+    for (const wort of [HISTORISCH, "Demo2026!", "password123"]) {
+      assert.ok(!t052ohne.includes(wort),
+        `052 setzt '${wort}' in einer ANWEISUNG. In der Begruendung darf es stehen, im SQL nicht.`);
+    }
+
+    /* ── Teil 3: der Mechanismus ist wirklich da, nicht nur der Hash weg ──
+     * Ohne diese Zusicherung waere Teil 1 auch durch "Konten ohne Passwort"
+     * erfuellt — gruen, und die Demo-Welt unbenutzbar. */
+    assert.match(t052, /crypt\(\s*current_setting\('app\.seed_passwort'\)/,
+      "052 bildet den Hash nicht aus dem Schalter. Das ist der Mechanismus, der das "
+      + "Passwort aus dem Repo haelt: current_setting('app.seed_passwort') + gen_salt('bf').");
+    assert.match(t052, /gen_salt\('bf'/,
+      "kein bcrypt-Salz — ein anderes Verfahren bestuende bcryptjs.compare nicht, und die "
+      + "Demo-Konten waeren nicht anmeldbar");
+    /* RUECKMUTATION 2026-10-02, und sie hat diese Zusicherung erst scharf gemacht:
+     * hier stand ein FENSTER-Muster (`app\.seed_passwort[\s\S]{0,400}RAISE`).
+     * Ersetzt man die Bedingung durch `IF false THEN`, bleibt der Name
+     * `app.seed_passwort` an anderen Stellen stehen (Kommentar, Laengenpruefung)
+     * und innerhalb von 400 Zeichen steht auch ein RAISE — die Probe blieb GRUEN,
+     * waehrend die Pruefung weg war. Ein Fenster trifft, was zufaellig darin
+     * liegt; geprueft wird jetzt die BEDINGUNG selbst. */
+    const leerPruefung = /IF\s+coalesce\(current_setting\('app\.seed_passwort',\s*true\),\s*''\)\s*=\s*''\s+THEN\s*\n\s*RAISE/;
+    assert.match(t052, leerPruefung,
+      "052 prueft nicht mehr, ob app.seed_passwort LEER ist, bevor es hasht — oder die "
+      + "Pruefung steht nicht direkt vor einem RAISE. crypt('') liefert einen GUELTIGEN "
+      + "Hash fuer das leere Passwort: anmeldbar fuer jeden, der es versucht.");
+    assert.match(t052, /length\(current_setting\('app\.seed_passwort'[^)]*\)\)\s*<\s*12/,
+      "keine Mindestlaenge in 052. Drei dieser Konten stehen auf ENTERPRISE-Funktionsniveau.");
+
+    /* ── Teil 4: 052 legt pgcrypto selbst an ──────────────────────────────
+     * GEMESSEN am 2026-10-02: nichts im Repo legt die Erweiterung an — nicht
+     * init.sql (nur uuid-ossp), keine Migration. In der Entwicklungsdatenbank
+     * lag sie nur, weil sie jemand von Hand angelegt hatte. Ohne crypt() kann
+     * 052 nicht hashen, und ein Frischinstall haette es nicht gehabt. */
+    assert.match(t052, /CREATE EXTENSION IF NOT EXISTS pgcrypto/,
+      "052 legt pgcrypto nicht an. Nichts sonst im Repo tut es — auf einem Frischinstall "
+      + "gaebe es crypt() nicht, und die Demo-Welt entstuende nie (oder, schlimmer, jemand "
+      + "schreibt den festen Hash zurueck, weil 'crypt geht hier nicht').");
 
     /* Alle bcrypt-Hashes in 125: der eine SUCHT (im WHERE), der andere ERSETZT. */
     const hashes = [...new Set(t125.match(/\$2[aby]?\$\d\d\$[./A-Za-z0-9]{50,60}/g) || [])];

@@ -400,6 +400,139 @@ suite("Y0.1 — die Saat sperrt sich selbst, auf jedem Ladeweg", () => {
       "migrate.sh hat keine Vorgabe false mehr — ein nicht gesetzter Schalter muss SPERREN, nicht öffnen");
   });
 
+  it("C6: wer `app.seed_passwort` LIEST, hat einen Lader, der es SETZT", () => {
+    /* ─────────────────────────────────────────────────────────────────────────
+     * DIE LÜCKE, DIE DIESE PROBE SCHLIESST (Owner-Punkt 16, 2026-10-02)
+     * ─────────────────────────────────────────────────────────────────────────
+     *
+     * Seit heute hashen Migration 052 und fünf Saaten ihr Passwort beim Laden aus
+     * `app.seed_passwort`, statt einen festen bcrypt-Hash zu tragen. Der
+     * Mechanismus hat damit eine NAHT: die Datei liest einen Schalter, den ein
+     * ANDERES Werkzeug setzt. Nichts erzwang, dass es ihn setzt.
+     *
+     * Was ohne diese Probe passiert, ist dabei das Unangenehme: nähme jemand das
+     * `-c app.seed_passwort=…` aus `migrate.sh` heraus, wäre KEIN Test rot. Die
+     * Dateien verweigern sich dann nämlich korrekt — mit einer sauberen Meldung.
+     * Es sähe also nicht nach einem Defekt aus, sondern nach „man muss wohl eine
+     * Variable setzen". Und der nächste Mensch, der eine Demo-Welt braucht und
+     * nicht weiterkommt, schreibt den festen Hash zurück. Genau so entstehen
+     * Hintertüren: nicht aus Absicht, sondern weil der richtige Weg verstellt war.
+     *
+     * Geprüft wird darum die VERDRAHTUNG, nicht nur die Datei: für jeden Leser
+     * muss es einen Lader geben, der den Schalter weitergibt.
+     * ───────────────────────────────────────────────────────────────────────── */
+    const SCHLUESSEL = "app.seed_passwort";
+    const esc = SCHLUESSEL.replace(/\./g, "\\.");
+
+    /* 1 · Wer liest überhaupt? Gemessen am 2026-10-02: Mig 052 und fünf Saaten. */
+    const leser = [];
+    for (const rel of ["sql/migrations/052_demo_seed_world.sql",
+      "sql/seeds/demo-sales.sql", "sql/seeds/dev-data.sql",
+      "sql/seeds/y1-2-standorte.sql", "sql/seeds/y1-3-sonderzustaende.sql",
+      "sql/seeds/y1-4-belegschaft.sql", "sql/seeds/y3-arbeiterstadien.sql"]) {
+      const p = path.join(ROOT, rel);
+      if (fs.existsSync(p) && new RegExp("current_setting\\(\\s*'" + esc + "'").test(fs.readFileSync(p, "utf8"))) {
+        leser.push(rel);
+      }
+    }
+    assert.ok(leser.length >= 6,
+      `nur ${leser.length} Datei(en) lesen ${SCHLUESSEL}, erwartet mindestens 6. `
+      + "Trägt eine davon wieder einen festen Hash, ist Owner-Punkt 16 zurückgenommen.");
+
+    /* 2 · Und die beiden Lader geben ihn weiter. Ein Lader je Weg: die
+     *     Migrationskette und die Saaten von Hand. */
+    for (const [lader, warum] of [
+      ["sql/migrate.sh", "Migration 052 hängt in der automatischen Kette — ohne den Schalter "
+        + "entsteht die Demo-Welt nie, und der nächste Mensch schreibt den festen Hash zurück"],
+      ["scripts/dev/seed-data.sh", "die Saaten brechen ohne den Schalter ab — mit sauberer "
+        + "Meldung, was wie eine Bedienfrage aussieht und nicht wie ein Defekt"],
+    ]) {
+      const sh = lies(lader);
+      assert.match(sh, new RegExp("-c\\s+" + esc + "="),
+        `${lader} gibt ${SCHLUESSEL} nicht als Session-GUC weiter. ${warum}.`);
+    }
+
+    /* 3 · Keiner der beiden Lader kennt eine VORGABE für das Passwort. Eine
+     *     Vorgabe wäre wieder ein Passwort im Repo — nur an anderer Stelle. */
+    for (const lader of ["sql/migrate.sh", "scripts/dev/seed-data.sh"]) {
+      const sh = lies(lader).replace(/#[^\n]*/g, " ");
+      assert.ok(!/SEED_PASSWORT:-[A-Za-z0-9!._-]+/.test(sh),
+        `${lader} hat eine VORGABE für SEED_PASSWORT (\${SEED_PASSWORT:-…}). Das ist wieder ein `
+        + "Passwort im Repo, nur an einer Stelle, an der niemand danach sucht.");
+    }
+
+    /* 4 · migrate.sh erzeugt eines, wenn keines gesetzt ist — und das ist KEINE
+     *     Vorgabe, sondern deren Gegenteil: je Installation ein anderer Wert,
+     *     nirgends hinterlegt. Ohne das Erzeugen bricht `docker compose up` mit
+     *     SEED_DEMO_WORLD=true, und wieder landet jemand beim festen Hash. */
+    const mig = lies("sql/migrate.sh");
+    assert.match(mig, /\/dev\/urandom/,
+      "migrate.sh erzeugt kein Passwort mehr, wenn SEED_PASSWORT fehlt. Dann entsteht bei "
+      + "`docker compose up` mit SEED_DEMO_WORLD=true keine Demo-Welt — und der bequemste "
+      + "Ausweg ist der feste Hash, den Owner-Punkt 16 gerade entfernt hat.");
+  });
+
+  it("C7: das Frischinstall-Tor fährt die Demo-Welt — als VORGABE, nicht auf Zuruf", () => {
+    /* ─────────────────────────────────────────────────────────────────────────
+     * WARUM DAS EINE EIGENE PROBE IST (2026-10-02)
+     * ─────────────────────────────────────────────────────────────────────────
+     *
+     * `sql/test-fresh-install.sh` lief bis heute OHNE SEED_DEMO_WORLD. Migration
+     * 052 war darin ein No-Op — und mit ihr alles, was die Demo-Welt berührt. Ein
+     * Frischinstall-Tor, das den größten Seed der Kette überspringt, prüft
+     * weniger, als sein Name sagt.
+     *
+     * Was es dadurch NICHT gemeldet hat, an einem Tag zwei Stück:
+     *   1. Migration 230 hatte eine Notbremse, die auf einer LEEREN Tabelle
+     *      zuschlug. Auf einem Frischinstall ist `occ_owner_access` leer — die
+     *      Kette brach bei 230 ab. Ein Frischinstall war UNMÖGLICH, und das Tor
+     *      war grün.
+     *   2. Migration 052 braucht `pgcrypto`, und nichts im Repo legte es an.
+     *
+     * Gefunden hat beides ein Wegwerf-Frischinstall von Hand. Deshalb ist das
+     * Fahren jetzt die VORGABE und nicht ein Schalter: ein Hinweis ohne Pflicht
+     * wird gelesen und nicht befolgt.
+     * ───────────────────────────────────────────────────────────────────────── */
+    const sh = lies("sql/test-fresh-install.sh");
+    assert.match(sh, /^MIT_DEMO_WELT=1/m,
+      "test-fresh-install.sh fährt die Demo-Welt nicht mehr als Vorgabe. Dann ist Migration 052 "
+      + "darin wieder ein No-Op, und das Tor prüft weniger, als sein Name sagt.");
+    assert.match(sh, /-e SEED_DEMO_WORLD=true -e SEED_PASSWORT=/,
+      "test-fresh-install.sh gibt die Demo-Welt-Schalter nicht an den Migrationslauf weiter — "
+      + "dann ist MIT_DEMO_WELT=1 Dekoration");
+    /* RÜCKMUTATION 2026-10-02: hier stand `!/SEED_PASSWORT=DemoPass|…/` — und das
+     * war die falsche Schreibweise. Der Wert wird über die Variable
+     * `FRESH_SEED_PW` gesetzt und erst danach als `-e SEED_PASSWORT=$FRESH_SEED_PW`
+     * weitergegeben; ein `FRESH_SEED_PW="DemoPass2026x"` erzeugt die gesuchte
+     * Zeichenkette NIE. Die Probe blieb grün, während im Tor ein bekanntes
+     * Passwort stand. Geprüft wird jetzt die ZUWEISUNG — und dass ihr Wert aus
+     * etwas Veränderlichem kommt, nicht aus einer Zeichenkette. */
+    const zuweisung = (sh.match(/^\s*FRESH_SEED_PW=(.*)$/m) || [])[1];
+    assert.ok(zuweisung,
+      "test-fresh-install.sh weist FRESH_SEED_PW nicht mehr zu — dann kommt kein Passwort beim "
+      + "Migrationslauf an, und 052 verweigert sich (lautlos, per NOTICE)");
+    assert.match(zuweisung, /\$\(date|\/dev\/urandom|\$RANDOM|\$\$/,
+      `FRESH_SEED_PW ist ein fester Wert (${zuweisung.trim()}). Der Lauf ist eine `
+      + "Wegwerf-Datenbank, aber ein festes Passwort im Repo ist genau das, was Owner-Punkt 16 "
+      + "abgeschafft hat — und der nächste Mensch kopiert es in etwas Dauerhaftes.");
+    for (const bekannt of ["DemoPass2026", "password123", "Demo2026!"]) {
+      assert.ok(!sh.includes(bekannt + "\"") && !sh.includes(bekannt + "'"),
+        `test-fresh-install.sh setzt '${bekannt}' als Wert ein. Das ist ein bekanntes Passwort.`);
+    }
+    /* Und die vier Zusicherungen, die den Lauf erst zum Nachweis machen. Ohne sie
+     * wäre das Tor auch grün, wenn 052 sich still verweigert — die Verweigerung
+     * ist ein NOTICE, kein Fehler. */
+    for (const [muster, was] of [
+      [/FROM users WHERE email LIKE 'demo-%@tempconnect\.de'/, "dass die sechs Konten entstehen"],
+      [/pg_extension WHERE extname='pgcrypto'/, "dass pgcrypto da ist"],
+      [/mA5dLvWmN/, "dass kein Konto den alten öffentlichen Hash trägt"],
+    ]) {
+      assert.match(sh, muster,
+        `test-fresh-install.sh prüft nicht mehr, ${was}. Dann ist der Demo-Welt-Lauf grün, `
+        + "auch wenn 052 sich still verweigert hat — die Verweigerung ist ein NOTICE.");
+    }
+  });
+
   /* ─────────────────────────────────────────────────────────────────────────
      TEIL D — kein Weg daneben
      ───────────────────────────────────────────────────────────────────────── */

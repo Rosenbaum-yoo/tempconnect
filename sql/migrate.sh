@@ -23,7 +23,8 @@ if [ -n "$DATABASE_URL" ]; then echo "Using DATABASE_URL (Managed DB / external)
 # ─────────────────────────────────────────────────────────────────────────────
 # Demo-Seed-Welt (Migration 052) — prod-sicher standardmaessig AUS.
 # Aktivierung NUR in dev/sales via Umgebungsvariable SEED_DEMO_WORLD=true
-# (gesetzt in docker-compose.override.yml). Der normalisierte Wert wird als
+# (gesetzt in docker-compose.demo.yml -- NICHT in docker-compose.override.yml, die
+# Datei gibt es nicht; gemessen 2026-10-02). Der normalisierte Wert wird als
 # Session-GUC `app.seed_demo_world` ueber PGOPTIONS an JEDE psql-Session
 # durchgereicht; Migration 052 liest ihn via current_setting() und seedet die
 # Demo-Welt NUR wenn er 'true' ist. Auf Prod laeuft 052 als No-Op durch und wird
@@ -35,7 +36,54 @@ case "$SEED_DEMO_WORLD_NORM" in
   1|true|yes|on) SEED_DEMO_WORLD_NORM=true ;;
   *)             SEED_DEMO_WORLD_NORM=false ;;
 esac
-export PGOPTIONS="${PGOPTIONS:+$PGOPTIONS }-c app.seed_demo_world=$SEED_DEMO_WORLD_NORM"
+# ─────────────────────────────────────────────────────────────────────────────
+# Das Passwort der Demo-Konten — NIE im Repo (Owner-Punkt 16, 2026-10-02).
+#
+# Bis heute trug 052 einen FESTEN bcrypt-Hash, und der Klartext stand zwei Zeilen
+# darueber im Kommentar. Das WAR der Vorfall, den Migration 125 auf
+# Bestands-Datenbanken aufraeumen muss. 052 hasht jetzt beim Laden aus
+# `app.seed_passwort` — dasselbe Muster, das die Y-Saaten seit Y6.3 benutzen
+# (siehe scripts/dev/seed-data.sh).
+#
+# Drei Faelle, und der dritte ist der Grund fuer das Erzeugen:
+#   1. SEED_DEMO_WORLD != true  -> kein Passwort noetig, 052 ist ohnehin No-Op.
+#   2. SEED_PASSWORT gesetzt    -> wird durchgereicht (reproduzierbar, E2E).
+#   3. SEED_DEMO_WORLD=true, SEED_PASSWORT leer -> wir ERZEUGEN eines und geben
+#      es aus. Ein harter Abbruch waere hier falsch, und das ist der Unterschied
+#      zu den Y-Saaten: die ruft ein Mensch von Hand auf, dort ist ein lauter
+#      Fehler der richtige Lehrer. 052 haengt in der AUTOMATISCHEN
+#      Migrationskette — ein Abbruch wuerde jedes `docker compose up` mit
+#      SEED_DEMO_WORLD=true (gesetzt von docker-compose.demo.yml) stehen lassen. Ein
+#      je Installation erzeugtes Passwort ist streng besser als ein bekanntes im
+#      Repo, und es existiert nirgends als Vorgabe.
+SEED_PASSWORT_GUC=""
+if [ "$SEED_DEMO_WORLD_NORM" = "true" ]; then
+  SEED_PASSWORT_WERT="${SEED_PASSWORT:-}"
+  if [ -z "$SEED_PASSWORT_WERT" ]; then
+    SEED_PASSWORT_WERT=$(head -c 48 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | cut -c1-24)
+    echo ""
+    echo "  +- Demo-Welt (052): SEED_PASSWORT war nicht gesetzt."
+    echo "  |  Erzeugtes Passwort der Demo-Konten: $SEED_PASSWORT_WERT"
+    echo "  |  Es steht NICHT im Repo und gilt nur fuer diese Installation."
+    echo "  |  Reproduzierbar gewuenscht (E2E)? Dann SEED_PASSWORT=<geheim> setzen."
+    echo "  +-"
+    echo ""
+  fi
+  # PGOPTIONS trennt Argumente an Leerraum. Ein Wert mit Leerzeichen kaeme
+  # VERSTUEMMELT an, und 052 schriebe einen Hash fuer etwas anderes, als hier
+  # gesetzt wurde — ohne dass irgendwo etwas auffaellt. Deshalb laut ablehnen.
+  if [ "$SEED_PASSWORT_WERT" != "$(printf '%s' "$SEED_PASSWORT_WERT" | tr -d '[:space:]')" ]; then
+    echo "FEHLER: SEED_PASSWORT enthaelt Leerraum. PGOPTIONS trennt daran — der Wert kaeme verstuemmelt in der Datenbank an." >&2
+    exit 1
+  fi
+  if [ "${#SEED_PASSWORT_WERT}" -lt 12 ]; then
+    echo "FEHLER: SEED_PASSWORT ist kuerzer als 12 Zeichen. Die Demo-Konten sind anmeldbar, drei davon auf ENTERPRISE-Funktionsniveau; ein kurzes Passwort macht die Demo-Welt zur Tuer." >&2
+    exit 1
+  fi
+  SEED_PASSWORT_GUC=" -c app.seed_passwort=$SEED_PASSWORT_WERT"
+fi
+
+export PGOPTIONS="${PGOPTIONS:+$PGOPTIONS }-c app.seed_demo_world=$SEED_DEMO_WORLD_NORM$SEED_PASSWORT_GUC"
 echo "Demo-Seed-Welt (052) / Remediation (125): app.seed_demo_world=$SEED_DEMO_WORLD_NORM"
 
 echo "Waiting for database..."

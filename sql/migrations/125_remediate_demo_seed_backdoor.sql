@@ -33,6 +33,35 @@
 -- ROLLBACK:
 --   Demo-Welt jederzeit reproduzierbar via SEED_DEMO_WORLD=true + Re-Seed (052).
 --   Kein dedizierter Down-Pfad noetig (nur nicht-kundische Demo-Accounts betroffen).
+--
+-- ─────────────────────────────────────────────────────────────────────────────
+-- NACHTRAG 2026-10-02 (Owner-Punkt 16): DIESE BEDINGUNG IST JETZT HISTORISCH
+-- ─────────────────────────────────────────────────────────────────────────────
+--
+-- 052 kann den unten gesuchten Hash NICHT MEHR ERZEUGEN. Es trug ihn sechsmal
+-- fest, mit dem Klartext im Kopf daneben; seit Punkt 16 hasht es beim Laden aus
+-- `app.seed_passwort` (pgcrypto), und das Repo nennt das Passwort nirgends mehr.
+-- Das Gating von 052 verhinderte nur, dass die Hintertuer NEU entsteht — nicht,
+-- dass der Klartext weiter im oeffentlichen Repo stand. Jetzt ist beides weg.
+--
+-- WAS DAS FUER DIESE MIGRATION BEDEUTET, und warum sie unveraendert bleibt:
+--
+--   * Auf BESTEHENDEN Datenbanken ist der alte Hash weiter da. Die Bedingung
+--     unten muss ihn also weiter treffen. Nichts daran wird angefasst.
+--   * Auf NEUEN Installationen findet sie nichts mehr und meldet No-Op. Das ist
+--     richtig, nicht kaputt — es gibt dort keine Hintertuer.
+--   * Der untere Hash ist damit die LETZTE Stelle im Repo, an der das alte
+--     Passwort noch als Zugangswert vorkommt. Er steht hier als SUCHMUSTER
+--     einer Aufraeumung, nicht als Zugang: das Konto, das ihn trug, ist genau
+--     das, was diese Zeile zumacht.
+--
+-- UND DIE BINDUNG IST GEPRUEFT, nicht behauptet:
+-- `api/test/probebuehneBesetzung.test.js`, Probe "Y6.3" rechnet nach, dass der
+-- gesuchte Hash das bcrypt des historischen Passworts ist — und dass 052 keinen
+-- Hash und kein Klartextpasswort mehr traegt. Die Probe hat dazu die RICHTUNG
+-- gewechselt, nicht aufgehoert: vorher verlangte sie, dass 052 ein Passwort
+-- NENNT (sonst traefe diese Bedingung ins Leere), jetzt verlangt sie, dass es
+-- keines nennt und diese Bedingung trotzdem passt.
 -- =============================================================================
 
 DO $remediate_demo_seed$

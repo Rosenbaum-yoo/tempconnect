@@ -17,7 +17,7 @@
 | | |
 |---|---|
 | **Plattform** | http://localhost:8080/ (läuft im Docker; bei „nicht erreichbar" → `docker restart tempconnect_api`, ~3 Min) |
-| **Demo-Passwort (alle Demo-Konten)** | `DemoPass2026!` |
+| **Demo-Passwort (alle Demo-Konten)** | steht **nicht** im Repo — das, mit dem geseedet wurde (`SEED_PASSWORT`). Seit Owner-Punkt 16 hasht Migration 052 beim Laden; der Läufer gibt ein erzeugtes Passwort aus, wenn keines gesetzt war. Siehe `docs/DEMO_SYSTEM.md`. |
 | **Unternehmen (Einsatzunternehmen)** | `demo-buyer@tempconnect.de` (ENTERPRISE) · `demo-buyer2@tempconnect.de` (PLUS) |
 | **Agentur (Personaldienstleister)** | `demo-agency@tempconnect.de` (ENTERPRISE) · `demo-agency2@tempconnect.de` (PRO) · `demo-agency3@tempconnect.de` (BASIS) |
 | **Staff (du)** | `dennisstegemann04@gmail.com` → Login unter **http://localhost:8080/staff/** (dein echtes Passwort) |

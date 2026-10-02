@@ -78,6 +78,7 @@ COMMENT ON COLUMN occ_owner_access.expires_at IS
 DO $nachweis$
 DECLARE
   n int;
+  ohne_ablauf int;
 BEGIN
   /* 1 · Die Spalte ist da und NULLBAR. Ein NOT NULL haette hier bedeutet:
      jeder Zugang MUSS ablaufen - und damit waere die Stop-Regel unerfuellbar. */
@@ -94,16 +95,32 @@ BEGIN
     RAISE EXCEPTION '230: % Zugang/Zugaenge haben bereits ein Ablaufdatum. Diese Migration darf keines setzen - das waere der Fall, den die Stop-Regel verbietet.', n;
   END IF;
 
-  /* 3 · DIE STOP-REGEL selbst, als Zustand geprueft: mindestens ein wirksamer
-     Zugang ohne Ablauf. Heute trivial erfuellt (es gibt keine Ablaeufe); die
-     Pruefung steht hier, weil sie nach jedem kuenftigen Lauf gelten muss. */
-  SELECT count(*) INTO n FROM occ_owner_access
-   WHERE revoked_at IS NULL AND expires_at IS NULL;
-  IF n < 1 THEN
-    RAISE EXCEPTION '230: kein wirksamer Owner-Zugang ohne Ablaufdatum. Der Verfall wuerde die Eigentuemer aus ihrer eigenen Flaeche aussperren, und das Aufheben passiert dort.';
-  END IF;
+  /* 3 · DIE STOP-REGEL selbst, als Zustand geprueft.
+     ───────────────────────────────────────────────────────────────────────────
+     KORRIGIERT am 2026-10-02, und der Fehler gehoert benannt: hier stand
+     `IF n < 1 THEN RAISE EXCEPTION` auf der Zahl der unbefristeten Zugaenge,
+     ohne zu fragen, ob es UEBERHAUPT Zugaenge gibt. Auf einem FRISCHINSTALL ist
+     occ_owner_access leer - die Bedingung schlug zu, und die Migrationskette
+     brach bei 230 ab. Ein Frischinstall war damit unmoeglich. Gefunden hat es
+     kein Test, sondern ein echter Wegwerf-Frischinstall mit Demo-Welt.
 
-  RAISE NOTICE '230: occ_owner_access.expires_at angelegt (leer), Stop-Regel erfuellt - % wirksame Zugaenge ohne Ablauf.', n;
+     Der Denkfehler war feiner als ein Tippfehler: die Stop-Regel lautet "die
+     Menge der wirksamen Zugaenge enthaelt immer mindestens einen OHNE Ablauf".
+     Bei LEERER Menge ist das erfuellt, nicht verletzt - aus einer Flaeche, zu
+     der niemand Zugang hat, kann niemand ausgesperrt werden. Die Regel schuetzt
+     den LETZTEN Zugang, nicht die Existenz eines ersten. Den legt der erste
+     `owner-access-cli.js grant` an, und ab da bewacht ihn die CLI. */
+  SELECT count(*) INTO n FROM occ_owner_access WHERE revoked_at IS NULL;
+  IF n > 0 THEN
+    SELECT count(*) INTO ohne_ablauf FROM occ_owner_access
+     WHERE revoked_at IS NULL AND expires_at IS NULL;
+    IF ohne_ablauf < 1 THEN
+      RAISE EXCEPTION '230: % wirksame Owner-Zugaenge, aber keiner ohne Ablaufdatum. Der Verfall wuerde die Eigentuemer aus ihrer eigenen Flaeche aussperren, und das Aufheben passiert dort.', n;
+    END IF;
+    RAISE NOTICE '230: occ_owner_access.expires_at angelegt (leer), Stop-Regel erfuellt - % von % wirksamen Zugaengen ohne Ablauf.', ohne_ablauf, n;
+  ELSE
+    RAISE NOTICE '230: occ_owner_access.expires_at angelegt (leer). Noch kein Owner-Zugang vorhanden (Frischinstall) - die Stop-Regel ist leer erfuellt; der erste `grant` legt einen unbefristeten an.';
+  END IF;
 END $nachweis$;
 
 COMMIT;

@@ -202,7 +202,22 @@ describe("Punkt 17 am Bestand — mindestens ein Zugang ohne Ablauf",
     } finally { await pool.end(); }
   });
 
-  it("es gibt immer mindestens einen wirksamen Zugang ohne Ablauf", async () => {
+  it("gibt es Zugänge, ist mindestens einer ohne Ablauf", async (t) => {
+    /* ─────────────────────────────────────────────────────────────────────────
+     * KORRIGIERT am 2026-10-02. Hier stand `assert.ok(wirksam >= 1)` — und das
+     * war derselbe Denkfehler, der in Migration 230 die Migrationskette eines
+     * FRISCHINSTALLS abreißen ließ: auf einer frischen Datenbank ist
+     * occ_owner_access leer, und das ist kein Mangel.
+     *
+     * Die Stop-Regel schützt den LETZTEN Zugang, nicht die Existenz eines
+     * ersten. Bei leerer Menge ist sie erfüllt, nicht verletzt.
+     *
+     * Was dabei NICHT passieren darf: dass die Probe auf einer leeren Datenbank
+     * still grün wird und dadurch behauptet, sie hätte etwas geprüft. Deshalb
+     * sagt sie es (`t.diagnostic`) — ein leeres Grün, das sich als solches
+     * ausweist, ist ehrlich; ein leeres Grün, das wie ein Nachweis aussieht,
+     * ist der schlimmere Fehler.
+     * ───────────────────────────────────────────────────────────────────────── */
     const pool = createPool();
     try {
       const { rows } = await pool.query(
@@ -210,10 +225,15 @@ describe("Punkt 17 am Bestand — mindestens ein Zugang ohne Ablauf",
                 (SELECT count(*)::int FROM occ_owner_access WHERE revoked_at IS NULL) AS wirksam
            FROM occ_owner_access
           WHERE revoked_at IS NULL AND expires_at IS NULL`);
-      assert.ok(rows[0].wirksam >= 1,
-        "kein wirksamer Owner-Zugang — das Owner Control Center ist für niemanden offen");
-      assert.ok(rows[0].unbefristet >= 1,
-        `${rows[0].wirksam} wirksame Zugänge, davon ${rows[0].unbefristet} ohne Ablauf. `
+      const { wirksam, unbefristet } = rows[0];
+      if (wirksam === 0) {
+        t.diagnostic("occ_owner_access ist leer (Frischinstall) — die Stop-Regel ist leer "
+          + "erfüllt, diese Probe hat NICHTS nachgewiesen. Der erste `grant` legt einen "
+          + "unbefristeten Zugang an, ab da greift die Regel in der CLI.");
+        return;
+      }
+      assert.ok(unbefristet >= 1,
+        `${wirksam} wirksame Zugänge, davon ${unbefristet} ohne Ablauf. `
         + "Läuft jeder irgendwann ab, schließt sich die Fläche von selbst — und das "
         + "Aufheben passiert in genau dieser Fläche.");
     } finally { await pool.end(); }

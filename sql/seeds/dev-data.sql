@@ -8,7 +8,8 @@
 -- waehrend jeder psql-Aufruf die Datei direkt laden konnte. Die Zusage
 -- steht jetzt als SPERRE unten, nicht als Satz hier oben.)
 --
--- Passwort beider Demo-Accounts: password123
+-- Passwort beider Demo-Accounts: der Wert von SEED_PASSWORT beim Laden - es
+-- steht NICHT in dieser Datei (Owner-Punkt 16, siehe Sperre unten).
 -- =============================================================================
 
 BEGIN;
@@ -40,6 +41,47 @@ BEGIN
   END IF;
 END $sperre_saat$;
 -- ──────────────────────────────────────────────────────────────────────────────
+-- DAS PASSWORT STEHT NICHT IM REPO (Owner-Punkt 16, 2026-10-02)
+--
+-- Diese Saat trug einen FESTEN bcrypt-Hash, und der Kopf nannte ein Passwort
+-- dazu. GEMESSEN am 2026-10-02 passte der Hash zu diesem Passwort NICHT - und
+-- auch zu keinem von acht weiteren Kandidaten. Die 2 Konten waren mit den
+-- dokumentierten Zugangsdaten also unbenutzbar, waehrend das Repo behauptete,
+-- sie seien es. Der Umbau repariert das und nimmt gleichzeitig das Passwort aus
+-- dem oeffentlichen Repo: gehasht wird ERST BEIM LADEN aus `app.seed_passwort`
+-- (gesetzt von scripts/dev/seed-data.sh aus SEED_PASSWORT), genau wie in den
+-- Y-Saaten und in Migration 052.
+--
+-- Keine Vorgabe. Ein Vorgabe-Passwort waere genau das, was hier abgeschafft wird.
+-- ──────────────────────────────────────────────────────────────────────────────
+DO $passwort$
+BEGIN
+  /* pgcrypto liefert crypt()/gen_salt(). GEMESSEN: nichts im Repo legte die
+     Erweiterung an - nicht init.sql (nur uuid-ossp), keine Migration. Migration
+     052 tut es seit heute, aber nur wenn die Kette MIT Demo-Welt lief; wer ohne
+     sie migriert und danach saet, haette sie nicht. Also selbst anlegen. */
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto') THEN
+    EXECUTE 'CREATE EXTENSION IF NOT EXISTS pgcrypto';
+    RAISE NOTICE 'dev-data.sql: pgcrypto angelegt (nur dev - crypt() hasht beim Laden).';
+  END IF;
+
+  /* Ohne Passwort KEINE Zeile. Anders als Migration 052 (die in der
+     automatischen Migrationskette haengt und sich deshalb nur VERWEIGERT) darf
+     diese Saat laut abbrechen: sie wird von Hand aufgerufen, und dort ist ein
+     lauter Fehler der richtige Lehrer. crypt('') liefert sonst einen GUELTIGEN
+     Hash fuer das leere Passwort - anmeldbar fuer jeden, der es versucht. */
+  IF coalesce(current_setting('app.seed_passwort', true), '') = '' THEN
+    RAISE EXCEPTION
+      'dev-data.sql: app.seed_passwort ist nicht gesetzt. Diese Saat traegt ABSICHTLICH kein Passwort im Repo (Owner-Punkt 16) und kennt keine Vorgabe. Aufruf: SEED_DEMO_WORLD=true SEED_PASSWORT=<geheim> ./scripts/dev/seed-data.sh';
+  END IF;
+  IF length(current_setting('app.seed_passwort', true)) < 12 THEN
+    RAISE EXCEPTION
+      'dev-data.sql: app.seed_passwort ist kuerzer als 12 Zeichen. Diese Konten sind anmeldbar; ein kurzes Passwort macht die Saat zur Tuer.';
+  END IF;
+END $passwort$;
+-- ──────────────────────────────────────────────────────────────────────────────
+
+-- ──────────────────────────────────────────────────────────────────────────────
 
 
 -- Demo-Unternehmen (company, PLUS-Plan)
@@ -47,7 +89,7 @@ INSERT INTO users (role, email, password_hash, company_name, phone, is_verified)
 VALUES (
   'company',
   'demo@firma.de',
-  '$2b$10$UeHLVjBbRRQeGx03tWS73O6X4MZ4pWk0zBP4PtPrdHk2Jc.OTsKpK',
+  crypt(current_setting('app.seed_passwort'), gen_salt('bf', 10)),
   'Demo GmbH',
   '+49 40 000000',
   TRUE
@@ -65,7 +107,7 @@ INSERT INTO users (role, email, password_hash, company_name, phone, is_verified)
 VALUES (
   'agency',
   'test@agentur.de',
-  '$2b$10$UeHLVjBbRRQeGx03tWS73O6X4MZ4pWk0zBP4PtPrdHk2Jc.OTsKpK',
+  crypt(current_setting('app.seed_passwort'), gen_salt('bf', 10)),
   'Test Zeitarbeit GmbH',
   '+49 30 123456',
   TRUE
