@@ -3820,6 +3820,92 @@ betrifft den Datenbank-Anmeldeweg und gehört dem Owner.
 
 ---
 
+### Der Rückweg liegt außerhalb der Fläche — belegt, nicht behauptet *(2026-10-02)*
+
+**Zwei Dinge haben sich hier geändert, und eines davon war meine eigene Lesung.**
+
+#### Die Saat erfüllte eine Regel, ohne sie zu zeigen
+
+Eine andere Sitzung maß `occ_owner_access`: **zwei** wirksame Zugänge, **null** mit
+`expires_at` — und fragte, ob das Absicht sei. Für die **Bestandszeilen** ja
+(Migration 230 setzt bewusst keinen Ablauf; ein pauschales „ab jetzt 90 Tage" hätte
+die Fläche in 90 Tagen geschlossen, ohne dass jemand es entschieden hat).
+
+Für **`y4-flaechen.sql`** nein, und das war eine Inkonsistenz in meiner eigenen
+Saat: Bremse 4 verlangt dort, dass **jeder** Bühnen-Staff-Zugang abläuft, mit der
+Begründung *„ein Bühnen-Zugang ohne Ablauf ist eine Hintertür, die niemand mehr
+schließt"* — und die eigene `occ_owner_access`-Zeile hatte keinen. Beim Schreiben
+von y4 war das unmöglich: die Spalte gab es nicht.
+
+Nachgezogen: die Bühnen-Zeile läuft nach **180 Tagen relativ** ab (gemessen
+2027-03-31), die **echte** Owner-Zeile bleibt unbefristet. Dazu zwei neue Bremsen —
+**7b** (die Bühnen-Owner-Sicht hat ein wirksames Ablaufdatum) und **7c** (es gibt
+einen wirksamen unbefristeten Zugang **außerhalb** des Bühnen-Präfixes, damit die
+Bühne nicht das Break-Glass wird).
+
+**Der Nebeneffekt ist wichtiger als die Konsistenz.** Mit zwei unbefristeten
+Zugängen war die Stop-Regel **trivial** erfüllt und damit nicht vorführbar. Jetzt
+trägt sie: gemessen weist `owner-access-cli.js revoke` auf die Owner-Zeile wirklich
+ab, statt es nur zu können. Eine Bühne, die eine Regel erfüllt, ohne sie zu zeigen,
+ist für genau den Zweck gebaut, den sie nicht erfüllt.
+
+#### Meine „höchstens einer kann befristet werden"-Lesung war zu eng
+
+Ich hatte geschrieben, höchstens **einer** der beiden Zugänge könne eine Frist
+bekommen, weil die Stop-Regel sonst das Break-Glass nimmt. Dieselbe Sitzung hat das
+umgeworfen, und sie hat recht. Nachgeprüft am Code:
+
+`grant --no-expiry` setzt `tage = null`, und die Stop-Regel wird nur bei
+`tage !== null` gerufen — sie greift also **nicht**. Der `INSERT … ON CONFLICT`
+setzt `revoked_at = NULL` und `expires_at = NULL`. **Der Rückweg liegt außerhalb
+der Fläche** und verlangt **Datenbankzugriff** statt OCC-Zugang — das ist die
+*stärkere* Berechtigung, nicht die schwächere. So ist Break-Glass üblicherweise
+gebaut: nicht als Tür, die immer offen steht, sondern als Schlüssel, der woanders
+liegt.
+
+#### Und die Bedingung, unter der das trägt: ein Rückweg, den niemand gegangen ist, ist keiner
+
+Belegt auf einer Wegwerf-Datenbank mit ganzer Kette und Demo-Welt:
+
+| Richtung | Ergebnis |
+|---|---|
+| **A** · den letzten unbefristeten **befristen** | abgewiesen (`LETZTER_UNBEFRISTETER_ZUGANG`) |
+| **A** · den letzten unbefristeten **widerrufen** | abgewiesen |
+| **B** · Aussperr-Zustand per direktem SQL erzwungen | `wirksam=2 unbefristet=0`; Tor-Abfrage **0** für beide Konten, Gegenprobe ohne JOIN: *„Zeilen, die das Tor durchlässt: 0"* |
+| **B** · `grant --email … --no-expiry` daraus | Fläche wieder offen, **mit** Protokollspur |
+
+Der Rückweg steht jetzt in der **Benutzungshilfe** der CLI (mit Befehl **und**
+Beleg-Datum) und in der **Meldung** der Stop-Regel selbst — dem einen Moment, in
+dem jemand ihn braucht. `api/test/ownerZugangLaeuftAb.test.js` hält beides;
+**8 Rückmutationen, 8 rot.**
+
+**Eine Formulierung war dabei messbar falsch und ist korrigiert:** die Meldung sagte
+*„das Aufheben passiert im Owner Control Center, also nirgends"*. Es passiert in
+genau diesem Befehl. Eine Meldung, die einen vorhandenen Ausweg verschweigt, schickt
+den Leser ins Leere — der Wächter macht eine Rückkehr zu dieser Formulierung rot.
+
+**Die Abweisung bleibt trotzdem.** CLAUDE.md benennt das eigentliche Risiko: *„Das
+eigentliche Risiko ist das Versehen, nicht der Vorsatz."* Sie kostet einen zweiten
+Befehl und ersetzt den Rückweg nicht — sie macht ihn selten nötig.
+
+#### Was daraus für die Owner-Entscheidung folgt
+
+Die Lage ist jetzt: **beide** bestehenden Zugänge *könnten* befristet werden, ohne
+dass jemand ausgesperrt bleibt. Dafür müsste die Invariante an **drei** Stellen
+gelockert werden — der Stop-Regel in `owner-access-cli.js`, Bremse 7c in
+`y4-flaechen.sql`, und der Bestands-Probe in `ownerZugangLaeuftAb.test.js`. Die
+Notbremse in Migration 230 ist **nicht** darunter: sie ist gebucht und läuft nicht
+erneut.
+
+Das ist eine Entscheidung über den eigenen Anmeldeweg und braucht das Wort des
+Owners direkt. Bis dahin steht die sichere Fassung: **einer unbefristet, einer
+befristet.** Meine Empfehlung bleibt, den Zugang des Owners unbefristet zu lassen —
+nicht weil es keinen Rückweg gäbe, sondern weil ein Rückweg, der Serverzugriff
+verlangt, im Ernstfall langsamer ist als eine offene Tür, und die Fläche nichts
+gewinnt, wenn der letzte Schlüssel verfällt.
+
+---
+
 ### Der eine rote Test in jedem Tor-Lauf: entscheidungsreif, nicht gebaut *(2026-10-02)*
 
 `auditMandantenGrenze.test.js` → „jede org-lose Zeile hat einen Grund" ist in

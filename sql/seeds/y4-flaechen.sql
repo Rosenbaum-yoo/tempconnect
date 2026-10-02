@@ -88,6 +88,9 @@
 --   * Das PASSWORT kommt aus `app.seed_passwort` und steht nirgends im Repo
 --     (Y6.3). Ohne gesetzten Wert verweigert die Saat.
 --   * Jeder Staff-Zugang LÄUFT AB: `expires_at = NOW() + INTERVAL '180 days'`.
+--     Seit dem 2026-10-02 gilt das auch für die OWNER-Sicht dieser Saat — die
+--     Spalte gab es vorher nicht (Owner-Punkt 17). Die ECHTE Owner-Zeile bleibt
+--     unbefristet: sie ist das Break-Glass.
 --     Relativ, also Y6.2-konform — und vor allem: ein Bühnen-Zugang, der
 --     vergessen wird, wird von selbst wertlos. Die Middleware prüft das im
 --     `WHERE`, beide Tore (Anmeldung und Zugriff). Wer die Bühne weiter braucht,
@@ -441,17 +444,51 @@ UPDATE support_agents sa
 -- Massgeblich wie die beiden Blöcke darueber. `occ_owner_access` traegt
 -- `revoked_at`, und das Tor prueft es — hier ist der Widerruf also dasselbe
 -- Mittel wie beim Staff-Zugang.
+-- ─────────────────────────────────────────────────────────────────────────────
+-- DIESE ZEILE LAEUFT AB (Owner-Punkt 17 nachgezogen, 2026-10-02)
+-- ─────────────────────────────────────────────────────────────────────────────
+--
+-- GEFUNDEN DURCH EINE FRAGE, NICHT DURCH EINEN TEST. Eine andere Sitzung mass
+-- `occ_owner_access`: zwei wirksame Zugaenge, NULL davon mit `expires_at` - und
+-- fragte, ob das Absicht sei. Es war Absicht fuer die Bestandszeilen (Migration
+-- 230 setzt bewusst keinen Ablauf, sonst schliesst sich die Flaeche in 90 Tagen,
+-- ohne dass jemand es entschieden hat). Es war KEINE Absicht fuer DIESE Zeile:
+--
+-- Bremse 4 weiter unten verlangt, dass JEDER Buehnen-STAFF-Zugang ablaeuft, mit
+-- der Begruendung "ein Buehnen-Zugang ohne Ablauf ist eine Hintertuer, die
+-- niemand mehr schliesst". Dieselbe Begruendung gilt hier - nur stand sie beim
+-- Schreiben von y4 nicht zur Verfuegung, weil `occ_owner_access` die Spalte noch
+-- nicht hatte. Seit Owner-Punkt 17 hat sie sie. Also wird der Satz eingehalten.
+--
+-- UND DER NEBENEFFEKT IST WICHTIGER ALS DIE KONSISTENZ: solange BEIDE Zugaenge
+-- unbefristet sind, ist die Stop-Regel ("die Menge der wirksamen Zugaenge
+-- enthaelt immer mindestens einen OHNE Ablauf") TRIVIAL erfuellt und damit nicht
+-- vorfuehrbar. Mit einem befristeten und einem unbefristeten zeigt die Buehne die
+-- ECHTE Konfiguration - und `owner-access-cli.js revoke` auf die Owner-Zeile
+-- weist jetzt wirklich ab, statt es nur zu koennen.
+--
+-- RELATIV, NICHT FEST. Ein festes Datum laeuft irgendwann ab und bleibt dann
+-- abgelaufen; ein relatives erneuert sich beim Neuladen der Saat. Dieselbe Wahl
+-- wie im Staff-Block, aus demselben Grund.
+--
+-- DIE ECHTE OWNER-ZEILE WIRD NICHT ANGEFASST. Sie ist das Break-Glass: wer sich
+-- aus dem Owner Control Center aussperrt, kann die Sperre nicht aufheben, denn
+-- das Aufheben passiert dort. Ob SIE eine Frist bekommt, ist eine Entscheidung
+-- ueber den eigenen Anmeldeweg und gehoert dem Owner - die Empfehlung dazu steht
+-- in docs/UEBERGABE.md und lautet NEIN.
 WITH gewollt AS (
-INSERT INTO occ_owner_access (id, user_id, occ_role, notes)
+INSERT INTO occ_owner_access (id, user_id, occ_role, expires_at, notes)
 SELECT
   'bd000000-0000-4000-8000-00000000d009'::uuid,
   u.id,
   'co-owner',
-  'Probebuehne Welle Y4.1 - zweite Owner-Sicht, damit die Flaeche ohne die echte Owner-Adresse durchspielbar ist'
+  NOW() + INTERVAL '180 days',
+  'Probebuehne Welle Y4.1 - zweite Owner-Sicht, damit die Flaeche ohne die echte Owner-Adresse durchspielbar ist. Befristet seit Owner-Punkt 17: die Stop-Regel ist damit auf der Buehne vorfuehrbar statt trivial erfuellt.'
 FROM users u WHERE u.id = 'bd000000-0000-4000-8000-00000000f009'::uuid
 ON CONFLICT (user_id) DO UPDATE SET
   occ_role = 'co-owner',
   revoked_at = NULL,
+  expires_at = EXCLUDED.expires_at,
   notes = EXCLUDED.notes
 RETURNING user_id
 )
@@ -557,6 +594,32 @@ BEGIN
      AND o.revoked_at IS NULL;
   IF n <> 1 THEN
     RAISE EXCEPTION 'y4-flaechen.sql: % Owner-Sichten auf der Buehne, erwartet 1.', n;
+  END IF;
+
+  /* 7b · Und sie LAEUFT AB, in der Zukunft. Dieselbe Eigenschaft, die Bremse 4
+     fuer die Staff-Zugaenge verlangt - sie fehlte hier, weil die Spalte beim
+     Schreiben dieser Saat noch nicht existierte (Owner-Punkt 17 hat sie gebracht).
+     Gefunden durch die Frage einer anderen Sitzung, nicht durch einen Test. */
+  SELECT count(*) INTO n
+    FROM occ_owner_access o
+   WHERE o.user_id::text LIKE 'bd000000-0000-4000-8000-00000000f0%'
+     AND o.revoked_at IS NULL
+     AND (o.expires_at IS NULL OR o.expires_at <= NOW());
+  IF n <> 0 THEN
+    RAISE EXCEPTION 'y4-flaechen.sql: % Buehnen-Owner-Sicht(en) ohne wirksames Ablaufdatum. Ein Buehnen-Zugang ohne Ablauf ist eine Hintertuer, die niemand mehr schliesst - und auf der privilegiertesten Flaeche am wenigsten.', n;
+  END IF;
+
+  /* 7c · Die STOP-REGEL bleibt erfuellt, und zwar NICHT durch die Buehne. Nach
+     7b ist die Buehnen-Zeile befristet; es muss also mindestens eine ANDERE
+     wirksame, unbefristete geben - die echte Owner-Zeile. Ohne diese Bremse
+     koennte ein Lauf die Flaeche auf lauter befristete Zugaenge bringen, und in
+     180 Tagen kaeme niemand mehr hinein. */
+  SELECT count(*) INTO n
+    FROM occ_owner_access o
+   WHERE o.revoked_at IS NULL AND o.expires_at IS NULL
+     AND o.user_id::text NOT LIKE 'bd000000-0000-4000-8000-00000000f0%';
+  IF n < 1 THEN
+    RAISE EXCEPTION 'y4-flaechen.sql: kein wirksamer Owner-Zugang ausserhalb der Buehne ohne Ablaufdatum. Die Buehne darf das Break-Glass nicht sein - laeuft ihre Zeile ab, kaeme niemand mehr in die Flaeche.';
   END IF;
 
   /* 8 · DIE KERNZUSAGE VON Y4.1: kein Buehnen-Konto haelt zwei der drei

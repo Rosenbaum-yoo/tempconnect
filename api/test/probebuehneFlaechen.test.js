@@ -375,6 +375,47 @@ suite("Y4.1 — drei Flaechen, je ein Zugang, und keiner haelt zwei", () => {
       "der Support-Block vergibt keine festen Kennungen");
   });
 
+  it("die Owner-Sicht laeuft ab — und ist nicht das Break-Glass", () => {
+    /* ─────────────────────────────────────────────────────────────────────────
+     * GEFUNDEN DURCH EINE FRAGE, NICHT DURCH EINEN TEST (2026-10-02)
+     * ─────────────────────────────────────────────────────────────────────────
+     *
+     * Eine andere Sitzung mass `occ_owner_access`: zwei wirksame Zugaenge, NULL
+     * davon mit `expires_at` — und fragte, ob das Absicht sei. Fuer die
+     * BESTANDSzeilen ja (Migration 230 setzt bewusst keinen Ablauf). Fuer DIESE
+     * Zeile nein: die Probe darueber verlangt, dass jeder Buehnen-STAFF-Zugang
+     * ablaeuft, mit der Begruendung „ein Buehnen-Zugang ohne Ablauf ist eine
+     * Hintertuer, die niemand mehr schliesst". Dieselbe Begruendung gilt auf der
+     * privilegiertesten Flaeche am meisten — sie stand beim Schreiben von y4 nur
+     * nicht zur Verfuegung, weil `occ_owner_access` die Spalte nicht hatte.
+     *
+     * Der Nebeneffekt ist wichtiger als die Konsistenz: solange BEIDE Zugaenge
+     * unbefristet sind, ist die Stop-Regel trivial erfuellt und NICHT vorfuehrbar.
+     * ───────────────────────────────────────────────────────────────────────── */
+    const occ = block("occ_owner_access");
+    assert.match(occ, /NOW\(\)\s*\+\s*INTERVAL\s*'\d+\s*days'/i,
+      "kein relatives Ablaufdatum auf der Buehnen-Owner-Sicht. Ein festes Datum laeuft "
+      + "irgendwann ab und bleibt es; ein relatives erneuert sich beim Neuladen. Und ohne "
+      + "jedes Ablaufdatum ist die privilegierteste Buehnen-Zeile unbefristet.");
+    assert.ok(!/expires_at\s*=\s*NULL/i.test(occ),
+      "der ON-CONFLICT-Zweig setzt expires_at auf NULL und hebt den Ablauf beim zweiten "
+      + "Laden auf — dann ist die Befristung eine Eigenschaft des ERSTEN Laufs");
+    assert.match(occ, /expires_at\s*=\s*EXCLUDED\.expires_at/,
+      "der ON-CONFLICT-Zweig zieht expires_at nicht nach — der Ablauf wuerde beim zweiten "
+      + "Laden auf dem alten Wert stehen bleiben und irgendwann in der Vergangenheit liegen");
+
+    /* Und die Saat darf NICHT das Break-Glass werden: laeuft ihre Zeile ab und ist
+     * sie die einzige unbefristete, kommt niemand mehr in die Flaeche. Die Bremse
+     * dazu prueft ausdruecklich AUSSERHALB des Buehnen-Praefixes. */
+    assert.match(BREMSEN, /NOT LIKE 'bd000000-0000-4000-8000-00000000f0%'/,
+      "keine Bremse prueft, dass es einen wirksamen unbefristeten Owner-Zugang AUSSERHALB "
+      + "der Buehne gibt. Ohne sie koennte ein Lauf die Flaeche auf lauter befristete "
+      + "Zugaenge bringen — und in 180 Tagen kaeme niemand mehr hinein.");
+    assert.match(BREMSEN, /Break-Glass/,
+      "die Bremse benennt den Grund nicht. Eine Grenze ohne Begruendung wird beim naechsten "
+      + "Umbau fuer eine Stilfrage gehalten.");
+  });
+
   it("die Owner-Sicht ist 'co-owner', nicht 'owner'", () => {
     /* Das Tor (`requireOwnerControlAccess`) unterscheidet die beiden NICHT —
      * beide kommen gleich weit. Die Zeile ist aber auch ein Protokoll: wer sie

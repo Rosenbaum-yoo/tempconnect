@@ -36,8 +36,20 @@ function usage() {
     "",
     "STOP-REGEL: es muss immer mindestens EIN wirksamer Zugang ohne Ablaufdatum",
     "geben. Ein revoke oder ein Befristen, das den letzten unbefristeten nehmen",
-    "wuerde, wird mit LETZTER_UNBEFRISTETER_ZUGANG abgewiesen — wer sich aus dem",
-    "Owner Control Center aussperrt, kann die Sperre dort nicht mehr aufheben.",
+    "wuerde, wird mit LETZTER_UNBEFRISTETER_ZUGANG abgewiesen. Sie schuetzt gegen",
+    "das VERSEHEN, nicht gegen den Vorsatz — das eigentliche Risiko hier.",
+    "",
+    "BREAK-GLASS: der Rueckweg liegt NICHT in der Flaeche, sondern in diesem",
+    "Befehl. Sind ALLE Zugaenge abgelaufen oder widerrufen, oeffnet",
+    "",
+    "  node scripts/owner-access-cli.js grant --email <adresse> --no-expiry",
+    "",
+    "die Flaeche wieder — er braucht Datenbankzugriff, nicht OCC-Zugang, und das",
+    "ist die staerkere Berechtigung. BELEGT am 2026-10-02 auf einer",
+    "Wegwerf-Datenbank aus dem ausgesperrten Zustand heraus: beide Zugaenge per",
+    "direktem SQL abgelaufen (Tor-Abfrage 0 Zeilen), danach grant --no-expiry,",
+    "Flaeche offen, Protokollspur vorhanden. Ein Rueckweg, den niemand je gegangen",
+    "ist, ist keiner — deshalb steht hier das Datum und nicht nur die Behauptung.",
     "",
     "Examples:",
     "  node scripts/owner-access-cli.js grant --email owner@example.com --occ-role owner --no-expiry --note \"Eigentuemer\"",
@@ -149,11 +161,42 @@ async function assertNichtLetzterUnbefristeter(userId, handlung) {
   if (!rows.length) return;                 // Ziel ist nicht unbefristet -> unkritisch
   const andere = await unbefristeteZugaenge(userId);
   if (andere.length === 0) {
+    /* ─────────────────────────────────────────────────────────────────────────
+     * DIE MELDUNG WAR ZU ABSOLUT, UND DAS IST GEMESSEN (2026-10-02).
+     * ─────────────────────────────────────────────────────────────────────────
+     *
+     * Hier stand: "das Aufheben passiert im Owner Control Center, also nirgends".
+     * Das ist falsch, und zwar nachweislich — dieser Befehl SELBST ist der
+     * Rueckweg. Auf einer Wegwerf-Datenbank belegt: beide Zugaenge per direktem
+     * SQL abgelaufen (`wirksam=2 unbefristet=0`, Tor-Abfrage 0 Zeilen, also
+     * ausgesperrt), danach `grant --no-expiry` — und die Flaeche war wieder
+     * offen, mit Protokollspur.
+     *
+     * Der Rueckweg liegt also AUSSERHALB der Flaeche und verlangt Datenbank-
+     * zugriff. Das ist die STAERKERE Berechtigung, nicht die schwaechere, und
+     * damit ist Break-Glass hier so gebaut, wie man es baut: nicht als Tuer, die
+     * immer offen steht, sondern als Schluessel, der woanders liegt.
+     *
+     * WARUM DIE ABWEISUNG TROTZDEM BLEIBT. CLAUDE.md benennt das eigentliche
+     * Risiko: "Das eigentliche Risiko ist das Versehen, nicht der Vorsatz."
+     * Wer hier aus Versehen den letzten unbefristeten Zugang nimmt, braucht
+     * danach Serverzugriff, um eine Flaeche zu reparieren, die er mit einem
+     * Befehl zugemacht hat. Die Abweisung kostet einen zweiten Befehl; sie
+     * ersetzt nicht den Rueckweg, sie macht ihn nur selten noetig.
+     *
+     * Die Meldung nennt deshalb BEIDES: den bequemen Weg (zweiten unbefristeten
+     * Zugang vergeben) und den Rueckweg, falls es doch passiert. Eine Meldung,
+     * die einen vorhandenen Ausweg verschweigt, schickt den Leser ins Leere.
+     * ───────────────────────────────────────────────────────────────────────── */
     const fehler = new Error(
       `LETZTER_UNBEFRISTETER_ZUGANG: ${handlung} wuerde den einzigen Owner-Zugang ohne `
-      + "Ablaufdatum nehmen. Danach endet jeder Zugang irgendwann von selbst — und das "
-      + "Aufheben passiert im Owner Control Center, also nirgends. Erst einen zweiten "
-      + "unbefristeten Zugang vergeben (grant --no-expiry), dann hier erneut."
+      + "Ablaufdatum nehmen. Danach endet jeder Zugang irgendwann von selbst, und "
+      + "niemand kommt mehr ueber die Flaeche hinein.\n"
+      + "  Gewollt? Dann erst einen zweiten unbefristeten Zugang vergeben:\n"
+      + "    node scripts/owner-access-cli.js grant --email <adresse> --no-expiry\n"
+      + "  Und falls es doch einmal passiert: der Rueckweg liegt NICHT in der Flaeche, "
+      + "sondern hier — derselbe Befehl, mit Datenbankzugriff statt OCC-Zugang. "
+      + "Belegt am 2026-10-02 aus dem ausgesperrten Zustand heraus."
     );
     fehler.code = "LETZTER_UNBEFRISTETER_ZUGANG";
     throw fehler;

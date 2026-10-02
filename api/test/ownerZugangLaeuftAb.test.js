@@ -127,6 +127,65 @@ suite("Punkt 17 — der Owner-Zugang läuft ab, ohne die Eigentümer auszusperre
     }
   });
 
+  it("der BREAK-GLASS ist benannt und datiert — nicht behauptet", () => {
+    /* ─────────────────────────────────────────────────────────────────────────
+     * EINE ANDERE SITZUNG HAT MEINE LESUNG UMGEWORFEN (2026-10-02), zu Recht.
+     * ─────────────────────────────────────────────────────────────────────────
+     *
+     * Ich hatte geschrieben, höchstens EINER von zwei Zugängen könne befristet
+     * werden, weil die Stop-Regel sonst das Break-Glass nimmt. Das war zu eng:
+     * `grant --no-expiry` überspringt die Stop-Regel (`tage === null`) und setzt
+     * `revoked_at = NULL, expires_at = NULL`. Der Rückweg liegt also AUSSERHALB
+     * der Fläche und verlangt Datenbankzugriff — die STÄRKERE Berechtigung.
+     *
+     * Break-Glass ist üblicherweise so gebaut: nicht als Tür, die immer offen
+     * steht, sondern als Schlüssel, der woanders liegt.
+     *
+     * Und die Bedingung, unter der das trägt, ist nicht Geschmack: **ein Rückweg,
+     * den niemand je gegangen ist, ist keiner.** Belegt am 2026-10-02 auf einer
+     * Wegwerf-Datenbank aus dem ausgesperrten Zustand heraus — beide Zugänge per
+     * direktem SQL abgelaufen (Tor-Abfrage 0 Zeilen, Gegenprobe ohne JOIN
+     * ebenfalls 0), danach `grant --no-expiry`, Fläche offen, Protokollspur da.
+     *
+     * Diese Probe hält, dass der Rückweg DOKUMENTIERT bleibt. Ohne sie verrottet
+     * er wie die Pflichtzeile P1-C, die zweimal falsch war, weil niemand sie tippte.
+     * ───────────────────────────────────────────────────────────────────────── */
+    const cli = lies("api/scripts/owner-access-cli.js");
+
+    /* 1 · Die Benutzungshilfe nennt ihn, mit dem Befehl. */
+    assert.match(cli, /BREAK-GLASS/,
+      "die Benutzungshilfe nennt den Rückweg nicht mehr. Dann sucht ihn jemand im Owner "
+      + "Control Center — also dort, wo er nicht ist.");
+    assert.match(cli, /grant --email <adresse> --no-expiry/,
+      "der Rückweg steht ohne den Befehl da. Ein benannter Ausweg ohne die Zeile, die man "
+      + "tippt, ist eine Behauptung.");
+
+    /* 2 · Und er ist DATIERT. Ein Rückweg ohne Beleg-Datum ist eine Behauptung;
+     *     das Datum ist der Unterschied zwischen "geht wohl" und "gemessen". */
+    assert.match(cli, /BELEGT am \d{4}-\d{2}-\d{2}/,
+      "der Rückweg nennt kein Beleg-Datum. Ein Rückweg, den niemand je gegangen ist, ist "
+      + "keiner — und ohne Datum weiß der nächste Leser nicht, ob ihn jemand gegangen ist.");
+
+    /* 3 · Die Meldung der Stop-Regel darf ihn NICHT leugnen. Hier stand bis zum
+     *     2026-10-02 "das Aufheben passiert im Owner Control Center, also
+     *     nirgends" — gemessen falsch, und es hätte jemanden an der falschen
+     *     Stelle suchen lassen. */
+    const i = cli.indexOf("async function assertNichtLetzterUnbefristeter");
+    /* OHNE KOMMENTARE, und das hat genau hier zugeschlagen: die Begründung im
+     * Rumpf ZITIERT die entfernte Formulierung („also nirgends"), damit der
+     * nächste Leser weiß, was dort stand. Eine „darf nicht enthalten"-Zusicherung
+     * gegen den Rohtext liest dieses Zitat und wird rot, obwohl die Meldung
+     * richtig ist. Siebter Fall dieser Klasse an einem Tag. */
+    const rumpf = nurCode(cli.slice(i, cli.indexOf("\n}", i)));
+    assert.ok(!/also nirgends/.test(rumpf),
+      "die Meldung der Stop-Regel behauptet wieder, es gäbe keinen Rückweg. Es gibt einen, "
+      + "und er ist belegt — eine Meldung, die einen vorhandenen Ausweg verschweigt, "
+      + "schickt den Leser ins Leere.");
+    assert.match(rumpf, /Rueckweg liegt NICHT in der Flaeche|Rückweg liegt NICHT in der Fläche/,
+      "die Meldung der Stop-Regel nennt den Rückweg nicht. Sie ist der Moment, in dem jemand "
+      + "ihn braucht — und der einzige Ort, an dem er garantiert gelesen wird.");
+  });
+
   it("entfristen bleibt erlaubt — die Regel darf sich nicht selbst blockieren", () => {
     /* Eine Stop-Regel, die auch das ENTFRISTEN verweigert, macht die Erfüllung
      * unmöglich: man käme nie an den zweiten unbefristeten Zugang. Geprüft wird
