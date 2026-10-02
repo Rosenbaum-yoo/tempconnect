@@ -175,6 +175,100 @@ suite("Y5 — das Regiebuch zeigt auf etwas, das es gibt", () => {
       + "danach, statt neu zu laden.");
   });
 
+  it("jede genannte FLÄCHE wird wirklich ausgeliefert", () => {
+    /* BEFUND 2026-10-02: Die Seitenprüfung oben greift nur Pfade mit `.html`.
+     * Abschnitt 5 nennt aber drei VERZEICHNIS-Flächen — `/staff/`,
+     * `/owner-control/`, `/support-ops/` — und die waren für diesen Wächter
+     * unsichtbar. Er war grün, weil er nicht hinsah.
+     *
+     * Und ein Dateitest hätte hier NICHT geholfen: nur `/staff/` liegt als
+     * Ordner in `frontend/public/`. `/owner-control/` und `/support-ops/` sind
+     * Bau-Ergebnisse (gitignored) und existieren im Checkout gar nicht. Die
+     * WAHRHEIT darüber, was unter einem Pfad ausgeliefert wird, steht in der
+     * nginx-Konfiguration — also wird dort geprüft. Ein Regiebuch, das zu einer
+     * Fläche schickt, die der Server nicht kennt, ist ein toter Weg, und tote
+     * Wege sind der einzige Grund, warum Durchspiel-Anleitungen abgeschafft
+     * werden. */
+    /* Der Dateiname wird NICHT geraten. Erster Entwurf las
+     * `nginx/default.conf` — die Datei heisst `nginx/nginx.conf`, der
+     * readFileSync warf, und die Probe fiel OHNE lesbare Begruendung um. Eine
+     * Probe, die an ihrem eigenen Pfad scheitert, sieht aus wie ein Befund und
+     * ist keiner. */
+    const konf = path.join(ROOT, "nginx", "nginx.conf");
+    assert.ok(fs.existsSync(konf), `nginx-Konfiguration nicht gefunden: ${konf}`);
+    const nginx = fs.readFileSync(konf, "utf8");
+    const flaechen = [...new Set((BUCH.match(/`\/([a-z][a-z0-9-]+)\/`/g) || []))]
+      .map((s) => s.replace(/[`/]/g, ""));
+    assert.ok(flaechen.length >= 3,
+      `Nur ${flaechen.length} Verzeichnis-Flächen im Regiebuch genannt, erwartet mindestens 3 `
+      + "(Staff Control Center, Owner Control Center, Support Center)");
+    /* `location /support-ops/\s*{` und nicht bloss `location /support-ops/`:
+     * die Konfiguration hat fuer jede Flaeche AUCH einen Block fuer die
+     * gehashten Buendel (`location /support-ops/assets/`). Der lose Ausdruck
+     * nahm den als Beweis — eine Rueckmutation, die den Block der FLAECHE
+     * umbenannte, blieb gruen, weil der Assets-Block noch passte. Dann waeren
+     * die Buendel erreichbar und die Flaeche selbst nicht. */
+    const fehlend = flaechen.filter((f) => !new RegExp("location\\s+/" + f + "/\\s*\\{").test(nginx));
+    assert.deepEqual(fehlend, [],
+      `Für diese Flächen gibt es keinen nginx-location-Block: ${fehlend.join(", ")}. `
+      + "Das Regiebuch schickt einen Menschen auf einen Pfad, den der Server nicht kennt.");
+  });
+
+  it("der genannte Staff-Cookie-Name und die Fehlercodes sind echt", () => {
+    /* Abschnitt 5 verspricht KONKRETES: ein eigenes Cookie `tc.staff.sid` und
+     * drei Fehlercodes, an denen man einen Fehler erkennt. Ein Versprechen
+     * dieser Art ist genau so lange wertvoll, wie es stimmt — wird ein Code
+     * umbenannt, schickt das Regiebuch einen Menschen auf die Suche nach einer
+     * Meldung, die es nicht mehr gibt, und er schließt daraus auf einen Fehler,
+     * wo keiner ist. Also wird JEDER genannte Code im Quelltext nachgewiesen. */
+    const app = fs.readFileSync(path.join(ROOT, "api", "app.js"), "utf8");
+    const kekse = [...new Set((BUCH.match(/`tc\.[a-z.]+sid`/g) || []))].map((s) => s.replace(/`/g, ""));
+    assert.ok(kekse.length >= 1, "das Regiebuch nennt keinen Cookie-Namen");
+    const falsch = kekse.filter((k) => !app.includes(k));
+    assert.deepEqual(falsch, [],
+      `Diese Cookie-Namen stehen nicht in api/app.js: ${falsch.join(", ")}.`);
+
+    /* `scripts/dev/seed-data.sh` gehoert in diese Liste, und zwar nicht als
+     * Notnagel: das Regiebuch nennt `SEED_PASSWORT`, und das ist kein
+     * Fehlercode, sondern eine Umgebungsvariable. Beides verdient dieselbe
+     * Pruefung — eine umbenannte Variable schickt einen Leser genauso ins
+     * Leere wie ein umbenannter Code. Der erste Entwurf klagte sie an, weil er
+     * nur in den fuenf Code-Dateien suchte; die Antwort darauf ist die
+     * richtige QUELLE, nicht eine Ausnahmeliste. */
+    const quellen = ["api/middleware/staffControlAccess.js", "api/middleware/requireOwnerControlAccess.js",
+      "api/config/staffRollen.js", "api/routes/staffControlCenter.js", "api/middleware/supportAccess.js",
+      "scripts/dev/seed-data.sh"]
+      .map((p) => fs.readFileSync(path.join(ROOT, p), "utf8")).join("\n");
+    /* ZWEI PRAEZISIONEN, und beide kommen aus Rueckmutationen, die gruen blieben.
+     *
+     * 1. GESUCHT WIRD IN DER BACKTICK-SPANNE, NICHT ALS GANZE SPANNE. Der erste
+     *    Ausdruck war /`([A-Z][A-Z_]{5,})`/ und verlangte damit, dass der Code
+     *    die Spanne FUELLT. Das Regiebuch schreibt aber `428 SCC_STEP_UP_REQUIRED`
+     *    — mit der Zahl davor in derselben Spanne. Der wichtigste Code im
+     *    ganzen Abschnitt wurde deshalb GAR NICHT geprueft.
+     *
+     * 2. WORTGRENZEN. Ohne sie bestand `NUR_LESEN` die Pruefung, weil
+     *    `NUR_LESEND` im Quelltext steht und die Teilzeichenkette enthaelt. Wer
+     *    einen Namen irgendwo im Text sucht, kann einen gekuerzten Namen nie als
+     *    falsch melden. */
+    /* DATEINAMEN SIND KEINE CODES, und das war die Gegenprobe zur Erweiterung
+     * oben: sobald in der ganzen Spanne gesucht wurde, klagte die Probe
+     * `V_SCHNITTSTELLEN` und `UEBERGABE` an — beides Teile von
+     * `docs/features/V_SCHNITTSTELLEN.md` und `docs/UEBERGABE.md`. Die werden
+     * von der Verweis-Pruefung unten geprueft, und zwar als PFAD, was strenger
+     * ist. Eine Spanne, die einen Pfad oder eine Datei nennt, gehoert also
+     * dorthin und nicht hierher. */
+    const spannen = (BUCH.match(/`[^`\n]+`/g) || [])
+      .filter((s) => !/\/|\.(md|js|sql|sh|html|conf)\b/.test(s));
+    const codes = [...new Set(spannen.flatMap((s) => s.match(/\b[A-Z][A-Z_]{5,}\b/g) || []))];
+    assert.ok(codes.length >= 4,
+      `Nur ${codes.length} Fehlercodes im Regiebuch genannt — ein Weg ohne nachprüfbares `
+      + "Fehlerbild bestätigt nur, dass eine Seite lädt");
+    const erfunden = codes.filter((c) => !new RegExp("\\b" + c + "\\b").test(quellen));
+    assert.deepEqual(erfunden, [],
+      `Diese Codes nennt das Regiebuch, der Quelltext kennt sie nicht: ${erfunden.join(", ")}.`);
+  });
+
   it("der Verweis auf die Kreislauf-Quelle ist auflösbar", () => {
     /* Y5.2 im Plan nennt `V_SCHNITTSTELLEN.md` ohne Verzeichnis. Die Datei liegt
        unter `docs/features/`. Ein Verweis, der ein Verzeichnis zu kurz ist, kostet

@@ -214,7 +214,111 @@ der zwölf nur in der Datenbank verschieden, nicht im Produkt.
 
 ---
 
-## 5. Was dieses Regiebuch NICHT ist
+## 5. Die drei getrennten Flächen — je einzeln durchspielbar *(Y4.1)*
+
+Staff Control Center, Support Center und Owner Control Center sind drei
+**getrennte** Flächen mit eigenen Zugängen. Vor Welle Y4 war das nicht
+vorführbar: gemessen am 2026-10-02 lagen **alle drei Zugänge auf einem Konto** —
+der echten Owner-Adresse. Wer eine Fläche zeigen wollte, musste sich als Owner
+anmelden und hatte damit alle drei. Genau dann beweist keine davon mehr etwas:
+man sieht überall alles und erfährt nie, ob das an der Berechtigung liegt oder an
+deren Abwesenheit.
+
+Jetzt hält **jedes Konto genau eine Fläche**. Das Passwort ist für alle das
+gleiche wie für die übrige Bühne (es steht nicht im Repo — es wird beim Laden der
+Saat gesetzt, `SEED_PASSWORT`).
+
+### 5a · Staff Control Center — sechs Rollen, sechs Konten
+
+Der Staff-Login ist eine **eigene Sitzung mit eigenem Cookie** (`tc.staff.sid`,
+Pfad `/staff`). Du bleibst also als Kunde angemeldet, während du Staff bist —
+und umgekehrt. Das ist die tragende Trennung, nicht der fehlende Link.
+
+| Schritt | Was du tust | Was du sehen musst |
+|---|---|---|
+| 1 | `/staff/` öffnen | Anmeldemaske, **nicht** die Kundenplattform |
+| 2 | als `staff.team@probebuehne.tempconnect.de` anmelden | das Kontrollzentrum, alle Fachbereiche |
+| 3 | abmelden, als `staff.kommerz@probebuehne.tempconnect.de` anmelden | Kommerz ja — **Betrieb und Support fehlen** |
+| 4 | abmelden, als `staff.betrieb@probebuehne.tempconnect.de` anmelden | Betrieb ja — **Kommerz fehlt** |
+| 5 | abmelden, als `staff.aufsicht@probebuehne.tempconnect.de` anmelden | alles sichtbar, **jede** schreibende Aktion endet mit `NUR_LESEND` |
+| 6 | abmelden, als `staff.admin@probebuehne.tempconnect.de` anmelden | zusätzlich die **Staff-Verwaltung** (Zugänge vergeben) |
+| 7 | eine schreibende Aktion versuchen | `428 SCC_STEP_UP_REQUIRED` → Passwort erneut eingeben, dann geht es |
+
+Die sechs Konten und ihre Rolle:
+
+| Konto | Rolle | Was sie darf |
+|---|---|---|
+| `staff.admin@probebuehne.tempconnect.de` | `staff_admin` | alles, **einschließlich** Zugänge vergeben |
+| `staff.team@probebuehne.tempconnect.de` | `staff_member` | alles **außer** Zugänge vergeben |
+| `staff.kommerz@probebuehne.tempconnect.de` | `staff_commercial` | Geld, Verträge, Kunden, Piloten, Aufsicht |
+| `staff.betrieb@probebuehne.tempconnect.de` | `staff_ops` | Betrieb, Hetzner, Automation, Plattform, Aufsicht |
+| `staff.support@probebuehne.tempconnect.de` | `staff_support` | Support, Moderation, Aufsicht |
+| `staff.aufsicht@probebuehne.tempconnect.de` | `staff_audit` | sieht alles, **schreibt nichts** |
+
+**Woran du einen Fehler erkennst:** sieht `staff.kommerz@` in Schritt 3 den
+Betriebsbereich, wird `BEREICHE_JE_ROLLE` nicht ausgewertet — dann ist die
+Rolle eine Spalte ohne Wirkung, und das war sie bis 2026-08-24 wirklich.
+Kommt `staff.aufsicht@` in Schritt 5 mit einer schreibenden Aktion durch, ist
+die Revision keine Revision mehr, sondern ein zweites Teammitglied. Und kommt
+Schritt 7 **ohne** Passwortfrage durch, trägt das Konto `requires_step_up =
+FALSE` — die Einstellung des Owners, die die Bühne ausdrücklich nicht erbt.
+
+### 5b · Support Center — zwei Datenreichweiten
+
+| Schritt | Was du tust | Was du sehen musst |
+|---|---|---|
+| 1 | als `support.leitung@probebuehne.tempconnect.de` auf der **normalen** Anmeldung einloggen | die Kundenoberfläche (das Konto hat keine Organisation) |
+| 2 | `/support-ops/` öffnen | das Support Center, Fälle **aller** Warteschlangen |
+| 3 | abmelden, als `support.fall@probebuehne.tempconnect.de` anmelden, `/support-ops/` öffnen | **weniger** Fälle — nur die zugewiesenen |
+
+| Konto | Rolle | Datenreichweite |
+|---|---|---|
+| `support.leitung@probebuehne.tempconnect.de` | `internal_support_lead` | `full_internal` — alles |
+| `support.fall@probebuehne.tempconnect.de` | `internal_support_agent` | `assigned_only` — nur zugewiesen |
+
+**Woran du einen Fehler erkennst:** sieht `support.fall@` in Schritt 3 **dieselbe**
+Liste wie die Leitung, greift `data_scope` nicht — und `assigned_only` ist dann
+ein Wort in einer Spalte. Das ist die zentrale Zusage des Support Centers:
+ein Agent sieht nicht alles. Zwei Konten sind der einzige Weg, sie zu prüfen —
+mit einem hat man eine Liste und keinen Vergleich.
+
+### 5c · Owner Control Center — die zweite Sicht
+
+| Schritt | Was du tust | Was du sehen musst |
+|---|---|---|
+| 1 | als `owner.sicht@probebuehne.tempconnect.de` auf der **normalen** Anmeldung einloggen | die Kundenoberfläche |
+| 2 | `/owner-control/` öffnen | die Owner-Fläche, Rolle **`co-owner`** |
+| 3 | abmelden, als `staff.team@probebuehne.tempconnect.de` auf der **normalen** Anmeldung einloggen, `/owner-control/` öffnen | **403 `OCC_FORBIDDEN`** |
+
+**Woran du einen Fehler erkennst:** kommt Schritt 3 durch, gibt es einen Umweg
+über die normale Rolle in die privilegierteste Fläche des Systems — das Tor sagt
+ausdrücklich „kein Bypass über normale Rollen". Und erscheint in Schritt 2
+`owner` statt `co-owner`, hat die Bühne die echte Eigentümer-Rolle bekommen;
+das Tor unterscheidet die beiden nicht, aber die Zeile ist auch ein Protokoll.
+
+### 5d · Die Gegenrichtung — keine dieser Flächen aus der Kundenplattform *(Y4.2)*
+
+| Schritt | Was du tust | Was du sehen musst |
+|---|---|---|
+| 1 | als `verwaltung@probebuehne.tempconnect.de` anmelden (Kunde) | die Kundenplattform |
+| 2 | jede Kachel, jedes Menü, jede Fußzeile durchsehen | **keinen** Weg nach `/staff/`, `/owner-control/`, `/support-ops/` |
+| 3 | `/staff/` direkt in die Adresszeile tippen | die Staff-Anmeldung, **nicht** angemeldet — die Kundensitzung gilt dort nicht |
+
+**Woran du einen Fehler erkennst:** findest du in Schritt 2 eine Kachel, ist die
+Owner-Vorgabe vom 2026-09-01 gebrochen („das ist nur für mich ein
+Kontrollcentrum, kein Kundenzugang. niemals."). Und bist du in Schritt 3 **schon
+angemeldet**, teilt sich das Staff Center die Sitzung mit der Plattform — der
+schwerere Fehler, weil ihn niemand sieht: dann ist jede angemeldete
+Kundensitzung eine halbe Staff-Sitzung, und es braucht gar keinen Link.
+
+Automatisch geprüft wird beides von `api/test/staffNieAusDerPlattform.test.js`
+(kein Link, eigene Sitzung) und `api/test/probebuehneFlaechen.test.js` (kein
+internes Konto hängt an einer Organisation — die Datenseite, die ein
+Link-Prüfer nicht sehen kann).
+
+---
+
+## 6. Was dieses Regiebuch NICHT ist
 
 Keine Testautomatisierung. Die Wege sind für **Menschen** gedacht; was sich
 automatisch prüfen lässt, prüfen die Wächter in `api/test/probebuehne*.test.js`

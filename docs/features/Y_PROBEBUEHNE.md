@@ -681,8 +681,99 @@ sehen."* Genau das ist heute nicht möglich.
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|
-| Y4.1 | Je ein Zugang für **Staff CC**, **Support Center** und die **Owner-Sicht** | Die drei Flächen sind einzeln durchspielbar |
-| Y4.2 | **Keine dieser Flächen wird aus der Kundenplattform erreichbar** | `staffNieAusDerPlattform.test.js` bleibt grün |
+| Y4.1 ✅ | Je ein Zugang für **Staff CC**, **Support Center** und die **Owner-Sicht** | Die drei Flächen sind einzeln durchspielbar |
+| Y4.2 ✅ | **Keine dieser Flächen wird aus der Kundenplattform erreichbar** | `staffNieAusDerPlattform.test.js` bleibt grün |
+
+> **Y4 GEBAUT — Stand 2026-10-02. `sql/seeds/y4-flaechen.sql`, neun Konten.**
+>
+> **Der Befund war schärfer als die Planzeile.** Gemessen gegen die laufende
+> Datenbank lagen **alle drei Zugänge auf EINEM Konto** — der echten
+> Owner-Adresse:
+>
+>     tempconnect_staff    1 Zeile    dennisstegemann04@gmail.com
+>     occ_owner_access     1 Zeile    dennisstegemann04@gmail.com
+>     support_agents       2 Zeilen   dennisstegemann04@gmail.com + demo@firma.de
+>
+> Das ist nicht „wenig Daten". Mit einem Konto, das alle drei hält, ist genau
+> die Zusage der Planzeile nicht prüfbar: *einzeln* durchspielbar heißt, dass
+> ein Zugang eine Fläche zeigt **und durch sein Scheitern beweist, dass die
+> beiden anderen zu sind.*
+>
+> **Und daneben der eigentliche Fund: fünf von sechs Staff-Rollen hatten kein
+> Beispiel.** `api/config/staffRollen.js` trennt sechs Rollen scharf und
+> nachlesbar — besetzt war `staff_member`, einmal. Fünf dokumentierte,
+> indizierte, von `darfStaffBereich()` ausgewertete Einschränkungen hatte nie
+> jemand getragen. Dieselbe Fehlerklasse wie die zwölf unbesetzten Zustände aus
+> Y1.3: nicht fehlende Daten, sondern ein fehlender **Zustand**.
+>
+> Gemessen, nicht geraten — die Matrix nach `darfStaffBereich()` gefragt:
+>
+>     Rolle              Kommerz  Betrieb  Support  Aufsicht lesen  schreiben  Zugänge
+>     staff_admin          ja       ja       ja          ja           ja         ja
+>     staff_member         ja       ja       ja          ja           ja       NUR_ADMIN
+>     staff_commercial     ja     VERWEHRT VERWEHRT      ja           ja       NUR_ADMIN
+>     staff_ops          VERWEHRT   ja     VERWEHRT      ja           ja       NUR_ADMIN
+>     staff_support      VERWEHRT VERWEHRT   ja          ja           ja       NUR_ADMIN
+>     staff_audit          ja       ja       ja          ja        NUR_LESEND  NUR_LESEND
+>
+> **Was die Saat anlegt:** neun Konten, **jedes hält genau eine Fläche** — sechs
+> Staff-Rollen, zwei Support-Datenreichweiten (`full_internal` gegen
+> `assigned_only`, denn mit einem Zugang hat man eine Liste und keinen
+> Vergleich), eine Owner-Sicht als `co-owner` und nicht `owner`. Keines hat
+> eine Organisation oder eine Mitgliedschaft: das unterscheidet sie von einem
+> Kunden, und genau das prüft eine Notbremse.
+>
+> **Die Sicherheitseigenschaft:** jeder Staff-Zugang läuft ab
+> (`NOW() + INTERVAL '180 days'`, relativ also Y6.2-konform). Die Middleware
+> prüft `expires_at` seit 2026-08-22 wirklich, in **beiden** Toren und im
+> `WHERE`. Ein vergessener Bühnen-Zugang wird damit von selbst wertlos. Der
+> Step-up bleibt scharf (`requires_step_up = TRUE`) — und kostet nichts, weil
+> er eine **Passwort-Wiedereingabe** ist, kein TOTP; ein TOTP-Geheimnis dürfte in
+> keiner Saat stehen.
+>
+> **Die Saat ist MASSGEBLICH — gefunden durch eine Rückmutation, die nicht
+> ansprang.** Nimmt man ein Konto aus der Datei, verlor es seinen Zugang
+> *nicht*: der Einfüge-Befehl legt an und ändert, er räumt nicht auf. Bei einer
+> Saat für Rechnungen ist das Datenmüll, bei einer Saat für **Staff-Zugänge** ist
+> es eine Hintertür, die in keiner Datei mehr steht. Jetzt widerruft jeder Block,
+> was die Datei nicht mehr nennt — die gewollte Menge kommt aus dem eigenen
+> `RETURNING`, nicht aus einer zweiten Liste daneben.
+>
+> **Widerrufen und nicht gelöscht**, und das ist keine Stilfrage: **sechs**
+> Tabellen zeigen auf `support_agents.id`, alle mit `ON DELETE SET NULL` —
+> darunter `support_audit_log.agent_id`. Ein `DELETE` hätte still den
+> **Akteur eines Audit-Eintrags** auf NULL gesetzt. Ein Aufräumen, das ein
+> Protokoll anonymisiert, ist schlimmer als die Zeile, die es aufräumt.
+>
+> **Mitgezogen:** `scripts/dev/seed-data.sh` verlangte `SEED_PASSWORT` nur
+> für `y1-2-standorte.sql` — ein Dateiname in einer Bedingung, und darüber der
+> Satz „Nur dort nötig". Beides war schon falsch: **fünf** Saaten lesen
+> `app.seed_passwort`. Wer `--file=y4-flaechen.sql` ohne die Variable aufrief,
+> kam am Riegel vorbei. Jetzt entscheidet der **Inhalt** der Dateien, nicht eine
+> Aufzählung, die mit der nächsten Saat lautlos veraltet.
+>
+> **Wächter:** `api/test/probebuehneFlaechen.test.js` (14 Zusicherungen,
+> `STAFF_ROLLEN` aus dem Code **importiert** statt abgeschrieben) und die zehn
+> Notbremsen der Saat selbst. **45 Rückmutationen** treffen, dazu zehn
+> Bremsen-Proben gegen die laufende Datenbank. Y4.2 ist weiter von
+> `staffNieAusDerPlattform.test.js` gedeckt (Links) — neu dazu die
+> **Datenseite**, die ein Link-Prüfer nicht sehen kann.
+>
+> *Fünf eigene Fehler kamen aus den Rückmutationen: eine Zusicherung fand den
+> Bühnen-Präfix im JOIN desselben Abschnitts statt in der WHERE-Klausel des
+> Widerrufs; die Paar-Prüfung der Support-Reichweiten stand unter den
+> Anwesenheits-Prüfungen und war damit unerreichbar; `NUR_LESEN` bestand die
+> Code-Prüfung, weil es in `NUR_LESEND` steckt; der wichtigste Code des
+> Abschnitts (`428 SCC_STEP_UP_REQUIRED`) wurde gar nicht geprüft, weil die
+> Zahl mit in der Backtick-Spanne stand; und ein geratener Dateiname
+> (`nginx/default.conf` statt `nginx/nginx.conf`) ließ eine Probe ohne lesbare
+> Begründung umfallen.*
+>
+> **Durchspiel-Wege:** `docs/features/Y_REGIEBUCH.md`, Abschnitt 5 (5a Staff mit
+> sieben Schritten, 5b Support, 5c Owner, 5d die Gegenrichtung). Der Wächter des
+> Regiebuchs prüft jetzt auch **Verzeichnis-Flächen gegen nginx** und **jeden
+> genannten Fehlercode gegen den Quelltext** — vorher war er grün, weil er nur
+> `.html`-Pfade ansah.
 
 ### Y5 · Das Regiebuch
 

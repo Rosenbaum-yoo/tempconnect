@@ -125,12 +125,41 @@ if [ "$SEED_DEMO_WORLD_NORM" != "true" ]; then
   fail "SEED_DEMO_WORLD ist nicht gesetzt - Saat verweigert. Die Saat-Dateien legen ANMELDBARE Demo-Konten an und sperren ohne diesen Schalter selbst (sql/seeds/*.sql). Erlaubter Aufruf: SEED_DEMO_WORLD=true $0"
 fi
 
-# Das Passwort fuer die Probebuehne (Y1). Nur dort noetig; die drei aelteren
-# Saaten tragen ihre Hashes noch selbst. Kein Vorgabewert - eine Vorgabe waere
+# Das Passwort fuer die Probebuehne. Kein Vorgabewert - eine Vorgabe waere
 # genau das Passwort im Repo, das vermieden werden soll.
+#
+# WELCHE SAATEN ES BRAUCHEN, WIRD NICHT MEHR AUFGEZAEHLT, SONDERN GEMESSEN.
+# Hier stand bis 2026-10-02 `[ "$TARGET_FILE" = "y1-2-standorte.sql" ]` und
+# darueber der Satz "Nur dort noetig". Beides war zu dem Zeitpunkt schon falsch:
+# gemessen lesen FUENF Saaten `app.seed_passwort` (y1-2, y1-3, y1-4, y3, y4).
+# Wer `--file=y4-flaechen.sql` ohne SEED_PASSWORT aufrief, kam an diesem Riegel
+# vorbei und lief erst in der Datenbank auf - mit einer richtigen, aber
+# spaeteren und knapperen Meldung.
+#
+# Eine Aufzaehlung von Dateinamen in einer Bedingung veraltet mit der naechsten
+# Saat, und zwar lautlos: die Bedingung bleibt syntaktisch gueltig und wird nur
+# unvollstaendig. Deshalb entscheidet jetzt der INHALT der Dateien. Festgenagelt
+# von `api/test/probebuehneFlaechen.test.js` - eine zurueckgenommene Messung
+# faellt dort rot.
 SEED_PASSWORT_WERT="${SEED_PASSWORT:-}"
-if [ -z "$SEED_PASSWORT_WERT" ] && { [ -z "$TARGET_FILE" ] || [ "$TARGET_FILE" = "y1-2-standorte.sql" ]; }; then
-  fail "SEED_PASSWORT ist nicht gesetzt. sql/seeds/y1-2-standorte.sql legt anmeldbare Konten an und hasht das Passwort beim Laden (pgcrypto) - es steht ABSICHTLICH nicht im Repo. Erlaubter Aufruf: SEED_DEMO_WORLD=true SEED_PASSWORT=<mindestens 12 Zeichen> $0"
+if [ -z "$SEED_PASSWORT_WERT" ]; then
+  if [ -n "$TARGET_FILE" ]; then
+    PW_SAATEN=$(grep -l 'app\.seed_passwort' "$SEED_DIR/$TARGET_FILE" 2>/dev/null || true)
+  else
+    PW_SAATEN=$(grep -l 'app\.seed_passwort' "$SEED_DIR"/*.sql 2>/dev/null || true)
+  fi
+  if [ -n "$PW_SAATEN" ]; then
+    fail "SEED_PASSWORT ist nicht gesetzt. Diese Saaten legen ANMELDBARE Konten an und hashen das Passwort erst beim Laden (pgcrypto) - es steht ABSICHTLICH nicht im Repo:
+$(printf '%s\n' "$PW_SAATEN" | sed 's#.*/#    - #')
+  Erlaubter Aufruf: SEED_DEMO_WORLD=true SEED_PASSWORT=<mindestens 12 Zeichen> $0"
+  fi
+fi
+# Die Laenge prueft die Saat selbst noch einmal (jede Datei hat ihren eigenen
+# Riegel). Hier zu scheitern ist freundlicher: es passiert vor dem Verbindungs-
+# aufbau und nennt die Zahl, statt sie den Leser in einer Postgres-Meldung
+# suchen zu lassen.
+if [ -n "$SEED_PASSWORT_WERT" ] && [ "${#SEED_PASSWORT_WERT}" -lt 12 ]; then
+  fail "SEED_PASSWORT ist ${#SEED_PASSWORT_WERT} Zeichen lang, verlangt sind mindestens 12. Die Saat-Dateien weisen kuerzere Werte selbst zurueck - dieser Riegel sagt es nur frueher."
 fi
 case "$SEED_PASSWORT_WERT" in
   *[[:space:]]*|*\"*|*\'*)

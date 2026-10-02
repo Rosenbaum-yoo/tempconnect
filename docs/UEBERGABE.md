@@ -3200,6 +3200,71 @@ durch sind** (Owner-Vorgabe). Bis dahin bleibt dieser Eintrag der Merkzettel.
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
 
+### Drei Befunde an den internen Flächen *(2026-10-02, gegen die laufende Datenbank gemessen)*
+
+Beim Bau von Y4.1 (je ein Bühnen-Zugang für Staff CC, Support Center und
+Owner-Sicht) sind drei Dinge aufgefallen, die **nicht** zur Bühne gehören,
+sondern zum echten Bestand. Keines davon habe ich angefasst: alle drei betreffen
+Anmeldewege oder eine bestehende Demo-Strecke, und das ist eine
+Owner-Entscheidung.
+
+**1 · Ein Kundenkonto hält einen Support-Zugang.**
+
+    demo@firma.de   users.role = 'company'   1 Org-Mitgliedschaft
+                    support_agents: external_support_agent, scope = external,
+                    data_scope = vendor_scoped, Lieferant „India Support BPO"
+
+Das ist **kein** Link von der Plattform ins Support Center — der Wächter
+`api/test/staffNieAusDerPlattform.test.js` prüft Wege, und er ist zu Recht
+grün. Es ist ein **Mensch in zwei Welten**: dasselbe Konto ist Kunde (mit
+Organisation) und Support-Agent. Für `scope = 'external'` ist das Modell
+ausdrücklich für Leute **außerhalb** von TempConnect gedacht; ein Kunde ist aber
+nicht „außerhalb", sondern die andere Seite des Tisches.
+
+*Frage an den Owner:* soll ein Konto mit Org-Mitgliedschaft überhaupt einen
+Support-Zugang halten dürfen? Wenn nein, ist das ein CHECK oder ein Guard — und
+der bestehende Demo-Zugang `demo@firma.de` müsste umziehen. Die Bühne macht den
+Fehler nicht nach (ihre neun internen Konten haben **keine** Organisation, von
+einer Notbremse erzwungen).
+
+**2 · Das Konto mit allen Rechten ist das einzige ohne Wiederbestätigung.**
+
+    dennisstegemann04@gmail.com   tempconnect_staff.requires_step_up = FALSE
+                                  expires_at = NULL
+                                  + occ_owner_access (owner)
+                                  + support_agents (internal_support_lead,
+                                                    full_internal)
+
+Drei Flächen auf einem Konto, und auf diesem Konto ist der Step-up **aus**. Jede
+schreibende Aktion im Staff Control Center — Zugänge vergeben, Rabatt setzen,
+Kill-Switch — läuft damit ohne erneute Passwortfrage. Der Step-up ist keine
+Zumutung: er ist eine **Passwort-Wiedereingabe**, kein TOTP
+(`staffControlCenter.js`, `bcrypt.compare` gegen `users.password_hash`), mit
+risikoabhängiger Gültigkeit von wenigen Minuten. Die sechs Bühnen-Konten tragen
+`TRUE` und sind trotzdem vollständig durchspielbar — gemessen.
+
+*Frage an den Owner:* soll die eigene Zeile nachziehen (`requires_step_up =
+TRUE`)? Das betrifft den eigenen Anmeldeweg, deshalb kein autonomer Patch. Und
+dieselbe Zeile ist die einzige im Bestand **ohne Ablaufdatum**; das ist für den
+Eigentümer richtig, aber es heißt, dass die Ablauf-Prüfung aus Migration 118
+heute **nur** an den Bühnen-Konten wirkt.
+
+**3 · Der Owner-Zugang kann nicht ablaufen.**
+
+`tempconnect_staff` hat `expires_at` (seit 2026-08-22 wirklich geprüft, in
+beiden Toren, im `WHERE`). `occ_owner_access` hat **nur** `revoked_at` —
+kein Ablauf. Damit ist die **privilegierteste Fläche des Systems** die einzige,
+deren Zugänge nicht von selbst enden. Für den Eigentümer ist das richtig; für
+einen `co-owner` (die Rolle existiert im CHECK) ist es eine unbefristete
+Vollmacht.
+
+*Frage an den Owner:* soll `occ_owner_access` ein `expires_at` bekommen —
+NULL für den Eigentümer, gesetzt für jeden `co-owner`? Das wäre eine Migration
+am obersten Tor des Systems, also ausdrücklich owner-pflichtig. Vorbild steht
+daneben: Migration 118 plus die Prüfung im `WHERE` von
+`requireOwnerControlAccess` — dort ist die Stelle schon vorbereitet, sie prüft
+heute nur `revoked_at`.
+
 ### Welche Organisation trägt eine Audit-Zeile, die ein Dienst schreibt? *(2026-10-01, gemessen)*
 
 **Gefunden durch den neuen Pflichtlauf mit Datenbank** (P1-C in `CLAUDE.md`).

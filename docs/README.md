@@ -102,6 +102,8 @@ Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeita
 | [features/P9_BOUNTY_MERKLISTE_ENTITLEMENTS.md](features/P9_BOUNTY_MERKLISTE_ENTITLEMENTS.md) | Drei Spuren: Bounty-System wahrheitsfähig und zuschaltbar machen (inkl. Rabatt, der die Rechnung erreicht), Merkliste für Angebote beidseitig, Freischaltung nach Zahlung härten. |
 | [features/Q_ZUVERLAESSIGKEIT_ZEUGNIS.md](features/Q_ZUVERLAESSIGKEIT_ZEUGNIS.md) | **Bauanweisung mit zwei Vorbehalten** (Owner 2026-09-06): Zuverlaessigkeit, Zeugnis, Abwesenheit. Zwei der drei Themen beruehren Arbeitsrecht und Datenschutz und sind nicht so baubar, wie sie zuerst klingen. |
 | [features/URSPRUNGSPROMPT_AUDIT.md](features/URSPRUNGSPROMPT_AUDIT.md) | Punkt-für-Punkt-Abgleich des Ursprungsprompts gegen den Code: erfüllt / teilweise / fehlt, mit Dateibelegen. |
+| [features/Y_PROBEBUEHNE.md](features/Y_PROBEBUEHNE.md) | Die Probebühne: ein vollständiger, anmeldbarer Datenbestand, an dem jede Richtung der Plattform von Hand durchgespielt werden kann. Gemessener Ist-Stand je Phase, Saaten unter `sql/seeds/y*.sql`, je ein Wächter. |
+| [features/Y_REGIEBUCH.md](features/Y_REGIEBUCH.md) | Die Durchspiel-Wege zur Probebühne: „melde dich an als … → öffne … → du musst sehen …", je einer pro Kreislauf, dazu die Standortgrenze, die zwölf Sonderzustände und die drei getrennten internen Flächen. Jeder Weg nennt auch, **woran man einen Fehler erkennt**. |
 
 **Support-Ops**
 
