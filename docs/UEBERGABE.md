@@ -3558,6 +3558,25 @@ Migration 052 war darin ein No-Op, und mit ihr alles, was die Demo-Welt berührt
 Ein Frischinstall-Tor, das den größten Seed der Kette überspringt, prüft weniger,
 als sein Name sagt.
 
+**EMPFEHLUNG AN DEN OWNER, nicht eigenmächtig umgesetzt:** `sh sql/test-fresh-install.sh`
+steht **nicht** in der Pflicht-Liste P1-C von CLAUDE.md — nur in historischen
+Verify-Notizen in `docs/PILOT_GO_LIVE_TODOS.md`. Das Tor ist damit wertvoller
+geworden, und niemand ist verpflichtet, es zu tippen. Genau diese Lage hat die
+Pflichtzeile P1-C selbst schon zweimal getroffen („ein Gate, das nie grün wird,
+wird übersprungen; eines, das gar nicht anläuft, ist dasselbe eine Stufe weiter").
+Gemessen am 2026-10-02 hat dieses Tor **zwei** Defekte gefunden, die die volle
+Suite mit 12 568 grünen Proben **nicht** gefunden hat. Vorschlag: als dritte
+Pflichtzeile unter P1-C aufnehmen. Änderungen an CLAUDE.md brauchen laut §8.1
+ausdrückliche Owner-Bestätigung, deshalb steht es hier und nicht dort.
+
+*Nebenbei nachgeprüft und in Ordnung:* die drei heute entstandenen Wächter
+(`ownerZugangLaeuftAb`, `keineDoppelrolle`, `rlsBackstopIstImPfad`) laufen **nicht**
+in `--suite=image` — richtig so, denn sie lesen `sql/migrations`, `sql/seeds` bzw.
+`docs/`, und das trägt das Abbild nicht (compose **mountet** es). Sie sind durch
+die andere Pflichtzeile gedeckt (`run-tests.js --verlange-datenbank`, voller
+Host-Lauf). Abbild-Suite am 2026-10-02: 404 Dateien, **144** ausgelassen (Grenze
+145), 9882 Proben, `skipped 0`.
+
 Seit dem 2026-10-02 fährt es die Demo-Welt **als Vorgabe** (`--ohne-demo-welt`
 schaltet ab), mit einem je Lauf erzeugten Passwort, und prüft danach vier Dinge:
 sechs Konten entstanden, `pgcrypto` da, **kein** Konto mit dem alten öffentlichen
@@ -3752,6 +3771,15 @@ funktionieren, wurde als `rls_app` geführt — mit genau der Rolle, die die Anw
 **nicht** benutzt. Der Nachweis war richtig, seine Übertragung auf den Betrieb
 nicht. Dieselbe Verwechslung wie bei Punkt 18 oben: **ein Beleg gilt für die Rolle
 beziehungsweise den Code, mit dem er erbracht wurde.**
+
+**Und die Spur ist älter, als sie aussieht.** `docs/PILOT_GO_LIVE_TODOS.md`
+(Eintrag 2026-06-05) führt denselben Nachweis schon einmal: *„Laufzeit-Beweis
+Deny-by-Default mit echtem Nicht-Superuser-Rollen-Probe (`rls_probe`, kein
+BYPASSRLS): ohne org-Kontext → 0 Zeilen, falsche org → 0, korrekte org → 3"*. Die
+Messung war richtig und ist es heute noch — sie lief nur, wie meine, mit einer
+**Probe-Rolle**. Der Befund von heute ist deshalb keine neue Messung, sondern die
+Neulesung einer vorhandenen: vier Monate lang stand ein korrekter Beleg im
+Dokument, und niemand hat gefragt, mit welcher Rolle sich die Anwendung verbindet.
 
 **Die wichtigere Zahl:** `171 von 197` Tabellen haben **überhaupt kein** RLS. Für
 die bleibt der Anwendungscode auch nach einer Umstellung die einzige Schicht. Wer
