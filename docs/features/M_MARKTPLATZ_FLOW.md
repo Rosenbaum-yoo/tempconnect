@@ -660,8 +660,57 @@ Kunden"), sie blockiert den Bau nicht.
 | M11.4 | **Tote-Spalte-Wächter** (`W6`) | `partial_fulfillment_allowed` wäre aufgefallen |
 | M11.5 | **Konvention „BEFUND"** (`W7`): ein Test, der einen **Defekt** festschreibt, trägt es im Namen | Heute sind zwei kaputte Fehlerpfade per grünem Test zementiert |
 | M11.6 | **Mutationswellen** in dieser Reihenfolge: `M1` Plan-Entitlement (die einzige real wirkende Paywall ist ein `<`) · `M2` Deal-Zustandsmaschine · `M3` Mengen-Mathematik · `M4` Fristen · `M5` Marktpräsenz-DSGVO | Schwelle 90 %, null Überlebende im Entscheidungs-Branch |
-| M11.7 | **Index auf `worker_assignment_links(org_id)`** (Rang 10) | Lastprobe: 300 Kunden |
+| M11.7 ✅ | **Index auf `worker_assignment_links(org_id)`** (Rang 10) | Lastprobe: 300 Kunden |
 | M11.8 | **Frontend-Erreichbarkeit als Wächter** | Neue Seite ohne Klickpfad → rot |
+
+> **M11.7 GEBAUT — Stand 2026-10-02. `sql/migrations/228_aueg_frist_findet_ihre_zeilen.sql`.**
+>
+> **Die Lastprobe, die diese Zeile als Nachweis verlangt, ist gefahren** — 300
+> Kunden, je 12 Kräfte, je 6 Einsätze = **21 600 Zeilen**, gegen eine Kopie der
+> Tabelle in einer **zurückgerollten** Transaktion (die Probebühne und ihre
+> Zählungen bleiben unberührt; gegengeprüft: 26 Zeilen, 0 übrige Probe-Indizes):
+>
+>     ohne Index   Seq Scan,        503 Buffer, "Rows Removed by Filter: 21 576"
+>     mit Index    Index Scan,       20 Buffer
+>     nur org_id   Index Only Scan,  35 Buffer
+>
+> Die Abfrage liest also heute die ganze Tabelle und wirft **21 576 von 21 600**
+> Zeilen weg, um 24 zu finden.
+>
+> **Gemessen vorher:** 11 Indizes auf `worker_assignment_links`, davon **0** mit
+> `org_id` als führender Spalte; `seq_scan` 13 381, `seq_tup_read` 317 432 bei
+> 26 Zeilen. *Die Zahl „1 Index mit org_id" aus einer ersten Messung war ein
+> **Teilzeichenketten-Treffer** auf `supplier_org_id` — dieselbe Falle wie
+> `/staff` gegen `/staffing-...`.*
+>
+> **Drei Spalten statt einer, und das ist kein Mehr:** die gemessene Abfrageform
+> ist `org_id` + `worker_user_id` als Gleichheit mit `ORDER BY start_date`.
+> `(org_id, worker_user_id, start_date)` **enthält** `(org_id)` als führendes
+> Präfix, bedient also zusätzlich jede reine `org_id`-Abfrage — **ein** Index
+> statt zwei, auf einer Tabelle mit 46 Spalten, die bei jeder Bestätigung
+> geschrieben wird.
+>
+> **Die Begründung hat sich beim Messen verschoben, und das gehört hierher.** Zwei
+> waren im Umlauf:
+>
+> | | |
+> |---|---|
+> | **Trägt** | `auegFristService.js` filtert an **zwei** Stellen mit genau dieser Form — die **AÜG-Höchstüberlassungsdauer**, eine gesetzliche Frist, nachgeschlagen je Kraft je Entleiher. |
+> | **Trägt nicht** | „Migration 196 legt RLS auf diese Spalte, jede Zeile wertet sie ohnehin aus." Gemessen: die Rolle der Anwendung (`tempconnect`) hat `rolsuper = true` **und** `rolbypassrls = true`. Die Richtlinie `wal2_same_org` läuft für sie **nie** — ohne Org-Kontext sind alle Zeilen sichtbar, der Plan zeigt keinen RLS-Filter. |
+>
+> Die zweite wäre richtig, **sobald** die Anwendung mit `rls_app`
+> (`rolsuper = false`) verbindet. Dass sie es nicht tut, ist der größere Befund
+> dieser Runde und steht in `docs/UEBERGABE.md`.
+>
+> **Wächter:** `api/test/auegFristFindetIhreZeilen.test.js`, 5 Zusicherungen, 8
+> Rückmutationen. Er prüft nicht nur, dass der Index existiert, sondern dass er
+> **mit `org_id` führt** (die Spaltenreihenfolge ist die Zusage), dass die
+> Migration ihren **Rollback-Weg** und den `CONCURRENTLY`-Betriebshinweis nennt,
+> dass die **AÜG-Abfrage noch diese Form hat** — und dass **kein zweiter** Index
+> mit derselben führenden Spalte dazukommt.
+>
+> *Ein `EXPLAIN` auf der heutigen Tabelle beweist nichts: bei 26 Zeilen wählt
+> Postgres den Durchlauf, mit Index oder ohne. Deshalb die Lastprobe.*
 
 
 ---
