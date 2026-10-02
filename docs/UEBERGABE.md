@@ -1906,6 +1906,46 @@ immer dieselben fünf Dinge:
 5. **Einen Abschnitt „Was diese Welle NICHT tut“** — mit den Bausteinen, die es schon gibt.
    Wer eines davon neu baut, hat nicht gemessen.
 
+### Die Liste führt die planende Sitzung *(Owner-Anweisung 2026-10-02)*
+
+> **Owner, 2026-10-02:** *„sag k1 was er als nächstes zu tun hat, prüfe aber seine ergebnisse
+> dauerhaft und er soll sich bei dir melden wegen nächste aufgaben — sorge dafür dass alles glatt
+> läuft auch zu den organisationen. sorge auch dafür dass es zukunftssicher gebaut wird grade in
+> bezug auf skalierung, lass uns die abschnitte weiter ausarbeiten. ich habe die liste grade nicht
+> im blick, sorge dafür dass alles abgearbeitet wird auf höchstem niveau."*
+
+**Damit ist die Rangfolge ein Arbeitsauftrag und keine Wunschliste.** Der Ablauf:
+
+| Schritt | Wer | Was |
+|---|---|---|
+| 1 | **bauende** Sitzung | baut den Posten, meldet **mit Zahlen** (Tor-Ergebnis, Rückmutationen, Messungen) |
+| 2 | **planende** Sitzung | **misst nach** — an der laufenden Datenbank, am Repo, im Browser, wo es sich belegen lässt |
+| 3 | **planende** Sitzung | teilt den **nächsten** Posten zu, mit Vorarbeit: Messwerte, bekannte Fallen, erwarteter erster roter Lauf |
+
+**Für gewöhnliche Bauarbeit aus einem bestehenden Plan braucht es ab jetzt keine Einzelfreigabe des
+Owners.** Er hat die Listenführung ausdrücklich abgegeben.
+
+> **Was trotzdem unverändert bei ihm bleibt — diese Anweisung weicht es NICHT auf:** Anmeldeweg und
+> Sicherheitsriegel mit Verhaltensänderung · Geldregeln · Rechtstexte · **Unumkehrbares** (Tabellen
+> löschen, Produktionsdaten) · Release-Architektur. Die bauende Sitzung hat die Weitergabe einer
+> zitierten Direktive zweimal zu Recht verweigert; **eine Abmachung über die Bauliste ist keine
+> Vollmacht über diese Klassen.** Im Zweifel wird vorgelegt, nicht ausgelegt.
+
+### Skalierung ist ab jetzt Teil jeder Abnahme — Maßstab 300 Kunden
+
+Aus derselben Anweisung („zukunftssicher, grade in Bezug auf Skalierung"). Zu **jeder** Lieferung
+gehört die Frage: **welche Menge darin wächst unbegrenzt mit Kunden- oder Datenwachstum?**
+
+Mit dem Diskriminator, der im Projekt schon steht und der die Hälfte aller Fehlalarme wegnimmt:
+**kein Befund** sind feste Obergrenzen (`slice`, `LIMIT`), bereits gebündelte Abfragen (`= ANY($n)`),
+Läufe, deren Anzahl an der Kundenzahl hängt und die nachts laufen, sowie Pfade, die von Mail oder
+IO dominiert werden. **Ein Befund ist nur**, was mit jedem Kunden und jedem Datensatz unbegrenzt
+mitwächst.
+
+**Die Organisationsstruktur ist dabei ausdrücklich benannt** („auch zu den Organisationen"). Heute
+hat **eine** von 2940 Organisationen mehr als einen Standort und **15** haben mehr als ein Mitglied.
+Die Frage ist nicht, ob drei Standorte tragen, sondern **was bei fünfzig passiert** — in
+Auswahlfeldern, in Berechtigungsprüfungen, in Listen ohne Blätterung.
 ### Die zwei Regeln, die diese Teilung tragen
 
 - **Fehlt etwas wirklich, wird gefragt — nicht erfunden.** Eine Rückfrage kostet zehn
@@ -3253,6 +3293,90 @@ durch sind** (Owner-Vorgabe). Bis dahin bleibt dieser Eintrag der Merkzettel.
 ## Offene Owner-Entscheidungen
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
+
+### Der Standort-Prüfer lässt durch, statt zu sperren *(2026-10-02, gemessen — latent, nicht offen)*
+
+Beim Blick auf „was passiert bei fünfzig Standorten" kam kein Mengenproblem
+heraus, sondern ein **Riegel, der in die falsche Richtung ausfällt**:
+
+    api/routes/reporting.js:31   (und spendAnalytics.js:43, wortgleich)
+    async function validateLocationScope(req, res, locationId) {
+      if (!locationId || !req.orgId) return true;        <-- laesst durch
+      await assertLocationBelongsToOrg(pool, locationId, req.orgId);
+
+Fehlt die Organisation, gibt der Prüfer **`true`** zurück — er lässt durch,
+statt zu sperren. Und der Dienst darunter baut seine Bedingungen einzeln:
+
+    api/services/reportingService.js:1029
+    if (orgId)      { conditions.push(`r.org_id = $N`); }       <-- bedingt
+    if (locationId) { conditions.push(`r.location_id = $N`); }   <-- unbedingt
+
+Zusammen wäre das eine Abfrage, die **nur** nach Standort filtert: ein Lesezugriff
+auf die Daten einer **fremden Organisation** (die Standort-Kennung wurde nie gegen
+die eigene Org geprüft), und bei 300 Kunden zugleich ein Durchlauf über **alle**
+Requisitions der Plattform — auf `requisitions.location_id` liegt kein Index,
+alle brauchbaren Indizes führen mit `org_id`.
+
+**HEUTE IST DAS ZU, und genau das ist der Punkt.** Nachgerechnet:
+`requirePermission` (`api/middleware/rbac.js`) erreicht den Handler nur mit
+bekannter Org oder über die primäre Mitgliedschaft; in **beiden** Fällen setzt es
+danach `req.orgId` (Zeile 117), und ohne jede Mitgliedschaft antwortet es
+`403 NO_ORG_MEMBERSHIP`. Gemessen: **alle 16** standortgebundenen Routen in den
+beiden Dateien tragen `rperm(...)`. Der durchlässige Zweig ist damit
+unerreichbar.
+
+Die Schutzwirkung liegt also **nicht** bei dem Prüfer, der so aussieht, als
+leiste er sie, sondern zwei Schichten höher. Wer eine dieser Routen ohne
+`rperm` montiert — oder hinter einen Wächter, der `req.orgId` nicht setzt —
+öffnet sie lautlos. Das ist dieselbe Gestalt wie der Befund, bei dem ein
+ungemessenes „nicht anfassen" sechs Fehler geschützt hat: der falsche Riegel hält
+länger als der richtige.
+
+**Gebaut, ohne Verhaltensänderung:**
+`api/test/standortfilterNieAllein.test.js` nagelt **alle drei Schichten** fest —
+(1) jede Route mit dem Prüfer trägt `rperm`, (2) `rperm` setzt `req.orgId`
+und weist ohne Mitgliedschaft mit 403 ab, (3) sind Org **und** Standort gegeben,
+stehen **beide** Bedingungen im SQL. Einzeln ist jede dieser Prüfungen wertlos:
+die Routenprüfung übersieht, wenn `rperm` aufhört `req.orgId` zu setzen, die
+Middleware-Prüfung übersieht eine Route ohne `rperm`. 8 Rückmutationen, alle
+treffen.
+
+**Deine Entscheidung — der Prüfer selbst ist nicht angefasst:** ihn auf
+fail-closed umzustellen (`!req.orgId` → 403 statt `return true`) ist ein
+**Sicherheitsriegel mit Verhaltensänderung**. Ein Aufruf mit Standort und ohne
+Org bekäme dann eine Ablehnung statt einer Antwort. Drei Punkte zur Abwägung:
+
+| | |
+|---|---|
+| **Dafür** | Der Schutz liegt dann dort, wo jeder ihn sucht. Zwei Zeilen, in zwei Dateien, wortgleich. |
+| **Dagegen** | Falls irgendein Aufrufer heute legitim ohne Org und mit Standort fragt, bekommt er ab dann 403. Gemessen: über die 16 Routen gibt es keinen solchen Weg — aber „gemessen über die Routen" ist nicht „gemessen über alle Aufrufer". |
+| **Billiger Zwischenschritt** | Den Zweig auf `return true` lassen und daneben laut protokollieren (`logger.warn`), damit ein echter Fall einmal sichtbar wird, bevor er abgewiesen wird. |
+
+### Die Skalierungsseite der Mehrstandort-Firma *(2026-10-02, gemessen)*
+
+Zur Vorgabe „zukunftssicher, grade in Bezug auf Skalierung" und zur Sorge um die
+Organisationen — gemessen, mit dem Diskriminator des Projekts (nur Mengen, die
+**unbegrenzt** mit Kunden- oder Datenwachstum wachsen, sind Befunde):
+
+| Geprüft | Ergebnis |
+|---|---|
+| Standorte je Organisation heute | größte Firma **3**; 3114 Organisationen haben **keinen** Standort |
+| Indexdeckung der `location_id`-Spalten | 7 Tabellen; `assignments`, `capacity_posts`, `rate_cards`, `vendor_pool` indiziert |
+| `org_memberships.location_id`, `org_departments.location_id` | **kein Index — und keiner nötig**: beide erscheinen nur in JOINs auf den Primärschlüssel von `org_locations`, getrieben von `org_id`/`user_id`. Kein Befund nach dem Diskriminator. |
+| `requisitions.location_id` | **kein Index**, wird aber an 8+ Stellen gefiltert. Die Menge bleibt nur klein, weil die Abfragen org-gebunden sind (7 Indizes führen mit `org_id`). Fällt die Org-Bindung, fällt die Mengengrenze — es ist **dieselbe** Bedingung wie beim Befund darüber. |
+| `org_locations` selbst | tragfähig: PK, `(org_id)`, `(city)`, `UNIQUE (id, org_id)` — der zusammengesetzte Schlüssel ist das, was die Standort-Grenze in Fremdschlüsseln überhaupt erzwingbar macht |
+
+**Was ein EXPLAIN hier NICHT beweist:** bei **73 Requisitions** wählt Postgres
+immer einen Durchlauf, mit Index oder ohne. Gemessen und verworfen — die
+Aussagen oben stammen deshalb aus der **Struktur** (Indexdefinitionen,
+Abfrageform), nicht aus Plänen.
+
+**Der eine offene Punkt auf dieser Seite:** von 73 Requisitions tragen
+**null** einen Standort. Die ganze Standort-Dimension des Reportings und der
+Spend Analytics — über 15 Abfragestellen — hat damit noch **nie** eine passende
+Zeile gesehen. Für einen Kunden mit fünfzig Standorten ist das der Pfad, in dem er
+lebt. Das ist Bühnenarbeit, kein Owner-Entscheid, und gehört in denselben
+Handgriff wie Y1.2.
 
 ### Welche Spalte sagt, wie viele Kräfte ein Bedarf braucht? *(2026-10-02, gemessen)*
 

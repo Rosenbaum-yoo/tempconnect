@@ -229,6 +229,56 @@ sehen."* Genau das ist heute nicht möglich.
 | Y1.3 ✅ | **Je ein Konto im Sonderzustand:** Pilotkunde, gekündigt, wegen Zahlungsausfall gesperrt, Abo läuft in drei Tagen ab | Jeder Zustand ist anmeldbar und zeigt genau seine Oberfläche |
 | Y1.4 ✅ | **Eine Zeitarbeitsfirma mit vollständiger Belegschaft:** 12 Kräfte, davon 8 mit Katalog-Fähigkeiten, 2 im Einsatz, 1 krank, 1 verspätet | Erst damit kann der Marktplatz voll wirken (heute: 3 von 33 mit Fähigkeiten) |
 
+> **Y1.5 NACHGEZOGEN — Stand 2026-10-02. `sql/seeds/y1-5-standortauswertung.sql`.**
+>
+> **Die Standort*grenze* war vorführbar, die Standort*auswertung* nicht.** Y1.2
+> hat die Mehrstandort-Firma gebaut; gemessen danach trug von **73 Requisitions
+> im ganzen Bestand keine einzige einen Standort**, und Nordlicht hatte überhaupt
+> keine. Über **fünfzehn** Abfragestellen in `reportingService.js` und
+> `spendAnalyticsService.js` hängen an `r.location_id = $N` — keine davon hat
+> je eine Zeile getroffen. Dieselbe Klasse wie die zwölf unbesetzten Zustände aus
+> Y1.3: nicht fehlende Daten, sondern ein fehlender **Zustand**.
+>
+> **Neun Bedarfe, verteilt 4 / 3 / 2** — ungleich, und das ist die Zusage: bei
+> drei gleich großen Standorten sieht „Hamburg" wie ein Drittel aus, und man kann
+> nicht unterscheiden, ob gefiltert wurde oder geteilt. Gemessen nach dem Laden:
+> ohne Filter **9**, nur Hamburg **4**, nur München **2**.
+>
+> Zwei Nebenwirkungen, die kein Beiwerk sind: `urgency` kannte nur `normal`
+> (60) und `high` (13) — `urgent` und `notdienst` hatten **kein Beispiel**,
+> also genau die Stufen, an denen die Oberfläche farbig wird und der SLA-Takt
+> kürzer rechnet. Und die drei Abteilungen aus Y1.2 hingen bis jetzt an
+> **keinem** Vorgang; jeder Bedarf trägt die Abteilung **seines** Standorts.
+>
+> **Was die Saat ausdrücklich nicht tut:** keinen SLA-Zustand setzen.
+> `RUNNING`/`MET`/`BREACHED` rechnet der Sweep aus — dieselbe Regel, die in Y6
+> den Geltungsbereich der Registratur begrenzt. Eine Notbremse erzwingt es.
+>
+> **Die Skalierungsseite, strukturell statt per EXPLAIN.** Bei 73 Zeilen wählt
+> Postgres immer einen Durchlauf, mit Index oder ohne (gemessen und verworfen).
+> Also gegen die Struktur: `requisitions.location_id` hat **keinen** Index, die
+> Abfragen bleiben nur deshalb klein, weil sie org-gebunden sind — sieben Indizes
+> führen mit `org_id`. `org_memberships.location_id` und
+> `org_departments.location_id` haben ebenfalls keinen und brauchen keinen: sie
+> erscheinen nur in JOINs auf den Primärschlüssel von `org_locations`. Kein
+> Befund nach dem Diskriminator des Projekts.
+>
+> **Dabei ein Riegel gefunden, der durchlässt statt zu sperren** —
+> `validateLocationScope` gibt bei fehlender Organisation `true` zurück, und der
+> Dienst darunter baut seine Org-Bedingung *bedingt*. Heute unerreichbar (alle 16
+> Routen tragen `rperm`, das `req.orgId` setzt), aber die Schutzwirkung liegt
+> zwei Schichten über dem Prüfer, der so aussieht, als leiste er sie. Festgenagelt
+> von `api/test/standortfilterNieAllein.test.js` (drei Schichten, 8
+> Rückmutationen); die Umstellung auf fail-closed ist owner-pflichtig und steht in
+> `docs/UEBERGABE.md`.
+>
+> **Nachweis:** 12 Rückmutationen am Text, 7 Bremsen-Proben gegen die laufende
+> Datenbank. Die SLA-Bremse ließ sich nur auf grüner Wiese prüfen — mit
+> bestehenden Zeilen heilt der ON-CONFLICT-Zweig die Mutation, dieselbe Falle wie
+> in Y4. Wächter: `api/test/probebuehneY1.test.js` (jetzt 14 Zusicherungen,
+> Y1.2 und Y1.5 in einer Datei — zwei Dateien hätten zwei Orte, an denen dieselbe
+> Wahrheit veraltet).
+
 > **Y1.2 GEBAUT — Stand 2026-10-01. Beide Nullen stehen jetzt auf 1.**
 >
 > `sql/seeds/y1-2-standorte.sql` legt **Nordlicht Logistik GmbH** an (PLUS) mit

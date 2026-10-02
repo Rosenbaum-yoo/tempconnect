@@ -188,6 +188,40 @@ wirksam. Sieht Schritt 4 nur einen, wirkt eine Bindung, die es nicht gibt.
 
 ---
 
+### 3a · Die Standortauswertung — der Filter zeigt etwas anderes als die Summe *(Y1.5)*
+
+Abschnitt 3 zeigt die Standort**grenze**: wer an einen Standort gebunden ist, sieht
+die anderen nicht. Hier geht es um die Standort**auswertung**: dieselbe Firma, aus
+der Sicht von jemandem, der **alle** Standorte sehen darf — und der wissen will,
+welcher wie viel Bedarf hat.
+
+Vor Y1.5 war dieser Weg nicht gehbar: von 73 Bedarfen im ganzen Bestand trug
+**keiner** einen Standort. Der Filter war da, die Zeile fehlte.
+
+| Schritt | Was du tust | Was du sehen musst |
+|---|---|---|
+| 1 | als `verwaltung@probebuehne.tempconnect.de` anmelden (Admin, alle Standorte) | Nordlicht Logistik |
+| 2 | die Bedarfsliste öffnen, **ohne** Standortfilter | **neun** Bedarfe |
+| 3 | auf **Hamburg Hafen** filtern | **vier** — darunter einer mit Dringlichkeit **Notdienst** |
+| 4 | auf **Berlin Schoenefeld** filtern | **drei** — darunter einer **dringend** |
+| 5 | auf **München Nord** filtern | **zwei** |
+| 6 | als `standort.hamburg@probebuehne.tempconnect.de` anmelden, dieselbe Liste | **vier** — und keine Möglichkeit, Berlin oder München zu wählen |
+
+**Woran du einen Fehler erkennst:** zeigt Schritt 3 **neun** Bedarfe, greift der
+Standortfilter nicht — dann ist `r.location_id = $N` in den Abfragen zwar
+vorhanden, erreicht aber den Parameter nicht. Zeigt Schritt 3 **drei** (also ein
+Drittel von neun), wurde geteilt und nicht gefiltert; genau deshalb ist die
+Verteilung 4/3/2 und nicht 3/3/3. Und sieht `standort.hamburg@` in Schritt 6
+mehr als vier, ist die Grenze aus Abschnitt 3 in der **Auswertung** nicht
+nachgezogen — die häufigste Form dieses Fehlers: die Liste ist gebunden, die
+Kennzahl darüber nicht.
+
+**Die Abteilungen zählen mit:** jeder Bedarf trägt die Abteilung seines Standorts
+(`Umschlag Hafen` 4, `Luftfracht` 3, `Kontraktlogistik` 2). Zeigt eine
+Abteilungs-Auswertung andere Zahlen als die Standort-Auswertung, laufen die beiden
+Ebenen auseinander — und die zweite Ebene der Bindung aus Y1.2 wäre nur noch
+Dekoration.
+
 ## 4. Die Sonderzustände — zwölf Anmeldungen, zwölf Oberflächen
 
 Je Konto **eine** Anmeldung und **eine** Frage. Der Zweck steht im Namen, die

@@ -183,3 +183,129 @@ suite("Y1.2 — die Probebühne trägt die Form, die die Standortgrenze vorführ
       + "die Saat würde beim Laden brechen.");
   });
 });
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Y1.5 — DIE STANDORT*AUSWERTUNG*, NICHT NUR DIE STANDORT*GRENZE*
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Y1.2 oben macht die Standort-GRENZE vorführbar: `standort.hamburg@` sieht
+ * Berlin und München nicht. Gemessen am 2026-10-02 fehlte daneben die
+ * AUSWERTUNG: von **73 Requisitions im ganzen Bestand trug keine einzige einen
+ * Standort**, und Nordlicht hatte überhaupt keine. Über **fünfzehn**
+ * Abfragestellen in `reportingService.js` und `spendAnalyticsService.js` hängen an
+ * `r.location_id = $N` — keine davon hat je eine Zeile getroffen.
+ *
+ * Dieselbe Klasse wie die zwölf unbesetzten Zustände aus Y1.3: nicht fehlende
+ * Daten, sondern ein fehlender ZUSTAND. Ein Filter, der nie etwas gefiltert hat,
+ * ist eine Behauptung — und für einen Kunden mit fünfzig Standorten ist er der
+ * Pfad, in dem er lebt.
+ *
+ * Die Prüfungen hier liegen in DIESER Datei und nicht in einer neuen: Y1.5 ist
+ * der Anhang zu Y1.2, und zwei Dateien für eine Welle hätten zwei Orte, an denen
+ * dieselbe Wahrheit veralten kann.
+ */
+const SAAT5 = ROOT ? fs.readFileSync(path.join(ROOT, "sql", "seeds", "y1-5-standortauswertung.sql"), "utf8") : "";
+const OHNE5 = SAAT5.replace(/--[^\n]*/g, " ");
+/* Nur der Datenteil: der Bremsen-Block nennt jede Dringlichkeit und jeden
+ * Spaltennamen, weil er sie PRUEFT. Wer ihn mitliest, bekommt jede Zusicherung
+ * geschenkt. */
+const DATEN5 = (() => {
+  const i = OHNE5.indexOf("DO $vollstaendig$");
+  return i > 0 ? OHNE5.slice(0, i) : OHNE5;
+})();
+
+suite("Y1.5 — der Standortfilter des Reportings hat erstmals Zeilen", () => {
+
+  it("die Saat ist da und wird gelesen", () => {
+    assert.ok(SAAT5.length > 3000, `Saat zu kurz (${SAAT5.length} Zeichen) — wird sie noch gelesen?`);
+    assert.match(DATEN5, /INSERT INTO requisitions/, "kein Einfüge-Befehl für requisitions");
+  });
+
+  it("die drei Standorte tragen UNGLEICH viele Bedarfe", () => {
+    /* Ungleich ist die eigentliche Zusage. Bei drei gleich großen Standorten
+     * sieht „Hamburg" wie ein Drittel aus, und man kann nicht unterscheiden, ob
+     * gefiltert wurde oder geteilt. */
+    const je = {};
+    for (const m of DATEN5.matchAll(/'(b0000000-0000-4000-8000-00000000a00[123])'/g)) {
+      je[m[1]] = (je[m[1]] || 0) + 1;
+    }
+    const zahlen = Object.values(je).sort((a, b) => a - b);
+    assert.equal(zahlen.length, 3,
+      `${zahlen.length} Standorte in der Saat, erwartet 3 (Hamburg, Berlin, München)`);
+    assert.notEqual(zahlen[0], zahlen[1],
+      `zwei Standorte haben gleich viele Bedarfe (${zahlen}) — dann unterscheidet ein `
+      + "gefiltertes Ergebnis sich nicht erkennbar von einer Division");
+    assert.notEqual(zahlen[1], zahlen[2], `zwei Standorte haben gleich viele Bedarfe (${zahlen})`);
+  });
+
+  it("die beiden vorher unbesetzten Dringlichkeiten sind besetzt", () => {
+    /* Gemessen vor dieser Saat: `normal` 60, `high` 13, `urgent` und `notdienst`
+     * **null**. Das sind die Stufen, an denen die Oberfläche farbig wird und der
+     * SLA-Takt kürzer rechnet. */
+    for (const d of ["urgent", "notdienst"]) {
+      assert.ok(new RegExp("'" + d + "'").test(DATEN5),
+        `die Dringlichkeit '${d}' kommt in der Saat nicht vor — sie hatte vorher `
+        + "im ganzen Bestand kein Beispiel");
+    }
+  });
+
+  it("KEIN SLA-Zustand aus der Saat — die Werte gehören dem Sweep", () => {
+    /* Dieselbe Regel, die in Y6 den Geltungsbereich der Registratur begrenzt:
+     * `RUNNING`/`MET`/`BREACHED` rechnet der Sweep aus. Eine Saat, die sie
+     * hinschreibt, widerspricht der Stelle, die darüber entscheidet. */
+    for (const spalte of ["sla_status", "sla_due_at", "sla_met_at", "sla_breached_at"]) {
+      assert.ok(!new RegExp(spalte + "\\s*[,)]").test(DATEN5.split("INSERT INTO requisitions")[1] || ""),
+        `die Saat setzt ${spalte}. Diese Werte rechnet der Sweep aus; eine Saat, die sie `
+        + "hinschreibt, widerspricht der entscheidenden Stelle.");
+    }
+    assert.match(OHNE5, /sla_status IS NOT NULL/,
+      "die Notbremse prüft nicht, dass kein SLA-Zustand gesetzt wurde");
+  });
+
+  it("der Freitext und die Kennung dürfen nicht auseinanderlaufen", () => {
+    /* `location_city` ist der ältere Weg und wird von eigenen Trigramm-Indizes
+     * gelesen. Ein Bedarf, dessen Kennung Hamburg sagt und dessen Freitext etwas
+     * anderes, erscheint in der einen Auswertung und in der anderen nicht. */
+    assert.match(OHNE5, /lower\(coalesce\(r\.location_city, ''\)\) <> lower\(l\.city\)/,
+      "die Notbremse prüft nicht, dass location_city zur Standort-Kennung passt");
+
+    /* UND DER WERT, NICHT DER SPALTENNAME. Erster Entwurf prüfte
+     * `/location_city/` — und blieb grün, als die Rückmutation den WERT auf NULL
+     * setzte: der Spaltenname steht ja weiter in der Spaltenliste. Eine
+     * Zusicherung, die einen Namen sucht, wo ein Wert gemeint ist, prüft die
+     * Buchhaltung statt der Sache.
+     *
+     * Dass ein NULL-Wert nicht durchkommt, hält am Ende die Notbremse der Saat
+     * (sie vergleicht gegen `l.city` und bricht bei leer ab) — die sieht die
+     * Datenbank, diese Probe nur den Text. Deshalb hier die Auswahlliste. */
+    const auswahl = DATEN5.slice(DATEN5.indexOf("INSERT INTO requisitions"),
+      DATEN5.indexOf("FROM (VALUES"));
+    assert.match(auswahl, /r\.stadt\s*,\s*r\.plz/,
+      "die Saat übergibt Stadt und Postleitzahl nicht aus der Zeilenliste — steht dort "
+      + "NULL, fehlt der Bedarf in jeder Auswertung, die den Freitext liest, und "
+      + "erscheint in jeder, die die Kennung liest");
+  });
+
+  it("die Auswertung, die das bedient, filtert wirklich auf location_id", () => {
+    /* DIE BINDUNG AN DIE WIRKUNG. Ohne sie prüft alles darüber nur, dass eine
+     * Saat Zeilen anlegt — und nicht, dass diese Zeilen einen Pfad bedienen, den
+     * es gibt. Zieht der Filter um oder verschwindet er, wird das hier rot und
+     * nicht erst beim Durchspielen. */
+    const dienste = ["api/services/reportingService.js", "api/services/spendAnalyticsService.js"]
+      .map((p) => fs.readFileSync(path.join(ROOT, p), "utf8"));
+    const treffer = dienste.join("\n").match(/r\.location_id\s*=\s*\$/g) || [];
+    assert.ok(treffer.length >= 5,
+      `nur ${treffer.length} Abfragestellen filtern auf r.location_id, erwartet mindestens 5 — `
+      + "wenn der Filter umgezogen ist, bedient diese Saat niemanden mehr");
+  });
+
+  it("stabile Kennungen und die Sperre, wie in jeder Saat", () => {
+    assert.match(OHNE5, /current_setting\(\s*'app\.seed_demo_world'/,
+      "die Saat hat keine Sperre");
+    assert.match(OHNE5, /ON CONFLICT \(id\)/,
+      "ohne ON CONFLICT (id) legt der zweite Lauf Doppel an");
+    const feste = OHNE5.match(/'20\d\d-\d\d-\d\d/g) || [];
+    assert.deepEqual(feste, [], `festes Datum in der Saat: ${feste.join(", ")}`);
+  });
+});
