@@ -6,6 +6,26 @@
 --         dennissss@gmail.com  (agency / supplier)
 -- =============================================================
 
+-- ── RELATIVE WOCHEN (2026-10-02) ──────────────────────────────────────────────
+-- Diese Saat trug 25 FESTE Daten: vier Wochen im Februar/Maerz 2026. Die
+-- Kommentare sagten dabei immer schon "current week" / "last week" - gemeint war
+-- also von Anfang an relativ, implementiert war absolut. Am 2026-10-02 zeigte die
+-- Verkaufsdemo damit sieben Monate alte Stundenzettel, und zwar LAUTLOS: ein
+-- fester Wert wird nicht falsch, er wird nur jeden Tag unwahrer.
+--
+-- Jetzt rechnet die Datei: date_trunc('week', CURRENT_DATE) ist der Montag der
+-- laufenden Woche (ISO, Montag zuerst - passt zu DACH). Die vier Zettel liegen
+-- bei 0, -7, -14 und -21 Tagen, die Eintraege Mo-Fr darin.
+--
+-- Erzwungen von api/test/probebuehneBesetzung.test.js (Y6.2): kein festes Datum
+-- in IRGENDEINER Saat. Die Probe liest das VERZEICHNIS, nicht eine Datei - eine
+-- neue Saat mit festem Datum kommt daran nicht vorbei.
+--
+-- Zur Zeitzone: CURRENT_DATE erbt die Zone der Datenbank. Das ist ein bekannter,
+-- eigener Punkt (todayDE() schuetzt nur JS-Pfade) und betrifft hier allenfalls
+-- einen Tag am Wochenanfang - fuer eine Demo-Woche ohne Belang.
+-- ─────────────────────────────────────────────────────────────────────────────
+
 BEGIN;
 
 -- ── SPERRE (2026-10-01) ──────────────────────────────────────
@@ -76,7 +96,7 @@ VALUES
    'aaaa0001-0000-0000-0000-000000000001',
    'bbbb0001-0000-0000-0000-000000000001',
    'Max Mustermann', 'MA-1001',
-   '2026-03-02', '2026-03-06',
+   date_trunc('week', CURRENT_DATE)::date, (date_trunc('week', CURRENT_DATE)::date + 4),
    'draft', 'Aktueller Entwurf – noch in Bearbeitung.')
 ON CONFLICT DO NOTHING;
 
@@ -85,8 +105,8 @@ INSERT INTO timesheet_entries
   (timesheet_id, work_date, hours_regular, hours_overtime,
    break_minutes, shift_start, shift_end)
 VALUES
-  ('cccc0001-0000-0000-0000-000000000001', '2026-03-02', 8, 0, 30, '08:00', '16:30'),
-  ('cccc0001-0000-0000-0000-000000000001', '2026-03-03', 8, 1, 30, '07:30', '17:00')
+  ('cccc0001-0000-0000-0000-000000000001', date_trunc('week', CURRENT_DATE)::date, 8, 0, 30, '08:00', '16:30'),
+  ('cccc0001-0000-0000-0000-000000000001', (date_trunc('week', CURRENT_DATE)::date + 1), 8, 1, 30, '07:30', '17:00')
 ON CONFLICT DO NOTHING;
 
 -- Recalc totals for TS-1
@@ -105,7 +125,7 @@ VALUES
    'aaaa0001-0000-0000-0000-000000000001',
    'bbbb0001-0000-0000-0000-000000000001',
    'Erika Schmidt', 'MA-1002',
-   '2026-02-23', '2026-02-27',
+   (date_trunc('week', CURRENT_DATE)::date - 7), (date_trunc('week', CURRENT_DATE)::date - 3),
    'submitted', NOW() - INTERVAL '2 days',
    'aa9a57c8-ae03-476d-84e4-47e10888295b',
    'Regulaere Arbeitswoche KW09.')
@@ -114,11 +134,11 @@ ON CONFLICT DO NOTHING;
 INSERT INTO timesheet_entries
   (timesheet_id, work_date, hours_regular, hours_overtime, break_minutes, shift_start, shift_end)
 VALUES
-  ('cccc0002-0000-0000-0000-000000000001', '2026-02-23', 8, 0, 30, '08:00', '16:30'),
-  ('cccc0002-0000-0000-0000-000000000001', '2026-02-24', 8, 0, 30, '08:00', '16:30'),
-  ('cccc0002-0000-0000-0000-000000000001', '2026-02-25', 8, 2, 30, '07:00', '17:30'),
-  ('cccc0002-0000-0000-0000-000000000001', '2026-02-26', 8, 0, 30, '08:00', '16:30'),
-  ('cccc0002-0000-0000-0000-000000000001', '2026-02-27', 8, 0, 30, '08:00', '16:30')
+  ('cccc0002-0000-0000-0000-000000000001', (date_trunc('week', CURRENT_DATE)::date - 7), 8, 0, 30, '08:00', '16:30'),
+  ('cccc0002-0000-0000-0000-000000000001', (date_trunc('week', CURRENT_DATE)::date - 6), 8, 0, 30, '08:00', '16:30'),
+  ('cccc0002-0000-0000-0000-000000000001', (date_trunc('week', CURRENT_DATE)::date - 5), 8, 2, 30, '07:00', '17:30'),
+  ('cccc0002-0000-0000-0000-000000000001', (date_trunc('week', CURRENT_DATE)::date - 4), 8, 0, 30, '08:00', '16:30'),
+  ('cccc0002-0000-0000-0000-000000000001', (date_trunc('week', CURRENT_DATE)::date - 3), 8, 0, 30, '08:00', '16:30')
 ON CONFLICT DO NOTHING;
 
 UPDATE timesheets SET
@@ -136,7 +156,7 @@ VALUES
    'aaaa0001-0000-0000-0000-000000000001',
    'bbbb0001-0000-0000-0000-000000000001',
    'Hans Weber', 'MA-1003',
-   '2026-02-16', '2026-02-20',
+   (date_trunc('week', CURRENT_DATE)::date - 14), (date_trunc('week', CURRENT_DATE)::date - 10),
    'approved',
    NOW() - INTERVAL '9 days',  'aa9a57c8-ae03-476d-84e4-47e10888295b',
    NOW() - INTERVAL '7 days',  '00357101-f057-4883-b1ce-46feeac43c9c')
@@ -145,11 +165,11 @@ ON CONFLICT DO NOTHING;
 INSERT INTO timesheet_entries
   (timesheet_id, work_date, hours_regular, hours_overtime, break_minutes, shift_start, shift_end)
 VALUES
-  ('cccc0003-0000-0000-0000-000000000001', '2026-02-16', 8, 0, 30, '08:00', '16:30'),
-  ('cccc0003-0000-0000-0000-000000000001', '2026-02-17', 8, 0, 30, '08:00', '16:30'),
-  ('cccc0003-0000-0000-0000-000000000001', '2026-02-18', 8, 0, 30, '08:00', '16:30'),
-  ('cccc0003-0000-0000-0000-000000000001', '2026-02-19', 8, 0, 30, '08:00', '16:30'),
-  ('cccc0003-0000-0000-0000-000000000001', '2026-02-20', 8, 0, 30, '08:00', '16:30')
+  ('cccc0003-0000-0000-0000-000000000001', (date_trunc('week', CURRENT_DATE)::date - 14), 8, 0, 30, '08:00', '16:30'),
+  ('cccc0003-0000-0000-0000-000000000001', (date_trunc('week', CURRENT_DATE)::date - 13), 8, 0, 30, '08:00', '16:30'),
+  ('cccc0003-0000-0000-0000-000000000001', (date_trunc('week', CURRENT_DATE)::date - 12), 8, 0, 30, '08:00', '16:30'),
+  ('cccc0003-0000-0000-0000-000000000001', (date_trunc('week', CURRENT_DATE)::date - 11), 8, 0, 30, '08:00', '16:30'),
+  ('cccc0003-0000-0000-0000-000000000001', (date_trunc('week', CURRENT_DATE)::date - 10), 8, 0, 30, '08:00', '16:30')
 ON CONFLICT DO NOTHING;
 
 UPDATE timesheets SET
@@ -167,7 +187,7 @@ VALUES
    'aaaa0001-0000-0000-0000-000000000001',
    'bbbb0001-0000-0000-0000-000000000001',
    'Lisa Müller', 'MA-1004',
-   '2026-02-09', '2026-02-13',
+   (date_trunc('week', CURRENT_DATE)::date - 21), (date_trunc('week', CURRENT_DATE)::date - 17),
    'rejected',
    NOW() - INTERVAL '16 days', 'aa9a57c8-ae03-476d-84e4-47e10888295b',
    NOW() - INTERVAL '14 days', '00357101-f057-4883-b1ce-46feeac43c9c',
@@ -177,11 +197,11 @@ ON CONFLICT DO NOTHING;
 INSERT INTO timesheet_entries
   (timesheet_id, work_date, hours_regular, hours_overtime, break_minutes, shift_start, shift_end)
 VALUES
-  ('cccc0004-0000-0000-0000-000000000001', '2026-02-09', 8, 0, 30, '08:00', '16:30'),
-  ('cccc0004-0000-0000-0000-000000000001', '2026-02-10', 8, 0, 30, '08:00', '16:30'),
-  ('cccc0004-0000-0000-0000-000000000001', '2026-02-11', 8, 0, 30, '08:00', '16:30'),
-  ('cccc0004-0000-0000-0000-000000000001', '2026-02-12', 8, 0, 30, '08:00', '16:30'),
-  ('cccc0004-0000-0000-0000-000000000001', '2026-02-13', 12, 0, 30, '06:00', '18:30')
+  ('cccc0004-0000-0000-0000-000000000001', (date_trunc('week', CURRENT_DATE)::date - 21), 8, 0, 30, '08:00', '16:30'),
+  ('cccc0004-0000-0000-0000-000000000001', (date_trunc('week', CURRENT_DATE)::date - 20), 8, 0, 30, '08:00', '16:30'),
+  ('cccc0004-0000-0000-0000-000000000001', (date_trunc('week', CURRENT_DATE)::date - 19), 8, 0, 30, '08:00', '16:30'),
+  ('cccc0004-0000-0000-0000-000000000001', (date_trunc('week', CURRENT_DATE)::date - 18), 8, 0, 30, '08:00', '16:30'),
+  ('cccc0004-0000-0000-0000-000000000001', (date_trunc('week', CURRENT_DATE)::date - 17), 12, 0, 30, '06:00', '18:30')
 ON CONFLICT DO NOTHING;
 
 UPDATE timesheets SET

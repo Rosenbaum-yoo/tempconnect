@@ -318,7 +318,84 @@ Link-Prüfer nicht sehen kann).
 
 ---
 
-## 6. Was dieses Regiebuch NICHT ist
+## 6. Die dreizehn Org-Rollen — wer sieht was *(Y6.1)*
+
+`api/services/rbacService.js` hat **63 Rechte auf 13 Rollen**, und
+`hasPermission()` erbt über `ROLE_HIERARCHY`. Besetzt waren davon **sechs**.
+Sieben Einschränkungen hatte nie jemand getragen — und eine Rolle, die niemand
+trägt, hat niemand geprüft.
+
+Gemessen, indem die Entscheidungsfunktion selbst gefragt wurde (nicht die Liste
+gelesen — die Vererbung sieht man in den Listen nicht):
+
+| Rolle | Rechte | Konto |
+|---|---|---|
+| `owner` / `admin` | 63 von 63 | (vorhanden) |
+| `platform_admin` | **63 von 63** | `rolle.plattform@probebuehne.tempconnect.de` |
+| `program_manager` | 47 | `rolle.programm@probebuehne.tempconnect.de` |
+| `hiring_manager` | 28 | (vorhanden) |
+| `finance` | 21 | `rolle.finanzen@probebuehne.tempconnect.de` |
+| `supplier_manager` | 20 | `rolle.lieferanten@probebuehne.tempconnect.de` |
+| `dispatcher` | 18 | (vorhanden) |
+| `recruiter` | 15 | `rolle.recruiting@probebuehne.tempconnect.de` |
+| `member` / `viewer` | 8 | `rolle.lesend@probebuehne.tempconnect.de` |
+| `supplier_user` | 8 | `rolle.lieferantenseite@probebuehne.tempconnect.de` (bei Hanse) |
+| `worker` | 0 | (vorhanden — gatet über `arbeiterRiegel`, nicht über Rechte) |
+
+| Schritt | Was du tust | Was du sehen musst |
+|---|---|---|
+| 1 | als `rolle.lesend@probebuehne.tempconnect.de` anmelden | Nordlicht Logistik, **nur Lesen** — kein Anlegen, kein Ändern |
+| 2 | abmelden, als `rolle.finanzen@probebuehne.tempconnect.de` anmelden | Rechnungen und Konditionen ja — **Bedarfe anlegen nein** |
+| 3 | abmelden, als `rolle.recruiting@probebuehne.tempconnect.de` anmelden | Bedarfe und Kandidaten ja — **Rechnungen nein** |
+| 4 | abmelden, als `rolle.programm@probebuehne.tempconnect.de` anmelden | fast alles, **aber keine Mitgliederverwaltung** |
+| 5 | abmelden, als `rolle.plattform@probebuehne.tempconnect.de` anmelden | **alles** — diese Rolle ist owner-gleich |
+
+**Woran du einen Fehler erkennst:** sieht `rolle.lesend@` in Schritt 1 einen
+Knopf, der etwas ändert, greift `viewer` nicht — und `viewer` ist die Rolle,
+die man jemandem gibt, dem man gerade NICHT vertrauen will. Sieht
+`rolle.finanzen@` in Schritt 2 dieselbe Oberfläche wie `rolle.plattform@` in
+Schritt 5, wird die Rolle nicht ausgewertet: 21 gegen 63 Rechte müssen sichtbar
+verschieden sein. Und wenn Schritt 5 **nicht** alles zeigt, stimmt die Vererbung
+nicht — `platform_admin` steht in **keiner** der 63 Rechtelisten direkt drin und
+bekommt seine Macht ausschließlich über `ROLE_HIERARCHY`.
+
+### 6a · Die Zustände, die vorher kein Beispiel hatten
+
+Zu jedem dieser Zustände gibt es jetzt genau eine Zeile. Sie sind der Grund,
+warum man die Oberfläche überhaupt in diesem Zustand sehen kann:
+
+| Was | Wo du es siehst |
+|---|---|
+| Rechnung über **0,00 €** (Tarif DEMO) | Rechnungsliste von Nordlicht — die Nullzeile, die die Formatierung beweist |
+| Vier Tarife in einer Rechnungshistorie | dieselbe Liste: DEMO → BASIS → PRO → INDIVIDUELL |
+| Einladung **angenommen**, mit Zeitpunkt und Person | Einladungsfläche von Hanse |
+| Einladung **verfallen** / **zurückgezogen** | dieselbe Fläche |
+| Nachweis **wartet auf Prüfung** | Nachweisliste von Jonas Harms |
+| Nachweis **abgelehnt, mit Begründung** | dieselbe Liste — der einzige Zustand, in dem ein Grund stehen MUSS |
+| Nachweis **archiviert** | dieselbe Liste, als abgelöster Vorgänger |
+| Abwesenheit **Urlaub / Termin / Fortbildung** | Abwesenheiten bei Hanse, alle in der Zukunft |
+| Abwesenheit **beantragt** (wartet auf Entscheidung) | dieselbe Fläche — hier entscheidet der Disponent |
+| Abwesenheit **abgelehnt, mit Begründung** | dieselbe Fläche, mit dem Grund daneben |
+| Zustandsgeschichte einer Kraft über fünf Stufen | Piotr Lewandow (HPS-003): verfügbar → im Einsatz → Montage → abwesend → inaktiv → verfügbar |
+
+**Woran du einen Fehler erkennst:** zeigt die Rechnungsliste bei der
+Null-Rechnung eine leere Zelle statt „0,00 €", ist die Formatierung nie an einer
+Nullzeile geprüft worden. Steht bei der abgelehnten Abwesenheit oder dem
+abgelehnten Nachweis **kein Grund**, verschweigt die Fläche genau das, worauf die
+Datenbank besteht — beide Tabellen erzwingen die Begründung per CHECK. Und endet
+die Zustandsgeschichte von HPS-003 auf etwas anderem als „verfügbar", während die
+Belegschaftsfläche ihn als frei zeigt, widersprechen sich zwei Flächen; dann
+glaubt der Leser der Historie, und die ist dann die falsche.
+
+**Was die Abwesenheiten absichtlich NICHT tun:** keine davon liegt auf heute.
+Eine wirksame Abwesenheit heute verdeckt eine Kraft am Markt und würde die
+Zahlen verschieben, die die Wellen Y1.4 und Y2.3 gemessen haben — ohne dass
+jemand den Zusammenhang sähe. Eine Notbremse in `sql/seeds/y6-besetzung.sql`
+weist die Saat zurück, wenn eine neue Abwesenheit `CURRENT_DATE` berührt.
+
+---
+
+## 7. Was dieses Regiebuch NICHT ist
 
 Keine Testautomatisierung. Die Wege sind für **Menschen** gedacht; was sich
 automatisch prüfen lässt, prüfen die Wächter in `api/test/probebuehne*.test.js`

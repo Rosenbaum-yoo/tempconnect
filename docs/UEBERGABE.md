@@ -3118,6 +3118,40 @@ nur dort. `main` steht auf `fd9a3ab` (01.06.) und ist **400 Commits zurück**;
 entscheidet. Die dokumentierten Ursachen (Zeitgrenze 90 min, `incremental`) sind
 dagegen längst behoben — `timeout-minutes: 180`, sechs parallele Matrix-Jobs.
 
+## Welle Y ist vollstaendig gebaut *(Stand 2026-10-02)*
+
+**Alle 26 Phasen von [features/Y_PROBEBUEHNE.md](features/Y_PROBEBUEHNE.md) sind
+abgehakt.** Wer in dieser Richtung weiterarbeiten will, liest zuerst dort — jede
+Phase traegt ihre eigene Messung, und mehrere Eintraege nennen Defekte, die beim
+Bauen in der eigenen Pruefung gefunden wurden.
+
+Was jetzt existiert und vorher nicht:
+
+| | |
+|---|---|
+| **Die Buehne** | neun Saaten unter `sql/seeds/y*.sql`, alle gesperrt (`app.seed_demo_world`), alle passwortfrei im Repo (`app.seed_passwort`, pgcrypto beim Laden), alle wiederholbar, alle ohne festes Datum |
+| **Die Besetzung** | **35** anmeldbare Konten (gemessen), darunter alle **6** Staff-Rollen und alle **13** Org-Rollen, zwei interne Support-Datenreichweiten und eine zweite Owner-Sicht |
+| **Das Regiebuch** | [features/Y_REGIEBUCH.md](features/Y_REGIEBUCH.md) — sieben Wege (einer je Kreislauf), die Standortgrenze, zwoelf Sonderzustaende, die drei getrennten Flaechen, die dreizehn Org-Rollen. Jeder Weg sagt, **woran man einen Fehler erkennt** |
+| **Die Waechter** | `api/test/probebuehne*.test.js` + `regiebuch.test.js` + `saatSperreHaelt.test.js`; die Registraturen binden an den **Code** (importierte Rollen- und Planlisten), nicht an Abschriften |
+
+**Die Buehne laden** (das Passwort steht nirgends im Repo und wird beim Laden
+gesetzt):
+
+```
+SEED_DEMO_WORLD=true SEED_PASSWORT=<mindestens 12 Zeichen> scripts/dev/seed-data.sh
+```
+
+**Was dabei offen geblieben ist** — alles owner-pflichtig, alles unten in
+„Offene Owner-Entscheidungen" mit Messung:
+
+- die Mandantengrenze der Audit-Zeilen, die ein Dienst ohne `req` schreibt
+- drei Befunde an den internen Flaechen (Kundenkonto mit Support-Zugang; das
+  Konto mit allen drei Flaechen hat als einziges keinen Step-up und kein
+  Ablaufdatum; `occ_owner_access` kennt kein `expires_at`)
+- vier Dateien mit einem Passwort oder bcrypt-Hash im Klartext. Sie sind
+  **eingefroren** (eine fuenfte wird rot), nicht bereinigt: alle vier liegen auf
+  einem **Anmeldeweg**, und wer sie ersetzt, sperrt bestehende Demo-Zugaenge aus
+
 ## Der Plan fuer die naechsten Sitzungen
 
 **Aktiv: [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md)**

@@ -237,8 +237,17 @@ suite("Y5 — das Regiebuch zeigt auf etwas, das es gibt", () => {
      * richtige QUELLE, nicht eine Ausnahmeliste. */
     const quellen = ["api/middleware/staffControlAccess.js", "api/middleware/requireOwnerControlAccess.js",
       "api/config/staffRollen.js", "api/routes/staffControlCenter.js", "api/middleware/supportAccess.js",
-      "scripts/dev/seed-data.sh"]
-      .map((p) => fs.readFileSync(path.join(ROOT, p), "utf8")).join("\n");
+      "api/services/rbacService.js", "scripts/dev/seed-data.sh"]
+      .map((p) => fs.readFileSync(path.join(ROOT, p), "utf8"))
+      /* Und die Saaten. Das Regiebuch nennt inzwischen auch, worauf eine
+       * NOTBREMSE vergleicht (`CURRENT_DATE`) — das ist SQL und steht in keiner
+       * .js-Datei. Die Antwort darauf ist die richtige QUELLE, nicht eine
+       * Ausnahmeliste: eine Ausnahmeliste waechst, eine Quelle nicht. Dieselbe
+       * Lehre wie bei `SEED_PASSWORT` eine Zeile weiter oben. */
+      .concat(fs.readdirSync(path.join(ROOT, "sql", "seeds"))
+        .filter((f) => f.endsWith(".sql"))
+        .map((f) => fs.readFileSync(path.join(ROOT, "sql", "seeds", f), "utf8")))
+      .join("\n");
     /* ZWEI PRAEZISIONEN, und beide kommen aus Rueckmutationen, die gruen blieben.
      *
      * 1. GESUCHT WIRD IN DER BACKTICK-SPANNE, NICHT ALS GANZE SPANNE. Der erste

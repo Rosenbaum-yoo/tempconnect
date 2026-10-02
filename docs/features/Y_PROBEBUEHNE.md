@@ -821,10 +821,155 @@ sehen."* Genau das ist heute nicht möglich.
 
 | Phase | Inhalt | Nachweis |
 |---|---|---|
-| Y6.1 | **Die Besetzung ist vollständig**: fehlt eine Rolle, ein Abo oder ein Zustand aus Y1–Y3, wird die Probe rot | Eintrag entfernen → rot. **Rückmutation** |
-| Y6.2 | **Kein festes Datum** in der Saat | Kalenderdatum einbauen → rot |
-| Y6.3 | **Kein Passwort im Repository** — erweitert den Schlüsselmuster-Wächter aus W4.2 | Passwort in der Saat → rot |
-| Y6.4 | **Idempotenz**: zweimal ausführen ergibt dieselbe Besetzung | Zählung vor und nach dem zweiten Lauf gleich |
+| Y6.1 ✅ | **Die Besetzung ist vollständig**: fehlt eine Rolle, ein Abo oder ein Zustand aus Y1–Y3, wird die Probe rot | Eintrag entfernen → rot. **Rückmutation** |
+| Y6.2 ✅ | **Kein festes Datum** in der Saat | Kalenderdatum einbauen → rot |
+| Y6.3 ✅ | **Kein Passwort im Repository** — erweitert den Schlüsselmuster-Wächter aus W4.2 | Passwort in der Saat → rot |
+| Y6.4 ✅ | **Idempotenz**: zweimal ausführen ergibt dieselbe Besetzung | Zählung vor und nach dem zweiten Lauf gleich |
+
+> **Y6 GEBAUT — Stand 2026-10-02. `sql/seeds/y6-besetzung.sql` und
+> `api/test/probebuehneBesetzung.test.js` (10 Zusicherungen, davon 2
+> datenbankgebunden).**
+>
+> **Zuerst die Zahl, die den Anspruch begrenzt.** Gemessen gegen die laufende
+> Datenbank: **233 Aufzählungs-CHECKs auf 117 Tabellen**, und **100 Spalten**
+> haben mindestens einen erlaubten Wert ohne Beispiel. „Die Besetzung ist
+> vollständig" kann deshalb nicht „jeder legale Wert im Schema" heißen — das wäre
+> nicht ehrgeizig, sondern falsch:
+>
+> | Draußen, weil … | Beispiele |
+> |---|---|
+> | **Protokolle** — ihr Wert entsteht, wenn die Handlung passiert; eine Saat fälscht Geschichte | `platform_events.event_type` (35 Werte), `requisition_events.event_type` (23), `assignment_staffing_events` (34), `audit_log.action_type` |
+> | **DACH-first** — es gibt keinen Kunden, der so abgerechnet wird | `invoices.currency` = USD/GBP, `rate_cards.currency` |
+> | **Anbieter nicht angebunden** (Tier-1-Konfiguration steht auf „manual") | `payment_sessions.method` = stripe/paypal |
+> | **rechnet der Sweep aus** — eine Saat würde der entscheidenden Stelle widersprechen | `*.sla_status` = BREACHED/MET/RUNNING |
+> | **Maschinerie einer anderen Welle** — Zustände entstehen beim Laufen | `assignment_staffing_*`, `requisitions.status` |
+> | **Profil-Dekoration** ohne Verhalten | `company_profiles.company_size`, `company_certifications.cert_type` |
+>
+> Y6.1 ist deshalb eine **Ratsche mit Geltungsbereich**, nach dem Muster von
+> `docs/.docs-consistency-baseline.json`: die Registratur im Wächter nennt, was
+> die Bühne **beansprucht** — und bindet dabei an den **Code**, nicht an eine
+> Abschrift (`STAFF_ROLLEN`, `CANONICAL_PLAN_KEYS`, die Rollen aus
+> `PERMISSIONS` + `ROLE_HIERARCHY` werden importiert). Eine Kopie geht beim
+> nächsten Wert auseinander, ohne rot zu werden.
+>
+> *Reproduzierbar — die Bestandsaufnahme ist nicht gepflegt, sondern gemessen:*
+> ein `DO`-Block über `pg_constraint` (nur `contype='c'`,
+> `array_length(conkey,1)=1`, Definition enthält `= ANY (ARRAY[`), der je Wert
+> `EXECUTE format('SELECT count(*) FROM %I WHERE %I::text = $1', …)` ruft und
+> leere Treffer als `NOTICE` meldet. Der Spaltenbezug MUSS über `conkey[1]`
+> laufen: eine Suche per Teilzeichenkette liest bei `requests.status` in
+> Wahrheit `sla_status` — gemessen, drei von dreizehn Zeilen waren so falsch.
+>
+> ### Die 22 geschlossenen Lücken
+>
+> | Spalte | fehlte | Was man jetzt sehen kann |
+> |---|---|---|
+> | `org_memberships.role_key` | **7** | die ganze RBAC-Matrix (siehe unten) |
+> | `invoices.plan` | 4 | eine Rechnung über **0,00 €** und eine Tarifwechsel-Historie |
+> | `worker_invites.status` | 3 | angenommen (mit Zeitpunkt **und** Person), verfallen, zurückgezogen |
+> | `worker_profile_documents.status` | 3 | wartend, **abgelehnt mit Grund**, archiviert |
+> | `worker_absences.art` | 3 | Urlaub, Termin, Fortbildung — alle in der Zukunft |
+> | `worker_absences.zustand` | 2 | beantragt (wartet auf Entscheidung), **abgelehnt mit Grund** |
+> | `worker_status_events` | 2 | eine Zustandsgeschichte über fünf Stufen |
+>
+> **Der schärfste Posten ist der erste.** `rbacService.js` hat **63 Rechte auf 13
+> Rollen**, und `hasPermission()` **erbt** über `ROLE_HIERARCHY`. Gemessen,
+> indem die Entscheidungsfunktion gefragt wurde statt die Liste gelesen:
+>
+>     owner / admin / platform_admin   63 von 63
+>     program_manager                  47      <- kein Beispiel
+>     hiring_manager                   28
+>     finance                          21      <- kein Beispiel
+>     supplier_manager                 20      <- kein Beispiel
+>     dispatcher                       18
+>     recruiter                        15      <- kein Beispiel
+>     member / supplier_user / viewer   8      <- zwei ohne Beispiel
+>     worker                            0      (gatet über arbeiterRiegel)
+>
+> **`platform_admin` hat 63 von 63 — die mächtigste Org-Rolle des Systems, und
+> sie hatte keinen einzigen Träger.** Dass sie owner-gleich ist, sieht man nur mit
+> der Vererbung: direkt steht sie in **keiner** der 63 Rechtelisten. Ein erster
+> Zähler, der nur die Listen las, meldete für sie **0 von 63** — ein Befund, der
+> nach einer Sicherheitslücke aussah und keiner war. Wer Rechte zählt, muss die
+> Entscheidungsfunktion fragen.
+>
+> ### Y6.2 · Die Verkaufsdemo zeigte sieben Monate alte Stundenzettel
+>
+> **Alle 25 festen Daten im Bestand standen in einer Datei:**
+> `sql/seeds/demo-timesheets.sql`, vier Wochen im Februar/März 2026. Die
+> Kommentare dort sagten immer schon *„current week" / „last week"* — gemeint war
+> von Anfang an relativ, implementiert war absolut. Am 2026-10-02 zeigte die
+> Demo damit Zettel vom Februar. Ein fester Wert wird nicht falsch, er wird nur
+> **jeden Tag unwahrer**, und zwar lautlos. Jetzt rechnet die Datei
+> (`date_trunc('week', CURRENT_DATE)`, vier Wochen bei 0/−7/−14/−21).
+>
+> Die Probe liest das **Verzeichnis**, nicht eine Datei: eine neue Saat mit festem
+> Datum kommt daran nicht vorbei. Genau das war die Lücke — jede Y-Saat prüfte sich
+> selbst, und eine neue bringt ihren Wächter mit oder keinen.
+>
+> ### Y6.3 · Eine Ratsche, und die schärfste Zusicherung dieser Welle
+>
+> Es gibt **vier** Dateien mit einem Passwort oder bcrypt-Hash im Klartext. Sie
+> sind eingefroren, nicht bereinigt: alle vier liegen auf einem **Anmeldeweg**,
+> und wer sie ersetzt, sperrt bestehende Demo-Zugänge aus (Owner-Entscheidung).
+> Eine **fünfte** wird rot.
+>
+> Zwei davon sind ausdrücklich berechtigt —
+> `125_remediate_demo_seed_backdoor.sql` **muss** den Hash nennen, um die
+> betroffenen Konten präzise und idempotent zu finden. Und daraus wurde die
+> wertvollste Probe dieser Welle:
+>
+> > `125` neutralisiert nur Konten, deren `password_hash` **genau** der
+> > dokumentierte Demo-Hash ist. Ändert jemand das Passwort in `052`, trifft die
+> > Bedingung ins Leere: die Migration läuft durch, meldet nichts, und auf jeder
+> > **bestehenden** Installation bleibt die Backdoor offen.
+>
+> Die Probe **rechnet** das jetzt: der gesuchte Hash muss das bcrypt des in
+> `052` dokumentierten Passworts sein (gemessen: er ist es), und der
+> **Ersatz**-Hash darf zu keinem naheliegenden Vorbild passen — `125` nennt ihn
+> „gültig formatiert, aber unknackbar", und das ist eine Behauptung, zu der es
+> vorher keine Probe gab (geprüft gegen 13 Kandidaten: keiner passt).
+>
+> ### Y6.4 · Wiederholbarkeit, je Anweisung statt gezählt
+>
+> Erster Entwurf zählte `INSERT INTO` gegen `ON CONFLICT` je Datei und meldete
+> zwei Saaten als nicht wiederholbar. **Beide waren es** —  `dev-data.sql`
+> schreibt `WHERE … AND NOT EXISTS (…)`, dieselbe Wirkung, andere Zeichenkette.
+> Zählen hat in beide Richtungen gelogen: Fehlalarme, **und** zwei
+> Konfliktbehandlungen in einer Anweisung stehen für eine zweite ohne ein. Jetzt
+> wird jede Anweisung einzeln angesehen.
+>
+> ### Drei eigene Defekte, alle von Rückmutationen gefunden
+>
+> 1. **Die Textprobe suchte im ganzen Korpus.** `invoices.plan = 'DEMO'` galt als
+>    besetzt, weil `'DEMO'` irgendwo stand — als `organizations.plan` in einer
+>    anderen Saat. Gemessen hatte `invoices` **nur** `PLUS`. Jetzt wird je
+>    Tabelle im eigenen Einfüge-Block gesucht.
+> 2. **Spalten kann eine Textprobe nicht unterscheiden.** `'inaktiv'` blieb im
+>    Block stehen, nachdem es als `nach_zustand` entfernt wurde — es stand noch als
+>    `von_zustand` der nächsten Zeile. Die Registratur behauptet jetzt nur, was sie
+>    prüft („in einem Wechsel"); die scharfe Form steht als Notbremse im SQL und als
+>    **datenbankgebundene** Probe daneben.
+> 3. **Die Zustandskette lag vor der Entstehung des Profils.** Sie war gegen
+>    `NOW()` gerechnet — und die Plattform hatte für HPS-003 bereits ein
+>    Anfangs-Ereignis geschrieben, **jünger** als die ganze erfundene Historie. Die
+>    Notbremse prüfte deshalb das Ereignis der *Plattform* und hätte eine falsch
+>    endende Saat-Kette nicht gefangen (Rückmutation blieb grün). Jetzt hängt die
+>    Kette am vorhandenen Ereignis, und die Bremse verlangt, dass die **eigene**
+>    Zeile die jüngste ist.
+>
+> ### Was die Saat ausdrücklich nicht verändert
+>
+> Keine neue Abwesenheit liegt auf **heute**. Eine wirksame Abwesenheit verdeckt
+> eine Kraft am Markt und würde die Zahlen verschieben, die Y1.4 und Y2.3 gemessen
+> und festgenagelt haben — ohne dass jemand den Zusammenhang sähe. Eine Notbremse
+> weist die Saat zurück, wenn eine davon `CURRENT_DATE` berührt; gemessen vor und
+> nach dem Laden: **17 Marktangebote, 11 freie Hanse-Kräfte, unverändert.**
+>
+> **Nachweis:** 23 Rückmutationen am Text, **12** Bremsen-Proben gegen die
+> laufende Datenbank, **2** Gegenproben für die datenbankgebundenen Zusicherungen
+> (Zeile löschen → rot, Geschichte verfälschen → rot). Mit Datenbank: 10 von 10
+> grün. Durchspiel-Wege: `docs/features/Y_REGIEBUCH.md`, Abschnitt 6.
 
 ---
 
