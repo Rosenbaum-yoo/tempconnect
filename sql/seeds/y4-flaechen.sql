@@ -7,7 +7,8 @@
 --
 --   tempconnect_staff    1 Zeile    dennisstegemann04@gmail.com
 --   occ_owner_access     1 Zeile    dennisstegemann04@gmail.com
---   support_agents       2 Zeilen   dennisstegemann04@gmail.com  +  demo@firma.de
+--   support_agents       3 Zeilen   2 intern (f007/f008) + 1 EXTERN (f010, Punkt 15)
+--   support_vendors      1 Zeile    „Probebuehne Support Partner" (eigener, nur dev)
 --
 -- Das ist nicht „wenig Daten". Das ist EIN KONTO. Wer das Staff Control Center
 -- durchspielen will, meldet sich mit der echten Owner-Adresse an — und hält im
@@ -49,13 +50,18 @@
 -- WAS DIESE SAAT BEWUSST NICHT ANFASST
 -- ─────────────────────────────────────────────────────────────────────────────
 --
--- 1. `demo@firma.de` ist ein KUNDENKONTO (`users.role = 'company'`, eine
---    Org-Mitgliedschaft) und hält gleichzeitig einen externen Support-Zugang
---    (`external_support_agent`, Lieferant „India Support BPO"). Das ist kein
---    Link von der Plattform ins Support Center — es ist ein MENSCH in zwei
---    Welten, und der Wächter für Y4.2 prüft Links, nicht Konten. Befund
---    gemeldet in `docs/UEBERGABE.md`; geändert wird er hier nicht, weil er einen
---    bestehenden Demo-Weg betrifft.
+-- 1. ~~`demo@firma.de` hält als KUNDENKONTO einen externen Support-Zugang.~~
+--    **ENTSCHIEDEN UND GETRENNT (Owner-Punkt 15, 2026-10-02.)** Der Befund stand
+--    hier als bewusst Nicht-Angefasstes: ein KUNDENKONTO (`users.role =
+--    'company'`, eine Org-Mitgliedschaft) hielt einen
+--    `external_support_agent`-Zugang beim Dienstleister „India Support BPO".
+--    Kein Link von der Plattform ins Support Center — ein MENSCH in zwei Welten,
+--    und der Wächter für Y4.2 prüft Links, nicht Konten.
+--    Migration 232 nimmt dem Kundenkonto den Zugang (`is_active = FALSE`, kein
+--    DELETE — Begründung unten beim Widerruf). Diese Saat bringt dafür Konto
+--    Nr. 10 mit, einen Menschen beim Dienstleister: sonst wäre die Trennung eine
+--    Entfernung, denn gemessen blieben danach NULL aktive externe Agenten. Der
+--    Wächter gegen JEDE solche Doppelrolle: `api/test/keineDoppelrolle.test.js`.
 --
 -- 2. Die Owner-Zeile hat `requires_step_up = FALSE`. Das eine Konto, das im
 --    Staff Control Center alles darf, ist damit auch das einzige, das vor einer
@@ -157,7 +163,13 @@ FROM (VALUES
   ('06', 'staff.aufsicht@probebuehne.tempconnect.de',  'Hartmut Eilers'),
   ('07', 'support.leitung@probebuehne.tempconnect.de', 'Ruben Feldt'),
   ('08', 'support.fall@probebuehne.tempconnect.de',    'Mira Osei'),
-  ('09', 'owner.sicht@probebuehne.tempconnect.de',     'Antonia Reeb')
+  ('09', 'owner.sicht@probebuehne.tempconnect.de',     'Antonia Reeb'),
+  -- Nr. 10 kam mit Owner-Punkt 15 dazu und ist KEINE TempConnect-Rolle, sondern
+  -- ein Mensch bei einem ausgelagerten Support-Dienstleister. Der externe Weg
+  -- brauchte einen Halter, nachdem er einem KUNDENKONTO genommen wurde
+  -- (demo@firma.de, Migration 232). Ohne sie waere die Trennung eine Entfernung:
+  -- gemessen am 2026-10-02 blieben danach NULL aktive externe Agenten.
+  ('10', 'support.extern@probebuehne.tempconnect.de', 'Nadia Qureshi')
 ) AS o(nr, mail, person)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email,
@@ -261,9 +273,10 @@ UPDATE tempconnect_staff s
 -- ausgeschriebene Liste waere hier eine Abschrift, die beim naechsten
 -- Rollen-Umbau still falsch wird.
 --
--- `scope = 'internal'`, also KEIN Lieferant - der CHECK verlangt einen nur bei
--- `external`. Der externe Weg hat heute einen Halter (demo@firma.de); dass das
--- ein KUNDENKONTO ist, steht im Kopf und in docs/UEBERGABE.md.
+-- `scope = 'internal'` in DIESEM Zweig, also KEIN Lieferant - der CHECK verlangt
+-- einen nur bei `external`. Der externe Weg hat seit Owner-Punkt 15 einen EIGENEN
+-- Halter (Konto Nr. 10 beim Buehnen-Dienstleister, zweiter CTE-Zweig unten).
+-- Vorher hielt ihn `demo@firma.de` - ein Kundenkonto; siehe Kopf, Befund 1.
 --
 -- `support_agents` hat keine Eindeutigkeit auf `user_id` - deshalb feste
 -- Kennungen und ON CONFLICT (id). Ohne das legt jeder zweite Lauf Doppel an.
@@ -278,6 +291,70 @@ UPDATE tempconnect_staff s
 -- das ein Protokoll anonymisiert, ist schlimmer als die Zeile, die es aufraeumt.
 -- `support_agents` hat kein `revoked_at`; der Widerruf ist `is_active = FALSE`,
 -- und genau das prueft `supportAccess.js` (`AND sa.is_active = TRUE`).
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- DER AUSGELAGERTE DIENSTLEISTER (Owner-Punkt 15)
+-- ─────────────────────────────────────────────────────────────────────────────
+--
+-- `support_vendors` sind laut Migration 110 "BPO / Callcenter Partner" — FREMDE
+-- Firmen, die Support uebernehmen. Ein `external_support_agent` ist ein Mensch
+-- DORT, kein Kunde. Genau diese Trennung war im Bestand verletzt.
+--
+-- Die Buehne bringt ihren EIGENEN Dienstleister mit statt sich an den
+-- vorhandenen zu haengen ("India Support BPO" — eine Zeile, die nur in der
+-- Entwicklungsdatenbank existiert und in keiner Saat und keiner Migration steht).
+-- Sonst haette die Buehne eine Abhaengigkeit auf Daten, die sie nicht anlegt: auf
+-- einem Frischinstall gaebe es den Lieferanten nicht, der CHECK aus 110 verlangt
+-- bei `scope = 'external'` aber einen, und die Saat waere rot ohne eigenen Fehler.
+--
+-- Eigene Anweisung VOR der CTE, nicht darin: der Fremdschluessel von
+-- `support_agents.vendor_id` muss schon aufloesen, wenn der Agent entsteht. Zwei
+-- datenaendernde CTE-Zweige sehen die Aenderungen des anderen NICHT.
+-- DREI FELDER, DIE DEN UNTERSCHIED ZWISCHEN BUEHNE UND DEKO MACHEN. Gemessen am
+-- 2026-10-02 an `api/middleware/supportAccess.js` (Zeilen 289-303), dem einzigen
+-- Tor der Support-Flaeche. Fuer `scope = 'external'` verlangt es DREI Dinge:
+--
+--   1. `vendor_id` ist gesetzt und `is_active <> FALSE`     -> sonst NOT_SUPPORT_STAFF
+--   2. `status = 'active'`                                  -> sonst VENDOR_NOT_VERIFIED
+--   3. `ipAllowed(req.ip, allowed_ip_cidrs)`                -> sonst IP_NOT_ALLOWED
+--
+-- Punkt 2 ist die Falle: die Spalte hat die VORGABE `'pending'`. Ein Lieferant,
+-- den man nur anlegt, ist unverifiziert — der Agent bekaeme 403, und die Buehne
+-- waere ein Eintrag in einer Tabelle statt eines durchspielbaren Wegs. Die alte
+-- Fassung der Probe `probebuehneFlaechen.test.js` hat genau davor gewarnt
+-- („haengt an support_vendors UND an dessen Verifizierung"); hier ist die Antwort
+-- darauf, nicht ihre Umgehung.
+--
+-- Punkt 3 ist die Falle in der anderen Richtung: `ipAllowed` gibt bei LEERER
+-- Liste `true` zurueck (Zeile 259), eine gefuellte sperrt alles ausserhalb. Der
+-- vorhandene Lieferant „India Support BPO" traegt `203.0.113.0/24` — ein
+-- Dokumentations-Netz (TEST-NET-3), aus dem niemand kommt. Diese Buehne laesst
+-- die Liste deshalb LEER: nicht aus Nachlaessigkeit, sondern weil eine
+-- Allowlist, die den eigenen Rechner aussperrt, den Weg unbenutzbar macht.
+--
+-- `verified_by` bleibt NULL: die Spalte hat keinen Fremdschluessel, und ein
+-- erfundener Pruefer waere eine Behauptung ueber einen Menschen.
+INSERT INTO support_vendors (id, name, contract_ref, is_active, status, verified_at, verified_by, allowed_ip_cidrs, scope_policy)
+VALUES (
+  'bd000000-0000-4000-8000-00000000d001'::uuid,
+  'Probebuehne Support Partner',
+  'PROBEBUEHNE-NUR-DEV',
+  TRUE,
+  'active',
+  NOW(),
+  NULL,
+  '{}'::text[],
+  '{}'::jsonb
+)
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  contract_ref = EXCLUDED.contract_ref,
+  is_active = TRUE,
+  status = 'active',
+  verified_at = coalesce(support_vendors.verified_at, NOW()),
+  allowed_ip_cidrs = '{}'::text[],
+  updated_at = NOW();
+
 WITH gewollt AS (
 INSERT INTO support_agents (id, user_id, role, scope, vendor_id, data_scope, is_active)
 SELECT
@@ -302,12 +379,51 @@ ON CONFLICT (id) DO UPDATE SET
   is_active = TRUE,
   updated_at = NOW()
 RETURNING id
+), gewollt_extern AS (
+  /* DER EXTERNE AGENT (Owner-Punkt 15), und er braucht einen eigenen Zweig:
+     der Zweig darueber nagelt `scope = 'internal'` und `vendor_id = NULL` fest,
+     auch im ON-CONFLICT-Pfad. In einem gemeinsamen Zweig waere der externe Agent
+     beim zweiten Lauf still nach intern gezogen worden — und der CHECK aus 110
+     (`scope <> 'external' OR vendor_id IS NOT NULL`) haette nichts gemerkt:
+     intern OHNE Lieferant ist erlaubt.
+
+     Dass er IN der CTE steht und nicht als Anweisung danach, ist der Punkt: die
+     UPDATE-Klausel unten widerruft alles mit dem Buehnen-Praefix, was nicht in
+     `gewollt` steht. Ein Agent ausserhalb der CTE waere bei jedem Lauf erst
+     abgeschaltet und dann wieder angeschaltet worden — die Massgeblichkeit haette
+     gestimmt, die Zusage "massgeblich" aber nicht mehr beschrieben, was passiert.
+
+     `data_scope = 'vendor_scoped'`: ein fremder Dienstleister sieht nur das ihm
+     Zugeteilte. Das ist der Unterschied zum internen Weg und der Grund, warum
+     diese Zeile ueberhaupt eine Buehne braucht. */
+  INSERT INTO support_agents (id, user_id, role, scope, vendor_id, data_scope, is_active)
+  SELECT
+    'bd000000-0000-4000-8000-00000000e010'::uuid,
+    u.id,
+    'external_support_agent',
+    'external',
+    'bd000000-0000-4000-8000-00000000d001'::uuid,
+    'vendor_scoped',
+    TRUE
+  FROM users u
+  WHERE u.id = 'bd000000-0000-4000-8000-00000000f010'::uuid
+  ON CONFLICT (id) DO UPDATE SET
+    user_id = EXCLUDED.user_id,
+    role = 'external_support_agent',
+    scope = 'external',
+    vendor_id = EXCLUDED.vendor_id,
+    data_scope = 'vendor_scoped',
+    is_active = TRUE,
+    updated_at = NOW()
+  RETURNING id
 )
 UPDATE support_agents sa
    SET is_active = FALSE, updated_at = NOW()
  WHERE sa.user_id::text LIKE 'bd000000-0000-4000-8000-00000000f0%'
    AND sa.is_active = TRUE
-   AND sa.id NOT IN (SELECT id FROM gewollt);
+   AND sa.id NOT IN (SELECT id FROM gewollt
+                     UNION ALL
+                     SELECT id FROM gewollt_extern);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 4 · OWNER CONTROL CENTER — EINE ZWEITE SICHT, ABSICHTLICH NICHT „owner"
@@ -357,16 +473,19 @@ DECLARE
   n int;
   rollen text[];
 BEGIN
-  /* 1 · Alle neun Konten sind anmeldbar. `$2` ist das bcrypt-Praefix; ohne
+  /* 1 · Alle ZEHN Konten sind anmeldbar. `$2` ist das bcrypt-Praefix; ohne
      diese Pruefung waere ein leeres `password_hash` ein stiller Ausfall, der
-     erst beim Durchspielen auffaellt. */
+     erst beim Durchspielen auffaellt.
+     Die Zahl war bis zum 2026-10-02 NEUN. Owner-Punkt 15 hat ein zehntes Konto
+     gebracht (den externen Support-Agenten); die Bremse hat den ersten Ladeversuch
+     ABGEBROCHEN und damit genau getan, wofuer sie da ist. */
   SELECT count(*) INTO n
     FROM users
    WHERE id::text LIKE 'bd000000-0000-4000-8000-00000000f0%'
      AND password_hash LIKE '$2%'
      AND is_verified = TRUE;
-  IF n <> 9 THEN
-    RAISE EXCEPTION 'y4-flaechen.sql: % von 9 Buehnen-Konten sind anmeldbar.', n;
+  IF n <> 10 THEN
+    RAISE EXCEPTION 'y4-flaechen.sql: % von 10 Buehnen-Konten sind anmeldbar.', n;
   END IF;
 
   /* 2 · Keines dieser Konten ist Kunde. Das ist die Datenseite von Y4.2:
@@ -416,14 +535,19 @@ BEGIN
     RAISE EXCEPTION 'y4-flaechen.sql: % Buehnen-Staff-Zugaenge ohne Step-up-Pflicht.', n;
   END IF;
 
-  /* 6 · Zwei Support-Reichweiten, und zwar VERSCHIEDENE. Zwei Zugaenge mit
-     derselben Reichweite beweisen nichts. */
+  /* 6 · DREI Support-Reichweiten, und zwar VERSCHIEDENE. Zugaenge mit derselben
+     Reichweite beweisen nichts.
+     Bis zum 2026-10-02 waren es zwei (`full_internal`, `assigned_only`). Mit
+     Owner-Punkt 15 kam `vendor_scoped` dazu - die enge Sicht eines FREMDEN
+     Dienstleisters, und damit die dritte und letzte, die der CHECK der Tabelle
+     kennt. Die Bremse zaehlt VERSCHIEDENE Werte, nicht Zeilen: zwei externe
+     Agenten wuerden sie nicht erfuellen. */
   SELECT count(DISTINCT sa.data_scope) INTO n
     FROM support_agents sa
    WHERE sa.user_id::text LIKE 'bd000000-0000-4000-8000-00000000f0%'
      AND sa.is_active = TRUE;
-  IF n <> 2 THEN
-    RAISE EXCEPTION 'y4-flaechen.sql: % verschiedene Support-Datenreichweiten, erwartet 2 (full_internal und assigned_only).', n;
+  IF n <> 3 THEN
+    RAISE EXCEPTION 'y4-flaechen.sql: % verschiedene Support-Datenreichweiten, erwartet 3 (full_internal, assigned_only, vendor_scoped).', n;
   END IF;
 
   /* 7 · Eine Owner-Sicht, nicht widerrufen. */
@@ -457,15 +581,20 @@ BEGIN
      Wege probiert, sie zum Ansprechen zu bringen, und JEDER lief vorher in eine
      andere Bremse.
 
-       Support-Zuteilung entfernt  -> Bremse 6 (nur eine Reichweite)
+       Support-Zuteilung entfernt  -> Bremse 6 (eine Reichweite fehlt)
        Owner-Zuteilung entfernt    -> Bremse 7 (keine Owner-Sicht)
        Staff-Rolle entfernt        -> Bremse 3 (Rolle unbesetzt)
-       zehntes Konto ergaenzt      -> Bremse 1 (nicht 9 Konten)
+       elftes Konto ergaenzt       -> Bremse 1 (nicht 10 Konten)
 
-     Der Grund ist ein Schubfachschluss: 6 Staff + 2 Support + 1 Owner = NEUN
-     Zuteilungen, und Bremse 1 nagelt die Zahl der Konten auf neun. Haelt eines
+     Der Grund ist ein Schubfachschluss: 6 Staff + 3 Support + 1 Owner = ZEHN
+     Zuteilungen, und Bremse 1 nagelt die Zahl der Konten auf zehn. Haelt eines
      keine, muss ein anderes zwei halten — und das faengt Bremse 8, die direkt
      darueber steht.
+
+     (Bis zum 2026-10-02 stand hier 6 + 2 + 1 = NEUN. Owner-Punkt 15 hat den
+     externen Support-Agenten gebracht; der Schluss ist derselbe, nur eine Stelle
+     weiter — und er ist NICHT schwaecher geworden, weil Zuteilungen und Konten
+     gemeinsam um eins gestiegen sind.)
 
      Sie bleibt trotzdem stehen. Nicht aus Bequemlichkeit, sondern weil sie
      genau dann aufhoert redundant zu sein, wenn jemand Bremse 1 oder 8
@@ -484,7 +613,7 @@ BEGIN
     RAISE EXCEPTION 'y4-flaechen.sql: % Buehnen-Konten ohne jede Flaeche.', n;
   END IF;
 
-  RAISE NOTICE 'y4-flaechen.sql: 9 Konten - 6 Staff-Rollen, 2 Support-Reichweiten, 1 Owner-Sicht. Jedes haelt genau eine Flaeche.';
+  RAISE NOTICE 'y4-flaechen.sql: 10 Konten - 6 Staff-Rollen, 3 Support-Reichweiten (2 intern + 1 extern beim eigenen Dienstleister), 1 Owner-Sicht. Jedes haelt genau eine Flaeche.';
 END $vollstaendig$;
 
 COMMIT;

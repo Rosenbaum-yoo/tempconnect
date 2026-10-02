@@ -185,11 +185,16 @@ Fläche das Richtige sieht — und das Falsche nicht.
 > **Begründung** über dem Block statt in der Anweisung. Zehnter Fall dieser Klasse an einem Tag.
 > Jetzt wird auf `current_setting(…)` verankert, auf kommentarfreien Zeilen.*
 >
-> **Offen und dem Owner vorgelegt, nicht entschieden:** drei Klartext-Passwörter stehen weiter im
+> ~~**Offen und dem Owner vorgelegt, nicht entschieden:** drei Klartext-Passwörter stehen weiter im
 > Repo (`DemoPass2026!` in Mig 052, `Demo2026!` in `demo-sales.sql`, `password123` in
-> `dev-data.sql` und in der Schlusszusammenfassung von `seed-data.sh`). Die Sperre macht sie
-> außerhalb von dev wirkungslos, sie **entfernt** sie aber nicht. Das ist Y6.3 und betrifft einen
-> Anmeldeweg — die Entscheidung gehört dem Owner.
+> `dev-data.sql` und in der Schlusszusammenfassung von `seed-data.sh`).~~
+> **✅ ENTSCHIEDEN UND GEBAUT (Owner-Punkt 16, 2026-10-02).** Alle drei hashen jetzt beim Laden
+> aus `app.seed_passwort`, wie diese Saat. Die Altlasten-Liste in
+> `probebuehneBesetzung.test.js` ist von vier Einträgen auf **einen** geschrumpft (Mig 125, die
+> den Hash als Suchmuster ihrer Aufräumung nennen **muss**). Dabei kam heraus, dass der Hash in
+> `demo-sales.sql`/`dev-data.sql` zu **keinem** der beiden dokumentierten Passwörter passte —
+> fünf Konten waren unbenutzbar, während das Repo behauptete, sie seien es. Vollständig:
+> `docs/UEBERGABE.md`, Abschnitt „Punkt 16".
 
 **Der Befund in einem Satz: es fehlen keine Daten, es fehlt eine BENANNTE BESETZUNG.**
 2566 Organisationen nützen nichts, wenn man sich in keine davon anmelden kann und von keiner
@@ -305,10 +310,12 @@ sehen."* Genau das ist heute nicht möglich.
 > derselben Firma an einem anderen Standort. Ab jetzt lässt sich die Grenze aus
 > Welle U zum ersten Mal von Hand durchspielen.
 >
-> **KEIN PASSWORT IM REPO, und das ist der Unterschied zu den drei älteren
-> Saaten.** Mig 052 trägt `DemoPass2026!`, `demo-sales.sql` trägt `Demo2026!`,
-> `dev-data.sql` trägt `password123` — im Klartext, in einem öffentlichen Repo.
-> Die neue Saat nimmt das Passwort aus dem Schalter `app.seed_passwort` und
+> **KEIN PASSWORT IM REPO.** Das war bei Y1.2 der Unterschied zu den drei
+> älteren Saaten: Mig 052 trug `DemoPass2026!`, `demo-sales.sql` und
+> `dev-data.sql` je einen festen Hash — im Klartext, in einem öffentlichen Repo.
+> **Seit Owner-Punkt 16 (2026-10-02) ist das kein Unterschied mehr, sondern die
+> Regel: alle sechs Dateien hashen beim Laden.** Diese Saat war die erste.
+> Sie nimmt das Passwort aus dem Schalter `app.seed_passwort` und
 > hasht **erst beim Laden** mit `pgcrypto`
 > (`crypt(…, gen_salt('bf', 10))` → `$2a$10$…`, dasselbe Format, das 71
 > bestehende Konten tragen und das `bcryptjs.compare` prüft). Ohne Schalter:

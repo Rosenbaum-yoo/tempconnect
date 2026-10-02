@@ -221,6 +221,11 @@ fi
 # ── Zusammenfassung ──────────────────────────────────────────────────────────
 echo ""
 log "Seed-Daten geladen. Demo-Accounts:"
-log "  Company:  demo@firma.de       (Passwort: password123)"
-log "  Agency:   test@agentur.de     (Passwort: password123)"
+log "  Company:  demo@firma.de"
+log "  Agency:   test@agentur.de"
+# Das Passwort stand hier als `password123` - und war GEMESSEN falsch: der Hash in
+# dev-data.sql passte zu dieser Zeichenkette nie (2026-10-02, bcryptjs mit gruener
+# Selbstprobe). Seit Owner-Punkt 16 hashen die Saaten beim Laden aus
+# app.seed_passwort, also ist das Passwort genau der Wert, der gerade benutzt wurde.
+log "  Passwort beider: der Wert von SEED_PASSWORT bei diesem Lauf."
 echo ""

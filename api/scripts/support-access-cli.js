@@ -148,6 +148,47 @@ async function cmdVendorList(_args) {
   return { action: "vendor-list", total: rows.length, items: rows };
 }
 
+/**
+ * STOP-REGEL: ein KUNDENKONTO wird kein Support-Agent (Owner-Punkt 15, 2026-10-02).
+ *
+ * `support_vendors` sind laut Migration 110 "BPO / Callcenter Partner" — fremde
+ * Firmen. Ein `external_support_agent` ist ein Mensch DORT, kein Kunde; und der
+ * Kopf von 110 sagt ausdruecklich, `support_agents` stehe "getrennt von Org-RBAC".
+ *
+ * WARUM DIESE PRUEFUNG HIER STEHT UND NICHT NUR IN EINEM TEST: genau hier ist die
+ * Doppelrolle entstanden. In der Entwicklungsdatenbank hielt `demo@firma.de` — ein
+ * Kundenkonto mit Org-Mitgliedschaft — einen aktiven `external_support_agent`-Zugang
+ * beim Dienstleister "India Support BPO", angelegt am 2026-06-19. NICHTS im Repo
+ * erzeugt diese Zeile: kein Seed, keine Migration, und das Beispiel in der
+ * Benutzungshilfe oben nennt richtig `agent@bpo.example`. Sie entstand, weil dieser
+ * Befehl jede Adresse annahm. Ein Test findet das hinterher; diese Zeile verhindert es.
+ *
+ * Kein Umweg-Schalter. Wer einem Menschen beide Welten geben will, nimmt zwei Konten —
+ * das ist der ganze Zweck der Trennung. Migration 232 raeumt den Altbestand auf,
+ * `api/test/keineDoppelrolle.test.js` haelt die Regel am Bestand.
+ */
+async function assertKeinKundenkonto(user, rolle) {
+  const { rows } = await pool.query(
+    `SELECT o.name
+       FROM org_memberships m
+       JOIN organizations o ON o.id = m.org_id
+      WHERE m.user_id = $1::uuid
+      ORDER BY o.name`,
+    [user.id]
+  );
+  if (!rows.length) return;
+  const orgs = rows.map((r) => r.name).join(", ");
+  const fehler = new Error(
+    `KUNDENKONTO: ${user.email} ist Mitglied in ${rows.length} Organisation(en) (${orgs}) `
+    + `und kann deshalb nicht "${rolle}" werden. support_agents steht getrennt von Org-RBAC `
+    + "(Migration 110); ein Konto in beiden Welten ist die Vermischung, die docs/FLAECHEN.md "
+    + "verbietet. Nimm ein eigenes Konto fuer den Support-Zugang — bei einem externen "
+    + "Dienstleister eine Adresse DORT, nicht die des Kunden."
+  );
+  fehler.code = "KUNDENKONTO_WIRD_NICHT_SUPPORT";
+  throw fehler;
+}
+
 async function cmdAgentAdd(args) {
   const role = String(args.role || "").trim();
   if (![...INTERNAL_ROLES, ...EXTERNAL_ROLES].includes(role)) {
@@ -164,6 +205,9 @@ async function cmdAgentAdd(args) {
   if (!VALID_DATA_SCOPES.includes(dataScope)) throw new Error(`Ungueltiger data-scope. Erlaubt: ${VALID_DATA_SCOPES.join(", ")}`);
 
   const user = await resolveUser({ userId: args["user-id"], email: args.email });
+  /* VOR jedem Schreiben, und auch vor dem UPDATE-Zweig darunter: ein bestehender
+   * Zugang auf einem Kundenkonto darf nicht reaktiviert oder umgerollt werden. */
+  await assertKeinKundenkonto(user, role);
   const existing = await pool.query("SELECT id FROM support_agents WHERE user_id = $1::uuid LIMIT 1", [user.id]);
   let rows;
   if (existing.rows[0]) {

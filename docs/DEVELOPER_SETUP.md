@@ -119,10 +119,22 @@ docker compose up -d
 
 ### Demo-Accounts (nach Seeding)
 
-| Rolle   | E-Mail              | Passwort      | Plan |
-|---------|---------------------|---------------|------|
-| Company | `demo@firma.de`     | `password123` | PLUS |
-| Agency  | `test@agentur.de`   | `password123` | PLUS |
+| Rolle   | E-Mail              | Passwort | Plan |
+|---------|---------------------|----------|------|
+| Company | `demo@firma.de`     | `SEED_PASSWORT` | PLUS |
+| Agency  | `test@agentur.de`   | `SEED_PASSWORT` | PLUS |
+
+**Das Passwort steht nicht im Repo** (Owner-Punkt 16, 2026-10-02). Es ist der Wert,
+den du beim Seeden gesetzt hast:
+
+```bash
+SEED_DEMO_WORLD=true SEED_PASSWORT=<geheim> ./scripts/dev/seed-data.sh
+```
+
+Hier stand bis zum 2026-10-02 `password123` — und das war **gemessen falsch**: der
+Hash in `dev-data.sql` passte zu dieser Zeichenkette nie (geprüft mit `bcryptjs`,
+Selbstprobe grün). Wer es versucht hat, kam nicht hinein und suchte den Fehler bei
+sich. Siehe `docs/DEMO_SYSTEM.md`.
 
 ---
 

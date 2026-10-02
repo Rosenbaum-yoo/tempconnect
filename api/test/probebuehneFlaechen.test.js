@@ -66,8 +66,23 @@ const SAAT = ROOT ? fs.readFileSync(path.join(ROOT, SAAT_REL), "utf8") : "";
 /* Kommentare ausblenden. Diese Saat BESCHREIBT ihre Befunde ausfuehrlich — sie
  * nennt `staff_audit`, `full_internal` und `owner` im Fliesstext. Eine Probe,
  * die im ganzen Text sucht, liest die Begruendung und haelt sie fuer die
- * Anweisung. Das ist in dieser Welle fuenfmal passiert. */
-const OHNE_KOMMENTAR = SAAT.replace(/--[^\n]*/g, " ");
+ * Anweisung. Das ist in dieser Welle fuenfmal passiert.
+ *
+ * ZUM SECHSTEN MAL am 2026-10-02, und diesmal fehlte die halbe Sorte: hier wurde
+ * nur die ZEILEN-Sorte entfernt (die mit den zwei Bindestrichen). Die Saat trug
+ * bis dahin keinen
+ * BLOCK-Kommentar; mit Owner-Punkt 15 kam einer dazu, der die Datenreichweite
+ * des externen Agenten begruendet und dabei `'vendor_scoped'` zitiert. Eine
+ * Rueckmutation, die den Wert aus der ANWEISUNG nahm, blieb deshalb gruen — die
+ * Probe las die Begruendung. Gemessen: `sup` war 2643 statt 1592 Zeichen lang,
+ * weil der Block-Kommentar mitlief.
+ *
+ * Beide Sorten werden jetzt entfernt, und in dieser Reihenfolge: zuerst die
+ * Bloecke, dann die Zeilen. Umgekehrt koennte ein `--` innerhalb eines Blocks
+ * dessen Ende verschlucken. */
+const OHNE_KOMMENTAR = SAAT
+  .replace(/\/\*[\s\S]*?\*\//g, " ")
+  .replace(/--[^\n]*/g, " ");
 
 /* Und die Notbremse am Ende ist ebenfalls kein Datenteil: sie nennt alle drei
  * Tabellen und alle sechs Rollen, weil sie sie PRUEFT. Wer sie mitliest,
@@ -256,11 +271,95 @@ suite("Y4.1 — drei Flaechen, je ein Zugang, und keiner haelt zwei", () => {
     assert.ok(sup.includes("'full_internal'"), "die weite Reichweite fehlt");
     assert.ok(sup.includes("'assigned_only'"), "die enge Reichweite fehlt");
 
-    /* `scope = 'internal'`, also kein Lieferant. Der CHECK der Tabelle verlangt
-     * `vendor_id` nur bei `external`; eine Buehne mit Lieferant haenge an
-     * `support_vendors` und braeche, sobald jemand den Lieferanten abschaltet. */
-    assert.ok(!/'external'/.test(sup), "die Buehne legt einen EXTERNEN Support-Zugang an — "
-      + "der haengt an support_vendors und an dessen Verifizierung");
+    /* ─────────────────────────────────────────────────────────────────────────
+     * DIESE ZUSICHERUNG HAT DIE RICHTUNG GEWECHSELT (Owner-Punkt 15, 2026-10-02)
+     * ─────────────────────────────────────────────────────────────────────────
+     *
+     * Hier stand: `assert.ok(!/'external'/.test(sup), "die Buehne legt einen
+     * EXTERNEN Support-Zugang an — der haengt an support_vendors und an dessen
+     * Verifizierung")`. Das war richtig, solange der externe Weg einen Halter
+     * hatte. Er hatte einen: `demo@firma.de` — ein KUNDENKONTO. Punkt 15 nimmt
+     * ihm den Zugang (Migration 232), und damit blieben GEMESSEN null aktive
+     * externe Agenten. Eine Buehne, die den externen Weg auslaesst, haette danach
+     * eine Luecke statt einer Besetzung.
+     *
+     * Die alte Begruendung war aber kein Vorwand, sondern eine echte Warnung, und
+     * sie wird hier BEANTWORTET statt umgangen. Gemessen an
+     * `api/middleware/supportAccess.js` (Zeilen 289-303) verlangt das Tor fuer
+     * `scope = 'external'` drei Dinge, und `support_vendors.status` hat die
+     * VORGABE `'pending'`: ein Lieferant, den man nur anlegt, ist unverifiziert,
+     * der Agent bekommt 403 VENDOR_NOT_VERIFIED, und die Saat waere ein Eintrag
+     * in einer Tabelle statt eines durchspielbaren Wegs.
+     * ───────────────────────────────────────────────────────────────────────── */
+    /* ─────────────────────────────────────────────────────────────────────
+     * DER GEGENSTAND WIRD HERAUSGESCHNITTEN, NICHT IN EINEM FENSTER GESUCHT.
+     * ─────────────────────────────────────────────────────────────────────
+     *
+     * Vier Zusicherungen standen hier zuerst als Fenster bzw. gegen die ganze
+     * Block-Scheibe. ALLE VIER blieben in der Rückmutation GRÜN, und zwar aus
+     * demselben Grund: nimmt man den Wert aus der `VALUES`-Liste, steht er immer
+     * noch in der `ON CONFLICT`-Klausel — die wiederholt jeden Wert, das ist ihr
+     * Zweck. Ein Fenster findet, was zufällig darin liegt.
+     *
+     * Jetzt werden die beiden Hälften getrennt und BEIDE geprüft. Das ist auch
+     * sachlich richtig: steht `status = 'active'` nur in der VALUES-Liste und
+     * nicht im ON-CONFLICT-Zweig, verliert der Lieferant seine Verifizierung beim
+     * zweiten Laden — und die Saat ist nicht mehr wiederholbar.
+     * ───────────────────────────────────────────────────────────────────────── */
+    const zweiHaelften = (text, name) => {
+      const k = text.search(/ON\s+CONFLICT/i);
+      assert.ok(k > 0, `${name}: keine ON-CONFLICT-Klausel — dann ist die Saat nicht wiederholbar`);
+      return { werte: text.slice(0, k), upsert: text.slice(k) };
+    };
+
+    /* ── Der externe Agent ──────────────────────────────────────────────── */
+    const iExtern = sup.search(/gewollt_extern\s+AS\s*\(/);
+    assert.ok(iExtern > 0,
+      "der externe Support-Zugang fehlt. Nach Migration 232 hat der externe Weg NULL Halter — "
+      + "Punkt 15 waere dann keine Trennung, sondern das Abschalten einer Flaeche.");
+    const extern = zweiHaelften(sup.slice(iExtern), "externer Zweig");
+    for (const [wo, text] of Object.entries(extern)) {
+      assert.match(text, /'external_support_agent'/,
+        `der externe Zweig vergibt die Rolle external_support_agent nicht (${wo}). Im `
+        + "ON-CONFLICT-Pfad fehlt sie genauso schwer: dann rollt der zweite Lauf den Zugang um.");
+      assert.match(text, /'vendor_scoped'/,
+        `der externe Zugang hat nicht die enge Datenreichweite (${wo}). Ein fremder `
+        + "Dienstleister sieht nur das ihm Zugeteilte — das ist der Unterschied zum internen Weg.");
+      assert.match(text, /'external'/,
+        `der externe Zweig setzt scope nicht auf 'external' (${wo})`);
+    }
+
+    /* ── Der Lieferant, und ob er BENUTZBAR ist ─────────────────────────── */
+    const mLief = SAAT.match(/INSERT\s+INTO\s+support_vendors\s*\([\s\S]*?;/i);
+    assert.ok(mLief,
+      "y4 legt keinen eigenen Dienstleister an. Dann haengt die Buehne an einer Zeile, die nur in "
+      + "der Entwicklungsdatenbank existiert — auf einem Frischinstall waere sie rot ohne "
+      + "eigenen Fehler.");
+    const lief = zweiHaelften(mLief[0], "Lieferant");
+    for (const [wo, text] of Object.entries(lief)) {
+      assert.match(text, /'active'/,
+        `der Lieferant wird nicht auf status='active' gesetzt (${wo}). Die Spalte hat die VORGABE `
+        + "'pending', und das Tor antwortet darauf mit 403 VENDOR_NOT_VERIFIED — der externe "
+        + "Zugang waere Deko. Fehlt es nur im ON-CONFLICT-Pfad, verliert der Lieferant die "
+        + "Verifizierung beim zweiten Laden.");
+      assert.ok(!/'pending'/.test(text),
+        `der Lieferant wird auf 'pending' gesetzt (${wo}) — das ist genau der unverifizierte `
+        + "Zustand, den das Tor mit 403 beantwortet");
+      assert.match(text, /allowed_ip_cidrs/,
+        `der Lieferant nennt allowed_ip_cidrs nicht (${wo}). Die Spalte hat die Vorgabe '{}', aber `
+        + "ein ON-CONFLICT-Pfad ohne sie laesst eine von Hand gesetzte Allowlist stehen.");
+      assert.ok(!/\d+\.\d+\.\d+\.\d+\/\d+/.test(text),
+        `der Lieferant bekommt eine IP-Allowlist (${wo}). ipAllowed laesst bei LEERER Liste alles `
+        + "durch und sperrt bei gefuellter alles ausserhalb — eine Allowlist auf einer Buehne "
+        + "sperrt den eigenen Rechner aus (Vorbild des Fehlers: der vorhandene Lieferant traegt "
+        + "203.0.113.0/24, ein Dokumentations-Netz, aus dem niemand kommt).");
+    }
+    assert.match(lief.werte, /verified_at/,
+      "die Spaltenliste des Lieferanten nennt verified_at nicht — dann behauptet die Saat eine "
+      + "Verifizierung, die nicht datiert ist");
+    assert.match(lief.upsert, /verified_at\s*=/,
+      "der ON-CONFLICT-Pfad setzt verified_at nicht — ein Lieferant, der beim zweiten Laden sein "
+      + "Pruefdatum verliert, ist nicht wiederholbar");
   });
 
   it("die Support-Zeilen haben feste Kennungen — die Tabelle hat keine Eindeutigkeit auf user_id", () => {

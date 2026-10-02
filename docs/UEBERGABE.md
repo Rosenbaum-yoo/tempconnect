@@ -3321,7 +3321,7 @@ durch sind** (Owner-Vorgabe). Bis dahin bleibt dieser Eintrag der Merkzettel.
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
 
-### Punkt 18, 14, 17 und 16 sind gebaut *(2026-10-02, Owner-Freigabe)*
+### Alle fünf Punkte sind gebaut: 18, 14, 17, 16, 15 *(2026-10-02, Owner-Freigabe)*
 
 Zwei der fünf freigegebenen Punkte stehen. Beide mit Messung, Wächter und
 Rückmutationen; die Reihenfolge war „zuerst das, was heute wirkt und nichts
@@ -3585,8 +3585,127 @@ Pflicht gelesen und nicht befolgt wird.
   Stelle, und eine Prüfung auf `SEED_PASSWORT=DemoPass…` sah die **Variable**
   nicht, über die der Wert tatsächlich gesetzt wird.
 
-**Offen aus diesen vier:** die Verengung von Punkt 18 (braucht den vereinbarten
-Beobachtungszeitraum) und Punkt 15.
+#### Punkt 15 — ein Mensch, eine Welt
+
+**Der Befund.** `demo@firma.de` ist ein Kundenkonto (`users.role = 'company'`,
+eine Org-Mitgliedschaft bei „Demo GmbH") und hielt gleichzeitig einen **aktiven**
+`external_support_agent`-Zugang beim Dienstleister „India Support BPO"
+(`scope = 'external'`, `data_scope = 'vendor_scoped'`, angelegt 2026-06-19).
+`support_vendors` sind laut Migration 110 „BPO / Callcenter Partner" — fremde
+Firmen; ein externer Agent ist ein Mensch **dort**, kein Kunde. Und der Kopf von
+110 sagt ausdrücklich, `support_agents` stehe „getrennt von Org-RBAC".
+
+Gemessen: **eine** solche Doppelrolle unter 446 Nutzern (278 Mitgliedschaften,
+4 aktive Support-Agenten, 7 aktiver Staff, 2 Owner-Zugänge). Null Support-Fälle,
+-Notizen oder -Ereignisse hingen an der Zeile.
+
+**Warum kein Wächter das fand:** `staffNieAusDerPlattform.test.js` prüft
+**Links** — keinen Weg von der Kundenplattform in eine interne Fläche. Es kann
+nicht sehen, dass ein **Konto** in beiden Welten sitzt. Welle Y4 hatte den Befund
+gemeldet und ausdrücklich nicht angefasst, weil er einen Anmeldeweg betrifft.
+
+##### Drei Schichten, und jede tut etwas anderes
+
+| | |
+|---|---|
+| `support-access-cli.js` | **verhindert** es — dort ist es entstanden |
+| Migration 232 | **räumt den Altbestand auf** — einmal, benannt |
+| `api/test/keineDoppelrolle.test.js` | **hält die Regel** — rot, wenn eine Schicht nachgibt |
+
+Die Reihenfolge ist der Punkt. **Nichts im Repo erzeugt die Doppelrolle** — kein
+Seed, keine Migration, und das Beispiel in der Benutzungshilfe der CLI nennt
+richtig `agent@bpo.example`. Sie entstand, weil `agent-add` **jede** Adresse
+annahm. Ein Test allein hätte sie erst hinterher gemeldet; eine Migration allein
+hätte sie weggeräumt und beim nächsten Mal wieder. Die CLI-Prüfung steht
+**vor** dem Schreiben, und das ist nicht Stil: darunter liegt ein UPDATE-Zweig,
+der einen bestehenden Zugang reaktiviert. Kein Umweg-Schalter — wer beide Welten
+braucht, nimmt zwei Konten.
+
+##### Trennen heißt nicht entfernen
+
+Nach der Bereinigung blieben **null** aktive externe Agenten. `y4-flaechen.sql`
+bringt deshalb Konto Nr. 10 mit (`support.extern@probebuehne.tempconnect.de`,
+„Nadia Qureshi") — einen Menschen beim **eigenen** Bühnen-Dienstleister, nicht
+beim vorhandenen: „India Support BPO" existiert nur in der
+Entwicklungsdatenbank, steht in keiner Saat und keiner Migration, und auf einem
+Frischinstall wäre die Saat sonst rot ohne eigenen Fehler.
+
+**Und der Dienstleister musste BENUTZBAR gemacht werden.** Gemessen an
+`api/middleware/supportAccess.js` (Zeilen 289–303) verlangt das Tor für
+`scope = 'external'` drei Dinge, und zwei davon sind Fallen:
+
+* `support_vendors.status` hat die **Vorgabe `'pending'`** → ein Lieferant, den
+  man nur anlegt, ist unverifiziert, und das Tor antwortet mit 403
+  `VENDOR_NOT_VERIFIED`. Die Bühne wäre ein Tabelleneintrag statt eines Wegs.
+* `ipAllowed` gibt bei **leerer** Liste `true` zurück, eine gefüllte sperrt alles
+  außerhalb. Der vorhandene Lieferant trägt `203.0.113.0/24` — ein
+  Dokumentations-Netz, aus dem niemand kommt. Die Bühne lässt die Liste **leer**.
+
+Die alte Y4-Zusicherung verlangte, dass die Bühne **keinen** externen Zugang
+anlegt, mit genau dieser Begründung („hängt an `support_vendors` **und an dessen
+Verifizierung**"). Sie wurde **gedreht und beantwortet**, nicht umgangen: jetzt
+wird geprüft, dass der Zugang da ist **und** dass der Lieferant verifiziert, ohne
+Allowlist und beim zweiten Laden unverändert ist.
+
+##### Was beim Bauen fast durchgegangen wäre
+
+**1 · Der externe Agent gehörte IN die `gewollt`-CTE.** y4 widerruft maßgeblich
+alles mit ihrem Kennungs-Präfix, was nicht in `gewollt` steht. Als eigene
+Anweisung danach wäre er bei jedem Lauf erst abgeschaltet und dann wieder
+angeschaltet worden — das Ergebnis stimmte, die Zusage „maßgeblich" hätte aber
+nicht mehr beschrieben, was passiert. Jetzt ein zweiter CTE-Zweig
+(`gewollt_extern`), und der Widerruf vereinigt beide.
+
+**2 · Migration 232 gab NICHTS aus.** Oben steht `SET client_min_messages TO
+WARNING` (Hausstil), und das unterdrückt jedes `NOTICE` — auch das eine, das die
+betroffenen Kennungen trägt. Die Rollback-Strategie der Migration sagt, dieser
+Satz sei der **einzige** Weg zurück. Ein Rückweg, der im Rauschfilter
+verschwindet, ist keiner. Jetzt `RAISE WARNING`, ebenso die Meldung „diese
+Prüfung hat nichts nachgewiesen" — eine verschluckte Warnung über einen
+fehlenden Nachweis ist schlimmer als keine.
+
+**3 · y4s eigene Notbremse hat mich gestoppt**, und zwar richtig: „10 von 9
+Bühnen-Konten sind anmeldbar." Dort ruht ein Schubfachschluss — 6 Staff +
+2 Support + 1 Owner = 9 Zuteilungen bei 9 Konten, also hält jedes genau eine.
+Mit dem externen Agenten sind es 6 + 3 + 1 = 10 bei 10 Konten: der Schluss ist
+**nicht schwächer** geworden, weil Zuteilungen und Konten gemeinsam gestiegen
+sind. Bremse 6 zählt **verschiedene** Datenreichweiten und steht jetzt auf 3
+(`vendor_scoped` ist die dritte und letzte, die der CHECK kennt).
+
+**4 · Vier Zusicherungen waren dekorativ** — gefunden von der Rückmutation, nicht
+beim Schreiben, und alle vier mit **demselben** Fehler: ein Fenster
+(`[\s\S]{0,600}`) findet den Wert in der `ON CONFLICT`-Klausel, wenn man ihn aus
+der `VALUES`-Liste nimmt. Die Klausel wiederholt jeden Wert, das ist ihr Zweck.
+Jetzt wird der Gegenstand herausgeschnitten und werden **beide Hälften** geprüft
+— sachlich richtig, denn ein Wert, der nur in der `VALUES`-Liste steht, geht beim
+zweiten Laden verloren.
+
+**5 · Und zum sechsten Mal: die Probe las ihre eigene Begründung.**
+`probebuehneFlaechen.test.js` blendete nur `--`-Kommentare aus, nicht `/* */`.
+Die Saat trug bis dahin keinen Block-Kommentar; mein neuer begründet die
+Datenreichweite des externen Agenten und zitiert dabei `'vendor_scoped'`. Eine
+Rückmutation, die den Wert aus der **Anweisung** nahm, blieb grün. Gemessen:
+`sup` war 2643 statt 1592 Zeichen lang. Beide Sorten werden jetzt entfernt,
+Blöcke zuerst.
+
+##### Nachweis
+
+* **Der Wächter war vor der Migration ROT und danach GRÜN**, am selben Bestand,
+  im selben Lauf: `kein aktiver Support-Agent ist Kunde` → 9 pass / 1 fail,
+  dann 10 pass / 0 fail. Die Zeile danach: `aktiv=false`, Rolle erhalten, **kein
+  DELETE** (sechs Tabellen zeigen mit `ON DELETE SET NULL` darauf). Der
+  Eigentümer unberührt: Support aktiv, 2 wirksame Owner-Zugänge.
+* **Die Rückweg-Meldung erscheint**, mit Kennung und Adresse:
+  `232: 1 Support-Zugang ... widerrufen: 3302e269-… (demo@firma.de)`.
+* **y4 zweimal geladen**, idempotent, alle neun Notbremsen grün: 10 Konten,
+  3 Support-Reichweiten, Lieferant `status=active`, `cidrs={}`, Konto Nr. 10 mit
+  **0** Org-Mitgliedschaften.
+* **20 Rückmutationen, 20 rot** — über CLI, Migration 232, y4 und die beiden
+  Wächter. Vier blieben im ersten Durchgang grün und haben die Zusicherungen erst
+  scharf gemacht (Punkte 4 und 5 oben).
+
+**Offen aus den fünf Punkten:** nur noch die Verengung von Punkt 18 — sie braucht
+den vereinbarten Beobachtungszeitraum mit null `ORG_CONTEXT_MISSING`-Treffern.
 
 ### Der Standort-Prüfer lässt durch, statt zu sperren *(2026-10-02, gemessen — latent, nicht offen)*
 

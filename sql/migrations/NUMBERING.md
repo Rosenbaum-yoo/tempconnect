@@ -12,7 +12,12 @@
 > seit 2026-08-22. **231** der CHECK auf `owner_control_access_audit.action`
 > kennt `extend`: ohne den Wert warf das Einfuegen, und `writeAudit` verschluckte
 > es in einem leeren `catch` — der Befehl meldete Erfolg, die Spur fehlte
-> (Owner-Punkt 17).
+> (Owner-Punkt 17). **232** ein Kundenkonto haelt keinen Support-Zugang:
+> `demo@firma.de` war Kunde (Org-Mitgliedschaft bei „Demo GmbH") UND aktiver
+> `external_support_agent` beim Dienstleister „India Support BPO" — die
+> Vermischung, die `docs/FLAECHEN.md` verbietet. Widerruf per `is_active = FALSE`,
+> kein DELETE (sechs Tabellen zeigen mit `ON DELETE SET NULL` darauf), und
+> Owner-Konten bleiben unberuehrt (Owner-Punkt 15).
 
 > Last updated: 2026-08-13 — 166–169 Bounty-Zeitraum und -Entzug, 170 Bounty-Rabatt
 > auf der Rechnung, 171 Anstupser, 172 Merken ist ein Zustand, 173 ein aktives Abo
@@ -59,7 +64,7 @@ for all future migrations.
 
 ## Rule: Next migration number
 
-**Next migration MUST start at: 232**
+**Next migration MUST start at: 233**
 
 Format: `<NNN>_<short_description>.sql` (three-digit zero-padded)
 
@@ -135,8 +140,8 @@ alphabetical order within the number (e.g. `064_capacity_…` before `064_strate
 
 ## Checklist for new migrations
 
-1. Use the next sequential number (currently **232**)
-2. File name: `232_<short_snake_case>.sql`
+1. Use the next sequential number (currently **233**)
+2. File name: `233_<short_snake_case>.sql`
 3. Wrap DDL in a transaction if the DB supports transactional DDL
 4. Include a `-- Migration NNN:` comment header with a brief description
 5. Use `SET client_min_messages TO WARNING;` to suppress noise

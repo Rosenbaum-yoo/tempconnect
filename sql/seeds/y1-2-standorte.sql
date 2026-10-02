@@ -17,12 +17,14 @@
 -- stehen.
 --
 -- -----------------------------------------------------------------------------
--- KEIN PASSWORT IN DIESER DATEI, und das ist der Unterschied zu den drei
--- älteren Saaten.
+-- KEIN PASSWORT IN DIESER DATEI.
 --
--- `sql/migrations/052` trägt `DemoPass2026!`, `demo-sales.sql` trägt
--- `Demo2026!`, `dev-data.sql` trägt `password123` — jeweils im Klartext im
--- Repo, das öffentlich ist. Diese Datei nimmt das Passwort aus dem Schalter
+-- Bei Y1.2 war das der Unterschied zu den drei älteren Saaten: `052` trug
+-- `DemoPass2026!` sechsmal als Hash mit dem Klartext im Kopf, `demo-sales.sql`
+-- und `dev-data.sql` je einen festen Hash — im Klartext im öffentlichen Repo.
+-- SEIT OWNER-PUNKT 16 (2026-10-02) IST DAS KEIN UNTERSCHIED MEHR, SONDERN DIE
+-- REGEL: alle sechs Dateien hashen beim Laden. Diese Datei war die erste.
+-- Sie nimmt das Passwort aus dem Schalter
 -- `app.seed_passwort` und hasht es ERST BEIM LADEN mit `pgcrypto`
 -- (`crypt(…, gen_salt('bf', 10))` → `$2a$10$…`, dasselbe Format, das 71
 -- bestehende Konten tragen und das `bcryptjs.compare` prüft).
