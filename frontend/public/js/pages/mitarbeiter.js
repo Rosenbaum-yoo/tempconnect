@@ -33,6 +33,15 @@ TCi18n.register('de', {
   'mit.unsichtbar.oeffnen': 'Profil oeffnen',
   /* M4b.4: die Bezeichnungen im Wortlaut — eine Zahl ist nicht bearbeitbar. */
   'mit.unsichtbar.wartend': 'Wartet auf Freigabe:',
+  /* M4b.5 — der Nachtrag. Die Texte nennen KEINEN einzelnen Punkt: die Liste
+     kommt vom Server, damit ein neuer Punkt kein Woerterbuch-Eintrag braucht. */
+  'mit.nachtrag.title': 'Was noch fehlt',
+  'mit.nachtrag.loading': 'Wird geprueft …',
+  'mit.nachtrag.none': 'Nichts offen — diese Leute koennen in den Markt.',
+  'mit.nachtrag.error': 'Der Nachtrag konnte nicht geladen werden.',
+  'mit.nachtrag.blockiert': 'haelt aus dem Markt',
+  'mit.nachtrag.nurFrage': 'nur eine Frage',
+  'mit.nachtrag.orgWeit': 'Mehr als {max} Kennungen — gezeigt wird der Stand des ganzen Betriebs.',
   'mit.unsichtbar.wer.mensch': 'Die Kraft selbst',
   'mit.unsichtbar.wer.firma': 'Ihre Firma',
   'mit.unsichtbar.wer.organisation': 'Ihre Organisation',
@@ -710,6 +719,13 @@ TCi18n.register('en', {
   'mit.unsichtbar.ohneName': 'Unnamed',
   'mit.unsichtbar.oeffnen': 'Open profile',
   'mit.unsichtbar.wartend': 'Awaiting approval:',
+  'mit.nachtrag.title': 'What is still missing',
+  'mit.nachtrag.loading': 'Checking …',
+  'mit.nachtrag.none': 'Nothing open — these people can enter the marketplace.',
+  'mit.nachtrag.error': 'The follow-up list could not be loaded.',
+  'mit.nachtrag.blockiert': 'keeps them out of the market',
+  'mit.nachtrag.nurFrage': 'just a question',
+  'mit.nachtrag.orgWeit': 'More than {max} ids — showing the state of the whole business.',
   'mit.unsichtbar.wer.mensch': 'The worker',
   'mit.unsichtbar.wer.firma': 'Your company',
   'mit.unsichtbar.wer.organisation': 'Your organisation',
@@ -2524,6 +2540,17 @@ function bulkMeldung(r) {
  * und der Server filtert sie zusaetzlich gegen die eigene Organisation.
  */
 var _csvImportierteProfilIds = [];
+/*
+ * M4b.5 — ALLE angelegten Kennungen, nicht nur die einladbaren.
+ *
+ * `_csvImportierteProfilIds` oben traegt bewusst nur die mit E-Mail: nur die
+ * koennen eingeladen werden. Der NACHTRAG betrifft aber genau umgekehrt auch die
+ * OHNE Konto — gemessen 9 von 45 Profilen, und sie sind der Fall, den niemand
+ * ausser der Firma loesen kann. Zwei Fragen, zwei Mengen; sie zu verwechseln
+ * waere dieselbe Klasse wie der Knopf aus M3.1, der "alle 10" versprach und
+ * sieben einlud.
+ */
+var _csvAlleProfilIds = [];
 
 function csvInviteImported(createdCount) {
   if (!window.confirm(TCi18n.t("mit.confirm.inviteImported", { count: createdCount }))) return;
@@ -2533,8 +2560,108 @@ function csvInviteImported(createdCount) {
     showTab("invites");
     loadWorkers();
     loadInvites();
+    /* M4b.6 — JEDER SCHRITT BIETET SICH SELBST AN. Nach dem Einladen endete der
+       Weg auf dem Einladungs-Reiter: erledigt, und dann? Der Nachtrag sagt, was
+       noch zwischen diesen Leuten und dem Markt steht. Dieselbe Liste wie nach
+       dem Import — ein zweiter Mechanismus fuer dieselbe Frage waere genau die
+       Parallelstruktur, die CLAUDE.md verbietet. */
+    zeigeCsvNachtrag(_csvAlleProfilIds);
   }).catch(function(e) {
     toast(e.error === "WORKER_LIMIT_EXCEEDED" ? TCi18n.t("mit.err.planLimitUpgrade") : (e.message || e.error || TCi18n.t("mit.err.bulkInviteFailed")), "err");
+  });
+}
+
+/**
+ * M4b.5 — der Nachtrag: was nach dem Import noch fehlt.
+ *
+ * ERWEITERBAR OHNE UMBAU: die Liste kommt vollstaendig vom Server
+ * (`NACHTRAG_ORGANISATION` plus die Praesenz-Gruende je Mensch). Diese Funktion
+ * kennt KEINEN einzelnen Punkt namentlich — ein neuer Punkt erscheint hier, ohne
+ * dass eine Zeile geaendert wird. Genau das verlangt die Owner-Vorgabe
+ * ("mach da noch mehr Platz fuer weitere Sachen").
+ *
+ * `blockiert` entscheidet den Ton, nicht die Farbe allein: was aus dem Markt
+ * haelt, wird benannt; was nur eine Frage ist, wird angeboten. Ein Draengen bei
+ * einer bloßen Frage wird beim dritten Mal ignoriert, und dann auch das Draengen,
+ * das zaehlt.
+ */
+var NACHTRAG_KENNUNGEN_MAX = 100;
+
+function zeigeCsvNachtrag(profileIds) {
+  var box = document.getElementById("csv-nachtrag");
+  if (!box) return;
+  var ids = (profileIds || []).filter(Boolean);
+  if (!ids.length) { box.innerHTML = ""; return; }
+
+  /*
+   * KEINE STILLE OBERGRENZE. Eine Adresse mit 200 Kennungen sprengt die
+   * Kopfzeilen-Grenze des Servers, und die Antwort waere ein Fehler, den niemand
+   * erklaeren kann. Ab der Grenze wird deshalb OHNE Eingrenzung gefragt — das ist
+   * die ehrliche Frage "was fehlt uns ueberhaupt" — und die Flaeche sagt es.
+   */
+  var orgWeit = ids.length > NACHTRAG_KENNUNGEN_MAX;
+  var pfad = orgWeit
+    ? "/workers/nachtrag"
+    : "/workers/nachtrag?profile_ids=" + encodeURIComponent(ids.join(","));
+
+  box.innerHTML = '<div style="margin-top:12px;color:var(--wk-text-muted);font-size:13px">'
+    + esc(TCi18n.t("mit.nachtrag.loading")) + '</div>';
+
+  api(pfad).then(function(r) {
+    var orgPunkte = (r && r.organisation) || [];
+    var personen = (r && r.personen) || [];
+    if (!orgPunkte.length && !personen.length) {
+      box.innerHTML = '<div style="margin-top:12px;font-size:13px">'
+        + esc(TCi18n.t("mit.nachtrag.none")) + '</div>';
+      return;
+    }
+    var plakette = function(blockiert) {
+      return '<span class="badge" style="margin-right:6px">'
+        + esc(TCi18n.t(blockiert ? "mit.nachtrag.blockiert" : "mit.nachtrag.nurFrage"))
+        + '</span>';
+    };
+    var html = '<div style="margin-top:14px">'
+      + '<h3 style="font-size:14px;font-weight:800;margin:0 0 6px">'
+      + esc(TCi18n.t("mit.nachtrag.title")) + '</h3>'
+      + (orgWeit
+        ? '<div style="font-size:12px;color:var(--wk-text-muted);margin-bottom:8px">'
+          + esc(TCi18n.t("mit.nachtrag.orgWeit", { max: NACHTRAG_KENNUNGEN_MAX })) + '</div>'
+        : '');
+
+    /* Erst die Fragen an den BETRIEB: einmal beantwortet, gelten sie fuer alle —
+       sie zuerst zu stellen erspart die gleiche Frage je Person. */
+    if (orgPunkte.length) {
+      html += '<ul style="margin:0 0 10px;padding-left:18px">';
+      orgPunkte.forEach(function(p) {
+        html += '<li style="margin-bottom:6px">' + plakette(p.blockiert)
+          + '<strong>' + esc(p.frage) + '</strong>'
+          + '<div style="font-size:12px;color:var(--wk-text-muted);margin-top:2px">'
+          + esc(p.warum) + '</div></li>';
+      });
+      html += '</ul>';
+    }
+
+    personen.forEach(function(e) {
+      html += '<div style="margin-bottom:8px">'
+        + '<strong>' + esc(e.name || TCi18n.t("mit.unsichtbar.ohneName")) + '</strong>'
+        + '<ul style="margin:4px 0 0;padding-left:18px">';
+      (e.gruende || []).forEach(function(g) {
+        html += '<li style="margin-bottom:4px">' + plakette(g.blockiert)
+          + esc(g.grund)
+          + (g.hinweis ? '<div style="font-size:12px;color:var(--wk-text-muted);margin-top:2px">'
+              + esc(g.hinweis) + '</div>' : '')
+          + '</li>';
+      });
+      html += '</ul></div>';
+    });
+
+    box.innerHTML = html + '</div>';
+  }).catch(function(e) {
+    /* Der Fehlerfall ist ein eigener Zustand, kein leerer: "nichts offen" waere
+       hier eine Luege, und zwar eine beruhigende. */
+    box.innerHTML = '<div class="ds-alert ds-alert--warning" style="margin-top:12px">'
+      + esc(TCi18n.t("mit.nachtrag.error")) + ' '
+      + esc(e && (e.message || e.error) ? (e.message || e.error) : "") + '</div>';
   });
 }
 
@@ -4249,6 +4376,10 @@ function csvShowResult(res) {
    * was wirklich geht, und die Luecke wird BENANNT statt verschwiegen. */
   var einladbar = (res.created || []).filter(function(e) { return e && e.profile_id && e.email; });
   _csvImportierteProfilIds = einladbar.map(function(e) { return e.profile_id; });
+  /* M4b.5: fuer den Nachtrag ALLE angelegten — auch die ohne E-Mail. */
+  _csvAlleProfilIds = (res.created || [])
+    .filter(function(e) { return e && e.profile_id; })
+    .map(function(e) { return e.profile_id; });
   var created = (res.created || []).length;
   var ohneMail = created - einladbar.length;
   var updated = (res.updated || []).length;
@@ -4270,7 +4401,12 @@ function csvShowResult(res) {
     (ohneMail > 0
       ? '<div style="flex-basis:100%;margin-top:6px;color:var(--tc-text-muted);font-size:13px">' +
         esc(TCi18n.t("mit.csv.inviteOhneMail", { count: ohneMail })) + '</div>'
-      : '');
+      : '') +
+    /* M4b.5: Platz fuer den Nachtrag. Er wird NACH dem Rendern gefuellt, weil er
+       eine eigene Abfrage braucht — ein leerer Kasten waere besser als ein
+       Import, der auf die Antwort wartet. */
+    '<div id="csv-nachtrag" style="flex-basis:100%"></div>';
+  if (_csvAlleProfilIds.length) zeigeCsvNachtrag(_csvAlleProfilIds);
 
   var details = document.getElementById("csv-result-details");
   var html = '';

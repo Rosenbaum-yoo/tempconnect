@@ -850,6 +850,70 @@ in einer Sprache) · 25 Proben im Wächter · Rauchtest gegen die echte Datenban
 > einem SQL-Kommentar hat das Template-Literal beendet — zum neunten Mal in dieser Arbeit, und
 > der Fehler erscheint immer woanders.
 
+#### M4b.5 und M4b.6 · gebaut 2026-10-03 — und ein Entwurf wurde unterwegs widerlegt
+
+**M4b.5 ist ein Register, kein Formular.** `api/services/nachtragRegister.js` hält die Liste;
+`GET /api/workers/nachtrag?profile_ids=…` liefert sie für den Import-Stapel. Je Eintrag genau
+das, was die Abnahme verlangt: **was fehlt** (`frage`), **warum es zählt** (`warum`), **wer es
+beantworten kann** (`wer`), **ob es die Marktpräsenz blockiert** (`blockiert`). Ein neuer Punkt
+ist **eine Zeile** — die Oberfläche kennt **keinen** Punkt namentlich, und eine Probe verbietet
+es ausdrücklich.
+
+**Der erste Entwurf war falsch, und der Rauchtest hat ihn widerlegt — das ist der lehrreiche
+Teil.** Der Einsatzradius (M-E11) stand als **neunte `PRAESENZ_BEDINGUNG`** mit `nurDiagnose`.
+Gegen die echte Datenbank gefahren war er für **alle 12** gemeldeten Kräfte unerfüllt: gemessen
+hat **keine** der 13 Agenturen mit Kräften eine `org_settings`-Zeile, und **0 von 45** Profilen
+einen eigenen Radius. Ein Punkt, der jeden betrifft, hätte **jeden ohnehin präsenten Menschen**
+in eine Liste gezogen, die „Nicht im Markt" heißt. **Ein Alarm, der immer schrillt, wird
+abgeschaltet — und mit ihm der, der zählt.**
+
+Daraus die Trennung, die jetzt trägt: **zwei Register, zwei Fragen.**
+
+| Register | Frage | Ebene |
+|---|---|---|
+| `PRAESENZ_BEDINGUNGEN` | Warum ist **diese Person** nicht im Markt? | Person |
+| `NACHTRAG_ORGANISATION` | Was sollten wir nach einem Import noch **fragen**? | Organisation |
+
+Der Nachtrag **liest** die Präsenz-Gründe, statt sie abzuschreiben — und jeder Grund trägt jetzt
+`blockiert: !nurDiagnose`, also genau die Aussage, die die Abnahme fordert, ohne eine zweite
+Liste, die auseinanderlaufen könnte.
+
+**Und der Radius blockiert nicht, auch das ist gemessen:** er löst sich dreistufig auf (eigener
+Wert → `org_settings.default_radius_km` → **25 km** Rückfall). Es gibt immer einen Wert. Der
+Text nennt die 25 km, damit die Frage nicht dringender klingt als sie ist — und `wer: "firma"`,
+weil `workerAvailabilityService` den Radius ausdrücklich *„den einzigen Wert, der nie erfragt
+werden muss: er gehört an den Betrieb"* nennt.
+
+**Die Eingrenzung auf den Stapel folgt M3.2.** `unsichtbareKraefte` nimmt `profileIds`; die
+Org-Bedingung bleibt die **äußere Klammer**, und eine **leere** Liste heißt **„keine"**, nicht
+„alle" — sonst wäre ein leerer Import-Bericht ein org-weiter Abruf. Genau die Verwechslung, die
+M3.2 beim Einladen behoben hat („die 3 gerade importierten" traf 200).
+
+**M4b.6 ist derselbe Mechanismus, zweimal angeboten.** Beide Hälften waren schon gebaut — „nach
+dem Import → einladen?" ist M3.1, „Skills eingetragen → freigeben?" ist M4.8. Was fehlte, war
+das Ende: nach dem Einladen landete der Weg auf dem Einladungs-Reiter — *erledigt, und dann?*
+Jetzt erscheint der Nachtrag **nach dem Import und nach dem Einladen**. Ein zweiter Mechanismus
+für dieselbe Frage wäre die Parallelstruktur, die `CLAUDE.md` verbietet.
+
+**Zwei Mengen, nicht eine:** das Einladen nimmt nur die **einladbaren** (mit E-Mail), der
+Nachtrag **alle angelegten** — denn gerade die **9 von 45 ohne eigenes Konto** sind der Fall, den
+nur die Firma lösen kann. Sie zu verwechseln wäre der Fehler aus M3.1, der „alle 10" versprach
+und sieben einlud.
+
+**Keine stille Obergrenze:** über 100 Kennungen sprengen die Kopfzeilen-Grenze. Statt
+abzuschneiden fragt die Fläche dann **org-weit** und **sagt es** — eine Probe verbietet das
+Abschneiden.
+
+**Verifikation:** 14 Rückmutationen, **14 rot** · neuer Wächter
+`api/test/nachtragIstErweiterbar.test.js` (22 Proben) · Rauchtest gegen die echte Datenbank:
+Register-Punkt offen, Stapel von 2 → 2 Personen, **leerer Stapel → 0**.
+
+> **Eine Rückmutation blieb zuerst GRÜN, und sie hat eine echte Lücke gezeigt:** meine Probe
+> schnitt 1600 Zeichen ab der Route und reichte damit in die **nächste** hinein — die trägt
+> `[0-9a-fA-F-]{36}` in ihrem Pfad. Die Zusicherung fand das Muster beim **Nachbarn**, also blieb
+> „Kennungen ungeprüft durchreichen" unbemerkt. Geschnitten wird jetzt bis zur nächsten Route.
+> **Vierter Fall derselben Klasse in dieser Arbeit.**
+
 #### M4b.2 · gebaut 2026-10-01 — und der Befund lag in der Naht zwischen zwei grünen Hälften
 
 Die Fläche steht: `frontend/src/staff/modules/markt-sichtbarkeit/index.tsx` zeigt jetzt die offenen

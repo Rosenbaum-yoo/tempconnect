@@ -33,6 +33,8 @@ import { trackProductEventFromRequest } from "../services/productAnalyticsServic
 import { fristLabelDE, todayDE } from "../utils/dateDE.js";
 import * as auegFrist from "../services/auegFristService.js";
 import * as marktpraesenzService from "../services/marktpraesenzService.js";
+/* M4b.5 — der Nachtrag nach dem Import, als erweiterbare Liste. */
+import * as nachtragRegister from "../services/nachtragRegister.js";
 /* M1.3 — die Masseneinladung reicht den Versand an die vorhandene
  * Warteschlange weiter, statt 200 SMTP-Gespraeche in die Anfrage zu legen. */
 import { emailQueue } from "../queue/queues.js";
@@ -958,6 +960,37 @@ export function createWorkersRouter(deps) {
         limit: parseInt(req.query.limit, 10) || 200
       });
       res.json({ items, total: items.length });
+    } catch (err) { next(err); }
+  });
+
+  /**
+   * M4b.5 — der Nachtrag nach dem Import.
+   *
+   * DIESELBE WACHE WIE DER BERICHT DARUEBER, und aus demselben Grund: die
+   * Antwort nennt ausschliesslich Menschen der EIGENEN Org (der Dienst bindet
+   * auf `wp.supplier_org_id`) und die Einstellungen DIESER Org.
+   *
+   * `profile_ids` grenzt auf den Import-Stapel ein (Muster aus M3.2). Die
+   * Org-Bedingung bleibt die aeussere Klammer; die Kennungen koennen sie nur
+   * einschraenken, nicht aufweiten. Ein LEERER Parameter heisst "keine" und
+   * nicht "alle" — sonst waere ein leerer Import-Bericht ein org-weiter Abruf.
+   * Fehlt der Parameter ganz, ist es die Frage "was fehlt uns ueberhaupt".
+   */
+  router.get("/workers/nachtrag", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
+    try {
+      const roh = typeof req.query.profile_ids === "string" ? req.query.profile_ids : "";
+      /* Eine Kennung, die kein UUID ist, wird VERWORFEN und nicht durchgereicht:
+         sonst entscheidet Postgres mit einem Typfehler, und der Aufrufer liest
+         einen 500er statt einer Antwort. Bleibt nach dem Filtern nichts uebrig,
+         obwohl etwas gesendet wurde, ist das "keine" — der Dienst gibt [] zurueck. */
+      const profileIds = roh
+        ? roh.split(",").map((s) => s.trim()).filter((s) => /^[0-9a-fA-F-]{36}$/.test(s))
+        : null;
+      const nachtrag = await nachtragRegister.nachtragFuerStapel(pool, req.orgId, {
+        profileIds,
+        limit: parseInt(req.query.limit, 10) || 200
+      });
+      res.json(nachtrag);
     } catch (err) { next(err); }
   });
 

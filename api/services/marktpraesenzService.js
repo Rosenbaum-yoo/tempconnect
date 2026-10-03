@@ -278,6 +278,28 @@ export const PRAESENZ_BEDINGUNGEN = Object.freeze([
   }
 ]);
 
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WAS HIER ABSICHTLICH NICHT STEHT: DER EINSATZRADIUS (M4b.5 / M-E11)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Erster Entwurf hatte ihn als neunte Bedingung mit `nurDiagnose` hier drin —
+ * und der Rauchtest gegen die echte Datenbank hat gezeigt, warum das falsch ist:
+ * er war fuer ALLE 12 gemeldeten Kraefte unerfuellt, weil gemessen am 2026-10-03
+ * KEINE der 13 Agenturen mit Kraeften eine org_settings-Zeile hat und 0 von 45
+ * Profilen einen eigenen Radius. Ein Punkt, der jeden betrifft, haette jeden
+ * ohnehin praesenten Menschen in eine Liste gezogen, die "Nicht im Markt" heisst.
+ *
+ * DIESES REGISTER BEANTWORTET EINE ANDERE FRAGE: warum ist DIESE Person nicht im
+ * Markt. Der Radius macht niemanden unsichtbar — er loest sich dreistufig auf
+ * (eigener Wert, dann org_settings.default_radius_km, dann 25 km Rueckfall in
+ * workerAvailabilityService), es gibt also immer einen Wert.
+ *
+ * Er gehoert deshalb in das NACHTRAG-Register (services/nachtragRegister.js):
+ * "was sollten wir nach einem Import noch fragen" — eine Liste, in der manche
+ * Punkte die Marktpraesenz blockieren und manche nicht.
+ */
+
 /**
  * Die WHERE-Klausel der Materialisierung, aus derselben Liste — aber OHNE die
  * Eintraege, die `nurDiagnose` tragen.
@@ -325,12 +347,31 @@ function praesenzWhereSql() {
  *
  * @param {import('pg').Pool} pool
  * @param {string} supplierOrgId
- * @param {{limit?: number}} [opts]
+ * @param {{limit?: number, profileIds?: string[]|null}} [opts] `profileIds`
+ *   grenzt auf einen Stapel ein (M4b.5: der Nachtrag nach dem Import fragt nach
+ *   DIESEN Leuten, nicht nach der ganzen Belegschaft).
  * @returns {Promise<Array<{worker_profile_id, name, gruende: Array<{schluessel, grund, hinweis, wer}>}>>}
  */
 export async function unsichtbareKraefte(pool, supplierOrgId, opts = {}) {
   if (!supplierOrgId) return [];
   const limit = Math.min(500, Math.max(1, Number(opts.limit) || 200));
+
+  /*
+   * M4b.5 — AUF DEN STAPEL BEGRENZEN, nach dem Muster von M3.2.
+   *
+   * Der Nachtrag nach einem Import fragt nach den GERADE ANGELEGTEN Menschen.
+   * Ohne die Eingrenzung zeigte er die ganze Belegschaft — bei 200 Kraeften und
+   * 3 importierten waere das genau die Verwechslung, die M3.2 beim Einladen
+   * behoben hat ("die 3 gerade importierten einladen?" traf 200).
+   *
+   * DIE ORG-BEDINGUNG BLEIBT DIE AEUSSERE KLAMMER. Die Kennungen kommen aus dem
+   * Import-Bericht des Aufrufers; sie duerfen die Mandantengrenze nicht
+   * aufweiten, nur innerhalb davon einschraenken. Eine LEERE Liste heisst
+   * "keine" und nicht "alle" — sonst waere ein leerer Import-Bericht ein
+   * org-weiter Abruf.
+   */
+  const stapel = Array.isArray(opts.profileIds) ? opts.profileIds.filter(Boolean) : null;
+  if (stapel && stapel.length === 0) return [];
 
   /* Je Bedingung eine Spalte: TRUE heisst erfuellt. Die Auswertung erfolgt
      danach in JavaScript — so steht die Bedeutung an EINER Stelle (der Liste)
@@ -379,9 +420,10 @@ export async function unsichtbareKraefte(pool, supplierOrgId, opts = {}) {
             ${spalten}
        FROM worker_profiles wp
       WHERE wp.supplier_org_id = $1
+        ${stapel ? "AND wp.id = ANY($3::uuid[])" : ""}
       ORDER BY wp.last_name NULLS LAST, wp.first_name NULLS LAST
       LIMIT $2`,
-    [supplierOrgId, limit]
+    stapel ? [supplierOrgId, limit, stapel] : [supplierOrgId, limit]
   );
 
   const offen = [];
@@ -390,7 +432,12 @@ export async function unsichtbareKraefte(pool, supplierOrgId, opts = {}) {
       .map((b, i) => {
         if (zeile[`b${i}`] === true) return null;
         const eintrag = {
-          schluessel: b.schluessel, grund: b.grund, hinweis: b.hinweis, wer: b.wer
+          schluessel: b.schluessel, grund: b.grund, hinweis: b.hinweis, wer: b.wer,
+          /* M4b.5 verlangt je Eintrag ausdruecklich, "ob es die Marktpraesenz
+             blockiert". Das steht hier schon — `nurDiagnose` IST diese Aussage,
+             nur negiert. Sie mitzugeben kostet nichts und erspart der Flaeche
+             eine zweite Liste, die auseinanderlaufen koennte. */
+          blockiert: !b.nurDiagnose
         };
         /* Die Zahl steht IM Grund, nicht nur daneben: die Oberflaeche zeigt den
            Grund, und wer sie nur in ein Zusatzfeld legt, verliert sie dort. */
