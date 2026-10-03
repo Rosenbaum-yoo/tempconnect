@@ -30,7 +30,25 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 
 ---
 
-## Wo wir gerade stehen *(2026-09-08)*
+## Wo wir gerade stehen *(2026-09-08 — ⚠ VERALTET, siehe Kasten)*
+
+> **DIESE TABELLE IST NICHT MEHR DIE ANTWORT — festgestellt 2026-10-03 auf Owner-Nachfrage
+> („sind bereits alle Abschnitte fertig?").** Sie ist vom 2026-09-08 und sagt nachweislich
+> Falsches: **K1** steht als „gebaut", während die K-Welle inzwischen **ganz** durch ist;
+> **M** steht auf „M0–M3", während M4b.1/M4b.2 und M4c gebaut sind; **U** steht auf „geplant",
+> während **U0–U6.8** gebaut sind; und die Wellen **Y**, **Z** und **AA** fehlen ganz, weil sie
+> nach diesem Datum entstanden.
+>
+> **Die maßgebliche Antwort auf „was ist offen?" ist die Rangfolge der offenen Arbeit oben** —
+> sie wird gepflegt, und erledigte Posten verschwinden daraus oder werden durchgestrichen.
+> Zweitquelle ist die **Phasentabelle im jeweiligen Plan**, nicht dessen Statuszeile
+> (`api/test/planZeigerIstLebendig.test.js` hält beide gegeneinander).
+>
+> **Warum sie trotzdem stehen bleibt:** sie ist der dritte Fall derselben Klasse an einer Woche
+> — *eine Arbeitsanweisung, die auf Erledigtes zeigt*. Zweimal hat sie einen Posten gekostet,
+> der längst fertig war; hier hätte sie eine falsche Gesamtauskunft gegeben. **Eine
+> Statusangabe ohne Datum und ohne Pflege ist schlimmer als keine, weil sie geglaubt wird.**
+> Wer sie neu aufsetzt, erzeugt sie aus der Rangfolge und den Phasentabellen — nicht von Hand.
 
 | Spur | Gegenstand | Stand |
 |---|---|---|
@@ -102,7 +120,7 @@ bauende Sitzung geht von oben nach unten; wer etwas vorzieht, schreibt den Grund
 | ~~4~~ | ~~**N8.1** — Katalog statt Freitext in „Personal finden"~~ **ERLEDIGT am 2026-09-22** | „Katalog statt Freitext, auf beiden Marktseiten“ (N8.1). Quelle im Eintrag: „Owner-Reihenfolge 2026-09-20, Posten 4“ |
 | 1c | **AA — Skalierung auf 300 Kunden** ([`features/AA_SKALIERUNG_300.md`](features/AA_SKALIERUNG_300.md)) | **Breitenmessung vom 2026-10-02: 35 Befunde, 32 echt unbegrenzt, davon 5 als Dezember-Blocker eingestuft** — dazu **73 begründete Nicht-Treffer**, die ausdrücklich nicht angefasst werden. Der schwerste ist kaufmännisch, nicht technisch: **die Belegschaft belegt bezahlte Sitzplätze**, also kann eine Zeitarbeitsfirma ab dem Erreichen ihrer Sitzplatzgrenze kein Büro-Personal mehr anlegen. Reihenfolge innerhalb: die fünf Dezember-Posten zuerst |
 | 5 | **M4b + M4.8/M4.9** — der Marktplatz füllt sich selbst | Die Owner-Vorgabe „voluminös" entscheidet, ob eine Vorführung überhaupt etwas zeigt |
-| 5b | **Y — Die Probebühne** (`Y_PROBEBUEHNE.md`) | Vor dem Livegang die einzige Art, die Zusagen zu prüfen, die kein Test abdeckt. **Gemessen: 1 von 2566 Organisationen hat mehr als einen Standort, 3 von 33 Kräften haben Fähigkeiten** — Welle U und ein voller Marktplatz sind heute gar nicht durchspielbar. Direkt nach M4c, weil die Bühne den gefüllten Markt braucht |
+| ~~5b~~ | ~~**Y — Die Probebühne**~~ ✅ **ERLEDIGT 2026-10-02** | Alle 26 Phasen gebaut, einschließlich Y1.2 (Nordlicht Logistik mit drei Standorten, drei Abteilungen, drei Menschen und der ersten standortgebundenen Mitgliedschaft im ganzen Bestand). **Von der planenden Sitzung unabhängig belegt** im Frischaufbau vom 2026-10-02: 6 Demo-Konten, alle Hashes gültiges bcrypt, kein Konto mit dem alten öffentlichen Hash. Das Regiebuch steht; Abschnitt 9 (die Prüfliste des Owners) ist sein Gegenstück |
 | 6 | **N3, N5, N6** — Rangfolge, Korb, Abschluss | Vervollständigt den Weg, den N2 begonnen hat |
 | 7 | **N8.2** — der Stundenzettel kennt seinen Kunden | Schließt K-2 zwischen Zeitarbeitsfirma und Kunde; `buyer_org_id` liegt bereits vor |
 | 8 | **N8.7** — „Anmeldung erforderlich" nur bei echter 401 | Kein Ausfall, aber ein **Diagnoseschaden**: falsche Meldungen verstecken die nächste Ursache |
