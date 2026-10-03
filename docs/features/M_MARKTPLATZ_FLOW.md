@@ -463,6 +463,69 @@ Gewerk. Der Ausnahmefall ist also selten; er ist nur heute ausweglos.
 ---
 
 
+#### Vorarbeit zu Posten 5 — gemessen von der planenden Sitzung am 2026-10-03
+
+> **Owner, 2026-10-03:** *„weiter, k1 soll den marktplatz machen."* Nach der Abmachung vom
+> 2026-10-02 kommt der Posten **mit Vorarbeit**: Messwerte, bekannte Fallen, erwarteter erster
+> roter Lauf. Damit die bauende Sitzung nicht sucht, was schon gemessen ist.
+
+**Zuerst geprüft, dass der Posten offen ist** (die Rangfolge hat an einem Tag zweimal auf
+Erledigtes gezeigt): M4b.1 und M4b.2 tragen Baumarken, **M4.8, M4.9 und M4b.3–M4b.6 keine**.
+
+##### Der Befund, der kein Skalierungsfehler ist, sondern ein Korrektheitsfehler
+
+**„Aktiv" hat im Marktplatz drei Definitionen, und zwei davon widersprechen sich in den Daten.**
+
+| Weg | Bedingung | Art |
+|---|---|---|
+| `services/instantMatchService.js:352` | `cp.is_active = TRUE` | Wahrheitsfeld |
+| `services/matchingEngine.js:236` | `is_active = TRUE` | Wahrheitsfeld |
+| `services/marketplaceService.js:214` **und** `:598` | `cp.status = 'active'` | Textfeld |
+| `services/matchingEngine.js:562` | zusätzlich `visibility_status !== 'private'` — **in JavaScript, nach dem Laden** | dritte Schicht |
+
+**Gemessen an der laufenden Datenbank (2026-10-03):** 52 Angebote, davon
+
+```
+status = 'active' UND is_active = TRUE    10
+status = 'active' ABER is_active = FALSE   2   <-- der Widerspruch
+is_active = TRUE  ABER status <> 'active'  0
+```
+
+**Das heißt: zwei Angebote stehen in der Marktplatz-Liste und sind für BEIDE Matching-Wege
+unsichtbar.** Zwei von zwölf als aktiv geführten Angeboten — **17 Prozent.** Dieselben Daten,
+verschiedene Antwort je Eingang. Ein Unternehmen sieht ein Angebot und bekommt es nie
+vorgeschlagen; eine Zeitarbeitsfirma sieht ihr Angebot gelistet und wird nicht gefunden.
+
+**Ein begründeter Nicht-Treffer dazu, damit niemand ihn „mitfixt":** `visibility_status` ist
+heute bei **allen 52** Zeilen `public` — die dritte Prüfung in `matchingEngine.js:562` schließt
+also aktuell nichts aus. Sie ist **kein** Befund, aber die dritte Definition, die auf ihre erste
+Abweichung wartet.
+
+##### Was daraus für M4b folgt
+
+M4b soll den Marktplatz sich selbst füllen lassen. **Eine Automatik über drei Definitionen von
+„aktiv" vervielfacht den Widerspruch, statt ihn zu zeigen.** Die eine Wahrheit gehört also
+**vor** M4b.3, nicht danach — nach dem Muster, das in dieser Welle schon zweimal getragen hat:
+eine gemeinsame Bedingung in **einem** Modul (wie `poolMitgliedschaftSql`, `reputationSql`),
+und ein Wächter auf der **Paar-Invariante** — wer `capacity_posts` nach Aktivität filtert,
+benutzt dieses Modul.
+
+**Die Gegenprobe, die wie bei U6.7 trägt:** die Ausnahmeliste des Wächters muss nach der
+Zusammenführung **kürzer** werden oder gleich bleiben — nie länger.
+
+##### Die vier Skalierungsbefunde, die dieses Gebiet treffen
+
+Vollständig mit Messung und Vorschlag in [`AA_SKALIERUNG_300.md`](AA_SKALIERUNG_300.md),
+Abschnitt 2 — hier nur die Namen, damit sie nicht zweimal gesucht werden:
+
+1. **`matchingEngine.js:300`** — `SELECT * FROM requisitions WHERE status IN ('OPEN','IN_REVIEW','SHORTLISTED')`: die offenen Aufträge **aller** Kunden, **ohne `LIMIT`**, mit `SELECT *`. Von der planenden Sitzung direkt am Code bestätigt.
+2. **`instantMatchFromParams`** — `SELECT cp.*` über alle aktiven Angebote ohne Obergrenze.
+3. **`matchRequisition`** — dieselbe unbegrenzte Lesemenge; **und hier sitzt der Definitions-Widerspruch oben.**
+4. **`runInitialMatching`** — unbegrenzte Kandidatenmenge mit `LATERAL` je Zeile, **auf dem Schreibpfad** jedes neuen Vorgangs.
+
+> **Und die Methodenwarnung gilt hier besonders:** ein `EXPLAIN` bei 52 Angeboten und 73
+> Aufträgen beweist nichts. Belastbar sind Indexdefinitionen, Abfrageform und Takt.
+
 #### M4b.2 · gebaut 2026-10-01 — und der Befund lag in der Naht zwischen zwei grünen Hälften
 
 Die Fläche steht: `frontend/src/staff/modules/markt-sichtbarkeit/index.tsx` zeigt jetzt die offenen
