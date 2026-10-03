@@ -5,6 +5,9 @@
  */
 
 import { zugesagtJeAngebotSql } from "./zusageFormel.js";
+/* Posten 5 — die EINE Antwort auf "ist dieses Angebot aktiv?". Fuenf Stellen in
+   dieser Datei trugen die Bedingung als eigene Abschrift. */
+import { angebotAktivSql } from "./angebotAktivSql.js";
 /* M4c.4 — die EINE Formel fuer "wie viele MENSCHEN". Bis hierher summierte
    jedes der fuenf Aggregate die Kopfzahl der ANGEBOTE; seit M4c.1 traegt eine
    Kraft mit vier Faehigkeiten fuenf Darstellungen. */
@@ -69,7 +72,7 @@ const REMAINING_HEADCOUNT_SQL = `GREATEST(cp.headcount - COALESCE(commercial_sta
  */
 export async function aggregateBySkill(pool, filters = {}) {
   const params = [];
-  const where = ["cp.status = 'active'"];
+  const where = [angebotAktivSql("cp")];
   let idx = 1;
 
   if (filters.org_id) {
@@ -142,7 +145,7 @@ export async function aggregateBySkill(pool, filters = {}) {
  */
 export async function aggregateByRole(pool, filters = {}) {
   const params = [];
-  const where = ["cp.status = 'active'"];
+  const where = [angebotAktivSql("cp")];
   let idx = 1;
 
   if (filters.org_id) {
@@ -291,7 +294,7 @@ export async function getMarktLuecke(pool, filters = {}) {
  */
 export async function aggregateByRegion(pool, filters = {}) {
   const params = [];
-  const where = ["cp.status = 'active'", "cp.location_city IS NOT NULL"];
+  const where = [angebotAktivSql("cp"), "cp.location_city IS NOT NULL"];
   let idx = 1;
 
   if (filters.org_id) {
@@ -334,7 +337,7 @@ export async function aggregateByRegion(pool, filters = {}) {
  */
 export async function aggregateByCategory(pool, filters = {}) {
   const params = [];
-  const where = ["cp.status = 'active'", "cp.worker_category IS NOT NULL"];
+  const where = [angebotAktivSql("cp"), "cp.worker_category IS NOT NULL"];
   let idx = 1;
 
   if (filters.org_id) {
@@ -374,7 +377,7 @@ export async function aggregateByCategory(pool, filters = {}) {
  */
 export async function getAvailabilitySummary(pool, filters = {}) {
   const params = [];
-  const where = ["cp.status = 'active'"];
+  const where = [angebotAktivSql("cp")];
   let idx = 1;
 
   if (filters.org_id) {

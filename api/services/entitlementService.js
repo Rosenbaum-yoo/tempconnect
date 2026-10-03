@@ -29,6 +29,10 @@ import { hasFeature, isPilotCustomer as _isPilotCustomer, MATURITY_GATES } from 
 import { PLAN_CATALOG as _PLAN_CATALOG, FEATURE_CATALOG, ADDON_CATALOG, INDIVIDUELL_BASELINE } from "../config/planCatalog.js";
 import { PLAN_LIMITS } from "./userService.js";
 import * as usageMetering from "./usageMeteringService.js";
+/* Posten 5 — die EINE Antwort auf "ist dieses Angebot aktiv?". Die Zaehlung der
+   Inserate entscheidet ueber ein Kontingent — sie darf nicht anders zaehlen als
+   der Marktplatz anzeigt. */
+import { angebotAktivSql } from "./angebotAktivSql.js";
 import { dateOnlyDE } from "../utils/dateDE.js";
 /* M1.8 — die mittlere Schicht: Abweichungen je Org-Typ. Sie liegt ZWISCHEN
  * der Code-Vorgabe und der je-Org-Uebersteuerung; die Reihenfolge ist der
@@ -659,7 +663,7 @@ async function countListings(pool, orgId) {
     pool,
     `SELECT COUNT(*)::int AS cnt
        FROM capacity_posts cp
-      WHERE cp.status = 'active'
+      WHERE ${angebotAktivSql("cp")}
         AND (
           cp.org_id = $1
           OR cp.supplier_company_id IN (

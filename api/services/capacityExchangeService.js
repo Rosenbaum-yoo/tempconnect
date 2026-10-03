@@ -11,6 +11,13 @@ import { scoreMatch } from "./matchingEngine.js";
 import { zugesagtJeAngebotSql } from "./zusageFormel.js";
 /* M4c.3b — die EINE Antwort auf "ist dieser Mensch gebunden?" (siehe POOL_FREI_JOIN). */
 import { gebundenSql } from "./bindungSql.js";
+/* Posten 5 — die EINE Antwort auf "ist dieses Angebot aktiv?". Diese Datei stand
+   schon auf der richtigen Seite (`status`), trug die Bedingung aber elfmal als
+   eigene Abschrift. Die ZUSTANDS-AUFSCHLUESSELUNGEN weiter unten
+   (`FILTER (WHERE status = 'active')` neben 'expired'/'filled'/'reserved')
+   bleiben absichtlich roh: sie fragen nicht "ist das aktiv?", sie zaehlen je
+   Zustand, und das Modul daneben waere unleserlicher statt sauberer. */
+import { angebotAktivSql } from "./angebotAktivSql.js";
 import { loadSkillIndex, expandTags } from "./skillNormalizationService.js";
 import * as auditLog from "./auditLog.js";
 import { computePremiumBoost } from "./reputationService.js";
@@ -418,7 +425,7 @@ export async function createCapacityEntry(pool, supplierId, plan, data) {
   }
   if (!unbegrenzt(limit) && (data.status === 'active' || !data.status)) {
     const { rows: countRows } = await pool.query(
-      `SELECT COUNT(*)::int AS cnt FROM capacity_posts WHERE supplier_company_id = $1 AND status = 'active'`,
+      `SELECT COUNT(*)::int AS cnt FROM capacity_posts WHERE supplier_company_id = $1 AND ${angebotAktivSql("capacity_posts")}`,
       [supplierId]
     );
     if (countRows[0].cnt >= limit) {
@@ -556,7 +563,7 @@ export async function transitionStatus(pool, entryId, supplierId, newStatus, pla
     if (!unbegrenzt(limit)) {
       const { rows: countRows } = await pool.query(
         `SELECT COUNT(*)::int AS cnt FROM capacity_posts
-       WHERE supplier_company_id = $1 AND status = 'active' AND id != $2`,
+       WHERE supplier_company_id = $1 AND ${angebotAktivSql("capacity_posts")} AND id != $2`,
         [supplierId, entryId]
       );
       if (countRows[0].cnt >= limit) {
@@ -589,7 +596,7 @@ export async function transitionStatus(pool, entryId, supplierId, newStatus, pla
 export async function confirmFreshness(pool, entryId, supplierId) {
   const { rows } = await pool.query(
     `UPDATE capacity_posts SET last_confirmed_at = NOW(), updated_at = NOW()
-     WHERE id = $1 AND supplier_company_id = $2 AND status = 'active'
+     WHERE id = $1 AND supplier_company_id = $2 AND ${angebotAktivSql("capacity_posts")}
      RETURNING *`,
     [entryId, supplierId]
   );
@@ -626,7 +633,7 @@ export async function listOwnEntries(pool, supplierId, opts = {}) {
   }
   if (opts.expiring_within_days) {
     params.push(opts.expiring_within_days);
-    where.push(`cp.status = 'active' AND cp.valid_until IS NOT NULL AND cp.valid_until < NOW() + ($${idx} || ' days')::INTERVAL`);
+    where.push(`${angebotAktivSql("cp")} AND cp.valid_until IS NOT NULL AND cp.valid_until < NOW() + ($${idx} || ' days')::INTERVAL`);
     idx++;
   }
 
@@ -750,7 +757,7 @@ export async function browseFeed(pool, opts = {}) {
     params.push(viewerUserId);
     const viewerParam = `$${idx}`;
     where.push(`(
-      cp.status = 'active'
+      ${angebotAktivSql("cp")}
       OR (
         cp.status = 'reserved'
         AND (
@@ -772,7 +779,7 @@ export async function browseFeed(pool, opts = {}) {
     )`);
     idx++;
   } else {
-    where.push("cp.status = 'active'");
+    where.push(angebotAktivSql("cp"));
   }
 
   /* N2.8 — ein AKTIVES Angebot ohne freien Platz steht nicht im Markt. Diese
@@ -1809,7 +1816,7 @@ export async function computeTrustSignals(pool, supplierId) {
   // Recently confirmed (any active entry confirmed in last 48h)
   const { rows: freshRows } = await pool.query(
     `SELECT COUNT(*)::int AS cnt FROM capacity_posts
-     WHERE supplier_company_id = $1 AND status = 'active'
+     WHERE supplier_company_id = $1 AND ${angebotAktivSql("capacity_posts")}
        AND last_confirmed_at > NOW() - INTERVAL '48 hours'`,
     [supplierId]
   );
@@ -1885,7 +1892,7 @@ export async function computeTrustSignals(pool, supplierId) {
 export async function expireStaleEntries(pool, batchSize = 100) {
   const { rows } = await pool.query(
     `UPDATE capacity_posts SET status = 'expired', is_active = FALSE, updated_at = NOW()
-     WHERE status = 'active'
+     WHERE ${angebotAktivSql("capacity_posts")}
        AND (
          (valid_until IS NOT NULL AND valid_until < NOW())
          OR (availability_to IS NOT NULL AND availability_to < CURRENT_DATE)
@@ -1920,7 +1927,7 @@ export async function findStaleEntries(pool, staleDays = 7, batchSize = 100) {
   const { rows } = await pool.query(
     `SELECT id, supplier_company_id, title, last_confirmed_at
      FROM capacity_posts
-     WHERE status = 'active'
+     WHERE ${angebotAktivSql("capacity_posts")}
        AND (last_confirmed_at IS NULL OR last_confirmed_at < NOW() - ($1 || ' days')::INTERVAL)
      ORDER BY last_confirmed_at ASC NULLS FIRST
      LIMIT $2`,
@@ -1943,7 +1950,7 @@ export async function processConfirmationReminders(pool, { reminderDays = 7, esc
   const { rows: escalateRows } = await pool.query(
     `UPDATE capacity_posts
      SET status = 'paused', is_active = FALSE, updated_at = NOW()
-     WHERE status = 'active'
+     WHERE ${angebotAktivSql("capacity_posts")}
        AND (last_confirmed_at IS NULL OR last_confirmed_at < NOW() - ($1 || ' days')::INTERVAL)
      RETURNING id, supplier_company_id, title`,
     [escalationDays]
@@ -1954,7 +1961,7 @@ export async function processConfirmationReminders(pool, { reminderDays = 7, esc
   const { rows: reminderRows } = await pool.query(
     `SELECT id, supplier_company_id, title, last_confirmed_at
      FROM capacity_posts
-     WHERE status = 'active'
+     WHERE ${angebotAktivSql("capacity_posts")}
        AND (last_confirmed_at IS NULL OR last_confirmed_at < NOW() - ($1 || ' days')::INTERVAL)
      LIMIT $2`,
     [reminderDays, batchSize]

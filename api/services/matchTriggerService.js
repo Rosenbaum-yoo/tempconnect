@@ -37,6 +37,10 @@ import { dispatch, findOrgMembersWithPermission } from "./notificationMatrix.js"
 import { getUserPreferences } from "./matchAlertService.js";
 import { summarizeMatch } from "./matchExplanationService.js";
 import { recordActivity, activityLinkFor } from "./eventTrackingService.js";
+/* Posten 5 — die EINE Antwort auf "ist dieses Angebot aktiv?". Hier stand die
+   vierte Fassung: `is_active = TRUE AND (status IS NULL OR status = 'active')`.
+   Die NULL-Toleranz war toter Code — `capacity_posts.status` ist NOT NULL. */
+import { angebotAktivSql } from "./angebotAktivSql.js";
 
 const logger = createServiceLogger("matchTrigger");
 
@@ -86,7 +90,7 @@ async function loadSource(pool, sourceType, sourceId) {
   if (sourceType === "capacity_post") {
     const { rows } = await pool.query(
       `SELECT * FROM capacity_posts
-        WHERE id = $1 AND is_active = TRUE AND (status IS NULL OR status = 'active')`,
+        WHERE id = $1 AND ${angebotAktivSql("capacity_posts")}`,
       [sourceId]
     );
     return rows[0] || null;

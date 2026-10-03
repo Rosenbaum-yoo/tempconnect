@@ -27,6 +27,22 @@
 > Migration traegt nur den Bestand nach. **Und NICHT mit `max(uuid)` — die
 > Funktion gibt es nicht, PostgreSQL plant die Unterabfrage auch bei null
 > Treffern, der erste Entwurf haette jeden Frischinstall gebrochen.**
+>
+> **234** `capacity_posts.is_active` ist ein **abgeleiteter Spiegel** von
+> `status`, und zwei Zeilen hielten das nicht ein. Gemessen am 2026-10-03, 52
+> Angebote: `status='active'` **und** Flag wahr **10**, `status='active'` **aber**
+> Flag falsch **2**, Flag wahr **aber** anderer Status **0** — die dritte Zahl
+> beweist, dass das Flag keine eigene Information traegt, und
+> `capacityWorkflow.isEffectivelyActive` sagt es woertlich („for backward
+> compatibility"). Die Migration richtet die zwei Zeilen mit **genau dieser**
+> Ableitung richtig und schreibt den Hinweis als `COMMENT` ins Schema. **Kein
+> CHECK, keine generierte Spalte, kein DROP, und `updated_at` bleibt unberuehrt**
+> — jede dieser vier Entscheidungen ist im Kopf der Datei mit Messung begruendet
+> (ein CHECK braeche den Reservierungs-Sweep, der `status` ohne das Flag
+> schreibt, und erzwaenge damit genau die Doppelbuchung, die er verhindern soll).
+> Der eigentliche Schaden war vorher schon im Code behoben:
+> `services/angebotAktivSql.js` ist die EINE Bedingung, bewacht von
+> `api/test/eineWahrheitAktiv.test.js`.
 
 > Last updated: 2026-08-13 — 166–169 Bounty-Zeitraum und -Entzug, 170 Bounty-Rabatt
 > auf der Rechnung, 171 Anstupser, 172 Merken ist ein Zustand, 173 ein aktives Abo
@@ -73,7 +89,7 @@ for all future migrations.
 
 ## Rule: Next migration number
 
-**Next migration MUST start at: 234**
+**Next migration MUST start at: 235**
 
 Format: `<NNN>_<short_description>.sql` (three-digit zero-padded)
 
@@ -149,8 +165,8 @@ alphabetical order within the number (e.g. `064_capacity_…` before `064_strate
 
 ## Checklist for new migrations
 
-1. Use the next sequential number (currently **234**)
-2. File name: `234_<short_snake_case>.sql`
+1. Use the next sequential number (currently **235**)
+2. File name: `235_<short_snake_case>.sql`
 3. Wrap DDL in a transaction if the DB supports transactional DDL
 4. Include a `-- Migration NNN:` comment header with a brief description
 5. Use `SET client_min_messages TO WARNING;` to suppress noise

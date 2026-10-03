@@ -6,6 +6,8 @@
 import * as spendAnalyticsService from "./spendAnalyticsService.js";
 import * as emergencyStaffingService from "./emergencyStaffingService.js";
 import { zeroPilotConversionTruth } from "./pilotConversionTruthService.js";
+/* Posten 5 — die EINE Antwort auf "ist dieses Angebot aktiv?". */
+import { angebotAktivSql } from "./angebotAktivSql.js";
 import { zeroSaaSRetentionTruth } from "./retentionMetricsService.js";
 import { getRevenueMetrics } from "./revenueMetricsService.js";
 import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
@@ -432,7 +434,7 @@ async function getPlatformStats(pool) {
     `SELECT
        (SELECT COUNT(*)::int FROM users WHERE is_active = TRUE) AS total_users,
        (SELECT COUNT(*)::int FROM organizations WHERE is_active = TRUE) AS total_orgs,
-       (SELECT COUNT(*)::int FROM capacity_posts WHERE is_active = TRUE) AS active_capacity_posts,
+       (SELECT COUNT(*)::int FROM capacity_posts WHERE ${angebotAktivSql("capacity_posts")}) AS active_capacity_posts,
        (SELECT COUNT(*)::int FROM demand_requests WHERE status = 'open') AS open_demands,
        (SELECT COUNT(*)::int FROM vendor_pool WHERE status = 'active') AS active_vendor_entries`
   );

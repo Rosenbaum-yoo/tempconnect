@@ -3246,6 +3246,70 @@ SEED_DEMO_WORLD=true SEED_PASSWORT=<mindestens 12 Zeichen> scripts/dev/seed-data
   **eingefroren** (eine fuenfte wird rot), nicht bereinigt: alle vier liegen auf
   einem **Anmeldeweg**, und wer sie ersetzt, sperrt bestehende Demo-Zugaenge aus
 
+## Posten 5 (Marktplatz): die Vorarbeit ist gebaut *(2026-10-03)*
+
+Owner: *„posten 5 auch machen."* Der Plan
+([features/M_MARKTPLATZ_FLOW.md](features/M_MARKTPLATZ_FLOW.md), Abschnitt
+*„Vorarbeit zu Posten 5"*) verlangt **vor** M4b.3 die eine Wahrheit für „aktiv" auf
+`capacity_posts`. **Die steht** — `api/services/angebotAktivSql.js`, bewacht von
+`api/test/eineWahrheitAktiv.test.js` (39 Proben), plus Migration **234** für die Daten.
+
+**Die Entscheidung musste niemand treffen, sie stand zweimal im Repo:**
+`capacityWorkflow.isEffectivelyActive` nennt `is_active` wörtlich *„for backward
+compatibility"*, und `sql/migrations/021` Zeile 10 sagt `-- Status workflow (replaces
+simple is_active boolean)`. `status` ist die Wahrheit, das Flag ein Alt-Spiegel — die
+Leseseite hat die eigene Festlegung nur nie benutzt. Deshalb ist die stärkste
+Zusicherung nicht „alle benutzen das Modul", sondern: für **jeden** der sieben Zustände
+stimmt `MARKT_AKTIV` mit `isEffectivelyActive` überein.
+
+**Was dabei herauskam, war mehr als der Plan annahm** (dort: drei Definitionen, zwei
+Matching-Wege):
+
+- **Der gefährlichste Fall war latent.** Der Reservierungs-Sweep setzt
+  `status = 'paused'` und lässt das Flag stehen. Wer das Flag liest, sieht ein Angebot,
+  dessen Mensch **gebunden** ist → **Doppelbuchung**, genau was die Hard-Reserve
+  verhindern soll. Heute **0** solche Zeilen, aber **10 von 12** aktiven tragen das Flag:
+  die nächste Reservierung erzeugt die erste. Mit der einen Wahrheit verschwindet der
+  Fall, weil niemand mehr das Flag liest.
+- **Sechs reservierte Angebote waren für den Disponenten unerreichbar.**
+  `status IN ('active','reserved')` **und** `is_active IS DISTINCT FROM FALSE` haben sich
+  gegenseitig aufgehoben — das `'reserved'` war toter Code. Deshalb nimmt das Modul die
+  Zustandsmenge als **Parameter**.
+- Außerdem betroffen: Preisfindung, zwei Zählungen im Lieferantenpool, der Match-Anstoß
+  (eine **vierte** Fassung) und drei Kennzahlen, die neben der Liste eine andere Zahl
+  auswiesen. `matchingEngine` widersprach sich **in einer Datei** (SQL las das Flag, JS
+  verglich `status`).
+
+**Nicht gebaut, mit Messung begründet:** kein `CHECK` auf das Paar (mindestens vier
+Sweep-Stellen schreiben `status` ohne das Flag — ein `CHECK` bräche sie und erzwänge die
+Doppelbuchung), keine generierte Spalte, kein `DROP COLUMN`, und `updated_at` bleibt
+unberührt (`isStale` fällt darauf zurück; ein `NOW()` hätte die fällige Erinnerung
+unterdrückt).
+
+**Ein Sicherheitswächter durfte nicht schwächer werden:** `suchindexKenntDieGrenze` sucht
+den Filter als **Text**, und der steht nicht mehr wörtlich im Quelltext. Beide Schreibweisen
+gelten jetzt — **und** eine neue Probe `(1a)` in derselben Datei rechnet nach, dass das Modul
+wirklich `status = 'active'` erzeugt. Sonst hätte man die Anwesenheit eines *Funktionsnamens*
+für die Anwesenheit eines *Filters* genommen. Sechs weitere Bestandsproben sind Form- oder
+Attrappen-Pflege; `PLATTFORM_REGISTER.md` und `fixtures/schema.json` werden **erzeugt**
+(`node api/scripts/doku-generieren.js`, `npm run schema:snapshot`), nicht gepflegt.
+
+**Verifikation:** 13 Rückmutationen / 13 rot · betroffene Bestandsproben 767 grün ·
+Aufbau von null **PASS** (238 Migrationen) · Migration 234 **beide Pfade belegt**
+(Reparatur: 2 Zeilen in der Entwicklungsdatenbank, mit Rückbau-Angabe in der Warnung;
+Leerlauf: Frischinstall und zweiter Lauf).
+
+> **Und eine Umgebungsfalle, die einen ganzen Torlauf ungültig gemacht hat:**
+> `DATABASE_URL` aus der `.env` nennt den Wirt `db` — vom Rechner nicht auflösbar. Mit
+> `--verlange-datenbank` wurden daraus **77 rote, 24 abgebrochene** Proben und 203
+> `ENOTFOUND` — und die roten Dateien sahen wie echte Rückschritte aus. **Vor jedem
+> Hostlauf `@db:` → `@127.0.0.1:` ersetzen**, sonst ist ein rotes Ergebnis kein Befund.
+
+**Was von Posten 5 noch offen ist:** **M4.9** (Pflichtfeld-Hälfte; die „lesbarer
+Grund"-Hälfte steht als `PRAESENZ_BEDINGUNGEN`, inkl. des Entwurfs-Riegels aus
+M4c.8/M4c.9), **M4.8** (der Anstoß — wirkt laut Plan **nach** M4.9) und
+**M4b.3 – M4b.6**. M4b.1 und M4b.2 sind gebaut.
+
 ## Der Plan fuer die naechsten Sitzungen
 
 **Aktiv: [features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md](features/K_BOUNTY_AUSZAHLUNG_MONATSPLANUNG.md)**

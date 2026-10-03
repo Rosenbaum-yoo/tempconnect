@@ -1229,7 +1229,7 @@ describe("GET /admin/metrics", () => {
         respond: { rows: [{ status: "OPEN", count: 4 }, { status: "APPROVED", count: 2 }] } },
       { match: (s) => s.includes("FROM offers GROUP BY status"),
         respond: { rows: [{ status: "sent", count: 3 }, { status: "draft", count: 1 }] } },
-      { match: (s) => s.includes("FROM capacity_posts WHERE is_active = TRUE"), respond: { rows: [{ active: 7 }] } }
+      { match: (s) => s.includes("FROM capacity_posts WHERE capacity_posts.status = 'active'"), respond: { rows: [{ active: 7 }] } }
       // eventService.eventCounts queries are unmatched -> []
     ]);
     const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/metrics");

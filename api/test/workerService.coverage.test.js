@@ -1021,7 +1021,10 @@ describe("getUnassignedCapacityPosts", () => {
     const out = await svc.getUnassignedCapacityPosts(pool, "s1", { supplierUserId: "u9" });
     assert.strictEqual(out.length, 1);
     assert.deepStrictEqual(pool.calls[0].params, ["s1", "u9"]);
-    assert.match(pool.calls[0].sql, /status IN \('active','reserved'\)/);
+    /* Posten 5: die Menge kommt aus `angebotAktivSql` und wird mit Abstand nach
+       dem Komma erzeugt. Die Behauptung — BEIDE Zustaende werden abgefragt —
+       ist unveraendert; der Abstand ist keine Zusage. */
+    assert.match(pool.calls[0].sql, /status IN \('active',\s*'reserved'\)/);
   });
   it("defaults supplierUserId to null", async () => {
     const pool = trackingPool(() => ({ rows: [] }));

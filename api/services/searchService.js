@@ -17,6 +17,10 @@
 import { config } from "../config/index.js";
 import { createServiceLogger, swallow } from "../utils/logger.js";
 import * as companyBlocklistService from "./companyBlocklistService.js";
+/* Posten 5 — die EINE Antwort auf "ist dieses Angebot aktiv?". Drei Stellen in
+   dieser Datei trugen die Bedingung als eigene Abschrift. Der `visibility_status`
+   bleibt daneben stehen: das ist eine andere Frage (oeffentlich vs. privat). */
+import { angebotAktivSql } from "./angebotAktivSql.js";
 
 const log = createServiceLogger("searchService");
 
@@ -129,7 +133,7 @@ const INDEX_CONFIG = {
              cp.headcount, cp.location_lat, cp.location_lng,
              cp.created_at
       FROM capacity_posts cp
-      WHERE cp.status = 'active'
+      WHERE ${angebotAktivSql("cp")}
         AND (cp.visibility_status IS NULL OR cp.visibility_status <> 'private')
         AND (cp.availability_to IS NULL OR cp.availability_to >= CURRENT_DATE)
       ORDER BY cp.id`
@@ -516,7 +520,7 @@ async function searchDatabase(pool, query, { type, limit, offset, start, viewerO
       sql: `SELECT cp.id, cp.title, cp.role, cp.location_city, cp.status, 'capacity_posts' AS _index,
                    GREATEST(similarity(f_unaccent(coalesce(cp.title,'')),f_unaccent($2)), similarity(f_unaccent(coalesce(cp.role,'')),f_unaccent($2))) AS _score
             FROM capacity_posts cp
-            WHERE cp.status = 'active'
+            WHERE ${angebotAktivSql("cp")}
               AND (cp.visibility_status IS NULL OR cp.visibility_status <> 'private')
               AND (cp.availability_to IS NULL OR cp.availability_to >= CURRENT_DATE)
               AND ${gesperrtRaus(5)}
@@ -525,7 +529,7 @@ async function searchDatabase(pool, query, { type, limit, offset, start, viewerO
             LIMIT $3 OFFSET $4`,
       params: viewerOrgId ? [like, query, limit, offset, viewerOrgId] : [like, query, limit, offset],
       count: `SELECT COUNT(*)::int AS c FROM capacity_posts cp
-              WHERE cp.status = 'active' AND (cp.visibility_status IS NULL OR cp.visibility_status <> 'private')
+              WHERE ${angebotAktivSql("cp")} AND (cp.visibility_status IS NULL OR cp.visibility_status <> 'private')
                 AND (cp.availability_to IS NULL OR cp.availability_to >= CURRENT_DATE)
                 AND ${gesperrtRaus(3)}
                 AND (f_unaccent(cp.title) ILIKE f_unaccent($1) OR f_unaccent(cp.role) ILIKE f_unaccent($1) OR f_unaccent(cp.location_city) ILIKE f_unaccent($1) OR f_unaccent(cp.title) % f_unaccent($2) OR f_unaccent(cp.role) % f_unaccent($2))`,

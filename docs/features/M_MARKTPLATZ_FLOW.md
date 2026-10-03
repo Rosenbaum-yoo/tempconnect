@@ -513,6 +513,155 @@ benutzt dieses Modul.
 **Die Gegenprobe, die wie bei U6.7 trägt:** die Ausnahmeliste des Wächters muss nach der
 Zusammenführung **kürzer** werden oder gleich bleiben — nie länger.
 
+#### Die Vorarbeit ist gebaut — 2026-10-03, und die Entscheidung musste niemand treffen
+
+**Die eine Wahrheit steht:** `api/services/angebotAktivSql.js`, bewacht von
+`api/test/eineWahrheitAktiv.test.js` (**39 Proben**), plus Migration **234** für die
+Datenreparatur. Alle Filter auf `capacity_posts` lesen jetzt `status`, über **ein** Modul.
+
+**Die Frage „welche Spalte ist die Wahrheit?" war gar nicht offen — sie stand im Code.**
+`capacityWorkflow.isEffectivelyActive` sagt wörtlich:
+
+> *Compute the is_active boolean for backward compatibility. Active capacity posts = status
+> 'active'.*
+
+`status` ist also das Lebenszyklus-Feld (CHECK über sieben Werte, plus
+`CAPACITY_POST_TRANSITIONS`), `is_active` ein **abgeleiteter Alt-Spiegel**. Die Leseseite hat
+die eigene Festlegung des Projekts nur nie benutzt. Deshalb ist die stärkste Zusicherung des
+Wächters nicht „alle benutzen das Modul", sondern: für **jeden** der sieben Zustände stimmt
+`MARKT_AKTIV` mit `isEffectivelyActive` überein. Laufen die beiden auseinander, ist der
+Widerspruch zurück — nur eine Ebene höher.
+
+**Und die Migration, die `status` eingeführt hat, sagt es noch deutlicher** —
+`sql/migrations/021_capacity_exchange.sql`, Zeile 10: `-- Status workflow (replaces simple
+is_active boolean)`. Darunter füllt sie `status` **einmalig** aus `is_active`, in **eine**
+Richtung. Seit 021 ist das Flag ein Rückstand, kein Partner. In der Datenbank leitet **nichts**
+das eine aus dem anderen ab (gemessen: `pg_trigger` leer, `pg_rules` leer, `is_generated =
+NEVER` für beide) — jede Übereinstimmung war reine Anwendungsdisziplin.
+
+**Drei Dinge hatte diese Vorarbeit zu niedrig gemessen, und das erste ist das wichtigste.**
+
+*Null: die gefährlichere Richtung war noch nicht eingetreten — und genau deshalb hat sie
+niemand gesucht.* Der Reservierungs-Sweep setzt `status = 'paused'` und lässt das Flag
+unberührt (`RESERVE_SQL`, so seit der ersten Fassung vom 2026-07-22). Wer dann `is_active =
+TRUE` liest, sieht ein Angebot, dessen Mensch **gebunden** ist — beide Matching-Wege hätten es
+weiter vorgeschlagen. **Das ist die Doppelbuchung, die die Hard-Reserve gerade verhindern
+soll**, der Zustand, den der Owner Betrug nennt. Gemessen am 2026-10-03: **0** solche Zeilen.
+Aber **10 der 12** aktiven Angebote tragen `is_active = TRUE`, also erzeugt die **nächste**
+Reservierung auf einer davon die erste. Der Defekt war **latent, nicht historisch** — und er
+verschwindet mit der einen Wahrheit von selbst, weil danach niemand mehr das Flag liest. Das
+ist das stärkere Argument für diese Welle, stärker als die zwei verlorenen Angebote.
+
+*Erstens, der Schaden war größer als „zwei Matching-Wege".* Nicht drei Definitionen, sondern
+**sieben Filterstellen** auf dem Flag und **vier Schreibstellen**. Die zwei abgedrifteten
+Angebote waren außerdem unsichtbar für die **Preisfindung** (`smartPricingService`), **zwei
+Zählungen im Lieferantenpool** (die dem Kunden eine niedrigere Kapazität meldeten als der
+Marktplatz zeigte), den **Match-Anstoß** (`matchTriggerService`, mit einer *vierten* Fassung
+der Bedingung samt toter `status IS NULL`-Toleranz) und **drei Kennzahlen** in Verwaltung und
+Berichtswesen — die also eine andere Zahl auswiesen als die Liste daneben.
+
+*Zweitens, ein fünfter Befund, den niemand gesucht hat: **sechs** reservierte Angebote waren
+für den Disponenten unerreichbar.* `getUnassignedCapacityPosts` liest **absichtlich**
+`status IN ('active','reserved')` — ein reserviertes Angebot braucht weiter Köpfe. Dahinter
+stand `AND cp.is_active IS DISTINCT FROM FALSE`, und weil `isEffectivelyActive('reserved')`
+falsch ist, **löschte die zweite Bedingung die erste wieder weg**. Gemessen: 6 reservierte
+Angebote, alle mit `is_active = FALSE`. Das `'reserved'` war **toter Code** — und der Kommentar
+der Funktion warnt wörtlich vor genau diesem Symptom („sonst bleibt *+ Kapazität zuweisen*
+leer"). Zwei Bedingungen, die für sich plausibel aussehen, haben sich gegenseitig aufgehoben.
+**Deshalb nimmt das Modul die Zustandsmenge als Parameter** (`MARKT_AKTIV` /
+`MARKT_BESETZBAR`): ein Modul, das nur den engen Fall kennt, hätte genau diese Stelle
+zurückgelassen und damit die nächste eigene Abschrift erzeugt.
+
+**Die Gegenprobe ist erfüllt — die Ausnahmeliste ist kurz, und jede Ausnahme ist gemessen:**
+
+| Ausnahme | Zahl | Grund |
+|---|---|---|
+| Projektionen, die das Flag **ausgeben** | 2 | `searchService`, `routes/profileVisibility` — eine Formatänderung an der Schnittstelle, eigene Entscheidung |
+| Die öffentliche Spaltenliste | 1 | `capacityPostOeffentlicheSpalten` liefert `is_active` weiter — **festgenagelt**, damit die Entfernung absichtlich bleibt |
+| Schreibstelle, die das Flag nachzieht | 1 | `workerService` bei Teilbesetzung — **genau diese Reparaturschreibung war der Beweis**, dass das Flag ein Spiegel ist |
+| Rohe `status = 'active'` in `capacityExchangeService` | 6 | **Zustands-Aufschlüsselungen** (`FILTER (WHERE status = 'active')` neben `'expired'`/`'filled'`/`'reserved'`) — sie fragen nicht „ist das aktiv?", sie zählen je Zustand. Die **Zahl** ist festgenagelt, damit hier keine echte Filterbedingung einsickert |
+
+Alias-gebundene Aktiv-Bedingungen von Hand: **0**. Neue Flag-Filter: **0**, erzwungen.
+
+**Was ausdrücklich NICHT gebaut wurde, mit Messung statt Geschmack:** kein `CHECK` auf das
+Paar, keine generierte Spalte, kein `DROP COLUMN`, und `updated_at` bleibt unberührt. Der
+`CHECK` ist der verlockendste und der falsche: mindestens **vier** Stellen des
+Reservierungs-Sweeps schreiben `status` **ohne** das Flag, ein `CHECK` bräche sie sofort — und
+ein Sweep, der ein Angebot nicht mehr pausieren kann, lässt eine gebundene Kraft im Markt
+buchbar. Das ist genau der Zustand, den der Owner Betrug nennt. Ein Riegel, der eine
+Doppelbuchung erzwingt, um ein Anzeigefeld zu schützen, ist der schlechtere Tausch. Und ein
+`updated_at = NOW()` hätte die beiden Zeilen frisch aussehen lassen — `isStale` fällt auf
+`updated_at` zurück, die fällige Erinnerung wäre ausgefallen.
+
+**Und `matchingEngine` widersprach sich in EINER Datei:** Zeile 236 las `is_active = TRUE` im
+SQL, die Sichtbarkeitsprüfung weiter unten verglich `status` von Hand in JavaScript. Zwei
+Definitionen, eine Datei, und nur eine davon war die dokumentierte. Für SQL steht jetzt das
+Modul, für JavaScript `isEffectivelyActive` — zwei Formen, **eine** Wahrheit, beide benannt
+statt abgeschrieben. Ein JS-Handvergleich auf `cp.status` wird dort rot.
+
+**Und ein begründeter Nicht-Treffer, damit ihn niemand „mitfixt":** `capacityService.js` und
+`routes/capacities.js` lesen und schreiben `is_active` völlig zu Recht — sie arbeiten auf der
+Tabelle **`capacities`**, nicht `capacity_posts`. Gleicher Spaltenname, andere Tabelle. Dort
+ist `is_active` sogar ein echter Schalter mit eigenem Audit (`capacity.deactivate`). Wer das
+nicht nachsieht, hält das Flag für tragend.
+
+**Und das Frontend ist nicht betroffen — gemessen, nicht angenommen.** Jeder `is_active`-Treffer
+in `frontend/public/js/`, `frontend/public/*.html` und `frontend/src/` gehört zu **Mitarbeitern**
+(`w.is_active`), **Einsatz-Verknüpfungen** (`link.is_active`, auch der `archived`-Zweig in
+`mitarbeiter.js`) oder Integrationen. **Keine** Oberfläche leitet die Aktivität eines Angebots
+aus dem Flag ab. Die Spalte wird über `capacityPostOeffentlicheSpalten` weiter ausgeliefert —
+jetzt mit einem Wert, der nicht mehr widerspricht.
+
+**Zwei naheliegende nächste Schritte sind verlockend falsch — sie stehen deshalb als
+Probe da, nicht als Idee:**
+
+1. **Die Belegungs-Mengen der Automatik** (`OFFENE_ZUSTAENDE`, `BELEGENDE_ZUSTAENDE` in
+   `marktpraesenzService`) dürfen **nicht** auf `MARKT_AKTIV` verengt werden: ein Entwurf
+   ist im Markt unsichtbar und besetzt den Platz trotzdem — der Entwurfs-Riegel aus
+   M4c.8/M4c.9. Wer sie vereinheitlicht, lässt die Automatik Zwillinge zu bestehenden
+   Entwürfen anlegen. Geprüft wird die **Mengen-Invariante** (Obermenge von `MARKT_AKTIV`,
+   enthält `'draft'`, jeder Zustand existiert im Lebenszyklus), nicht der Wortlaut.
+   *Meine erste Fassung war genau so ein Textvergleich — und sie war rot, weil der Code
+   besser ist als meine Annahme: die Mengen sind dort längst benannt und eingefroren.*
+2. **Ein Datenwächter auf „null Abweichung" wäre falsch.** Eine DB-Probe, die 0 Zeilen mit
+   `is_active IS DISTINCT FROM (status = 'active')` verlangt, wäre ein Fehlalarm-Erzeuger:
+   `RESERVE_SQL` setzt `status = 'paused'` und lässt das Flag auf TRUE, also wäre sie nach
+   **jeder** Reservierung rot, ohne dass etwas kaputt ist. Die haltbare Behauptung ist
+   **„keine Leser"**, nicht „keine Abweichung".
+
+**Ein Sicherheitswächter durfte dabei nicht schwächer werden, und das war Arbeit.**
+`suchindexKenntDieGrenze` prüft, dass eine Reindex-Abfrage nicht **mehr** veröffentlicht als
+ihr Datenbank-Gegenstück — so sah P1-15 aus: der Rückfall filterte, der Index nahm alles. Er
+sucht den Filter als **Text** im Quelltext, und der steht jetzt nicht mehr wörtlich da. Die
+Pflichtliste lässt deshalb beide Schreibweisen gelten, **und** eine neue Probe `(1a)` in
+**derselben** Datei rechnet nach, dass `angebotAktivSql("cp")` wirklich `status = 'active'`
+erzeugt und kein `is_active`. Ohne diesen Beleg wäre die Alternative eine Abschwächung: man
+würde die Anwesenheit eines *Funktionsnamens* für die Anwesenheit eines *Filters* nehmen.
+Belegt per Rückmutation — Bedingung aus der Reindex-Abfrage entfernt → rot; und „Modul liest
+wieder das Flag" macht jetzt **6** statt 5 Proben rot.
+
+**Verifikation:** 13 Rückmutationen, **13 rot** (Flag-Bedingung zurück, `MARKT_AKTIV` nimmt
+`'paused'` mit, Modul liest wieder das Flag, Zustand fehlt in der Liste, `MARKT_BESETZBAR`
+verliert `'reserved'`, Matching fällt auf die Abschrift zurück, Entdeckung fällt zurück, rohe
+Bedingung außerhalb einer Aufschlüsselung, JS-Handvergleich zurück, Doppelbuchungs-Begründung
+entfernt, Beleg aus Migration 021 entfernt, Aktiv-Bedingung aus der Reindex-Abfrage entfernt,
+Einsetzung in einer normalen Zeichenkette). Die
+betroffenen Bestandsproben: **767 grün, 0 rot.** Aufbau von null: **PASS**, 238 Migrationen
+angewandt, alle Schema-, RLS- und Demo-Prüfungen grün.
+
+> **Drei eigene Proben waren erst falsch, und die Lehre ist dieselbe wie bei Punkt 18:** eine
+> Zusicherung muss ihren **Gegenstand** treffen. Die `${`-Prüfung suchte ein
+> Anführungszeichen *irgendwo* davor und traf das **schließende** Zeichen eines Aufrufs; sie
+> zählt jetzt die **Parität**. Zwei Verneinungen verboten *jedes* `is_active` und wurden rot,
+> obwohl der Code richtig war — gemeint waren `cp.is_active` bzw. die WHERE-Klausel, denn
+> `wal.is_active` (andere Tabelle) und die **Spaltenliste** nennen das Flag völlig zu Recht.
+>
+> **Und zwei Bestandsproben nagelten die alte Form fest** (`matchTrigger`,
+> `matchingEngine.coverage`): `assert.match(sql, /is_active = TRUE/)` — das kodierte den
+> Defekt als Soll. Sie stehen jetzt auf `status`, **plus die Verneinung**, die die Rückkehr des
+> Flags fernhält: strenger als vorher, nicht schwächer. Die Attrappen-Weichen daneben waren
+> reine Fixture-Pflege.
+
 ##### Die vier Skalierungsbefunde, die dieses Gebiet treffen
 
 Vollständig mit Messung und Vorschlag in [`AA_SKALIERUNG_300.md`](AA_SKALIERUNG_300.md),

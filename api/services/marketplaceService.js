@@ -10,6 +10,9 @@ import { assertTransition, TransitionError } from "./stateMachine.js";
 import * as capacityExchangeService from "./capacityExchangeService.js";
 import { cpSpaltenSql } from "./capacityPostOeffentlicheSpalten.js";
 import { zugesagtJeAngebotSql } from "./zusageFormel.js";
+/* Posten 5 — die EINE Antwort auf "ist dieses Angebot aktiv?". Dieser Weg war
+   der richtige (`status`), aber er stand allein gegen vier Flag-Leser. */
+import { angebotAktivSql } from "./angebotAktivSql.js";
 /* Entscheidung D-M5 (Owner, 2026-08-20): die Grenze dieser Flaeche ist der
  * NUTZER (`supplier_company_id` / `requester_company_id` sind Fremdschluessel
  * auf `users`), und sie wurde bis hierher als blosse Namensgleichheit geprueft.
@@ -211,7 +214,7 @@ export async function listCapacityPosts(pool, opts = {}) {
     ${CAPACITY_COMMERCIAL_JOIN}
     JOIN users u ON u.id = cp.supplier_company_id
     LEFT JOIN supplier_reputation sr ON sr.supplier_id = cp.supplier_company_id
-    WHERE cp.status = 'active'
+    WHERE ${angebotAktivSql("cp")}
       AND ${CAPACITY_REMAINING_HEADCOUNT_SQL} > 0
   `;
   const params = [];
@@ -595,7 +598,7 @@ export async function runInitialMatching(pool, demandRow, verifiedSupplierIds = 
     `SELECT ${cpSpaltenSql("cp")}, ${CAPACITY_COMMERCIAL_SELECT}
      FROM capacity_posts cp
      ${CAPACITY_COMMERCIAL_JOIN}
-     WHERE cp.status = 'active'
+     WHERE ${angebotAktivSql("cp")}
        AND ${CAPACITY_REMAINING_HEADCOUNT_SQL} > 0
        AND availability_from <= $1
        AND (availability_to IS NULL OR availability_to >= $2)${kundeOrgId

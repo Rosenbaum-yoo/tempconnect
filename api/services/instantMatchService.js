@@ -17,6 +17,10 @@ import { swallow } from "../utils/logger.js";
 import { loadSkillIndex } from "./skillNormalizationService.js";
 import * as companyBlocklistService from "./companyBlocklistService.js";
 import { anbieterOrganisationSql } from "./reputationSql.js";
+/* Posten 5 — die EINE Antwort auf "ist dieses Angebot aktiv?". Vorher las
+   dieser Weg `cp.is_active = TRUE` und der Marktplatz `cp.status = 'active'`:
+   zwei Angebote standen gelistet und waren hier unsichtbar. */
+import { angebotAktivSql } from "./angebotAktivSql.js";
 
 /* ── Batch-Loader ─────────────────────────────────────── */
 
@@ -349,7 +353,7 @@ export async function instantMatchFromParams(pool, demand, orgId, opts = {}) {
     `SELECT cp.*, o.name AS supplier_name
      FROM capacity_posts cp
      ${anbieterOrganisationSql("cp.supplier_company_id", { alias: "o" })}
-     WHERE cp.is_active = TRUE${sperrOrg
+     WHERE ${angebotAktivSql("cp")}${sperrOrg
        ? `
        AND ${companyBlocklistService.nichtGesperrtSql("cp", 1)}` : ""}`,
     sperrOrg ? [sperrOrg] : []

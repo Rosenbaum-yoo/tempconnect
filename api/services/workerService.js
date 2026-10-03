@@ -16,6 +16,11 @@ import * as abwesenheit from "./workerAbsenceService.js";
 import { dispatch, findOrgMembersWithPermission } from "./notificationMatrix.js";
 import { logger } from "../config/index.js";
 import { todayDE, dateOnlyDE, fristLabelDE } from "../utils/dateDE.js";
+/* Posten 5 — die EINE Antwort auf "ist dieses Angebot aktiv?". Vorher stand
+   hier `status IN ('active','reserved') AND is_active IS DISTINCT FROM FALSE`,
+   und die zweite Bedingung loeschte die erste fuer reservierte Zeilen wieder
+   weg: `isEffectivelyActive('reserved')` ist falsch. */
+import { angebotAktivSql, MARKT_BESETZBAR } from "./angebotAktivSql.js";
 import {
   buildAssignmentActivePredicateSql,
   buildAssignmentHistoryPredicateSql,
@@ -3011,8 +3016,7 @@ export async function getUnassignedCapacityPosts(pool, supplierOrgId, { supplier
             u.company_name AS supplier_company_name
      FROM capacity_posts cp
      JOIN users u ON u.id = cp.supplier_company_id
-     WHERE cp.status IN ('active','reserved')
-     AND cp.is_active IS DISTINCT FROM FALSE
+     WHERE ${angebotAktivSql("cp", MARKT_BESETZBAR)}
      AND (
        ($1::uuid IS NOT NULL AND cp.org_id = $1::uuid)
        OR ($2::uuid IS NOT NULL AND cp.supplier_company_id = $2::uuid)

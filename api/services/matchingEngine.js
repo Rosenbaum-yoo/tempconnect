@@ -8,6 +8,12 @@
 import { normalizeTags, loadSkillIndex } from "./skillNormalizationService.js";
 import * as companyBlocklistService from "./companyBlocklistService.js";
 import { cpSpaltenSql } from "./capacityPostOeffentlicheSpalten.js";
+/* Posten 5 — die EINE Antwort auf "ist dieses Angebot aktiv?". Vorher las
+   dieser Weg `is_active = TRUE`, der Marktplatz `status = 'active'` — und
+   DIESE DATEI widersprach sich selbst: Zeile 236 das Flag im SQL, die
+   Sichtbarkeitspruefung weiter unten ein Handvergleich auf `status`. */
+import { angebotAktivSql } from "./angebotAktivSql.js";
+import { isEffectivelyActive } from "./capacityWorkflow.js";
 
 /** Haversine-Distanz in km */
 export function haversineKm(lat1, lng1, lat2, lng2) {
@@ -233,7 +239,7 @@ export async function matchRequisition(pool, demand, opts = {}) {
      braucht nur oeffentliche Spalten; die Sperrbedingung darf die interne
      Spalte in WHERE weiter lesen. (Befund der Pruefung vom 2026-09-15.) */
   const { rows: caps } = await pool.query(
-    `SELECT ${cpSpaltenSql("capacity_posts")} FROM capacity_posts WHERE is_active = TRUE${kundeOrgId
+    `SELECT ${cpSpaltenSql("capacity_posts")} FROM capacity_posts WHERE ${angebotAktivSql("capacity_posts")}${kundeOrgId
       ? ` AND ${companyBlocklistService.nichtGesperrtSql("capacity_posts", 1)}` : ""}`,
     kundeOrgId ? [kundeOrgId] : []
   );
@@ -559,6 +565,12 @@ export async function darfKapazitaetSehen(pool, capacityPostId, viewerUserId, vi
     (viewerOrgId && cp.org_id && String(cp.org_id) === String(viewerOrgId));
   if (eigen) return "OK";
 
-  const sichtbar = String(cp.status) === "active" && String(cp.visibility_status) !== "private";
+  /* Posten 5 — DIESE DATEI WIDERSPRACH SICH SELBST. Zeile 236 las
+     `is_active = TRUE` im SQL, hier stand ein eigener Handvergleich auf
+     `status`. Zwei Definitionen in einer Datei, und nur eine davon war die
+     dokumentierte. Die SQL-Seite geht jetzt durch `angebotAktivSql`, die
+     JS-Seite durch `isEffectivelyActive` — dieselbe Wahrheit, beide Male
+     benannt statt abgeschrieben. */
+  const sichtbar = isEffectivelyActive(String(cp.status)) && String(cp.visibility_status) !== "private";
   return sichtbar ? "OK" : "ORG_BOUNDARY_VIOLATION";
 }

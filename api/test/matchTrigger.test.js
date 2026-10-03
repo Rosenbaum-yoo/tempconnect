@@ -87,7 +87,7 @@ const demandRow = (over = {}) => ({
 /** Pool fuer die Richtung "Angebot angelegt -> passende Nachfrage finden". */
 function capacitySourcePool({ demands = [demandRow()], alertInsert = { rows: [], rowCount: 1 }, orgMembers = [] } = {}) {
   return trackingPool([
-    { match: (s) => s.includes("FROM capacity_posts") && s.includes("is_active = TRUE") && s.includes("id = $1"),
+    { match: (s) => s.includes("FROM capacity_posts") && s.includes("status = 'active'") && s.includes("id = $1"),
       respond: { rows: [capacityRow()], rowCount: 1 } },
     { match: (s) => s.includes("SELECT * FROM capacity_posts WHERE id = $1"),
       respond: { rows: [capacityRow()], rowCount: 1 } },
@@ -199,8 +199,20 @@ describe("runMatchTrigger — Quellen-Gate", () => {
     const pool = trackingPool();
     await runMatchTrigger(pool, { sourceType: "capacity_post", sourceId: CAP });
     const load = pool.calls[0];
-    assert.match(load.sql, /is_active = TRUE/);
+    /*
+     * KORRIGIERT (Posten 5, 2026-10-03). Hier stand zusaetzlich
+     * `assert.match(load.sql, /is_active = TRUE/)` — und diese Zusicherung
+     * kodierte den Defekt als Soll. `capacityWorkflow.isEffectivelyActive`
+     * sagt woertlich, dass `is_active` nur ein abgeleiteter Alt-Spiegel von
+     * `status` ist; gemessen am 2026-10-03 wichen zwei von zwoelf aktiven
+     * Angeboten ab und waren fuer diesen Anstoss unsichtbar. Die Behauptung
+     * des Probennamens ("nur im aktiven Zustand") bleibt unveraendert — sie
+     * steht jetzt auf `status`, und die Verneinung haelt die Flag-Lesung
+     * dauerhaft fern. Also strenger, nicht schwaecher.
+     */
     assert.match(load.sql, /status = 'active'/);
+    assert.ok(!/is_active/.test(load.sql),
+      "das Quellen-Gate liest wieder das Flag — dann ist der Widerspruch zurueck");
     assert.deepEqual(load.params, [CAP]);
   });
 
@@ -311,7 +323,7 @@ describe("runMatchTrigger — Empfaenger duerfen handeln", () => {
   it("leitet Empfaenger aus der Rechte-Matrix ab, wenn eine Org hinterlegt ist", async () => {
     const member = "00000000-0000-4000-8000-0000000000m1";
     const pool = trackingPool([
-      { match: (s) => s.includes("FROM capacity_posts") && s.includes("is_active = TRUE") && s.includes("id = $1"),
+      { match: (s) => s.includes("FROM capacity_posts") && s.includes("status = 'active'") && s.includes("id = $1"),
         respond: { rows: [capacityRow({ org_id: SUPPLIER_ORG })], rowCount: 1 } },
       { match: (s) => s.includes("SELECT * FROM capacity_posts WHERE id = $1"),
         respond: { rows: [capacityRow({ org_id: SUPPLIER_ORG })], rowCount: 1 } },
@@ -349,7 +361,7 @@ describe("runMatchTrigger — kein Selbstmatch, begrenzte Menge", () => {
 
   it("alarmiert nicht innerhalb derselben Organisation", async () => {
     const pool = trackingPool([
-      { match: (s) => s.includes("FROM capacity_posts") && s.includes("is_active = TRUE") && s.includes("id = $1"),
+      { match: (s) => s.includes("FROM capacity_posts") && s.includes("status = 'active'") && s.includes("id = $1"),
         respond: { rows: [capacityRow({ org_id: SUPPLIER_ORG })], rowCount: 1 } },
       { match: (s) => s.includes("SELECT * FROM capacity_posts WHERE id = $1"),
         respond: { rows: [capacityRow({ org_id: SUPPLIER_ORG })], rowCount: 1 } },

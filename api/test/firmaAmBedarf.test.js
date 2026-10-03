@@ -231,7 +231,7 @@ describe("N2.11 · jede spaetere Stelle liest die gespeicherte Firma", () => {
   it("findMatches kennt die Sperre von selbst — auch wenn der Aufrufer keine Firma reicht", async () => {
     const p = pool([["SELECT * FROM demand_requests WHERE id = $1", [BEDARF]]]);
     await matchMotor.findMatches(p, "dr1", { skillIndex: null });
-    const q = p.finde("FROM capacity_posts WHERE is_active = TRUE")[0];
+    const q = p.finde("FROM capacity_posts WHERE capacity_posts.status = 'active'")[0];
     assert.ok(q.sql.includes("company_worker_blocklist"), "ohne Firma vom Aufrufer rechnet findMatches ohne Sperre");
     assert.deepEqual(q.params, [FIRMA_A]);
   });
@@ -244,15 +244,15 @@ describe("N2.11 · jede spaetere Stelle liest die gespeicherte Firma", () => {
     const res = antwort();
     await handler(createMatchingRouter(deps(p)), "get", "/matching/demand/:id")(anfrage({ params: { id: "dr1" } }), res);
     assert.equal(res._status, 200, JSON.stringify(res._json));
-    const q = p.finde("FROM capacity_posts WHERE is_active = TRUE")[0];
+    const q = p.finde("FROM capacity_posts WHERE capacity_posts.status = 'active'")[0];
     assert.ok(q, "die Vorschlaege wurden nicht gerechnet");
     assert.deepEqual(q.params, [FIRMA_A], "die Route rechnet ohne die Sperre des Bedarfstellers");
   });
 
   it("die Vorschlaege geben keine interne Spalte heraus", async () => {
-    const p = pool([["FROM capacity_posts WHERE is_active = TRUE", [{ id: CP, role: "Pflege", skill_tags: [], supplier_company_id: "s1" }]]]);
+    const p = pool([["FROM capacity_posts WHERE capacity_posts.status = 'active'", [{ id: CP, role: "Pflege", skill_tags: [], supplier_company_id: "s1" }]]]);
     await matchMotor.matchRequisition(p, { role: "Pflege", skill_tags: [] }, { skillIndex: null });
-    const liste = /^SELECT (.+) FROM capacity_posts WHERE/.exec(p.finde("FROM capacity_posts WHERE is_active")[0].sql)[1];
+    const liste = /^SELECT (.+) FROM capacity_posts WHERE/.exec(p.finde("FROM capacity_posts WHERE capacity_posts.status")[0].sql)[1];
     assert.equal(/\*/.test(liste), false, "SELECT * gibt die Kennung des Menschen heraus");
     for (const intern of NUR_INTERN) {
       assert.equal(new RegExp(`\\b${intern}\\b`).test(liste), false, `${intern} in den Vorschlaegen`);

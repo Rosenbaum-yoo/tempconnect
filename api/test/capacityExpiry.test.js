@@ -27,7 +27,10 @@ describe("Marktplatz-Expiry-Sweep", () => {
     assert.match(sql, /is_active\s*=\s*FALSE/);
     assert.match(sql, /valid_until\s*<\s*NOW\(\)/, "valid_until-Bedingung bleibt erhalten");
     assert.match(sql, /availability_to\s*<\s*CURRENT_DATE/, "neue availability_to-Bedingung");
-    assert.match(sql, /WHERE\s+status\s*=\s*'active'/, "nur aktive Eintraege");
+    /* Der Alias ist seit Posten 5 ausgeschrieben (`capacity_posts.status`), weil
+       die Bedingung aus einem gemeinsamen Modul kommt. Die Behauptung ist
+       unveraendert: nur aktive Eintraege verfallen. */
+    assert.match(sql, /WHERE\s+(capacity_posts\.)?status\s*=\s*'active'/, "nur aktive Eintraege");
     assert.match(sql, /RETURNING/);
     assert.equal(result.expired, 1);
     assert.deepEqual(result.entries, [{ id: "c1", supplier_company_id: "s1" }]);

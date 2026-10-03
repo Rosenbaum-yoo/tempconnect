@@ -294,7 +294,9 @@ describe("capacityWorker.startCapacityWorker", () => {
 
   it("capacity-stale-check returns staleCount and passes staleDays param", async () => {
     const calls = installTrackingPool((sql) => {
-      if (/FROM capacity_posts\s+WHERE status = 'active'/.test(sql) && /last_confirmed_at/.test(sql)) {
+      /* Posten 5: die Bedingung kommt aus `angebotAktivSql` und nennt die
+         Tabelle mit — reine Weichen-Pflege, die Zusicherungen unten bleiben. */
+      if (/FROM capacity_posts\s+WHERE (capacity_posts\.)?status = 'active'/.test(sql) && /last_confirmed_at/.test(sql)) {
         return { rows: [
           { id: "p1", supplier_company_id: "s1", title: "A", last_confirmed_at: null },
           { id: "p2", supplier_company_id: "s2", title: "B", last_confirmed_at: null }

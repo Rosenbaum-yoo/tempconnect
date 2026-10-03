@@ -6,6 +6,8 @@ import { Router } from "express";
 import { queryAuditLog, getRecentChanges, getRecentChangesPlatformWide } from "../services/auditLog.js";
 import { queryActivityFeed, getActionTypes, formatFeedItem } from "../services/activityFeedService.js";
 import * as eventService from "../services/eventTrackingService.js";
+/* Posten 5 — die EINE Antwort auf "ist dieses Angebot aktiv?". */
+import { angebotAktivSql } from "../services/angebotAktivSql.js";
 import { getSystemDiagnostics } from "../services/healthService.js";
 import * as strategicCollaborationService from "../services/strategicCollaborationService.js";
 import * as requestService from "../services/requestService.js";
@@ -652,7 +654,7 @@ export function createAdminRouter(deps) {
         pool.query("SELECT status, COUNT(*)::int AS count FROM requisitions GROUP BY status"),
         pool.query("SELECT status, COUNT(*)::int AS count FROM offers GROUP BY status"),
         eventService.eventCounts(pool, null, 30),
-        pool.query("SELECT COUNT(*)::int AS active FROM capacity_posts WHERE is_active = TRUE")
+        pool.query(`SELECT COUNT(*)::int AS active FROM capacity_posts WHERE ${angebotAktivSql("capacity_posts")}`)
       ]);
       const reqMap = {}; (reqs.rows || []).forEach(r => { reqMap[r.status] = r.count; });
       const offMap = {}; (offers.rows || []).forEach(r => { offMap[r.status] = r.count; });

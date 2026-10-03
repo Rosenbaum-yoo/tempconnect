@@ -932,7 +932,12 @@ describe("N4.5 · die Zuordnungs-Motoren kennen die Sperre", () => {
     await sofortAbgleich.instantMatchFromParams(p, { role: "x", skill_tags: [] }, null, {});
     const q = sperrBindung(p.calls, "FROM capacity_posts cp");
     assert.ok(!q.sql.includes("company_worker_blocklist"));
-    assert.match(q.sql, /WHERE cp\.is_active = TRUE`?$|WHERE cp\.is_active = TRUE\s*$/);
+    /* Posten 5 (2026-10-03): hier stand `WHERE cp.is_active = TRUE`. Die
+       Bedingung kommt jetzt aus `angebotAktivSql` und liest `status` — das Flag
+       war ein abgeleiteter Alt-Spiegel, der auf zwei Zeilen abwich. Die Zusage
+       dieser Probe ("ohne Kunde keine Sperrbedingung und keine Bindung") ist
+       unveraendert; nur das Ende der Abfrage heisst anders. */
+    assert.match(q.sql, /WHERE cp\.status = 'active'`?$|WHERE cp\.status = 'active'\s*$/);
     assert.deepStrictEqual(q.params, []);
   });
 
@@ -948,11 +953,15 @@ describe("N4.5 · die Zuordnungs-Motoren kennen die Sperre", () => {
        TRUE` als wortgleiches Soll. `*` gab `worker_profile_id` an Bedarfsteller
        heraus (Befund der Pruefung vom 2026-09-15). Die Zusage "ohne Kunde keine
        Bedingung und keine Bindung" bleibt; das Soll ist jetzt die oeffentliche
-       Projektion. */
+       Projektion.
+       NACHGEZOGEN Posten 5 (2026-10-03): und die Bedingung heisst jetzt
+       `capacity_posts.status = 'active'` statt `is_active = TRUE`, weil sie aus
+       `angebotAktivSql` kommt. Wieder dieselbe Zusage, wieder nur ein anderer
+       Wortlaut — das WORTGLEICH bleibt die Behauptung. */
     const ohne = pool();
     await matchMotor.matchRequisition(ohne, { role: "x", skill_tags: [] }, { skillIndex: null });
     const ohneKunde = sperrBindung(ohne.calls, "FROM capacity_posts");
-    assert.strictEqual(ohneKunde.sql, `SELECT ${OEFFENTLICHE_SPALTEN.map((s) => `capacity_posts.${s}`).join(", ")} FROM capacity_posts WHERE is_active = TRUE`);
+    assert.strictEqual(ohneKunde.sql, `SELECT ${OEFFENTLICHE_SPALTEN.map((s) => `capacity_posts.${s}`).join(", ")} FROM capacity_posts WHERE capacity_posts.status = 'active'`);
     assert.deepStrictEqual(ohneKunde.params, []);
   });
 
@@ -1078,7 +1087,7 @@ describe("N4.5 · die Routen reichen die richtige Org durch", () => {
     await handler(createMarketplaceRouter(deps(p)), "get", "/marketplace/demand-requests/:id")(
       anfrage({ params: { id: "dr1" }, orgId: ORG_ANDERE }), antwort(), () => {}
     );
-    const q = p.calls.find((c) => c.sql.includes("FROM capacity_posts WHERE is_active"));
+    const q = p.calls.find((c) => c.sql.includes("FROM capacity_posts WHERE capacity_posts.status"));
     assert.ok(q, "die Vorschlaege wurden gar nicht gerechnet");
     assert.deepStrictEqual(q.params, [ORG_KUNDE],
       "gebunden ist nicht die Org des Bedarfstellers: " + JSON.stringify(q.params));

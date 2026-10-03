@@ -8,6 +8,10 @@
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
 import { reputationJoinSql, eigentuemerJoinSql } from "./reputationSql.js";
 import { poolBedingungenSql } from "./poolMitgliedschaftSql.js";
+/* Posten 5 — die EINE Antwort auf "ist dieses Angebot aktiv?". Beide Zaehlungen
+   hier lasen `cp.is_active = TRUE` und meldeten dem Kunden deshalb eine
+   niedrigere Kapazitaetszahl, als im Marktplatz stand. */
+import { angebotAktivSql } from "./angebotAktivSql.js";
 import { swallow } from "../utils/logger.js";
 import { todayDE } from "../utils/dateDE.js";
 
@@ -611,7 +615,7 @@ export async function getPreferredVendors(pool, clientOrgId, filters = {}) {
                in derselben Abfrage schon bereit (srom.user_id), es braucht keine
                zweite. */
             (SELECT COUNT(*)::int FROM capacity_posts cp
-             WHERE cp.supplier_company_id = srom.user_id AND cp.is_active = TRUE
+             WHERE cp.supplier_company_id = srom.user_id AND ${angebotAktivSql("cp")}
             ) AS active_capacity_count
      FROM vendor_pool vp
      LEFT JOIN organizations so ON so.id = vp.supplier_org_id
@@ -800,7 +804,7 @@ export async function getWorkforceCapacity(pool, clientOrgId) {
       * Auskunft gewesen. Deshalb beides zusammen.
       */
      ${eigentuemerJoinSql("vp.supplier_org_id", { alias: "vpe" })}
-     LEFT JOIN capacity_posts cp ON cp.supplier_company_id = vpe.user_id AND cp.is_active = TRUE
+     LEFT JOIN capacity_posts cp ON cp.supplier_company_id = vpe.user_id AND ${angebotAktivSql("cp")}
      WHERE vp.client_org_id = $1 AND vp.tier = 'PREFERRED' AND vp.status = 'active'
      GROUP BY vp.supplier_org_id, so.name
      ORDER BY total_workers DESC, capacity_posts DESC`,

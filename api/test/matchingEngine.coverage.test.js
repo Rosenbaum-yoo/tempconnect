@@ -274,7 +274,22 @@ describe("matchRequisition", () => {
   it("queries only active capacity posts", async () => {
     const pool = trackingPool([{ match: "capacity_posts", rows: [] }]);
     await svc.matchRequisition(pool, { role: "x" });
-    assert.match(pool.calls[0].sql, /is_active = TRUE/);
+    /*
+     * KORRIGIERT (Posten 5, 2026-10-03). Hier stand `/is_active = TRUE/`, und
+     * genau diese Flag-Lesung war der Defekt: zwei als aktiv gefuehrte Angebote
+     * standen im Marktplatz und waren fuer das Matching unsichtbar. Die
+     * Behauptung des Probennamens ("only active capacity posts") ist
+     * unveraendert; sie steht jetzt auf `status`, und die Verneinung haelt die
+     * Rueckkehr des Flags fern.
+     */
+    /* NUR die WHERE-Klausel: `cpSpaltenSql` gibt `is_active` als oeffentliche
+       SPALTE aus, und das ist kein Filter. Eine Verneinung ueber die ganze
+       Abfrage traf deshalb den falschen Gegenstand. */
+    const sql = pool.calls[0].sql;
+    const bedingung = sql.slice(sql.indexOf(" WHERE "));
+    assert.match(bedingung, /status = 'active'/);
+    assert.ok(!/is_active/.test(bedingung),
+      "das Matching filtert wieder ueber das Flag statt ueber den Lebenszyklus");
   });
 
   it("filters out matches below minScore and sorts descending", async () => {
@@ -393,7 +408,7 @@ describe("findMatches", () => {
   it("maps demand_request columns and delegates to matchRequisition", async () => {
     const pool = trackingPool([
       { match: "FROM demand_requests WHERE id", rows: [{ id: "d1", role: "koch", location_lat: 52.52, location_lng: 13.405 }] },
-      { match: "capacity_posts WHERE is_active", rows: [{ id: "cap", supplier_company_id: "s", role: "koch", location_lat: 52.52, location_lng: 13.405, radius_km: 100 }] }
+      { match: "capacity_posts WHERE capacity_posts.status", rows: [{ id: "cap", supplier_company_id: "s", role: "koch", location_lat: 52.52, location_lng: 13.405, radius_km: 100 }] }
     ]);
     const res = await svc.findMatches(pool, "d1");
     assert.equal(res.length, 1);

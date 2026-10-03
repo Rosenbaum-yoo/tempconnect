@@ -12,6 +12,10 @@
  */
 
 import { createServiceLogger } from "../utils/logger.js";
+/* Posten 5 — die EINE Antwort auf "ist dieses Angebot aktiv?". Die Preisfindung
+   las `cp.is_active = TRUE` und liess damit dieselben zwei Angebote aus, die im
+   Marktplatz standen: der Preisvorschlag rechnete ohne sie. */
+import { angebotAktivSql } from "./angebotAktivSql.js";
 
 const logger = createServiceLogger("smartPricing");
 
@@ -147,7 +151,7 @@ export async function getOfferRateStats(pool, role, region) {
 export async function getSupplyRateStats(pool, role, region) {
   const params = [];
   const where = [
-    "cp.is_active = TRUE",
+    angebotAktivSql("cp"),
     "(cp.price_min IS NOT NULL OR cp.price_max IS NOT NULL)"
   ];
 

@@ -6,6 +6,9 @@
  */
 
 import { PLAN_LIMITS } from "./userService.js";
+/* Posten 5 — die EINE Antwort auf "ist dieses Angebot aktiv?". Diese Zaehlung
+   entscheidet, wer sein Plan-Kontingent ueberschreitet. */
+import { angebotAktivSql } from "./angebotAktivSql.js";
 
 /**
  * Check if a user has reached their plan limit for a specific action.
@@ -119,7 +122,7 @@ export async function scanAndEnforceUsageLimits(pool, opts = {}) {
     // Stabile Sortierung (u.id) + LIMIT/OFFSET = deterministisches Paging.
     const { rows } = await pool.query(`
       SELECT u.id, s.plan,
-             (SELECT COUNT(*)::int FROM capacity_posts cp WHERE cp.supplier_company_id = u.id AND cp.status = 'active') AS active_posts
+             (SELECT COUNT(*)::int FROM capacity_posts cp WHERE cp.supplier_company_id = u.id AND ${angebotAktivSql("cp")}) AS active_posts
       FROM users u
       LEFT JOIN LATERAL (
         SELECT plan FROM subscriptions WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1

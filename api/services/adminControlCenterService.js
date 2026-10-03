@@ -1,4 +1,7 @@
 import * as ssoService from "./ssoService.js";
+/* Posten 5 — die EINE Antwort auf "ist dieses Angebot aktiv?". Diese Kennzahl
+   las das Flag und wies deshalb eine andere Zahl aus als der Marktplatz. */
+import { angebotAktivSql } from "./angebotAktivSql.js";
 
 const ADMIN_TAB_ORDER = [
   "users",
@@ -186,7 +189,7 @@ async function queryAdminSummary(pool) {
   const results = await Promise.allSettled([
     pool.query("SELECT COUNT(*)::int AS total_users, COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days')::int AS new_users_30d FROM users"),
     pool.query("SELECT COUNT(*)::int AS total_orgs FROM organizations WHERE is_active = TRUE"),
-    pool.query("SELECT COUNT(*)::int AS active_capacity_posts FROM capacity_posts WHERE is_active = TRUE"),
+    pool.query(`SELECT COUNT(*)::int AS active_capacity_posts FROM capacity_posts WHERE ${angebotAktivSql("capacity_posts")}`),
     pool.query(
       `SELECT COUNT(*)::int AS requisition_backlog
        FROM requisitions

@@ -40,6 +40,10 @@
  *     der gebunden sein könnte — es wird nicht angefasst.
  */
 import { gebundenSql } from "./bindungSql.js";
+/* Posten 5 — die EINE Antwort auf "ist dieses Angebot aktiv?". Der Sweep prueft
+   den Ausgangszustand seiner beiden Uebergaenge; er schreibt `status` dabei
+   ohne `is_active`, was den Widerspruch mit erzeugen konnte. */
+import { angebotAktivSql } from "./angebotAktivSql.js";
 
 /*
  * M4c.3b — "GEBUNDEN" HIESS HIER NUR "IM EINSATZ", UND DAS WAR ZU WENIG.
@@ -71,7 +75,7 @@ const BUSY_EXISTS_SQL = gebundenSql("cp.worker_profile_id");
 const RESERVE_SQL = `
   UPDATE capacity_posts cp
      SET status = 'paused', worker_reserved = TRUE, worker_reserved_at = NOW(), updated_at = NOW()
-   WHERE cp.status = 'active'
+   WHERE ${angebotAktivSql("cp")}
      AND cp.offer_kind IN ('single_skill', 'bundle')
      AND cp.worker_profile_id IS NOT NULL
      AND ${BUSY_EXISTS_SQL}`;
@@ -101,7 +105,7 @@ const POOL_HAT_MITGLIEDER_SQL = `
 const POOL_RESERVE_SQL = `
   UPDATE capacity_posts cp
      SET status = 'paused', worker_reserved = TRUE, worker_reserved_at = NOW(), updated_at = NOW()
-   WHERE cp.status = 'active'
+   WHERE ${angebotAktivSql("cp")}
      AND cp.offer_kind IN ('pool_single_skill', 'pool_multi_skill')
      AND ${POOL_HAT_MITGLIEDER_SQL}
      AND ${POOL_FREIE_MITGLIEDER_SQL} = 0`;

@@ -61,6 +61,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+/* Posten 5: damit die Alternative "angebotAktivSql(" in PFLICHT keine
+   Abschwaechung ist, wird HIER belegt, dass das Modul die Bedingung wirklich
+   erzeugt — nicht in einer anderen Datei, auf die man sich verlassen muesste. */
+import { angebotAktivSql } from "../services/angebotAktivSql.js";
 
 const HIER = path.dirname(fileURLToPath(import.meta.url));
 const DIENST = path.join(HIER, "..", "services", "searchService.js");
@@ -106,7 +110,13 @@ const PFLICHT = {
     ["'approved'", "die Freigabe des Opt-in"]
   ],
   capacity_posts: [
-    ["status = 'active'", "nur aktive Anzeigen"],
+    /* Posten 5 (2026-10-03): die Bedingung steht nicht mehr woertlich im
+       Quelltext, sie kommt aus `angebotAktivSql`. Beide Schreibweisen gelten —
+       UND die Probe (1a) weiter unten belegt in DIESER Datei, dass das Modul
+       wirklich `status = 'active'` erzeugt. Ohne diesen Beleg waere die
+       Alternative eine Abschwaechung: man wuerde die Anwesenheit eines
+       Funktionsnamens fuer die Anwesenheit eines Filters nehmen. */
+    [["status = 'active'", "angebotAktivSql("], "nur aktive Anzeigen"],
     ["visibility_status", "private Anzeigen ausschliessen"],
     ["availability_to", "abgelaufene Anzeigen ausschliessen"]
   ]
@@ -144,13 +154,38 @@ describe("Waechter: der Suchindex kennt die Grenze", () => {
       if (sql === null) continue;   // nicht indiziert: dann gibt es nichts zu filtern
       assert.ok(typeof sql === "string", "die Abfrage von " + index + " ist nicht lesbar");
       for (const [teil, zweck] of pflichten) {
-        if (!sql.includes(teil)) fehlt.push(index + ": " + teil + "  (" + zweck + ")");
+        /* `teil` darf eine Liste gleichwertiger Schreibweisen sein — EINE davon
+           genuegt. Gebraucht, seit eine Bedingung aus einem gemeinsamen Modul
+           kommt statt woertlich im SQL zu stehen. */
+        const varianten = Array.isArray(teil) ? teil : [teil];
+        if (!varianten.some((v) => sql.includes(v))) {
+          fehlt.push(index + ": " + varianten.join(" ODER ") + "  (" + zweck + ")");
+        }
       }
     }
     assert.deepEqual(fehlt, [],
       "Eine Reindex-Abfrage veroeffentlicht mehr als ihr Datenbank-Gegenstueck. Genau so sah "
       + "P1-15 aus: der Rueckfall filterte korrekt, der Index nahm alles. Was im Index liegt, "
       + "liefert jede Abfrage, die den Filter vergisst.\n  " + fehlt.join("\n  "));
+  });
+
+  it("(1a) die zugelassene Modul-Schreibweise ERZEUGT den Filter wirklich", () => {
+    /*
+     * OHNE DIESE PROBE WAERE (1) SCHWAECHER GEWORDEN. Seit die Aktiv-Bedingung
+     * aus `angebotAktivSql` kommt, laesst (1) fuer capacity_posts auch den
+     * Aufruf als Beleg gelten. Der Name einer Funktion ist aber kein Filter —
+     * also wird hier nachgerechnet, was sie liefert. Faellt das Modul auf das
+     * alte, abweichende `is_active` zurueck, wird diese Zeile rot und nicht
+     * erst der Index.
+     */
+    const bedingung = angebotAktivSql("cp");
+    assert.match(bedingung, /status = 'active'/,
+      "die zugelassene Schreibweise erzeugt keine Aktiv-Bedingung mehr — dann belegt "
+      + "der Aufruf in (1) nichts, und der Index darf mehr veroeffentlichen als die "
+      + "Datenbank");
+    assert.ok(!/is_active/.test(bedingung),
+      "das Modul liest wieder das abgeleitete Flag — es wich auf zwei Zeilen von "
+      + "status ab, und der Index wuerde diese Abweichung veroeffentlichen");
   });
 
   it("(2) org-private Anforderungen werden NICHT indiziert", () => {
