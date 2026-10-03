@@ -3409,9 +3409,17 @@ ist keiner.** Der Rückfall bleibt, weil `user_id` nullable ist.
 **Verifikation:** 20 Rückmutationen über beide Wellen / 20 rot · 25 Proben im Wächter ·
 Rauchtest gegen die echte Datenbank grün.
 
-**Was von Posten 5 noch offen ist:** **M4b.5** (der Nachtrag nach dem Import als erweiterbares
-Register, nicht als festes Formular) und **M4b.6** (jeder Schritt bietet sich selbst an).
-M4.8, M4.9, M4b.1, M4b.2, M4b.3 und M4b.4 sind gebaut.
+> **Hier stand bis zum 2026-10-03 „Was von Posten 5 noch offen ist: M4b.5 … und M4b.6 …" —
+> und vier Zeilen darunter stand, dass beide gebaut sind.** Der Satz war richtig, als M4b.4
+> fertig war, und wurde von einer gut gemeinten Wiederherstellung zurückgeholt, nachdem ich ihn
+> ersetzt hatte: die planende Sitzung hatte ihn beim Schreiben derselben Datei versehentlich
+> gelöscht und *wörtlich aus dem Elternstand* wieder eingesetzt — also auch den Teil, der durch
+> die nächste Welle überholt war.
+>
+> **Die Lehre ist nicht „nicht wiederherstellen", sondern: eine wörtliche Wiederherstellung
+> bringt den STAND von damals zurück, nicht die Aussage von heute.** Ein Dokument, das an zwei
+> Stellen Verschiedenes sagt, ist in der Übergabe schlimmer als eine Lücke — die Lücke merkt man,
+> den Widerspruch glaubt man. Der aktuelle Stand steht direkt darunter.
 
 ### M4b.5 und M4b.6 sind gebaut *(2026-10-03)* — Posten 5 ist damit vollständig
 
