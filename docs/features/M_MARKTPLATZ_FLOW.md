@@ -675,6 +675,51 @@ Abschnitt 2 — hier nur die Namen, damit sie nicht zweimal gesucht werden:
 > **Und die Methodenwarnung gilt hier besonders:** ein `EXPLAIN` bei 52 Angeboten und 73
 > Aufträgen beweist nichts. Belastbar sind Indexdefinitionen, Abfrageform und Takt.
 
+#### M4b.3 · die Zahl ist neu erhoben — und sie widerlegt die bindende Messung *(2026-10-03)*
+
+M4c.0 verlangt: *„Keine Phase unten wird gebaut, bevor diese Zahl steht."* Also neu erhoben,
+gegen die laufende Datenbank, **bevor** am Pflichtfeld gebaut wird. Die Zahlen haben sich
+verschoben, und eine davon kehrt eine Planaussage um.
+
+| | M4c.0 *(2026-09-24)* | **heute** *(2026-10-03)* |
+|---|---|---|
+| Arbeiterprofile | 33 | **45** (alle aktiv) |
+| ohne jede Fähigkeit | 30 | **34** |
+| nur ein Vorschlag, keine freigegebene | — | **0** |
+| mit freigegebener Fähigkeit | 3 | **11** |
+| **ohne Wohnort** | **0** | **14** |
+| Marktpräsenz ausgeschaltet | 0 | **0** |
+
+**Die Planaussage „Der fehlende Wohnort ist heute *kein* Blocker" gilt nicht mehr** — sie traf
+auf eine Datenbank mit 33 Profilen zu, nicht auf die heutige mit 45. Aber die Aufschlüsselung
+entschärft es wieder, und zwar vollständig:
+
+| Überlappung | von 45 |
+|---|---|
+| beides erfüllt | **11** |
+| nur die Fähigkeit fehlt | **20** |
+| **beides** fehlt | **14** |
+| **nur der Wohnort fehlt** | **0** |
+
+**Der Wohnort sperrt also niemanden *zusätzlich* aus:** seine Lücke ist eine echte Teilmenge
+der Fähigkeits-Lücke. Wer einen Wohnort nachtragen muss, muss ohnehin eine Fähigkeit
+nachtragen. Das vereinfacht M4b.3 erheblich — es gibt **einen** Weg zu gehen, nicht zwei.
+
+**Und der Befund, der die Bauweise entscheidet: 9 der 45 haben `user_id IS NULL`** — **kein
+eigenes Konto**. Sie können sich nicht anmelden und ein Pflichtfeld im Einsatzportal
+grundsätzlich nicht erfüllen. Ein Pflichtfeld, das nur im Portal des Menschen greift, ist für
+diese neun eine **Falle ohne Ausgang** — genau das, was M4b.3 verhindern soll. Deshalb ist
+M4b.4 („die Firma kann sofort auflösen") keine Bequemlichkeit, sondern die **Bedingung** dafür,
+dass die Pflicht überhaupt zulässig ist.
+
+**Das Retrofit-Risiko in einer Zahl: 34 von 45 (76 %) könnten ihr Profil nicht mehr speichern,**
+wenn die Pflicht bei *jedem* Speichern greift. Sie darf deshalb nur dort greifen, wo etwas
+**veröffentlicht** wird — nicht dort, wo jemand einen Tippfehler im Namen korrigiert.
+
+> **Und `nur ein Vorschlag = 0` heißt: der Fall, für den M4b.3 die Falle öffnen soll, ist heute
+> noch leer.** Die Vorkehrung ist deshalb nicht nachträglich, sondern vorsorglich — und sie muss
+> funktionieren, bevor der erste Mensch in diesem Zustand landet, nicht danach.
+
 #### M4b.2 · gebaut 2026-10-01 — und der Befund lag in der Naht zwischen zwei grünen Hälften
 
 Die Fläche steht: `frontend/src/staff/modules/markt-sichtbarkeit/index.tsx` zeigt jetzt die offenen
@@ -1124,6 +1169,13 @@ niemand gesucht hat.
 Der fehlende Wohnort ist heute **kein** Blocker — der Hinweistext in `PRAESENZ_BEDINGUNGEN`
 nennt ihn „die häufigste stille Ursache", und das trifft auf diese Datenbank nicht zu. Auch
 der fehlende Agentur-Nutzer erklärt nichts: **0 von 33** Kräften fehlt er.
+
+> ⚠ **Der Satz zum Wohnort gilt seit dem 2026-10-03 NICHT mehr, und das ist kein Tippfehler,
+> sondern der Grund, warum M4c.0 eine *bindende* Messung heißt.** Neu erhoben: **45** Profile,
+> davon **14 ohne Wohnort**. Die Zahl oben war für ihren Tag richtig und ist für den Bau
+> wertlos geworden. Vollständig mit Aufschlüsselung und der Folgerung für das Pflichtfeld:
+> Abschnitt *„M4b.3 · die Zahl ist neu erhoben"*. **Wer hier anfängt zu bauen, liest zuerst
+> dort weiter.**
 
 **Angebote im Feed je Art, Herkunft und Zustand:**
 
