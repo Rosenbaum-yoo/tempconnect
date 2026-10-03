@@ -3409,6 +3409,10 @@ ist keiner.** Der Rückfall bleibt, weil `user_id` nullable ist.
 **Verifikation:** 20 Rückmutationen über beide Wellen / 20 rot · 25 Proben im Wächter ·
 Rauchtest gegen die echte Datenbank grün.
 
+**Was von Posten 5 noch offen ist:** **M4b.5** (der Nachtrag nach dem Import als erweiterbares
+Register, nicht als festes Formular) und **M4b.6** (jeder Schritt bietet sich selbst an).
+M4.8, M4.9, M4b.1, M4b.2, M4b.3 und M4b.4 sind gebaut.
+
 ### M4b.5 und M4b.6 sind gebaut *(2026-10-03)* — Posten 5 ist damit vollständig
 
 **M4b.5 ist ein Register, kein Formular.** `api/services/nachtragRegister.js`,
