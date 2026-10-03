@@ -3726,7 +3726,104 @@ Blöcke zuerst.
   Wächter. Vier blieben im ersten Durchgang grün und haben die Zusicherungen erst
   scharf gemacht (Punkte 4 und 5 oben).
 
-##### Offen aus den fünf Punkten: die Verengung von Punkt 18 — und sie kann noch nicht beginnen
+##### Punkt 18 ist verengt — auf dem analytischen Beweis, nicht auf Beobachtung *(2026-10-02)*
+
+> **Owner-Anweisung: „punkt 18 auch noch".** Gebaut. Der Abschnitt darunter bleibt
+> stehen, weil er die Bedingung festhält, die **nicht** erfüllt wurde — und das ist
+> der ehrlichste Teil dieser Änderung.
+
+`validateLocationScope` weist jetzt ab, in beiden Routern wortgleich:
+
+```js
+if (!req.orgId) {
+  logger?.warn?.({ route, method, locationId, userId }, "… ABGEWIESEN (ORG_CONTEXT_MISSING, …)");
+  res.status(403).json({ error: "ORG_CONTEXT_REQUIRED", … });
+  return false;
+}
+```
+
+**Das Protokoll bleibt stehen, obwohl der Zweig jetzt sperrt.** Es ist nicht mehr
+Entscheidungsgrundlage, sondern Diagnose: eine 403 ohne Protokolleintrag lässt
+Betroffenen und Betreiber gleichermaßen ratlos. Die Kennung `ORG_CONTEXT_MISSING`
+bleibt absichtlich dieselbe, damit eine bestehende Suche sie weiter findet.
+
+**Die Ablöse-Bedingung ist NICHT erfüllt, und das steht im Code.** Nicht weil
+Treffer kamen, sondern weil der Beobachtungszeitraum nicht beginnen konnte — siehe
+den Abschnitt darunter. Die Verengung steht deshalb auf dem **analytischen**
+Beweis, und der ist belegt und in drei Schichten bewacht
+(`api/test/standortfilterNieAllein.test.js`):
+
+| | |
+|---|---|
+| **Schicht 1** | jede Route, die den Prüfer erreicht, trägt `rperm(...)` |
+| **Schicht 2** | `requirePermission` setzt `req.orgId` **oder** antwortet 403 `NO_ORG_MEMBERSHIP` |
+| **Schicht 3** | wo beides gegeben ist, steht beides auch im SQL |
+
+Fällt Schicht 1 künftig — eine neue Route ohne `rperm` —, wird die Probe rot,
+**bevor** jemand eine 403 bekommt. Das ist der Ersatz für das fehlende
+Beobachtungsfenster, und ein Wächter macht rot, wenn jemand diese Begründung aus
+dem Kommentar entfernt.
+
+##### Die Wirkung ist gemessen, nicht angenommen
+
+Vier unabhängige Blickwinkel, jeder mit Gegenprüfung, mit dem ausdrücklichen
+Auftrag, ein **Gegenbeispiel** zur Behauptung „unerreichbar" zu finden. Es gab
+keines, und drei Messwerte sind stärker als die Dokumentation vorher:
+
+* **13 Aufrufstellen**, alle mit `rperm` — fünf in `reporting.js`, acht in
+  `spendAnalytics.js`. Der Prüfer ist eine Closure in der Fabrik, nicht
+  exportiert; kein Dienst, kein Test, keine andere Route erreicht ihn. Die
+  Doppelmontage von `v1` (`/api/v1` und `/api`) benutzt **dasselbe**
+  Router-Objekt, ändert also die URL und nicht den Schutz.
+* **`requirePermission` hat genau EIN `next()`** (`rbac.js:118`), unmittelbar nach
+  `req.orgId = membership?.org_id || orgId || null`. Und `membership?.org_id` kann
+  auf einem wahren `membership` nicht leer sein: `org_memberships.org_id` ist
+  **NOT NULL** (gemessen), mit **0** aktiven Mitgliedschaften ohne Org. Schicht 2
+  ist damit nicht nur dokumentiert, sondern bis auf die Spalte belegt.
+* **Von 447 Nutzern bekommen 169 schon heute 403** `NO_ORG_MEMBERSHIP` an `rperm`
+  — vor und nach der Verengung dieselbe Antwort. 49 davon tragen `users.org_id`
+  ohne aktive Mitgliedschaft und landen auf demselben Weg. **Die Menge „bekam
+  vorher Daten, bekommt jetzt 403" ist leer.**
+
+**Und zwei Schichten mehr, als der Beweis braucht:** in `spendAnalytics.js` steht
+**vor jedem** der acht Aufrufe schon `if (!orgId) return res.status(400)
+.json({ error: "ORG_CONTEXT_REQUIRED" })`. Dort ist der Zweig **doppelt**
+unerreichbar und die Verhaltensänderung exakt null. Nur vier Routen in
+`reporting.js` — `/requisitions`, `/timeline`, `/sla`, `/top-roles` — haben `rperm`
+als **alleinige** Schicht; das sind die Stellen, an denen eine 403 überhaupt
+erscheinen könnte, falls Schicht 2 je bricht.
+
+**Und der Wächter ist stärker als sein Name:** Schicht 1 verlangt `rperm` auf
+**jedem** `router.<verb>(` in beiden Dateien — nicht nur auf denen, die den Prüfer
+aufrufen. Eine künftige Route ohne `rperm` wird also auch dann rot, wenn sie
+`validateLocationScope` nie anfasst.
+
+Begleitend grün: `reporting.route`, `spendAnalytics.route`, `rbac-hardening`,
+`security/org-isolation`, `security/rbac-security`, `entitlementLeakGates` —
+**299 Proben, 299 grün.** Keine bestehende Probe kodierte das durchlässige
+Verhalten.
+
+##### Die Probe war nach der Verengung LEER GRÜN
+
+Und das ist der lehrreichere Teil. Die Punkt-18-Probe schnitt den Zweig **bis zum
+ersten `return true;`** — und der liegt nach der Verengung **hinter** dem Zweig
+(nach `assertLocationBelongsToOrg`). Der Ausschnitt umfasste damit die ganze
+Funktion, die alten Zusicherungen passten weiter, nur auf den falschen Gegenstand.
+**Sie hätte die Verengung begrüßt, ohne sie zu sehen** — und genau davor warnt ihr
+eigener Kommentar seit dem Zwischenschritt.
+
+Jetzt wird die **Klammer gezählt** statt auf ein Schlüsselwort geschnitten, plus
+eine Längengrenze und die Sicherung, dass im Zweig gar kein `return true;` mehr
+steht. Ein Schnitt, der von der Reihenfolge zweier Rückgabewerte abhängt, bricht
+beim nächsten Umbau genauso lautlos.
+
+**9 Rückmutationen, 9 rot** — darunter der Rückschritt auf `return true`, die
+entfernte 403, ein `if (false)` vor dem Protokoll, und eine abweichende zweite
+Kopie. Zwei blieben im ersten Durchgang grün: eine Erwartung meines Prüfstands war
+stale, und eine Zusicherung hatte wieder eine **Alternation**, deren zweiter Zweig
+auf die Protokollzeile passte.
+
+##### Warum der Beobachtungszeitraum nicht beginnen konnte
 
 Punkt 18 loggt heute `ORG_CONTEXT_MISSING`, statt zu sperren; die Verengung auf
 fail-closed soll kommen, wenn der vereinbarte Beobachtungszeitraum **null**
@@ -3741,9 +3838,17 @@ docker exec tempconnect_api grep -c ORG_CONTEXT_MISSING /app/routes/reporting.js
 grep -c ORG_CONTEXT_MISSING <Haupt-Repo>/api/routes/reporting.js                   -> 0
 ```
 
-Die Protokollzeile existiert **nur auf diesem Arbeitszweig**. Der Container läuft
-seit 26 Stunden und mountet das **Haupt-Repo**, nicht den Arbeitsbaum — er kann
-den Treffer also nicht einmal erzeugen. Wer die „0" als Freigabe liest, verengt
+Die Protokollzeile existiert **nur auf diesem Arbeitszweig** — und der Grund ist
+**stärker, als ich zuerst geschrieben habe.** Hier stand: „der Container mountet das
+Haupt-Repo, nicht den Arbeitsbaum". Gemessen am 2026-10-02 mit `docker inspect`:
+der API-Container hat genau **drei** Einbindungen — `frontend/public/js`,
+`sql/migrations`, `uploads`. **`routes/` ist keine davon, es liegt im ABBILD**
+(erstellt 2026-10-01). Die Fassung dort ist noch die ursprüngliche, verschmolzene
+Form `if (!locationId || !req.orgId) return true;` ohne jede Protokollzeile.
+
+Also hätte **auch eine Änderung am Haupt-Repo** die Datei nie erreicht — nur ein
+Neubau. Und ein `grep` auf `ORG_CONTEXT_MISSING` in `docker logs` ist nicht nur
+ergebnislos, sondern **wertlos**: die Zeichenkette kommt im Abbild gar nicht vor. Wer die „0" als Freigabe liest, verengt
 einen Riegel auf Grundlage einer Messung, die nie gelaufen ist. Genau dieselbe
 Verwechslung lag dem RLS-Befund zugrunde (ein Beleg gilt für die Rolle, mit der er
 erbracht wurde — und eine Messung für den Code, der sie erzeugt).

@@ -117,47 +117,111 @@ suite("Ein Standortfilter steht nie allein — drei Schichten, einzeln wertlos",
     }
   });
 
-  it("PUNKT 18 · der durchlaessige Zweig PROTOKOLLIERT, bevor er durchlaesst", () => {
-    /* Der billige Zwischenschritt vor fail-closed (Owner-Freigabe 2026-10-02):
-     * nicht abweisen, sondern laut sein. Der Wert liegt in der ABLOESE-BEDINGUNG —
-     * feuert die Zeile ueber den vereinbarten Zeitraum nie, ist die Verengung
-     * gratis; feuert sie doch, ist der Aufrufer gefunden, von dem niemand wusste.
+  it("PUNKT 18 · der Zweig SPERRT — und protokolliert, bevor er sperrt", () => {
+    /* ═══════════════════════════════════════════════════════════════════════
+     * DIE RICHTUNG HAT SICH GEDREHT (Owner-Anweisung 2026-10-02)
+     * ═══════════════════════════════════════════════════════════════════════
      *
-     * Ohne diese Zusicherung ist der Zwischenschritt ein Kommentar: jemand
-     * entfernt das `logger.warn`, der Zweig laesst weiter durch, und die
-     * Entscheidungsgrundlage fuer fail-closed entsteht nie. */
+     * Vorher verlangte diese Probe, dass der Zweig PROTOKOLLIERT, BEVOR ER
+     * DURCHLAESST. Das war der billige Zwischenschritt; jetzt sperrt der Zweig,
+     * und das Protokoll ist nicht mehr Entscheidungsgrundlage, sondern Diagnose.
+     *
+     * UND SIE WAR NACH DER VERENGUNG LEER GRUEN. Ihr Schnitt endete am ersten
+     * `return true;` — der liegt jetzt HINTER dem Zweig (nach
+     * `assertLocationBelongsToOrg`). Der Ausschnitt umfasste damit die ganze
+     * Funktion, und die alten Zusicherungen passten weiter, nur auf den falschen
+     * Gegenstand. Die Probe haette also die Verengung begruesst, ohne sie zu sehen.
+     *
+     * Deshalb wird jetzt nicht auf ein Schluesselwort geschnitten, sondern die
+     * KLAMMER GEZAEHLT — und zusaetzlich gesichert, dass im Zweig gar kein
+     * `return true;` mehr steht. Ein Schnitt, der von der Reihenfolge zweier
+     * Rueckgabewerte abhaengt, bricht beim naechsten Umbau genauso lautlos.
+     * ═══════════════════════════════════════════════════════════════════════ */
     for (const d of dateienMitPruefer()) {
-      const i = d.text.indexOf("if (!req.orgId) {");
+      const marke = "if (!req.orgId) {";
+      const i = d.text.indexOf(marke);
       assert.ok(i > 0, `${d.rel}: kein ausgeklappter Org-Zweig`);
-      /* DER ZWEIG, UND NUR DER ZWEIG. Erster Entwurf nahm ein Fenster von 700
-       * Zeichen — und das reicht ueber das schliessende `}` hinaus bis in
-       * `assertLocationBelongsToOrg(pool, locationId, req.orgId)`. Die Zusicherung
-       * „die Meldung nennt locationId" war damit schon durch den Code DANACH
-       * erfuellt: eine Rueckmutation, die `locationId` aus der Meldung entfernte,
-       * blieb gruen. Geschnitten wird deshalb bis zum `return true;` des Zweigs. */
-      const roh = d.text.slice(i);
-      const ende = roh.indexOf("return true;");
-      assert.ok(ende > 0, `${d.rel}: der Org-Zweig endet nicht mit return true;`);
-      const zweig = roh.slice(0, ende + "return true;".length);
-      /* DAS PROTOKOLL MUSS DIE ERSTE ANWEISUNG DES ZWEIGS SEIN.
-       *
-       * Erster Entwurf suchte nur den Text `logger?.warn?.(` irgendwo im Zweig —
-       * und blieb gruen, als die Rueckmutation ihn mit `if (false)` davorsetzte.
-       * Der Aufruf stand noch da und lief nicht mehr. Dieselbe Lehre wie „Zaehlen
-       * ist kein Nachweis": die Anwesenheit eines Aufrufs ist nicht seine
-       * Ausfuehrung. Steht er als erste Anweisung, kann ihn kein Vorsatz
-       * ueberspringen, ohne die Form zu brechen. */
+
+      /* Den Zweig per Klammerzaehlung schneiden — unabhaengig davon, was er
+       * zurueckgibt und in welcher Reihenfolge. */
+      let tiefe = 0;
+      let ende = -1;
+      for (let k = i + marke.length - 1; k < d.text.length; k++) {
+        const c = d.text[k];
+        if (c === "{") tiefe++;
+        else if (c === "}") {
+          tiefe--;
+          if (tiefe === 0) { ende = k + 1; break; }
+        }
+      }
+      assert.ok(ende > i, `${d.rel}: der Org-Zweig hat keine geschlossene Klammer`);
+      const zweig = d.text.slice(i, ende);
+      assert.ok(zweig.length < 900,
+        `${d.rel}: der geschnittene Zweig ist ${zweig.length} Zeichen lang — die `
+        + "Klammerzaehlung hat zu weit gegriffen, und die Zusicherungen pruefen die "
+        + "Nachbarschaft statt den Zweig");
+
+      /* 1 · ER SPERRT. Das ist die Kernaussage, und sie steht zuerst: eine Probe,
+       *     die das Protokoll prueft und die Sperre vergisst, laesst den
+       *     Rueckschritt auf `return true` durch. */
+      assert.match(zweig, /res\.status\(403\)/,
+        `${d.rel}: der Zweig antwortet nicht mit 403. Ohne Org kann die Pruefung nichts `
+        + "pruefen — `location_id` gehoert genau EINER Org. Liess er durch, waere die "
+        + "Abfrage darunter ein Lesezugriff auf eine fremde Organisation.");
+      assert.match(zweig, /ORG_CONTEXT_REQUIRED/,
+        `${d.rel}: die Ablehnung traegt keine Kennung — der Aufrufer kann 403en nicht `
+        + "unterscheiden");
+      assert.match(zweig, /return false;/,
+        `${d.rel}: der Zweig gibt nicht false zurueck. Der Aufrufer liest den Rueckgabewert; `
+        + "ohne false laeuft der Handler nach der 403 weiter und schreibt eine zweite Antwort.");
+      assert.ok(!/return true;/.test(zweig),
+        `${d.rel}: im Org-Zweig steht noch ein "return true;" — dann laesst er weiter durch, `
+        + "und die 403 daneben ist unerreichbar.");
+
+      /* 2 · UND ER PROTOKOLLIERT, ALS ERSTE ANWEISUNG. Eine 403 ohne
+       *     Protokolleintrag laesst Betroffenen und Betreiber gleichermassen
+       *     ratlos. Als ERSTE Anweisung, weil ein `if (false)` davor den Aufruf
+       *     stehen laesst und nicht mehr ausfuehrt — die Anwesenheit eines
+       *     Aufrufs ist nicht seine Ausfuehrung. */
       assert.match(zweig, /if \(!req\.orgId\) \{\s*logger\?\.warn\?\.\(/,
-        `${d.rel}: das Protokoll ist nicht die erste Anweisung des durchlaessigen `
-        + "Zweigs. Steht etwas davor — und sei es nur ein `if (false)` —, entsteht die "
-        + "Entscheidungsgrundlage fuer fail-closed nie, und der Zwischenschritt ist "
-        + "nur ein Kommentar.");
+        `${d.rel}: das Protokoll ist nicht die erste Anweisung des Zweigs. Steht etwas `
+        + "davor — und sei es nur ein `if (false)` —, ist die 403 unerklaert.");
       assert.match(zweig, /ORG_CONTEXT_MISSING/,
-        `${d.rel}: die Meldung traegt keine durchsuchbare Kennung. Ein Protokolleintrag, `
-        + "den man nicht filtern kann, ist fuer die Abloese-Bedingung wertlos.");
+        `${d.rel}: die Meldung traegt keine durchsuchbare Kennung. Die Kennung bleibt `
+        + "absichtlich dieselbe wie im Zwischenschritt, damit eine bestehende Suche sie "
+        + "weiter findet.");
       assert.match(zweig, /locationId/,
         `${d.rel}: die Meldung nennt die angefragte Standort-Kennung nicht — dann weiss `
         + "niemand, WAS der Aufrufer wollte");
+
+      /* 3 · Und die Verengung steht auf dem analytischen Beweis, nicht auf
+       *     Beobachtung. Das gehoert in die Datei, sonst liest der naechste
+       *     Mensch die Abloese-Bedingung des Zwischenschritts und sucht ein
+       *     Beobachtungsfenster, das es nie gab. */
+      /* OHNE ALTERNATION. Hier stand
+       *   /fail-closed seit dem 2026-10-02|fail-closed seit 2026-10-02/
+       * — und der zweite Zweig passt auf die PROTOKOLLZEILE, die denselben Satz
+       * ohne "dem" traegt. Eine Rueckmutation, die den Satz aus dem KOMMENTAR
+       * nahm, blieb deshalb gruen. Geprueft wird jetzt die Begruendung, die es
+       * nur im Kommentar gibt — und sie ist der wertvollere Teil: ohne sie liest
+       * der naechste Mensch die Abloese-Bedingung des Zwischenschritts und sucht
+       * ein Beobachtungsfenster, das es nie gab. */
+      /* FLIESSEND LESEN, nicht zeilenweise. Eine Phrase im Kommentar ueberlebt
+       * keinen Zeilenumbruch: "Abwesenheit\n     * einer Messung" passt auf kein
+       * Muster, das die Phrase am Stueck sucht — passiert, gemessen, und es waere
+       * beim naechsten Umformatieren wieder passiert. Kommentarzeichen und
+       * Leerraum werden deshalb zu einem Leerzeichen zusammengezogen, BEVOR
+       * geprueft wird. */
+      const fliessend = d.text.replace(/\s*\n\s*\*?\s*/g, " ");
+      assert.match(fliessend, /Abwesenheit einer Messung/,
+        `${d.rel}: der Kommentar sagt nicht, WARUM die Verengung ohne Beobachtungszeitraum `
+        + "kam — dass die Protokollzeile nur auf diesem Zweig existierte und die \"0 Treffer\" "
+        + "deshalb die Abwesenheit einer Messung waren. Ohne diesen Satz sucht der naechste "
+        + "Leser ein Fenster, das es nie gab.");
+      assert.match(d.text, /SCHICHT 1[\s\S]{0,400}SCHICHT 2[\s\S]{0,400}SCHICHT 3/,
+        `${d.rel}: der Kommentar nennt die drei Schichten nicht, auf denen die Verengung `
+        + "steht. Sie ist der ERSATZ fuer die fehlende Beobachtung — ohne ihre Benennung "
+        + "steht die Aenderung ohne Begruendung da.");
     }
   });
 

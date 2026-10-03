@@ -30,34 +30,66 @@ export function createReportingRouter(deps) {
   async function validateLocationScope(req, res, locationId) {
     if (!locationId) return true;
     /*
-     * ═══════════════════════════════════════════════════════════════════════
-     * DER ZWEIG, DER DURCHLAESST — JETZT LAUT, NOCH NICHT GESCHLOSSEN
-     * ═══════════════════════════════════════════════════════════════════════
+     * ════════════════════════════════════════════════════════════════════════
+     * DER ZWEIG SPERRT JETZT — fail-closed seit dem 2026-10-02
+     * ════════════════════════════════════════════════════════════════════════
      *
      * Ohne Organisation kann diese Pruefung nichts pruefen: `location_id` gehoert
      * genau EINER Org, und ohne eigene Org gibt es nichts, wogegen man sie haelt.
-     * Sie gibt deshalb `true` zurueck — sie LAESST DURCH, statt zu sperren. Der
-     * Dienst darunter baut seine Org-Bedingung bedingt (`if (orgId)`), die
-     * Standort-Bedingung unbedingt: zusammen waere das eine Abfrage, die NUR nach
-     * Standort filtert, also ein Lesezugriff auf eine fremde Organisation.
+     * Vorher gab der Zweig `true` zurueck — er LIESS DURCH. Der Dienst darunter
+     * baut seine Org-Bedingung bedingt (`if (orgId)`), die Standort-Bedingung
+     * unbedingt: zusammen waere das eine Abfrage, die NUR nach Standort filtert,
+     * also ein Lesezugriff auf eine fremde Organisation.
      *
-     * HEUTE IST DAS UNERREICHBAR, und zwar nicht hier, sondern zwei Schichten
-     * hoeher: `requirePermission` setzt `req.orgId` (rbac.js) und antwortet ohne
-     * Mitgliedschaft `403 NO_ORG_MEMBERSHIP`. Gemessen am 2026-10-02: alle 16
-     * standortgebundenen Routen in dieser und in spendAnalytics.js tragen
-     * `rperm(...)`. Festgenagelt von `api/test/standortfilterNieAllein.test.js`
-     * ueber alle drei Schichten.
+     * WARUM DIE VERENGUNG JETZT KOMMT, UND WAS SIE NICHT HAT (Owner-Anweisung
+     * 2026-10-02). Der Zwischenschritt davor hatte eine Abloese-Bedingung: null
+     * Treffer ueber einen vereinbarten Beobachtungszeitraum. DIESE BEDINGUNG IST
+     * NICHT ERFUELLT, und zwar nicht weil Treffer kamen, sondern weil der Zeitraum
+     * nicht beginnen KONNTE. Der Grund ist staerker als zuerst angenommen:
+     * `docker inspect tempconnect_api` zeigt genau DREI Einbindungen
+     * (frontend/public/js, sql/migrations, uploads) — `routes/` ist KEINE davon,
+     * es liegt IM ABBILD. Die Fassung dort ist noch die urspruengliche,
+     * verschmolzene Form `if (!locationId || !req.orgId) return true;`, ohne jede
+     * Protokollzeile. Also haette auch eine Aenderung am Haupt-Repo die Datei nie
+     * erreicht, nur ein Neubau. Die "0 Treffer" im Protokoll sind die Abwesenheit
+     * einer Messung, und ein `grep` auf ORG_CONTEXT_MISSING in `docker logs` ist
+     * wertlos, weil die Zeichenkette im Abbild gar nicht vorkommt.
      *
-     * WARUM HIER ERST EIN PROTOKOLL UND NOCH KEIN 403 (Owner-Freigabe 2026-10-02,
-     * Punkt 18): fail-closed ist eine Verhaltensaenderung. Feuert diese Zeile
-     * ueber einen vereinbarten Zeitraum NIE, ist die Verengung gratis — dann
-     * kostet sie niemanden etwas. Feuert sie doch, haben wir den Aufrufer
-     * gefunden, der sonst eine 403 bekommen haette, OHNE dass jemand von ihm
-     * wusste. Der Umweg ist nicht Zoegern, er macht die Aenderung messbar.
+     * Die Verengung steht deshalb auf dem ANALYTISCHEN Beweis, nicht auf
+     * Beobachtung — und der ist belegt und bewacht, in drei Schichten
+     * (`api/test/standortfilterNieAllein.test.js`):
      *
-     * ABLOESE-BEDINGUNG, damit das hier nicht dauerhaft steht: null Treffer ueber
-     * den vereinbarten Zeitraum -> der `return true` wird zu
-     * `res.status(403).json({ error: "ORG_CONTEXT_REQUIRED" })`.
+     *   SCHICHT 1  jede Route, die diesen Pruefer erreicht, traegt `rperm(...)`
+     *   SCHICHT 2  `requirePermission` setzt `req.orgId` ODER antwortet
+     *              403 NO_ORG_MEMBERSHIP — es gibt keinen next()-Pfad dazwischen
+     *   SCHICHT 3  wo beides gegeben ist, steht beides auch im SQL
+     *
+     * Der Zweig ist damit unerreichbar, und die Verengung kostet keinen
+     * erreichbaren Aufrufer. Faellt SCHICHT 1 kuenftig (eine neue Route ohne
+     * `rperm`), wird die Probe rot, BEVOR jemand eine 403 bekommt.
+     *
+     * GEMESSEN (Wirkungs-Erhebung 2026-10-02, vier Blickwinkel mit Gegenpruefung):
+     * 13 Aufrufstellen, alle mit `rperm`; `requirePermission` hat genau EIN
+     * `next()`, unmittelbar nach `req.orgId = membership?.org_id || orgId || null`,
+     * und `org_memberships.org_id` ist NOT NULL (0 aktive Mitgliedschaften mit
+     * NULL). Von 447 Nutzern bekommen 169 schon heute 403 NO_ORG_MEMBERSHIP an
+     * `rperm` — vor und nach der Verengung dieselbe Antwort. Die Menge "bekam
+     * vorher Daten, bekommt jetzt 403" ist LEER.
+     *
+     * UND ZWEI SCHICHTEN MEHR, als der Beweis oben braucht: in
+     * `spendAnalytics.js` steht VOR jedem der acht Aufrufe schon
+     * `if (!orgId) return res.status(400).json({ error: "ORG_CONTEXT_REQUIRED" })`.
+     * Dort ist dieser Zweig DOPPELT unerreichbar und die Verhaltensaenderung exakt
+     * null. Nur vier Routen in `reporting.js` (`/requisitions`, `/timeline`,
+     * `/sla`, `/top-roles`) haben `rperm` als ALLEINIGE Schicht — das sind die
+     * Stellen, an denen eine 403 ueberhaupt erscheinen koennte, wenn SCHICHT 2 je
+     * bricht.
+     *
+     * UND DAS PROTOKOLL BLEIBT STEHEN, obwohl der Zweig jetzt abweist. Es ist
+     * nicht mehr die Entscheidungsgrundlage, sondern die Diagnose: eine 403 ohne
+     * Protokolleintrag laesst den Betroffenen und den Betreiber gleichermassen
+     * ratlos. Die Kennung ORG_CONTEXT_MISSING bleibt dieselbe, damit eine
+     * bestehende Suche sie weiter findet.
      */
     if (!req.orgId) {
       logger?.warn?.({
@@ -65,8 +97,12 @@ export function createReportingRouter(deps) {
         method: req.method,
         locationId,
         userId: req.session?.userId || null
-      }, "Standortfilter ohne Org-Kontext: Pruefung uebersprungen (ORG_CONTEXT_MISSING, Punkt 18 — Ablaufpfad fuer fail-closed)");
-      return true;
+      }, "Standortfilter ohne Org-Kontext: ABGEWIESEN (ORG_CONTEXT_MISSING, Punkt 18 — fail-closed seit 2026-10-02)");
+      res.status(403).json({
+        error: "ORG_CONTEXT_REQUIRED",
+        message: "Ein Standortfilter braucht einen Organisationskontext."
+      });
+      return false;
     }
     try {
       await assertLocationBelongsToOrg(pool, locationId, req.orgId);
