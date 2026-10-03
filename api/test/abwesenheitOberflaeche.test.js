@@ -502,13 +502,24 @@ suite("Spur E — die Live-Belegschaft in der Oberflaeche", () => {
      * zeigt — eine falsche Verschachtelung, ein vergessener Wert, eine Karte,
      * die gar nicht entsteht.
      *
-     * Ein Browserlauf wuerde hier nichts beweisen: der API-Container mountet das
-     * Haupt-Repo, nicht diesen Arbeitsbaum.
+     * Ein Browserlauf wuerde hier nichts beweisen — aber NICHT aus dem Grund,
+     * der hier stand. Hier stand "der API-Container mountet das Haupt-Repo,
+     * nicht diesen Arbeitsbaum". Gemessen am 2026-10-02 mit `docker inspect`:
+     * der Container hat genau DREI Einbindungen (frontend/public/js,
+     * sql/migrations, uploads), `/app` ist keine davon, und `api/routes` liegt
+     * IM ABBILD. Der richtige Grund ist einfacher: das Tor hat keinen Browser.
+     *
+     * Fixture-Pflege 2026-10-03 (M4b.4): die Zeile traegt jetzt `user_id` und
+     * `wartende_faehigkeiten`, weil der Bericht sie liefert. Damit belegt diese
+     * Probe — die wirklich rendert — auch, dass die Nutzerkennung im Hebel
+     * landet und die Bezeichnung im Wortlaut erscheint.
      */
     ctx.zeigeUnsichtbar([
       {
         worker_profile_id: "wp-1",
+        user_id: "u-7",
         name: "Anna Beispiel",
+        wartende_faehigkeiten: [{ skill_id: "s-1", name: "Staplerfahrer" }],
         gruende: [
           { schluessel: "kein_wohnort", grund: "Es ist kein Wohnort hinterlegt.",
             hinweis: "Ohne Ort gibt es nichts zu rechnen.", wer: "mensch" },
@@ -533,8 +544,21 @@ suite("Spur E — die Live-Belegschaft in der Oberflaeche", () => {
     /* AM onclick, nicht am Text: die erste Fassung prueffte nur, DASS
        "oeffneUnsichtbar('wp-1')" irgendwo dasteht — data-x="oeffneUnsichtbar('wp-1')"
        erfuellte sie ebenso, und der Knopf waere tot gewesen. */
-    assert.match(html, /onclick="oeffneUnsichtbar\('wp-1'\)"/,
-      "der Sprung in die Personalakte ist nicht als onclick gebunden — ein toter Knopf");
+    /* M4b.4: die NUTZERKENNUNG reist im Hebel mit. Vorher stand hier
+       `oeffneUnsichtbar('wp-1')`, und die Seite schluesselte die Kennung aus der
+       geladenen Liste um — wer nicht darin stand, landete bei "nicht gefunden".
+       Die Behauptung ("am onclick, nicht am Text, kein toter Knopf") ist
+       unveraendert; sie verlangt jetzt zusaetzlich die Kennung. */
+    assert.match(html, /onclick="oeffneUnsichtbar\('wp-1','u-7'\)"/,
+      "der Sprung in die Personalakte ist nicht als onclick gebunden oder traegt die "
+      + "Nutzerkennung aus dem Bericht nicht — dann haengt er am Ladezustand der Liste");
+    /* M4b.4: und die Firma liest, WELCHE Faehigkeit wartet. Eine Zahl ist nicht
+       bearbeitbar, ein Name schon (dieselbe Begruendung wie bei den
+       katalogfremden Rollen in M4b.2). */
+    assert.ok(html.includes("Staplerfahrer"),
+      "die wartende Faehigkeit steht nicht im Wortlaut — die Firma muss raten, welche");
+    assert.ok(html.includes(woerter.de["mit.unsichtbar.wartend"]),
+      "die Zeile hat keine Ueberschrift — dann steht ein Name ohne Zusammenhang da");
     assert.equal(elemente.unsichtbarCount.textContent, "1", "der Zaehler nennt nicht die Zahl der Menschen");
   });
 

@@ -810,6 +810,46 @@ die Wirklichkeit heute nicht erreicht, bleibt sonst unbelegt.
 > nicht gefundener Anker liest sich wie „die Stelle ist weg" und läuft als stiller Ausfall grün
 > durch.
 
+#### M4b.4 · gebaut 2026-10-03 — der Griff, der die Kette schließt, ohne einen neuen Weg zu bauen
+
+**Die Messung hat M4b.4 von einer Bequemlichkeit zur Bedingung gemacht:** **9 von 45** Profilen
+haben `user_id IS NULL`, also kein eigenes Konto. Diese Menschen können ein Pflichtfeld im
+Einsatzportal grundsätzlich nicht erfüllen — **nur die Firma kann es für sie auflösen.** Ohne
+M4b.4 wäre das Pflichtfeld für sie eine Falle ohne Ausgang.
+
+**Und zwei Flächen-Entscheidungen, die den Umfang klein halten:**
+
+1. **Die Agentur kuratiert NICHT den Plattform-Katalog.** Das bleibt Staff-Arbeit
+   (`FLAECHEN.md`, Entscheidungsfrage 3: betrifft es die Plattform als Ganzes → Staff CC). Sie
+   hängt die Fähigkeit **dieses einen Menschen** um — eine kundenspezifische Handlung.
+2. **Kein neuer Schreibweg.** `PUT /workers/:userId/skills` (`setWorkerSkills`, `source:
+   "agency"`) existiert und ist geprüft; der Fähigkeiten-Reiter hat den Wähler. Eine zweite
+   Zuordnungsfläche wäre ein Parallelmuster für dieselbe Sache.
+
+**Was wirklich fehlte, war nicht der Weg, sondern das Material an der Zeile.** Der Bericht
+lieferte `worker_profile_id`, `name` und die Gründe — **nicht** die Nutzerkennung und **nicht**,
+welche Fähigkeit wartet. „1 Fähigkeit wartet auf Freigabe" ließ die Firma raten. Jetzt trägt
+jede Zeile:
+
+* **die Bezeichnungen im Wortlaut** (`wartende_faehigkeiten`, aus `katalogTorSql` negiert) —
+  dieselbe Begründung wie bei den katalogfremden Rollen in M4b.2: *eine Zahl ist nicht
+  bearbeitbar, ein Name schon*;
+* **die Nutzerkennung**, damit der Hebel nicht mehr am Ladezustand hängt. Vorher schlüsselte
+  `oeffneUnsichtbar` von Profil- auf Nutzerkennung um, indem es die geladene Liste durchsuchte —
+  wer nicht darin stand, landete bei „nicht gefunden". **Ein Hebel, der je nach Ladezustand
+  wirkt, ist keiner.** Der Rückfall bleibt stehen, weil `user_id` nullable ist.
+
+**Verifikation:** 20 Rückmutationen über beide Wellen, **20 rot** (darunter: Nutzerkennung aus
+dem Bericht entfernt, Negation der wartend-Spalte gedreht, eigene Abschrift von „freigegeben",
+`null` nicht zur leeren Liste, Bezeichnungen unescaped, Hebel ignoriert die Kennung, Text fehlt
+in einer Sprache) · 25 Proben im Wächter · Rauchtest gegen die echte Datenbank grün.
+
+> **Ein eigener Probenfehler, derselbe Klassiker:** eine Zusicherung verglich den **Quelltext**
+> mit `katalogTorSql("pw")` — also mit dem **erzeugten** SQL. Im Quelltext steht die Einsetzung,
+> nicht ihr Ergebnis; die Probe war rot, obwohl der Code richtig war. Und ein **Backtick** in
+> einem SQL-Kommentar hat das Template-Literal beendet — zum neunten Mal in dieser Arbeit, und
+> der Fehler erscheint immer woanders.
+
 #### M4b.2 · gebaut 2026-10-01 — und der Befund lag in der Naht zwischen zwei grünen Hälften
 
 Die Fläche steht: `frontend/src/staff/modules/markt-sichtbarkeit/index.tsx` zeigt jetzt die offenen

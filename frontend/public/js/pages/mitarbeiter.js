@@ -31,6 +31,8 @@ TCi18n.register('de', {
   'mit.unsichtbar.empty': 'Alle Kraefte erfuellen die Bedingungen und stehen im Marktplatz.',
   'mit.unsichtbar.ohneName': 'Ohne Namen',
   'mit.unsichtbar.oeffnen': 'Profil oeffnen',
+  /* M4b.4: die Bezeichnungen im Wortlaut — eine Zahl ist nicht bearbeitbar. */
+  'mit.unsichtbar.wartend': 'Wartet auf Freigabe:',
   'mit.unsichtbar.wer.mensch': 'Die Kraft selbst',
   'mit.unsichtbar.wer.firma': 'Ihre Firma',
   'mit.unsichtbar.wer.organisation': 'Ihre Organisation',
@@ -707,6 +709,7 @@ TCi18n.register('en', {
   'mit.unsichtbar.empty': 'All workers meet the conditions and appear on the marketplace.',
   'mit.unsichtbar.ohneName': 'Unnamed',
   'mit.unsichtbar.oeffnen': 'Open profile',
+  'mit.unsichtbar.wartend': 'Awaiting approval:',
   'mit.unsichtbar.wer.mensch': 'The worker',
   'mit.unsichtbar.wer.firma': 'Your company',
   'mit.unsichtbar.wer.organisation': 'Your organisation',
@@ -4659,17 +4662,45 @@ function zeigeUnsichtbar(items) {
             + esc(g.hinweis) + "</div>" : "")
         + "</li>";
     }).join("");
+    /*
+     * M4b.4 — DIE FIRMA KANN SOFORT AUFLOESEN, ABER NUR WENN SIE WEISS, WAS.
+     *
+     * "1 Faehigkeit wartet auf Freigabe" laesst sie raten, WELCHE. Sie kennt das
+     * Gewerk und koennte es in Sekunden auf die passende Katalog-Faehigkeit
+     * umhaengen — der Bericht nennt die Bezeichnungen deshalb im WORTLAUT,
+     * dieselbe Entscheidung wie bei den katalogfremden Rollen in M4b.2: eine
+     * Zahl ist nicht bearbeitbar, ein Name schon.
+     *
+     * KEIN eigener Schreibweg hier. Das Umhaengen laeuft ueber den vorhandenen,
+     * geprueften Weg (`PUT /workers/:userId/skills` im Faehigkeiten-Reiter);
+     * eine zweite Zuordnungsflaeche waere ein Parallelmuster fuer dieselbe
+     * Sache. Und die Agentur kuratiert dabei NICHT den Plattform-Katalog — das
+     * bleibt Staff-Arbeit (FLAECHEN.md, Entscheidungsfrage 3). Sie aendert die
+     * Faehigkeit DIESES einen Menschen.
+     */
+    var wartend = (e.wartende_faehigkeiten || []).map(function(f) { return f.name; }).filter(Boolean);
+    var wartendZeile = wartend.length
+      ? '<div style="font-size:12px;margin-top:6px">'
+        + "<strong>" + esc(TCi18n.t("mit.unsichtbar.wartend")) + "</strong> "
+        + esc(wartend.join(", "))
+        + "</div>"
+      : "";
     /* Sprung auf DIESEN Menschen, nicht auf die allgemeine Liste: wer einen Grund
        liest, will ihn dort beheben, wo er entsteht. Ueber `oeffneUnsichtbar`, das
        den vorhandenen Weg in die Personalakte benutzt — ein eigener
-       `?worker=`-Link waere ein zweites Muster fuer dieselbe Sache. */
+       `?worker=`-Link waere ein zweites Muster fuer dieselbe Sache.
+       M4b.4: die NUTZER-Kennung kommt jetzt aus dem Bericht. Vorher wurde sie
+       aus der geladenen Liste umgeschluesselt, und wer nicht darin stand, landete
+       bei "nicht gefunden" — ein Hebel, der je nach Ladezustand wirkt, ist keiner. */
     return '<div class="ds-card" style="margin-bottom:10px;padding:12px">'
       + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
       + "<strong>" + esc(e.name || TCi18n.t("mit.unsichtbar.ohneName")) + "</strong>"
-      + '<button class="btn" onclick="oeffneUnsichtbar(\'' + esc(e.worker_profile_id) + '\')">'
+      + '<button class="btn" onclick="oeffneUnsichtbar(\'' + esc(e.worker_profile_id) + "','"
+      + esc(e.user_id || "") + '\')">'
       + esc(TCi18n.t("mit.unsichtbar.oeffnen")) + "</button>"
       + "</div>"
       + '<ul style="margin:8px 0 0;padding-left:18px">' + gruende + "</ul>"
+      + wartendZeile
       + "</div>";
   }).join("");
 }
@@ -4683,7 +4714,12 @@ function zeigeUnsichtbar(items) {
  * `applyPendingHubWorker` das Melden ("nicht gefunden") statt wortlos auf dem
  * Platzhalter zu landen.
  */
-function oeffneUnsichtbar(profileId) {
+function oeffneUnsichtbar(profileId, userIdAusBericht) {
+  /* M4b.4: der Bericht liefert die Nutzerkennung jetzt selbst. Sie hat Vorrang —
+     die Umschluesselung unten greift nur noch, wenn sie fehlt (ein Profil ohne
+     eigenes Konto: gemessen 9 von 45). Vorher haeng der Hebel am Ladezustand
+     der Liste, und wer nicht darin stand, landete bei "nicht gefunden". */
+  if (userIdAusBericht) { _pendingHubWorker = String(userIdAusBericht); showTab("skills"); return; }
   var w = (_workers || []).filter(function(x) { return x.id === profileId; })[0]
        || (_liveWorkers || []).filter(function(x) { return x.id === profileId; })[0];
   _pendingHubWorker = String((w && (w.user_id || w.id)) || profileId);

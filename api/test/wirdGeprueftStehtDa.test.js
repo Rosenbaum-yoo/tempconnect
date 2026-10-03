@@ -273,6 +273,90 @@ describe("M4b.3 · der Hinweis steht auf der Seite, nicht nur in der Antwort", (
   });
 });
 
+/* ── 3c. M4b.4: die Zeile ist handlungsfaehig, nicht nur lesbar ──────── */
+
+describe("M4b.4 · die Firma sieht WELCHE Faehigkeit wartet — und kommt hin", () => {
+  const SKRIPT = fs.readFileSync(
+    path.resolve(API, "..", "frontend", "public", "js", "pages", "mitarbeiter.js"), "utf8");
+
+  it("der Bericht traegt Nutzerkennung und die wartenden Bezeichnungen", async () => {
+    /* Ohne beides ist die Zeile eine Sackgasse: Grund lesbar, Handlung
+       unmoeglich — genau das, was CLAUDE.md unter "Deep-Links statt
+       Sackgassen" verbietet. */
+    const { unsichtbareKraefte } = await import("../services/marktpraesenzService.js");
+    const zeile = { worker_profile_id: "wp-1", user_id: "u-9", name: "Probe",
+      wartende_faehigkeiten: [{ skill_id: "s-1", name: "Staplerfahrer" }] };
+    PRAESENZ_BEDINGUNGEN.forEach((_, i) => { zeile[`b${i}`] = true; });
+    const idx = PRAESENZ_BEDINGUNGEN.findIndex((b) => b.schluessel === "nur_vorschlag");
+    zeile[`b${idx}`] = false;
+    zeile[`z${idx}`] = 1;
+    const [eintrag] = await unsichtbareKraefte({ query: async () => ({ rows: [zeile] }) }, "org-1");
+    assert.equal(eintrag.user_id, "u-9", "die Nutzerkennung fehlt — der Hebel haengt am Ladezustand");
+    assert.deepEqual(eintrag.wartende_faehigkeiten, [{ skill_id: "s-1", name: "Staplerfahrer" }],
+      "die Bezeichnungen fehlen — die Firma muss raten, WELCHE Faehigkeit wartet");
+  });
+
+  it("ohne eigenes Konto bleibt die Zeile gueltig — gemessen 9 von 45", async () => {
+    /* `user_id` ist nullable. Eine Flaeche, die das nicht traegt, verliert genau
+       die Menschen, die ihr Profil selbst gar nicht erfuellen koennen. */
+    const { unsichtbareKraefte } = await import("../services/marktpraesenzService.js");
+    const zeile = { worker_profile_id: "wp-2", user_id: null, name: "Ohne Konto",
+      wartende_faehigkeiten: null };
+    PRAESENZ_BEDINGUNGEN.forEach((_, i) => { zeile[`b${i}`] = true; });
+    zeile.b2 = false;   // irgendein Grund, damit die Zeile im Bericht erscheint
+    const [eintrag] = await unsichtbareKraefte({ query: async () => ({ rows: [zeile] }) }, "org-1");
+    assert.equal(eintrag.user_id, null);
+    assert.deepEqual(eintrag.wartende_faehigkeiten, [],
+      "null wird nicht zu einer leeren Liste — dann wirft die Flaeche beim .map");
+  });
+
+  it("die Abfrage liest 'wartend' aus dem gemeinsamen Tor, nicht als Abschrift", () => {
+    const dienst = ohneKommentare(quelle("services/marktpraesenzService.js"));
+    const i = dienst.indexOf("wartende_faehigkeiten");
+    assert.ok(i > 0, "die Spalte fehlt in der Abfrage");
+    const block = dienst.slice(Math.max(0, i - 900), i + 60);
+    /* DER AUFRUF, NICHT SEIN ERGEBNIS. Die erste Fassung dieser Zeile verglich
+       den Quelltext mit `katalogTorSql("pw")` — also mit dem ERZEUGTEN SQL. Im
+       Quelltext steht die Einsetzung, nicht ihr Ergebnis; die Probe war rot,
+       obwohl der Code richtig war. Dass das Tor wirklich die Aktiv- UND die
+       Kuratier-Spalte liefert, prueft `katalogTor.test.js`. */
+    assert.ok(block.includes('katalogTorSql("pw")'),
+      "die wartenden Faehigkeiten werden mit einer eigenen Fassung von 'freigegeben' bestimmt");
+    assert.ok(/NOT \(/.test(block),
+      "ohne Negation listet die Spalte die FREIGEGEBENEN — genau umgekehrt");
+  });
+
+  it("die Seite nennt die Bezeichnungen, escaped, und nur wenn es welche gibt", () => {
+    const i = SKRIPT.indexOf("wartende_faehigkeiten");
+    assert.ok(i > 0, "die Seite liest die wartenden Faehigkeiten nicht");
+    const block = SKRIPT.slice(i, i + 700);
+    assert.ok(/esc\(wartend\.join/.test(block),
+      "die Bezeichnungen landen unescaped in innerHTML");
+    assert.ok(/wartend\.length\s*\?/.test(block),
+      "die Zeile erscheint auch ohne wartende Faehigkeit — eine Ueberschrift ohne Inhalt");
+    assert.ok(/mit\.unsichtbar\.wartend/.test(block), "kein uebersetzter Text");
+  });
+
+  it("der Hebel nimmt die Kennung aus dem Bericht und behaelt den Rueckfall", () => {
+    const i = SKRIPT.indexOf("function oeffneUnsichtbar(");
+    assert.ok(i > 0, "der Hebel fehlt");
+    const fn = SKRIPT.slice(i, i + 800);
+    assert.match(fn, /function oeffneUnsichtbar\(profileId, userIdAusBericht\)/,
+      "der Hebel nimmt die Kennung aus dem Bericht nicht an");
+    assert.ok(/if \(userIdAusBericht\)/.test(fn),
+      "die Kennung aus dem Bericht hat keinen Vorrang — dann haengt der Hebel weiter "
+      + "am Ladezustand der Liste");
+    assert.ok(/_workers \|\| \[\]/.test(fn),
+      "der Rueckfall ist weg — Profile ohne eigenes Konto verlieren ihren Hebel");
+  });
+
+  it("der Text steht in BEIDEN Sprachen", () => {
+    const treffer = SKRIPT.match(/'mit\.unsichtbar\.wartend':/g) || [];
+    assert.equal(treffer.length, 2,
+      "der Schluessel fehlt in einer Sprache — dann steht dort der Schluessel selbst");
+  });
+});
+
 /* ── 4. Das Abzeichen rechnet mit der Beziehung, nicht mit dem Spiegel ─ */
 
 describe("M4b.3 · 'Profil x %' liest die Wahrheit", () => {

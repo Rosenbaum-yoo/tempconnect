@@ -1941,6 +1941,24 @@ immer dieselben fünf Dinge:
 | 2 | **planende** Sitzung | **misst nach** — an der laufenden Datenbank, am Repo, im Browser, wo es sich belegen lässt |
 | 3 | **planende** Sitzung | teilt den **nächsten** Posten zu, mit Vorarbeit: Messwerte, bekannte Fallen, erwarteter erster roter Lauf |
 
+> **Die Gegenprüfung hängt nicht mehr an einer Verabredung — Owner-Rüge 2026-10-03.**
+> *„du sollst doch gegenprüfen wenn k1 gebaut hat, warum klappt das nicht automatisch?"* Zu
+> Recht: Schritt 1 war eine **Meldung**, also ein sozialer Vorgang, und er ist einmal gerissen —
+> acht Commits ohne Nachricht, aufgefallen erst durch die Nachfrage des Owners, und beim zweiten
+> Mal lagen drei ungeprüfte Commits.
+>
+> **Der Mechanismus statt der Verabredung:** die planende Sitzung meldet sich bei der bauenden
+> **für eine Benachrichtigung an, wenn jene fertig ist** (`notify_when_idle`, einmalig, kostet die
+> bauende Sitzung nichts). Jedes Mal, wenn die Benachrichtigung kommt:
+> **(1)** `git log <letzte geprüfte>..HEAD` — was ist dazugekommen · **(2)** gegen die laufende
+> Datenbank und das Repo nachmessen, nicht die Commit-Nachricht lesen · **(3)** **erneut anmelden**,
+> weil die Anmeldung einmalig ist.
+>
+> **Was der Mechanismus NICHT ersetzt:** die Meldung mit Zahlen. Eine Benachrichtigung sagt
+> *dass* etwas fertig ist, nicht *was gemessen wurde* — und mehrfach hat erst die Zahl der
+> bauenden Sitzung einen Schluss der planenden umgeworfen. **Der Mechanismus schließt die
+> Lücke, nicht die Meldung ab.**
+
 **Für gewöhnliche Bauarbeit aus einem bestehenden Plan braucht es ab jetzt keine Einzelfreigabe des
 Owners.** Er hat die Listenführung ausdrücklich abgegeben.
 
@@ -3353,10 +3371,27 @@ Gründen `kein_wohnort: 4`, `keine_freigegebene_faehigkeit: 10`, `entwurf_blocki
 > nicht gefundener Anker liest sich wie „die Stelle ist weg" und läuft als stiller Ausfall grün
 > durch. Mehrzeilige Anker deshalb immer als Muster mit `\r?\n`.
 
-**Was von Posten 5 noch offen ist:** **M4b.4** (die Firma löst einen Vorschlag sofort auf — laut
-Messung die *Bedingung* dafür, dass die Pflicht zulässig ist, weil 9 von 45 kein eigenes Konto
-haben), **M4b.5** (der Nachtrag als erweiterbares Register) und **M4b.6** (jeder Schritt bietet
-sich selbst an). M4.8, M4.9, M4b.1, M4b.2 und M4b.3 sind gebaut.
+### M4b.4 ist gebaut *(2026-10-03)* — ohne einen neuen Weg zu bauen
+
+**Die Messung hat M4b.4 von einer Bequemlichkeit zur Bedingung gemacht:** 9 von 45 Profilen
+haben kein eigenes Konto und können ein Portal-Pflichtfeld grundsätzlich nicht erfüllen — nur
+die Firma kann für sie auflösen.
+
+Zwei Entscheidungen halten den Umfang klein: die Agentur kuratiert **nicht** den
+Plattform-Katalog (Staff-Arbeit, `FLAECHEN.md` Frage 3), sondern hängt die Fähigkeit *dieses
+einen* Menschen um — und dafür gibt es `PUT /workers/:userId/skills` längst. **Es fehlte nicht
+der Weg, sondern das Material an der Zeile:** der Bericht nennt jetzt die wartenden Fähigkeiten
+**im Wortlaut** (aus `katalogTorSql` negiert — eine Zahl ist nicht bearbeitbar, ein Name schon)
+und die **Nutzerkennung**. Vorher schlüsselte `oeffneUnsichtbar` über die geladene Liste um; wer
+nicht darin stand, landete bei „nicht gefunden" — **ein Hebel, der je nach Ladezustand wirkt,
+ist keiner.** Der Rückfall bleibt, weil `user_id` nullable ist.
+
+**Verifikation:** 20 Rückmutationen über beide Wellen / 20 rot · 25 Proben im Wächter ·
+Rauchtest gegen die echte Datenbank grün.
+
+**Was von Posten 5 noch offen ist:** **M4b.5** (der Nachtrag nach dem Import als erweiterbares
+Register, nicht als festes Formular) und **M4b.6** (jeder Schritt bietet sich selbst an).
+M4.8, M4.9, M4b.1, M4b.2, M4b.3 und M4b.4 sind gebaut.
 
 ## Der Plan fuer die naechsten Sitzungen
 

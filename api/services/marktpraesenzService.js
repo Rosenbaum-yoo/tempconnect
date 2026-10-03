@@ -347,7 +347,35 @@ export async function unsichtbareKraefte(pool, supplierOrgId, opts = {}) {
 
   const { rows } = await pool.query(
     `SELECT wp.id AS worker_profile_id,
+            wp.user_id,
             TRIM(COALESCE(wp.first_name, '') || ' ' || COALESCE(wp.last_name, '')) AS name,
+            /*
+             * M4b.4 — EIN GRUND, DER NICHT SAGT WORUM ES GEHT, IST KEIN
+             * ARBEITSAUFTRAG. "1 Faehigkeit wartet auf Freigabe" laesst die Firma
+             * raten, WELCHE. Sie kennt das Gewerk und kann es sofort aufloesen —
+             * aber nur, wenn der Bericht den Namen mitbringt. Dieselbe
+             * Begruendung wie bei den katalogfremden Rollen in M4b.2: die
+             * Bezeichnungen im Wortlaut, nicht als Zahl.
+             *
+             * OHNE BACKTICKS: dieser Kommentar steht INNERHALB eines
+             * Template-Literals — ein Backtick fuer einen Code-Verweis beendet
+             * hier die Zeichenkette, und der Fehler erscheint woanders. Genau
+             * das ist beim Schreiben dieser Zeilen passiert.
+             *
+             * Die Spalte user_id reist mit, weil der Schreibweg der Agentur an
+             * der Nutzerkennung haengt (PUT /workers/:userId/skills). Ohne sie
+             * waere die Zeile eine Sackgasse: Grund lesbar, Handlung unmoeglich.
+             * Sie kann NULL sein — 9 von 45 Profilen haben kein eigenes Konto;
+             * die Flaeche muss diesen Fall tragen.
+             */
+            COALESCE((
+              SELECT json_agg(json_build_object('skill_id', pw.id, 'name', pw.name)
+                              ORDER BY pw.name)
+                FROM worker_profile_skills ww
+                JOIN platform_skills pw ON pw.id = ww.skill_id
+               WHERE ww.worker_profile_id = wp.id
+                 AND NOT (${katalogTorSql("pw")})
+            ), '[]'::json) AS wartende_faehigkeiten,
             ${spalten}
        FROM worker_profiles wp
       WHERE wp.supplier_org_id = $1
@@ -391,7 +419,13 @@ export async function unsichtbareKraefte(pool, supplierOrgId, opts = {}) {
     if (!gruende.length) continue;      // steht im Markt — keine Zeile noetig
     offen.push({
       worker_profile_id: zeile.worker_profile_id,
+      /* M4b.4: beides nur hier, nicht im Grund — ein Grund ist Text fuer
+         Menschen, eine Kennung ist Material fuer die Flaeche. */
+      user_id: zeile.user_id || null,
       name: zeile.name || null,
+      wartende_faehigkeiten: Array.isArray(zeile.wartende_faehigkeiten)
+        ? zeile.wartende_faehigkeiten
+        : [],
       gruende
     });
   }
