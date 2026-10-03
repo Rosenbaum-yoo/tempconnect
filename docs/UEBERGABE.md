@@ -2048,6 +2048,24 @@ Auswahlfeldern, in Berechtigungsprüfungen, in Listen ohne Blätterung.
 | **Vor dem Anlegen einer Datei: `git log --oneline -- <pfad>`** | **Passiert 2026-09-06:** ich habe `docs/features/P_ALTLASTEN.md` geschrieben, ohne zu prüfen, ob es sie gibt — und dabei **139 Zeilen** der bereits committeten Fassung der Parallelsitzung überschrieben (`f3cbe1b`). Das Werkzeug hatte es gemeldet („updated" statt „created"); gelesen habe ich es erst danach. Wiederhergestellt, und das Fehlende **additiv** nachgetragen statt ersetzt. **Auf einer geteilten Linie ist eine neue Datei fast nie neu** — zwei Sitzungen, die denselben Auftrag hören, schreiben denselben Namen. |
 | **Nie `git checkout <branch> -- <datei>` zum Abgleich zwischen Sitzungen** | Das ist **kein** Abgleich, sondern ein **Rücksetzer**: es verwirft unversionierte Änderungen an genau diesen Dateien. Sitzen beide Sitzungen auf **derselben Linie** — was der Normalfall ist —, ist der Befehl sinnlos und gefährlich zugleich. **Passiert 2026-09-01:** ich habe einer Parallelsitzung genau das empfohlen, weil `list_sessions` mir einen anderen Branch gemeldet hatte und ich es nicht nachgeprüft habe. Sie hat sich zu Recht geweigert; ausgeführt hätte es ihre Arbeit an drei Owner-Entscheidungen vernichtet. **Vorher prüfen:** `git branch --show-current` auf beiden Seiten, `git merge-base --is-ancestor <commit> HEAD`, und `git log --oneline -- <datei>` sagt, ob es überhaupt etwas zu holen gibt. Auf einer geteilten Linie ist die richtige Antwort meist: **gar nichts tun, es liegt schon da.** |
 | **Was im Frontend sichtbar wird, wird nach grünem Tor ins Haupt-Repo gemergt — ohne Rückfrage** | **Owner-Direktive 2026-10-01:** *„merge in gewissen Abschnitten, wenn etwas neu im Frontend zu sehen wäre, immer dann automatisch."* **Der Grund ist gemessen, nicht Geschmack:** nginx bindet `…\12_tempconnect_docker(D)\frontend` ein, also das **Haupt-Repo** — `docker-compose.yml` schreibt `./frontend` relativ zu sich selbst. **Eine Änderung, die in einem Arbeitsbaum liegt, existiert für den Browser nicht.** Und was der Owner nicht ansehen kann, kann er nicht prüfen; er würde einen Abend lang einen älteren Stand beurteilen. **Auslöser:** eine Phase berührt `frontend/` (Quelle **oder** gebautes Bündel) **und** ist abgeschlossen **und** das volle Tor ist grün (`fail 0`, `cancelled 0`, Rückgabewert `0`). **Nicht** mitten in einer Phase — halbfertige Oberfläche vor dem Owner kostet mehr Vertrauen, als der frühe Blick bringt. **Mechanik** wie etabliert: volles Tor **vor** dem Merge, `--ff-only`, danach Migrationen (`docker compose up migrate`) und API-Neustart, dann **erst** ist eine Sichtprüfung ehrlich. **Und ein Schritt fehlte in diesem Entwurf, gemessen 2026-10-01: nach dem Merge muss gebaut werden.** `.gitignore` Zeile 117–119 schließt `frontend/owner-control/`, `frontend/public/staff/` und `frontend/support-ops/` aus — das sind **Bauergebnisse**. Der Merge bringt also die Quelle, **nicht** das Bündel, und nginx liefert das Bündel. Belegt: nach dem Merge lag im Hauptbaum weiterhin `index-Dvk2to9z.js`, das neue `index-V8eeW7C8.js` **nicht**. Der Bau ist vorgesehen und einmalig: `docker compose up frontend-build` (`npm ci --include=dev && npm run build:occ && npm run build:scc` im gemounteten `./frontend`), und nginx hängt per `depends_on` daran. **Ohne diesen Schritt zeigt der Browser nach einem korrekten Merge weiter den alten Stand** — die teuerste Form eines falschen Negativbefunds, weil alles richtig gemacht wurde und das Ergebnis trotzdem alt ist. **Arbeitsteilung — Owner-Entscheid 2026-10-01 auf Nachfrage: *„ja du mergst“*, gerichtet an die planende Sitzung.** Der erste Entwurf dieser Zeile sagte „die bauende Sitzung mergt“ und war falsch: deren Sitzung ist ausdrücklich auf ihren Arbeitsbaum begrenzt und darf den Hauptbaum nicht anfassen. Sie hat den Merge auf eine **zitierte** Direktive hin zu Recht verweigert — von dort ist nicht unterscheidbar, ob der Owner es gesagt hat oder ob die weitergebende Sitzung selbst keine Freigabe hatte. Sie **meldet** stattdessen: Phase abgeschlossen, Tor grün, `frontend/` berührt. Die planende Sitzung mergt und prüft danach im Browser — **vorher kann sie es nicht**, und das ist der ganze Punkt dieser Regel. |
+> **„Vollständig und automatisch" — Owner-Präzisierung 2026-10-03.** Der erste Merge unter dieser
+> Regel ging nur bis zum letzten tor-belegten Commit und ließ den Rest liegen; das ist nicht
+> gemeint. **Vollständig heißt: die ganze Kette, bis die Änderung im Browser ankommt**, und
+> **automatisch heißt: ausgelöst von der Fertig-Benachrichtigung, nicht von einer Nachfrage.**
+>
+> | # | Schritt | Warum er nicht weggelassen werden darf |
+> |---|---|---|
+> | 0 | **Baum sauber?** `git status --porcelain` muss leer sein | Schreibt die bauende Sitzung noch, beweißt kein Tor-Lauf etwas — ein rotes Ergebnis könnte ihre halbfertige Arbeit sein |
+> | 1 | **Volles Tor**, und zwar mit Datenbank (`--verlange-datenbank`) | Ohne den Schalter beweist der Lauf weniger, als er scheint |
+> | 2 | **`--ff-only` auf HEAD**, nicht auf einen älteren Punkt | „Vollständig". Ein Teil-Merge erzeugt zwei Wahrheiten und einen zweiten Merge, der wieder vergessen wird |
+> | 3 | **Migrationen** (`docker compose up migrate`) | Neue Spalten, auf die der neue Code zugreift |
+> | 4 | **Frontend BAUEN** (`docker compose up frontend-build`) | **Der Schritt, der im ersten Entwurf fehlte:** `.gitignore` 117–119 schließt `frontend/owner-control/`, `frontend/public/staff/` und `frontend/support-ops/` aus — der Merge bringt die Quelle, **nicht** das Bündel, und nginx liefert das Bündel |
+> | 5 | **API neu starten** | Sonst läuft der alte Prozess auf dem neuen Schema |
+> | 6 | **Im Browser nachsehen** — geliefertes Bündel, Konsole, Zugangspfad | Erst ab Schritt 4 ist eine Sichtprüfung ehrlich; vorher prüft man die alte Datei |
+>
+> **Was die bauende Sitzung dazu beitragen muss, und nur das:** mit jeder abgeschlossenen Phase das
+> **Tor-Ergebnis** melden. Dann läuft die Kette ohne Rückfrage — ohne das Ergebnis hängt sie an
+> Schritt 1, und genau da hing sie am 2026-10-03.
 | **Push nur auf Zuruf** | Die **Commit**-Freigabe steht dauerhaft (Owner 2026-08-13): fertige Wellen werden nach grüner Suite ohne Nachfrage committet. Der **Push** braucht jedes Mal eine ausdrückliche Zusage — `origin` ist öffentlich. |
 | **`Co-Authored-By: Claude <noreply@anthropic.com>`** | An jeden Commit. |
 | **Tests sind die Spezifikation** | Ein roter Test wird **nie** durch Abschwächen grün gemacht. Ausnahme nur, wenn der Test nachweisbar einen Bug als Soll kodiert — mit Begründung im Commit. |
@@ -3391,9 +3409,39 @@ ist keiner.** Der Rückfall bleibt, weil `user_id` nullable ist.
 **Verifikation:** 20 Rückmutationen über beide Wellen / 20 rot · 25 Proben im Wächter ·
 Rauchtest gegen die echte Datenbank grün.
 
-**Was von Posten 5 noch offen ist:** **M4b.5** (der Nachtrag nach dem Import als erweiterbares
-Register, nicht als festes Formular) und **M4b.6** (jeder Schritt bietet sich selbst an).
-M4.8, M4.9, M4b.1, M4b.2, M4b.3 und M4b.4 sind gebaut.
+### M4b.5 und M4b.6 sind gebaut *(2026-10-03)* — Posten 5 ist damit vollständig
+
+**M4b.5 ist ein Register, kein Formular.** `api/services/nachtragRegister.js`,
+`GET /api/workers/nachtrag?profile_ids=…`. Je Eintrag: **was fehlt**, **warum es zählt**, **wer
+es beantworten kann**, **ob es die Marktpräsenz blockiert**. Ein neuer Punkt ist **eine Zeile**;
+die Oberfläche kennt keinen Punkt namentlich, und eine Probe verbietet es.
+
+**Der erste Entwurf war falsch, und der Rauchtest hat ihn widerlegt.** Der Einsatzradius (M-E11)
+stand als neunte `PRAESENZ_BEDINGUNG` — und war für **alle 12** gemeldeten Kräfte unerfüllt
+(gemessen: keine der 13 Agenturen mit Kräften hat eine `org_settings`-Zeile, 0 von 45 Profilen
+einen eigenen Radius). Ein Punkt, der jeden betrifft, hätte jeden ohnehin präsenten Menschen in
+eine Liste gezogen, die „Nicht im Markt" heißt. Daraus **zwei Register, zwei Fragen**:
+`PRAESENZ_BEDINGUNGEN` = *warum ist diese Person nicht im Markt*, `NACHTRAG_ORGANISATION` = *was
+sollten wir nach einem Import noch fragen*. Der Nachtrag **liest** die Präsenz-Gründe statt sie
+abzuschreiben; jeder Grund trägt `blockiert: !nurDiagnose`.
+
+**Die Eingrenzung folgt M3.2:** Org-Bedingung bleibt die äußere Klammer, **leere Liste heißt
+„keine"**, nicht „alle".
+
+**M4b.6 ist derselbe Mechanismus, zweimal angeboten.** Beide Hälften waren gebaut (M3.1, M4.8);
+gefehlt hat das Ende — nach dem Einladen landete der Weg auf dem Einladungs-Reiter. Jetzt
+erscheint der Nachtrag nach dem Import **und** nach dem Einladen. Zwei Mengen, nicht eine: das
+Einladen nimmt die **einladbaren**, der Nachtrag **alle angelegten** — die 9 ohne Konto sind der
+Fall, den nur die Firma lösen kann.
+
+**Verifikation:** 14 Rückmutationen / 14 rot · neuer Wächter
+`api/test/nachtragIstErweiterbar.test.js` (22 Proben) · Rauchtest gegen die echte Datenbank grün.
+
+> **Eine Rückmutation blieb zuerst grün** — meine Probe schnitt 1600 Zeichen ab der Route und
+> fand das UUID-Muster bei der **nächsten**. Geschnitten wird jetzt bis zur nächsten Route.
+> Vierter Fall derselben Klasse in dieser Arbeit.
+
+**Posten 5 ist vollständig:** M4.8, M4.9, M4b.1 – M4b.6 sind gebaut.
 
 ## Der Plan fuer die naechsten Sitzungen
 
