@@ -304,14 +304,25 @@ function normalizeWorkerProfileRecord(profile) {
   };
 }
 
-function calculateProfileCompleteness(profile) {
+/**
+ * @param {object} profile
+ * @param {{skillAnzahl?: number|null}} [quellen] `skillAnzahl` ist die Zahl der
+ *   Zeilen in `worker_profile_skills` — die WAHRHEIT. Fehlt sie, faellt die
+ *   Pruefung auf den Spiegel `skill_tags` zurueck; der ist gepflegt, aber
+ *   gemessen auf 8 von 45 Profilen leer, obwohl Faehigkeiten da sind. Jeder
+ *   Aufrufer, der einen Pool hat, soll die Zahl mitgeben.
+ */
+function calculateProfileCompleteness(profile, { skillAnzahl = null } = {}) {
+  const hatFaehigkeit = Number.isFinite(skillAnzahl)
+    ? skillAnzahl > 0
+    : (Array.isArray(profile?.skill_tags) && profile.skill_tags.length > 0);
   const checks = [
     !!profile?.first_name,
     !!profile?.last_name,
     !!profile?.email,
     !!profile?.phone,
     !!profile?.city,
-    Array.isArray(profile?.skill_tags) && profile.skill_tags.length > 0,
+    hatFaehigkeit,
     Array.isArray(profile?.qualifications) && profile.qualifications.length > 0,
     !!profile?.profile_text
   ];
@@ -1527,7 +1538,7 @@ export async function setWorkerSkills(pool, { workerProfileId, supplierOrgId, sk
 export async function getWorkerHub(pool, userId) {
   const profile = await getWorkerProfile(pool, userId);
   if (!profile) return null;
-  const [assignmentResult, recentSubmissions, supplierOrgResult, recentDocuments] = await Promise.all([
+  const [assignmentResult, recentSubmissions, supplierOrgResult, recentDocuments, skillAnzahlResult] = await Promise.all([
     pool.query(
       `SELECT wal.id AS link_id, wal.assignment_id, wal.is_active,
               wal.worker_confirmation_status, wal.start_date, wal.end_date,
@@ -1556,7 +1567,29 @@ export async function getWorkerHub(pool, userId) {
       supplierOrgId: profile.supplier_org_id,
       limit: 25,
       includeArchived: true
-    })
+    }),
+    /*
+     * M4b.3 (2026-10-03) — DIE WAHRHEIT STATT DES SPIEGELS.
+     *
+     * `calculateProfileCompleteness` zaehlte `profile.skill_tags` — den
+     * denormalisierten Spiegel, den `setWorkerSkills` bei jedem Speichern
+     * mitschreibt. Er ist NICHT tot, aber er luegt: gemessen am 2026-10-03
+     * haben 8 von 45 Profilen Faehigkeiten in der Beziehung und einen LEEREN
+     * Spiegel (umgekehrt: 0). Diesen acht Menschen zeigte das Abzeichen
+     * "Profil x %" dauerhaft einen zu niedrigen Wert — und ein Prozentsatz, der
+     * ohne Grund nicht steigt, wird ignoriert.
+     *
+     * Die Drift entsteht dort, wo die Beziehung OHNE den Spiegel geschrieben
+     * wird (Saaten); der Produktionsweg pflegt beides. Statt die Drift zu jagen
+     * oder einen Datenwaechter zu bauen, der auf jeder aelteren Datenbank rot
+     * waere, liest der Verbraucher jetzt die Beziehung. Dieselbe Entscheidung
+     * wie bei `capacity_posts.is_active`: nicht den Spiegel reparieren, sondern
+     * ihn nicht mehr als Wahrheit lesen.
+     */
+    pool.query(
+      "SELECT count(*)::int AS anzahl FROM worker_profile_skills WHERE worker_profile_id = $1",
+      [profile.id]
+    )
   ]);
 
   const recentAssignments = assignmentResult.rows || [];
@@ -1570,7 +1603,9 @@ export async function getWorkerHub(pool, userId) {
   return {
     ...profile,
     supplier_org_name: supplierOrgResult.rows[0]?.supplier_org_name || null,
-    profile_completion_percent: calculateProfileCompleteness(profile),
+    profile_completion_percent: calculateProfileCompleteness(profile, {
+      skillAnzahl: Number(skillAnzahlResult?.rows?.[0]?.anzahl ?? 0)
+    }),
     linkage: {
       email: profile.email || null,
       is_verified: !!profile.is_verified,

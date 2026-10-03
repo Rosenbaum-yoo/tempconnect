@@ -25,12 +25,26 @@ const PROFIL_VOLL = {
   emergency_contact_phone: "+49 170 7654321"
 };
 
-/** @param {{skills?:boolean, docs?:boolean, verfuegbarkeit?:object}} opts */
-function poolStub({ skills = true, docs = true, verfuegbarkeit = {} } = {}) {
+/**
+ * Fixture-Pflege 2026-10-03 (M4b.3): die Faehigkeits-Abfrage liefert jetzt ZWEI
+ * Zahlen statt eines `SELECT 1` — `gesamt` und `freigegeben`. Vorher konnte diese
+ * Attrappe den dritten Zustand gar nicht ausdruecken: "eingetragen, aber wartet
+ * auf Freigabe". Genau der ist der Gegenstand von M4b.3.
+ *
+ * `freigegeben: null` (die Vorgabe) spiegelt `skills` — damit verhalten sich alle
+ * bestehenden Aufrufe WORTGLEICH wie vorher.
+ *
+ * @param {{skills?:boolean, freigegeben?:boolean|null, docs?:boolean, verfuegbarkeit?:object}} opts
+ */
+function poolStub({ skills = true, freigegeben = null, docs = true, verfuegbarkeit = {} } = {}) {
   return {
     query: async (sql) => {
       const s = String(sql);
-      if (/worker_profile_skills/i.test(s)) return { rows: skills ? [{ "?column?": 1 }] : [] };
+      if (/worker_profile_skills/i.test(s)) {
+        const gesamt = skills ? 1 : 0;
+        const frei = freigegeben === null ? gesamt : (freigegeben ? 1 : 0);
+        return { rows: [{ gesamt, freigegeben: frei }] };
+      }
       if (/worker_profile_documents/i.test(s)) return { rows: docs ? [{ "?column?": 1 }] : [] };
       // resolveAvailability: Profil + Historie
       if (/FROM worker_profiles wp/i.test(s)) {
@@ -92,6 +106,43 @@ describe("einsatzbereit vs. vollstaendig — der Unterschied, der zaehlt", () =>
     assert.equal(out.einsatzbereit, false);
     assert.equal(out.schritte.find((s) => s.key === "skills").hinweis,
       "Ohne Faehigkeit entstehen keine Angebote.");
+  });
+
+  it("M4b.3 · nur ein Vorschlag: ABSCHLIESSBAR, und der Mensch liest warum der Markt wartet", async () => {
+    /*
+     * DIE WOERTLICHE ABNAHME AUS DEM PLAN: "wer nur einen Vorschlag hat, kann
+     * sein Profil abschliessen und liest: wird geprueft — danach erscheinst du
+     * im Markt."
+     *
+     * Beide Haelften zaehlen, und die erste ist die wichtigere. Wuerde
+     * `erledigt` hier false, waere das Pflichtfeld eine FALLE OHNE AUSGANG: der
+     * Mensch mit einem neuen Gewerk koennte seine Aufnahme nie abschliessen und
+     * wartet auf eine Kuratierung, von der er nichts weiss. Gemessen am
+     * 2026-10-03 traf das 34 von 45 Profilen.
+     */
+    const out = await getOnboardingProgress(
+      poolStub({ skills: true, freigegeben: false, verfuegbarkeit: MIT_HISTORIE }), PROFIL_VOLL
+    );
+    const schritt = out.schritte.find((s) => s.key === "skills");
+    assert.equal(schritt.erledigt, true,
+      "ein Vorschlag zaehlt NICHT fuer das Pflichtfeld — damit ist es eine Falle ohne Ausgang");
+    assert.deepEqual(schritt.offen, [], "der Schritt verlangt noch etwas, obwohl er erledigt ist");
+    assert.equal(schritt.hinweis,
+      "Wird geprueft — danach erscheinst du im Markt. Du musst nichts weiter tun.",
+      "der Wartende liest denselben Satz wie der, der nichts eingetragen hat — "
+      + "oder gar keinen: genau die stille Abwesenheit, die M4b.3 verbietet");
+    assert.equal(out.einsatzbereit, true,
+      "die Vermittlung durch die Agentur haengt nicht an der Kuratierung des Katalogs");
+  });
+
+  it("M4b.3 · freigegeben: kein Hinweis mehr — ein Satz ohne Anlass ist Laerm", async () => {
+    const out = await getOnboardingProgress(
+      poolStub({ skills: true, freigegeben: true, verfuegbarkeit: MIT_HISTORIE }), PROFIL_VOLL
+    );
+    const schritt = out.schritte.find((s) => s.key === "skills");
+    assert.equal(schritt.erledigt, true);
+    assert.equal(schritt.hinweis, null,
+      "wer freigegeben ist, liest weiter 'wird geprueft' — dann glaubt er die Zeile nie wieder");
   });
 
   it("ohne Telefon: nicht einsatzbereit, und es steht da, was fehlt", async () => {

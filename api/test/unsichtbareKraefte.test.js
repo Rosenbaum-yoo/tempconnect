@@ -63,15 +63,19 @@ function kraft(name, fehlend = []) {
 /* ── 1. Die eine Wahrheit ────────────────────────────────────────────── */
 
 describe("N7.3 · Materialisierung und Diagnose lesen dieselbe Liste", () => {
-  it("das Register nennt alle sieben Bedingungen, jede mit Grund", () => {
+  it("das Register nennt alle acht Bedingungen, jede mit Grund", () => {
     /* Fixture-Pflege 2026-09-26 (M4c.8/M4c.9): die siebte Bedingung kam dazu —
        der Entwurfs-Riegel. Ein Entwurf ist im Markt unsichtbar, besetzt aber den
        Platz, den die Automatik fuellen wuerde; vorher meldete der Bericht genau
        diese Menschen als "steht im Markt". Die Zahl waechst mit, die Regel
-       dahinter (eine Liste, zwei Verbraucher) bleibt dieselbe. */
-    assert.equal(PRAESENZ_BEDINGUNGEN.length, 7,
+       dahinter (eine Liste, zwei Verbraucher) bleibt dieselbe.
+       Fixture-Pflege 2026-10-03 (M4b.3): die achte kam dazu — `nur_vorschlag`,
+       ebenfalls `nurDiagnose`. Sie trennt "wird geprueft" von "nichts
+       eingetragen"; vorher lasen beide denselben Satz, und der Wartende las ihn
+       als Vorwurf. */
+    assert.equal(PRAESENZ_BEDINGUNGEN.length, 8,
       "die Zahl der Bedingungen hat sich geaendert — dann gehoert auch die " +
-      "Abnahme in M4.9 nachgezogen (zwei Feld, vier Zustand, ein Riegel)");
+      "Abnahme in M4.9 nachgezogen (zwei Feld, vier Zustand, zwei Diagnosen)");
     for (const b of PRAESENZ_BEDINGUNGEN) {
       assert.ok(b.schluessel && b.sql, `${b.schluessel}: unvollstaendig`);
       assert.ok((b.grund || "").length > 10, `${b.schluessel}: kein lesbarer Grund`);

@@ -720,6 +720,96 @@ wenn die Pflicht bei *jedem* Speichern greift. Sie darf deshalb nur dort greifen
 > noch leer.** Die Vorkehrung ist deshalb nicht nachträglich, sondern vorsorglich — und sie muss
 > funktionieren, bevor der erste Mensch in diesem Zustand landet, nicht danach.
 
+#### M4.8 war schon gebaut — und M4b.3 ist es jetzt *(2026-10-03)*
+
+**Zuerst die Korrektur an diesem Plan: M4.8 trägt keine Baumarke, ist aber fertig.**
+`routes/workerPortal.js` verschickt beim Speichern der Fähigkeiten
+`worker.skills_awaiting_release` an die Mitglieder mit `worker.edit` — mit genau der
+Einschränkung, die der Plan verlangt (`result.count > 0`, also **nur** bei Fähigkeiten, die es
+in den Markt schaffen können; ein Vorschlag erzeugt keine Aufforderung zu einem Klick, der
+nichts bewirkt), mit geschluckten Fehlern, damit eine fehlgeschlagene Meldung das Speichern
+nicht gefährdet. Bewacht von `freigabeAnstoss`, `meldungKommtAn`, `niemandFehltWortlos` und
+einem datenbankgebundenen Ablauf. **Das ist in dieser Welle das dritte Mal, dass die
+Arbeitsanweisung auf Erledigtes zeigte** — M4c.8/M4c.9 und M4c.5 waren die ersten zwei.
+
+**Und M4b.3s Mechanik existierte zur Hälfte, nur stumm.** `workerOnboardingService` hält den
+Begriff „Profil vollständig", und sein Fähigkeiten-Schritt galt als erledigt, sobald **eine**
+Zeile existiert — **ohne** Statusprüfung. „Ein Vorschlag zählt dafür" war also schon wahr, und
+das ist die wichtigere Hälfte: sie verhindert die Falle. Was fehlte, war die andere: der Schritt
+setzte dann `hinweis: null`. **Wer nur einen Vorschlag hatte, sah den Schritt als erledigt und
+kein Wort** — genau die „stille Abwesenheit", die M4b.3 verbietet.
+
+**Gebaut sind deshalb drei Zustände statt zwei, und `erledigt` bleibt unangetastet:**
+
+| Zustand | `erledigt` | was der Mensch liest |
+|---|---|---|
+| keine Fähigkeit | **nein** | „Ohne Fähigkeit entstehen keine Angebote." |
+| nur ein Vorschlag | **ja** | „Wird geprüft — danach erscheinst du im Markt. Du musst nichts weiter tun." |
+| freigegeben | **ja** | nichts — ein Satz ohne Anlass ist Lärm |
+
+**Die achte Präsenz-Bedingung `nur_vorschlag`** trennt dasselbe für die Firma:
+`keine_freigegebene_faehigkeit` traf vorher zwei völlig verschiedene Menschen mit demselben
+Satz — den, der etwas tun muss, und den, der auf **uns** wartet und ihn als Vorwurf liest. Sie
+ist `nurDiagnose`, und das ist tragend: wer nur einen Vorschlag hat, scheitert bereits an der
+siebten Bedingung; stünde die achte in der WHERE-Klausel, wäre derselbe Mensch zweimal
+ausgeschlossen. Sie liest „freigegeben" aus `katalogTorSql` (M4b.1), nicht als Abschrift.
+
+**Ein Defekt, den die achte Bedingung freigelegt hat, bevor sie Schaden anrichten konnte:** der
+Satz *„N Entwürfe blockieren N Angebote"* stand in der Zusammenbau-Schleife und galt für
+**jede** Bedingung mit einer Zahl. Solange es nur eine gab, fiel das nicht auf; die zweite hätte
+ihn über Fähigkeits-**Vorschläge** geschrieben. Der Wortlaut gehört jetzt der Bedingung
+(`grundMitZahl(n)`), und eine Probe erzwingt, dass jede Bedingung mit `zahlSql` einen eigenen
+hat.
+
+**Und ein zweiter Spiegel, der lügt — gemessen, nicht vermutet.** Das Abzeichen „Profil x %"
+zählte `worker_profiles.skill_tags`, den denormalisierten Spiegel. Er ist **nicht tot**
+(`setWorkerSkills` schreibt ihn bei jedem Speichern), aber er weicht ab: **8 von 45** Profilen
+tragen Fähigkeiten in der Beziehung und einen **leeren** Spiegel — umgekehrt **0**. Diesen acht
+Menschen fehlte dauerhaft ein Haken von acht, und ein Prozentsatz, der ohne Grund nicht steigt,
+wird ignoriert. **Dieselbe Entscheidung wie bei `capacity_posts.is_active`: nicht den Spiegel
+reparieren, sondern ihn nicht mehr als Wahrheit lesen** — der Hub zählt jetzt die Beziehung und
+gibt die Zahl weiter. Ein Datenwächter wäre hier falsch: die Drift entsteht in **Saaten**, und
+die Probe wäre auf jeder älteren Datenbank rot.
+
+**Und der Befund, der diese Welle fast unsichtbar gemacht hätte:**
+`getOnboardingProgress` liefert je Schritt ein `hinweis`-Feld — und
+`einsatzportal-profil.html` hat es **nie gerendert**. Die Seite zeigt Titel, Symbol und
+„(optional)". Der bestehende Satz „Ohne Fähigkeit entstehen keine Angebote." war seit seiner
+Einführung berechnet und **unsichtbar**, und derselbe Weg hätte den neuen Satz geschluckt: der
+Server rechnet, die Fläche sieht nicht hin — dieselbe Naht wie bei M4b.2, eine Ebene tiefer.
+**Ohne diese Verdrahtung wäre M4b.3s Abnahme nicht erfüllt gewesen, obwohl jede Probe grün war.**
+
+Jetzt steht ein eigener Block unter den Schritten (`#progressHints`, bestehende Klasse
+`profil-hint`, nur Design-Tokens, `esc()` für Titel **und** Hinweis) — eigener Block statt einer
+Zeile je Pille, weil die Schritte in einer Flex-Reihe stehen. **Und er zeigt auch die Hinweise
+erledigter Schritte**, denn darin liegt der ganze Fall: wer nur einen Vorschlag hat, ist mit dem
+Schritt fertig und muss trotzdem erfahren, warum er nicht im Markt steht. Eine Filterung auf
+offene Schritte ließe genau den Menschen wortlos, für den M4b.3 gebaut ist — eine Probe verbietet
+sie ausdrücklich.
+
+**Verifikation:** 13 Rückmutationen, **13 rot** · 58 Proben der betroffenen Dateien und
+Seiten-Wächter grün ·
+neuer Wächter `api/test/wirdGeprueftStehtDa.test.js` (19 Proben), darunter ein Spion-Pool, der
+belegt, dass der leere Spiegel den Prozentsatz **nicht** mehr senkt — plus die Gegenprobe, dass
+die Fähigkeit überhaupt auf ihn wirkt, sonst wäre die erste leer grün.
+
+**Rauchtest gegen die echte Datenbank** (das Muster aus den Erkenntnissen: ein Muster-Pool
+führt die Abfrage nie aus und lässt Alias-Tippfehler durch): Diagnose und Sweep parsen und
+laufen, **12 unsichtbare Kräfte** mit `kein_wohnort: 4`, `keine_freigegebene_faehigkeit: 10`,
+`entwurf_blockiert: 2`. **`nur_vorschlag` feuert dabei 0-mal** — passend zur Messung, und genau
+deshalb treiben drei Proben den Auslöse-Zweig über die Zusammenbau-Schleife an: ein Zweig, den
+die Wirklichkeit heute nicht erreicht, bleibt sonst unbelegt.
+
+> **Zwei Ratschen haben dabei ihre Arbeit getan, und das ist der Beleg dafür, dass sie richtig
+> gebaut waren:** `entwurfsRiegel` und `unsichtbareKraefte` nageln die **Zahl** der Bedingungen
+> fest und wurden rot, als die achte dazukam — mit der Aufforderung, „auch die Abnahme in M4.9
+> nachzuziehen". Genau dafür stehen sie da.
+>
+> **Und zwei Rückmutations-Anker trafen zuerst nicht** — nicht weil die Stelle fehlte, sondern
+> weil die Datei **CRLF** hat und mein Anker `\n`. Die Zeilenenden im Repo sind gemischt; ein
+> nicht gefundener Anker liest sich wie „die Stelle ist weg" und läuft als stiller Ausfall grün
+> durch.
+
 #### M4b.2 · gebaut 2026-10-01 — und der Befund lag in der Naht zwischen zwei grünen Hälften
 
 Die Fläche steht: `frontend/src/staff/modules/markt-sichtbarkeit/index.tsx` zeigt jetzt die offenen

@@ -135,12 +135,19 @@ describe("M4c.8/9 · die Ausnahme ist keine Hintertuer", () => {
     }
   });
 
-  it("genau EINE Bedingung ist als Diagnose markiert", () => {
+  it("genau ZWEI Bedingungen sind als Diagnose markiert, und zwar diese", () => {
     /* Waechst die Zahl, ist entweder eine echte Bedingung stillgelegt worden
-       oder es gibt einen zweiten Riegel, der eine eigene Begruendung braucht. */
+       oder es gibt einen weiteren Riegel, der eine eigene Begruendung braucht.
+       Fixture-Pflege 2026-10-03 (M4b.3): die achte Bedingung kam dazu —
+       `nur_vorschlag`. Sie ist KEINE zusaetzliche Huerde: wer nur einen Vorschlag
+       hat, scheitert bereits an `keine_freigegebene_faehigkeit`. Sie VERFEINERT
+       die Erklaerung, damit "wird geprueft" nicht denselben Satz bekommt wie
+       "nichts eingetragen" — genau die stille Abwesenheit, die M4b.3 verbietet.
+       Stuende sie in der Materialisierung, waere derselbe Mensch zweimal
+       ausgeschlossen; die Probe darueber erzwingt, dass sie es nicht tut. */
     const diagnose = PRAESENZ_BEDINGUNGEN.filter((b) => b.nurDiagnose).map((b) => b.schluessel);
-    assert.deepEqual(diagnose, ["entwurf_blockiert"],
+    assert.deepEqual(diagnose, ["entwurf_blockiert", "nur_vorschlag"],
       "die Zahl der Diagnose-Bedingungen hat sich geaendert — jede braucht ihre eigene Begruendung");
-    assert.equal(PRAESENZ_BEDINGUNGEN.length, 7, "die Zahl der Bedingungen hat sich geaendert");
+    assert.equal(PRAESENZ_BEDINGUNGEN.length, 8, "die Zahl der Bedingungen hat sich geaendert");
   });
 });

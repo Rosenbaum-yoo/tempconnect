@@ -202,6 +202,16 @@
         </div>
         <div class="profil-progress-bar"><div class="profil-progress-fill" id="progressFill"></div></div>
         <div class="profil-progress-steps" id="progressSteps"></div>
+        <!--
+          M4b.3 — DER HINWEIS GEHOERT AUF DIE SEITE, NICHT NUR IN DIE ANTWORT.
+          `getOnboardingProgress` liefert je Schritt ein `hinweis`-Feld, und diese
+          Seite hat es nie gerendert: der Satz "Ohne Faehigkeit entstehen keine
+          Angebote." war berechnet und unsichtbar. Dasselbe waere dem neuen Satz
+          "Wird geprueft — danach erscheinst du im Markt" passiert.
+          Eigener Block statt einer Zeile unter jeder Pille: die Schritte stehen in
+          einer Flex-Reihe, ein Zusatz je Pille zerreisst sie.
+        -->
+        <div id="progressHints"></div>
       </div>
 
       <!-- Stammdaten (read-only) -->
@@ -1170,6 +1180,21 @@ async function loadProgress() {
     }
     return '<span class="profil-step ' + klasse + '" title="' + titelAttr + '">' + inhalt + '</span>';
   }).join('');
+
+  /*
+   * M4b.3 — die Hinweise sichtbar machen, und zwar AUCH die von erledigten
+   * Schritten. Genau darin liegt der Fall: wer nur einen Faehigkeits-Vorschlag
+   * hat, ist mit dem Schritt FERTIG (sonst waere das Pflichtfeld eine Falle ohne
+   * Ausgang) und muss trotzdem erfahren, warum er noch nicht im Markt steht.
+   * Wer nur offene Schritte zeigte, liesse genau diesen Menschen wortlos.
+   */
+  var hintsEl = document.getElementById('progressHints');
+  if (hintsEl) {
+    var mitHinweis = p.schritte.filter(function (s) { return s.hinweis; });
+    hintsEl.innerHTML = mitHinweis.map(function (s) {
+      return '<div class="profil-hint">' + esc(s.titel) + ': ' + esc(s.hinweis) + '</div>';
+    }).join('');
+  }
 
   card.style.display = '';
 }

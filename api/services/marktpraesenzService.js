@@ -212,8 +212,69 @@ export const PRAESENZ_BEDINGUNGEN = Object.freeze([
                   AND cpz.offer_kind IN ('single_skill', 'bundle'))`,
     wer: "firma",
     grund: "Entwuerfe blockieren die automatische Veroeffentlichung.",
+    /* Die Mehrzahl von "Entwurf" ist "Entwuerfe" — ein angehaengtes "e" ergaebe
+       "Entwurfe". Der Satz stand bis 2026-10-03 in der Zusammenbau-Schleife und
+       galt dort fuer JEDE Bedingung mit Zahl; jetzt gehoert er dieser hier. */
+    grundMitZahl: (n) => (n === 1
+      ? "1 Entwurf blockiert 1 Angebot."
+      : `${n} Entwuerfe blockieren ${n} Angebote.`),
     hinweis: "Ein Entwurf ist im Marktplatz unsichtbar, haelt aber den Platz besetzt — "
       + "die Automatik legt daneben nichts an. Veroeffentlichen oder verwerfen loest es."
+  },
+  {
+    /*
+     * ═══════════════════════════════════════════════════════════════════════
+     * M4b.3 — "WIRD GEPRUEFT" IST ETWAS ANDERES ALS "NICHTS DA"
+     * ═══════════════════════════════════════════════════════════════════════
+     *
+     * `keine_freigegebene_faehigkeit` oben trifft ZWEI voellig verschiedene
+     * Menschen mit demselben Satz: den, der gar keine Faehigkeit eingetragen
+     * hat, und den, der eine eingetragen hat, die noch auf Kuratierung wartet.
+     * Der erste muss etwas TUN. Der zweite hat alles getan, was er tun kann,
+     * und wartet auf uns. Beide lesen heute "Keine freigegebene
+     * Katalog-Faehigkeit" — und der zweite zu Recht als Vorwurf.
+     *
+     * Genau das verbietet M4b.3: "Der Mensch sieht den Unterschied in WORTEN,
+     * nicht als stille Abwesenheit."
+     *
+     * nurDiagnose, und das ist wichtig: diese Bedingung ist KEINE zusaetzliche
+     * Huerde. Wer nur einen Vorschlag hat, scheitert bereits an
+     * `keine_freigegebene_faehigkeit` — stuende diese hier in der
+     * WHERE-Klausel, waere derselbe Mensch zweimal ausgeschlossen und die
+     * Materialisierung muesste zwei Bedingungen erfuellen, wo eine gilt. Sie
+     * VERFEINERT die Erklaerung, sie verschaerft die Regel nicht.
+     *
+     * Gemessen am 2026-10-03: 0 von 45 Profilen sind in diesem Zustand. Die
+     * Vorkehrung ist also vorsorglich, nicht nachtraeglich — und sie muss
+     * tragen, BEVOR der erste Mensch darin landet, nicht danach.
+     */
+    schluessel: "nur_vorschlag",
+    nurDiagnose: true,
+    /* Erfuellt (also KEIN Grund), solange der Mensch nicht im Zustand
+       "hat Faehigkeiten, aber keine freigegebene" ist. Das Tor kommt aus
+       `katalogTorSql` (M4b.1) — eine eigene Abschrift waere die naechste
+       Definition von "freigegeben". */
+    sql: `NOT (
+       EXISTS (
+         SELECT 1 FROM worker_profile_skills wpv
+          WHERE wpv.worker_profile_id = wp.id
+       )
+       AND NOT EXISTS (
+         SELECT 1 FROM worker_profile_skills wpv2
+           JOIN platform_skills psv ON psv.id = wpv2.skill_id AND ${katalogTorSql("psv")}
+          WHERE wpv2.worker_profile_id = wp.id
+       )
+     )`,
+    zahlSql: `(SELECT COUNT(*) FROM worker_profile_skills wpz
+                 JOIN platform_skills psz ON psz.id = wpz.skill_id
+                WHERE wpz.worker_profile_id = wp.id
+                  AND NOT (${katalogTorSql("psz")}))`,
+    wer: "mensch",
+    grund: "Die eingetragene Faehigkeit wartet auf Freigabe.",
+    grundMitZahl: (n) => (n === 1
+      ? "1 Faehigkeit wartet auf Freigabe."
+      : `${n} Faehigkeiten warten auf Freigabe.`),
+    hinweis: "Nichts weiter zu tun — wir pruefen sie. Danach erscheinst du im Markt."
   }
 ]);
 
@@ -308,12 +369,21 @@ export async function unsichtbareKraefte(pool, supplierOrgId, opts = {}) {
         const zahl = b.zahlSql ? Number(zeile[`z${i}`]) : null;
         if (Number.isFinite(zahl) && zahl > 0) {
           eintrag.anzahl = zahl;
-          /* Die Mehrzahl von "Entwurf" ist "Entwuerfe" — ein angehaengtes "e"
-             ergaebe "Entwurfe". Eine Zahl mit falschem Wort liest sich wie eine
-             Maschine, und genau diese Zeile soll ein Mensch verstehen. */
-          const einer = zahl === 1;
-          eintrag.grund = `${zahl} ${einer ? "Entwurf" : "Entwuerfe"} `
-            + `${einer ? "blockiert" : "blockieren"} ${zahl} ${einer ? "Angebot" : "Angebote"}.`;
+          /*
+           * DER WORTLAUT GEHOERT DER BEDINGUNG, NICHT DIESER STELLE.
+           *
+           * Hier stand der Satz "N Entwuerfe blockieren N Angebote" fest
+           * verdrahtet — fuer JEDE Bedingung, die eine Zahl mitbringt. Solange
+           * es nur eine solche gab (der Entwurfs-Riegel), fiel das nicht auf.
+           * Die zweite haette "3 Entwuerfe blockieren 3 Angebote" ueber
+           * Faehigkeits-VORSCHLAEGE geschrieben: eine Zahl mit dem falschen
+           * Wort, und genau diese Zeile soll ein Mensch verstehen.
+           *
+           * Jede Bedingung mit `zahlSql` traegt deshalb ihr eigenes
+           * `grundMitZahl(n)`. Fehlt es, bleibt der Grund ohne Zahl stehen —
+           * lieber ein richtiger Satz ohne Groesse als ein falscher mit.
+           */
+          if (typeof b.grundMitZahl === "function") eintrag.grund = b.grundMitZahl(zahl);
         }
         return eintrag;
       })

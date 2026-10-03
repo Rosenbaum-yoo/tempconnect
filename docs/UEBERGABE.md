@@ -3305,10 +3305,58 @@ Leerlauf: Frischinstall und zweiter Lauf).
 > `ENOTFOUND` — und die roten Dateien sahen wie echte Rückschritte aus. **Vor jedem
 > Hostlauf `@db:` → `@127.0.0.1:` ersetzen**, sonst ist ein rotes Ergebnis kein Befund.
 
-**Was von Posten 5 noch offen ist:** **M4.9** (Pflichtfeld-Hälfte; die „lesbarer
-Grund"-Hälfte steht als `PRAESENZ_BEDINGUNGEN`, inkl. des Entwurfs-Riegels aus
-M4c.8/M4c.9), **M4.8** (der Anstoß — wirkt laut Plan **nach** M4.9) und
-**M4b.3 – M4b.6**. M4b.1 und M4b.2 sind gebaut.
+### M4.8 war schon gebaut, M4b.3 ist es jetzt *(2026-10-03)*
+
+**Korrektur am Arbeitsplan: M4.8 trägt keine Baumarke, ist aber fertig.**
+`routes/workerPortal.js` verschickt `worker.skills_awaiting_release` an die Mitglieder mit
+`worker.edit`, **nur** wenn mindestens eine Katalog-Fähigkeit zugeordnet wurde (ein Vorschlag
+erzeugt keine Aufforderung zu einem Klick, der nichts bewirkt), mit geschluckten Fehlern.
+Bewacht von vier Probendateien. **Das war in dieser Welle das dritte Mal, dass die
+Arbeitsanweisung auf Erledigtes zeigte** (M4c.8/M4c.9 und M4c.5 waren die ersten zwei) — vgl.
+die eiserne Regel, erst im Erledigt-Dokument nachzusehen.
+
+**M4b.3: die wichtigere Hälfte war schon wahr, die andere fehlte.** Der Fähigkeiten-Schritt in
+`workerOnboardingService` gilt als erledigt, sobald **eine** Zeile existiert — ohne
+Statusprüfung. „Ein Vorschlag zählt dafür" stimmte also, und das verhindert die Falle. Aber der
+Schritt setzte dann `hinweis: null`: **wer nur einen Vorschlag hatte, sah ihn als erledigt und
+kein Wort.** Jetzt drei Zustände — keine Fähigkeit („Ohne Fähigkeit entstehen keine Angebote."),
+nur ein Vorschlag („Wird geprüft — danach erscheinst du im Markt. Du musst nichts weiter tun."),
+freigegeben (nichts, ein Satz ohne Anlass ist Lärm). **`erledigt` bleibt an `gesamt`** — wer es
+an die Kuratierung hängt, baut die Falle ohne Ausgang, die 34 von 45 Profilen getroffen hätte.
+
+Dazu die **achte Präsenz-Bedingung** `nur_vorschlag` (`nurDiagnose`, `wer: "mensch"`, liest
+„freigegeben" aus `katalogTorSql`), damit auch die Firma Warten von Fehlen unterscheidet.
+
+**Zwei Defekte fielen dabei auf, beide gemessen:**
+* Der Satz *„N Entwürfe blockieren N Angebote"* stand in der Zusammenbau-Schleife und galt für
+  **jede** Bedingung mit Zahl — die zweite hätte ihn über Fähigkeits-Vorschläge geschrieben. Der
+  Wortlaut gehört jetzt der Bedingung.
+* Das Abzeichen „Profil x %" zählte den Spiegel `skill_tags`. Er ist **nicht tot**
+  (`setWorkerSkills` pflegt ihn), weicht aber auf **8 von 45** Profilen ab (Beziehung gefüllt,
+  Spiegel leer; umgekehrt 0). Dieselbe Entscheidung wie bei `is_active`: **nicht den Spiegel
+  reparieren, sondern ihn nicht mehr als Wahrheit lesen.**
+
+**Und der Befund, der die Welle fast unsichtbar gemacht hätte:** `getOnboardingProgress` liefert
+je Schritt ein `hinweis`-Feld — `einsatzportal-profil.html` hat es **nie gerendert**. Der
+bestehende Satz „Ohne Fähigkeit entstehen keine Angebote." war seit seiner Einführung berechnet
+und unsichtbar; derselbe Weg hätte den neuen geschluckt. Jetzt verdrahtet (`#progressHints`,
+bestehende Klasse, `esc()`), **einschließlich der Hinweise erledigter Schritte** — eine Filterung
+auf offene ließe genau den Wartenden wortlos.
+
+**Verifikation:** 13 Rückmutationen / 13 rot · 58 Proben der betroffenen Dateien grün · neuer
+Wächter `api/test/wirdGeprueftStehtDa.test.js` (19 Proben, mit Spion-Pool und Gegenprobe) ·
+Rauchtest gegen die echte Datenbank: alle Abfragen parsen, 12 unsichtbare Kräfte mit den
+Gründen `kein_wohnort: 4`, `keine_freigegebene_faehigkeit: 10`, `entwurf_blockiert: 2`.
+
+> **Zwei Rückmutations-Anker trafen zuerst nicht** — nicht weil die Stelle fehlte, sondern weil
+> die Datei **CRLF** hat und mein Anker `\n`. Die Zeilenenden im Repo sind **gemischt**; ein
+> nicht gefundener Anker liest sich wie „die Stelle ist weg" und läuft als stiller Ausfall grün
+> durch. Mehrzeilige Anker deshalb immer als Muster mit `\r?\n`.
+
+**Was von Posten 5 noch offen ist:** **M4b.4** (die Firma löst einen Vorschlag sofort auf — laut
+Messung die *Bedingung* dafür, dass die Pflicht zulässig ist, weil 9 von 45 kein eigenes Konto
+haben), **M4b.5** (der Nachtrag als erweiterbares Register) und **M4b.6** (jeder Schritt bietet
+sich selbst an). M4.8, M4.9, M4b.1, M4b.2 und M4b.3 sind gebaut.
 
 ## Der Plan fuer die naechsten Sitzungen
 

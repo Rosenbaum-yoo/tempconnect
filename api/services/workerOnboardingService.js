@@ -25,6 +25,10 @@
  */
 
 import * as availabilitySvc from "./workerAvailabilityService.js";
+/* M4b.3 — "freigegeben" hat genau EINE Definition, und sie steht im Katalog-Tor
+   (M4b.1). Eine eigene Abschrift hier waere die zweite, und die erste Abweichung
+   waere ein Satz, der dem Menschen etwas Falsches sagt. */
+import { katalogTorSql } from "./skillCatalogService.js";
 
 /** Reihenfolge = Reihenfolge im Assistenten. `pflicht` steuert die Einsatzbereitschaft. */
 export const SCHRITTE = Object.freeze([
@@ -85,7 +89,25 @@ export async function getOnboardingProgress(pool, profil) {
 
   // Alle Abfragen sind unabhaengig — parallel statt nacheinander.
   const [{ rows: skillZeilen }, { rows: dokZeilen }, verfuegbarkeit, { rows: einsatzZeilen }] = await Promise.all([
-    pool.query("SELECT 1 FROM worker_profile_skills WHERE worker_profile_id = $1 LIMIT 1", [profil.id]),
+    /*
+     * M4b.3 — ZWEI ZAHLEN, NICHT EINE. Hier stand `SELECT 1 ... LIMIT 1`: es
+     * wusste nur, OB eine Faehigkeit eingetragen ist, nicht ob sie im Markt
+     * zaehlt. Wer nur einen Vorschlag hatte, sah den Schritt als erledigt und
+     * KEINEN Hinweis — die stille Abwesenheit, die M4b.3 verbietet.
+     *
+     * LEFT JOIN, nicht JOIN: `gesamt` muss die Zeile auch dann zaehlen, wenn der
+     * Katalogeintrag verschwunden ist. Sonst waere der Schritt ploetzlich wieder
+     * offen, obwohl der Mensch nichts getan hat — und `erledigt` darf sich durch
+     * diese Aenderung NICHT verschieben.
+     */
+    pool.query(
+      `SELECT count(*)::int AS gesamt,
+              count(*) FILTER (WHERE ps.id IS NOT NULL AND ${katalogTorSql("ps")})::int AS freigegeben
+         FROM worker_profile_skills wps
+         LEFT JOIN platform_skills ps ON ps.id = wps.skill_id
+        WHERE wps.worker_profile_id = $1`,
+      [profil.id]
+    ),
     pool.query(
       `SELECT 1 FROM worker_profile_documents
         WHERE worker_user_id = $1 AND (status IS NULL OR status <> 'archived') LIMIT 1`,
@@ -96,6 +118,11 @@ export async function getOnboardingProgress(pool, profil) {
     // verbindlich sein DARF — siehe zugang_beschraenkt weiter unten.
     pool.query("SELECT 1 FROM worker_assignment_links WHERE worker_user_id = $1 LIMIT 1", [profil.user_id])
   ]);
+
+  /* Eine Zeile, zwei Zahlen. `COUNT(*)` liefert immer genau eine Zeile, auch
+     ohne Treffer — der Rueckfall auf 0 ist Vorsicht, nicht Notwendigkeit. */
+  const skillGesamt = Number(skillZeilen[0]?.gesamt ?? 0);
+  const skillFreigegeben = Number(skillZeilen[0]?.freigegeben ?? 0);
 
   const personOffen = fehlendeFelder(profil, PERSON_PFLICHTFELDER);
   const placementLuecken = placementOffen(profil);
@@ -110,9 +137,25 @@ export async function getOnboardingProgress(pool, profil) {
     },
     {
       ...SCHRITTE[1],
-      erledigt: skillZeilen.length > 0,
-      offen: skillZeilen.length > 0 ? [] : ["skills"],
-      hinweis: skillZeilen.length > 0 ? null : "Ohne Faehigkeit entstehen keine Angebote."
+      /*
+       * M4b.3 — ERLEDIGT BLEIBT ERLEDIGT. Ein Vorschlag zaehlt fuer das
+       * Pflichtfeld; wer hier auf `freigegeben` umstellte, machte aus dem
+       * Pflichtfeld eine Falle ohne Ausgang: der Mensch mit einem neuen Gewerk
+       * koennte seine Aufnahme nie abschliessen und wartet auf eine Kuratierung,
+       * von der er nichts weiss. Gemessen am 2026-10-03 haetten 34 von 45
+       * Profilen ihre Aufnahme nicht abschliessen koennen.
+       *
+       * WAS SICH AENDERT, IST NUR DER SATZ. Drei Zustaende, drei Antworten:
+       * nichts eingetragen (etwas tun), wartet auf Freigabe (nichts tun,
+       * aber WISSEN, warum der Markt noch leer ist), freigegeben (fertig).
+       */
+      erledigt: skillGesamt > 0,
+      offen: skillGesamt > 0 ? [] : ["skills"],
+      hinweis: skillGesamt === 0
+        ? "Ohne Faehigkeit entstehen keine Angebote."
+        : (skillFreigegeben === 0
+          ? "Wird geprueft — danach erscheinst du im Markt. Du musst nichts weiter tun."
+          : null)
     },
     {
       ...SCHRITTE[2],
